@@ -21,9 +21,11 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
       referenceImageCount: 2,
       resolution: "4K",
       size: "3840x2160",
+      transport: "responses",
     },
     prompt: "现代简约客厅，柔和自然光",
     revisedPrompt: "A modern minimalist living room",
+    workflow: { feature: "white-model-rendering", styleCode: "cream-french" },
   });
 
   assert.equal(fields["模型"], "GPT Image 2");
@@ -39,6 +41,8 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
     ratio: "16:9",
     referenceImageCount: 2,
     resolution: "4K",
+    transport: "responses",
+    workflow: { feature: "white-model-rendering", styleCode: "cream-french" },
   });
 });
 
@@ -54,6 +58,7 @@ test("长 Prompt 只截断标题，不截断原始内容", () => {
       referenceImageCount: 0,
       resolution: "2K",
       size: "2400x1792",
+      transport: "images-generations",
     },
     prompt,
     revisedPrompt: null,

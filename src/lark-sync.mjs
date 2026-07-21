@@ -1,19 +1,17 @@
 /**
- * [INPUT]: 依赖 node:child_process/fs/os/path、lark-cli 用户身份与已创建的飞书 Base
- * [OUTPUT]: 对外提供 buildRecordFields、recordIdFrom、syncGenerationToLark 与 LARK_SYNC_CONFIG
- * [POS]: src 的飞书同步边界，将一次生成写成 Base 记录并把结果图、多参考图上传为附件
+ * [INPUT]: 依赖 node:fs/os/path、lark-cli.mjs 与已创建的飞书 Base
+ * [OUTPUT]: 对外提供生成字段映射、记录 ID 解析、图片附件与工作流元数据同步
+ * [POS]: src 的飞书同步边界，将自由生图或白模渲染归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+import { runLarkCli } from "./lark-cli.mjs";
+
 const MAX_RESULT_BYTES = 60 * 1024 * 1024;
-const CLI_TIMEOUT_MS = 180_000;
 const IMAGE_FETCH_TIMEOUT_MS = 60_000;
 
 export const LARK_SYNC_CONFIG = Object.freeze({
@@ -29,40 +27,6 @@ export const LARK_SYNC_CONFIG = Object.freeze({
   tableId: process.env.LARK_TABLE_ID || "tblFWdK9RlSiZRKC",
 });
 
-function safeErrorMessage(error) {
-  for (const raw of [error?.stderr, error?.stdout]) {
-    if (!raw) continue;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed?.error?.message) return parsed.error.message;
-    } catch {
-      // 非 JSON 输出继续使用通用错误信息。
-    }
-  }
-  return error?.message || "飞书同步失败";
-}
-
-async function runCli(config, args, options = {}) {
-  try {
-    const { stdout } = await execFileAsync(config.cliPath, args, {
-      encoding: "utf8",
-      cwd: options.cwd,
-      env: {
-        ...process.env,
-        LARKSUITE_CLI_NO_SKILLS_NOTIFIER: "1",
-        LARKSUITE_CLI_NO_UPDATE_NOTIFIER: "1",
-      },
-      maxBuffer: 8 * 1024 * 1024,
-      timeout: CLI_TIMEOUT_MS,
-    });
-    const body = JSON.parse(stdout);
-    if (body?.ok !== true) throw new Error("飞书 CLI 未返回成功结果");
-    return body;
-  } catch (error) {
-    throw new Error(safeErrorMessage(error));
-  }
-}
-
 function titleFromPrompt(prompt) {
   const compact = String(prompt).replace(/\s+/g, " ").trim();
   return compact.length > 36 ? `${compact.slice(0, 36)}…` : compact;
@@ -74,6 +38,7 @@ export function buildRecordFields({
   prompt,
   revisedPrompt,
   preview,
+  workflow,
 }) {
   const parameters = {
     outputFormat: preview.outputFormat,
@@ -81,6 +46,8 @@ export function buildRecordFields({
     ratio: preview.ratio,
     referenceImageCount: preview.referenceImageCount,
     resolution: preview.resolution,
+    transport: preview.transport || "images-generations",
+    ...(workflow ? { workflow } : {}),
   };
 
   return {
@@ -109,7 +76,7 @@ export function recordIdFrom(body) {
 
 async function createRecord(config, fields) {
   const entries = Object.entries(fields);
-  return runCli(config, [
+  return runLarkCli(config, [
     "base",
     "+record-batch-create",
     "--as",
@@ -140,7 +107,7 @@ async function upsertRecord(config, fields, recordId = null) {
     JSON.stringify(fields),
   ];
   if (recordId) args.push("--record-id", recordId);
-  return runCli(config, args);
+  return runLarkCli(config, args);
 }
 
 function extensionFor(format) {
@@ -205,7 +172,7 @@ async function uploadAttachments(config, recordId, fieldId, fileNames, cwd) {
     fieldId,
   ];
   for (const fileName of fileNames) args.push("--file", fileName);
-  return runCli(config, args, { cwd });
+  return runLarkCli(config, args, { cwd });
 }
 
 function recordUrl(config, recordId) {
@@ -265,7 +232,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
       recordUrl: recordUrl(config, recordId),
     };
   } catch (error) {
-    const message = safeErrorMessage(error);
+    const message = String(error?.message || "飞书同步失败");
     if (recordId) {
       try {
         await upsertRecord(

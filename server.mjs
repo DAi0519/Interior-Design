@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:http/fs/path/url，依赖 model-config/reference-image 的参数校验、oneapi-client 的上游调用与 lark-sync 的飞书归档
- * [OUTPUT]: 对外提供 localhost 静态工作台、内存密钥会话、模型检查、图片生成与飞书同步代理
+ * [INPUT]: 依赖 Node HTTP/静态文件、模型与风格目录、OneAPI 客户端、白模工作流及飞书归档
+ * [OUTPUT]: 对外提供本地工作台、内存密钥会话、目录检查、自由生图与白模渲染执行接口
  * [POS]: 项目根入口，连接浏览器、公司 OneAPI 与飞书 Base，避免密钥和外部调用细节进入前端
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,9 +10,15 @@ import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  checkAgentModelAvailability,
+  publicAgentModelCatalog,
+} from "./src/agent-model-config.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./src/model-config.mjs";
 import { syncGenerationToLark } from "./src/lark-sync.mjs";
 import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
+import { listPublicStyles } from "./src/style-library.mjs";
+import { executeWhiteModelWorkflow } from "./src/white-model-workflow.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
@@ -109,6 +115,7 @@ async function handleApi(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/catalog") {
     const { REFERENCE_IMAGE_POLICY } = await import("./src/reference-image.mjs");
     return sendJson(response, 200, {
+      agentModels: publicAgentModelCatalog(),
       models: publicModelCatalog(),
       referenceImage: REFERENCE_IMAGE_POLICY,
     });
@@ -123,6 +130,11 @@ async function handleApi(request, response, pathname) {
           : "memory"
         : "none",
     });
+  }
+
+  if (request.method === "GET" && pathname === "/api/styles") {
+    const styles = await listPublicStyles();
+    return sendJson(response, 200, { styles });
   }
 
   if (request.method === "POST" && pathname === "/api/session") {
@@ -163,7 +175,10 @@ async function handleApi(request, response, pathname) {
       key: model.key,
       available: availableIds.has(model.id),
     }));
-    return sendJson(response, 200, { models: configured });
+    return sendJson(response, 200, {
+      agentModels: checkAgentModelAvailability(availableModels),
+      models: configured,
+    });
   }
 
   if (request.method === "POST" && pathname === "/api/generate") {
@@ -173,6 +188,11 @@ async function handleApi(request, response, pathname) {
     const startedAt = Date.now();
     const result = await client.generateImage(generation.request);
     const durationMs = Date.now() - startedAt;
+    const preview = {
+      ...generation.preview,
+      quality: result.quality ?? generation.preview.quality,
+      transport: result.transport,
+    };
     const model = publicModelCatalog().find(
       (entry) => entry.key === String(input.modelKey || ""),
     );
@@ -186,7 +206,7 @@ async function handleApi(request, response, pathname) {
     const sync = await syncGenerationToLark({
       durationMs,
       modelLabel: model.label,
-      preview: generation.preview,
+      preview,
       prompt: generation.request.prompt,
       referenceImages,
       resultImage: result.images[0],
@@ -196,13 +216,24 @@ async function handleApi(request, response, pathname) {
     return sendJson(response, 200, {
       durationMs,
       images: result.images,
-      request: generation.preview,
+      request: preview,
       sync,
       upstream: {
         created: result.created,
         outputFormat: result.outputFormat,
+        transport: result.transport,
       },
     });
+  }
+
+  if (
+    request.method === "POST" &&
+    pathname === "/api/white-model-render"
+  ) {
+    const input = await readJson(request);
+    const client = createOneApiClient(requireApiKey());
+    const result = await executeWhiteModelWorkflow(input, { client });
+    return sendJson(response, 200, result);
   }
 
   return sendJson(response, 404, { error: "接口不存在" });
