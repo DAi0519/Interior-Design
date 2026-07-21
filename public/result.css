@@ -1,0 +1,257 @@
+/**
+ * [INPUT]: 依赖 styles.css 的设计令牌与 index.html 的结果区状态节点
+ * [OUTPUT]: 对外提供结果工具栏、空态、加载态、图片态、错误态和结果元信息视觉
+ * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.result-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px 24px;
+}
+
+.result-toolbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.result-toolbar h2 {
+  font-size: 15px;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ghost-button,
+.primary-button,
+.danger-button,
+.icon-button {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 140ms var(--ease-out);
+}
+
+.ghost-button {
+  align-items: center;
+  background: rgb(255 255 255 / 70%);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 11px;
+  height: 34px;
+  padding: 0 11px;
+  text-decoration: none;
+}
+
+.result-stage {
+  align-items: center;
+  background:
+    linear-gradient(45deg, rgb(225 228 221 / 34%) 25%, transparent 25%) 0 0 / 20px
+      20px,
+    linear-gradient(45deg, transparent 75%, rgb(225 228 221 / 34%) 75%) 0 0 /
+      20px 20px,
+    linear-gradient(45deg, transparent 75%, rgb(225 228 221 / 34%) 75%) -10px 10px /
+      20px 20px,
+    linear-gradient(45deg, rgb(225 228 221 / 34%) 25%, #f7f8f5 25%) -10px 10px /
+      20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 560px;
+  overflow: hidden;
+  padding: 28px;
+  position: relative;
+}
+
+.empty-state,
+.loading-state,
+.error-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  max-width: 360px;
+  text-align: center;
+}
+
+.empty-icon {
+  align-items: center;
+  background: rgb(255 255 255 / 78%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  margin-bottom: 15px;
+  width: 48px;
+}
+
+.empty-icon svg {
+  fill: none;
+  height: 22px;
+  stroke: #a9afa6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  width: 22px;
+}
+
+.empty-state h3,
+.loading-state h3,
+.error-state h3 {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.empty-state > p,
+.loading-state p,
+.error-state p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.empty-specs {
+  align-items: center;
+  background: rgb(255 255 255 / 72%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #747a72;
+  display: inline-flex;
+  font-size: 10px;
+  gap: 8px;
+  padding: 7px 10px;
+}
+
+.empty-specs i {
+  background: #c9cdc5;
+  border-radius: 50%;
+  height: 3px;
+  width: 3px;
+}
+
+.loading-state {
+  width: min(360px, 100%);
+}
+
+.loading-canvas {
+  background: #ecefe8;
+  border: 1px solid #dfe3da;
+  border-radius: 16px;
+  height: 250px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  position: relative;
+  width: min(320px, 90%);
+}
+
+.loading-canvas::before {
+  background: linear-gradient(
+    105deg,
+    transparent 15%,
+    rgb(255 255 255 / 85%) 45%,
+    transparent 70%
+  );
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: translateX(-100%);
+  animation: shimmer 1.1s linear infinite;
+}
+
+.scan-line {
+  background: var(--accent);
+  box-shadow: 0 0 18px rgb(184 244 13 / 50%);
+  height: 2px;
+  left: 8%;
+  position: absolute;
+  right: 8%;
+  top: 18%;
+  animation: scan 1.5s var(--ease-in-out) infinite alternate;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes scan {
+  to {
+    transform: translateY(150px);
+  }
+}
+
+.image-result {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  margin: 0;
+  width: 100%;
+}
+
+.image-result img {
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgb(26 31 22 / 18%);
+  display: block;
+  max-height: calc(100vh - 250px);
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.image-result figcaption {
+  align-items: center;
+  background: rgb(255 255 255 / 82%);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  max-width: 720px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.image-result figcaption strong,
+.image-result figcaption span {
+  display: block;
+}
+
+.image-result figcaption strong {
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.image-result figcaption span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.error-icon {
+  align-items: center;
+  background: #fff0ed;
+  border: 1px solid #ffd5ce;
+  border-radius: 50%;
+  color: var(--danger);
+  display: flex;
+  font-size: 18px;
+  font-weight: 700;
+  height: 48px;
+  justify-content: center;
+  margin-bottom: 16px;
+  width: 48px;
+}

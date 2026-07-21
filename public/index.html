@@ -1,0 +1,269 @@
+<!--
+  [INPUT]: 依赖 styles.css/result.css/theme.css 的结构与 Light Command Center 视觉规则，以及 app.js 的工作台状态控制
+  [OUTPUT]: 对外提供密钥连接、模型配置、多参考图、提示词、参数、生成结果与飞书记录入口的精简结构
+  [POS]: public 的单页入口，被 server.mjs 作为根页面提供
+  [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Banana Pro、Banana 2、GPT Image 2 与 Seedream 5.0 的本地图像测试工作台"
+    />
+    <title>Canvas Lab · 图像模型工作台</title>
+    <link rel="stylesheet" href="/styles.css?v=3" />
+    <link rel="stylesheet" href="/result.css?v=3" />
+    <link rel="stylesheet" href="/theme.css?v=4" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Canvas Lab 首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" />
+              <path d="m6.5 16 3.8-4 2.7 2.6 2.3-2.1 2.2 3.5" />
+              <circle cx="15.8" cy="8.8" r="1.2" />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>Canvas Lab</strong>
+            <small>IMAGE COMMAND CENTER</small>
+          </span>
+        </a>
+
+        <button id="connectionButton" class="connection-button" type="button">
+          <span class="status-dot"></span>
+          <span id="connectionLabel">连接 API</span>
+        </button>
+      </header>
+
+      <main class="workspace">
+        <aside class="control-panel" aria-label="生成配置">
+          <section class="panel-section first-section" aria-labelledby="modelTitle">
+            <div class="section-heading">
+              <h2 id="modelTitle">模型</h2>
+              <span id="modelAvailability" class="micro-status">等待连接</span>
+            </div>
+            <div id="modelList" class="model-list" role="radiogroup"></div>
+          </section>
+
+          <section class="panel-section" aria-labelledby="promptTitle">
+            <div class="section-heading">
+              <h2 id="promptTitle">提示词</h2>
+              <span id="promptCount" class="character-count">0 / 8000</span>
+            </div>
+            <label class="sr-only" for="promptInput">图像提示词</label>
+            <textarea
+              id="promptInput"
+              maxlength="8000"
+              placeholder="描述空间、材质、光线和镜头…"
+            >现代住宅客厅，保留原有门窗位置与空间尺度，现代简约风格，米白色墙面、浅橡木与亚麻材质，低饱和配色，柔和自然光，24mm 广角，视线高度 1.5m，真实室内摄影</textarea>
+          </section>
+
+          <section class="panel-section" aria-labelledby="referenceTitle">
+            <div class="section-heading">
+              <h2 id="referenceTitle">参考图 <span class="optional">可选</span></h2>
+              <span id="referenceCount" class="micro-status">0 / 4</span>
+            </div>
+            <div id="referenceList" class="reference-list"></div>
+            <div id="referenceDropZone" class="reference-drop-zone">
+              <input
+                id="referenceInput"
+                class="reference-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                aria-label="添加参考图"
+                multiple
+              />
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+              </svg>
+              <span>添加或拖入参考图</span>
+              <small>PNG / JPEG / WebP · 单张 8MB</small>
+            </div>
+          </section>
+
+          <section class="panel-section" aria-labelledby="parameterTitle">
+            <div class="section-heading">
+              <h2 id="parameterTitle">参数</h2>
+              <span id="exactSize" class="size-badge">—</span>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>画幅比例</span>
+                <select id="ratioSelect"></select>
+              </label>
+              <label class="field">
+                <span>分辨率</span>
+                <select id="resolutionSelect"></select>
+              </label>
+              <label class="field">
+                <span>输出格式</span>
+                <select id="formatSelect"></select>
+              </label>
+              <label id="qualityField" class="field">
+                <span>生成质量</span>
+                <select id="qualitySelect"></select>
+              </label>
+            </div>
+          </section>
+
+          <section class="action-section">
+            <button id="generateButton" class="generate-button" type="button">
+              <span class="button-label">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m12 3-1.1 4.1A5.2 5.2 0 0 1 7.1 11L3 12l4.1 1.1a5.2 5.2 0 0 1 3.8 3.8L12 21l1.1-4.1a5.2 5.2 0 0 1 3.8-3.8L21 12l-4.1-1.1a5.2 5.2 0 0 1-3.8-3.8L12 3Z" />
+                </svg>
+                <span>开始生成</span>
+              </span>
+              <span class="button-meta">1 张</span>
+            </button>
+          </section>
+        </aside>
+
+        <section class="result-panel" aria-label="生成结果">
+          <div class="result-toolbar">
+            <div class="result-heading">
+              <span>OUTPUT</span>
+              <h2>生成结果</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button id="requestPreviewButton" class="ghost-button" type="button">
+                请求预览
+              </button>
+              <a
+                id="baseRecordButton"
+                class="ghost-button hidden"
+                href="#"
+                target="_blank"
+                rel="noreferrer"
+              >
+                打开飞书记录
+              </a>
+            </div>
+          </div>
+
+          <div id="resultStage" class="result-stage">
+            <div id="emptyState" class="empty-state">
+              <div class="empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" />
+                  <path d="m6.5 16 3.8-4 2.7 2.6 2.3-2.1 2.2 3.5" />
+                </svg>
+              </div>
+              <h3>等待生成</h3>
+              <p>配置完成后，结果会显示在这里。</p>
+              <div class="empty-specs">
+                <span id="emptyModel">Banana Pro</span>
+                <i></i>
+                <span id="emptySize">2400 × 1792</span>
+              </div>
+            </div>
+
+            <div id="loadingState" class="loading-state hidden" aria-live="polite">
+              <div class="loading-canvas">
+                <span class="scan-line"></span>
+              </div>
+              <div>
+                <h3>正在生成</h3>
+                <p id="loadingLabel">正在向 Banana Pro 提交请求…</p>
+              </div>
+            </div>
+
+            <figure id="imageResult" class="image-result hidden">
+              <img id="resultImage" alt="模型生成结果" />
+              <figcaption>
+                <div>
+                  <strong id="resultModel">—</strong>
+                  <span id="resultMeta">—</span>
+                </div>
+                <span id="resultDuration">—</span>
+              </figcaption>
+            </figure>
+
+            <div id="errorState" class="error-state hidden" role="alert">
+              <div class="error-icon">!</div>
+              <h3>生成没有完成</h3>
+              <p id="errorMessage">请检查连接后重试。</p>
+              <button id="retryButton" class="ghost-button" type="button">
+                再试一次
+              </button>
+            </div>
+          </div>
+
+        </section>
+      </main>
+    </div>
+
+    <div id="connectionDialog" class="dialog-backdrop hidden">
+      <section
+        class="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="connectionDialogTitle"
+      >
+        <div class="dialog-header">
+          <h2 id="connectionDialogTitle">连接公司 API</h2>
+          <button id="closeDialogButton" class="icon-button" type="button" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+        <p class="dialog-copy">
+          密钥只发送到本机 <code>127.0.0.1</code>，保存在 Node 进程内存中。
+          页面不会写入 localStorage、Cookie 或文件。
+        </p>
+        <label class="field api-key-field">
+          <span>API Key</span>
+          <input
+            id="apiKeyInput"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="sk-..."
+          />
+        </label>
+        <p id="connectionError" class="inline-error hidden"></p>
+        <div class="dialog-actions">
+          <button id="disconnectButton" class="danger-button hidden" type="button">
+            断开连接
+          </button>
+          <button id="saveConnectionButton" class="primary-button" type="button">
+            验证并连接
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div id="requestDialog" class="dialog-backdrop hidden">
+      <section
+        class="dialog request-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="requestDialogTitle"
+      >
+        <div class="dialog-header">
+          <h2 id="requestDialogTitle">请求预览</h2>
+          <button id="closeRequestButton" class="icon-button" type="button" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+        <p class="dialog-copy">这是后端将发送到公司接口的业务参数，不包含 API Key。</p>
+        <pre id="requestPreview"></pre>
+      </section>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/app.js?v=3"></script>
+  </body>
+</html>

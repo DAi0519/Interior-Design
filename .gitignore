@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Private product documents
+PRD-Outputs/
+private/
+
+# Reference assets and generated outputs
+assets/
+references/
+outputs/
+generated/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.pdf
+
+# Local secrets and environment
+.env
+.env.*
+!.env.example
+
+# Local caches
+.cache/
+tmp/
+*.log
