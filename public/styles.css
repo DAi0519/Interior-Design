@@ -150,7 +150,8 @@ button {
 .primary-button:active,
 .danger-button:active,
 .generate-button:active,
-.model-option:active {
+.model-option:active,
+.feature-mode-option:active {
   transform: scale(0.97);
 }
 

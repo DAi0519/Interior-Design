@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、键帽式表面、克制深色点缀和高密度工作台响应式视觉
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、紧凑功能切换、Prompt Agent 下拉选择、出图模型键帽与高密度工作台视觉
  * [POS]: public 的最终主题层，仅覆盖视觉表达，不改变 app.js 状态或业务交互
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -194,6 +194,69 @@ body::before {
   gap: 8px;
 }
 
+.feature-mode-list {
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 3px;
+}
+
+.feature-mode-option {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  min-height: 32px;
+  padding: 0 10px;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.feature-mode-option.selected {
+  background: #fff;
+  box-shadow: var(--key-shadow);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.feature-mode-option small {
+  background: var(--graphite);
+  border-radius: 999px;
+  color: var(--quiet);
+  font-size: 8px;
+  margin-left: 4px;
+  padding: 2px 5px;
+}
+
+.compact-config-field {
+  display: block;
+}
+
+.compact-config-field select {
+  font-size: 11px;
+  min-height: 36px;
+  padding: 0 34px 0 11px;
+  width: 100%;
+}
+
+.compact-config-note {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--quiet);
+  display: -webkit-box;
+  font-size: 9px;
+  line-height: 1.45;
+  margin: 7px 1px 0;
+  overflow: hidden;
+}
+
 .model-option {
   background: var(--panel-soft);
   border: 1px solid transparent;
@@ -219,6 +282,10 @@ body::before {
   opacity: 0.38;
 }
 
+.model-option:disabled {
+  cursor: not-allowed;
+}
+
 .model-icon,
 .model-option[data-accent="lime"] .model-icon,
 .model-option[data-accent="blue"] .model-icon,
@@ -241,6 +308,22 @@ body::before {
 .model-copy strong {
   font-size: 11px;
   font-weight: 500;
+}
+
+.model-status {
+  color: var(--quiet);
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 8px;
+  line-height: 1.2;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-option.selected .model-status {
+  color: rgb(255 255 255 / 62%);
 }
 
 textarea,
