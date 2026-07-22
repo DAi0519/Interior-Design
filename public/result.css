@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css 的设计令牌与 index.html 的结果区状态节点
- * [OUTPUT]: 对外提供结果工具栏、空态、加载态、图片态、错误态和结果元信息视觉
+ * [OUTPUT]: 对外提供与左栏标题对齐的结果工具栏、无内框无投影结果画布、空态、加载态、图片态、错误态和结果元信息视觉
  * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@
 }
 
 .result-toolbar {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
   justify-content: space-between;
   margin-bottom: 12px;
@@ -44,7 +44,7 @@
   align-items: center;
   background: rgb(255 255 255 / 70%);
   border: 1px solid var(--line-strong);
-  border-radius: 9px;
+  border-radius: 7px;
   color: var(--muted);
   display: inline-flex;
   font-size: 11px;
@@ -55,23 +55,15 @@
 
 .result-stage {
   align-items: center;
-  background:
-    linear-gradient(45deg, rgb(225 228 221 / 34%) 25%, transparent 25%) 0 0 / 20px
-      20px,
-    linear-gradient(45deg, transparent 75%, rgb(225 228 221 / 34%) 75%) 0 0 /
-      20px 20px,
-    linear-gradient(45deg, transparent 75%, rgb(225 228 221 / 34%) 75%) -10px 10px /
-      20px 20px,
-    linear-gradient(45deg, rgb(225 228 221 / 34%) 25%, #f7f8f5 25%) -10px 10px /
-      20px 20px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   display: flex;
   flex: 1;
   justify-content: center;
   min-height: 560px;
   overflow: hidden;
-  padding: 28px;
+  padding: 20px 8px 8px;
   position: relative;
 }
 
@@ -89,7 +81,7 @@
   align-items: center;
   background: rgb(255 255 255 / 78%);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   height: 48px;
   justify-content: center;
@@ -149,7 +141,7 @@
 .loading-canvas {
   background: #ecefe8;
   border: 1px solid #dfe3da;
-  border-radius: 16px;
+  border-radius: 12px;
   height: 250px;
   margin-bottom: 24px;
   overflow: hidden;
@@ -205,8 +197,8 @@
 }
 
 .image-result img {
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgb(26 31 22 / 18%);
+  border-radius: 8px;
+  box-shadow: none;
   display: block;
   max-height: calc(100vh - 250px);
   max-width: 100%;
@@ -217,7 +209,7 @@
   align-items: center;
   background: rgb(255 255 255 / 82%);
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 7px;
   display: flex;
   justify-content: space-between;
   margin-top: 14px;
