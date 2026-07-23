@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与白模渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供 Style DNA、Prompt Agent、图片生成与飞书同步串联回归保障
- * [POS]: test 的白模工作流集成测试，所有外部 API 与飞书写入均使用内存替身
+ * [OUTPUT]: 对外提供版本化 Style DNA 编码、Prompt Agent、图片生成、模型缓存与后台同步调度回归保障
+ * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,7 +15,6 @@ import {
 
 const agentJson = {
   generation_requirement: "按白模材质化",
-  negative_constraints: "不得改结构",
   scene_preservation: "保持空间与机位",
   visual_application: {
     colors: "奶油白 70%",
@@ -40,8 +39,7 @@ function input() {
       },
     ],
     resolution: "1K",
-    styleCode: "cream-french",
-    styleVersion: 1,
+    styleCode: "cream-french@v1",
   };
 }
 
@@ -54,15 +52,16 @@ test("Prompt Agent 输出支持纯 JSON 与代码围栏并验证字段", () => {
   assert.throws(() => parsePromptAgentOutput("{}"), /缺少必需字段/);
 });
 
-test("白模链路按顺序整合 Prompt、出图并同步飞书", async () => {
+test("白模链路复用模型目录并在出图后调度飞书同步", async () => {
   let generatedRequest;
+  let styleLookup;
   let syncedInput;
   const client = {
     generateImage: async (request) => {
       generatedRequest = request;
       return {
         created: 1,
-        images: [{ revisedPrompt: null, url: "data:image/png;base64,aQ==" }],
+        images: [{ url: "data:image/png;base64,aQ==" }],
         outputFormat: "png",
         quality: null,
         transport: "responses",
@@ -73,11 +72,12 @@ test("白模链路按顺序整合 Prompt、出图并同步飞书", async () => {
       assert.equal(systemPrompt, "system");
       assert.match(imageUrl, /^data:image\/png;base64,/);
       assert.match(userPrompt, /cream/);
+      assert.doesNotMatch(userPrompt, /photography_profile|Canon EOS R5/);
       return { text: JSON.stringify(agentJson) };
     },
-    listModels: async () => [{ id: "gemini-3.1-pro-preview" }],
   };
   const result = await executeWhiteModelWorkflow(input(), {
+    availableModels: [{ id: "gemini-3.1-pro-preview" }],
     client,
     loadAgent: async () => ({
       code: "white-model-fusion",
@@ -85,23 +85,32 @@ test("白模链路按顺序整合 Prompt、出图并同步飞书", async () => {
       systemPrompt: "system",
       version: 1,
     }),
-    loadStyle: async () => ({
-      code: "cream-french",
-      name: "奶油法式",
-      styleDna: { style_dna: { overall_style: "cream" } },
-      version: 1,
-    }),
-    sync: async (value) => {
+    loadStyle: async (code) => {
+      styleLookup = code;
+      return {
+        code: "cream-french@v1",
+        familyCode: "cream-french",
+        name: "奶油法式",
+        styleDna: { style_dna: { overall_style: "cream" } },
+        version: 1,
+      };
+    },
+    scheduleSync: (value) => {
       syncedInput = value;
-      return { ok: true, recordId: "rec1", recordUrl: "https://example.com" };
+      return { generationId: "gen1", status: "pending" };
     },
   });
 
   assert.deepEqual(JSON.parse(generatedRequest.prompt), agentJson);
   assert.equal(generatedRequest.images.length, 1);
-  assert.equal(syncedInput.workflow.styleCode, "cream-french");
+  assert.equal(styleLookup, "cream-french@v1");
+  assert.equal(syncedInput.sourcePrompt, "稍微增强自然光");
+  assert.deepEqual(JSON.parse(syncedInput.finalPrompt), agentJson);
+  assert.equal("sourceRequirements" in syncedInput.workflow, false);
+  assert.equal(syncedInput.workflow.styleCode, "cream-french@v1");
   assert.equal(result.promptAgent.model, "gemini-3.1-pro-preview");
   assert.equal(result.request.transport, "responses");
   assert.equal(result.request.quality, null);
-  assert.equal(result.sync.recordId, "rec1");
+  assert.equal(result.sync.generationId, "gen1");
+  assert.equal(result.sync.status, "pending");
 });

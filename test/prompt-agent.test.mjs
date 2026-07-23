@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供 Prompt Agent 上架状态、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供 Prompt Agent 版本选择、上架状态、System Prompt 与分页边界回归保障
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -38,6 +38,25 @@ test("解析已上架白模 Prompt Agent", async () => {
 
   assert.equal(agent.version, 2);
   assert.equal(agent.systemPrompt, "Only JSON");
+});
+
+test("同编码多版本只选择最高已上架完整版本", async () => {
+  const run = async () =>
+    envelope([
+      ["白模渲染融合 Agent", "white-model-fusion", 1, ["下架"], ["白模渲染"], "v1"],
+      ["白模渲染融合 Agent", "white-model-fusion", 2, ["上架"], ["白模渲染"], "v2"],
+      ["白模渲染融合 Agent", "white-model-fusion", 4, ["上架"], ["白模渲染"], ""],
+      ["白模渲染融合 Agent", "white-model-fusion", 3, ["上架"], ["白模渲染"], "v3"],
+      ["其他 Agent", "other-agent", 99, ["上架"], [], "other"],
+    ]);
+
+  const agent = await getPublishedPromptAgent("white-model-fusion", {
+    config: { baseToken: "base", cliPath: "lark-cli", tableId: "table" },
+    run,
+  });
+
+  assert.equal(agent.version, 3);
+  assert.equal(agent.systemPrompt, "v3");
 });
 
 test("拒绝不完整分页和下架配置", async () => {

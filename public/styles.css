@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 index.html 的语义类名与 app.js 写入的 hidden/selected/loading 状态
- * [OUTPUT]: 对外提供页面基础、输入控制、按压反馈、对话框和响应式适配
+ * [INPUT]: 依赖 index.html 的语义类名与 app.js 写入的 hidden/selected/loading/refreshing 状态
+ * [OUTPUT]: 对外提供页面基础、输入控制、配置刷新、按压反馈、对话框和响应式适配
  * [POS]: public 的基础样式入口，与 result.css 分担输入区和输出区视觉职责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -670,22 +670,6 @@ input::placeholder {
   line-height: 1.5;
   margin: 12px 0 0;
   padding: 9px 10px;
-}
-
-.request-dialog {
-  max-width: 620px;
-}
-
-.request-dialog pre {
-  background: #151815;
-  border-radius: 12px;
-  color: #dff2cb;
-  font: 11px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace;
-  margin: 0;
-  max-height: 440px;
-  overflow: auto;
-  padding: 16px;
-  white-space: pre-wrap;
 }
 
 .toast {

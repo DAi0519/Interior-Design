@@ -8,10 +8,12 @@ model-config.mjs: 模型参数真源，维护模型 ID、尺寸矩阵、格式�
 agent-model-config.mjs: Prompt Agent 模型真源，维护七个候选 ID、图片输入能力与接口可用性组合
 oneapi-client.mjs: OneAPI HTTP 客户端，Prompt Agent 与图生图走 Responses，纯文生图走 Images API，并统一脱敏错误
 lark-cli.mjs: 飞书 CLI 基础设施，统一子进程执行、JSON 解析、超时和错误归一化
-lark-sync.mjs: 飞书生成记录同步边界，归档最终 Prompt、工作流元数据、结果图与参考图附件
-style-library.mjs: Style DNA 风格目录边界，向前端脱敏并向服务端执行链提供已上架完整 DNA
-prompt-agent.mjs: Prompt Agent 配置边界，从飞书读取已上架白模 System Prompt 与版本
-white-model-workflow.mjs: 白模渲染应用服务，编排 Style DNA、Prompt Agent、Responses 图生图与飞书同步
+lark-sync.mjs: 飞书生成记录同步边界，分列归档用户原始 Prompt、实际最终 Prompt、工作流元数据、结果图与参考图附件
+style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
+prompt-agent.mjs: Prompt Agent 配置边界，以五分钟进程缓存按编码读取最高已上架且 Prompt 完整的白模 Agent 版本
+white-model-workflow.mjs: 设计模型渲染应用服务，按版本化 Style DNA 唯一编码编排 Prompt Agent、Responses 图生图与非阻塞归档
 reference-image.mjs: 参考图安全边界，校验最多 4 张、单张 8MB、合计 20MB、MIME 与真实字节数
+runtime-cache.mjs: 运行时缓存基础设施，提供异步加载并发去重、五分钟 TTL 与主动失效
+sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

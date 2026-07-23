@@ -1,19 +1,15 @@
 /**
- * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、Agent/出图模型白名单、OneAPI 客户端与飞书同步边界
- * [OUTPUT]: 对外提供白模图经 Prompt Agent、Responses 图生图和飞书记录的一次性执行编排
- * [POS]: src 的白模渲染应用服务，只编排既有边界，不在前端泄露 DNA 或 System Prompt
+ * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、Agent/出图模型白名单、OneAPI 客户端与后台同步调度器
+ * [OUTPUT]: 对外提供版本化 Style DNA 编码经 Prompt Agent、Responses 图生图并非阻塞归档的执行编排
+ * [POS]: src 的设计模型渲染应用服务，按飞书 v2 输出契约校验并隔离配置、生成与归档耗时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { agentModelOrThrow } from "./agent-model-config.mjs";
-import { syncGenerationToLark } from "./lark-sync.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { getPublishedPromptAgent } from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
-
-export const PHOTOGRAPHY_PROFILE =
-  "真实室内建筑摄影，24mm 等效焦段，视线高度约 1.5m，自然透视，中性白平衡；真实全局光照与材质纹理，窗景不过曝，避免 HDR、塑料感、夸张景深和过度锐化。";
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -40,7 +36,6 @@ export function parsePromptAgentOutput(text) {
     visual?.colors,
     visual?.photography,
     payload?.generation_requirement,
-    payload?.negative_constraints,
   ];
   if (required.some((value) => typeof value !== "string" || !value.trim())) {
     throw workflowError("Prompt Agent 返回内容缺少必需字段", 502);
@@ -50,26 +45,25 @@ export function parsePromptAgentOutput(text) {
 
 export function buildPromptAgentInput({ styleDna, userRequirements }) {
   return [
-    "请执行白模渲染 Prompt 整合任务。",
+    "请执行设计模型渲染 Prompt 整合任务。",
     "",
     "style_dna:",
     JSON.stringify(styleDna),
     "",
     "user_requirements:",
     String(userRequirements || "").trim() || "无补充要求",
-    "",
-    "photography_profile:",
-    PHOTOGRAPHY_PROFILE,
   ].join("\n");
 }
 
 export async function executeWhiteModelWorkflow(
   input,
   {
+    availableModels = null,
     client,
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
-    sync = syncGenerationToLark,
+    refreshModels = null,
+    scheduleSync = null,
   },
 ) {
   if (!client) throw new TypeError("white model workflow requires client");
@@ -87,16 +81,16 @@ export async function executeWhiteModelWorkflow(
     loadStyle(input.styleCode),
     loadAgent("white-model-fusion"),
   ]);
-  if (
-    input.styleVersion != null &&
-    Number(input.styleVersion) !== Number(style.version)
-  ) {
-    throw workflowError("所选 Style DNA 版本已更新，请刷新页面后重试", 409);
-  }
-  const availableModels = await client.listModels();
-  const availableIds = new Set(
-    availableModels.map((model) => model.id || model.name).filter(Boolean),
+  let modelCatalog = availableModels || (await client.listModels());
+  let availableIds = new Set(
+    modelCatalog.map((model) => model.id || model.name).filter(Boolean),
   );
+  if (!availableIds.has(promptModel.id) && refreshModels) {
+    modelCatalog = await refreshModels();
+    availableIds = new Set(
+      modelCatalog.map((model) => model.id || model.name).filter(Boolean),
+    );
+  }
   if (!availableIds.has(promptModel.id)) {
     throw workflowError(`${promptModel.label} 当前未向这个 API Key 开放`, 409);
   }
@@ -138,22 +132,25 @@ export async function executeWhiteModelWorkflow(
     agentModel: promptModel.id,
     agentVersion: agent.version,
     feature: "white-model-rendering",
+    imageDurationMs,
     promptDurationMs,
-    sourceRequirements: userRequirements,
     styleCode: style.code,
     styleName: style.name,
     styleVersion: style.version,
   };
-  const lark = await sync({
+  const syncInput = {
     durationMs,
+    finalPrompt,
     modelLabel: imageModel.label,
     preview,
-    prompt: finalPrompt,
     referenceImages,
     resultImage: result.images[0],
-    revisedPrompt: result.images[0].revisedPrompt,
+    sourcePrompt: userRequirements,
     workflow,
-  });
+  };
+  const sync = scheduleSync
+    ? scheduleSync(syncInput)
+    : { generationId: null, status: "skipped" };
 
   return {
     durationMs,
@@ -166,7 +163,7 @@ export async function executeWhiteModelWorkflow(
     },
     request: preview,
     style: { code: style.code, name: style.name, version: style.version },
-    sync: lark,
+    sync,
     upstream: {
       created: result.created,
       imageDurationMs,

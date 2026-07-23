@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、模型与风格目录、OneAPI 客户端、白模工作流及飞书归档
- * [OUTPUT]: 对外提供本地工作台、内存密钥会话、目录检查、自由生图与白模渲染执行接口
- * [POS]: 项目根入口，连接浏览器、公司 OneAPI 与飞书 Base，避免密钥和外部调用细节进入前端
+ * [INPUT]: 依赖 Node HTTP/静态文件、模型/风格/Agent 目录、OneAPI 客户端、白模工作流及后台飞书任务
+ * [OUTPUT]: 对外提供本地工作台、内存密钥/模型会话、配置主动刷新、生成接口与非阻塞同步状态查询
+ * [POS]: 项目根入口，隔离浏览器、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createReadStream, existsSync } from "node:fs";
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,7 +18,9 @@ import {
 import { createGenerationRequest, publicModelCatalog } from "./src/model-config.mjs";
 import { syncGenerationToLark } from "./src/lark-sync.mjs";
 import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
+import { getPublishedPromptAgent } from "./src/prompt-agent.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
+import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
 import { executeWhiteModelWorkflow } from "./src/white-model-workflow.mjs";
 
 const HOST = "127.0.0.1";
@@ -26,6 +29,9 @@ const PUBLIC_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "public");
 const MAX_JSON_BYTES = 30 * 1024 * 1024;
 
 let sessionApiKey = normalizeApiKey(process.env.ONEAPI_API_KEY || "");
+let sessionModelCatalog = null;
+let sessionModelCatalogRequest = null;
+const syncJobs = createSyncJobRegistry();
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -56,6 +62,14 @@ function sendJson(response, statusCode, payload) {
     "Content-Type": "application/json; charset=utf-8",
   });
   response.end(JSON.stringify(payload));
+}
+
+function publicPromptAgent(promptAgent) {
+  return {
+    code: promptAgent.code,
+    name: promptAgent.name,
+    version: promptAgent.version,
+  };
 }
 
 async function readJson(request) {
@@ -90,6 +104,37 @@ function requireApiKey() {
     throw error;
   }
   return sessionApiKey;
+}
+
+function clearSessionModelCatalog() {
+  sessionModelCatalog = null;
+  sessionModelCatalogRequest = null;
+}
+
+async function getSessionModelCatalog(client, { force = false } = {}) {
+  if (!force && sessionModelCatalog) return sessionModelCatalog;
+  if (!force && sessionModelCatalogRequest) return sessionModelCatalogRequest;
+
+  const request = client.listModels();
+  sessionModelCatalogRequest = request;
+  try {
+    const models = await request;
+    if (sessionModelCatalogRequest === request) sessionModelCatalog = models;
+    return models;
+  } finally {
+    if (sessionModelCatalogRequest === request) {
+      sessionModelCatalogRequest = null;
+    }
+  }
+}
+
+function scheduleGenerationSync(input) {
+  const generationId = randomUUID();
+  const syncInput = {
+    ...input,
+    workflow: { ...(input.workflow || {}), generationId },
+  };
+  return syncJobs.enqueue(generationId, () => syncGenerationToLark(syncInput));
 }
 
 function safeStaticPath(pathname) {
@@ -133,8 +178,33 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/styles") {
-    const styles = await listPublicStyles();
-    return sendJson(response, 200, { styles });
+    const [styles, promptAgent] = await Promise.all([
+      listPublicStyles(),
+      getPublishedPromptAgent("white-model-fusion"),
+    ]);
+    return sendJson(response, 200, {
+      promptAgent: publicPromptAgent(promptAgent),
+      styles,
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/api/config/refresh") {
+    const [styles, promptAgent] = await Promise.all([
+      listPublicStyles({ forceRefresh: true }),
+      getPublishedPromptAgent("white-model-fusion", { forceRefresh: true }),
+    ]);
+    return sendJson(response, 200, {
+      promptAgent: publicPromptAgent(promptAgent),
+      styles,
+    });
+  }
+
+  if (request.method === "GET" && pathname.startsWith("/api/sync-jobs/")) {
+    const generationId = decodeURIComponent(pathname.slice("/api/sync-jobs/".length));
+    const job = syncJobs.get(generationId);
+    return job
+      ? sendJson(response, 200, { sync: job })
+      : sendJson(response, 404, { error: "同步任务不存在或已过期" });
   }
 
   if (request.method === "POST" && pathname === "/api/session") {
@@ -149,6 +219,8 @@ async function handleApi(request, response, pathname) {
     const client = createOneApiClient(nextKey);
     const models = await client.listModels();
     sessionApiKey = nextKey;
+    sessionModelCatalog = models;
+    sessionModelCatalogRequest = null;
 
     return sendJson(response, 200, {
       connected: true,
@@ -157,7 +229,10 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "DELETE" && pathname === "/api/session") {
-    if (!process.env.ONEAPI_API_KEY) sessionApiKey = "";
+    if (!process.env.ONEAPI_API_KEY) {
+      sessionApiKey = "";
+      clearSessionModelCatalog();
+    }
     return sendJson(response, 200, {
       connected: Boolean(sessionApiKey),
       source: sessionApiKey ? "environment" : "none",
@@ -166,7 +241,7 @@ async function handleApi(request, response, pathname) {
 
   if (request.method === "POST" && pathname === "/api/check-models") {
     const client = createOneApiClient(requireApiKey());
-    const availableModels = await client.listModels();
+    const availableModels = await getSessionModelCatalog(client);
     const availableIds = new Set(
       availableModels.map((model) => model.id || model.name).filter(Boolean),
     );
@@ -203,14 +278,14 @@ async function handleApi(request, response, pathname) {
         mimeType: generation.preview.referenceImages[index]?.mimeType,
       }),
     );
-    const sync = await syncGenerationToLark({
+    const sync = scheduleGenerationSync({
       durationMs,
+      finalPrompt: generation.request.prompt,
       modelLabel: model.label,
       preview,
-      prompt: generation.request.prompt,
       referenceImages,
       resultImage: result.images[0],
-      revisedPrompt: result.images[0].revisedPrompt,
+      sourcePrompt: String(input.prompt || "").trim(),
     });
 
     return sendJson(response, 200, {
@@ -232,7 +307,13 @@ async function handleApi(request, response, pathname) {
   ) {
     const input = await readJson(request);
     const client = createOneApiClient(requireApiKey());
-    const result = await executeWhiteModelWorkflow(input, { client });
+    const availableModels = await getSessionModelCatalog(client);
+    const result = await executeWhiteModelWorkflow(input, {
+      availableModels,
+      client,
+      refreshModels: () => getSessionModelCatalog(client, { force: true }),
+      scheduleSync: scheduleGenerationSync,
+    });
     return sendJson(response, 200, result);
   }
 

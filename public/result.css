@@ -28,6 +28,7 @@
 .toolbar-actions {
   display: flex;
   gap: 8px;
+  transform: translateY(-8px);
 }
 
 .ghost-button,

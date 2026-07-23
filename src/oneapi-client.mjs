@@ -65,7 +65,6 @@ export function normalizeImages(body, outputFormat) {
   return entries
     .map((entry) => {
       return {
-        revisedPrompt: entry.revised_prompt || null,
         url: imageSource(entry, outputFormat),
       };
     })

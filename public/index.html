@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖 styles.css/result.css/theme.css 的结构与 Light Command Center 视觉规则，以及 app.js 的工作台状态控制
-  [OUTPUT]: 对外提供功能模式、Prompt Agent、出图模型、多参考图、提示词、参数、生成结果及飞书记录入口的精简结构
+  [INPUT]: 依赖 styles.css/result.css/theme.css/custom-select.css 的结构与 Light Command Center 视觉规则，以及 app.js 的工作台状态控制
+  [OUTPUT]: 对外提供白模渲染优先排列的功能模式、自定义配置下拉、Prompt Agent、配置刷新、出图模型、多参考图、提示词、参数、生成结果及飞书记录入口
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -14,9 +14,10 @@
       content="Banana Pro、Banana 2、GPT Image 2 与 Seedream 5.0 的本地图像测试工作台"
     />
     <title>Canvas Lab · 图像模型工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=4" />
+    <link rel="stylesheet" href="/styles.css?v=6" />
     <link rel="stylesheet" href="/result.css?v=7" />
-    <link rel="stylesheet" href="/theme.css?v=9" />
+    <link rel="stylesheet" href="/theme.css?v=11" />
+    <link rel="stylesheet" href="/custom-select.css?v=3" />
   </head>
   <body>
     <div class="app-shell">
@@ -48,11 +49,11 @@
               <h2 id="featureModeTitle">功能</h2>
             </div>
             <div id="featureModeList" class="feature-mode-list" role="radiogroup">
-              <button class="feature-mode-option selected" data-feature-mode="free" type="button" role="radio" aria-checked="true">
-                自由生图
-              </button>
               <button class="feature-mode-option" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="false">
                 白模渲染 <small>Beta</small>
+              </button>
+              <button class="feature-mode-option selected" data-feature-mode="free" type="button" role="radio" aria-checked="true">
+                自由生图
               </button>
             </div>
           </section>
@@ -62,22 +63,41 @@
               <h2 id="styleTitle">风格 <span class="optional">Style DNA</span></h2>
               <span id="styleAvailability" class="micro-status">读取中</span>
             </div>
-            <label class="compact-config-field" for="styleSelect">
+            <div class="compact-config-field">
               <span class="sr-only">Style DNA 风格</span>
-              <select id="styleSelect" aria-describedby="styleNote"></select>
-            </label>
+              <select id="styleSelect" aria-label="Style DNA 风格" aria-describedby="styleNote"></select>
+            </div>
             <p id="styleNote" class="compact-config-note">正在读取飞书风格库…</p>
           </section>
 
           <section id="promptAgentSection" class="panel-section hidden" aria-labelledby="promptAgentTitle">
             <div class="section-heading">
-              <h2 id="promptAgentTitle">Prompt Agent</h2>
-              <span id="promptAgentAvailability" class="micro-status">等待连接</span>
+              <h2 id="promptAgentTitle">
+                Prompt Agent <span id="promptAgentVersion" class="config-version">v—</span>
+              </h2>
+              <div class="section-heading-actions">
+                <span id="promptAgentAvailability" class="micro-status">等待连接</span>
+                <button
+                  id="refreshConfigButton"
+                  class="config-refresh-button"
+                  type="button"
+                  aria-label="刷新飞书配置"
+                  title="立即读取最新 Style DNA 与融合 Agent"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 7v5h-5" />
+                    <path d="M4 17v-5h5" />
+                    <path d="M6.1 9A7 7 0 0 1 18 6.5L20 9" />
+                    <path d="M17.9 15A7 7 0 0 1 6 17.5L4 15" />
+                  </svg>
+                  <span>刷新</span>
+                </button>
+              </div>
             </div>
-            <label class="compact-config-field" for="promptAgentModelSelect">
+            <div class="compact-config-field">
               <span class="sr-only">Prompt Agent 模型</span>
-              <select id="promptAgentModelSelect" aria-describedby="promptAgentNote"></select>
-            </label>
+              <select id="promptAgentModelSelect" aria-label="Prompt Agent 模型" aria-describedby="promptAgentNote"></select>
+            </div>
             <p id="promptAgentNote" class="compact-config-note">用于理解白模并整合最终提示词。</p>
           </section>
 
@@ -171,9 +191,6 @@
               <h2>生成结果</h2>
             </div>
             <div class="toolbar-actions">
-              <button id="requestPreviewButton" class="ghost-button" type="button">
-                请求预览
-              </button>
               <a
                 id="baseRecordButton"
                 class="ghost-button hidden"
@@ -279,28 +296,8 @@
       </section>
     </div>
 
-    <div id="requestDialog" class="dialog-backdrop hidden">
-      <section
-        class="dialog request-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="requestDialogTitle"
-      >
-        <div class="dialog-header">
-          <h2 id="requestDialogTitle">请求预览</h2>
-          <button id="closeRequestButton" class="icon-button" type="button" aria-label="关闭">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m6 6 12 12M18 6 6 18" />
-            </svg>
-          </button>
-        </div>
-        <p class="dialog-copy">这是当前功能配置与后端请求预览，不包含 API Key。</p>
-        <pre id="requestPreview"></pre>
-      </section>
-    </div>
-
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="/app.js?v=5"></script>
+    <script type="module" src="/app.js?v=12"></script>
   </body>
 </html>

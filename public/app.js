@@ -1,11 +1,16 @@
 /**
- * [INPUT]: 依赖页面 DOM、目录/会话/模型检查接口、自由生图与白模渲染执行接口
- * [OUTPUT]: 对外提供功能模式、Style DNA、Prompt Agent、出图参数、上传、生成结果与飞书记录交互
- * [POS]: public 的浏览器状态控制器，不保存 API Key，不直接访问公司 OneAPI 或飞书
+ * [INPUT]: 依赖页面 DOM、目录/会话/配置刷新/模型检查、生成执行与后台飞书同步状态接口
+ * [OUTPUT]: 对外提供功能模式、版本化 Style DNA 选择、Prompt Agent、上传、即时结果与异步飞书反馈
+ * [POS]: public 的浏览器状态控制器，不保存 API Key，不让飞书归档阻塞结果展示
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { bindConfigRefresh } from "./config-refresh.js";
+import "./custom-select.js?v=3";
+
+const STYLE_CODE_KEY = "canvas-lab.style-code";
 const state = {
+  activeGenerationId: null,
   availablePromptAgents: new Map(),
   availableModels: new Map(),
   catalog: [],
@@ -19,7 +24,7 @@ const state = {
   referenceImages: [],
   referencePolicy: null,
   styleCatalog: [],
-  styleCode: "",
+  styleCode: sessionStorage.getItem(STYLE_CODE_KEY) || "",
 };
 
 const MODEL_UI = Object.freeze({
@@ -33,7 +38,6 @@ const elements = {
   apiKeyInput: document.querySelector("#apiKeyInput"),
   baseRecordButton: document.querySelector("#baseRecordButton"),
   closeDialogButton: document.querySelector("#closeDialogButton"),
-  closeRequestButton: document.querySelector("#closeRequestButton"),
   connectionButton: document.querySelector("#connectionButton"),
   connectionDialog: document.querySelector("#connectionDialog"),
   connectionError: document.querySelector("#connectionError"),
@@ -71,9 +75,6 @@ const elements = {
   referenceList: document.querySelector("#referenceList"),
   referenceOptional: document.querySelector("#referenceOptional"),
   referenceTitleCopy: document.querySelector("#referenceTitleCopy"),
-  requestDialog: document.querySelector("#requestDialog"),
-  requestPreview: document.querySelector("#requestPreview"),
-  requestPreviewButton: document.querySelector("#requestPreviewButton"),
   resolutionSelect: document.querySelector("#resolutionSelect"),
   resultDuration: document.querySelector("#resultDuration"),
   resultImage: document.querySelector("#resultImage"),
@@ -88,26 +89,20 @@ const elements = {
   toast: document.querySelector("#toast"),
 };
 
-function selectedModel() {
-  return state.catalog.find((model) => model.key === state.modelKey);
-}
+function selectedModel() { return state.catalog.find((model) => model.key === state.modelKey); }
 
 function selectedPromptAgent() {
-  return state.promptAgentCatalog.find(
-    (model) => model.key === state.promptAgentModelKey,
-  );
+  return state.promptAgentCatalog.find((model) =>
+    model.key === state.promptAgentModelKey);
 }
 
 function secureImageUrl(value) {
-  return typeof value === "string"
-    ? value.replace(/^http:\/\//i, "https://")
-    : value;
+  return typeof value === "string" ? value.replace(/^http:\/\//i, "https://") : value;
 }
 
 function selectedStyle() {
   return state.styleCatalog.find((style) => style.code === state.styleCode);
 }
-
 async function api(pathname, options = {}) {
   const response = await fetch(pathname, {
     ...options,
@@ -161,13 +156,19 @@ function selectPromptAgent(modelKey) {
   renderPromptAgentModels();
 }
 
+function setStyleCode(styleCode) {
+  state.styleCode = styleCode;
+  if (styleCode) sessionStorage.setItem(STYLE_CODE_KEY, styleCode);
+  else sessionStorage.removeItem(STYLE_CODE_KEY);
+}
+
 function renderStyles() {
-  const selectableStyles = state.styleCatalog.filter(
-    (style) => style.published && style.validDna,
-  );
+  const styles = [...state.styleCatalog].sort((left, right) =>
+    left.name.localeCompare(right.name) || right.version - left.version);
+  const selectableStyles = styles.filter((style) => style.published && style.validDna);
   const blocked = state.styleCatalog.find((style) => style.reason);
   if (!selectableStyles.some((style) => style.code === state.styleCode)) {
-    state.styleCode = selectableStyles[0]?.code || "";
+    setStyleCode(selectableStyles[0]?.code || "");
   }
 
   const placeholder = document.createElement("option");
@@ -180,15 +181,17 @@ function renderStyles() {
       ? "没有已上架风格"
     : "飞书风格库暂无记录";
 
-  const options = state.styleCatalog.map((style) => {
+  const options = styles.map((style) => {
     const option = document.createElement("option");
-    option.value = style.code;
     option.disabled = !style.published || !style.validDna;
+    option.value = style.code;
     option.selected = style.code === state.styleCode;
     option.textContent = `${style.name} · v${style.version}${style.reason ? ` · ${style.reason}` : ""}`;
     return option;
   });
-  elements.styleSelect.replaceChildren(placeholder, ...options);
+  elements.styleSelect.replaceChildren(
+    ...(selectableStyles.length > 0 ? options : [placeholder, ...options]),
+  );
   elements.styleSelect.disabled = selectableStyles.length === 0;
   elements.styleAvailability.textContent = `${selectableStyles.length} / ${state.styleCatalog.length} 可选`;
   elements.styleAvailability.classList.toggle("ready", selectableStyles.length > 0);
@@ -199,22 +202,6 @@ function renderStyles() {
     : blocked
       ? `${blocked.name}：${blocked.reason}；在飞书上架后即可选择。`
       : "请先在飞书风格库创建并上架 Style DNA。";
-}
-
-async function loadStyles() {
-  elements.styleAvailability.textContent = "读取中";
-  try {
-    const body = await api("/api/styles");
-    state.styleCatalog = body.styles;
-    renderStyles();
-  } catch (error) {
-    state.styleCatalog = [];
-    elements.styleSelect.replaceChildren();
-    elements.styleSelect.disabled = true;
-    elements.styleAvailability.textContent = "读取失败";
-    elements.styleAvailability.classList.remove("ready");
-    elements.styleNote.textContent = error.message;
-  }
 }
 
 function referenceLimit() {
@@ -364,49 +351,10 @@ function generationInput() {
     ),
     resolution: elements.resolutionSelect.value,
     styleCode: style?.code,
-    styleVersion: style?.version,
     promptAgentModelKey: state.promptAgentModelKey,
   };
 }
 
-function requestPreview() {
-  const model = selectedModel();
-  const input = generationInput();
-  const size = model.sizes[input.ratio][input.resolution];
-  const preview = {
-    model: model.id,
-    n: 1,
-    output_format: input.outputFormat,
-    prompt: input.prompt,
-    response_format: "url",
-    size,
-  };
-  if (model.qualityOptions.length > 0) preview.quality = input.quality;
-  if (state.referenceImages.length > 0) {
-    preview.images = state.referenceImages.map((image) => ({
-      image_url: `data:${image.type};base64,…`,
-      name: image.name,
-      size: formatBytes(image.size),
-    }));
-  }
-  if (state.featureMode === "whiteModel") {
-    const style = selectedStyle();
-    return {
-      feature: "white-model-rendering",
-      image_generation: preview,
-      pipeline_status: "ready",
-      transport: "responses-image-generation",
-      prompt_agent: {
-        model: selectedPromptAgent()?.id || null,
-      },
-      style: style
-        ? { code: style.code, name: style.name, version: style.version }
-        : null,
-      white_model_count: state.referenceImages.length,
-    };
-  }
-  return preview;
-}
 function updatePromptCount() {
   elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`;
 }
@@ -565,6 +513,65 @@ function showToast(message) {
   }, 2400);
 }
 
+function syncStatusLabel(sync) {
+  if (sync?.status === "success") return "已同步飞书";
+  if (sync?.status === "failed") return "飞书同步失败";
+  if (sync?.status === "pending") return "飞书同步中";
+  return "未同步飞书";
+}
+
+function renderResultSummary(result, model, sync = result.sync) {
+  elements.resultMeta.textContent = [
+    result.request.size.replace("x", " × "),
+    result.request.outputFormat.toUpperCase(),
+    result.style?.name,
+    result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
+    result.request.referenceImageCount > 0
+      ? `${result.request.referenceImageCount} 张参考图`
+      : null,
+    syncStatusLabel(sync),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  elements.baseRecordButton.classList.toggle("hidden", !sync?.recordId);
+  if (sync?.recordUrl) {
+    elements.baseRecordButton.href = sync.recordUrl;
+  } else {
+    elements.baseRecordButton.removeAttribute("href");
+  }
+  elements.resultModel.textContent = model.label;
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function followSyncJob(result, model) {
+  const generationId = result.sync?.generationId;
+  if (!generationId || result.sync.status !== "pending") return;
+  state.activeGenerationId = generationId;
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await wait(1500);
+    if (state.activeGenerationId !== generationId) return;
+    try {
+      const body = await api(`/api/sync-jobs/${encodeURIComponent(generationId)}`);
+      if (state.activeGenerationId !== generationId) return;
+      renderResultSummary(result, model, body.sync);
+      if (body.sync.status === "success") {
+        showToast("飞书同步完成");
+        return;
+      }
+      if (body.sync.status === "failed") {
+        showToast(`飞书同步失败：${body.sync.error}`);
+        return;
+      }
+    } catch (error) {
+      if (attempt === 39) showToast(error.message);
+    }
+  }
+}
+
 async function checkAvailableModels() {
   if (!state.connected) return;
   try {
@@ -659,16 +666,17 @@ async function generate() {
   }
 
   const model = selectedModel();
+  state.activeGenerationId = null;
   state.generating = true;
   elements.generateButton.disabled = true;
   elements.generateButton.querySelector(".button-label span").textContent =
     "生成中…";
   elements.loadingLabel.textContent =
     state.featureMode === "whiteModel"
-      ? "正在读取飞书配置，由 Prompt Agent 整合后渲染并同步…"
+      ? "正在读取配置，由 Prompt Agent 整合后渲染…"
       : state.referenceImages.length > 0
-        ? `正在使用 ${state.referenceImages.length} 张参考图生成并同步飞书…`
-        : `正在向 ${model.label} 提交请求并同步飞书…`;
+        ? `正在使用 ${state.referenceImages.length} 张参考图生成…`
+        : `正在向 ${model.label} 提交生成请求…`;
   setStage("loading");
 
   try {
@@ -683,28 +691,11 @@ async function generate() {
     const imageUrl = secureImageUrl(image.url);
     state.lastImageUrl = imageUrl;
     elements.resultImage.src = imageUrl;
-    elements.resultModel.textContent = model.label;
-    elements.resultMeta.textContent = [
-      result.request.size.replace("x", " × "),
-      result.request.outputFormat.toUpperCase(),
-      result.style?.name,
-      result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
-      result.request.referenceImageCount > 0
-        ? `${result.request.referenceImageCount} 张参考图`
-        : null,
-      result.sync.ok ? "已同步飞书" : "飞书同步失败",
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    renderResultSummary(result, model);
     elements.resultDuration.textContent = `${(result.durationMs / 1000).toFixed(1)} 秒`;
-    elements.baseRecordButton.href = result.sync.recordUrl;
-    elements.baseRecordButton.classList.toggle("hidden", !result.sync.recordId);
     setStage("image");
-    showToast(
-      result.sync.ok
-        ? "生成完成，已同步飞书"
-        : `图片已生成，但飞书同步失败：${result.sync.error}`,
-    );
+    showToast("生成完成，正在后台同步飞书");
+    void followSyncJob(result, model);
   } catch (error) {
     elements.errorMessage.textContent = error.message;
     setStage("error");
@@ -726,7 +717,7 @@ async function initialize() {
   state.referencePolicy = catalogBody.referenceImage;
   renderPromptAgentModels();
   selectFeatureMode(state.featureMode);
-  await loadStyles();
+  await loadConfiguration();
   renderReferenceImages();
   updatePromptCount();
   setConnectionState(sessionBody.connected, sessionBody.source);
@@ -753,8 +744,16 @@ for (const button of elements.featureModeButtons) {
 elements.promptAgentModelSelect.addEventListener("change", (event) =>
   selectPromptAgent(event.target.value),
 );
+const loadConfiguration = bindConfigRefresh({
+  api,
+  onStyles(styles) {
+    state.styleCatalog = styles;
+    renderStyles();
+  },
+  showToast,
+});
 elements.styleSelect.addEventListener("change", (event) => {
-  state.styleCode = event.target.value;
+  setStyleCode(event.target.value);
   renderStyles();
 });
 elements.generateButton.addEventListener("click", generate);
@@ -781,24 +780,15 @@ elements.referenceDropZone.addEventListener("drop", async (event) => {
 });
 elements.ratioSelect.addEventListener("change", updateComputedSize);
 elements.resolutionSelect.addEventListener("change", updateComputedSize);
-elements.requestPreviewButton.addEventListener("click", () => {
-  elements.requestPreview.textContent = JSON.stringify(requestPreview(), null, 2);
-  openDialog(elements.requestDialog);
+elements.connectionDialog.addEventListener("click", (event) => {
+  if (event.target === elements.connectionDialog) {
+    closeDialog(elements.connectionDialog);
+  }
 });
-elements.closeRequestButton.addEventListener("click", () =>
-  closeDialog(elements.requestDialog),
-);
-
-for (const dialog of [elements.connectionDialog, elements.requestDialog]) {
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) closeDialog(dialog);
-  });
-}
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   closeDialog(elements.connectionDialog);
-  closeDialog(elements.requestDialog);
 });
 
 initialize().catch((error) => {

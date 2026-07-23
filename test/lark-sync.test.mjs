@@ -13,6 +13,7 @@ import { buildRecordFields, recordIdFrom } from "../src/lark-sync.mjs";
 test("生成结果映射为飞书可写字段且不写只读和附件字段", () => {
   const fields = buildRecordFields({
     durationMs: 12345,
+    finalPrompt: "结构化最终 Prompt",
     modelLabel: "GPT Image 2",
     preview: {
       outputFormat: "webp",
@@ -23,16 +24,18 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
       size: "3840x2160",
       transport: "responses",
     },
-    prompt: "现代简约客厅，柔和自然光",
-    revisedPrompt: "A modern minimalist living room",
-    workflow: { feature: "white-model-rendering", styleCode: "cream-french" },
+    sourcePrompt: "现代简约客厅，柔和自然光",
+    workflow: { feature: "white-model-rendering", styleCode: "cream-french@v1" },
   });
 
   assert.equal(fields["模型"], "GPT Image 2");
   assert.equal(fields["原始 Prompt"], "现代简约客厅，柔和自然光");
-  assert.equal(fields["模型修订 Prompt"], "A modern minimalist living room");
+  assert.equal(fields["最终 Prompt"], "结构化最终 Prompt");
+  assert.equal("模型修订 Prompt" in fields, false);
   assert.equal(fields["尺寸"], "3840x2160");
   assert.equal(fields["耗时（秒）"], 12.35);
+  assert.equal(JSON.stringify(fields).includes("syncDurationMs"), false);
+  assert.equal(JSON.stringify(fields).includes("endToEndDurationMs"), false);
   assert.equal("结果图" in fields, false);
   assert.equal("创建时间" in fields, false);
   assert.deepEqual(JSON.parse(fields["生成参数"]), {
@@ -42,14 +45,15 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
     referenceImageCount: 2,
     resolution: "4K",
     transport: "responses",
-    workflow: { feature: "white-model-rendering", styleCode: "cream-french" },
+    workflow: { feature: "white-model-rendering", styleCode: "cream-french@v1" },
   });
 });
 
-test("长 Prompt 只截断标题，不截断原始内容", () => {
+test("长 Prompt 只截断标题，不截断最终内容且允许原始输入为空", () => {
   const prompt = "这是一个需要完整保留的非常长的室内设计提示词".repeat(5);
   const fields = buildRecordFields({
     durationMs: 1000,
+    finalPrompt: prompt,
     modelLabel: "Banana Pro",
     preview: {
       outputFormat: "png",
@@ -60,13 +64,11 @@ test("长 Prompt 只截断标题，不截断原始内容", () => {
       size: "2400x1792",
       transport: "images-generations",
     },
-    prompt,
-    revisedPrompt: null,
   });
 
-  assert.equal(fields["原始 Prompt"], prompt);
+  assert.equal(fields["原始 Prompt"], "");
+  assert.equal(fields["最终 Prompt"], prompt);
   assert.match(fields["标题"], /…$/);
-  assert.equal("模型修订 Prompt" in fields, false);
 });
 
 test("从批量创建返回体提取首个飞书记录 ID", () => {

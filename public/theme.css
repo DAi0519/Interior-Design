@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、低圆角控件、无内框无图片投影结果区与高密度工作台视觉
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、轻量配置刷新、低圆角控件与高密度工作台视觉
  * [POS]: public 的最终主题层，仅覆盖视觉表达，不改变 app.js 状态或业务交互
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -216,6 +216,60 @@ body::before {
 
 .micro-status.ready {
   color: var(--mist);
+}
+
+.section-heading-actions {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.config-refresh-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--quiet);
+  display: inline-flex;
+  font-size: 10px;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 6px;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.config-version {
+  background: var(--graphite);
+  border-radius: 4px;
+  color: var(--quiet);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  margin-left: 4px;
+  padding: 2px 5px;
+  vertical-align: 1px;
+}
+
+.config-refresh-button svg {
+  fill: none;
+  height: 12px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 12px;
+}
+
+.config-refresh-button:active {
+  transform: scale(0.97);
+}
+
+.config-refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.45;
 }
 
 .model-list {
@@ -629,13 +683,6 @@ select {
   color: var(--danger);
 }
 
-.request-dialog pre {
-  background: #17181a;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: #c8c9ca;
-}
-
 .toast {
   background: var(--mist);
   border: 0;
@@ -650,6 +697,11 @@ select {
   .icon-button:hover {
     background: #fff;
     border-color: #aaa69e;
+    color: var(--text);
+  }
+
+  .config-refresh-button:hover:not(:disabled) {
+    background: var(--panel-soft);
     color: var(--text);
   }
 
