@@ -1,0 +1,9 @@
+<!--
+  [INPUT]: 依赖 Heroicons 24px outline plus 的 MIT 许可矢量路径
+  [OUTPUT]: 对外提供可继承 CSS color 的参考图添加图标
+  [POS]: public/icons 的对话输入框附件入口图标，被 index.html 消费
+  [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+</svg>

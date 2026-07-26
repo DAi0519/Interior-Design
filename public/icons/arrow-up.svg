@@ -1,0 +1,9 @@
+<!--
+  [INPUT]: 依赖 Heroicons 24px outline arrow-up 的 MIT 许可矢量路径
+  [OUTPUT]: 对外提供可继承 CSS color 的 Style DNA 发送图标
+  [POS]: public/icons 的对话输入框发送图标，被 index.html 消费
+  [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+</svg>

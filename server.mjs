@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、模型/风格/Agent 目录、OneAPI 客户端、白模工作流及后台飞书任务
- * [OUTPUT]: 对外提供本地工作台、内存密钥/模型会话、配置主动刷新、生成接口与非阻塞同步状态查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、模型/风格/Agent 目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
+ * [OUTPUT]: 对外提供本地工作台、内存密钥/模型会话、配置主动刷新、风格对话、生成接口与非阻塞同步状态查询
  * [POS]: 项目根入口，隔离浏览器、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,6 +21,10 @@ import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
 import { getPublishedPromptAgent } from "./src/prompt-agent.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
+import {
+  executeStyleDnaReverse,
+  publicStyleDnaReverseConfig,
+} from "./src/style-dna-reverse.mjs";
 import { executeWhiteModelWorkflow } from "./src/white-model-workflow.mjs";
 
 const HOST = "127.0.0.1";
@@ -157,6 +161,13 @@ function serveStatic(response, pathname) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (
+    request.method === "GET" &&
+    pathname === "/api/style-dna-reverse/config"
+  ) {
+    return sendJson(response, 200, publicStyleDnaReverseConfig());
+  }
+
   if (request.method === "GET" && pathname === "/api/catalog") {
     const { REFERENCE_IMAGE_POLICY } = await import("./src/reference-image.mjs");
     return sendJson(response, 200, {
@@ -313,6 +324,21 @@ async function handleApi(request, response, pathname) {
       client,
       refreshModels: () => getSessionModelCatalog(client, { force: true }),
       scheduleSync: scheduleGenerationSync,
+    });
+    return sendJson(response, 200, result);
+  }
+
+  if (
+    request.method === "POST" &&
+    pathname === "/api/style-dna-reverse"
+  ) {
+    const input = await readJson(request);
+    const client = createOneApiClient(requireApiKey());
+    const availableModels = await getSessionModelCatalog(client);
+    const result = await executeStyleDnaReverse(input, {
+      availableModels,
+      client,
+      refreshModels: () => getSessionModelCatalog(client, { force: true }),
     });
     return sendJson(response, 200, result);
   }

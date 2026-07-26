@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公司 Model Link 参数矩阵与 Google 当前稳定模型 ID，依赖 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供 publicModelCatalog、createGenerationRequest 与 MODEL_CONFIGS
+ * [OUTPUT]: 对外提供含模型默认参数的 publicModelCatalog、createGenerationRequest 与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被服务端 API 和自动化测试共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -89,6 +89,7 @@ export const MODEL_CONFIGS = Object.freeze({
   gptImage2: {
     accent: "blue",
     defaultFormat: "png",
+    defaultQuality: "medium",
     defaultRatio: "4:3",
     defaultResolution: "2K",
     description: "写实与编辑稳定，支持质量档和 WebP",
@@ -135,6 +136,7 @@ export function publicModelCatalog() {
   return Object.entries(MODEL_CONFIGS).map(([key, model]) => ({
     accent: model.accent,
     defaultFormat: model.defaultFormat,
+    defaultQuality: model.defaultQuality || null,
     defaultRatio: model.defaultRatio,
     defaultResolution: model.defaultResolution,
     description: model.description,
@@ -177,7 +179,7 @@ export function createGenerationRequest(input) {
     model.qualityOptions.length > 0
       ? optionOrThrow(
           model.qualityOptions,
-          String(input.quality || "auto"),
+          String(input.quality || model.defaultQuality || "auto"),
           "GPT Image 2 不支持这个质量档位",
         )
       : null;

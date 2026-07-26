@@ -116,7 +116,7 @@ export async function executeWhiteModelWorkflow(
   const durationMs = Date.now() - startedAt;
   const preview = {
     ...generation.preview,
-    quality: result.quality ?? null,
+    quality: result.quality ?? generation.preview.quality,
     transport: result.transport || "responses",
   };
   const imageModel = publicModelCatalog().find(

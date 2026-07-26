@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-.custom-select-native {
+.compact-config-field select.custom-select-native {
   height: 1px;
   opacity: 0;
   pointer-events: none;

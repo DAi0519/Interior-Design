@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 OneAPI 请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供图生图协议、图片/文本响应与敏感错误处理的回归保障
+ * [OUTPUT]: 对外提供图生图、Style DNA 多轮多图与纯文字续改协议、图片/文本响应及敏感错误处理的回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import test from "node:test";
 
 import {
   buildResponseImageRequest,
+  buildStyleDnaResponseRequest,
   extractResponseText,
   normalizeImages,
   redactUpstreamMessage,
@@ -67,6 +68,7 @@ test("参考图生成构造 Responses input_image 与 image_generation 工具", 
     n: 1,
     output_format: "jpeg",
     prompt: "保持结构并完成材质化",
+    quality: "medium",
     response_format: "url",
     size: "1024x1024",
   });
@@ -75,10 +77,53 @@ test("参考图生成构造 Responses input_image 与 image_generation 工具", 
   assert.equal(request.input[0].content[1].type, "input_image");
   assert.equal(request.tools[0].type, "image_generation");
   assert.equal(request.tools[0].image_format, "jpg");
+  assert.equal(request.tools[0].quality, "medium");
   assert.equal("images" in request, false);
   assert.throws(
     () => buildResponseImageRequest({ ...request, images: [{ image_url: "x" }], output_format: "webp" }),
     /仅支持 PNG 或 JPEG/,
+  );
+});
+
+test("Style DNA 反推仅在最后一条用户消息附加参考图", () => {
+  const request = buildStyleDnaResponseRequest({
+    imageUrls: ["data:image/png;base64,aA==", "data:image/png;base64,aQ=="],
+    messages: [
+      { content: "提取风格", role: "user" },
+      { content: '{"style_dna":{}}', role: "assistant" },
+      { content: "收敛色彩比例", role: "user" },
+    ],
+    model: "gpt-5.5",
+    systemPrompt: "system",
+  });
+
+  assert.equal(request.instructions, "system");
+  assert.equal(request.input[0].content.length, 1);
+  assert.equal(request.input[1].content[0].type, "output_text");
+  assert.equal(request.input[2].content.length, 3);
+  assert.equal(request.input[2].content[1].type, "input_image");
+  assert.equal("tools" in request, false);
+});
+
+test("Style DNA 多轮修正允许不重复附加参考图", () => {
+  const request = buildStyleDnaResponseRequest({
+    imageUrls: [],
+    messages: [
+      { content: "已上传 1 张风格参考图", role: "user" },
+      { content: '{"style_dna":{}}', role: "assistant" },
+      { content: "我希望更法式一些", role: "user" },
+    ],
+    model: "gpt-5.5",
+    systemPrompt: "system",
+  });
+
+  assert.equal(request.input[2].content.length, 1);
+  assert.equal(request.input[2].content[0].type, "input_text");
+  assert.equal(
+    request.input.flatMap((message) => message.content).some(
+      (content) => content.type === "input_image",
+    ),
+    false,
   );
 });
 

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 .compact-config-field 内的原生 select 选项、禁用/change 语义与浏览器指针/焦点生命周期
- * [OUTPUT]: 对外提供与原生值同步且显式展示版本的自定义下拉触发器、稳定指针选择和完整键盘操作
- * [POS]: public 的表单渐进增强层，统一 Style DNA 与 Prompt Agent 下拉视觉
+ * [OUTPUT]: 对外提供与原生值同步且显式展示详情的自定义下拉触发器、稳定指针选择和完整键盘操作
+ * [POS]: public 的表单渐进增强层，统一 Style DNA、融合 Agent 与反推模型下拉视觉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

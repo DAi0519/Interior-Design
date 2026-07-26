@@ -18,9 +18,9 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     accent: "blue",
     id: "gemini-3.1-pro-preview",
     imageInput: true,
-    label: "Gemini 3 Pro",
+    label: "Gemini 3.1 Pro",
     note: "已通过白模图片输入探针",
-    shortLabel: "Gemini 3 Pro",
+    shortLabel: "Gemini 3.1 Pro",
   },
   gpt: {
     accent: "lime",

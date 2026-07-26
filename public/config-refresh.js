@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 refreshConfigButton、调用方 API/风格应用/Toast 回调
- * [OUTPUT]: 对外提供 bindConfigRefresh，管理飞书配置主动刷新的单次请求与反馈
+ * [INPUT]: 依赖页面 Style DNA 与 Prompt Agent 刷新按钮、调用方 API/风格应用/Toast 回调
+ * [OUTPUT]: 对外提供 bindConfigRefresh，管理双入口共享的飞书配置单次刷新、互斥状态与反馈
  * [POS]: public 的配置刷新交互控制器，与 app.js 的生图状态和上传流程隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,7 @@ export function renderPromptAgentVersion(promptAgent) {
 }
 
 export function bindConfigRefresh({ api, onStyles, showToast }) {
-  const button = document.querySelector("#refreshConfigButton");
+  const buttons = Array.from(document.querySelectorAll("[data-config-refresh]"));
   const styleAvailability = document.querySelector("#styleAvailability");
   const styleNote = document.querySelector("#styleNote");
   const styleSelect = document.querySelector("#styleSelect");
@@ -37,26 +37,39 @@ export function bindConfigRefresh({ api, onStyles, showToast }) {
     }
   }
 
-  button.addEventListener("click", async () => {
+  function setPending(value) {
+    for (const button of buttons) {
+      button.disabled = value;
+      if (value) button.setAttribute("aria-busy", "true");
+      else button.removeAttribute("aria-busy");
+      button.querySelector("[data-refresh-label]").textContent = value
+        ? "刷新中"
+        : "刷新";
+    }
+  }
+
+  async function refresh() {
     if (pending) return;
     pending = true;
-    button.disabled = true;
-    button.setAttribute("aria-busy", "true");
-    button.querySelector("span").textContent = "刷新中";
+    setPending(true);
 
     try {
       const body = await api("/api/config/refresh", { method: "POST" });
       apply(body);
-      showToast(`配置已更新 · Prompt Agent v${body.promptAgent.version}`);
+      showToast(
+        `配置已更新 · Style DNA ${body.styles.length} 条 · Prompt Agent v${body.promptAgent.version}`,
+      );
     } catch (error) {
       showToast(`配置刷新失败：${error.message}`);
     } finally {
       pending = false;
-      button.disabled = false;
-      button.removeAttribute("aria-busy");
-      button.querySelector("span").textContent = "刷新";
+      setPending(false);
     }
-  });
+  }
+
+  for (const button of buttons) {
+    button.addEventListener("click", refresh);
+  }
 
   return load;
 }

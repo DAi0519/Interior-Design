@@ -1,11 +1,13 @@
 /**
- * [INPUT]: 依赖页面 DOM、目录/会话/配置刷新/模型检查、生成执行与后台飞书同步状态接口
- * [OUTPUT]: 对外提供功能模式、版本化 Style DNA 选择、Prompt Agent、上传、即时结果与异步飞书反馈
- * [POS]: public 的浏览器状态控制器，不保存 API Key，不让飞书归档阻塞结果展示
+ * [INPUT]: 依赖页面 DOM、Style DNA 对话控制器、目录/会话/配置刷新/模型检查、生成执行与后台飞书同步状态接口
+ * [OUTPUT]: 对外提供默认白模与自由生图状态，并协调隔离的 Style DNA 反推预览、即时结果与异步飞书反馈
+ * [POS]: public 的生成状态控制器，与 style-dna-chat.js 分责且不保存 API Key
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
+import { bindStyleDnaChat } from "./style-dna-chat.js";
+import { api, fillSelect, secureImageUrl } from "./workbench-utils.js";
 import "./custom-select.js?v=3";
 
 const STYLE_CODE_KEY = "canvas-lab.style-code";
@@ -15,7 +17,7 @@ const state = {
   availableModels: new Map(),
   catalog: [],
   connected: false,
-  featureMode: "free",
+  featureMode: "whiteModel",
   generating: false,
   lastImageUrl: null,
   modelKey: "bananaPro",
@@ -53,6 +55,12 @@ const elements = {
     document.querySelectorAll("[data-feature-mode]"),
   ),
   formatSelect: document.querySelector("#formatSelect"),
+  generationControls: Array.from(
+    document.querySelectorAll(".generation-control"),
+  ),
+  generationResults: Array.from(
+    document.querySelectorAll(".generation-result"),
+  ),
   generateButton: document.querySelector("#generateButton"),
   imageResult: document.querySelector("#imageResult"),
   loadingLabel: document.querySelector("#loadingLabel"),
@@ -96,39 +104,8 @@ function selectedPromptAgent() {
     model.key === state.promptAgentModelKey);
 }
 
-function secureImageUrl(value) {
-  return typeof value === "string" ? value.replace(/^http:\/\//i, "https://") : value;
-}
-
 function selectedStyle() {
   return state.styleCatalog.find((style) => style.code === state.styleCode);
-}
-async function api(pathname, options = {}) {
-  const response = await fetch(pathname, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body.error || `请求失败（${response.status}）`);
-  }
-  return body;
-}
-
-function fillSelect(select, options, currentValue) {
-  select.replaceChildren(
-    ...options.map((option) => {
-      const element = document.createElement("option");
-      const value = typeof option === "string" ? option : option.value;
-      element.value = value;
-      element.textContent = typeof option === "string" ? option : option.label;
-      element.selected = value === currentValue;
-      return element;
-    }),
-  );
 }
 
 function renderPromptAgentModels() {
@@ -210,15 +187,25 @@ function referenceLimit() {
 }
 
 function selectFeatureMode(featureMode) {
-  if (!["free", "whiteModel"].includes(featureMode)) return;
+  if (!["free", "styleDna", "whiteModel"].includes(featureMode)) return;
   state.featureMode = featureMode;
   const isWhiteModel = featureMode === "whiteModel";
+  const isStyleDna = featureMode === "styleDna";
 
   for (const button of elements.featureModeButtons) {
     const selected = button.dataset.featureMode === featureMode;
     button.classList.toggle("selected", selected);
     button.ariaChecked = String(selected);
   }
+
+  for (const control of elements.generationControls) {
+    control.classList.toggle("hidden", isStyleDna);
+  }
+  for (const result of elements.generationResults) {
+    result.classList.toggle("hidden", isStyleDna);
+  }
+  styleDnaChat.setVisible(isStyleDna);
+  if (isStyleDna) return;
 
   elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
   elements.styleSection.classList.toggle("hidden", !isWhiteModel);
@@ -287,7 +274,7 @@ function selectModel(modelKey) {
     model.defaultFormat,
   );
 
-  if (model.qualityOptions.length > 0 && state.featureMode !== "whiteModel") {
+  if (model.qualityOptions.length > 0) {
     elements.qualityField.classList.remove("hidden");
     fillSelect(
       elements.qualitySelect,
@@ -302,7 +289,7 @@ function selectModel(modelKey) {
                 : "高",
         value: quality,
       })),
-      "auto",
+      model.defaultQuality || "auto",
     );
   } else {
     elements.qualityField.classList.add("hidden");
@@ -470,6 +457,7 @@ async function addReferenceFiles(fileList) {
 
 function setConnectionState(connected, source = "memory") {
   state.connected = connected;
+  styleDnaChat.setConnected(connected);
   elements.connectionButton.classList.toggle("connected", connected);
   elements.connectionLabel.textContent = connected ? "API 已连接" : "连接 API";
   elements.disconnectButton.classList.toggle(
@@ -582,6 +570,7 @@ async function checkAvailableModels() {
     state.availablePromptAgents = new Map(
       body.agentModels.map((model) => [model.id, model]),
     );
+    styleDnaChat.setAvailability(body.agentModels);
     const selectedAgent = selectedPromptAgent();
     if (!state.availablePromptAgents.get(selectedAgent?.id)?.selectable) {
       const fallback = body.agentModels.find((model) => model.selectable);
@@ -636,6 +625,7 @@ async function disconnectApi() {
   setConnectionState(body.connected, body.source);
   state.availableModels.clear();
   state.availablePromptAgents.clear();
+  styleDnaChat.setAvailability([]);
   renderPromptAgentModels();
   renderModels();
   closeDialog(elements.connectionDialog);
@@ -707,6 +697,15 @@ async function generate() {
   }
 }
 
+const styleDnaChat = bindStyleDnaChat({
+  api,
+  onConnectionRequired() {
+    openDialog(elements.connectionDialog);
+    window.setTimeout(() => elements.apiKeyInput.focus(), 0);
+  },
+  showToast,
+});
+
 async function initialize() {
   const [catalogBody, sessionBody] = await Promise.all([
     api("/api/catalog"),
@@ -715,6 +714,7 @@ async function initialize() {
   state.catalog = catalogBody.models;
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
+  styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
   selectFeatureMode(state.featureMode);
   await loadConfiguration();

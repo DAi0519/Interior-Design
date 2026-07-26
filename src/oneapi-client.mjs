@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖全局 fetch 与 AbortController，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供 OneAPI 客户端、图生图 Responses 请求构造、响应归一化与错误脱敏
- * [POS]: src 的外部服务边界，文生图走 Images API，含参考图请求走 Responses image_generation
+ * [OUTPUT]: 对外提供 OneAPI 客户端、图生图与多轮多图文本 Responses 请求构造、响应归一化与错误脱敏
+ * [POS]: src 的外部服务边界，文生图走 Images API，图片生成与 Style DNA 反推走 Responses
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -100,6 +100,16 @@ export function buildResponseImageRequest(generationRequest) {
   if (!["jpg", "png"].includes(imageFormat)) {
     throw new OneApiError("图生图目前仅支持 PNG 或 JPEG", 400, "image_format");
   }
+  const imageTool = {
+    image_format: imageFormat,
+    n: generationRequest.n || 1,
+    response_format: generationRequest.response_format || "url",
+    size: generationRequest.size,
+    type: "image_generation",
+  };
+  if (generationRequest.quality) {
+    imageTool.quality = generationRequest.quality;
+  }
 
   return {
     background: false,
@@ -117,15 +127,39 @@ export function buildResponseImageRequest(generationRequest) {
       },
     ],
     model: generationRequest.model,
-    tools: [
-      {
-        image_format: imageFormat,
-        n: generationRequest.n || 1,
-        response_format: generationRequest.response_format || "url",
-        size: generationRequest.size,
-        type: "image_generation",
-      },
-    ],
+    tools: [imageTool],
+  };
+}
+
+export function buildStyleDnaResponseRequest({
+  imageUrls,
+  messages,
+  model,
+  systemPrompt,
+}) {
+  const latestUserIndex = messages.findLastIndex(
+    (message) => message.role === "user",
+  );
+  return {
+    input: messages.map((message, index) => ({
+      content: [
+        {
+          text: message.content,
+          type: message.role === "assistant" ? "output_text" : "input_text",
+        },
+        ...(index === latestUserIndex
+          ? imageUrls.map((imageUrl) => ({
+              image_url: imageUrl,
+              type: "input_image",
+            }))
+          : []),
+      ],
+      role: message.role,
+      type: "message",
+    })),
+    instructions: systemPrompt,
+    max_output_tokens: 4096,
+    model,
   };
 }
 
@@ -198,6 +232,29 @@ export function createOneApiClient(apiKey) {
       return { created: body.created_at || body.created || null, text };
     },
 
+    async generateStyleDna({ imageUrls, messages, model, systemPrompt }) {
+      const body = await request("/responses", {
+        body: JSON.stringify(
+          buildStyleDnaResponseRequest({
+            imageUrls,
+            messages,
+            model,
+            systemPrompt,
+          }),
+        ),
+        method: "POST",
+      });
+      const text = extractResponseText(body);
+      if (!text) {
+        throw new OneApiError(
+          "Style DNA 反推 Agent 已响应，但没有返回内容",
+          502,
+          "empty_style_dna",
+        );
+      }
+      return { created: body.created_at || body.created || null, text };
+    },
+
     async generateImage(generationRequest) {
       const useResponses = Boolean(generationRequest.images?.length);
       const requestBody = useResponses
@@ -220,7 +277,7 @@ export function createOneApiClient(apiKey) {
         created: body.created_at || body.created || null,
         images,
         outputFormat: body.output_format || generationRequest.output_format,
-        quality: useResponses ? null : generationRequest.quality || null,
+        quality: generationRequest.quality || null,
         transport: useResponses ? "responses" : "images-generations",
       };
     },

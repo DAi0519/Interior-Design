@@ -14,8 +14,9 @@ import {
 } from "../src/agent-model-config.mjs";
 
 test("Prompt Agent 目录只暴露七个已决策模型", () => {
+  const catalog = publicAgentModelCatalog();
   assert.deepEqual(
-    publicAgentModelCatalog().map(({ id, key }) => ({ id, key })),
+    catalog.map(({ id, key }) => ({ id, key })),
     [
       { id: "deepseek-v4-pro", key: "deepseek4pro" },
       { id: "gemini-3.1-pro-preview", key: "gemini3pro" },
@@ -24,6 +25,18 @@ test("Prompt Agent 目录只暴露七个已决策模型", () => {
       { id: "qwen3.5-plus", key: "qwen35plus" },
       { id: "doubao-seed-1.6-vision", key: "doubaoVision" },
       { id: "kimi-k2.5", key: "kimi25" },
+    ],
+  );
+  assert.deepEqual(
+    catalog
+      .filter((model) => model.key === "gemini3pro")
+      .map(({ id, label, shortLabel }) => ({ id, label, shortLabel })),
+    [
+      {
+        id: "gemini-3.1-pro-preview",
+        label: "Gemini 3.1 Pro",
+        shortLabel: "Gemini 3.1 Pro",
+      },
     ],
   );
 });

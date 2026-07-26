@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 接收浏览器上传的多张图片 data URL、文件名、MIME 与声明字节数
- * [OUTPUT]: 对外提供 REFERENCE_IMAGE_POLICY、normalizeReferenceImage 与 normalizeReferenceImages
+ * [OUTPUT]: 对外提供 REFERENCE_IMAGE_POLICY、normalizeReferenceImage 与支持独立数量上限的 normalizeReferenceImages
  * [POS]: src 的参考图安全边界，被模型请求构造器消费，隔离文件校验与模型参数逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,13 +73,19 @@ export function normalizeReferenceImage(input) {
   };
 }
 
-export function normalizeReferenceImages(input) {
+export function normalizeReferenceImages(
+  input,
+  { maxCount = REFERENCE_IMAGE_POLICY.maxCount } = {},
+) {
   if (input == null) return [];
   if (!Array.isArray(input)) {
     throw validationError("参考图列表格式不正确");
   }
-  if (input.length > REFERENCE_IMAGE_POLICY.maxCount) {
-    throw validationError(`参考图最多上传 ${REFERENCE_IMAGE_POLICY.maxCount} 张`);
+  if (!Number.isInteger(maxCount) || maxCount < 1) {
+    throw new TypeError("参考图数量上限必须是正整数");
+  }
+  if (input.length > maxCount) {
+    throw validationError(`参考图最多上传 ${maxCount} 张`);
   }
 
   const images = input.map(normalizeReferenceImage);

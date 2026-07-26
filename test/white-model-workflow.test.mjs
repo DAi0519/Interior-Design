@@ -25,7 +25,7 @@ const agentJson = {
 
 function input() {
   return {
-    modelKey: "banana2",
+    modelKey: "gptImage2",
     outputFormat: "png",
     prompt: "稍微增强自然光",
     promptAgentModelKey: "gemini3pro",
@@ -103,6 +103,7 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
 
   assert.deepEqual(JSON.parse(generatedRequest.prompt), agentJson);
   assert.equal(generatedRequest.images.length, 1);
+  assert.equal(generatedRequest.quality, "medium");
   assert.equal(styleLookup, "cream-french@v1");
   assert.equal(syncedInput.sourcePrompt, "稍微增强自然光");
   assert.deepEqual(JSON.parse(syncedInput.finalPrompt), agentJson);
@@ -110,7 +111,7 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
   assert.equal(syncedInput.workflow.styleCode, "cream-french@v1");
   assert.equal(result.promptAgent.model, "gemini-3.1-pro-preview");
   assert.equal(result.request.transport, "responses");
-  assert.equal(result.request.quality, null);
+  assert.equal(result.request.quality, "medium");
   assert.equal(result.sync.generationId, "gen1");
   assert.equal(result.sync.status, "pending");
 });

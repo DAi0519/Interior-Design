@@ -72,6 +72,20 @@ test("GPT Image 2 保留质量参数与 WebP", () => {
   assert.equal(generation.request.output_format, "webp");
 });
 
+test("GPT Image 2 未指定质量时默认使用中等质量", () => {
+  const generation = createGenerationRequest({
+    modelKey: "gptImage2",
+    outputFormat: "png",
+    prompt: "现代简约客厅，柔和自然光",
+    ratio: "4:3",
+    resolution: "2K",
+  });
+
+  assert.equal(MODEL_CONFIGS.gptImage2.defaultQuality, "medium");
+  assert.equal(generation.request.quality, "medium");
+  assert.equal(generation.preview.quality, "medium");
+});
+
 test("多张参考图转换为公司接口的 images[].image_url", () => {
   const pngDataUrl =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
