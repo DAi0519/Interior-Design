@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、轻量配置刷新、低圆角控件与高密度工作台视觉
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、无伪缝模型卡、轻量配置刷新、低圆角控件与高密度工作台视觉
  * [POS]: public 的最终主题层，仅覆盖视觉表达，不改变 app.js 状态或业务交互
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -343,7 +343,6 @@ body::before {
   background: var(--panel-soft);
   border: 1px solid transparent;
   border-radius: 6px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 85%);
   color: var(--muted);
   min-height: 68px;
   transition:

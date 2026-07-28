@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、Agent/出图模型白名单、OneAPI 客户端与后台同步调度器
- * [OUTPUT]: 对外提供版本化 Style DNA 编码经 Prompt Agent、Responses 图生图并非阻塞归档的执行编排
- * [POS]: src 的设计模型渲染应用服务，按飞书 v2 输出契约校验并隔离配置、生成与归档耗时
+ * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、出图模型合法比例矩阵、可信参考图宽高、OneAPI 客户端与后台同步调度器
+ * [OUTPUT]: 对外提供版本化 Style DNA 编码经 Prompt Agent、原图最近合法比例出图与非阻塞归档的执行编排
+ * [POS]: src 的设计模型渲染应用服务，优先保持白模画幅并允许显式手动覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -109,7 +109,19 @@ export async function executeWhiteModelWorkflow(
   const promptDurationMs = Date.now() - promptStartedAt;
   const promptPayload = parsePromptAgentOutput(promptResult.text);
   const finalPrompt = JSON.stringify(promptPayload, null, 2);
-  const generation = createGenerationRequest({ ...input, prompt: finalPrompt });
+  const generation = createGenerationRequest(
+    {
+      ...input,
+      prompt: finalPrompt,
+    },
+    {
+      preferSourceAspect: input.ratioMode !== "manual",
+      sourceDimensions: {
+        height: whiteModels[0].height,
+        width: whiteModels[0].width,
+      },
+    },
+  );
   const imageStartedAt = Date.now();
   const result = await client.generateImage(generation.request);
   const imageDurationMs = Date.now() - imageStartedAt;

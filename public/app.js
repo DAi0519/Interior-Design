@@ -1,12 +1,18 @@
 /**
- * [INPUT]: 依赖页面 DOM、Style DNA 对话控制器、目录/会话/配置刷新/模型检查、生成执行与后台飞书同步状态接口
- * [OUTPUT]: 对外提供默认白模与自由生图状态，并协调隔离的 Style DNA 反推预览、即时结果与异步飞书反馈
- * [POS]: public 的生成状态控制器，与 style-dna-chat.js 分责且不保存 API Key
+ * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心与 Style DNA 对话控制器、各模型合法比例目录、生成执行与后台飞书同步状态接口
+ * [OUTPUT]: 对外提供白模最近合法比例与手动覆盖、自由生图独立参数状态及即时结果与异步飞书反馈
+ * [POS]: public 的生成状态控制器，与 connection-center.js/style-dna-chat.js 分责且不保存凭据或信任客户端尺寸
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
+import { bindConnectionCenter } from "./connection-center.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
+import {
+  nearestSupportedRatio,
+  readImageDimensions,
+  sourceAspectLabel,
+} from "./image-ratio.js";
 import { api, fillSelect, secureImageUrl } from "./workbench-utils.js";
 import "./custom-select.js?v=3";
 
@@ -23,6 +29,7 @@ const state = {
   modelKey: "bananaPro",
   promptAgentCatalog: [],
   promptAgentModelKey: "gemini3pro",
+  ratioMode: "auto",
   referenceImages: [],
   referencePolicy: null,
   styleCatalog: [],
@@ -37,14 +44,7 @@ const MODEL_UI = Object.freeze({
 });
 
 const elements = {
-  apiKeyInput: document.querySelector("#apiKeyInput"),
   baseRecordButton: document.querySelector("#baseRecordButton"),
-  closeDialogButton: document.querySelector("#closeDialogButton"),
-  connectionButton: document.querySelector("#connectionButton"),
-  connectionDialog: document.querySelector("#connectionDialog"),
-  connectionError: document.querySelector("#connectionError"),
-  connectionLabel: document.querySelector("#connectionLabel"),
-  disconnectButton: document.querySelector("#disconnectButton"),
   emptyModel: document.querySelector("#emptyModel"),
   emptySize: document.querySelector("#emptySize"),
   emptyState: document.querySelector("#emptyState"),
@@ -89,7 +89,6 @@ const elements = {
   resultMeta: document.querySelector("#resultMeta"),
   resultModel: document.querySelector("#resultModel"),
   retryButton: document.querySelector("#retryButton"),
-  saveConnectionButton: document.querySelector("#saveConnectionButton"),
   styleAvailability: document.querySelector("#styleAvailability"),
   styleNote: document.querySelector("#styleNote"),
   styleSection: document.querySelector("#styleSection"),
@@ -98,6 +97,10 @@ const elements = {
 };
 
 function selectedModel() { return state.catalog.find((model) => model.key === state.modelKey); }
+
+function selectedSourceImage() {
+  return state.featureMode === "whiteModel" ? state.referenceImages[0] : null;
+}
 
 function selectedPromptAgent() {
   return state.promptAgentCatalog.find((model) =>
@@ -256,15 +259,11 @@ function renderModels() {
 
 function selectModel(modelKey) {
   state.modelKey = modelKey;
+  if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
   const formats = model.formats.filter((format) => state.featureMode !== "whiteModel" || format !== "webp");
   renderModels();
-  fillSelect(elements.ratioSelect, Object.keys(model.sizes), model.defaultRatio);
-  fillSelect(
-    elements.resolutionSelect,
-    Object.keys(model.sizes[model.defaultRatio]),
-    model.defaultResolution,
-  );
+  configureSizeControls();
   fillSelect(
     elements.formatSelect,
     formats.map((format) => ({
@@ -299,9 +298,30 @@ function selectModel(modelKey) {
   updateComputedSize();
 }
 
+function configureSizeControls({ preserveResolution = false } = {}) {
+  const model = selectedModel();
+  const sourceImage = selectedSourceImage();
+  const currentResolution = elements.resolutionSelect.value;
+  const resolution = preserveResolution &&
+    Object.keys(model.sizes[model.defaultRatio]).includes(currentResolution)
+    ? currentResolution
+    : model.defaultResolution;
+
+  const ratio = nearestSupportedRatio(model, sourceImage);
+  fillSelect(elements.ratioSelect, Object.keys(model.sizes), ratio);
+  fillSelect(
+    elements.resolutionSelect,
+    Object.keys(model.sizes[ratio]),
+    resolution,
+  );
+  elements.ratioSelect.disabled = false;
+  elements.resolutionSelect.disabled = false;
+}
+
 function updateComputedSize() {
   const model = selectedModel();
   const ratio = elements.ratioSelect.value;
+  const sourceImage = selectedSourceImage();
   const resolutions = Object.keys(model.sizes[ratio] || {});
 
   if (!resolutions.includes(elements.resolutionSelect.value)) {
@@ -315,7 +335,10 @@ function updateComputedSize() {
   }
 
   const size = model.sizes[ratio][elements.resolutionSelect.value];
-  elements.exactSize.textContent = size;
+  elements.exactSize.textContent =
+    sourceImage && state.ratioMode === "auto"
+      ? `${sourceAspectLabel(sourceImage)} → ${ratio} · ${size}`
+      : size;
   elements.emptyModel.textContent = model.label;
   elements.emptySize.textContent = size.replace("x", " × ");
 }
@@ -328,6 +351,9 @@ function generationInput() {
     prompt: elements.promptInput.value.trim(),
     quality: elements.qualitySelect.value || undefined,
     ratio: elements.ratioSelect.value,
+    ratioMode: state.featureMode === "whiteModel"
+      ? state.ratioMode
+      : "manual",
     referenceImages: state.referenceImages.map(
       ({ dataUrl, name, size, type }) => ({
         dataUrl,
@@ -382,7 +408,10 @@ function renderReferenceImages() {
       const name = document.createElement("strong");
       const size = document.createElement("span");
       name.textContent = image.name;
-      size.textContent = formatBytes(image.size);
+      size.textContent = [
+        formatBytes(image.size),
+        image.width && image.height ? `${image.width} × ${image.height}` : null,
+      ].filter(Boolean).join(" · ");
       copy.append(name, size);
 
       const remove = document.createElement("button");
@@ -394,7 +423,10 @@ function renderReferenceImages() {
         state.referenceImages = state.referenceImages.filter(
           (entry) => entry.id !== image.id,
         );
+        state.ratioMode = "auto";
         renderReferenceImages();
+        configureSizeControls({ preserveResolution: true });
+        updateComputedSize();
       });
 
       item.append(preview, copy, remove);
@@ -442,28 +474,36 @@ async function addReferenceFiles(fileList) {
     return;
   }
 
-  const nextImages = await Promise.all(
-    accepted.map(async (file) => ({
-      dataUrl: await readFileAsDataUrl(file),
-      id: crypto.randomUUID(),
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    })),
-  );
+  let nextImages;
+  try {
+    nextImages = await Promise.all(
+      accepted.map(async (file) => {
+        const dataUrl = await readFileAsDataUrl(file);
+        const dimensions = await readImageDimensions(dataUrl, file.name);
+        return {
+          dataUrl,
+          ...dimensions,
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        };
+      }),
+    );
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
   state.referenceImages.push(...nextImages);
+  if (state.featureMode === "whiteModel") state.ratioMode = "auto";
   renderReferenceImages();
+  configureSizeControls({ preserveResolution: true });
+  updateComputedSize();
 }
 
-function setConnectionState(connected, source = "memory") {
+function setApiConnectionState(connected) {
   state.connected = connected;
   styleDnaChat.setConnected(connected);
-  elements.connectionButton.classList.toggle("connected", connected);
-  elements.connectionLabel.textContent = connected ? "API 已连接" : "连接 API";
-  elements.disconnectButton.classList.toggle(
-    "hidden",
-    !connected || source === "environment",
-  );
   elements.modelAvailability.textContent = connected ? "检查模型中" : "等待连接";
   elements.promptAgentAvailability.textContent = connected
     ? "检查模型中"
@@ -482,14 +522,6 @@ function setStage(stage) {
   })) {
     element.classList.toggle("hidden", name !== stage);
   }
-}
-
-function openDialog(dialog) {
-  dialog.classList.remove("hidden");
-}
-
-function closeDialog(dialog) {
-  dialog.classList.add("hidden");
 }
 
 function showToast(message) {
@@ -595,48 +627,18 @@ async function checkAvailableModels() {
   }
 }
 
-async function connectApi() {
-  const apiKey = elements.apiKeyInput.value.trim();
-  elements.connectionError.classList.add("hidden");
-  elements.saveConnectionButton.disabled = true;
-  elements.saveConnectionButton.textContent = "正在验证…";
-
-  try {
-    await api("/api/session", {
-      body: JSON.stringify({ apiKey }),
-      method: "POST",
-    });
-    elements.apiKeyInput.value = "";
-    setConnectionState(true, "memory");
-    closeDialog(elements.connectionDialog);
-    showToast("API 已连接");
-    await checkAvailableModels();
-  } catch (error) {
-    elements.connectionError.textContent = error.message;
-    elements.connectionError.classList.remove("hidden");
-  } finally {
-    elements.saveConnectionButton.disabled = false;
-    elements.saveConnectionButton.textContent = "验证并连接";
-  }
-}
-
-async function disconnectApi() {
-  const body = await api("/api/session", { method: "DELETE" });
-  setConnectionState(body.connected, body.source);
+function resetModelAvailability() {
   state.availableModels.clear();
   state.availablePromptAgents.clear();
   styleDnaChat.setAvailability([]);
   renderPromptAgentModels();
   renderModels();
-  closeDialog(elements.connectionDialog);
-  showToast(body.connected ? "环境变量密钥仍然有效" : "已断开连接");
 }
 
 async function generate() {
   if (state.generating) return;
   if (!state.connected) {
-    openDialog(elements.connectionDialog);
-    window.setTimeout(() => elements.apiKeyInput.focus(), 0);
+    connectionCenter.open({ focusApi: true });
     return;
   }
   if (state.featureMode === "whiteModel") {
@@ -700,8 +702,20 @@ async function generate() {
 const styleDnaChat = bindStyleDnaChat({
   api,
   onConnectionRequired() {
-    openDialog(elements.connectionDialog);
-    window.setTimeout(() => elements.apiKeyInput.focus(), 0);
+    connectionCenter.open({ focusApi: true });
+  },
+  showToast,
+});
+
+const connectionCenter = bindConnectionCenter({
+  api,
+  onApiConnected: checkAvailableModels,
+  onApiDisconnected: resetModelAvailability,
+  onApiStateChange(session) {
+    setApiConnectionState(session.connected);
+  },
+  onLarkReady: async () => {
+    await loadConfiguration();
   },
   showToast,
 });
@@ -709,7 +723,7 @@ const styleDnaChat = bindStyleDnaChat({
 async function initialize() {
   const [catalogBody, sessionBody] = await Promise.all([
     api("/api/catalog"),
-    api("/api/session"),
+    connectionCenter.load(),
   ]);
   state.catalog = catalogBody.models;
   state.promptAgentCatalog = catalogBody.agentModels;
@@ -720,22 +734,9 @@ async function initialize() {
   await loadConfiguration();
   renderReferenceImages();
   updatePromptCount();
-  setConnectionState(sessionBody.connected, sessionBody.source);
+  setApiConnectionState(sessionBody.connected);
   if (sessionBody.connected) await checkAvailableModels();
 }
-
-elements.connectionButton.addEventListener("click", () => {
-  elements.connectionError.classList.add("hidden");
-  openDialog(elements.connectionDialog);
-  if (!state.connected) {
-    window.setTimeout(() => elements.apiKeyInput.focus(), 0);
-  }
-});
-elements.closeDialogButton.addEventListener("click", () =>
-  closeDialog(elements.connectionDialog),
-);
-elements.saveConnectionButton.addEventListener("click", connectApi);
-elements.disconnectButton.addEventListener("click", disconnectApi);
 for (const button of elements.featureModeButtons) {
   button.addEventListener("click", () =>
     selectFeatureMode(button.dataset.featureMode),
@@ -778,19 +779,13 @@ for (const eventName of ["dragleave", "drop"]) {
 elements.referenceDropZone.addEventListener("drop", async (event) => {
   await addReferenceFiles(event.dataTransfer.files);
 });
-elements.ratioSelect.addEventListener("change", updateComputedSize);
-elements.resolutionSelect.addEventListener("change", updateComputedSize);
-elements.connectionDialog.addEventListener("click", (event) => {
-  if (event.target === elements.connectionDialog) {
-    closeDialog(elements.connectionDialog);
+elements.ratioSelect.addEventListener("change", () => {
+  if (state.featureMode === "whiteModel" && selectedSourceImage()) {
+    state.ratioMode = "manual";
   }
+  updateComputedSize();
 });
-
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  closeDialog(elements.connectionDialog);
-});
-
+elements.resolutionSelect.addEventListener("change", updateComputedSize);
 initialize().catch((error) => {
   elements.errorMessage.textContent = `工作台初始化失败：${error.message}`;
   setStage("error");

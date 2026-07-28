@@ -22,7 +22,9 @@ generated/
 .env.*
 !.env.example
 
-# Local caches
+# Dependencies, release artifacts and local caches
+node_modules/
+dist/
 .cache/
 tmp/
 *.log

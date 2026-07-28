@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 Style DNA 反推服务的可注入 OneAPI 边界
- * [OUTPUT]: 对外提供默认/自定义 Prompt、首轮仅图片、后续纯文字修正、模型选择、1–5 张参考图与 JSON Schema 回归保障
- * [POS]: test 的 Style DNA 反推应用服务测试，不发送真实 API 请求
+ * [INPUT]: 依赖 node:test/assert 与 Style DNA 反推服务的可注入 OneAPI 边界和公开附件能力策略
+ * [OUTPUT]: 对外提供飞书 Prompt 隔离、首轮仅附件、后续纯文字修正、模型选择、无业务数量上限、图片/PDF 与 JSON Schema 回归保障
+ * [POS]: test 的服务端 Prompt 驱动 Style DNA 反推契约测试，不读取真实飞书或发送 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,12 +9,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  STYLE_DNA_IMAGE_ONLY_MESSAGE,
-  STYLE_DNA_REVERSE_SYSTEM_PROMPT,
+  STYLE_DNA_ATTACHMENT_ONLY_MESSAGE,
+  STYLE_DNA_REFERENCE_ATTACHMENT_POLICY,
   executeStyleDnaReverse,
   parseStyleDnaOutput,
   publicStyleDnaReverseConfig,
 } from "../src/style-dna-reverse.mjs";
+
+const promptAgent = {
+  code: "style-dna-reverse",
+  name: "Style DNA 反推 Agent",
+  systemPrompt: "只使用飞书已上架 Prompt",
+  version: 1,
+};
 
 const styleDna = {
   style_dna: {
@@ -50,6 +57,16 @@ function image(index = 1) {
   };
 }
 
+function pdf() {
+  const content = Buffer.from("%PDF-1.4\n%%EOF");
+  return {
+    dataUrl: `data:application/pdf;base64,${content.toString("base64")}`,
+    name: "moodboard.pdf",
+    size: content.length,
+    type: "application/pdf",
+  };
+}
+
 test("Style DNA 输出支持代码围栏并校验完整 Schema", () => {
   assert.deepEqual(
     parseStyleDnaOutput(`\`\`\`json\n${JSON.stringify(styleDna)}\n\`\`\``),
@@ -61,23 +78,39 @@ test("Style DNA 输出支持代码围栏并校验完整 Schema", () => {
   );
 });
 
-test("默认 Prompt 与工作台公开配置使用同一真源", () => {
-  const config = publicStyleDnaReverseConfig();
+test("公开配置暴露脱敏版本目录与附件能力，不暴露 Prompt", async () => {
+  const config = await publicStyleDnaReverseConfig({
+    listVersions: async () => [
+      { code: "style-dna-reverse", name: "Style DNA 反推 Agent", version: 2 },
+      { code: "style-dna-reverse", name: "Style DNA 反推 Agent", version: 1 },
+    ],
+  });
 
-  assert.equal(config.systemPrompt, STYLE_DNA_REVERSE_SYSTEM_PROMPT);
-  assert.match(
-    config.systemPrompt,
-    /你是一位世界顶级的室内设计师、视觉风格解构专家与 Prompt Engineer/,
+  assert.equal("systemPrompt" in config, false);
+  assert.equal(config.promptAgent.defaultVersion, 2);
+  assert.deepEqual(
+    config.promptAgent.versions.map((entry) => entry.version),
+    [2, 1],
   );
-  assert.match(config.systemPrompt, /# Analysis Workflow/);
-  assert.match(config.systemPrompt, /## 不应提取/);
-  assert.match(
-    config.systemPrompt,
-    /最终只输出合法 JSON，不输出分析过程、Markdown或额外解释/,
+  assert.equal(
+    JSON.stringify(config.promptAgent).includes("systemPrompt"),
+    false,
   );
+  assert.equal(
+    config.referenceAttachment,
+    STYLE_DNA_REFERENCE_ATTACHMENT_POLICY,
+  );
+  assert.deepEqual(config.referenceAttachment.accept, [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
+  ]);
+  assert.equal(config.referenceAttachment.maxCount, null);
 });
 
-test("反推链路使用默认 Prompt、所选模型和多轮消息", async () => {
+test("反推链路使用飞书发布 Prompt、所选模型和多轮消息", async () => {
   let request;
   const result = await executeStyleDnaReverse(
     {
@@ -87,7 +120,7 @@ test("反推链路使用默认 Prompt、所选模型和多轮消息", async () =
         { content: "把色彩比例再收敛。", role: "user" },
       ],
       modelKey: "gpt",
-      referenceImages: [image(1), image(2)],
+      referenceAttachments: [image(1), image(2)],
     },
     {
       availableModels: [{ id: "gpt-5.5" }],
@@ -97,19 +130,47 @@ test("反推链路使用默认 Prompt、所选模型和多轮消息", async () =
           return { text: JSON.stringify(styleDna) };
         },
       },
+      promptAgent,
     },
   );
 
   assert.equal(request.model, "gpt-5.5");
-  assert.equal(request.systemPrompt, STYLE_DNA_REVERSE_SYSTEM_PROMPT);
-  assert.equal(request.imageUrls.length, 2);
+  assert.equal(request.systemPrompt, promptAgent.systemPrompt);
+  assert.equal(request.attachments.length, 2);
+  assert.equal(request.attachments[0].kind, "image");
   assert.equal(request.messages.length, 3);
   assert.deepEqual(result.styleDna, styleDna);
   assert.equal(result.agent.code, "style-dna-reverse");
-  assert.equal(result.systemPromptSource, "default");
+  assert.equal(result.agent.version, 1);
+  assert.equal("systemPrompt" in result, false);
 });
 
-test("反推链路允许工作台覆盖 System Prompt 并拒绝空值", async () => {
+test("反推链路把用户选择的 Prompt 版本交给服务端配置读取器", async () => {
+  let requestedVersion;
+  const result = await executeStyleDnaReverse(
+    {
+      messages: [{ content: "提取风格", role: "user" }],
+      modelKey: "gemini3pro",
+      promptVersion: 2,
+      referenceAttachments: [image()],
+    },
+    {
+      availableModels: [{ id: "gemini-3.1-pro-preview" }],
+      client: {
+        generateStyleDna: async () => ({ text: JSON.stringify(styleDna) }),
+      },
+      loadPromptAgent: async (_code, options) => {
+        requestedVersion = options.version;
+        return { ...promptAgent, systemPrompt: "飞书 v2", version: 2 };
+      },
+    },
+  );
+
+  assert.equal(requestedVersion, 2);
+  assert.equal(result.agent.version, 2);
+});
+
+test("反推链路忽略工作台伪造 Prompt 并拒绝无效发布正文", async () => {
   let systemPrompt;
   const dependencies = {
     availableModels: [{ id: "gemini-3.1-pro-preview" }],
@@ -119,26 +180,29 @@ test("反推链路允许工作台覆盖 System Prompt 并拒绝空值", async ()
         return { text: JSON.stringify(styleDna) };
       },
     },
+    promptAgent,
   };
   const input = {
     messages: [{ content: "提取风格", role: "user" }],
     modelKey: "gemini3pro",
-    referenceImages: [image()],
+    referenceAttachments: [image()],
   };
 
-  const result = await executeStyleDnaReverse(
+  await executeStyleDnaReverse(
     { ...input, systemPrompt: "自定义反推约束" },
     dependencies,
   );
-  assert.equal(systemPrompt, "自定义反推约束");
-  assert.equal(result.systemPromptSource, "custom");
+  assert.equal(systemPrompt, promptAgent.systemPrompt);
   await assert.rejects(
-    executeStyleDnaReverse({ ...input, systemPrompt: "  " }, dependencies),
-    /System Prompt 不能为空/,
+    executeStyleDnaReverse(input, {
+      ...dependencies,
+      promptAgent: { ...promptAgent, systemPrompt: "  " },
+    }),
+    /未上架或正文为空/,
   );
 });
 
-test("反推链路允许只上传图片而不填写附加要求", async () => {
+test("反推链路允许只上传附件而不填写附加要求", async () => {
   let request;
   const dependencies = {
     availableModels: [{ id: "gemini-3.1-pro-preview" }],
@@ -148,23 +212,25 @@ test("反推链路允许只上传图片而不填写附加要求", async () => {
         return { text: JSON.stringify(styleDna) };
       },
     },
+    promptAgent,
   };
 
   await executeStyleDnaReverse(
     {
       messages: [],
       modelKey: "gemini3pro",
-      referenceImages: [image()],
+      referenceAttachments: [pdf()],
     },
     dependencies,
   );
 
   assert.deepEqual(request.messages, [
-    { content: STYLE_DNA_IMAGE_ONLY_MESSAGE, role: "user" },
+    { content: STYLE_DNA_ATTACHMENT_ONLY_MESSAGE, role: "user" },
   ]);
+  assert.equal(request.attachments[0].kind, "file");
 });
 
-test("反推链路允许 5 张参考图并拒绝首轮空图", async () => {
+test("反推链路不设人为附件数量上限并拒绝首轮空附件", async () => {
   const client = {
     generateStyleDna: async () => ({ text: JSON.stringify(styleDna) }),
   };
@@ -175,17 +241,24 @@ test("反推链路允许 5 张参考图并拒绝首轮空图", async () => {
   const dependencies = {
     availableModels: [{ id: "gemini-3.1-pro-preview" }],
     client,
+    promptAgent,
   };
 
   await assert.doesNotReject(
     executeStyleDnaReverse(
-      { ...base, referenceImages: Array.from({ length: 5 }, (_, index) => image(index)) },
+      {
+        ...base,
+        referenceAttachments: [
+          ...Array.from({ length: 8 }, (_, index) => image(index)),
+          pdf(),
+        ],
+      },
       dependencies,
     ),
   );
   await assert.rejects(
-    executeStyleDnaReverse({ ...base, referenceImages: [] }, dependencies),
-    /首轮至少需要 1 张参考图/,
+    executeStyleDnaReverse({ ...base, referenceAttachments: [] }, dependencies),
+    /首轮至少需要 1 个参考附件/,
   );
 });
 
@@ -199,6 +272,7 @@ test("已有 Style DNA 草稿后允许纯文字继续修正", async () => {
         return { text: JSON.stringify(styleDna) };
       },
     },
+    promptAgent,
   };
   const messages = [
     { content: "已上传 1 张风格参考图", role: "user" },
@@ -210,12 +284,12 @@ test("已有 Style DNA 草稿后允许纯文字继续修正", async () => {
     {
       messages,
       modelKey: "gemini3pro",
-      referenceImages: [],
+      referenceAttachments: [],
     },
     dependencies,
   );
 
-  assert.deepEqual(request.imageUrls, []);
+  assert.deepEqual(request.attachments, []);
   assert.deepEqual(request.messages, messages);
-  assert.equal(result.referenceImageCount, 0);
+  assert.equal(result.referenceAttachmentCount, 0);
 });

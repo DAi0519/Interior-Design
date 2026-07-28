@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成与 Style DNA 对话样式、Light Command Center 视觉规则，以及 app.js/style-dna-chat.js 的工作台状态控制
-  [OUTPUT]: 对外提供默认白模渲染、自由生图与撑满左栏的可编辑 System Prompt、支持仅图片发送的紧凑 Codex 式 Style DNA 对话输入框
+  [INPUT]: 依赖生成、连接中心与 Style DNA 对话样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [OUTPUT]: 对外提供运营连接中心、默认白模渲染、自由生图、反推模型/Prompt 版本选择与仅附件可发送的紧凑对话输入框
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -18,7 +18,8 @@
     <link rel="stylesheet" href="/result.css?v=7" />
     <link rel="stylesheet" href="/theme.css?v=11" />
     <link rel="stylesheet" href="/custom-select.css?v=4" />
-    <link rel="stylesheet" href="/style-dna-chat.css?v=5" />
+    <link rel="stylesheet" href="/style-dna-chat.css?v=8" />
+    <link rel="stylesheet" href="/connection-center.css?v=4" />
   </head>
   <body>
     <div class="app-shell">
@@ -39,7 +40,7 @@
 
         <button id="connectionButton" class="connection-button" type="button">
           <span class="status-dot"></span>
-          <span id="connectionLabel">连接 API</span>
+          <span id="connectionLabel">连接中心</span>
         </button>
       </header>
 
@@ -74,33 +75,36 @@
               </div>
             </section>
 
-            <section class="panel-section style-dna-prompt-section" aria-labelledby="styleDnaAgentTitle">
+            <section class="panel-section" aria-labelledby="styleDnaPromptVersionTitle">
               <div class="section-heading">
-                <h2 id="styleDnaAgentTitle">System Prompt</h2>
-                <div class="prompt-heading-actions">
-                  <span id="styleDnaPromptState" class="config-version">读取中</span>
-                  <button
-                    id="styleDnaPromptResetButton"
-                    class="prompt-reset-button"
-                    type="button"
-                    disabled
-                  >
-                    恢复默认
-                  </button>
-                </div>
+                <h2 id="styleDnaPromptVersionTitle">Prompt 版本</h2>
+                <button
+                  id="styleDnaPromptRefreshButton"
+                  class="config-refresh-button"
+                  type="button"
+                  aria-label="刷新风格反推 Prompt 版本"
+                  title="立即读取飞书中最新的已上架 Prompt 版本"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 7v5h-5" />
+                    <path d="M4 17v-5h5" />
+                    <path d="M6.1 9A7 7 0 0 1 18 6.5L20 9" />
+                    <path d="M17.9 15A7 7 0 0 1 6 17.5L4 15" />
+                  </svg>
+                  <span data-refresh-label>刷新</span>
+                </button>
               </div>
-              <label class="sr-only" for="styleDnaSystemPrompt">Style DNA 反推 System Prompt</label>
-              <textarea
-                id="styleDnaSystemPrompt"
-                class="style-dna-system-prompt"
-                maxlength="30000"
-                spellcheck="false"
-                aria-describedby="styleDnaPromptNote"
-                disabled
-              ></textarea>
-              <div class="prompt-editor-footer">
-                <p id="styleDnaPromptNote">默认 Prompt 从服务端读取，可在本次会话内编辑。</p>
+              <div class="compact-config-field">
+                <span class="sr-only">风格反推 Prompt 版本</span>
+                <select
+                  id="styleDnaPromptVersionSelect"
+                  aria-label="风格反推 Prompt 版本"
+                  aria-describedby="styleDnaPromptVersionNote"
+                ></select>
               </div>
+              <p id="styleDnaPromptVersionNote" class="compact-config-note">
+                正文由飞书管理；工作台只选择已上架版本。
+              </p>
             </section>
           </div>
 
@@ -137,7 +141,7 @@
           <section id="promptAgentSection" class="panel-section generation-control hidden" aria-labelledby="promptAgentTitle">
             <div class="section-heading">
               <h2 id="promptAgentTitle">
-                Prompt Agent <span id="promptAgentVersion" class="config-version">v—</span>
+                Prompt Agent 基模 <span id="promptAgentVersion" class="config-version">v—</span>
               </h2>
               <div class="section-heading-actions">
                 <span id="promptAgentAvailability" class="micro-status">等待连接</span>
@@ -160,8 +164,8 @@
               </div>
             </div>
             <div class="compact-config-field">
-              <span class="sr-only">Prompt Agent 模型</span>
-              <select id="promptAgentModelSelect" aria-label="Prompt Agent 模型" aria-describedby="promptAgentNote"></select>
+              <span class="sr-only">Prompt Agent 基模</span>
+              <select id="promptAgentModelSelect" aria-label="Prompt Agent 基模" aria-describedby="promptAgentNote"></select>
             </div>
             <p id="promptAgentNote" class="compact-config-note">用于理解白模并整合最终提示词。</p>
           </section>
@@ -320,7 +324,7 @@
             <header class="style-dna-chat-header">
               <div>
                 <h2>Style DNA 反推</h2>
-                <p>上传 1–5 张同风格参考图即可分析，也可以补充本次重点提取或排除的内容。</p>
+                <p>上传同风格参考附件即可分析，也可以补充本次重点提取或排除的内容。</p>
               </div>
               <button id="styleDnaResetButton" class="ghost-button" type="button">新对话</button>
             </header>
@@ -332,7 +336,7 @@
                 <div
                   id="styleDnaReferenceList"
                   class="composer-attachment-list"
-                  aria-label="已添加的风格参考图"
+                  aria-label="已添加的风格参考附件"
                   aria-live="polite"
                 ></div>
                 <label class="sr-only" for="styleDnaMessageInput">给反推 Agent 的消息</label>
@@ -346,20 +350,20 @@
                     <label
                       id="styleDnaUploadButton"
                       class="composer-upload-button"
-                      title="添加风格参考图"
+                      title="添加风格参考附件"
                     >
                       <input
                         id="styleDnaReferenceInput"
                         class="reference-input"
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        aria-label="添加风格参考图"
+                        accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                        aria-label="添加风格参考附件"
                         multiple
                       />
                       <img src="/icons/plus.svg" alt="" aria-hidden="true" />
-                      <span class="sr-only">添加风格参考图</span>
+                      <span class="sr-only">添加风格参考附件</span>
                     </label>
-                    <span id="styleDnaReferenceCount" class="sr-only" aria-live="polite">0 / 5</span>
+                    <span id="styleDnaReferenceCount" class="sr-only" aria-live="polite">0 个附件</span>
                   </div>
                   <button
                     id="styleDnaSendButton"
@@ -380,49 +384,169 @@
       </main>
     </div>
 
-    <div id="connectionDialog" class="dialog-backdrop hidden">
+    <div
+      id="connectionDialog"
+      class="dialog-backdrop hidden"
+      aria-hidden="true"
+    >
       <section
-        class="dialog"
+        class="dialog connection-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="connectionDialogTitle"
+        aria-describedby="connectionDialogDescription"
+        tabindex="-1"
       >
-        <div class="dialog-header">
-          <h2 id="connectionDialogTitle">连接公司 API</h2>
+        <div class="dialog-header connection-dialog-header">
+          <div class="connection-heading">
+            <h2 id="connectionDialogTitle">连接中心</h2>
+            <p id="connectionDialogDescription" class="dialog-copy">
+              管理这台电脑的模型与飞书连接。密钥只发送到本机
+              <code>127.0.0.1</code>，飞书授权由本机 CLI 完成。
+            </p>
+          </div>
           <button id="closeDialogButton" class="icon-button" type="button" aria-label="关闭">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="m6 6 12 12M18 6 6 18" />
             </svg>
           </button>
         </div>
-        <p class="dialog-copy">
-          密钥只发送到本机 <code>127.0.0.1</code>，保存在 Node 进程内存中。
-          页面不会写入 localStorage、Cookie 或文件。
-        </p>
-        <label class="field api-key-field">
-          <span>API Key</span>
-          <input
-            id="apiKeyInput"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="sk-..."
-          />
-        </label>
-        <p id="connectionError" class="inline-error hidden"></p>
-        <div class="dialog-actions">
-          <button id="disconnectButton" class="danger-button hidden" type="button">
-            断开连接
-          </button>
-          <button id="saveConnectionButton" class="primary-button" type="button">
-            验证并连接
-          </button>
+
+        <div class="connection-grid">
+          <section class="connection-section" aria-labelledby="apiConnectionTitle">
+            <div class="connection-section-header">
+              <div class="connection-section-title">
+                <h3 id="apiConnectionTitle">公司 API</h3>
+                <p>模型访问</p>
+              </div>
+              <span
+                id="apiConnectionStatus"
+                class="connection-status"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >未连接</span>
+            </div>
+            <label class="field api-key-field">
+              <span>OneAPI Key</span>
+              <input
+                id="apiKeyInput"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="sk-..."
+                aria-describedby="apiConnectionNote"
+              />
+            </label>
+            <label class="remember-control">
+              <input id="rememberApiKey" type="checkbox" />
+              <span>记住在这台电脑</span>
+            </label>
+            <p id="apiConnectionNote" class="connection-note">
+              Key 只发送到本机服务；是否跨重启保存由你决定。
+            </p>
+            <p id="connectionError" class="inline-error hidden" role="alert"></p>
+            <div class="connection-section-actions">
+              <button
+                id="disconnectButton"
+                class="connection-action-button hidden"
+                type="button"
+              >
+                断开连接
+              </button>
+              <button
+                id="saveConnectionButton"
+                class="connection-action-button"
+                type="button"
+              >
+                验证并连接
+              </button>
+            </div>
+          </section>
+
+          <section class="connection-section" aria-labelledby="larkConnectionTitle">
+            <div class="connection-section-header">
+              <div class="connection-section-title">
+                <h3 id="larkConnectionTitle">飞书</h3>
+                <p>配置同步</p>
+              </div>
+              <span
+                id="larkConnectionStatus"
+                class="connection-status"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >检测中</span>
+            </div>
+            <div class="connection-rows">
+              <div class="connection-row">
+                <span>CLI</span>
+                <strong id="larkCliState">检测中</strong>
+              </div>
+              <div class="connection-row">
+                <span>应用配置</span>
+                <strong id="larkConfigState">检测中</strong>
+              </div>
+              <div class="connection-row">
+                <span>用户身份</span>
+                <strong id="larkUserState">检测中</strong>
+              </div>
+              <div class="connection-row">
+                <span>共享 Base</span>
+                <strong id="larkBaseState">检测中</strong>
+              </div>
+            </div>
+
+            <p id="larkConfigHint" class="connection-hint hidden">
+              飞书 CLI 首次使用需要初始化。请在终端运行
+              <code>npm run lark:init</code>。
+              <button id="larkInitCopyButton" class="inline-link-button" type="button">
+                复制命令
+              </button>
+            </p>
+            <p id="larkSetupError" class="inline-error hidden" role="alert"></p>
+
+            <div id="larkAuthPanel" class="lark-auth-panel hidden">
+              <img id="larkQrCode" alt="飞书授权二维码" />
+              <div class="lark-auth-copy">
+                <strong>在飞书中完成授权</strong>
+                <a
+                  id="larkVerificationLink"
+                  class="lark-verification-link"
+                  href="#"
+                  target="_blank"
+                  rel="noreferrer"
+                ></a>
+                <button id="larkCompleteButton" class="primary-button" type="button">
+                  我已完成授权
+                </button>
+              </div>
+            </div>
+
+            <div class="connection-section-actions">
+              <button
+                id="larkRefreshButton"
+                class="connection-action-button"
+                type="button"
+              >
+                重新检测
+              </button>
+              <button
+                id="larkLoginButton"
+                class="connection-action-button"
+                type="button"
+                disabled
+              >
+                登录飞书
+              </button>
+            </div>
+          </section>
         </div>
       </section>
     </div>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="/app.js?v=15"></script>
+    <script type="module" src="/app.js?v=21"></script>
   </body>
 </html>

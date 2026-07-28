@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、模型/风格/Agent 目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
- * [OUTPUT]: 对外提供本地工作台、内存密钥/模型会话、配置主动刷新、风格对话、生成接口与非阻塞同步状态查询
- * [POS]: 项目根入口，隔离浏览器、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
+ * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
+ * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、生成接口与非阻塞同步状态查询
+ * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -17,8 +17,17 @@ import {
 } from "./src/agent-model-config.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./src/model-config.mjs";
 import { syncGenerationToLark } from "./src/lark-sync.mjs";
+import { createLarkSetupService } from "./src/lark-setup.mjs";
+import {
+  hasPersistedOneApiKey,
+  persistOneApiKey,
+  removePersistedOneApiKey,
+} from "./src/local-settings.mjs";
 import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
-import { getPublishedPromptAgent } from "./src/prompt-agent.mjs";
+import {
+  STYLE_DNA_REVERSE_PROMPT_CONFIG,
+  getPublishedPromptAgent,
+} from "./src/prompt-agent.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
 import {
@@ -32,10 +41,24 @@ const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const PUBLIC_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "public");
 const MAX_JSON_BYTES = 30 * 1024 * 1024;
 
+async function persistedOneApiKey() {
+  try {
+    return await hasPersistedOneApiKey();
+  } catch {
+    return false;
+  }
+}
+
 let sessionApiKey = normalizeApiKey(process.env.ONEAPI_API_KEY || "");
+let sessionApiKeySource = sessionApiKey
+  ? (await persistedOneApiKey())
+    ? "local-file"
+    : "environment"
+  : "none";
 let sessionModelCatalog = null;
 let sessionModelCatalogRequest = null;
 const syncJobs = createSyncJobRegistry();
+const larkSetup = createLarkSetupService();
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -115,6 +138,24 @@ function clearSessionModelCatalog() {
   sessionModelCatalogRequest = null;
 }
 
+async function verifyLarkConfiguration() {
+  await Promise.all([
+    listPublicStyles(),
+    getPublishedPromptAgent("white-model-fusion"),
+    getPublishedPromptAgent("style-dna-reverse", {
+      config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
+    }),
+  ]);
+}
+
+async function publicSession() {
+  return {
+    connected: Boolean(sessionApiKey),
+    persisted: await persistedOneApiKey(),
+    source: sessionApiKey ? sessionApiKeySource : "none",
+  };
+}
+
 async function getSessionModelCatalog(client, { force = false } = {}) {
   if (!force && sessionModelCatalog) return sessionModelCatalog;
   if (!force && sessionModelCatalogRequest) return sessionModelCatalogRequest;
@@ -165,7 +206,18 @@ async function handleApi(request, response, pathname) {
     request.method === "GET" &&
     pathname === "/api/style-dna-reverse/config"
   ) {
-    return sendJson(response, 200, publicStyleDnaReverseConfig());
+    return sendJson(response, 200, await publicStyleDnaReverseConfig());
+  }
+
+  if (
+    request.method === "POST" &&
+    pathname === "/api/style-dna-reverse/config/refresh"
+  ) {
+    return sendJson(
+      response,
+      200,
+      await publicStyleDnaReverseConfig({ forceRefresh: true }),
+    );
   }
 
   if (request.method === "GET" && pathname === "/api/catalog") {
@@ -178,14 +230,36 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/session") {
-    return sendJson(response, 200, {
-      connected: Boolean(sessionApiKey),
-      source: sessionApiKey
-        ? process.env.ONEAPI_API_KEY
-          ? "environment"
-          : "memory"
-        : "none",
-    });
+    return sendJson(response, 200, await publicSession());
+  }
+
+  if (request.method === "GET" && pathname === "/api/setup/status") {
+    return sendJson(
+      response,
+      200,
+      await larkSetup.status({ verifyBase: verifyLarkConfiguration }),
+    );
+  }
+
+  if (
+    request.method === "POST" &&
+    pathname === "/api/setup/lark-login"
+  ) {
+    return sendJson(response, 200, await larkSetup.startLogin());
+  }
+
+  if (
+    request.method === "POST" &&
+    pathname === "/api/setup/lark-login/complete"
+  ) {
+    const body = await readJson(request);
+    return sendJson(
+      response,
+      200,
+      await larkSetup.completeLogin(body.loginId, {
+        verifyBase: verifyLarkConfiguration,
+      }),
+    );
   }
 
   if (request.method === "GET" && pathname === "/api/styles") {
@@ -203,6 +277,10 @@ async function handleApi(request, response, pathname) {
     const [styles, promptAgent] = await Promise.all([
       listPublicStyles({ forceRefresh: true }),
       getPublishedPromptAgent("white-model-fusion", { forceRefresh: true }),
+      getPublishedPromptAgent("style-dna-reverse", {
+        config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
+        forceRefresh: true,
+      }),
     ]);
     return sendJson(response, 200, {
       promptAgent: publicPromptAgent(promptAgent),
@@ -230,23 +308,47 @@ async function handleApi(request, response, pathname) {
     const client = createOneApiClient(nextKey);
     const models = await client.listModels();
     sessionApiKey = nextKey;
+    sessionApiKeySource = "memory";
     sessionModelCatalog = models;
     sessionModelCatalogRequest = null;
+    let warning = null;
+
+    try {
+      if (body.remember === true) {
+        await persistOneApiKey(nextKey);
+        sessionApiKeySource = "local-file";
+      } else {
+        await removePersistedOneApiKey();
+      }
+    } catch {
+      warning =
+        body.remember === true
+          ? "API 已连接，但无法把 Key 保存到本机"
+          : "API 已连接，但旧的本机 Key 未能删除";
+    }
 
     return sendJson(response, 200, {
       connected: true,
       models: models.map((model) => model.id || model.name).filter(Boolean),
+      persisted: await persistedOneApiKey(),
+      source: sessionApiKeySource,
+      warning,
     });
   }
 
   if (request.method === "DELETE" && pathname === "/api/session") {
-    if (!process.env.ONEAPI_API_KEY) {
-      sessionApiKey = "";
-      clearSessionModelCatalog();
+    sessionApiKey = "";
+    sessionApiKeySource = "none";
+    clearSessionModelCatalog();
+    let warning = null;
+    try {
+      await removePersistedOneApiKey();
+    } catch {
+      warning = "已断开当前连接，但本机保存的 Key 未能删除";
     }
     return sendJson(response, 200, {
-      connected: Boolean(sessionApiKey),
-      source: sessionApiKey ? "environment" : "none",
+      ...(await publicSession()),
+      warning,
     });
   }
 

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖公司 Model Link 参数矩阵与 Google 当前稳定模型 ID，依赖 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含模型默认参数的 publicModelCatalog、createGenerationRequest 与 MODEL_CONFIGS
- * [POS]: src 的模型参数真源，被服务端 API 和自动化测试共同消费
+ * [OUTPUT]: 对外提供 publicModelCatalog、按各模型合法比例就近适配原图画幅的 createGenerationRequest 与 MODEL_CONFIGS
+ * [POS]: src 的模型参数真源，被自由生图 API 与白模合法比例适配编排共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -132,6 +132,30 @@ function optionOrThrow(options, value, message) {
   return value;
 }
 
+function validDimensions(value) {
+  return (
+    Number.isInteger(value?.width) &&
+    Number.isInteger(value?.height) &&
+    value.width > 0 &&
+    value.height > 0
+  );
+}
+
+function ratioNumber(value) {
+  const [width, height] = String(value).split(":").map(Number);
+  return width / height;
+}
+
+function nearestSupportedRatio(model, sourceDimensions) {
+  const sourceRatio = sourceDimensions.width / sourceDimensions.height;
+  return Object.keys(model.sizes).reduce((nearest, candidate) =>
+    Math.abs(Math.log(ratioNumber(candidate) / sourceRatio)) <
+    Math.abs(Math.log(ratioNumber(nearest) / sourceRatio))
+      ? candidate
+      : nearest,
+  model.defaultRatio);
+}
+
 export function publicModelCatalog() {
   return Object.entries(MODEL_CONFIGS).map(([key, model]) => ({
     accent: model.accent,
@@ -149,7 +173,10 @@ export function publicModelCatalog() {
   }));
 }
 
-export function createGenerationRequest(input) {
+export function createGenerationRequest(
+  input,
+  { preferSourceAspect = false, sourceDimensions = null } = {},
+) {
   const modelKey = String(input.modelKey || "");
   const model = modelOrThrow(modelKey);
   const prompt = String(input.prompt || "").trim();
@@ -160,11 +187,18 @@ export function createGenerationRequest(input) {
     throw error;
   }
 
-  const ratio = optionOrThrow(
-    Object.keys(model.sizes),
-    String(input.ratio || ""),
-    "该模型不支持这个画幅比例",
-  );
+  if (preferSourceAspect && !validDimensions(sourceDimensions)) {
+    const error = new Error("无法读取参考图画幅比例");
+    error.statusCode = 400;
+    throw error;
+  }
+  const ratio = preferSourceAspect
+    ? nearestSupportedRatio(model, sourceDimensions)
+    : optionOrThrow(
+        Object.keys(model.sizes),
+        String(input.ratio || ""),
+        "该模型不支持这个画幅比例",
+      );
   const resolution = optionOrThrow(
     Object.keys(model.sizes[ratio]),
     String(input.resolution || ""),
@@ -211,11 +245,14 @@ export function createGenerationRequest(input) {
       ratio,
       referenceImages: referenceImages.map((image) => ({
         fileName: image.fileName,
+        height: image.height,
         mimeType: image.mimeType,
         size: image.size,
+        width: image.width,
       })),
       resolution,
       size,
+      sizeMode: preferSourceAspect ? "source-nearest" : "preset",
     },
     request,
   };

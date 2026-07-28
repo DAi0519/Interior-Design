@@ -46,6 +46,7 @@ export function buildRecordFields({
     ratio: preview.ratio,
     referenceImageCount: preview.referenceImageCount,
     resolution: preview.resolution,
+    sizeMode: preview.sizeMode || "preset",
     transport: preview.transport || "images-generations",
     ...(workflow ? { workflow } : {}),
   };

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:child_process/util 与本机 lark-cli 用户身份
- * [OUTPUT]: 对外提供 runLarkCli，统一执行、解析和归一化飞书 CLI 错误
+ * [OUTPUT]: 对外提供脱敏子进程环境与 runLarkCli，统一执行、解析和归一化飞书 CLI 错误
  * [POS]: src 的飞书 CLI 基础设施，被风格读取与生成记录同步共同复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,14 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+
+export function larkCliEnvironment(source = process.env) {
+  const environment = { ...source };
+  delete environment.ONEAPI_API_KEY;
+  environment.LARKSUITE_CLI_NO_SKILLS_NOTIFIER = "1";
+  environment.LARKSUITE_CLI_NO_UPDATE_NOTIFIER = "1";
+  return environment;
+}
 
 function safeErrorMessage(error, fallbackMessage) {
   for (const raw of [error?.stderr, error?.stdout]) {
@@ -32,11 +40,7 @@ export async function runLarkCli(
     const { stdout } = await execFileAsync(cliPath, args, {
       encoding: "utf8",
       cwd: options.cwd,
-      env: {
-        ...process.env,
-        LARKSUITE_CLI_NO_SKILLS_NOTIFIER: "1",
-        LARKSUITE_CLI_NO_UPDATE_NOTIFIER: "1",
-      },
+      env: larkCliEnvironment(),
       maxBuffer: 8 * 1024 * 1024,
       timeout: timeoutMs,
     });

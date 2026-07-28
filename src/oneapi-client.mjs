@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖全局 fetch 与 AbortController，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供 OneAPI 客户端、图生图与多轮多图文本 Responses 请求构造、响应归一化与错误脱敏
- * [POS]: src 的外部服务边界，文生图走 Images API，图片生成与 Style DNA 反推走 Responses
+ * [OUTPUT]: 对外提供 OneAPI 客户端、图生图与多轮图片/PDF 文本 Responses 请求构造、响应归一化与错误脱敏
+ * [POS]: src 的外部服务边界，文生图走 Images API，图片生成与 Style DNA 多模态反推走 Responses
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -132,7 +132,7 @@ export function buildResponseImageRequest(generationRequest) {
 }
 
 export function buildStyleDnaResponseRequest({
-  imageUrls,
+  attachments = [],
   messages,
   model,
   systemPrompt,
@@ -148,10 +148,18 @@ export function buildStyleDnaResponseRequest({
           type: message.role === "assistant" ? "output_text" : "input_text",
         },
         ...(index === latestUserIndex
-          ? imageUrls.map((imageUrl) => ({
-              image_url: imageUrl,
-              type: "input_image",
-            }))
+          ? attachments.map((attachment) =>
+              attachment.kind === "file"
+                ? {
+                    file_data: attachment.fileData,
+                    filename: attachment.fileName,
+                    type: "input_file",
+                  }
+                : {
+                    image_url: attachment.imageUrl,
+                    type: "input_image",
+                  },
+            )
           : []),
       ],
       role: message.role,
@@ -232,11 +240,16 @@ export function createOneApiClient(apiKey) {
       return { created: body.created_at || body.created || null, text };
     },
 
-    async generateStyleDna({ imageUrls, messages, model, systemPrompt }) {
+    async generateStyleDna({
+      attachments = [],
+      messages,
+      model,
+      systemPrompt,
+    }) {
       const body = await request("/responses", {
         body: JSON.stringify(
           buildStyleDnaResponseRequest({
-            imageUrls,
+            attachments,
             messages,
             model,
             systemPrompt,

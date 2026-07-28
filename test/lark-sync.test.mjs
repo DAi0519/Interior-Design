@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供字段映射和飞书 CLI 返回体兼容性的纯函数回归保障
+ * [OUTPUT]: 对外提供含画幅适配模式的字段映射和飞书 CLI 返回体兼容性纯函数回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,6 +44,7 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
     ratio: "16:9",
     referenceImageCount: 2,
     resolution: "4K",
+    sizeMode: "preset",
     transport: "responses",
     workflow: { feature: "white-model-rendering", styleCode: "cream-french@v1" },
   });

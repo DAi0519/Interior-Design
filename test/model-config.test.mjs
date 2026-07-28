@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/model-config.mjs 的模型目录和请求构造器
- * [OUTPUT]: 对外提供模型 ID、尺寸映射、模型专属参数和非法组合的回归保障
+ * [OUTPUT]: 对外提供模型 ID、合法尺寸映射、四模型原图最近比例、模型专属参数和非法组合的回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,6 +37,60 @@ test("Banana Pro 4:3 2K 映射为公司文档精确尺寸", () => {
   assert.equal(generation.request.size, "2400x1792");
   assert.equal(generation.request.model, "gemini-3-pro-image");
   assert.equal("quality" in generation.request, false);
+});
+
+test("白模在模型合法集合中选择最接近原图的比例", () => {
+  const generation = createGenerationRequest(
+    {
+      modelKey: "bananaPro",
+      outputFormat: "png",
+      prompt: "保持白模构图，只映射材质与灯光",
+      ratio: "4:3",
+      resolution: "2K",
+    },
+    {
+      preferSourceAspect: true,
+      sourceDimensions: { height: 900, width: 1600 },
+    },
+  );
+
+  assert.equal(generation.request.size, "2752x1536");
+  assert.equal(generation.preview.ratio, "16:9");
+  assert.equal(generation.preview.resolution, "2K");
+  assert.equal(generation.preview.sizeMode, "source-nearest");
+});
+
+test("四个模型统一适配合法比例并拒绝缺失原图尺寸", () => {
+  const gptGeneration = createGenerationRequest(
+    {
+      modelKey: "gptImage2",
+      outputFormat: "png",
+      prompt: "保持白模构图，只映射材质与灯光",
+      ratio: "4:3",
+      resolution: "2K",
+    },
+    {
+      preferSourceAspect: true,
+      sourceDimensions: { height: 900, width: 1600 },
+    },
+  );
+  assert.equal(gptGeneration.preview.ratio, "16:9");
+  assert.equal(gptGeneration.request.size, "2048x1152");
+
+  assert.throws(
+    () =>
+      createGenerationRequest(
+        {
+          modelKey: "bananaPro",
+          outputFormat: "png",
+          prompt: "保持白模构图，只映射材质与灯光",
+          ratio: "4:3",
+          resolution: "2K",
+        },
+        { preferSourceAspect: true },
+      ),
+    /无法读取参考图画幅比例/,
+  );
 });
 
 test("Banana 2 使用公司文档的 512 到 4K 极端画幅矩阵", () => {

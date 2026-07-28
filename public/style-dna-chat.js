@@ -1,14 +1,23 @@
 /**
- * [INPUT]: 依赖 Style DNA 反推 DOM、共享本地 API、公开默认 System Prompt、Agent 模型目录与浏览器文件/剪贴板能力
- * [OUTPUT]: 对外提供 Prompt 会话编辑、模型选择、自适应多行输入、首轮图片分析、后续纯文字修正、多轮对话、结构化草稿展示、复制与重置控制器
- * [POS]: public 的 Style DNA 反推浏览器控制器，与 app.js 的生成控制器按功能模式隔离
+ * [INPUT]: 依赖 Style DNA 反推 DOM、共享本地 API、服务端图片/PDF 附件能力策略、Agent 模型目录与浏览器文件能力
+ * [OUTPUT]: 对外提供接口驱动的 Prompt 版本/模型选择、参考附件上传、多模态分析、多轮修正、草稿展示、复制与重置控制器
+ * [POS]: public 的 Style DNA 反推浏览器控制器，以服务端附件能力为上传单一真源并与生成控制器隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-const MAX_IMAGE_COUNT = 5;
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const FALLBACK_ATTACHMENT_POLICY = Object.freeze({
+  accept: Object.freeze([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
+  ]),
+  maxBytesPerAttachment: 8 * 1024 * 1024,
+  maxCount: null,
+  maxTotalBytes: 20 * 1024 * 1024,
+});
+const PROMPT_VERSION_STORAGE_KEY = "canvas-lab-style-dna-prompt-version";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -22,6 +31,40 @@ function readFileAsDataUrl(file) {
 function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)}KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+}
+
+function normalizedAttachmentPolicy(input) {
+  const policy = input && typeof input === "object" ? input : {};
+  return {
+    accept:
+      Array.isArray(policy.accept) && policy.accept.length > 0
+        ? [...policy.accept]
+        : [...FALLBACK_ATTACHMENT_POLICY.accept],
+    maxBytesPerAttachment:
+      Number.isInteger(policy.maxBytesPerAttachment) &&
+      policy.maxBytesPerAttachment > 0
+        ? policy.maxBytesPerAttachment
+        : FALLBACK_ATTACHMENT_POLICY.maxBytesPerAttachment,
+    maxCount:
+      Number.isInteger(policy.maxCount) && policy.maxCount > 0
+        ? policy.maxCount
+        : null,
+    maxTotalBytes:
+      Number.isInteger(policy.maxTotalBytes) && policy.maxTotalBytes > 0
+        ? policy.maxTotalBytes
+        : FALLBACK_ATTACHMENT_POLICY.maxTotalBytes,
+  };
+}
+
+function formatAcceptedTypes(accept) {
+  const labels = {
+    "application/pdf": "PDF",
+    "image/gif": "GIF",
+    "image/jpeg": "JPEG",
+    "image/png": "PNG",
+    "image/webp": "WebP",
+  };
+  return accept.map((type) => labels[type] || type).join("、");
 }
 
 function messageElement({ content, role }) {
@@ -52,7 +95,7 @@ function thinkingElement() {
   avatar.textContent = "DNA";
   body.className = "message-body";
   dots.className = "thinking-dots";
-  dots.ariaLabel = "正在分析参考图";
+  dots.ariaLabel = "正在分析参考附件";
   dots.append(
     document.createElement("i"),
     document.createElement("i"),
@@ -128,7 +171,7 @@ function draftElement(result, onCopy) {
   details.append(summary, pre);
 
   actions.className = "dna-draft-actions";
-  metadata.textContent = `${result.model.label} · ${(result.durationMs / 1000).toFixed(1)}s · ${result.referenceImageCount} 张图`;
+  metadata.textContent = `${result.model.label} · Prompt v${result.agent.version} · ${(result.durationMs / 1000).toFixed(1)}s · ${result.referenceAttachmentCount} 个附件`;
   copyButton.className = "copy-dna-button";
   copyButton.type = "button";
   copyButton.textContent = "复制 JSON";
@@ -148,53 +191,106 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     input: document.querySelector("#styleDnaMessageInput"),
     modelAvailability: document.querySelector("#styleDnaModelAvailability"),
     modelSelect: document.querySelector("#styleDnaModelSelect"),
-    promptNote: document.querySelector("#styleDnaPromptNote"),
-    promptResetButton: document.querySelector("#styleDnaPromptResetButton"),
-    promptState: document.querySelector("#styleDnaPromptState"),
+    promptRefreshButton: document.querySelector("#styleDnaPromptRefreshButton"),
+    promptVersionNote: document.querySelector("#styleDnaPromptVersionNote"),
+    promptVersionSelect: document.querySelector("#styleDnaPromptVersionSelect"),
     referenceCount: document.querySelector("#styleDnaReferenceCount"),
     referenceInput: document.querySelector("#styleDnaReferenceInput"),
     referenceList: document.querySelector("#styleDnaReferenceList"),
     resetButton: document.querySelector("#styleDnaResetButton"),
     sendButton: document.querySelector("#styleDnaSendButton"),
-    systemPrompt: document.querySelector("#styleDnaSystemPrompt"),
     thread: document.querySelector("#styleDnaThread"),
     uploadButton: document.querySelector("#styleDnaUploadButton"),
   };
   const state = {
-    agentVersion: "",
     availability: new Map(),
     catalog: [],
     connected: false,
-    defaultSystemPrompt: "",
-    images: [],
+    attachments: [],
     messages: [],
     modelKey: "gemini3pro",
+    promptVersion: Number(sessionStorage.getItem(PROMPT_VERSION_STORAGE_KEY)) || null,
+    promptVersions: [],
+    attachmentPolicy: normalizedAttachmentPolicy(),
     sending: false,
   };
 
-  function renderPromptState() {
-    if (!state.defaultSystemPrompt) return;
-    const isDefault =
-      elements.systemPrompt.value.trim() === state.defaultSystemPrompt.trim();
-    elements.promptState.textContent = isDefault
-      ? `默认 v${state.agentVersion}`
-      : "已编辑";
-    elements.promptResetButton.disabled = isDefault;
+  function setPromptVersion(version) {
+    state.promptVersion = Number.isInteger(version) && version > 0
+      ? version
+      : null;
+    if (state.promptVersion) {
+      sessionStorage.setItem(
+        PROMPT_VERSION_STORAGE_KEY,
+        String(state.promptVersion),
+      );
+    } else {
+      sessionStorage.removeItem(PROMPT_VERSION_STORAGE_KEY);
+    }
   }
 
-  async function loadAgentConfig() {
+  function renderPromptVersions(defaultVersion = null) {
+    const versions = [...state.promptVersions].sort(
+      (left, right) => right.version - left.version,
+    );
+    if (!versions.some((entry) => entry.version === state.promptVersion)) {
+      setPromptVersion(
+        versions.find((entry) => entry.version === defaultVersion)?.version ||
+        versions[0]?.version ||
+        null,
+      );
+    }
+    elements.promptVersionSelect.replaceChildren(
+      ...versions.map((entry) => {
+        const option = document.createElement("option");
+        option.value = String(entry.version);
+        option.selected = entry.version === state.promptVersion;
+        option.textContent = `${entry.name} · v${entry.version}`;
+        return option;
+      }),
+    );
+    elements.promptVersionSelect.disabled = versions.length === 0;
+    elements.promptVersionNote.textContent =
+      versions.length > 0
+        ? `${versions.length} 个已上架版本可测试；正文仅在服务端读取。`
+        : "飞书中没有可测试的已上架 Prompt 版本。";
+  }
+
+  function setPromptRefreshPending(pending) {
+    elements.promptRefreshButton.disabled = pending;
+    elements.promptRefreshButton.toggleAttribute("aria-busy", pending);
+    elements.promptRefreshButton.querySelector("[data-refresh-label]").textContent =
+      pending ? "刷新中" : "刷新";
+  }
+
+  async function loadRuntimeConfig({ forceRefresh = false } = {}) {
+    setPromptRefreshPending(true);
     try {
-      const config = await api("/api/style-dna-reverse/config");
-      state.agentVersion = config.agent.version;
-      state.defaultSystemPrompt = config.systemPrompt;
-      elements.systemPrompt.value = config.systemPrompt;
-      elements.systemPrompt.disabled = false;
-      elements.promptNote.textContent =
-        "默认 Prompt 从服务端读取，可在本次会话内编辑。";
-      renderPromptState();
+      const config = await api(
+        forceRefresh
+          ? "/api/style-dna-reverse/config/refresh"
+          : "/api/style-dna-reverse/config",
+        forceRefresh ? { method: "POST" } : undefined,
+      );
+      state.attachmentPolicy = normalizedAttachmentPolicy(
+        config.referenceAttachment,
+      );
+      state.promptVersions = Array.isArray(config.promptAgent?.versions)
+        ? config.promptAgent.versions
+        : [];
+      elements.referenceInput.accept = state.attachmentPolicy.accept.join(",");
+      renderPromptVersions(config.promptAgent?.defaultVersion);
+      renderAttachments();
+      if (forceRefresh) {
+        showToast(`Prompt 版本已更新 · ${state.promptVersions.length} 个可选`);
+      }
     } catch (error) {
-      elements.promptState.textContent = "读取失败";
-      elements.promptNote.textContent = error.message;
+      state.promptVersions = [];
+      renderPromptVersions();
+      elements.promptVersionNote.textContent = error.message;
+      showToast(`反推配置读取失败：${error.message}`);
+    } finally {
+      setPromptRefreshPending(false);
     }
   }
 
@@ -216,34 +312,51 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     elements.modelSelect.replaceChildren(...options);
   }
 
-  function renderImages() {
-    elements.referenceCount.textContent = `${state.images.length} / ${MAX_IMAGE_COUNT}`;
+  function renderAttachments() {
+    const { maxCount } = state.attachmentPolicy;
+    elements.referenceCount.textContent =
+      maxCount === null
+        ? `${state.attachments.length} 个附件`
+        : `${state.attachments.length} / ${maxCount}`;
     elements.uploadButton.classList.toggle(
       "hidden",
-      state.images.length >= MAX_IMAGE_COUNT,
+      maxCount !== null && state.attachments.length >= maxCount,
     );
-    elements.referenceInput.disabled = state.images.length >= MAX_IMAGE_COUNT;
+    elements.referenceInput.disabled =
+      maxCount !== null && state.attachments.length >= maxCount;
     elements.referenceList.replaceChildren(
-      ...state.images.map((image) => {
+      ...state.attachments.map((attachment) => {
         const item = document.createElement("article");
-        const preview = document.createElement("img");
+        const preview = attachment.type.startsWith("image/")
+          ? document.createElement("img")
+          : document.createElement("span");
         const copy = document.createElement("div");
         const name = document.createElement("strong");
         const size = document.createElement("span");
         const remove = document.createElement("button");
         item.className = "reference-item";
-        preview.src = image.dataUrl;
-        preview.alt = "";
-        name.textContent = image.name;
-        size.textContent = formatBytes(image.size);
+        if (preview instanceof HTMLImageElement) {
+          preview.src = attachment.dataUrl;
+          preview.alt = "";
+        } else {
+          preview.className = "reference-file-icon";
+          preview.textContent = "PDF";
+          preview.ariaHidden = "true";
+        }
+        name.textContent = attachment.name;
+        size.textContent = `${
+          attachment.type === "application/pdf" ? "PDF · " : ""
+        }${formatBytes(attachment.size)}`;
         copy.append(name, size);
         remove.className = "reference-remove";
         remove.type = "button";
-        remove.ariaLabel = `移除 ${image.name}`;
+        remove.ariaLabel = `移除 ${attachment.name}`;
         remove.textContent = "×";
         remove.addEventListener("click", () => {
-          state.images = state.images.filter((entry) => entry.id !== image.id);
-          renderImages();
+          state.attachments = state.attachments.filter(
+            (entry) => entry.id !== attachment.id,
+          );
+          renderAttachments();
         });
         item.append(preview, copy, remove);
         return item;
@@ -253,34 +366,48 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
 
   async function addFiles(fileList) {
     const incoming = Array.from(fileList);
-    const remaining = MAX_IMAGE_COUNT - state.images.length;
-    if (remaining <= 0) {
-      showToast("风格反推最多支持 5 张参考图");
+    const { accept, maxBytesPerAttachment, maxCount, maxTotalBytes } =
+      state.attachmentPolicy;
+    const remaining =
+      maxCount === null
+        ? incoming.length
+        : maxCount - state.attachments.length;
+    if (maxCount !== null && remaining <= 0) {
+      showToast(`当前接口最多支持 ${maxCount} 个参考附件`);
       return;
     }
     const accepted = incoming.slice(0, remaining);
-    if (incoming.length > remaining) {
-      showToast(`本次只添加前 ${remaining} 张，最多支持 5 张参考图`);
+    if (maxCount !== null && incoming.length > remaining) {
+      showToast(
+        `本次只添加前 ${remaining} 个，当前接口最多支持 ${maxCount} 个附件`,
+      );
     }
+    const acceptedTypes = new Set(accept);
     for (const file of accepted) {
-      if (!IMAGE_TYPES.has(file.type)) {
-        showToast(`${file.name} 不是 PNG、JPEG 或 WebP`);
+      if (!acceptedTypes.has(file.type)) {
+        showToast(
+          `${file.name} 不是当前接口支持的 ${formatAcceptedTypes(accept)}`,
+        );
         return;
       }
-      if (file.size > MAX_IMAGE_BYTES) {
-        showToast(`${file.name} 超过单张 8MB 限制`);
+      if (file.size > maxBytesPerAttachment) {
+        showToast(
+          `${file.name} 超过当前接口的单文件 ${formatBytes(maxBytesPerAttachment)} 限制`,
+        );
         return;
       }
     }
-    const totalBytes = [...state.images, ...accepted].reduce(
+    const totalBytes = [...state.attachments, ...accepted].reduce(
       (total, file) => total + file.size,
       0,
     );
-    if (totalBytes > MAX_TOTAL_BYTES) {
-      showToast("风格参考图合计不能超过 20MB");
+    if (totalBytes > maxTotalBytes) {
+      showToast(
+        `风格参考附件合计不能超过当前接口的 ${formatBytes(maxTotalBytes)}`,
+      );
       return;
     }
-    const images = await Promise.all(
+    const attachments = await Promise.all(
       accepted.map(async (file) => ({
         dataUrl: await readFileAsDataUrl(file),
         id: crypto.randomUUID(),
@@ -289,8 +416,8 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         type: file.type,
       })),
     );
-    state.images.push(...images);
-    renderImages();
+    state.attachments.push(...attachments);
+    renderAttachments();
   }
 
   function scrollToLatest() {
@@ -333,22 +460,20 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
       onConnectionRequired();
       return;
     }
+    if (!Number.isInteger(state.promptVersion)) {
+      showToast("请先读取并选择一个已上架 Prompt 版本");
+      return;
+    }
     const content = elements.input.value.trim();
     const hasDraftContext = state.messages.some(
       (message) => message.role === "assistant",
     );
-    if (state.images.length === 0 && !hasDraftContext) {
-      showToast("首轮请先添加至少 1 张风格参考图");
+    if (state.attachments.length === 0 && !hasDraftContext) {
+      showToast("首轮请先添加至少 1 个风格参考附件");
       return;
     }
-    if (state.images.length === 0 && !content) {
+    if (state.attachments.length === 0 && !content) {
       showToast("请输入要继续调整的内容");
-      return;
-    }
-    const systemPrompt = elements.systemPrompt.value.trim();
-    if (!systemPrompt) {
-      elements.systemPrompt.focus();
-      showToast("System Prompt 不能为空");
       return;
     }
     const model = selectedModel();
@@ -359,7 +484,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     }
 
     const messageContent =
-      content || `已上传 ${state.images.length} 张风格参考图`;
+      content || `已上传 ${state.attachments.length} 个风格参考附件`;
     const userMessage = { content: messageContent, role: "user" };
     const visibleUserMessage = userMessage;
     const requestMessages = [...state.messages, userMessage].slice(-19);
@@ -377,10 +502,10 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         body: JSON.stringify({
           messages: requestMessages,
           modelKey: state.modelKey,
-          referenceImages: state.images.map(
+          promptVersion: state.promptVersion,
+          referenceAttachments: state.attachments.map(
             ({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type }),
           ),
-          systemPrompt,
         }),
         method: "POST",
       });
@@ -388,8 +513,8 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         ...requestMessages,
         { content: JSON.stringify(result.styleDna), role: "assistant" },
       ].slice(-20);
-      state.images = [];
-      renderImages();
+      state.attachments = [];
+      renderAttachments();
       pending.replaceWith(draftElement(result, copyJson));
       scrollToLatest();
     } catch (error) {
@@ -410,8 +535,8 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
 
   function reset() {
     state.messages = [];
-    state.images = [];
-    renderImages();
+    state.attachments = [];
+    renderAttachments();
     elements.thread.replaceChildren();
     elements.input.value = "";
     resizeComposerInput();
@@ -421,6 +546,12 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
   elements.modelSelect.addEventListener("change", (event) => {
     state.modelKey = event.target.value;
     renderModels();
+  });
+  elements.promptVersionSelect.addEventListener("change", (event) => {
+    setPromptVersion(Number(event.target.value));
+  });
+  elements.promptRefreshButton.addEventListener("click", () => {
+    void loadRuntimeConfig({ forceRefresh: true });
   });
   elements.referenceInput.addEventListener("change", async (event) => {
     await addFiles(event.target.files);
@@ -443,11 +574,6 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     await addFiles(event.dataTransfer.files);
   });
   elements.resetButton.addEventListener("click", reset);
-  elements.promptResetButton.addEventListener("click", () => {
-    elements.systemPrompt.value = state.defaultSystemPrompt;
-    renderPromptState();
-  });
-  elements.systemPrompt.addEventListener("input", renderPromptState);
   elements.sendButton.addEventListener("click", send);
   elements.input.addEventListener("input", resizeComposerInput);
   elements.input.addEventListener("keydown", (event) => {
@@ -456,7 +582,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
       void send();
     }
   });
-  void loadAgentConfig();
+  void loadRuntimeConfig();
 
   return {
     setAvailability(models) {

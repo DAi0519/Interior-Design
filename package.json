@@ -3,12 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "公司图像模型的零依赖本地测试工作台",
+  "description": "公司图像模型的本地运营与测试工作台",
   "scripts": {
-    "start": "node server.mjs",
+    "lark:init": "lark-cli config init --new",
+    "lark:status": "lark-cli auth status --json --verify",
+    "start": "node --env-file-if-exists=.env.local server.mjs",
     "test": "node --test"
   },
+  "dependencies": {
+    "@larksuite/cli": "1.0.77"
+  },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
+  },
+  "allowScripts": {
+    "@larksuite/cli@1.0.77": true
   }
 }
