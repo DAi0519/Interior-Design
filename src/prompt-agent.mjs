@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与 AI 生图 Base 内独立表的统一 Prompt Agent 版本协议
- * [OUTPUT]: 对外提供按 Agent 编码派生展示名的白模/风格反推 Prompt 资源配置、脱敏版本目录、默认最高版本与指定已上架版本读取
+ * [OUTPUT]: 对外提供按 Agent 编码派生展示名的白模/风格反推 Prompt 资源配置、脱敏已上架版本目录、默认最高版本与指定已上架版本读取
  * [POS]: src 的服务端 Prompt 资产边界，让不同执行链复用同一发布与缓存语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

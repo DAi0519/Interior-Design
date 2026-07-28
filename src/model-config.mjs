@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 参数矩阵与 Google 当前稳定模型 ID，依赖 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供 publicModelCatalog、按各模型合法比例就近适配原图画幅的 createGenerationRequest 与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 参数矩阵与 Google 当前稳定模型 ID，依赖 reference-image.mjs 的参考图安全校验及可信宽高
+ * [OUTPUT]: 对外提供 publicModelCatalog、按各模型合法比例就近适配首张参考图画幅的 createGenerationRequest 与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API 与白模合法比例适配编排共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -180,6 +180,8 @@ export function createGenerationRequest(
   const modelKey = String(input.modelKey || "");
   const model = modelOrThrow(modelKey);
   const prompt = String(input.prompt || "").trim();
+  const referenceImages = normalizeReferenceImages(input.referenceImages);
+  const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
 
   if (prompt.length < 3 || prompt.length > 8000) {
     const error = new Error("提示词长度需要在 3–8000 字符之间");
@@ -187,13 +189,13 @@ export function createGenerationRequest(
     throw error;
   }
 
-  if (preferSourceAspect && !validDimensions(sourceDimensions)) {
+  if (preferSourceAspect && !validDimensions(resolvedSourceDimensions)) {
     const error = new Error("无法读取参考图画幅比例");
     error.statusCode = 400;
     throw error;
   }
   const ratio = preferSourceAspect
-    ? nearestSupportedRatio(model, sourceDimensions)
+    ? nearestSupportedRatio(model, resolvedSourceDimensions)
     : optionOrThrow(
         Object.keys(model.sizes),
         String(input.ratio || ""),
@@ -219,7 +221,6 @@ export function createGenerationRequest(
       : null;
 
   const size = model.sizes[ratio][resolution];
-  const referenceImages = normalizeReferenceImages(input.referenceImages);
   const request = {
     model: model.id,
     n: 1,

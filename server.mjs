@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
- * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、生成接口与非阻塞同步状态查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 版本目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
+ * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、自由生图首张参考图画幅适配、生成接口与非阻塞同步状态查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,6 +27,7 @@ import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
 import {
   STYLE_DNA_REVERSE_PROMPT_CONFIG,
   getPublishedPromptAgent,
+  listPublishedPromptAgentVersions,
 } from "./src/prompt-agent.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
@@ -91,11 +92,14 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
-function publicPromptAgent(promptAgent) {
+function publicPromptAgentCatalog(promptAgents) {
   return {
-    code: promptAgent.code,
-    name: promptAgent.name,
-    version: promptAgent.version,
+    defaultVersion: promptAgents[0]?.version || null,
+    versions: promptAgents.map((entry) => ({
+      ...entry,
+      published: true,
+      validPrompt: true,
+    })),
   };
 }
 
@@ -263,27 +267,29 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/styles") {
-    const [styles, promptAgent] = await Promise.all([
+    const [styles, promptAgents] = await Promise.all([
       listPublicStyles(),
-      getPublishedPromptAgent("white-model-fusion"),
+      listPublishedPromptAgentVersions("white-model-fusion"),
     ]);
     return sendJson(response, 200, {
-      promptAgent: publicPromptAgent(promptAgent),
+      promptAgent: publicPromptAgentCatalog(promptAgents),
       styles,
     });
   }
 
   if (request.method === "POST" && pathname === "/api/config/refresh") {
-    const [styles, promptAgent] = await Promise.all([
+    const [styles, promptAgents] = await Promise.all([
       listPublicStyles({ forceRefresh: true }),
-      getPublishedPromptAgent("white-model-fusion", { forceRefresh: true }),
+      listPublishedPromptAgentVersions("white-model-fusion", {
+        forceRefresh: true,
+      }),
       getPublishedPromptAgent("style-dna-reverse", {
         config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
         forceRefresh: true,
       }),
     ]);
     return sendJson(response, 200, {
-      promptAgent: publicPromptAgent(promptAgent),
+      promptAgent: publicPromptAgentCatalog(promptAgents),
       styles,
     });
   }
@@ -371,7 +377,9 @@ async function handleApi(request, response, pathname) {
 
   if (request.method === "POST" && pathname === "/api/generate") {
     const input = await readJson(request);
-    const generation = createGenerationRequest(input);
+    const generation = createGenerationRequest(input, {
+      preferSourceAspect: input.ratioMode === "auto",
+    });
     const client = createOneApiClient(requireApiKey());
     const startedAt = Date.now();
     const result = await client.generateImage(generation.request);

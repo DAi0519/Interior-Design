@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供含画幅适配模式的字段映射和飞书 CLI 返回体兼容性纯函数回归保障
+ * [OUTPUT]: 对外提供含画幅适配模式、融合基模的字段映射和飞书 CLI 返回体兼容性纯函数回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,10 +25,15 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
       transport: "responses",
     },
     sourcePrompt: "现代简约客厅，柔和自然光",
-    workflow: { feature: "white-model-rendering", styleCode: "cream-french@v1" },
+    workflow: {
+      agentModelLabel: "Gemini 3.1 Pro",
+      feature: "white-model-rendering",
+      styleCode: "cream-french@v1",
+    },
   });
 
   assert.equal(fields["模型"], "GPT Image 2");
+  assert.equal(fields["融合基模"], "Gemini 3.1 Pro");
   assert.equal(fields["原始 Prompt"], "现代简约客厅，柔和自然光");
   assert.equal(fields["最终 Prompt"], "结构化最终 Prompt");
   assert.equal("模型修订 Prompt" in fields, false);
@@ -46,7 +51,11 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
     resolution: "4K",
     sizeMode: "preset",
     transport: "responses",
-    workflow: { feature: "white-model-rendering", styleCode: "cream-french@v1" },
+    workflow: {
+      agentModelLabel: "Gemini 3.1 Pro",
+      feature: "white-model-rendering",
+      styleCode: "cream-french@v1",
+    },
   });
 });
 
@@ -69,6 +78,7 @@ test("长 Prompt 只截断标题，不截断最终内容且允许原始输入为
 
   assert.equal(fields["原始 Prompt"], "");
   assert.equal(fields["最终 Prompt"], prompt);
+  assert.equal("融合基模" in fields, false);
   assert.match(fields["标题"], /…$/);
 });
 

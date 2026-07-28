@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心与 Style DNA 对话控制器、各模型合法比例目录、生成执行与后台飞书同步状态接口
- * [OUTPUT]: 对外提供白模最近合法比例与手动覆盖、自由生图独立参数状态及即时结果与异步飞书反馈
+ * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心与 Style DNA 对话控制器、场景融合 Agent 版本目录、各模型合法比例目录、生成执行与后台飞书同步状态接口
+ * [OUTPUT]: 对外提供场景融合 Agent/出图模型下拉选择、白模与自由生图首张参考图最近合法比例、手动覆盖及即时结果与异步飞书反馈
  * [POS]: public 的生成状态控制器，与 connection-center.js/style-dna-chat.js 分责且不保存凭据或信任客户端尺寸
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
+import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import {
   nearestSupportedRatio,
@@ -36,13 +37,6 @@ const state = {
   styleCode: sessionStorage.getItem(STYLE_CODE_KEY) || "",
 };
 
-const MODEL_UI = Object.freeze({
-  bananaPro: { compactLabel: "Banana Pro", icon: "BP" },
-  banana2: { compactLabel: "Banana 2", icon: "B2" },
-  gptImage2: { compactLabel: "GPT 2", icon: "G2" },
-  seedream5: { compactLabel: "Seedream", icon: "S5" },
-});
-
 const elements = {
   baseRecordButton: document.querySelector("#baseRecordButton"),
   emptyModel: document.querySelector("#emptyModel"),
@@ -66,12 +60,19 @@ const elements = {
   loadingLabel: document.querySelector("#loadingLabel"),
   loadingState: document.querySelector("#loadingState"),
   modelAvailability: document.querySelector("#modelAvailability"),
-  modelList: document.querySelector("#modelList"),
+  modelNote: document.querySelector("#modelNote"),
+  modelSelect: document.querySelector("#modelSelect"),
   promptCount: document.querySelector("#promptCount"),
   promptAgentAvailability: document.querySelector("#promptAgentAvailability"),
   promptAgentModelSelect: document.querySelector("#promptAgentModelSelect"),
   promptAgentNote: document.querySelector("#promptAgentNote"),
   promptAgentSection: document.querySelector("#promptAgentSection"),
+  promptAgentVersionAvailability: document.querySelector(
+    "#promptAgentVersionAvailability",
+  ),
+  promptAgentVersionSelect: document.querySelector(
+    "#promptAgentVersionSelect",
+  ),
   promptInput: document.querySelector("#promptInput"),
   qualityField: document.querySelector("#qualityField"),
   qualitySelect: document.querySelector("#qualitySelect"),
@@ -96,13 +97,18 @@ const elements = {
   toast: document.querySelector("#toast"),
 };
 
+const promptAgentVersionSelect = bindPromptAgentVersionSelect({
+  availability: elements.promptAgentVersionAvailability,
+  select: elements.promptAgentVersionSelect,
+});
+
 function selectedModel() { return state.catalog.find((model) => model.key === state.modelKey); }
 
 function selectedSourceImage() {
-  return state.featureMode === "whiteModel" ? state.referenceImages[0] : null;
+  return state.featureMode === "styleDna" ? null : state.referenceImages[0];
 }
 
-function selectedPromptAgent() {
+function selectedPromptAgentModel() {
   return state.promptAgentCatalog.find((model) =>
     model.key === state.promptAgentModelKey);
 }
@@ -124,7 +130,7 @@ function renderPromptAgentModels() {
     return option;
   });
   elements.promptAgentModelSelect.replaceChildren(...options);
-  const selected = selectedPromptAgent();
+  const selected = selectedPromptAgentModel();
   elements.promptAgentNote.textContent = selected?.note || "用于理解白模并整合最终提示词。";
 }
 
@@ -225,44 +231,28 @@ function selectFeatureMode(featureMode) {
   renderReferenceImages();
 }
 
-function renderModels() {
-  elements.modelList.replaceChildren(
-    ...state.catalog.map((model) => {
-      const button = document.createElement("button");
-      const available = state.availableModels.get(model.id);
-      const isSelected = model.key === state.modelKey;
-      button.className = [
-        "model-option",
-        isSelected ? "selected" : "",
-        available === false ? "unavailable" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      button.dataset.accent = model.accent;
-      button.dataset.modelKey = model.key;
-      button.type = "button";
-      button.role = "radio";
-      button.ariaChecked = String(isSelected);
-      button.ariaLabel = model.label;
-      const modelUi = MODEL_UI[model.key];
-      button.innerHTML = `
-        <span class="model-icon">${modelUi.icon}</span>
-        <span class="model-copy">
-          <strong>${modelUi.compactLabel}</strong>
-        </span>
-      `;
-      button.addEventListener("click", () => selectModel(model.key));
-      return button;
-    }),
-  );
+function renderModelSelect() {
+  const options = state.catalog.map((model) => {
+    const available = state.availableModels.get(model.id);
+    const option = document.createElement("option");
+    option.disabled = available === false;
+    option.value = model.key;
+    option.selected = model.key === state.modelKey;
+    option.textContent = `${model.label}${available === false ? " · 当前 Key 未开放" : ""}`;
+    return option;
+  });
+  elements.modelSelect.replaceChildren(...options);
+  elements.modelNote.textContent =
+    selectedModel()?.description || "选择负责最终图像生成的模型。";
 }
 
 function selectModel(modelKey) {
+  if (!state.catalog.some((entry) => entry.key === modelKey)) return;
   state.modelKey = modelKey;
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
   const formats = model.formats.filter((format) => state.featureMode !== "whiteModel" || format !== "webp");
-  renderModels();
+  renderModelSelect();
   configureSizeControls();
   fillSelect(
     elements.formatSelect,
@@ -307,7 +297,11 @@ function configureSizeControls({ preserveResolution = false } = {}) {
     ? currentResolution
     : model.defaultResolution;
 
-  const ratio = nearestSupportedRatio(model, sourceImage);
+  const automaticRatio = nearestSupportedRatio(model, sourceImage);
+  const ratio = state.ratioMode === "manual" &&
+    Object.hasOwn(model.sizes, elements.ratioSelect.value)
+    ? elements.ratioSelect.value
+    : automaticRatio;
   fillSelect(elements.ratioSelect, Object.keys(model.sizes), ratio);
   fillSelect(
     elements.resolutionSelect,
@@ -351,9 +345,7 @@ function generationInput() {
     prompt: elements.promptInput.value.trim(),
     quality: elements.qualitySelect.value || undefined,
     ratio: elements.ratioSelect.value,
-    ratioMode: state.featureMode === "whiteModel"
-      ? state.ratioMode
-      : "manual",
+    ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
     referenceImages: state.referenceImages.map(
       ({ dataUrl, name, size, type }) => ({
         dataUrl,
@@ -365,6 +357,7 @@ function generationInput() {
     resolution: elements.resolutionSelect.value,
     styleCode: style?.code,
     promptAgentModelKey: state.promptAgentModelKey,
+    promptAgentVersion: promptAgentVersionSelect.value(),
   };
 }
 
@@ -495,7 +488,7 @@ async function addReferenceFiles(fileList) {
     return;
   }
   state.referenceImages.push(...nextImages);
-  if (state.featureMode === "whiteModel") state.ratioMode = "auto";
+  if (state.referenceImages.length === nextImages.length) state.ratioMode = "auto";
   renderReferenceImages();
   configureSizeControls({ preserveResolution: true });
   updateComputedSize();
@@ -603,7 +596,7 @@ async function checkAvailableModels() {
       body.agentModels.map((model) => [model.id, model]),
     );
     styleDnaChat.setAvailability(body.agentModels);
-    const selectedAgent = selectedPromptAgent();
+    const selectedAgent = selectedPromptAgentModel();
     if (!state.availablePromptAgents.get(selectedAgent?.id)?.selectable) {
       const fallback = body.agentModels.find((model) => model.selectable);
       if (fallback) state.promptAgentModelKey = fallback.key;
@@ -617,7 +610,7 @@ async function checkAvailableModels() {
     elements.modelAvailability.classList.add("ready");
     elements.promptAgentAvailability.classList.add("ready");
     renderPromptAgentModels();
-    renderModels();
+    renderModelSelect();
   } catch (error) {
     elements.modelAvailability.textContent = "检查失败";
     elements.promptAgentAvailability.textContent = "检查失败";
@@ -632,7 +625,7 @@ function resetModelAvailability() {
   state.availablePromptAgents.clear();
   styleDnaChat.setAvailability([]);
   renderPromptAgentModels();
-  renderModels();
+  renderModelSelect();
 }
 
 async function generate() {
@@ -642,6 +635,10 @@ async function generate() {
     return;
   }
   if (state.featureMode === "whiteModel") {
+    if (!promptAgentVersionSelect.value()) {
+      showToast("飞书场景融合 Agent 没有可用的已上架版本");
+      return;
+    }
     if (!selectedStyle()) {
       showToast("飞书风格库没有可用的已上架 Style DNA");
       return;
@@ -745,8 +742,12 @@ for (const button of elements.featureModeButtons) {
 elements.promptAgentModelSelect.addEventListener("change", (event) =>
   selectPromptAgent(event.target.value),
 );
+elements.modelSelect.addEventListener("change", (event) =>
+  selectModel(event.target.value),
+);
 const loadConfiguration = bindConfigRefresh({
   api,
+  onPromptAgentVersions: promptAgentVersionSelect.render,
   onStyles(styles) {
     state.styleCatalog = styles;
     renderStyles();
@@ -780,9 +781,7 @@ elements.referenceDropZone.addEventListener("drop", async (event) => {
   await addReferenceFiles(event.dataTransfer.files);
 });
 elements.ratioSelect.addEventListener("change", () => {
-  if (state.featureMode === "whiteModel" && selectedSourceImage()) {
-    state.ratioMode = "manual";
-  }
+  if (selectedSourceImage()) state.ratioMode = "manual";
   updateComputedSize();
 });
 elements.resolutionSelect.addEventListener("change", updateComputedSize);

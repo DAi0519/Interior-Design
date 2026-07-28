@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供无 Agent 名称字段时的白模/反推展示名派生、版本选择、上架状态、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供无 Agent 名称字段时的白模/反推展示名派生、脱敏已上架目录、版本选择、System Prompt 与分页边界回归保障
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

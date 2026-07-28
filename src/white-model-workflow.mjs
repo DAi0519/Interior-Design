@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、出图模型合法比例矩阵、可信参考图宽高、OneAPI 客户端与后台同步调度器
- * [OUTPUT]: 对外提供版本化 Style DNA 编码经 Prompt Agent、原图最近合法比例出图与非阻塞归档的执行编排
+ * [OUTPUT]: 对外提供版本化 Style DNA 编码经指定 Prompt Agent 版本、原图最近合法比例出图及含融合基模名称的非阻塞归档编排
  * [POS]: src 的设计模型渲染应用服务，优先保持白模画幅并允许显式手动覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -79,7 +79,9 @@ export async function executeWhiteModelWorkflow(
   const promptModel = agentModelOrThrow(input.promptAgentModelKey);
   const [style, agent] = await Promise.all([
     loadStyle(input.styleCode),
-    loadAgent("white-model-fusion"),
+    loadAgent("white-model-fusion", {
+      version: input.promptAgentVersion,
+    }),
   ]);
   let modelCatalog = availableModels || (await client.listModels());
   let availableIds = new Set(
@@ -142,6 +144,7 @@ export async function executeWhiteModelWorkflow(
   const workflow = {
     agentCode: agent.code,
     agentModel: promptModel.id,
+    agentModelLabel: promptModel.label,
     agentVersion: agent.version,
     feature: "white-model-rendering",
     imageDurationMs,

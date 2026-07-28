@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/model-config.mjs 的模型目录和请求构造器
- * [OUTPUT]: 对外提供模型 ID、合法尺寸映射、四模型原图最近比例、模型专属参数和非法组合的回归保障
+ * [OUTPUT]: 对外提供模型 ID、合法尺寸映射、四模型及自由生图首张参考图最近比例、模型专属参数和非法组合的回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,6 +57,51 @@ test("白模在模型合法集合中选择最接近原图的比例", () => {
   assert.equal(generation.request.size, "2752x1536");
   assert.equal(generation.preview.ratio, "16:9");
   assert.equal(generation.preview.resolution, "2K");
+  assert.equal(generation.preview.sizeMode, "source-nearest");
+});
+
+test("自由生图按首张参考图可信宽高选择最近合法比例", () => {
+  const wideJpeg = Buffer.from([
+    0xff, 0xd8,
+    0xff, 0xe0, 0x00, 0x02,
+    0xff, 0xc0, 0x00, 0x0b, 0x08,
+    0x04, 0x38,
+    0x07, 0x80,
+    0x01, 0x01, 0x11, 0x00,
+    0xff, 0xd9,
+  ]);
+  const squarePng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=",
+    "base64",
+  );
+  const generation = createGenerationRequest(
+    {
+      modelKey: "gptImage2",
+      outputFormat: "png",
+      prompt: "保持首张参考图构图，生成现代住宅客厅",
+      ratio: "1:1",
+      referenceImages: [
+        {
+          dataUrl: `data:image/jpeg;base64,${wideJpeg.toString("base64")}`,
+          name: "wide-reference.jpg",
+          size: wideJpeg.length,
+          type: "image/jpeg",
+        },
+        {
+          dataUrl: `data:image/png;base64,${squarePng.toString("base64")}`,
+          name: "square-reference.png",
+          size: squarePng.length,
+          type: "image/png",
+        },
+      ],
+      resolution: "2K",
+    },
+    { preferSourceAspect: true },
+  );
+
+  assert.equal(generation.preview.ratio, "16:9");
+  assert.equal(generation.request.size, "2048x1152");
+  assert.equal(generation.preview.referenceImageCount, 2);
   assert.equal(generation.preview.sizeMode, "source-nearest");
 });
 

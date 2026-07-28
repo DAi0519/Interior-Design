@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:fs/os/path、lark-cli.mjs 与已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt 字段映射、记录 ID 解析、图片附件与工作流元数据同步
- * [POS]: src 的飞书同步边界，将用户输入与实际出图 Prompt 分列归档成一条 Base 记录
+ * [OUTPUT]: 对外提供原始/最终 Prompt、出图模型/融合基模字段映射、记录 ID 解析、图片附件与工作流元数据同步
+ * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -54,6 +54,9 @@ export function buildRecordFields({
   return {
     "标题": titleFromPrompt(finalPrompt),
     "模型": modelLabel,
+    ...(workflow?.agentModelLabel
+      ? { "融合基模": workflow.agentModelLabel }
+      : {}),
     "原始 Prompt": String(sourcePrompt || "").trim(),
     "最终 Prompt": finalPrompt,
     "尺寸": preview.size,

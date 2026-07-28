@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与白模渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供版本化 Style DNA 编码、Prompt Agent、最近合法比例/手动覆盖、图片生成与后台同步调度回归保障
+ * [OUTPUT]: 对外提供版本化 Style DNA 编码、指定 Prompt Agent 版本、融合基模名称、最近合法比例/手动覆盖、图片生成与后台同步调度回归保障
  * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,6 +32,7 @@ function input() {
     outputFormat: "png",
     prompt: "稍微增强自然光",
     promptAgentModelKey: "gemini3pro",
+    promptAgentVersion: 1,
     ratio: "4:3",
     ratioMode: "manual",
     referenceImages: [
@@ -58,6 +59,7 @@ test("Prompt Agent 输出支持纯 JSON 与代码围栏并验证字段", () => {
 
 test("白模链路复用模型目录并在出图后调度飞书同步", async () => {
   let generatedRequest;
+  let agentLookup;
   let styleLookup;
   let syncedInput;
   const client = {
@@ -83,12 +85,15 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
   const result = await executeWhiteModelWorkflow(input(), {
     availableModels: [{ id: "gemini-3.1-pro-preview" }],
     client,
-    loadAgent: async () => ({
-      code: "white-model-fusion",
-      name: "白模渲染融合 Agent",
-      systemPrompt: "system",
-      version: 1,
-    }),
+    loadAgent: async (code, options) => {
+      agentLookup = { code, options };
+      return {
+        code: "white-model-fusion",
+        name: "白模渲染融合 Agent",
+        systemPrompt: "system",
+        version: 1,
+      };
+    },
     loadStyle: async (code) => {
       styleLookup = code;
       return {
@@ -109,10 +114,15 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
   assert.equal(generatedRequest.images.length, 1);
   assert.equal(generatedRequest.quality, "medium");
   assert.equal(generatedRequest.size, "1024x768");
+  assert.deepEqual(agentLookup, {
+    code: "white-model-fusion",
+    options: { version: 1 },
+  });
   assert.equal(styleLookup, "cream-french@v1");
   assert.equal(syncedInput.sourcePrompt, "稍微增强自然光");
   assert.deepEqual(JSON.parse(syncedInput.finalPrompt), agentJson);
   assert.equal("sourceRequirements" in syncedInput.workflow, false);
+  assert.equal(syncedInput.workflow.agentModelLabel, "Gemini 3.1 Pro");
   assert.equal(syncedInput.workflow.styleCode, "cream-french@v1");
   assert.equal(result.promptAgent.model, "gemini-3.1-pro-preview");
   assert.equal(result.request.transport, "responses");

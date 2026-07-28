@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖公司 Model Link 当前模型目录与 2026-07-21 白模图片输入探针结果
+ * [INPUT]: 依赖公司 Model Link 当前模型目录与 2026-07-28 真实截图图片输入探针结果
  * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器
  * [POS]: src 的 Prompt Agent 模型白名单，区分“接口存在”与“可读取白模图片”
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -21,6 +21,14 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     label: "Gemini 3.1 Pro",
     note: "已通过白模图片输入探针",
     shortLabel: "Gemini 3.1 Pro",
+  },
+  gemini35flash: {
+    accent: "blue",
+    id: "gemini-3.5-flash",
+    imageInput: true,
+    label: "Gemini 3.5 Flash",
+    note: "最新 Flash 候选，已通过真实截图图片输入探针",
+    shortLabel: "Gemini 3.5 Flash",
   },
   gpt: {
     accent: "lime",
@@ -46,13 +54,21 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     note: "综合能力，已通过白模图片输入探针",
     shortLabel: "Qwen 3.5 Plus",
   },
+  qwen3vlplus: {
+    accent: "purple",
+    id: "qwen3-vl-plus",
+    imageInput: true,
+    label: "Qwen3-VL Plus",
+    note: "视觉理解候选，已通过真实截图图片输入探针",
+    shortLabel: "Qwen3-VL Plus",
+  },
   doubaoVision: {
     accent: "orange",
-    id: "doubao-seed-1.6-vision",
+    id: "doubao-seed-1.8",
     imageInput: true,
-    label: "Doubao Seed 1.6 Vision",
-    note: "中文低成本候选，已通过白模图片输入探针",
-    shortLabel: "Doubao Vision",
+    label: "Doubao Seed 1.8",
+    note: "Doubao 最新候选，已通过真实截图图片输入探针",
+    shortLabel: "Doubao Seed 1.8",
   },
   kimi25: {
     accent: "lime",

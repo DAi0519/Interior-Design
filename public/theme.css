@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、无伪缝模型卡、轻量配置刷新、低圆角控件与高密度工作台视觉
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、紧凑版本/模型下拉、轻量配置刷新、低圆角控件与高密度工作台视觉
  * [POS]: public 的最终主题层，仅覆盖视觉表达，不改变 app.js 状态或业务交互
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -241,18 +241,6 @@ body::before {
     transform 120ms var(--ease-out);
 }
 
-.config-version {
-  background: var(--graphite);
-  border-radius: 4px;
-  color: var(--quiet);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  font-size: 9px;
-  font-weight: 500;
-  margin-left: 4px;
-  padding: 2px 5px;
-  vertical-align: 1px;
-}
-
 .config-refresh-button svg {
   fill: none;
   height: 12px;
@@ -270,10 +258,6 @@ body::before {
 .config-refresh-button:disabled {
   cursor: wait;
   opacity: 0.45;
-}
-
-.model-list {
-  gap: 8px;
 }
 
 .feature-mode-list {
@@ -321,6 +305,20 @@ body::before {
   display: block;
 }
 
+.compact-config-stack {
+  display: grid;
+  gap: 7px;
+}
+
+.compact-config-label {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 9px;
+  justify-content: space-between;
+  margin: 2px 1px -2px;
+}
+
 .compact-config-field select {
   font-size: 11px;
   min-height: 36px;
@@ -337,74 +335,6 @@ body::before {
   line-height: 1.45;
   margin: 7px 1px 0;
   overflow: hidden;
-}
-
-.model-option {
-  background: var(--panel-soft);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--muted);
-  min-height: 68px;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    transform 140ms var(--ease-out);
-}
-
-.model-option.selected {
-  background: var(--accent);
-  border-color: transparent;
-  box-shadow: none;
-  color: #fff;
-}
-
-.model-option.unavailable {
-  opacity: 0.38;
-}
-
-.model-option:disabled {
-  cursor: not-allowed;
-}
-
-.model-icon,
-.model-option[data-accent="lime"] .model-icon,
-.model-option[data-accent="blue"] .model-icon,
-.model-option[data-accent="purple"] .model-icon,
-.model-option[data-accent="orange"] .model-icon {
-  background: var(--graphite);
-  border: 1px solid #d8d5cf;
-  border-radius: 99999px;
-  color: var(--mist);
-  font-family: "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
-  font-weight: 600;
-}
-
-.model-option.selected .model-icon {
-  background: #fff;
-  border-color: #fff;
-  color: var(--accent);
-}
-
-.model-copy strong {
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.model-status {
-  color: var(--quiet);
-  display: block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  font-size: 8px;
-  line-height: 1.2;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-option.selected .model-status {
-  color: rgb(255 255 255 / 62%);
 }
 
 textarea,
@@ -702,11 +632,6 @@ select {
   .config-refresh-button:hover:not(:disabled) {
     background: var(--panel-soft);
     color: var(--text);
-  }
-
-  .model-option:hover:not(.selected) {
-    background: #eae8e3;
-    border-color: #d0cdc6;
   }
 
   .generate-button:hover:not(:disabled),
