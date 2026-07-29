@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、出图模型合法比例矩阵、可信参考图宽高、OneAPI 客户端与后台同步调度器
- * [OUTPUT]: 对外提供版本化 Style DNA 编码经指定 Prompt Agent 版本、原图最近合法比例出图及含融合基模名称的非阻塞归档编排
+ * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、出图模型合法比例矩阵、可信参考图宽高、可选提示词结果缓存、OneAPI 客户端与后台同步调度器
+ * [OUTPUT]: 对外提供 Prompt 解析、相同融合条件提示词复用/显式重算、版本化 Style DNA 编排、原图最近合法比例出图及非阻塞归档
  * [POS]: src 的设计模型渲染应用服务，优先保持白模画幅并允许显式手动覆盖
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { createHash } from "node:crypto";
 
 import { agentModelOrThrow } from "./agent-model-config.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
@@ -31,7 +33,6 @@ export function parsePromptAgentOutput(text) {
 
   const visual = payload?.visual_application;
   const required = [
-    payload?.scene_preservation,
     visual?.materials,
     visual?.colors,
     visual?.photography,
@@ -55,6 +56,34 @@ export function buildPromptAgentInput({ styleDna, userRequirements }) {
   ].join("\n");
 }
 
+function promptResultCacheKey({
+  agent,
+  promptModel,
+  style,
+  userRequirements,
+  whiteModel,
+}) {
+  const hash = createHash("sha256");
+  const parts = [
+    agent.code,
+    agent.version,
+    agent.systemPrompt,
+    promptModel.id,
+    style.code,
+    style.version,
+    JSON.stringify(style.styleDna),
+    userRequirements,
+    whiteModel.imageUrl,
+    whiteModel.width,
+    whiteModel.height,
+  ];
+  for (const part of parts) {
+    hash.update(String(part ?? ""));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
 export async function executeWhiteModelWorkflow(
   input,
   {
@@ -62,6 +91,7 @@ export async function executeWhiteModelWorkflow(
     client,
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
+    promptResultCache = null,
     refreshModels = null,
     scheduleSync = null,
   },
@@ -77,6 +107,7 @@ export async function executeWhiteModelWorkflow(
     throw workflowError("白模渲染需要且只允许 1 张白模图");
   }
   const promptModel = agentModelOrThrow(input.promptAgentModelKey);
+  const forcePromptRegeneration = input.forcePromptRegeneration === true;
   const [style, agent] = await Promise.all([
     loadStyle(input.styleCode),
     loadAgent("white-model-fusion", {
@@ -99,18 +130,35 @@ export async function executeWhiteModelWorkflow(
 
   const startedAt = Date.now();
   const promptStartedAt = Date.now();
-  const promptResult = await client.generatePrompt({
-    imageUrl: whiteModels[0].imageUrl,
-    model: promptModel.id,
-    systemPrompt: agent.systemPrompt,
-    userPrompt: buildPromptAgentInput({
-      styleDna: style.styleDna,
-      userRequirements,
-    }),
-  });
+  let promptGenerated = false;
+  const generateFinalPrompt = async () => {
+    promptGenerated = true;
+    const promptResult = await client.generatePrompt({
+      imageUrl: whiteModels[0].imageUrl,
+      model: promptModel.id,
+      systemPrompt: agent.systemPrompt,
+      userPrompt: buildPromptAgentInput({
+        styleDna: style.styleDna,
+        userRequirements,
+      }),
+    });
+    return JSON.stringify(parsePromptAgentOutput(promptResult.text), null, 2);
+  };
+  const finalPrompt = promptResultCache
+    ? await promptResultCache.get(
+        promptResultCacheKey({
+          agent,
+          promptModel,
+          style,
+          userRequirements,
+          whiteModel: whiteModels[0],
+        }),
+        generateFinalPrompt,
+        { force: forcePromptRegeneration },
+      )
+    : await generateFinalPrompt();
   const promptDurationMs = Date.now() - promptStartedAt;
-  const promptPayload = parsePromptAgentOutput(promptResult.text);
-  const finalPrompt = JSON.stringify(promptPayload, null, 2);
+  const promptReused = Boolean(promptResultCache && !promptGenerated);
   const generation = createGenerationRequest(
     {
       ...input,
@@ -149,6 +197,7 @@ export async function executeWhiteModelWorkflow(
     feature: "white-model-rendering",
     imageDurationMs,
     promptDurationMs,
+    promptReused,
     styleCode: style.code,
     styleName: style.name,
     styleVersion: style.version,
@@ -174,6 +223,7 @@ export async function executeWhiteModelWorkflow(
       durationMs: promptDurationMs,
       model: promptModel.id,
       name: agent.name,
+      reused: promptReused,
       version: agent.version,
     },
     request: preview,

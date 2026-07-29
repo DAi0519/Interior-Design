@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供无 Agent 名称字段时的白模/反推展示名派生、脱敏已上架目录、版本选择、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/反推展示名派生、脱敏已上架目录、版本选择、System Prompt 与分页边界回归保障
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,37 @@ test("解析已上架白模 Prompt Agent", async () => {
   assert.equal(agent.name, "白模渲染融合 Agent");
   assert.equal(agent.version, 2);
   assert.equal(agent.systemPrompt, "Only JSON");
+});
+
+test("Agent 名称字段存在时优先作为版本目录展示名", async () => {
+  const namedFields = [...fields, "Agent 名称"];
+  const run = async () => ({
+    data: {
+      data: [[
+        "white-model-fusion",
+        7,
+        ["上架"],
+        ["白模渲染"],
+        "Only JSON",
+        "白模场景融合 Agent",
+      ]],
+      fields: namedFields,
+      has_more: false,
+    },
+    ok: true,
+  });
+
+  const versions = await listPublishedPromptAgentVersions(
+    "white-model-fusion",
+    {
+      config: { baseToken: "base", cliPath: "lark-cli", tableId: "table" },
+      run,
+    },
+  );
+
+  assert.deepEqual(versions, [
+    { code: "white-model-fusion", name: "白模场景融合 Agent", version: 7 },
+  ]);
 });
 
 test("同编码多版本只选择最高已上架完整版本", async () => {

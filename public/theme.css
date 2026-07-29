@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、紧凑版本/模型下拉、轻量配置刷新、低圆角控件与高密度工作台视觉
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、磨砂液态玻璃顶栏、桌面视口等高双栏、左栏独立滚动、紧凑版本/模型下拉与高密度工作台视觉
  * [POS]: public 的最终主题层，仅覆盖视觉表达，不改变 app.js 状态或业务交互
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -209,8 +209,7 @@ body::before {
 
 .micro-status,
 .character-count,
-.size-badge,
-.button-meta {
+.size-badge {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
@@ -448,11 +447,6 @@ select {
   stroke: #fff;
 }
 
-.button-meta {
-  background: rgb(255 255 255 / 12%);
-  color: #d8d9da;
-}
-
 .generate-button:disabled,
 .primary-button:disabled {
   opacity: 0.38;
@@ -643,6 +637,35 @@ select {
   .reference-remove:hover {
     background: var(--graphite);
     color: var(--mist);
+  }
+}
+
+@media (min-width: 901px) {
+  body {
+    overflow: hidden;
+  }
+
+  .workspace {
+    height: calc(100vh - 120px);
+    height: calc(100dvh - 120px);
+    min-height: 0;
+  }
+
+  .control-panel,
+  .result-panel {
+    min-height: 0;
+  }
+
+  .control-panel {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    position: relative;
+    scrollbar-gutter: stable;
+  }
+
+  .result-stage {
+    min-height: 0;
   }
 }
 

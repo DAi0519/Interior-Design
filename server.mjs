@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 版本目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
- * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、自由生图首张参考图画幅适配、生成接口与非阻塞同步状态查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 版本目录、运行时缓存、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
+ * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、白模最终提示词会话内复用、生成接口与非阻塞同步状态查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,6 +30,7 @@ import {
   listPublishedPromptAgentVersions,
 } from "./src/prompt-agent.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
+import { createAsyncTtlCache } from "./src/runtime-cache.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
 import {
   executeStyleDnaReverse,
@@ -41,6 +42,8 @@ const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const PUBLIC_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "public");
 const MAX_JSON_BYTES = 30 * 1024 * 1024;
+const WHITE_MODEL_PROMPT_CACHE_MAX_ENTRIES = 50;
+const WHITE_MODEL_PROMPT_CACHE_TTL_MS = 60 * 60 * 1000;
 
 async function persistedOneApiKey() {
   try {
@@ -60,6 +63,10 @@ let sessionModelCatalog = null;
 let sessionModelCatalogRequest = null;
 const syncJobs = createSyncJobRegistry();
 const larkSetup = createLarkSetupService();
+const whiteModelPromptResultCache = createAsyncTtlCache({
+  maxEntries: WHITE_MODEL_PROMPT_CACHE_MAX_ENTRIES,
+  ttlMs: WHITE_MODEL_PROMPT_CACHE_TTL_MS,
+});
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -317,6 +324,7 @@ async function handleApi(request, response, pathname) {
     sessionApiKeySource = "memory";
     sessionModelCatalog = models;
     sessionModelCatalogRequest = null;
+    whiteModelPromptResultCache.clear();
     let warning = null;
 
     try {
@@ -346,6 +354,7 @@ async function handleApi(request, response, pathname) {
     sessionApiKey = "";
     sessionApiKeySource = "none";
     clearSessionModelCatalog();
+    whiteModelPromptResultCache.clear();
     let warning = null;
     try {
       await removePersistedOneApiKey();
@@ -432,6 +441,7 @@ async function handleApi(request, response, pathname) {
     const result = await executeWhiteModelWorkflow(input, {
       availableModels,
       client,
+      promptResultCache: whiteModelPromptResultCache,
       refreshModels: () => getSessionModelCatalog(client, { force: true }),
       scheduleSync: scheduleGenerationSync,
     });

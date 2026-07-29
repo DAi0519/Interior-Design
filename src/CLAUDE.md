@@ -13,8 +13,8 @@ lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
 lark-sync.mjs: 飞书生成记录同步边界，分列归档用户原始 Prompt、实际最终 Prompt、出图模型、融合基模、画幅适配模式、工作流元数据、结果图与参考图附件
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
-prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与风格反推独立数据表配置，以 Agent 编码派生稳定展示名，并用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取
-white-model-workflow.mjs: 设计模型渲染应用服务，按版本化 Style DNA 唯一编码与指定场景融合 Agent 版本编排、融合基模名称归档、真实图片宽高驱动的最近合法比例、手动画幅覆盖、Responses 图生图与非阻塞归档
+prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与风格反推独立数据表配置，以 Agent 编码稳定路由并支持白模 Agent 可选展示名，用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取
+white-model-workflow.mjs: 设计模型渲染应用服务，按融合输入指纹自动复用或显式重算最终提示词，并编排版本化 Style DNA、原图最近合法比例、Responses 图生图及非阻塞归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件
 reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高

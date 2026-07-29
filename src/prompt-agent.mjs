@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与 AI 生图 Base 内独立表的统一 Prompt Agent 版本协议
- * [OUTPUT]: 对外提供按 Agent 编码派生展示名的白模/风格反推 Prompt 资源配置、脱敏已上架版本目录、默认最高版本与指定已上架版本读取
+ * [OUTPUT]: 对外提供保留 Agent 编码且支持可选展示名的白模/风格反推 Prompt 资源配置、脱敏已上架版本目录、默认最高版本与指定已上架版本读取
  * [POS]: src 的服务端 Prompt 资产边界，让不同执行链复用同一发布与缓存语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,7 @@ const AGENT_FIELDS = [
   "场景类型",
   "System Prompt",
 ];
+const AGENT_NAME_FIELD = "Agent 名称";
 
 const AGENT_DISPLAY_NAMES = Object.freeze({
   "style-dna-reverse": "Style DNA 反推 Agent",
@@ -27,6 +28,7 @@ export const PROMPT_AGENT_CONFIG = Object.freeze({
   baseToken:
     process.env.LARK_AGENT_BASE_TOKEN || "SALobKnnra17iSsGT2ccC52PnHd",
   cliPath: process.env.LARK_CLI_PATH || "lark-cli",
+  displayNameField: AGENT_NAME_FIELD,
   tableId: process.env.LARK_AGENT_TABLE_ID || "tblrnwp76L0ig6pm",
 });
 
@@ -59,12 +61,18 @@ export function parsePromptAgentEnvelope(body) {
   if (missing.length > 0) {
     throw new Error(`飞书 Prompt Agent 表缺少字段：${missing.join("、")}`);
   }
+  const displayNameField = fields.includes(AGENT_NAME_FIELD)
+    ? AGENT_NAME_FIELD
+    : null;
   const at = (row, name) => row[fields.indexOf(name)];
   return body.data.data.map((row) => {
     const code = String(at(row, "Agent 编码") || "").trim();
+    const displayName = displayNameField
+      ? String(at(row, displayNameField) || "").trim()
+      : "";
     return {
       code,
-      name: agentDisplayName(code),
+      name: displayName || agentDisplayName(code),
       published: values(at(row, "上架状态")).includes("上架"),
       scenes: values(at(row, "场景类型")),
       systemPrompt: String(at(row, "System Prompt") || "").trim(),
@@ -79,7 +87,15 @@ async function listPromptAgents({
   run = runLarkCli,
 } = {}) {
   const load = async () => {
-    const fieldArgs = AGENT_FIELDS.flatMap((field) => ["--field-id", field]);
+    const fields = [
+      ...AGENT_FIELDS,
+      ...(
+        config.displayNameField
+          ? [config.displayNameField]
+          : []
+      ),
+    ];
+    const fieldArgs = fields.flatMap((field) => ["--field-id", field]);
     const body = await run(
       { cliPath: config.cliPath },
       [

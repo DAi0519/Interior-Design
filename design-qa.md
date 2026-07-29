@@ -1,4 +1,4 @@
-# Style DNA Workbench v15 Design QA
+# Canvas Lab Workbench v18 Design QA
 
 ## Evidence
 
@@ -21,6 +21,12 @@
 - Prompt table placement source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-50362033-db2d-45f3-9820-6b1c25f9a342.png`
 - Equal-height implementation: `/tmp/canvas-lab-panel-equal-height-final.jpg`
 - Equal-height normalized comparison: `/tmp/canvas-lab-panel-equal-height-comparison.jpg`
+- Fixed generation panels source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-25b67d74-35ec-46a6-a1ce-bf6005cb0513.png`
+- Fixed generation panels source crop: `/tmp/canvas-lab-fixed-panels-source-crop.png`
+- Fixed white-model implementation: `/tmp/canvas-lab-fixed-panels-white-final-1280x720.png`
+- Fixed white-model scrolled implementation: `/tmp/canvas-lab-fixed-panels-white-scrolled-final-1280x720.png`
+- Fixed free-generation implementations: `/tmp/canvas-lab-fixed-panels-free-final-1280x720.png`、`/tmp/canvas-lab-fixed-panels-free-final-1440x900.png`、`/tmp/canvas-lab-fixed-panels-free-final-720x900.png`
+- Fixed generation panels normalized comparison: `/tmp/canvas-lab-fixed-panels-comparison.png`
 - Source pixels: 2160 × 1440
 - Implementation pixels: 1280 × 720；CSS viewport 1280 × 720
 - Multiline source pixels: 1334 × 240；focused implementation pixels: 620 × 216
@@ -31,6 +37,7 @@
 - Panel alignment source pixels: 2078 × 294；implementation viewport: 1040 × 900 CSS pixels、devicePixelRatio 2；比较图裁取实现中对应的 1006 × 142 CSS 区域并统一到源图尺寸后纵向并置
 - Equal-height source pixels: 1920 × 1050；implementation pixels: 1912 × 980；CSS viewport 1920 × 980、devicePixelRatio 1
 - Equal-height normalization: 源图移除顶部 73px 浏览器栏并归一到 1912 × 980，与实现纵向并置；源图包含既有草稿而实现为空会话，只比较用户指定的面板外框高度、共同底边与标题区分隔线，不比较动态消息内容
+- Fixed generation panels normalization: 源图裁去浏览器与 Codex 侧栏得到 1726 × 977 应用区域，白模实现为 1280 × 720 像素与 1280 × 720 CSS 视口、`devicePixelRatio=1`；同一对照图将两者等宽缩放后并排，只比较固定双栏、共同底边、左栏内容裁切边界和右栏稳定性，不比较不同模式的字段数量。
 - State: 桌面端、风格反推模式、飞书服务端 Prompt、0 个附件、0 字附加要求
 - Multiline state: 1117 × 837 CSS 视口、devicePixelRatio 2、0 张附件、3 行与 12 行文字两种输入状态
 - Chat panel state: 4 轮完整 Style DNA 草稿、消息流停在底部、空 composer；使用生产样式的临时只读验收夹具，验收后已删除
@@ -56,6 +63,7 @@
 - 第十三轮纠正版本测试边界：左栏恢复脱敏 `Prompt 版本` 下拉和独立刷新，但不恢复正文编辑器；反推模型与 Prompt 版本使用同一配置语法。
 - 第十四轮统一飞书信息架构：风格反推版本资产落在现有 `AI 生图` Base 的独立 `风格反推prompt` 表，不再把同一产品域拆成额外 Base；前端版本选择与服务端脱敏边界保持不变。
 - 第十五轮收敛表结构：删除 `Agent 名称`、`创建时间`、`创建人`，将 `Agent 编码` 作为主字段；展示名称由服务端按编码派生，避免同一身份维护两份真源。
+- 第十八轮把风格反推的稳定工作区范式扩展到白模与自由生图：桌面双栏占满顶栏下方可用视口，左右共享底边，只有左侧配置栏承接纵向滚动；窄屏继续使用自然单栏页面流。
 
 ## Focused Prompt Comparison（v11 历史记录）
 
@@ -89,6 +97,8 @@
 - 双栏对齐：此前右栏叠加通用结果面板 20px 与对话头部 24px 内缩，标题相对面板偏移 44px，且没有首层分隔线；修复后两栏标题内缩、顶线和分区底线全部一致。
 - 大屏等高：此前右栏固定在 600–760px，左栏由 Prompt 与工作区高度决定，超宽屏底边明显断开；修复后桌面右栏参与网格拉伸并跟随左栏，动态消息仍只在中间消息流滚动。
 - Prompt 隔离：当前 DOM 中 `#styleDnaSystemPrompt`、`#styleDnaPromptState`、`#styleDnaPromptResetButton` 与 `.style-dna-prompt-section` 数量均为 0；页面可见文本不含 `System Prompt`。
+- 生成模式固定双栏：源图与最终白模实现的同输入对照确认顶栏、双栏起点、共同底边和稳定右侧结果区一致；左栏超出内容在面板边界内裁切并可滚动，没有继续拉长页面。
+- 白模生成入口在首次成功前保持单一全宽深色按钮；提示词可复用后原位显示“再次渲染 / 重新融合”两个独立按钮，两者共享高度、字号、图标尺度和低投影，主次层级只由深色与中性浅色块表达，没有隐藏菜单。
 
 ## Interaction Verification
 
@@ -97,7 +107,7 @@
 - 首轮没有参考图时拒绝发送；首轮有图时允许不填附加要求。
 - 草稿生成成功后清空本轮附件；已有草稿上下文时，纯文字补充要求可直接发送，无需重复上传图片。
 - 新对话同时清空消息与未发送附件，恢复首轮必须有图的状态。
-- 白模渲染、自由生图仍使用原布局；只有风格反推模式将左栏切换为满高弹性布局。
+- 白模渲染、自由生图与风格反推在桌面端均使用视口等高双栏；白模和自由生图滚动整个左侧配置栏，风格反推继续只滚动中间消息流。
 - 页面无横向溢出，浏览器控制台无 error 或 warning。
 - 状态机由浏览器与服务端双重校验，OneAPI 请求层确认纯文字续改不会重复附加历史图片。
 - 后端已重启并加载新校验；公开反推配置接口返回正常。重启清空了内存 API Key，真实模型回归留待重新连接后执行。
@@ -118,6 +128,16 @@
 - 自动状态徽标显示 `0.53:1 → 9:16 · WxH`；手动改为 `4:3` 后箭头提示消失并回显 `2400 × 1792`，继续切换到 `4K` 得到 `4800 × 3584`，证明分辨率不会继承原图且与比例独立。
 - 手动覆盖后切换出图模型会重新按原图进入自动适配；浏览器控制台无 error 或 warning，完整参数区无溢出。
 - 自由生图以第一张参考图为画幅基准，上传后自动进入最近合法比例；手动覆盖后继续添加第二张图不改写比例，移除首图或切换模型后按新的首图重新适配。
+- 1280 × 720 桌面端实测工作区、左栏和右栏高度均为 `600px`，上下边界为 `y=104–704px`；白模左栏 `scrollTop 0 → 629.5px`、自由生图左栏 `scrollTop 0 → 266px`，页面始终 `scrollTop=0` 且 `scrollHeight=clientHeight=720px`。
+- 1440 × 900 桌面端实测双栏随视口增长到 `780px`，页面 `scrollHeight=clientHeight=900px`；720 × 900 窄屏恢复自然单栏，页面高度 `1746px` 且无横向溢出。
+- 风格反推回归仍为左右 `600px`，消息流保持 `overflow-y:auto`；三种模式和三档视口的控制台均无 error 或 warning。
+- 第十九轮浏览器实测：白模模式显示“开始渲染”主体和“打开更多生成方式”次级触发区，菜单可由真实指针打开，Escape 与点击结果区均关闭；自由生图隐藏次级入口且主按钮恢复 `6px` 四角，切回白模后右上角为 `0px` 并恢复分裂结构。
+- 第十九轮服务端测试确认相同输入普通重试命中缓存、`forcePromptRegeneration=true` 显式重算、融合条件变化自动失效；浏览器控制台无 error 或 warning，未执行真实模型生成以避免消耗额度。
+- 第二十轮自动化测试 83/83 通过：首次白模、同指纹复用、融合输入变化失效、自由生图隔离、忙碌态，以及服务端普通复用/强制重算链路全部通过。
+- 第二十轮 1280 × 720 浏览器实测：首次白模只有全宽“开始渲染”，`#regeneratePromptButton` 保持隐藏且旧菜单节点数量为 0；真实指针完成白模 → 自由生图 → 白模切换，自由生图始终显示“开始生成”，页面结构与左栏滚动正常。
+- 本轮未执行真实模型生成以避免消耗额度和写入飞书；成功后的双按钮由纯状态测试覆盖，真实页面验收边界为首次态、模式切换、DOM 清理与视觉布局。
+- 第二十一轮真实页面加载 `generation-actions.css?v=2`，重新融合按钮包含 1 个同尺度线性图标，旧菜单节点仍为 0；真实指针再次完成自由生图 → 白模双向切换，首次态与模式隔离没有回归。
+- 第二十一轮未调用真实模型触发成功态；双按钮视觉改进依据用户提供的成功态截图、实际 360px 左栏尺寸与已加载 CSS 结构验收，不把隔离预览受限或未执行的模型调用记为运行时证据。
 
 ## Comparison History
 
@@ -158,6 +178,21 @@
 - 第十七轮问题：自由生图上传参考图后仍固定使用手选画幅，只有白模模式进入原图最近合法比例链路。
 - 第十七轮修复：自由生图以前端首图尺寸即时适配，并由服务端从首图真实图片头重复计算；无图保持手选，手动覆盖、追加参考图、移除首图与切换模型遵循和白模一致的状态规则。
 - 第十七轮修复后证据：76/76 自动化测试通过；首图/次图顺序、服务端可信宽高、手动覆盖及真实页面上传链路均完成回归。
+- 第十八轮问题：白模与自由生图仍由左栏全部配置内容撑高网格，1280 × 720 下双栏达到 `866.046875px`、页面 `scrollHeight=986px`；右栏结果画布的 `600px` 最小高度也阻止其收进可用视口。
+- 第十八轮修复：桌面工作区使用 `100dvh - 120px` 固定轨道并禁止页面级滚动，左栏设为独立纵向滚动容器，右侧结果画布 `min-height` 归零；`900px` 以下不继承这些约束。
+- 第十八轮修复后证据：白模和自由生图在 1280 × 720 下左右均为 `600px`，真实滚轮只改变左栏 `scrollTop`；1440 × 900 自动增长至 `780px`，720 × 900 回退自然单栏，风格反推等高与消息流滚动回归通过，归一化同输入对照无 P0/P1/P2 差异。
+- 第十九轮问题：相同融合条件自动复用提示词后，页面没有主动忽略缓存的入口，用户只能改输入、等待过期或重启服务。
+- 第十九轮修复：白模主操作改为分裂按钮，主体继续复用最终提示词，右侧菜单显式传递 `forcePromptRegeneration=true`；菜单控制独立为 generation-menu JS/CSS，支持键盘、Escape、外部点击与模式隔离。
+- 第十九轮修复后证据：78/78 自动化测试通过；1280 × 720 真实指针、键盘、白模 → 自由生图 → 白模双向切换、菜单向上展开、圆角与控制台回归通过。
+- 第二十轮问题：分裂按钮仍把“重新融合”藏进更多菜单，用户无法直接看见当前可执行的两种生成语义，也难以判断提示词是否已经可复用。
+- 第二十轮修复：生成动作改为输入指纹驱动；首次为全宽“开始渲染”，白模成功后切换为“再次渲染 / 重新融合”，任一融合输入变化立即恢复首次状态，自由生图与输出参数保持隔离。
+- 第二十轮修复后证据：83/83 自动化测试、1280 × 720 首次态截图、真实模式双向切换、旧菜单 DOM 清理与静态资源加载均通过；未把未执行的真实模型调用记为产品级证据。
+- 第二十一轮问题：双按钮虽然语义清楚，但深色主按钮使用图标、数量胶囊和投影，描边次按钮只有居中文字，形成两个组件体系拼接的割裂感。
+- 第二十一轮修复：次按钮改为中性浅色块并增加循环融合图标；双按钮统一为 48px 高、13px 字号、17px 图标、6px 圆角、低投影和 `scale(0.97)` 按压反馈，主次只通过色阶区分。
+- 第二十一轮修复后证据：83/83 自动化测试、CSS v2 静态资源、真实页面图标 DOM、旧菜单清理和模式双向切换通过；成功态未再次消耗模型额度。
+- 第二十二轮问题：系统没有多张生成能力，主按钮仍固定显示“1 张”，属于没有对应控制能力的伪状态信息，并让主按钮内容被迫左右分散。
+- 第二十二轮修复：删除数量 DOM 与全部 `.button-meta` 死样式，主按钮恢复居中的“图标 + 文案”结构；CSS 版本提升至 v3，避免旧胶囊样式缓存。
+- 第二十二轮修复后证据：83/83 自动化测试通过，公开 HTML 已加载 CSS v3，`public/` 内 `.button-meta` 与固定数量节点均为 0，主按钮居中规则已由服务端静态资源返回。
 
 ## Follow-up Polish
 

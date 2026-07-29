@@ -1,0 +1,91 @@
+/**
+ * [INPUT]: 依赖 index.html 的生成动作结构、generation-actions.js 的 has-reusable-prompt/hidden/disabled 状态与全局主题令牌
+ * [OUTPUT]: 对外提供首次全宽主按钮、提示词可复用后的同骨架 65/35 深浅双按钮及焦点、悬停和按压反馈
+ * [POS]: public 的生成动作视觉层，与 styles.css/theme.css 的通用主按钮规则分责
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.generation-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.generation-actions.has-reusable-prompt {
+  grid-template-columns: minmax(0, 1.8fr) minmax(104px, 1fr);
+}
+
+.generation-actions .generate-button {
+  justify-content: center;
+}
+
+.generation-actions.has-reusable-prompt .generate-button,
+.regenerate-prompt-button {
+  box-shadow: 0 1px 2px rgb(25 26 28 / 8%);
+  font-size: 13px;
+  min-height: 48px;
+}
+
+.generation-actions.has-reusable-prompt .generate-button {
+  padding: 0 14px;
+}
+
+.generation-actions.has-reusable-prompt .button-label {
+  gap: 8px;
+}
+
+.generation-actions.has-reusable-prompt .button-label svg,
+.regenerate-prompt-button svg {
+  height: 17px;
+  width: 17px;
+}
+
+.regenerate-prompt-button {
+  align-items: center;
+  background: var(--graphite);
+  border: 1px solid var(--graphite);
+  border-radius: 6px;
+  color: var(--text);
+  display: flex;
+  gap: 8px;
+  font-weight: 650;
+  justify-content: center;
+  padding: 0 12px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 140ms var(--ease-out);
+  white-space: nowrap;
+}
+
+.regenerate-prompt-button svg {
+  fill: none;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.regenerate-prompt-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.generation-actions .generate-button:focus-visible,
+.regenerate-prompt-button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.regenerate-prompt-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .regenerate-prompt-button:hover:not(:disabled) {
+    background: var(--line);
+    border-color: var(--line);
+  }
+}

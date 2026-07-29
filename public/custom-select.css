@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 custom-select.js 生成的 open/disabled/aria-selected 结构与 theme.css 设计令牌
+ * [INPUT]: 依赖 custom-select.js 从配置区与参数区 select 生成的 open/disabled/aria-selected 结构与 theme.css 设计令牌
  * [OUTPUT]: 对外提供暖白低圆角下拉、触发器版本反馈、深色选中态、单行辅助信息与键盘焦点视觉
  * [POS]: public 的自定义下拉视觉层，替代不可控的系统原生展开菜单
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-.compact-config-field select.custom-select-native {
+.compact-config-field select.custom-select-native,
+.field select.custom-select-native {
   height: 1px;
   opacity: 0;
   pointer-events: none;

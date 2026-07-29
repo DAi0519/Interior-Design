@@ -457,14 +457,6 @@ input::placeholder {
   width: 19px;
 }
 
-.button-meta {
-  background: rgb(255 255 255 / 10%);
-  border-radius: 999px;
-  color: #cdd1ca;
-  font-size: 10px;
-  padding: 5px 8px;
-}
-
 .dialog-backdrop {
   align-items: center;
   background: rgb(18 21 18 / 42%);

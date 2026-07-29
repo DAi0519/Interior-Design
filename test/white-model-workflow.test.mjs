@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与白模渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供版本化 Style DNA 编码、指定 Prompt Agent 版本、融合基模名称、最近合法比例/手动覆盖、图片生成与后台同步调度回归保障
+ * [OUTPUT]: 对外提供可选场景保持字段、提示词自动复用/显式重算/条件失效、版本化 Style DNA、最近合法比例及同步调度回归保障
  * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import {
   executeWhiteModelWorkflow,
   parsePromptAgentOutput,
 } from "../src/white-model-workflow.mjs";
+import { createAsyncTtlCache } from "../src/runtime-cache.mjs";
 
 const agentJson = {
   generation_requirement: "按白模材质化",
@@ -53,6 +54,12 @@ test("Prompt Agent 输出支持纯 JSON 与代码围栏并验证字段", () => {
   assert.deepEqual(
     parsePromptAgentOutput(`\`\`\`json\n${JSON.stringify(agentJson)}\n\`\`\``),
     agentJson,
+  );
+  const relaxedAgentJson = { ...agentJson };
+  delete relaxedAgentJson.scene_preservation;
+  assert.deepEqual(
+    parsePromptAgentOutput(JSON.stringify(relaxedAgentJson)),
+    relaxedAgentJson,
   );
   assert.throws(() => parsePromptAgentOutput("{}"), /缺少必需字段/);
 });
@@ -123,6 +130,7 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
   assert.deepEqual(JSON.parse(syncedInput.finalPrompt), agentJson);
   assert.equal("sourceRequirements" in syncedInput.workflow, false);
   assert.equal(syncedInput.workflow.agentModelLabel, "Gemini 3.1 Pro");
+  assert.equal(syncedInput.workflow.promptReused, false);
   assert.equal(syncedInput.workflow.styleCode, "cream-french@v1");
   assert.equal(result.promptAgent.model, "gemini-3.1-pro-preview");
   assert.equal(result.request.transport, "responses");
@@ -183,4 +191,65 @@ test("白模由服务端真实图片宽高驱动最近合法比例", async () =>
   assert.equal("quality" in generatedRequest, false);
   assert.equal(result.request.ratio, "1:1");
   assert.equal(result.request.sizeMode, "source-nearest");
+});
+
+test("出图失败重试复用提示词，并支持显式重算与条件变化失效", async () => {
+  const promptResultCache = createAsyncTtlCache({ ttlMs: 60_000 });
+  let imageCalls = 0;
+  let promptCalls = 0;
+  const client = {
+    generateImage: async () => {
+      imageCalls += 1;
+      if (imageCalls === 1) throw new Error("image failed");
+      return {
+        created: imageCalls,
+        images: [{ url: "data:image/png;base64,aQ==" }],
+        outputFormat: "png",
+        quality: null,
+        transport: "responses",
+      };
+    },
+    generatePrompt: async () => {
+      promptCalls += 1;
+      return { text: JSON.stringify(agentJson) };
+    },
+  };
+  const dependencies = {
+    availableModels: [{ id: "gemini-3.1-pro-preview" }],
+    client,
+    loadAgent: async () => ({
+      code: "white-model-fusion",
+      name: "白模渲染融合 Agent",
+      systemPrompt: "system",
+      version: 1,
+    }),
+    loadStyle: async () => ({
+      code: "cream-french@v1",
+      familyCode: "cream-french",
+      name: "奶油法式",
+      styleDna: { style_dna: { overall_style: "cream" } },
+      version: 1,
+    }),
+    promptResultCache,
+  };
+
+  await assert.rejects(
+    executeWhiteModelWorkflow(input(), dependencies),
+    /image failed/,
+  );
+  const retried = await executeWhiteModelWorkflow(input(), dependencies);
+  const forced = await executeWhiteModelWorkflow(
+    { ...input(), forcePromptRegeneration: true },
+    dependencies,
+  );
+  const changed = await executeWhiteModelWorkflow(
+    { ...input(), prompt: "改成傍晚暖光" },
+    dependencies,
+  );
+
+  assert.equal(promptCalls, 3);
+  assert.equal(imageCalls, 4);
+  assert.equal(retried.promptAgent.reused, true);
+  assert.equal(forced.promptAgent.reused, false);
+  assert.equal(changed.promptAgent.reused, false);
 });

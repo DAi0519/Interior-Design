@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心与 Style DNA 对话控制器、场景融合 Agent 版本目录、各模型合法比例目录、生成执行与后台飞书同步状态接口
- * [OUTPUT]: 对外提供场景融合 Agent/出图模型下拉选择、白模与自由生图首张参考图最近合法比例、手动覆盖及即时结果与异步飞书反馈
+ * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心、生成动作状态与 Style DNA 对话控制器、Agent 版本目录、模型比例目录及生成/同步接口
+ * [OUTPUT]: 对外提供默认 Seedream 出图模型、白模提示词复用后的双动作、模型与比例选择、即时结果及异步飞书反馈
  * [POS]: public 的生成状态控制器，与 connection-center.js/style-dna-chat.js 分责且不保存凭据或信任客户端尺寸
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
+import { bindGenerationActions } from "./generation-actions.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import {
@@ -15,7 +16,7 @@ import {
   sourceAspectLabel,
 } from "./image-ratio.js";
 import { api, fillSelect, secureImageUrl } from "./workbench-utils.js";
-import "./custom-select.js?v=3";
+import "./custom-select.js?v=4";
 
 const STYLE_CODE_KEY = "canvas-lab.style-code";
 const state = {
@@ -27,7 +28,7 @@ const state = {
   featureMode: "whiteModel",
   generating: false,
   lastImageUrl: null,
-  modelKey: "bananaPro",
+  modelKey: "seedream5",
   promptAgentCatalog: [],
   promptAgentModelKey: "gemini3pro",
   ratioMode: "auto",
@@ -45,17 +46,10 @@ const elements = {
   errorMessage: document.querySelector("#errorMessage"),
   errorState: document.querySelector("#errorState"),
   exactSize: document.querySelector("#exactSize"),
-  featureModeButtons: Array.from(
-    document.querySelectorAll("[data-feature-mode]"),
-  ),
+  featureModeButtons: Array.from(document.querySelectorAll("[data-feature-mode]")),
   formatSelect: document.querySelector("#formatSelect"),
-  generationControls: Array.from(
-    document.querySelectorAll(".generation-control"),
-  ),
-  generationResults: Array.from(
-    document.querySelectorAll(".generation-result"),
-  ),
-  generateButton: document.querySelector("#generateButton"),
+  generationControls: Array.from(document.querySelectorAll(".generation-control")),
+  generationResults: Array.from(document.querySelectorAll(".generation-result")),
   imageResult: document.querySelector("#imageResult"),
   loadingLabel: document.querySelector("#loadingLabel"),
   loadingState: document.querySelector("#loadingState"),
@@ -67,12 +61,8 @@ const elements = {
   promptAgentModelSelect: document.querySelector("#promptAgentModelSelect"),
   promptAgentNote: document.querySelector("#promptAgentNote"),
   promptAgentSection: document.querySelector("#promptAgentSection"),
-  promptAgentVersionAvailability: document.querySelector(
-    "#promptAgentVersionAvailability",
-  ),
-  promptAgentVersionSelect: document.querySelector(
-    "#promptAgentVersionSelect",
-  ),
+  promptAgentVersionAvailability: document.querySelector("#promptAgentVersionAvailability"),
+  promptAgentVersionSelect: document.querySelector("#promptAgentVersionSelect"),
   promptInput: document.querySelector("#promptInput"),
   qualityField: document.querySelector("#qualityField"),
   qualitySelect: document.querySelector("#qualitySelect"),
@@ -109,8 +99,8 @@ function selectedSourceImage() {
 }
 
 function selectedPromptAgentModel() {
-  return state.promptAgentCatalog.find((model) =>
-    model.key === state.promptAgentModelKey);
+  return state.promptAgentCatalog.find(
+    (model) => model.key === state.promptAgentModelKey);
 }
 
 function selectedStyle() {
@@ -214,6 +204,7 @@ function selectFeatureMode(featureMode) {
     result.classList.toggle("hidden", isStyleDna);
   }
   styleDnaChat.setVisible(isStyleDna);
+  generationActions.setFeatureMode(featureMode);
   if (isStyleDna) return;
 
   elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
@@ -225,8 +216,6 @@ function selectFeatureMode(featureMode) {
     : "添加或拖入参考图";
   elements.referenceInput.multiple = !isWhiteModel;
   elements.referenceInput.ariaLabel = isWhiteModel ? "添加白模图" : "添加参考图";
-  elements.generateButton.querySelector(".button-label span").textContent =
-    isWhiteModel ? "开始渲染" : "开始生成";
   selectModel(state.modelKey);
   renderReferenceImages();
 }
@@ -418,6 +407,7 @@ function renderReferenceImages() {
         );
         state.ratioMode = "auto";
         renderReferenceImages();
+        generationActions.refresh();
         configureSizeControls({ preserveResolution: true });
         updateComputedSize();
       });
@@ -458,9 +448,7 @@ async function addReferenceFiles(fileList) {
   }
 
   const currentBytes = state.referenceImages.reduce(
-    (total, image) => total + image.size,
-    0,
-  );
+    (total, image) => total + image.size, 0);
   const incomingBytes = accepted.reduce((total, file) => total + file.size, 0);
   if (currentBytes + incomingBytes > policy.maxTotalBytes) {
     showToast("参考图合计不能超过 20MB");
@@ -490,11 +478,13 @@ async function addReferenceFiles(fileList) {
   state.referenceImages.push(...nextImages);
   if (state.referenceImages.length === nextImages.length) state.ratioMode = "auto";
   renderReferenceImages();
+  generationActions.refresh();
   configureSizeControls({ preserveResolution: true });
   updateComputedSize();
 }
 
 function setApiConnectionState(connected) {
+  if (state.connected !== connected) generationActions.clearReusable();
   state.connected = connected;
   styleDnaChat.setConnected(connected);
   elements.modelAvailability.textContent = connected ? "检查模型中" : "等待连接";
@@ -503,7 +493,7 @@ function setApiConnectionState(connected) {
     : "等待连接";
   elements.modelAvailability.classList.toggle("ready", connected);
   elements.promptAgentAvailability.classList.toggle("ready", connected);
-  elements.generateButton.disabled = state.generating;
+  generationActions.setBusy(state.generating);
 }
 
 function setStage(stage) {
@@ -539,6 +529,7 @@ function renderResultSummary(result, model, sync = result.sync) {
     result.request.outputFormat.toUpperCase(),
     result.style?.name,
     result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
+    result.promptAgent?.reused ? "提示词已复用" : null,
     result.request.referenceImageCount > 0
       ? `${result.request.referenceImageCount} 张参考图`
       : null,
@@ -628,7 +619,7 @@ function resetModelAvailability() {
   renderModelSelect();
 }
 
-async function generate() {
+async function generate({ forcePromptRegeneration = false } = {}) {
   if (state.generating) return;
   if (!state.connected) {
     connectionCenter.open({ focusApi: true });
@@ -655,13 +646,15 @@ async function generate() {
   }
 
   const model = selectedModel();
+  const whiteModelRequest = state.featureMode === "whiteModel";
+  const promptIdentity = whiteModelRequest ? generationActions.currentIdentity() : null;
   state.activeGenerationId = null;
   state.generating = true;
-  elements.generateButton.disabled = true;
-  elements.generateButton.querySelector(".button-label span").textContent =
-    "生成中…";
+  generationActions.setBusy(true);
   elements.loadingLabel.textContent =
-    state.featureMode === "whiteModel"
+    whiteModelRequest && forcePromptRegeneration
+      ? "正在重新融合提示词并渲染…"
+      : whiteModelRequest
       ? "正在读取配置，由 Prompt Agent 整合后渲染…"
       : state.referenceImages.length > 0
         ? `正在使用 ${state.referenceImages.length} 张参考图生成…`
@@ -669,11 +662,12 @@ async function generate() {
   setStage("loading");
 
   try {
-    const endpoint = state.featureMode === "whiteModel"
-      ? "/api/white-model-render"
-      : "/api/generate";
+    const endpoint = whiteModelRequest ? "/api/white-model-render" : "/api/generate";
     const result = await api(endpoint, {
-      body: JSON.stringify(generationInput()),
+      body: JSON.stringify({
+        ...generationInput(),
+        forcePromptRegeneration: whiteModelRequest && forcePromptRegeneration,
+      }),
       method: "POST",
     });
     const image = result.images[0];
@@ -681,6 +675,7 @@ async function generate() {
     state.lastImageUrl = imageUrl;
     elements.resultImage.src = imageUrl;
     renderResultSummary(result, model);
+    if (whiteModelRequest) generationActions.markReusable(promptIdentity);
     elements.resultDuration.textContent = `${(result.durationMs / 1000).toFixed(1)} 秒`;
     setStage("image");
     showToast("生成完成，正在后台同步飞书");
@@ -690,12 +685,19 @@ async function generate() {
     setStage("error");
   } finally {
     state.generating = false;
-    elements.generateButton.disabled = false;
-    elements.generateButton.querySelector(".button-label span").textContent =
-      state.featureMode === "whiteModel" ? "开始渲染" : "开始生成";
+    generationActions.setBusy(false);
   }
 }
 
+const generationActions = bindGenerationActions({
+  getPromptIdentity: () => JSON.stringify([
+    state.referenceImages.map((image) => image.id), state.styleCode,
+    elements.promptInput.value.trim(), state.promptAgentModelKey,
+    promptAgentVersionSelect.value(),
+  ]),
+  onGenerate: () => void generate(),
+  onRegenerate: () => void generate({ forcePromptRegeneration: true }),
+});
 const styleDnaChat = bindStyleDnaChat({
   api,
   onConnectionRequired() {
@@ -735,32 +737,37 @@ async function initialize() {
   if (sessionBody.connected) await checkAvailableModels();
 }
 for (const button of elements.featureModeButtons) {
-  button.addEventListener("click", () =>
-    selectFeatureMode(button.dataset.featureMode),
-  );
+  button.addEventListener("click", () => selectFeatureMode(button.dataset.featureMode));
 }
-elements.promptAgentModelSelect.addEventListener("change", (event) =>
-  selectPromptAgent(event.target.value),
-);
-elements.modelSelect.addEventListener("change", (event) =>
-  selectModel(event.target.value),
-);
+elements.promptAgentModelSelect.addEventListener("change", (event) => {
+  selectPromptAgent(event.target.value);
+  generationActions.refresh();
+});
+elements.modelSelect.addEventListener("change", (event) => selectModel(event.target.value));
 const loadConfiguration = bindConfigRefresh({
   api,
-  onPromptAgentVersions: promptAgentVersionSelect.render,
+  onPromptAgentVersions(config) {
+    promptAgentVersionSelect.render(config);
+    generationActions.clearReusable();
+  },
   onStyles(styles) {
     state.styleCatalog = styles;
     renderStyles();
+    generationActions.clearReusable();
   },
   showToast,
 });
 elements.styleSelect.addEventListener("change", (event) => {
   setStyleCode(event.target.value);
   renderStyles();
+  generationActions.refresh();
 });
-elements.generateButton.addEventListener("click", generate);
-elements.retryButton.addEventListener("click", generate);
-elements.promptInput.addEventListener("input", updatePromptCount);
+elements.retryButton.addEventListener("click", () => generate());
+elements.promptInput.addEventListener("input", () => {
+  updatePromptCount();
+  generationActions.refresh();
+});
+elements.promptAgentVersionSelect.addEventListener("change", generationActions.refresh);
 elements.referenceInput.addEventListener("change", async (event) => {
   await addReferenceFiles(event.target.files);
   event.target.value = "";
