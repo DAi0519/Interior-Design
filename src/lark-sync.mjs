@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、lark-cli.mjs 与已创建的飞书 Base
+ * [INPUT]: 依赖 node:fs/os/path、image-artifact.mjs、lark-cli.mjs 与已创建的飞书 Base
  * [OUTPUT]: 对外提供原始/最终 Prompt、出图模型/融合基模字段映射、记录 ID 解析、图片附件与工作流元数据同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -9,10 +9,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  decodeImageDataUrl,
+  extensionForImageFormat,
+  loadImageBytes,
+} from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
-
-const MAX_RESULT_BYTES = 60 * 1024 * 1024;
-const IMAGE_FETCH_TIMEOUT_MS = 60_000;
 
 export const LARK_SYNC_CONFIG = Object.freeze({
   baseToken:
@@ -114,49 +116,12 @@ async function upsertRecord(config, fields, recordId = null) {
   return runLarkCli(config, args);
 }
 
-function extensionFor(format) {
-  return format === "jpeg" ? "jpg" : format;
-}
-
 function safeFileName(value, fallback) {
   const name = String(value || fallback)
     .replace(/[^\p{L}\p{N}._ -]/gu, "")
     .trim()
     .slice(0, 100);
   return name || fallback;
-}
-
-function decodeDataUrl(dataUrl) {
-  const match = String(dataUrl).match(
-    /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\r\n]+)$/,
-  );
-  if (!match) throw new Error("图片数据格式不正确");
-  return Buffer.from(match[2].replace(/\s/g, ""), "base64");
-}
-
-async function imageBytes(imageUrl) {
-  if (String(imageUrl).startsWith("data:")) return decodeDataUrl(imageUrl);
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(imageUrl, {
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(`读取生成结果失败（${response.status}）`);
-    }
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length === 0) throw new Error("生成结果为空");
-    if (bytes.length > MAX_RESULT_BYTES) throw new Error("生成结果超过 60MB");
-    return bytes;
-  } catch (error) {
-    if (error.name === "AbortError") throw new Error("读取生成结果超时");
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 async function uploadAttachments(config, recordId, fieldId, fileNames, cwd) {
@@ -198,9 +163,10 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
 
     temporaryDirectory = await mkdtemp(join(tmpdir(), "canvas-lab-lark-"));
 
-    const resultFileName = `result.${extensionFor(input.preview.outputFormat)}`;
+    const resultFileName =
+      `result.${extensionForImageFormat(input.preview.outputFormat)}`;
     const resultPath = join(temporaryDirectory, resultFileName);
-    await writeFile(resultPath, await imageBytes(input.resultImage.url));
+    await writeFile(resultPath, await loadImageBytes(input.resultImage.url));
     await uploadAttachments(
       config,
       recordId,
@@ -218,7 +184,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
       );
       const storedName = `${index + 1}-${fileName.includes(".") ? fileName : `${fileName}.${extension}`}`;
       const path = join(temporaryDirectory, storedName);
-      await writeFile(path, decodeDataUrl(reference.imageUrl));
+      await writeFile(path, decodeImageDataUrl(reference.imageUrl));
       referenceFileNames.push(storedName);
     }
     await uploadAttachments(

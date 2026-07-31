@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖全局 fetch 与 AbortController，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供 OneAPI 客户端、图生图与多轮图片/PDF 文本 Responses 请求构造、响应归一化与错误脱敏
+ * [OUTPUT]: 对外提供 OneAPI 客户端、图生图与多轮图片/PDF 文本 Responses 请求构造、请求 ID/响应归一化与错误脱敏
  * [POS]: src 的外部服务边界，文生图走 Images API，图片生成与 Style DNA 多模态反推走 Responses
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -237,7 +237,11 @@ export function createOneApiClient(apiKey) {
           "empty_prompt",
         );
       }
-      return { created: body.created_at || body.created || null, text };
+      return {
+        created: body.created_at || body.created || null,
+        requestId: body.id || null,
+        text,
+      };
     },
 
     async generateStyleDna({
@@ -291,6 +295,7 @@ export function createOneApiClient(apiKey) {
         images,
         outputFormat: body.output_format || generationRequest.output_format,
         quality: generationRequest.quality || null,
+        requestId: body.id || null,
         transport: useResponses ? "responses" : "images-generations",
       };
     },

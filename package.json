@@ -5,6 +5,8 @@
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "scripts": {
+    "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",
+    "benchmark:backfill": "node --env-file-if-exists=.env.local benchmark-backfill.mjs",
     "lark:init": "lark-cli config init --new",
     "lark:status": "lark-cli auth status --json --verify",
     "start": "node --env-file-if-exists=.env.local server.mjs",
