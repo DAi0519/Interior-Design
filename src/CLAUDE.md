@@ -9,7 +9,7 @@ image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF �
 agent-model-config.mjs: Prompt Agent 模型真源，维护九个候选 ID、最新 Doubao、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-client.mjs: OneAPI HTTP 客户端，Prompt Agent、Style DNA 多轮图片/PDF 反推与图生图走 Responses，分别构造 input_image/input_file，纯文生图走 Images API，并统一脱敏错误
 lark-cli.mjs: 飞书 CLI 基础设施，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
-lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
+lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
 lark-sync.mjs: 飞书生成记录同步边界，按真实 Base 字段“生图模型”“Prompt融合”分列归档最终出图模型、融合基模及用户原始 Prompt、实际最终 Prompt、画幅适配模式、工作流元数据、结果图与参考图附件
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本

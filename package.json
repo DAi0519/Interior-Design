@@ -1,6 +1,6 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
