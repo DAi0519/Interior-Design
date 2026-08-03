@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心、生成动作状态与 Style DNA 对话控制器、Agent 版本目录、模型比例目录及生成/同步接口
- * [OUTPUT]: 对外提供默认 Seedream 出图模型、白模提示词复用后的双动作、模型与比例选择、即时结果及异步飞书反馈
+ * [OUTPUT]: 对外提供默认 Seedream 出图模型、目录漏报时仍可尝试的模型选择、白模提示词复用后的双动作、即时结果及异步飞书反馈
  * [POS]: public 的生成状态控制器，与 connection-center.js/style-dna-chat.js 分责且不保存凭据或信任客户端尺寸
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { bindGenerationActions } from "./generation-actions.js";
+import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import {
@@ -223,11 +224,12 @@ function selectFeatureMode(featureMode) {
 function renderModelSelect() {
   const options = state.catalog.map((model) => {
     const available = state.availableModels.get(model.id);
+    const presentation = describeFinalModelOption(model, available);
     const option = document.createElement("option");
-    option.disabled = available === false;
+    option.disabled = !presentation.selectable;
     option.value = model.key;
     option.selected = model.key === state.modelKey;
-    option.textContent = `${model.label}${available === false ? " · 当前 Key 未开放" : ""}`;
+    option.textContent = presentation.label;
     return option;
   });
   elements.modelSelect.replaceChildren(...options);
@@ -592,11 +594,10 @@ async function checkAvailableModels() {
       const fallback = body.agentModels.find((model) => model.selectable);
       if (fallback) state.promptAgentModelKey = fallback.key;
     }
-    const availableCount = body.models.filter((model) => model.available).length;
     const availableAgentCount = body.agentModels.filter(
       (model) => model.selectable,
     ).length;
-    elements.modelAvailability.textContent = `${availableCount} / ${body.models.length} 可用`;
+    elements.modelAvailability.textContent = finalModelCatalogStatus(body.models);
     elements.promptAgentAvailability.textContent = `${availableAgentCount} / ${body.agentModels.length} 可选`;
     elements.modelAvailability.classList.add("ready");
     elements.promptAgentAvailability.classList.add("ready");
