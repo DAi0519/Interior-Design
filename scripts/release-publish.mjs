@@ -182,7 +182,9 @@ async function publishRelease() {
     "--title",
     `${packageInfo.name} ${tag}`,
     "--notes",
-    `${packageInfo.description || packageInfo.name} 源码发布包。请同时下载 ZIP、SHA-256 与 manifest。`,
+    `${packageInfo.name} ${tag} 运行包。使用者只需下载 ${names.archive}；` +
+      `${names.checksum} 和 ${names.manifest} 用于完整性与版本校验。` +
+      "请勿使用 GitHub 自动生成的 Source code 压缩包。",
   ], { inherit: true });
 
   const draft = await readRelease(tag);

@@ -29,7 +29,7 @@ Release，并删除 `dist/` 中本次生成的三个本地制品。上传或校�
 
 产物写入被 Git 忽略的 `dist/`：
 
-- `canvas-lab-v<version>.zip`：交给实习生或上传 GitHub Release。
+- `canvas-lab-v<version>.zip`：交给使用者或上传 GitHub Release。
 - `canvas-lab-v<version>.sha256`：ZIP 完整性校验。
 - `canvas-lab-v<version>.manifest.json`：版本、Git 提交、Node 边界及文件清单。
 
