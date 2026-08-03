@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 src/model-config.mjs 的模型目录和请求构造器
- * [OUTPUT]: 对外提供模型 ID、合法尺寸映射、四模型及自由生图首张参考图最近比例、模型专属参数和非法组合的回归保障
+ * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 的模型目录和请求构造器，以及浏览器出图模型目录解释器
+ * [OUTPUT]: 对外提供模型 ID、目录漏报不锁死选项、合法尺寸映射、四模型及自由生图首张参考图最近比例、模型专属参数和非法组合的回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,10 @@ import {
   createGenerationRequest,
   publicModelCatalog,
 } from "../src/model-config.mjs";
+import {
+  describeFinalModelOption,
+  finalModelCatalogStatus,
+} from "../public/final-model-availability.js";
 
 test("目录只暴露目标四个模型和真实模型 ID", () => {
   assert.deepEqual(
@@ -23,6 +27,25 @@ test("目录只暴露目标四个模型和真实模型 ID", () => {
       { id: "gpt-image-2", key: "gptImage2" },
       { id: "doubao-seedream-5.0", key: "seedream5" },
     ],
+  );
+});
+
+test("出图模型未被模型目录返回时仍允许真实请求尝试", () => {
+  assert.deepEqual(
+    describeFinalModelOption({ label: "GPT Image 2" }, false),
+    {
+      label: "GPT Image 2 · 目录未返回，可尝试",
+      selectable: true,
+    },
+  );
+  assert.equal(
+    finalModelCatalogStatus([
+      { available: false },
+      { available: false },
+      { available: false },
+      { available: true },
+    ]),
+    "4 个可选 · 1 个目录可见",
   );
 });
 
