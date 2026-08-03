@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:child_process/fs/os/path/crypto、固定版本 lark-cli 与用户显式飞书授权
- * [OUTPUT]: 对外提供脱敏的 CLI/用户/Scope 状态、非阻塞 Device Flow、二维码与登录完成能力
+ * [OUTPUT]: 对外提供脱敏的 CLI/用户/Scope 状态、字段读取与记录同步最小权限、非阻塞 Device Flow、二维码与登录完成能力
  * [POS]: src 的运营首次运行边界，与业务 Base 读取和生成记录同步解耦
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,6 +18,7 @@ const execFileAsync = promisify(execFile);
 const LOGIN_TTL_MS = 10 * 60 * 1000;
 
 export const REQUIRED_LARK_SCOPES = Object.freeze([
+  "base:field:read",
   "base:record:read",
   "base:record:create",
   "base:record:update",

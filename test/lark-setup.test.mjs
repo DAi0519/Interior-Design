@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 lark-setup.mjs 的状态解析、Setup 服务和注入式 CLI 执行器
- * [OUTPUT]: 验证 CLI/用户/Scope/Base 状态、非阻塞授权、二维码和过期登录尝试
+ * [OUTPUT]: 验证 CLI/用户/字段读取 Scope/Base 状态、非阻塞授权、二维码和过期登录尝试
  * [POS]: test 的飞书首次运行回归测试，不发起真实授权或访问真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,10 +57,28 @@ test("飞书身份公开状态只返回显示名与缺失 Scope", () => {
   body.identities.user.scope = "base:record:read";
   assert.deepEqual(publicAuthStatus(body), {
     loggedIn: true,
-    missingScopes: REQUIRED_LARK_SCOPES.slice(1),
+    missingScopes: REQUIRED_LARK_SCOPES.filter(
+      (scope) => scope !== "base:record:read",
+    ),
     tokenValid: true,
     userName: "运营用户",
   });
+});
+
+test("飞书同步授权契约包含字段读取最小权限", () => {
+  assert.deepEqual(REQUIRED_LARK_SCOPES, [
+    "base:field:read",
+    "base:record:read",
+    "base:record:create",
+    "base:record:update",
+    "docs:document.media:upload",
+  ]);
+
+  const body = readyAuthEnvelope();
+  body.identities.user.scope = REQUIRED_LARK_SCOPES
+    .filter((scope) => scope !== "base:field:read")
+    .join(" ");
+  assert.deepEqual(publicAuthStatus(body).missingScopes, ["base:field:read"]);
 });
 
 test("Setup 状态分层验证 CLI、用户 Scope 与共享 Base", async () => {
@@ -116,6 +134,13 @@ test("Device Flow 不返回 device code，并在用户确认后完成登录", as
   assert.equal(started.verificationUrl, "https://example.test/device?opaque=1");
   assert.equal(started.qrCodeDataUrl, "data:image/png;base64,AAAA");
   assert.equal("deviceCode" in started, false);
+  const loginCall = calls.find(
+    (args) => args[0] === "auth" && args[1] === "login",
+  );
+  assert.equal(
+    loginCall[loginCall.indexOf("--scope") + 1],
+    REQUIRED_LARK_SCOPES.join(" "),
+  );
 
   const completed = await service.completeLogin(started.loginId, {
     verifyBase: async () => {},
