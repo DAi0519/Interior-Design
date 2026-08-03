@@ -1,9 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
+  "releaseNotes": [
+    "四个最终出图模型启动后统一可选，不再向使用者展示模型目录内部状态。",
+    "飞书连接中心自动检测字段读取等最小权限，旧登录缺少权限时可直接补充授权。"
+  ],
   "scripts": {
     "lark:init": "lark-cli config init --new",
     "lark:status": "lark-cli auth status --json --verify",

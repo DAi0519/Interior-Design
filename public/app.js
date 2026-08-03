@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心、生成动作状态与 Style DNA 对话控制器、Agent 版本目录、模型比例目录及生成/同步接口
- * [OUTPUT]: 对外提供默认 Seedream 出图模型、目录漏报时仍可尝试的模型选择、白模提示词复用后的双动作、即时结果及异步飞书反馈
+ * [OUTPUT]: 对外提供默认 Seedream、四个统一可选且隐藏内部目录状态的出图模型、白模提示词复用后的双动作、即时结果及异步飞书反馈
  * [POS]: public 的生成状态控制器，与 connection-center.js/style-dna-chat.js 分责且不保存凭据或信任客户端尺寸
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,7 +23,6 @@ const STYLE_CODE_KEY = "canvas-lab.style-code";
 const state = {
   activeGenerationId: null,
   availablePromptAgents: new Map(),
-  availableModels: new Map(),
   catalog: [],
   connected: false,
   featureMode: "whiteModel",
@@ -223,8 +222,7 @@ function selectFeatureMode(featureMode) {
 
 function renderModelSelect() {
   const options = state.catalog.map((model) => {
-    const available = state.availableModels.get(model.id);
-    const presentation = describeFinalModelOption(model, available);
+    const presentation = describeFinalModelOption(model);
     const option = document.createElement("option");
     option.disabled = !presentation.selectable;
     option.value = model.key;
@@ -582,9 +580,6 @@ async function checkAvailableModels() {
   if (!state.connected) return;
   try {
     const body = await api("/api/check-models", { method: "POST" });
-    state.availableModels = new Map(
-      body.models.map((model) => [model.id, model.available]),
-    );
     state.availablePromptAgents = new Map(
       body.agentModels.map((model) => [model.id, model]),
     );
@@ -613,7 +608,6 @@ async function checkAvailableModels() {
 }
 
 function resetModelAvailability() {
-  state.availableModels.clear();
   state.availablePromptAgents.clear();
   styleDnaChat.setAvailability([]);
   renderPromptAgentModels();

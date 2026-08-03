@@ -5,8 +5,8 @@
 
 CLAUDE.md: 本模块地图，维护自动化测试成员清单
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
-lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 最终出图模型目录漏报不锁死、模型合法尺寸矩阵、四模型及自由生图首张参考图最近比例、GPT 中等质量默认值与请求白名单回归测试，不发送真实 API 请求
+lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
+model-config.test.mjs: 最终出图模型统一可选且隐藏内部目录状态、模型合法尺寸矩阵、四模型及自由生图首张参考图最近比例、GPT 中等质量默认值与请求白名单回归测试，不发送真实 API 请求
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
 generation-actions.test.mjs: 白模首次单按钮、提示词可复用双按钮、融合输入变化失效、自由生图隔离与忙碌文案纯状态测试

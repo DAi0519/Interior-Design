@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 release-pack、release-files、Git/GitHub CLI、package.json 与 dist 发布物
- * [OUTPUT]: 对外提供版本占用检查、Release 制品校验及打包/上传/转正式/本地清理编排
+ * [OUTPUT]: 对外提供版本占用检查、带版本亮点的 Release 文案、制品校验及打包/上传/转正式/本地清理编排
  * [POS]: scripts 的对外发布边界，在本地发布准入之上增加显式且可验证的 GitHub 写操作
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -56,6 +56,20 @@ export function assertVersionAvailable({ releases, remoteTagExists, tag }) {
   if (remoteTagExists) {
     throw new Error(`${tag} 已存在远端 Tag；请先提升 package.json 版本`);
   }
+}
+
+export function buildReleaseNotes({ highlights, names, tag }) {
+  const changes = Array.isArray(highlights) && highlights.length > 0
+    ? ["", "本次更新：", ...highlights.map((item) => `- ${item}`)]
+    : [];
+  return [
+    `Canvas Lab ${tag} 运行包。`,
+    ...changes,
+    "",
+    `使用者只需下载 ${names.archive}；${names.checksum} 和 ${names.manifest} 用于完整性与版本校验。`,
+    "请勿使用 GitHub 自动生成的 Source code 压缩包。",
+    "解压后在 macOS 双击 start-macos.command，或在 Windows 双击 start-windows.cmd。",
+  ].join("\n");
 }
 
 export function verifyRemoteRelease({
@@ -182,10 +196,7 @@ async function publishRelease() {
     "--title",
     `Canvas Lab ${tag}`,
     "--notes",
-    `Canvas Lab ${tag} 运行包。使用者只需下载 ${names.archive}；` +
-      `${names.checksum} 和 ${names.manifest} 用于完整性与版本校验。` +
-      "请勿使用 GitHub 自动生成的 Source code 压缩包。解压后在 macOS 双击 " +
-      "start-macos.command，或在 Windows 双击 start-windows.cmd。",
+    buildReleaseNotes({ highlights: packageInfo.releaseNotes, names, tag }),
   ], { inherit: true });
 
   const draft = await readRelease(tag);
