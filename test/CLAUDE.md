@@ -11,7 +11,7 @@ image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
 generation-actions.test.mjs: 白模首次单按钮、提示词可复用双按钮、融合输入变化失效、自由生图隔离与忙碌文案纯状态测试
 agent-model-config.test.mjs: 九个 Prompt Agent 候选 ID、最新 Doubao、图片输入能力与接口可用性回归测试，不发送真实 API 请求
-lark-sync.test.mjs: 飞书原始/最终 Prompt、出图模型/融合基模、画幅适配模式与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
+lark-sync.test.mjs: 飞书原始/最终 Prompt、“生图模型”/“Prompt融合”、画幅适配模式与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
 oneapi-client.test.mjs: OneAPI Responses 图生图质量参数、Style DNA 多轮图片/PDF 与纯文字续改请求、input_image/input_file 分流、响应归一化、Prompt 文本与错误脱敏测试
 style-dna-reverse.test.mjs: Style DNA 反推脱敏版本目录、所选版本传递、Prompt 正文隔离、客户端覆盖防护、公开附件策略、多轮图片/PDF 与固定 JSON Schema 测试
 prompt-agent.test.mjs: 可选 Agent 名称字段、无名称字段时的白模与风格反推展示名派生、行解析、脱敏已上架版本目录、默认最高/指定发布版本、System Prompt 与分页边界测试

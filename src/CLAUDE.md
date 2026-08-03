@@ -11,7 +11,7 @@ oneapi-client.mjs: OneAPI HTTP 客户端，Prompt Agent、Style DNA 多轮图片
 lark-cli.mjs: 飞书 CLI 基础设施，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 飞书生成记录同步边界，分列归档用户原始 Prompt、实际最终 Prompt、出图模型、融合基模、画幅适配模式、工作流元数据、结果图与参考图附件
+lark-sync.mjs: 飞书生成记录同步边界，按真实 Base 字段“生图模型”“Prompt融合”分列归档最终出图模型、融合基模及用户原始 Prompt、实际最终 Prompt、画幅适配模式、工作流元数据、结果图与参考图附件
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与风格反推独立数据表配置，以 Agent 编码稳定路由并支持白模 Agent 可选展示名，用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取
 white-model-workflow.mjs: 设计模型渲染应用服务，按融合输入指纹自动复用或显式重算最终提示词，并编排版本化 Style DNA、原图最近合法比例、Responses 图生图及非阻塞归档
