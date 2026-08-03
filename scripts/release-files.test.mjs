@@ -18,11 +18,14 @@ import {
 const required = [
   ".env.example",
   ".gitignore",
+  "launcher.mjs",
   "README.md",
   "package-lock.json",
   "package.json",
   "public/index.html",
   "server.mjs",
+  "start-macos.command",
+  "start-windows.cmd",
 ];
 
 test("发布白名单只接纳运行源码与必要根文件", () => {

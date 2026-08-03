@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Git 工作区、package/lock、Node/npm、发布白名单与项目源码文档契约
- * [OUTPUT]: 对外提供可复用 runReleaseChecks，并以 CLI 执行干净提交、测试、依赖与安全检查
+ * [OUTPUT]: 对外提供可复用 runReleaseChecks，并执行干净提交、启动权限、测试、依赖与安全检查
  * [POS]: scripts 的发布准入门，阻断脏工作区、版本漂移、超长文件、契约缺失和疑似密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  isReleaseFile,
   releaseArtifactNames,
   selectReleaseFiles,
 } from "./release-files.mjs";
@@ -73,6 +74,12 @@ function gitOutput(args) {
   return runCommand("", "git", args, { capture: true }).trim();
 }
 
+export function assertMacLauncherMode(mode) {
+  if (mode !== "100755") {
+    throw new Error(`start-macos.command 必须具备 Git 可执行权限，当前为 ${mode || "<missing>"}`);
+  }
+}
+
 export async function readPackageInfo() {
   const packageInfo = JSON.parse(
     await readFile(resolve(projectRoot, "package.json"), "utf8"),
@@ -108,9 +115,11 @@ function lineCount(text) {
 async function assertSourceContracts(files) {
   const codeExtensions = new Set([".css", ".html", ".js", ".mjs"]);
   const sourceFiles = files.filter((file) =>
-    file === "server.mjs" ||
-    ["public/", "scripts/", "src/", "test/"].some((prefix) =>
-      file.startsWith(prefix)) && codeExtensions.has(extname(file)));
+    (
+      isReleaseFile(file) ||
+      ["public/", "scripts/", "src/", "test/"].some((prefix) =>
+        file.startsWith(prefix))
+    ) && codeExtensions.has(extname(file)));
   for (const file of sourceFiles) {
     const text = await readFile(resolve(projectRoot, file), "utf8");
     const count = lineCount(text);
@@ -150,6 +159,13 @@ export async function runReleaseChecks() {
   runCommand("检查 Git 空白与冲突标记", "git", ["diff", "--check"]);
   const allTrackedFiles = trackedFiles();
   const files = selectReleaseFiles(allTrackedFiles);
+  const macLauncherMode = gitOutput([
+    "ls-files",
+    "--stage",
+    "--",
+    "start-macos.command",
+  ]).split(/\s+/, 1)[0];
+  assertMacLauncherMode(macLauncherMode);
   await assertSourceContracts(allTrackedFiles);
   await assertNoLikelySecrets(files);
   runCommand("验证 package-lock 可干净安装", npmCommand, [

@@ -4,7 +4,7 @@ Node.js 24+ + 原生 HTTP + HTML + CSS + JavaScript + lark-cli 1.0.77
 <directory>
 public/ - 浏览器工作台界面（17 个业务文件及 icons/ 图标资产模块：运营连接中心、生成动作状态、图片比例适配、场景融合 Agent 版本、Style DNA 对话、自定义配置下拉、Light Command Center 样式与共享工具）
 src/ - 本机设置、飞书 Setup、图片尺寸探测、出图参数、风格与 Agent 配置、OneAPI、Style DNA 反推、白模编排、运行时缓存及后台飞书同步层（16 个模块）
-test/ - Node 原生测试（17 个测试文件，覆盖本机设置、飞书 Setup、图片尺寸/比例、模型参数、生成动作、图片/PDF 附件、风格反推、飞书配置/同步、运行时缓存及白模工作流）
+test/ - Node 原生测试（18 个测试文件，覆盖一键启动、本机设置、飞书 Setup、图片尺寸/比例、模型参数、生成动作、图片/PDF 附件、风格反推、飞书配置/同步、运行时缓存及白模工作流）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>
@@ -12,7 +12,10 @@ PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 <config>
 package.json - 固定 Node 版本、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli 平台安装版本
+launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、启动服务并打开浏览器
 server.mjs - 本地 HTTP 服务、可选持久化密钥会话、飞书 Setup、脱敏 Agent 版本目录、配置主动刷新、白模最终提示词缓存、Style DNA 反推与生成 API 路由入口
+start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
+start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 .codex/environments/environment.toml - Codex 通过 npm start 一键后台启动并打开本地工作台的 macOS 动作
 .env.example - 可复制为 .env.local 的 OneAPI 与飞书资源配置模板
 README.md - Windows/macOS 运营首次运行、连接中心、安全边界与模型参数说明

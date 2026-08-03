@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 release-check 可注入执行器的有限重试边界
- * [OUTPUT]: 对外提供瞬时失败恢复、连续失败阻断与重试间隔回归保障
+ * [INPUT]: 依赖 node:test/assert 与 release-check 的 macOS 启动权限及可注入有限重试边界
+ * [OUTPUT]: 对外提供启动权限、瞬时失败恢复、连续失败阻断与重试间隔回归保障
  * [POS]: scripts 的发布准入重试单元测试，不执行真实 Git、npm、网络或等待
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runCommandWithRetries } from "./release-check.mjs";
+import {
+  assertMacLauncherMode,
+  runCommandWithRetries,
+} from "./release-check.mjs";
+
+test("macOS 双击入口必须保留 Git 可执行权限", () => {
+  assert.doesNotThrow(() => assertMacLauncherMode("100755"));
+  assert.throws(() => assertMacLauncherMode("100644"), /可执行权限/);
+});
 
 test("有限重试会恢复两次瞬时失败", async () => {
   const labels = [];

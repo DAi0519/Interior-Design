@@ -66,7 +66,8 @@ npm run release:check
 
 发布包只包含：
 
-- `.env.example`、`.gitignore`、`README.md`、`package.json`、`package-lock.json`、`server.mjs`
+- `.env.example`、`.gitignore`、`README.md`、`package.json`、`package-lock.json`、`launcher.mjs`、`server.mjs`
+- `start-macos.command`、`start-windows.cmd`
 - `public/` 和 `src/` 下的运行文件
 
 所有 `CLAUDE.md`、`.codex/`、`test/`、`scripts/`、`DESIGN.md`、`design-qa.md`、

@@ -43,10 +43,28 @@ Claude 仅保留 Sonnet 5，不纳入 Opus 系列；Doubao 不保留旧版本测
 - 运营自己的 OneAPI Key。
 - 运营飞书账号已拥有共享 `AI 生图` Base 中风格库、白模 Prompt Agent、风格反推 Prompt 与生成记录表的读取权限。
 
-在项目目录执行：
+### 一键启动（推荐）
+
+解压发布包后直接双击对应文件：
+
+- macOS：`start-macos.command`。如果系统首次拦截，右键该文件选择“打开”。
+- Windows：`start-windows.cmd`。
+
+启动器会检查 Node.js 24、按 `package-lock.json` 首次执行 `npm ci`，并在依赖变化时
+自动重装；若飞书 CLI 尚未初始化，会打开浏览器引导完成一次应用初始化。随后启动
+Canvas Lab 并自动打开 [http://127.0.0.1:4173](http://127.0.0.1:4173)。再次双击时，
+已安装的依赖不会重复安装，已经运行的工作台会直接打开。
+
+Node.js 属于系统运行时，启动器不会静默安装或提权修改电脑。缺少 Node.js 24 时会
+打开官方下载页，安装完成后重新双击启动文件即可。OneAPI Key 不由脚本写入；页面
+打开后在“连接中心”完成飞书用户授权并填写自己的 Key。
+
+### 命令行启动（备用）
+
+也可以在项目目录执行：
 
 ```bash
-npm install
+npm ci
 ```
 
 该命令会安装项目固定版本的 `lark-cli`，不需要全局安装。项目同时固定
@@ -84,8 +102,9 @@ npm start
 npm run lark:status
 ```
 
-Windows PowerShell 与 macOS Terminal 使用以上相同的 npm 命令。关闭运行
-`npm start` 的终端会停止本地服务；服务退出时尚未完成的飞书同步可能中断。
+Windows PowerShell 与 macOS Terminal 使用以上相同的 npm 命令。关闭一键启动打开的
+终端或运行 `npm start` 的终端都会停止本地服务；服务退出时尚未完成的飞书同步可能
+中断。
 
 ## 开发者后台启动
 

@@ -10,10 +10,13 @@ import { posix } from "node:path";
 export const ROOT_RELEASE_FILES = Object.freeze([
   ".env.example",
   ".gitignore",
+  "launcher.mjs",
   "README.md",
   "package-lock.json",
   "package.json",
   "server.mjs",
+  "start-macos.command",
+  "start-windows.cmd",
 ]);
 
 const REQUIRED_RELEASE_FILES = Object.freeze([
