@@ -12,7 +12,7 @@ PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 <config>
 package.json - 固定 Node 版本、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli 平台安装版本
-launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、启动服务并打开浏览器
+launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
 server.mjs - 本地 HTTP 服务、可选持久化密钥会话、飞书 Setup、脱敏 Agent 版本目录、配置主动刷新、白模最终提示词缓存、Style DNA 反推与生成 API 路由入口
 start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs

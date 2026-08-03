@@ -15,6 +15,7 @@ import {
   resolvePort,
   shouldInstallDependencies,
   waitForCanvasLab,
+  withLocalExecutablePath,
 } from "../launcher.mjs";
 
 test("启动器只接受 Node.js 24 及以上版本", () => {
@@ -49,6 +50,20 @@ test("飞书 CLI 只接受包含真实 appId 的应用配置", () => {
   assert.equal(hasLarkAppConfiguration('{"appId":"cli_123","appSecret":"****"}'), true);
   assert.equal(hasLarkAppConfiguration('{"appId":""}'), false);
   assert.equal(hasLarkAppConfiguration("Config file not found"), false);
+});
+
+test("服务进程优先使用项目内 lark-cli 且保留系统 PATH", () => {
+  assert.deepEqual(
+    withLocalExecutablePath(
+      { Path: "C:\\Windows\\System32", SAFE: "keep" },
+      "C:\\Canvas Lab\\node_modules\\.bin",
+      ";",
+    ),
+    {
+      Path: "C:\\Canvas Lab\\node_modules\\.bin;C:\\Windows\\System32",
+      SAFE: "keep",
+    },
+  );
 });
 
 test("服务就绪轮询只接受 Canvas Lab 模型目录", async () => {

@@ -8,7 +8,7 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
@@ -60,6 +60,21 @@ export function shouldInstallDependencies({ currentDigest, markerDigest }) {
 
 export function hasLarkAppConfiguration(output) {
   return /"appId"\s*:\s*"[^"]+"/.test(String(output || ""));
+}
+
+export function withLocalExecutablePath(
+  environment,
+  executableDirectory,
+  pathDelimiter = delimiter,
+) {
+  const result = { ...environment };
+  const pathKey = Object.keys(result).find((key) => key.toLowerCase() === "path") ||
+    "PATH";
+  const currentPath = String(result[pathKey] || "");
+  result[pathKey] = currentPath
+    ? `${executableDirectory}${pathDelimiter}${currentPath}`
+    : executableDirectory;
+  return result;
 }
 
 function pause(milliseconds) {
@@ -217,7 +232,14 @@ async function startServer(url) {
   const child = spawn(
     process.execPath,
     ["--env-file-if-exists=.env.local", "server.mjs"],
-    { cwd: projectRoot, stdio: "inherit" },
+    {
+      cwd: projectRoot,
+      env: withLocalExecutablePath(
+        process.env,
+        join(projectRoot, "node_modules", ".bin"),
+      ),
+      stdio: "inherit",
+    },
   );
   let exitResult;
   let settleExit;
