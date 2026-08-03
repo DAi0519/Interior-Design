@@ -9,6 +9,7 @@
     "lark:status": "lark-cli auth status --json --verify",
     "release:check": "node scripts/release-check.mjs",
     "release:pack": "node scripts/release-pack.mjs",
+    "release:publish": "node scripts/release-publish.mjs",
     "start": "node --env-file-if-exists=.env.local server.mjs",
     "test": "node --test"
   },

@@ -16,11 +16,16 @@
    git commit -m "Release v$(node -p \"require('./package.json').version\")"
    ```
 
-3. 从干净提交执行唯一打包命令：
+3. 从干净提交执行自动发布命令：
 
    ```bash
-   npm run release:pack
+   npm run release:publish
    ```
+
+该命令要求本机已安装并登录 GitHub CLI。它会先完整执行 `release:pack`，再创建草稿
+GitHub Release，逐项核对目标提交、附件名称、大小与 SHA-256；全部通过后才转为正式
+Release，并删除 `dist/` 中本次生成的三个本地制品。上传或校验失败时保留本地文件，
+且不会把未验证的草稿转为正式发布。
 
 产物写入被 Git 忽略的 `dist/`：
 
@@ -30,6 +35,12 @@
 
 同一提交与版本在同一 Git/Node 工具链下重复执行会生成相同 ZIP 和 SHA-256；工作区
 存在任何未提交文件时会直接拒绝发布，避免打包内容与 Git 证据不一致。
+
+只需生成本地制品、不上传时，仍可执行：
+
+```bash
+npm run release:pack
+```
 
 ## 自动准入
 
@@ -74,6 +85,8 @@ shasum -a 256 -c canvas-lab-v<version>.sha256
 
 Windows PowerShell 可运行 `Get-FileHash <zip> -Algorithm SHA256`，并与 `.sha256`
 文件首列比较。GitHub Release 的 Tag 应与 `package.json` 一致，例如 `v0.1.1`；
-上传 ZIP、SHA-256 和 manifest 三个文件，自动 Source ZIP 不作为运营发布物。
+`release:publish` 会自动上传 ZIP、SHA-256 和 manifest 三个文件。已存在 Release 或远端
+Tag 的版本禁止覆盖，必须先提升 `package.json` 版本；GitHub 自动 Source ZIP 不作为
+运营发布物。
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
