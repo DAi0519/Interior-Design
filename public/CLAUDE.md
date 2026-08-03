@@ -5,11 +5,12 @@
 
 CLAUDE.md: 本模块地图，维护浏览器界面成员清单
 config-refresh.js: 飞书配置刷新交互控制器，让 Style DNA 与场景融合 Agent 双入口共享互斥状态，串行触发两类配置强制刷新并分发脱敏版本目录
-connection-center.js: 运营首次运行控制器，管理 OneAPI 本机记忆、CLI/用户/Scope/Base 状态、飞书 Device Flow 与焦点圈闭/归还
+connection-center.js: 运营首次运行控制器，管理 OneAPI 本机记忆、CLI/用户/中文授权能力/Base 状态、飞书 Device Flow 与焦点圈闭/归还
 connection-center.css: 连接中心视觉层，提供 OneAPI/飞书无套框双分区、统一中性 32px 动作按钮、状态行、本机记忆控件、授权二维码与窄屏布局
 generation-actions.js: 白模生成动作状态控制器，以融合输入指纹管理首次单按钮、可复用双按钮、忙碌状态与强制重新融合回调，并导出纯状态推导
 generation-actions.css: 白模生成动作视觉层，提供无固定数量胶囊的居中主按钮，以及 65/35 同高度、同字号、同图标尺度及同投影的深色/中性双按钮布局与交互反馈
-final-model-availability.js: 最终出图模型目录解释器，把 `/v1/models` 结果作为提示而非硬权限，目录漏报时仍允许真实生成请求裁决
+final-model-availability.js: 最终出图模型展示解释器，四个固定模型统一可选且不向使用者暴露内部目录状态，由真实生成请求裁决
+lark-permission-labels.js: 飞书授权文案解释器，把最小 Scope 编码映射为连接中心可理解的中文能力名称并保留未知项诊断
 custom-select.js: 原生 select 渐进增强层，提供 Style DNA、场景融合 Agent、出图模型、参数与反推模型的自定义列表框、详情同步、稳定指针选择和键盘操作
 custom-select.css: Light Command Center 自定义下拉视觉，提供配置区与参数区原生控件隐藏、触发器版本反馈、深色选中态、单行辅助信息、焦点与低动效规则
 prompt-agent-version-select.js: 场景融合 Agent 版本选择控制器，只渲染服务端脱敏已上架目录、默认最高版本并在当前标签页记忆选择

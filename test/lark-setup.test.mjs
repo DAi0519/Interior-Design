@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 lark-setup.mjs 的状态解析、Setup 服务和注入式 CLI 执行器
- * [OUTPUT]: 验证 CLI/用户/字段读取 Scope/Base 状态、非阻塞授权、二维码和过期登录尝试
+ * [INPUT]: 依赖 node:test/assert、lark-setup.mjs 的状态解析/Setup 服务/注入式 CLI 执行器与浏览器授权中文解释器
+ * [OUTPUT]: 验证 CLI/用户/字段读取 Scope/Base 状态、中文授权能力、非阻塞授权、二维码和过期登录尝试
  * [POS]: test 的飞书首次运行回归测试，不发起真实授权或访问真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,7 @@ import {
   publicAuthStatus,
 } from "../src/lark-setup.mjs";
 import { larkCliEnvironment } from "../src/lark-cli.mjs";
+import { describeMissingLarkScopes } from "../public/lark-permission-labels.js";
 
 function readyAuthEnvelope() {
   return {
@@ -79,6 +80,9 @@ test("飞书同步授权契约包含字段读取最小权限", () => {
     .filter((scope) => scope !== "base:field:read")
     .join(" ");
   assert.deepEqual(publicAuthStatus(body).missingScopes, ["base:field:read"]);
+  assert.deepEqual(describeMissingLarkScopes(["base:field:read"]), [
+    "读取多维表格字段",
+  ]);
 });
 
 test("Setup 状态分层验证 CLI、用户 Scope 与共享 Base", async () => {

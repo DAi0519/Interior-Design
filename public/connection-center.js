@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、工作台连接状态与配置刷新回调
- * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、飞书状态、Device Flow 与无障碍弹层生命周期控制
+ * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、飞书授权中文解释器、工作台连接状态与配置刷新回调
+ * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、中文飞书授权状态、Device Flow 与无障碍弹层生命周期控制
  * [POS]: public 的运营首次运行控制器，统一连接状态与焦点秩序并与 app.js 生成状态分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { describeMissingLarkScopes } from "./lark-permission-labels.js";
 
 function emptySetup(error = null) {
   return {
@@ -162,7 +164,7 @@ export function bindConnectionCenter({
         : "等待安装";
     elements.larkUserState.textContent = user.loggedIn
       ? user.missingScopes.length > 0
-        ? `${user.userName || "当前用户"} · 缺少 ${user.missingScopes.length} 项权限`
+        ? `${user.userName || "当前用户"} · 需要补充 ${user.missingScopes.length} 项授权`
         : `${user.userName || "当前用户"} · 登录有效`
       : user.error || "尚未登录";
     elements.larkBaseState.textContent = base.readable
@@ -176,11 +178,12 @@ export function bindConnectionCenter({
     elements.larkLoginButton.disabled = !canLogin;
     elements.larkLoginButton.textContent = larkLoginLabel();
 
+    const missingPermissions = describeMissingLarkScopes(user.missingScopes);
     const errors = [
       user.error,
       base.error,
-      user.missingScopes.length > 0
-        ? `缺少授权：${user.missingScopes.join("、")}`
+      missingPermissions.length > 0
+        ? `需要补充授权：${missingPermissions.join("、")}`
         : null,
     ].filter(Boolean);
     elements.larkError.textContent = errors.join("；");
