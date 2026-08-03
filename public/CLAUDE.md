@@ -11,7 +11,7 @@ generation-actions.js: 白模生成动作状态控制器，以融合输入指纹
 generation-actions.css: 白模生成动作视觉层，提供无固定数量胶囊的居中主按钮，以及 65/35 同高度、同字号、同图标尺度及同投影的深色/中性双按钮布局与交互反馈
 final-model-availability.js: 最终出图模型展示解释器，四个固定模型统一可选且不向使用者暴露内部目录状态，由真实生成请求裁决
 lark-permission-labels.js: 飞书授权文案解释器，把最小 Scope 编码映射为连接中心可理解的中文能力名称并保留未知项诊断
-custom-select.js: 原生 select 渐进增强层，提供 Style DNA、场景融合 Agent、出图模型、参数与反推模型的自定义列表框、详情同步、稳定指针选择和键盘操作
+custom-select.js: 原生 select 渐进增强层，提供 Style DNA、场景融合 Agent、出图模型、参数与反推模型的自定义列表框，在 pointerdown 固定目标焦点后以 click 提交选择并保留完整键盘操作
 custom-select.css: Light Command Center 自定义下拉视觉，提供配置区与参数区原生控件隐藏、触发器版本反馈、深色选中态、单行辅助信息、焦点与低动效规则
 prompt-agent-version-select.js: 场景融合 Agent 版本选择控制器，只渲染服务端脱敏已上架目录、默认最高版本并在当前标签页记忆选择
 style-dna-chat.css: Style DNA 反推预览视觉，提供图片缩略图/PDF 文件卡、与左栏共用起始线且在大屏等高的无顶部分隔线对话面板、独立滚动消息流、未发布 JSON 草稿卡片与自适应多行输入框
