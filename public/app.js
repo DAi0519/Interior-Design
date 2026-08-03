@@ -17,7 +17,7 @@ import {
   sourceAspectLabel,
 } from "./image-ratio.js";
 import { api, fillSelect, secureImageUrl } from "./workbench-utils.js";
-import "./custom-select.js?v=4";
+import "./custom-select.js?v=5";
 
 const STYLE_CODE_KEY = "canvas-lab.style-code";
 const state = {

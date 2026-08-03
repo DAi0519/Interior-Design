@@ -4,7 +4,7 @@ Node.js 24+ + 原生 HTTP + HTML + CSS + JavaScript + lark-cli 1.0.77
 <directory>
 public/ - 浏览器工作台界面（19 个业务文件及 icons/ 图标资产模块：运营连接中心、生成动作状态、出图模型展示、飞书授权文案、图片比例适配、场景融合 Agent 版本、Style DNA 对话、自定义配置下拉、Light Command Center 样式与共享工具）
 src/ - 本机设置、飞书 Setup、图片尺寸探测、出图参数、风格与 Agent 配置、OneAPI、Style DNA 反推、白模编排、运行时缓存及后台飞书同步层（16 个模块）
-test/ - Node 原生测试（18 个测试文件，覆盖一键启动、本机设置、飞书 Setup、图片尺寸/比例、模型参数、生成动作、图片/PDF 附件、风格反推、飞书配置/同步、运行时缓存及白模工作流）
+test/ - Node 原生测试（19 个测试文件，覆盖一键启动、本机设置、飞书 Setup、自定义下拉焦点时序、图片尺寸/比例、模型参数、生成动作、图片/PDF 附件、风格反推、飞书配置/同步、运行时缓存及白模工作流）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>

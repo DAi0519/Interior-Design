@@ -1,12 +1,12 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "四个最终出图模型启动后统一可选，不再向使用者展示模型目录内部状态。",
-    "飞书连接中心自动检测字段读取等最小权限，旧登录缺少权限时可直接补充授权。"
+    "修复 macOS 上自定义下拉可能在 click 前失焦关闭，导致模型看似点击却仍停留在 Seedream 的问题。",
+    "保留四个最终出图模型统一可选与飞书最小权限增量补充授权。"
   ],
   "scripts": {
     "lark:init": "lark-cli config init --new",
