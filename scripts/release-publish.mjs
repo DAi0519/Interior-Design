@@ -180,11 +180,12 @@ async function publishRelease() {
     "--target",
     commit,
     "--title",
-    `${packageInfo.name} ${tag}`,
+    `Canvas Lab ${tag}`,
     "--notes",
-    `${packageInfo.name} ${tag} 运行包。使用者只需下载 ${names.archive}；` +
+    `Canvas Lab ${tag} 运行包。使用者只需下载 ${names.archive}；` +
       `${names.checksum} 和 ${names.manifest} 用于完整性与版本校验。` +
-      "请勿使用 GitHub 自动生成的 Source code 压缩包。",
+      "请勿使用 GitHub 自动生成的 Source code 压缩包。解压后在 macOS 双击 " +
+      "start-macos.command，或在 Windows 双击 start-windows.cmd。",
   ], { inherit: true });
 
   const draft = await readRelease(tag);
