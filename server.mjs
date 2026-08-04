@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 版本目录、运行时缓存、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
- * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、白模最终提示词会话内复用、生成接口与非阻塞同步状态查询
- * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
+ * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/Prompt 目录、OneAPI 与 ComfyUI 客户端、白模/风格应用服务及后台飞书任务
+ * [OUTPUT]: 对外提供本地工作台、连接中心、配置刷新、OneAPI/ComfyUI 双 Provider 生成、提示词复用与非阻塞同步状态查询
+ * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一生成返回契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -15,7 +15,12 @@ import {
   checkAgentModelAvailability,
   publicAgentModelCatalog,
 } from "./src/agent-model-config.mjs";
-import { createGenerationRequest, publicModelCatalog } from "./src/model-config.mjs";
+import { createComfyUiClient } from "./src/comfyui-client.mjs";
+import {
+  createGenerationRequest,
+  imageProviderForModel,
+  publicModelCatalog,
+} from "./src/model-config.mjs";
 import { syncGenerationToLark } from "./src/lark-sync.mjs";
 import { createLarkSetupService } from "./src/lark-setup.mjs";
 import {
@@ -63,6 +68,7 @@ let sessionModelCatalog = null;
 let sessionModelCatalogRequest = null;
 const syncJobs = createSyncJobRegistry();
 const larkSetup = createLarkSetupService();
+const comfyUiClient = createComfyUiClient();
 const whiteModelPromptResultCache = createAsyncTtlCache({
   maxEntries: WHITE_MODEL_PROMPT_CACHE_MAX_ENTRIES,
   ttlMs: WHITE_MODEL_PROMPT_CACHE_TTL_MS,
@@ -142,6 +148,12 @@ function requireApiKey() {
     throw error;
   }
   return sessionApiKey;
+}
+
+function imageClientForModel(modelKey, { oneApiClient = null } = {}) {
+  return imageProviderForModel(modelKey) === "comfyui"
+    ? comfyUiClient
+    : oneApiClient || createOneApiClient(requireApiKey());
 }
 
 function clearSessionModelCatalog() {
@@ -373,13 +385,22 @@ async function handleApi(request, response, pathname) {
     const availableIds = new Set(
       availableModels.map((model) => model.id || model.name).filter(Boolean),
     );
+    const comfyHealth = await comfyUiClient.checkHealth().catch(() => ({
+      available: false,
+      version: null,
+    }));
     const configured = publicModelCatalog().map((model) => ({
       id: model.id,
       key: model.key,
-      available: availableIds.has(model.id),
+      available:
+        model.provider === "comfyui"
+          ? comfyHealth.available
+          : availableIds.has(model.id),
+      provider: model.provider,
     }));
     return sendJson(response, 200, {
       agentModels: checkAgentModelAvailability(availableModels),
+      comfyUi: comfyHealth,
       models: configured,
     });
   }
@@ -389,12 +410,13 @@ async function handleApi(request, response, pathname) {
     const generation = createGenerationRequest(input, {
       preferSourceAspect: input.ratioMode === "auto",
     });
-    const client = createOneApiClient(requireApiKey());
+    const client = imageClientForModel(input.modelKey);
     const startedAt = Date.now();
     const result = await client.generateImage(generation.request);
     const durationMs = Date.now() - startedAt;
     const preview = {
       ...generation.preview,
+      provider: generation.provider,
       quality: result.quality ?? generation.preview.quality,
       transport: result.transport,
     };
@@ -416,6 +438,11 @@ async function handleApi(request, response, pathname) {
       referenceImages,
       resultImage: result.images[0],
       sourcePrompt: String(input.prompt || "").trim(),
+      workflow: {
+        feature: "free-image-generation",
+        provider: generation.provider,
+        ...(result.metadata || {}),
+      },
     });
 
     return sendJson(response, 200, {
@@ -425,6 +452,7 @@ async function handleApi(request, response, pathname) {
       sync,
       upstream: {
         created: result.created,
+        metadata: result.metadata || null,
         outputFormat: result.outputFormat,
         transport: result.transport,
       },
@@ -437,10 +465,14 @@ async function handleApi(request, response, pathname) {
   ) {
     const input = await readJson(request);
     const client = createOneApiClient(requireApiKey());
+    const imageClient = imageClientForModel(input.modelKey, {
+      oneApiClient: client,
+    });
     const availableModels = await getSessionModelCatalog(client);
     const result = await executeWhiteModelWorkflow(input, {
       availableModels,
       client,
+      imageClient,
       promptResultCache: whiteModelPromptResultCache,
       refreshModels: () => getSessionModelCatalog(client, { force: true }),
       scheduleSync: scheduleGenerationSync,

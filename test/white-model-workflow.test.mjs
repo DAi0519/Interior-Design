@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与白模渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供可选场景保持字段、提示词自动复用/显式重算/条件失效、版本化 Style DNA、最近合法比例及同步调度回归保障
+ * [OUTPUT]: 对外提供可选场景保持字段、提示词复用/重算、独立 Prompt/图像 Provider、版本化 Style DNA、比例及同步调度回归保障
  * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -137,6 +137,48 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
   assert.equal(result.request.quality, "medium");
   assert.equal(result.sync.generationId, "gen1");
   assert.equal(result.sync.status, "pending");
+});
+
+test("白模链路允许 Prompt Agent 与最终出图使用不同客户端", async () => {
+  let imageCalls = 0;
+  const promptClient = {
+    generatePrompt: async () => ({ text: JSON.stringify(agentJson) }),
+  };
+  const imageClient = {
+    generateImage: async () => {
+      imageCalls += 1;
+      return {
+        created: 1,
+        images: [{ url: "data:image/png;base64,aQ==" }],
+        metadata: { engine: "comfyui", workflowVersion: "2026-08-04" },
+        outputFormat: "png",
+        quality: null,
+        transport: "comfyui-workflow",
+      };
+    },
+  };
+  const result = await executeWhiteModelWorkflow(input(), {
+    availableModels: [{ id: "gemini-3.1-pro-preview" }],
+    client: promptClient,
+    imageClient,
+    loadAgent: async () => ({
+      code: "white-model-fusion",
+      name: "白模渲染融合 Agent",
+      systemPrompt: "system",
+      version: 1,
+    }),
+    loadStyle: async () => ({
+      code: "cream-french@v1",
+      familyCode: "cream-french",
+      name: "奶油法式",
+      styleDna: { style_dna: { overall_style: "cream" } },
+      version: 1,
+    }),
+  });
+
+  assert.equal(imageCalls, 1);
+  assert.equal(result.request.transport, "comfyui-workflow");
+  assert.equal(result.upstream.metadata.engine, "comfyui");
 });
 
 test("白模由服务端真实图片宽高驱动最近合法比例", async () => {

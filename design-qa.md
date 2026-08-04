@@ -2,6 +2,9 @@
 
 ## Evidence
 
+- Flux2 Klein live API canary: `http://maas-workflow-app-50-prodtestzwapp50.k8s-zhongwei.qunhequnhe.com/`，17 个所需节点全部存在，Prompt ID `7c070726-1dbc-4d9c-86a3-24b32929f49d` 成功，端到端 26.9s、排队 0.14s、执行 23.5s，1.67MB 输入返回 2.84MB PNG
+- Flux2 Klein UI verification: `http://127.0.0.1:4319`，真实浏览器选择自由生图并用指针完成 Seedream 5.0 → Flux2 Klein 双向切换；六项模型目录、`必填 · 1张`、单文件上传、`跟随原图 / 原图尺寸` 禁用态、PNG 输出与空态徽标同步更新，console 无 error/warning
+- Seedream 4.5 live verification: `http://127.0.0.1:4318`，主工作区代码、当前本机 OneAPI Key、白模模式；下拉显示五个最终出图模型并可选择 Seedream 4.5，参数联动为 8 种比例、2K / 4K、PNG，结果徽标为 `Seedream 4.5 · 2304 × 1728`，浏览器控制台无 error 或 warning
 - Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-93641ead-f20e-484a-ac21-165584470034.png`
 - Multiline regression source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-e6f2df08-25e4-41ac-8511-f216c4d9bcc7.png`
 - Chat panel regression source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-11749354-0b96-4b7b-9974-cf0bb1fda4cf.png`
@@ -48,6 +51,8 @@
 
 ## Full-view Comparison
 
+- Flux2 Klein 沿用现有模型下拉，不新增独立卡片或第二套连接中心；选择后只收紧参考图与尺寸能力，右侧结果结构、顶部连接状态和其他模式布局不变。
+- 新增 Seedream 4.5 后沿用现有自定义模型下拉与参数区，不新增卡片或入口；实测从默认 Seedream 5.0 切换到 Seedream 4.5 后，模型说明、可选数量、比例、分辨率、格式与结果徽标同步更新，工作区结构和白模状态未改变。
 - 原有双栏工作台、模式切换、反推模型和右侧消息流保持不变。
 - 左栏反推配置改成纵向弹性布局：模型区保持固定，Prompt 区占满剩余高度，底部说明距面板底边 21px。
 - Composer 仍固定在消息区底部，没有侵入消息流；本轮在紧凑版基础上回增 4px，缓解文字区与工具栏的拥挤感。

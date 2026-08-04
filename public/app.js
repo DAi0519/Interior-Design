@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、连接中心、生成动作状态与 Style DNA 对话控制器、Agent 版本目录、模型比例目录及生成/同步接口
- * [OUTPUT]: 对外提供默认 Seedream、四个统一可选且隐藏内部目录状态的出图模型、白模提示词复用后的双动作、即时结果及异步飞书反馈
- * [POS]: public 的生成状态控制器，与 connection-center.js/style-dna-chat.js 分责且不保存凭据或信任客户端尺寸
+ * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、model-capabilities.js、连接中心、生成动作状态、Style DNA 对话、模型目录及统一生成接口
+ * [OUTPUT]: 对外提供默认 Seedream 5.0、五个 OneAPI 模型与单图 Flux2 Klein ComfyUI 工作流、白模双动作、即时结果及异步飞书反馈
+ * [POS]: public 的生成状态控制器，按模型能力约束参考图和尺寸但不接触 OneAPI Key、ComfyUI 地址或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -11,12 +11,20 @@ import { bindGenerationActions } from "./generation-actions.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
+import { readImageDimensions } from "./image-ratio.js";
 import {
-  nearestSupportedRatio,
-  readImageDimensions,
-  sourceAspectLabel,
-} from "./image-ratio.js";
-import { api, fillSelect, secureImageUrl } from "./workbench-utils.js";
+  referenceCapability,
+  sizeControlState,
+  sizeSummary,
+} from "./model-capabilities.js";
+import {
+  api,
+  fillSelect,
+  formatBytes,
+  readFileAsDataUrl,
+  resultMetadata,
+  secureImageUrl,
+} from "./workbench-utils.js";
 import "./custom-select.js?v=5";
 
 const STYLE_CODE_KEY = "canvas-lab.style-code";
@@ -181,8 +189,24 @@ function renderStyles() {
 }
 
 function referenceLimit() {
-  if (state.featureMode === "whiteModel") return 1;
-  return state.referencePolicy?.maxCount || 4;
+  return referenceCapability({
+    featureMode: state.featureMode,
+    model: selectedModel(),
+    policy: state.referencePolicy,
+  }).limit;
+}
+
+function updateReferenceRequirements() {
+  const capability = referenceCapability({
+    featureMode: state.featureMode,
+    model: selectedModel(),
+    policy: state.referencePolicy,
+  });
+  elements.referenceTitleCopy.textContent = capability.title;
+  elements.referenceOptional.textContent = capability.optionalLabel;
+  elements.referenceDropLabel.textContent = capability.dropLabel;
+  elements.referenceInput.multiple = capability.multiple;
+  elements.referenceInput.ariaLabel = capability.ariaLabel;
 }
 
 function selectFeatureMode(featureMode) {
@@ -209,14 +233,8 @@ function selectFeatureMode(featureMode) {
 
   elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
   elements.styleSection.classList.toggle("hidden", !isWhiteModel);
-  elements.referenceTitleCopy.textContent = isWhiteModel ? "白模图" : "参考图";
-  elements.referenceOptional.textContent = isWhiteModel ? "必填 · 1张" : "可选";
-  elements.referenceDropLabel.textContent = isWhiteModel
-    ? "添加或拖入白模图"
-    : "添加或拖入参考图";
-  elements.referenceInput.multiple = !isWhiteModel;
-  elements.referenceInput.ariaLabel = isWhiteModel ? "添加白模图" : "添加参考图";
   selectModel(state.modelKey);
+  updateReferenceRequirements();
   renderReferenceImages();
 }
 
@@ -242,6 +260,7 @@ function selectModel(modelKey) {
   const model = selectedModel();
   const formats = model.formats.filter((format) => state.featureMode !== "whiteModel" || format !== "webp");
   renderModelSelect();
+  updateReferenceRequirements();
   configureSizeControls();
   fillSelect(
     elements.formatSelect,
@@ -275,55 +294,51 @@ function selectModel(modelKey) {
   }
 
   updateComputedSize();
+  renderReferenceImages();
 }
 
 function configureSizeControls({ preserveResolution = false } = {}) {
   const model = selectedModel();
   const sourceImage = selectedSourceImage();
-  const currentResolution = elements.resolutionSelect.value;
-  const resolution = preserveResolution &&
-    Object.keys(model.sizes[model.defaultRatio]).includes(currentResolution)
-    ? currentResolution
-    : model.defaultResolution;
-
-  const automaticRatio = nearestSupportedRatio(model, sourceImage);
-  const ratio = state.ratioMode === "manual" &&
-    Object.hasOwn(model.sizes, elements.ratioSelect.value)
-    ? elements.ratioSelect.value
-    : automaticRatio;
-  fillSelect(elements.ratioSelect, Object.keys(model.sizes), ratio);
+  const controls = sizeControlState({
+    currentRatio: elements.ratioSelect.value,
+    currentResolution: elements.resolutionSelect.value,
+    model,
+    preserveResolution,
+    ratioMode: state.ratioMode,
+    sourceImage,
+  });
+  fillSelect(elements.ratioSelect, controls.ratioOptions, controls.ratio);
   fillSelect(
     elements.resolutionSelect,
-    Object.keys(model.sizes[ratio]),
-    resolution,
+    controls.resolutionOptions,
+    controls.resolution,
   );
-  elements.ratioSelect.disabled = false;
-  elements.resolutionSelect.disabled = false;
+  elements.ratioSelect.disabled = controls.ratioDisabled;
+  elements.resolutionSelect.disabled = controls.resolutionDisabled;
 }
 
 function updateComputedSize() {
   const model = selectedModel();
   const ratio = elements.ratioSelect.value;
   const sourceImage = selectedSourceImage();
-  const resolutions = Object.keys(model.sizes[ratio] || {});
-
-  if (!resolutions.includes(elements.resolutionSelect.value)) {
+  const summary = sizeSummary({
+    model,
+    ratio,
+    ratioMode: state.ratioMode,
+    resolution: elements.resolutionSelect.value,
+    sourceImage,
+  });
+  if (summary.resolution !== elements.resolutionSelect.value) {
     fillSelect(
       elements.resolutionSelect,
-      resolutions,
-      resolutions.includes(model.defaultResolution)
-        ? model.defaultResolution
-        : resolutions[0],
+      Object.keys(model.sizes[ratio]),
+      summary.resolution,
     );
   }
-
-  const size = model.sizes[ratio][elements.resolutionSelect.value];
-  elements.exactSize.textContent =
-    sourceImage && state.ratioMode === "auto"
-      ? `${sourceAspectLabel(sourceImage)} → ${ratio} · ${size}`
-      : size;
+  elements.exactSize.textContent = summary.exactSize;
   elements.emptyModel.textContent = model.label;
-  elements.emptySize.textContent = size.replace("x", " × ");
+  elements.emptySize.textContent = summary.emptySize;
 }
 
 function generationInput() {
@@ -352,20 +367,6 @@ function generationInput() {
 
 function updatePromptCount() {
   elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`;
-}
-
-function formatBytes(bytes) {
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)}KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => resolve(reader.result));
-    reader.addEventListener("error", () => reject(new Error(`无法读取 ${file.name}`)));
-    reader.readAsDataURL(file);
-  });
 }
 
 function renderReferenceImages() {
@@ -487,11 +488,18 @@ function setApiConnectionState(connected) {
   if (state.connected !== connected) generationActions.clearReusable();
   state.connected = connected;
   styleDnaChat.setConnected(connected);
-  elements.modelAvailability.textContent = connected ? "检查模型中" : "等待连接";
+  const workflowCount = state.catalog.filter(
+    (model) => model.provider === "comfyui",
+  ).length;
+  elements.modelAvailability.textContent = connected
+    ? "检查模型中"
+    : workflowCount > 0
+      ? `${workflowCount} 个工作流已配置`
+      : "等待连接";
   elements.promptAgentAvailability.textContent = connected
     ? "检查模型中"
     : "等待连接";
-  elements.modelAvailability.classList.toggle("ready", connected);
+  elements.modelAvailability.classList.toggle("ready", connected || workflowCount > 0);
   elements.promptAgentAvailability.classList.toggle("ready", connected);
   generationActions.setBusy(state.generating);
 }
@@ -516,27 +524,8 @@ function showToast(message) {
   }, 2400);
 }
 
-function syncStatusLabel(sync) {
-  if (sync?.status === "success") return "已同步飞书";
-  if (sync?.status === "failed") return "飞书同步失败";
-  if (sync?.status === "pending") return "飞书同步中";
-  return "未同步飞书";
-}
-
 function renderResultSummary(result, model, sync = result.sync) {
-  elements.resultMeta.textContent = [
-    result.request.size.replace("x", " × "),
-    result.request.outputFormat.toUpperCase(),
-    result.style?.name,
-    result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
-    result.promptAgent?.reused ? "提示词已复用" : null,
-    result.request.referenceImageCount > 0
-      ? `${result.request.referenceImageCount} 张参考图`
-      : null,
-    syncStatusLabel(sync),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  elements.resultMeta.textContent = resultMetadata(result, sync);
   elements.baseRecordButton.classList.toggle("hidden", !sync?.recordId);
   if (sync?.recordUrl) {
     elements.baseRecordButton.href = sync.recordUrl;
@@ -616,7 +605,10 @@ function resetModelAvailability() {
 
 async function generate({ forcePromptRegeneration = false } = {}) {
   if (state.generating) return;
-  if (!state.connected) {
+  const model = selectedModel();
+  const whiteModelRequest = state.featureMode === "whiteModel";
+  const requiresOneApi = whiteModelRequest || model?.provider !== "comfyui";
+  if (!state.connected && requiresOneApi) {
     connectionCenter.open({ focusApi: true });
     return;
   }
@@ -634,14 +626,24 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
-  if (state.featureMode === "free" && elements.promptInput.value.trim().length < 3) {
+  if (
+    state.featureMode === "free" &&
+    model?.requiresReferenceImage &&
+    state.referenceImages.length !== 1
+  ) {
+    showToast(`${model.label} 需要且只允许 1 张参考图`);
+    return;
+  }
+  if (
+    state.featureMode === "free" &&
+    model?.provider !== "comfyui" &&
+    elements.promptInput.value.trim().length < 3
+  ) {
     elements.promptInput.focus();
     showToast("请先输入至少 3 个字符的提示词");
     return;
   }
 
-  const model = selectedModel();
-  const whiteModelRequest = state.featureMode === "whiteModel";
   const promptIdentity = whiteModelRequest ? generationActions.currentIdentity() : null;
   state.activeGenerationId = null;
   state.generating = true;
@@ -651,6 +653,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       ? "正在重新融合提示词并渲染…"
       : whiteModelRequest
       ? "正在读取配置，由 Prompt Agent 整合后渲染…"
+      : model.provider === "comfyui"
+        ? "正在通过 ComfyUI 执行 Flux2 Klein…"
       : state.referenceImages.length > 0
         ? `正在使用 ${state.referenceImages.length} 张参考图生成…`
         : `正在向 ${model.label} 提交生成请求…`;

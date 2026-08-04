@@ -9,7 +9,8 @@ connection-center.js: 运营首次运行控制器，管理 OneAPI 本机记忆�
 connection-center.css: 连接中心视觉层，提供 OneAPI/飞书无套框双分区、统一中性 32px 动作按钮、状态行、本机记忆控件、授权二维码与窄屏布局
 generation-actions.js: 白模生成动作状态控制器，以融合输入指纹管理首次单按钮、可复用双按钮、忙碌状态与强制重新融合回调，并导出纯状态推导
 generation-actions.css: 白模生成动作视觉层，提供无固定数量胶囊的居中主按钮，以及 65/35 同高度、同字号、同图标尺度及同投影的深色/中性双按钮布局与交互反馈
-final-model-availability.js: 最终出图模型展示解释器，四个固定模型统一可选且不向使用者暴露内部目录状态，由真实生成请求裁决
+final-model-availability.js: 最终出图模型展示解释器，五个 OneAPI 模型与一个 ComfyUI 工作流统一可选且不暴露内部目录状态，由真实生成请求裁决
+model-capabilities.js: 双 Provider 模型能力解释器，以纯函数推导单图/多图文案、数量上限、合法比例/分辨率选项与原图尺寸摘要
 lark-permission-labels.js: 飞书授权文案解释器，把最小 Scope 编码映射为连接中心可理解的中文能力名称并保留未知项诊断
 custom-select.js: 原生 select 渐进增强层，提供 Style DNA、场景融合 Agent、出图模型、参数与反推模型的自定义列表框，在 pointerdown 固定目标焦点后以 click 提交选择并保留完整键盘操作
 custom-select.css: Light Command Center 自定义下拉视觉，提供配置区与参数区原生控件隐藏、触发器版本反馈、深色选中态、单行辅助信息、焦点与低动效规则
@@ -19,10 +20,10 @@ index.html: 精简工作台语义骨架，提供运营连接中心、默认白�
 styles.css: 紧凑输入控制、轻量配置刷新、多参考图列表、弹层与响应式结构规则
 result.css: 与左栏标题对齐的精简结果工具栏、无内框无投影且不会挤出面板的结果图、空态、加载态、图片态与错误态结构视觉
 theme.css: 浅色设计令牌、磨砂液态玻璃顶栏、桌面视口等高双栏、紧凑下拉、低圆角控件与最终主题覆盖层
-app.js: 生成状态控制器，以白模和 Seedream 初始化，并协调目录提示型出图模型选择、原图比例、融合输入指纹、提示词复用/强制重算、即时结果及后台飞书状态轮询
+app.js: 生成状态控制器，以白模和 Seedream 5.0 初始化，消费 model-capabilities.js 协调双 Provider 模型、连接边界、提示词复用、即时结果及后台飞书状态轮询
 image-ratio.js: 无状态画幅适配工具，通过浏览器解码读取上传图宽高、格式化原图比例并从当前模型矩阵选择最近合法比例
 style-dna-chat.js: Style DNA 反推浏览器控制器，读取脱敏已上架 Prompt 版本目录与图片/PDF 附件策略，只提交版本号而不接收正文，并提供版本刷新、上传边界、首轮附件、后续纯文字修正、多轮消息、草稿渲染、复制与新对话
-workbench-utils.js: 无状态浏览器基础设施，统一同源 JSON API、HTTPS 图片地址与原生下拉填充
+workbench-utils.js: 无状态浏览器基础设施，统一同源 JSON API、图片地址/文件读取、字节与生成结果摘要格式化及原生下拉填充
 icons/: 外部图标资产模块，提供 Heroicons 加号与上箭头 SVG，详见 icons/CLAUDE.md
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

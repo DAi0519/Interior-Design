@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 的模型目录和请求构造器，以及浏览器出图模型目录解释器
- * [OUTPUT]: 对外提供模型 ID、四个出图模型统一可选且隐藏内部目录状态、合法尺寸映射、自由生图首张参考图最近比例、模型专属参数和非法组合的回归保障
+ * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
+ * [OUTPUT]: 对外提供五个 OneAPI 模型与一个 ComfyUI 工作流、Provider/单图/原图尺寸契约、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,14 +17,21 @@ import {
   describeFinalModelOption,
   finalModelCatalogStatus,
 } from "../public/final-model-availability.js";
+import {
+  referenceCapability,
+  sizeControlState,
+  sizeSummary,
+} from "../public/model-capabilities.js";
 
-test("目录只暴露目标四个模型和真实模型 ID", () => {
+test("目录暴露五个 OneAPI 模型和一个 ComfyUI 工作流", () => {
   assert.deepEqual(
     publicModelCatalog().map(({ id, key }) => ({ id, key })),
     [
       { id: "gemini-3-pro-image", key: "bananaPro" },
       { id: "gemini-3.1-flash-image-preview", key: "banana2" },
       { id: "gpt-image-2", key: "gptImage2" },
+      { id: "comfyui:ai-texture-enhancement", key: "aiTextureEnhancement" },
+      { id: "doubao-seedream-4.5", key: "seedream45" },
       { id: "doubao-seedream-5.0", key: "seedream5" },
     ],
   );
@@ -44,8 +51,10 @@ test("出图模型统一可选且不向使用者暴露内部目录状态", () =>
       { available: false },
       { available: false },
       { available: true },
+      { available: true },
+      { available: true },
     ]),
-    "4 个模型可选",
+    "6 个模型可选",
   );
 });
 
@@ -128,7 +137,7 @@ test("自由生图按首张参考图可信宽高选择最近合法比例", () =>
   assert.equal(generation.preview.sizeMode, "source-nearest");
 });
 
-test("四个模型统一适配合法比例并拒绝缺失原图尺寸", () => {
+test("OneAPI 模型统一适配合法比例并拒绝缺失原图尺寸", () => {
   const gptGeneration = createGenerationRequest(
     {
       modelKey: "gptImage2",
@@ -245,6 +254,94 @@ test("多张参考图转换为公司接口的 images[].image_url", () => {
   );
 });
 
+test("Flux2 Klein 走 ComfyUI、允许空补充要求并保持原图尺寸", () => {
+  const pngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
+  const bytes = Buffer.from(pngDataUrl.split(",")[1], "base64").length;
+  const generation = createGenerationRequest({
+    modelKey: "aiTextureEnhancement",
+    outputFormat: "png",
+    prompt: "",
+    ratio: "source",
+    referenceImages: [{
+      dataUrl: pngDataUrl,
+      name: "source.png",
+      size: bytes,
+      type: "image/png",
+    }],
+    resolution: "source",
+  });
+
+  assert.equal(generation.provider, "comfyui");
+  assert.equal(generation.request.model, "comfyui:ai-texture-enhancement");
+  assert.equal(MODEL_CONFIGS.aiTextureEnhancement.label, "Flux2 Klein");
+  assert.equal(generation.request.images[0].fileName, "source.png");
+  assert.equal(generation.preview.size, "1x1");
+  assert.equal(generation.preview.sizeMode, "source-original");
+});
+
+test("Flux2 Klein 拒绝缺图和多图", () => {
+  const pngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
+  const image = {
+    dataUrl: pngDataUrl,
+    name: "source.png",
+    size: Buffer.from(pngDataUrl.split(",")[1], "base64").length,
+    type: "image/png",
+  };
+  const base = {
+    modelKey: "aiTextureEnhancement",
+    outputFormat: "png",
+    prompt: "",
+    ratio: "source",
+    resolution: "source",
+  };
+
+  assert.throws(
+    () => createGenerationRequest({ ...base, referenceImages: [] }),
+    /需要且只允许 1 张参考图/,
+  );
+  assert.throws(
+    () => createGenerationRequest({ ...base, referenceImages: [image, image] }),
+    /需要且只允许 1 张参考图/,
+  );
+});
+
+test("Flux2 Klein 前端能力锁定单图与原图尺寸", () => {
+  const model = publicModelCatalog().find(
+    (entry) => entry.key === "aiTextureEnhancement",
+  );
+  const reference = referenceCapability({
+    featureMode: "free",
+    model,
+    policy: { maxCount: 4 },
+  });
+  const controls = sizeControlState({
+    currentRatio: "4:3",
+    currentResolution: "2K",
+    model,
+    preserveResolution: false,
+    ratioMode: "manual",
+    sourceImage: { height: 900, width: 1600 },
+  });
+  const summary = sizeSummary({
+    model,
+    ratio: controls.ratio,
+    ratioMode: "auto",
+    resolution: controls.resolution,
+    sourceImage: { height: 900, width: 1600 },
+  });
+
+  assert.equal(reference.limit, 1);
+  assert.equal(reference.multiple, false);
+  assert.equal(reference.optionalLabel, "必填 · 1张");
+  assert.equal(controls.ratio, "source");
+  assert.equal(controls.ratioDisabled, true);
+  assert.equal(controls.resolution, "source");
+  assert.equal(controls.resolutionDisabled, true);
+  assert.equal(summary.exactSize, "1600 × 900");
+});
+
 test("Seedream 5.0 不暴露 1K，并保持横竖比例一致", () => {
   assert.deepEqual(Object.keys(MODEL_CONFIGS.seedream5.sizes["1:1"]), [
     "2K",
@@ -253,6 +350,16 @@ test("Seedream 5.0 不暴露 1K，并保持横竖比例一致", () => {
   ]);
   assert.equal(MODEL_CONFIGS.seedream5.sizes["3:2"]["4K"], "4992x3328");
   assert.equal(MODEL_CONFIGS.seedream5.sizes["2:3"]["4K"], "3328x4992");
+});
+
+test("Seedream 4.5 使用真实路由并只暴露 2K 与 4K", () => {
+  assert.equal(MODEL_CONFIGS.seedream45.id, "doubao-seedream-4.5");
+  assert.deepEqual(Object.keys(MODEL_CONFIGS.seedream45.sizes["1:1"]), [
+    "2K",
+    "4K",
+  ]);
+  assert.equal(MODEL_CONFIGS.seedream45.sizes["4:3"]["2K"], "2304x1728");
+  assert.equal(MODEL_CONFIGS.seedream45.sizes["16:9"]["4K"], "5504x3040");
 });
 
 test("拒绝模型不支持的参数组合", () => {

@@ -7,7 +7,8 @@ CLAUDE.md: 本模块地图，维护自动化测试成员清单
 custom-select.test.mjs: macOS/浏览器焦点时序回归测试，验证主指针在 click 前固定目标选项焦点且辅助按键不抢焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 最终出图模型统一可选且隐藏内部目录状态、模型合法尺寸矩阵、四模型及自由生图首张参考图最近比例、GPT 中等质量默认值与请求白名单回归测试，不发送真实 API 请求
+model-config.test.mjs: 五个 OneAPI 模型与一个 ComfyUI 工作流统一可选、Provider/单图/原图尺寸契约、合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
+comfyui-client.test.mjs: ComfyUI 健康检查、正向 Prompt 原样注入/空输入、固定负向 Prompt、单图上传、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
 generation-actions.test.mjs: 白模首次单按钮、提示词可复用双按钮、融合输入变化失效、自由生图隔离与忙碌文案纯状态测试
@@ -20,7 +21,7 @@ prompt-agent.test.mjs: 可选 Agent 名称字段、无名称字段时的白模�
 reference-image.test.mjs: 默认及调用方自定义的参考图数量、格式、容量、Base64、MIME、真实字节数与可信宽高策略回归测试
 reference-attachment.test.mjs: Style DNA 图片/PDF 附件分流、无数量上限、PDF 文件签名、MIME、真实字节与容量策略回归测试
 style-library.test.mjs: 飞书风格行、Style DNA 合法性、版本化唯一编码、历史版本选择、上下架状态、分页边界和前端脱敏回归测试
-white-model-workflow.test.mjs: 可选 scene_preservation、版本化 Style DNA、提示词自动复用/显式重算/条件失效、出图失败重试、最近合法比例及非阻塞归档调度测试
+white-model-workflow.test.mjs: 可选 scene_preservation、版本化 Style DNA、提示词复用/重算/条件失效、独立 Prompt/图像 Provider、比例及非阻塞归档测试
 runtime-cache.test.mjs: 异步 TTL 缓存命中、并发去重、过期、主动刷新和失败清理测试
 sync-jobs.test.mjs: generationId 幂等入队、非阻塞执行与飞书同步状态测试
 

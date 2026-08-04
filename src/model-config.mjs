@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖公司 Model Link 参数矩阵与 Google 当前稳定模型 ID，依赖 reference-image.mjs 的参考图安全校验及可信宽高
- * [OUTPUT]: 对外提供 publicModelCatalog、按各模型合法比例就近适配首张参考图画幅的 createGenerationRequest 与 MODEL_CONFIGS
- * [POS]: src 的模型参数真源，被自由生图 API 与白模合法比例适配编排共同消费
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图尺寸契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含生成 Provider/参考图能力的 publicModelCatalog、模型 Provider 查询、请求构造器与 MODEL_CONFIGS
+ * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -61,6 +61,17 @@ const SEEDREAM_5_SIZES = {
   "21:9": { "2K": "3136x1344", "3K": "4704x2016", "4K": "6240x2656" },
 };
 
+const SEEDREAM_4_5_SIZES = Object.fromEntries(
+  Object.entries(SEEDREAM_5_SIZES).map(([ratio, sizes]) => [
+    ratio,
+    { "2K": sizes["2K"], "4K": sizes["4K"] },
+  ]),
+);
+
+const SOURCE_IMAGE_SIZE = {
+  source: { source: "保持原图" },
+};
+
 export const MODEL_CONFIGS = Object.freeze({
   bananaPro: {
     accent: "lime",
@@ -98,6 +109,34 @@ export const MODEL_CONFIGS = Object.freeze({
     label: "GPT Image 2",
     qualityOptions: ["auto", "low", "medium", "high"],
     sizes: GPT_IMAGE_SIZES,
+  },
+  aiTextureEnhancement: {
+    accent: "lime",
+    defaultFormat: "png",
+    defaultRatio: "source",
+    defaultResolution: "source",
+    description: "ComfyUI · Flux2 Klein 工作流，单图保持结构与尺寸并增强真实材质和光影",
+    formats: ["png"],
+    id: "comfyui:ai-texture-enhancement",
+    label: "Flux2 Klein",
+    maxReferenceImages: 1,
+    provider: "comfyui",
+    qualityOptions: [],
+    requiresReferenceImage: true,
+    sizes: SOURCE_IMAGE_SIZE,
+    sizingMode: "source",
+  },
+  seedream45: {
+    accent: "orange",
+    defaultFormat: "png",
+    defaultRatio: "4:3",
+    defaultResolution: "2K",
+    description: "上一代 Seedream 写实对照，支持 2K 与 4K",
+    formats: ["png", "jpeg"],
+    id: "doubao-seedream-4.5",
+    label: "Seedream 4.5",
+    qualityOptions: [],
+    sizes: SEEDREAM_4_5_SIZES,
   },
   seedream5: {
     accent: "orange",
@@ -168,9 +207,17 @@ export function publicModelCatalog() {
     id: model.id,
     key,
     label: model.label,
+    maxReferenceImages: model.maxReferenceImages || 4,
+    provider: model.provider || "oneapi",
     qualityOptions: model.qualityOptions,
+    requiresReferenceImage: model.requiresReferenceImage === true,
     sizes: model.sizes,
+    sizingMode: model.sizingMode || "preset",
   }));
+}
+
+export function imageProviderForModel(modelKey) {
+  return modelOrThrow(String(modelKey || "")).provider || "oneapi";
 }
 
 export function createGenerationRequest(
@@ -182,6 +229,57 @@ export function createGenerationRequest(
   const prompt = String(input.prompt || "").trim();
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
+
+  if (model.provider === "comfyui") {
+    if (prompt.length > 8000) {
+      const error = new Error("补充要求不能超过 8000 字符");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (referenceImages.length !== 1) {
+      const error = new Error("Flux2 Klein 需要且只允许 1 张参考图");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!validDimensions(resolvedSourceDimensions)) {
+      const error = new Error("无法读取 Flux2 Klein 参考图尺寸");
+      error.statusCode = 400;
+      throw error;
+    }
+    const size = `${resolvedSourceDimensions.width}x${resolvedSourceDimensions.height}`;
+    return {
+      preview: {
+        referenceImageCount: 1,
+        model: model.id,
+        outputFormat: "png",
+        quality: null,
+        ratio: "source",
+        referenceImages: referenceImages.map((image) => ({
+          fileName: image.fileName,
+          height: image.height,
+          mimeType: image.mimeType,
+          size: image.size,
+          width: image.width,
+        })),
+        resolution: "source",
+        size,
+        sizeMode: "source-original",
+      },
+      provider: "comfyui",
+      request: {
+        images: referenceImages.map((image) => ({
+          fileName: image.fileName,
+          image_url: image.imageUrl,
+          mimeType: image.mimeType,
+        })),
+        model: model.id,
+        n: 1,
+        output_format: "png",
+        prompt,
+        size,
+      },
+    };
+  }
 
   if (prompt.length < 3 || prompt.length > 8000) {
     const error = new Error("提示词长度需要在 3–8000 字符之间");
@@ -233,7 +331,9 @@ export function createGenerationRequest(
   if (quality) request.quality = quality;
   if (referenceImages.length > 0) {
     request.images = referenceImages.map((image) => ({
+      fileName: image.fileName,
       image_url: image.imageUrl,
+      mimeType: image.mimeType,
     }));
   }
 
@@ -255,6 +355,7 @@ export function createGenerationRequest(
       size,
       sizeMode: preferSourceAspect ? "source-nearest" : "preset",
     },
+    provider: "oneapi",
     request,
   };
 }

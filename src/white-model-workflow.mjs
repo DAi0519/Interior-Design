@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、出图模型合法比例矩阵、可信参考图宽高、可选提示词结果缓存、OneAPI 客户端与后台同步调度器
- * [OUTPUT]: 对外提供 Prompt 解析、相同融合条件提示词复用/显式重算、版本化 Style DNA 编排、原图最近合法比例出图及非阻塞归档
- * [POS]: src 的设计模型渲染应用服务，优先保持白模画幅并允许显式手动覆盖
+ * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供 Prompt 解析/复用、版本化 Style DNA、OneAPI 或 ComfyUI 原图出图及带 Provider 元数据的非阻塞归档
+ * [POS]: src 的设计模型渲染应用服务，分离 Prompt 融合与最终出图 Provider 并保持白模画幅
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -89,6 +89,7 @@ export async function executeWhiteModelWorkflow(
   {
     availableModels = null,
     client,
+    imageClient = client,
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
     promptResultCache = null,
@@ -97,6 +98,9 @@ export async function executeWhiteModelWorkflow(
   },
 ) {
   if (!client) throw new TypeError("white model workflow requires client");
+  if (!imageClient) {
+    throw new TypeError("white model workflow requires image client");
+  }
 
   const userRequirements = String(input.prompt || "").trim();
   if (userRequirements.length > 8000) {
@@ -173,11 +177,12 @@ export async function executeWhiteModelWorkflow(
     },
   );
   const imageStartedAt = Date.now();
-  const result = await client.generateImage(generation.request);
+  const result = await imageClient.generateImage(generation.request);
   const imageDurationMs = Date.now() - imageStartedAt;
   const durationMs = Date.now() - startedAt;
   const preview = {
     ...generation.preview,
+    provider: generation.provider,
     quality: result.quality ?? generation.preview.quality,
     transport: result.transport || "responses",
   };
@@ -196,11 +201,13 @@ export async function executeWhiteModelWorkflow(
     agentVersion: agent.version,
     feature: "white-model-rendering",
     imageDurationMs,
+    provider: generation.provider,
     promptDurationMs,
     promptReused,
     styleCode: style.code,
     styleName: style.name,
     styleVersion: style.version,
+    ...(result.metadata || {}),
   };
   const syncInput = {
     durationMs,
@@ -232,6 +239,7 @@ export async function executeWhiteModelWorkflow(
     upstream: {
       created: result.created,
       imageDurationMs,
+      metadata: result.metadata || null,
       outputFormat: result.outputFormat,
       transport: result.transport || "responses",
     },
