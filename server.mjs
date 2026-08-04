@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 版本目录、OneAPI 客户端、Style DNA 反推、白模工作流及后台飞书任务
- * [OUTPUT]: 对外提供本地工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、风格对话、自由生图首张参考图画幅适配、生成接口与非阻塞同步状态查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/风格/双 Prompt 版本目录、OneAPI 客户端、Style DNA 反推、白模与 Benchmark 工作流及后台任务
+ * [OUTPUT]: 对外提供本地生图与评测工作台、可选持久化密钥会话、飞书连接中心、配置主动刷新、样本集 CRUD、用户 OneAPI 可用视觉模型目录与样本 AI 标注、实验筛选视图跳转、生成/批量横评/AI 评分接口及非阻塞任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI 与飞书 Base，并在图片完成时结束主链路计时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,13 @@ import {
   checkAgentModelAvailability,
   publicAgentModelCatalog,
 } from "./src/agent-model-config.mjs";
+import {
+  benchmarkBaseConfigFromEnv,
+  createBenchmarkBaseStore,
+} from "./src/benchmark-base.mjs";
+import { createBenchmarkJobRegistry } from "./src/benchmark-jobs.mjs";
+import { createBenchmarkWorkbenchService } from "./src/benchmark-workbench.mjs";
+import { createBenchmarkWorkbenchStore } from "./src/benchmark-workbench-store.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./src/model-config.mjs";
 import { syncGenerationToLark } from "./src/lark-sync.mjs";
 import { createLarkSetupService } from "./src/lark-setup.mjs";
@@ -40,6 +47,11 @@ import { executeWhiteModelWorkflow } from "./src/white-model-workflow.mjs";
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const PUBLIC_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "public");
+const BENCHMARK_STATE_FILE = join(
+  fileURLToPath(new URL(".", import.meta.url)),
+  ".benchmark-workbench",
+  "state.json",
+);
 const MAX_JSON_BYTES = 30 * 1024 * 1024;
 
 async function persistedOneApiKey() {
@@ -59,7 +71,9 @@ let sessionApiKeySource = sessionApiKey
 let sessionModelCatalog = null;
 let sessionModelCatalogRequest = null;
 const syncJobs = createSyncJobRegistry();
+const benchmarkJobs = createBenchmarkJobRegistry();
 const larkSetup = createLarkSetupService();
+let benchmarkWorkbench = null;
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -142,6 +156,17 @@ function clearSessionModelCatalog() {
   sessionModelCatalogRequest = null;
 }
 
+function getBenchmarkWorkbench() {
+  if (benchmarkWorkbench) return benchmarkWorkbench;
+  benchmarkWorkbench = createBenchmarkWorkbenchService({
+    baseStore: createBenchmarkBaseStore(benchmarkBaseConfigFromEnv()),
+    localStore: createBenchmarkWorkbenchStore(
+      process.env.BENCHMARK_WORKBENCH_STATE_FILE || BENCHMARK_STATE_FILE,
+    ),
+  });
+  return benchmarkWorkbench;
+}
+
 async function verifyLarkConfiguration() {
   await Promise.all([
     listPublicStyles(),
@@ -158,6 +183,44 @@ async function publicSession() {
     persisted: await persistedOneApiKey(),
     source: sessionApiKey ? sessionApiKeySource : "none",
   };
+}
+
+async function publicBenchmarkModelAccess() {
+  const session = await publicSession();
+  const imageModels = publicAgentModelCatalog().filter((model) => model.imageInput);
+  if (!session.connected) {
+    return {
+      error: "请先在连接中心接入 OneAPI Key",
+      models: imageModels.map((model) => ({
+        ...model,
+        available: false,
+        reason: "API 未连接",
+        selectable: false,
+      })),
+      session,
+    };
+  }
+  try {
+    const availableModels = await getSessionModelCatalog(
+      createOneApiClient(sessionApiKey),
+    );
+    return {
+      error: null,
+      models: checkAgentModelAvailability(availableModels).filter((model) => model.imageInput),
+      session,
+    };
+  } catch (error) {
+    return {
+      error: error.message,
+      models: imageModels.map((model) => ({
+        ...model,
+        available: false,
+        reason: "模型目录读取失败",
+        selectable: false,
+      })),
+      session,
+    };
+  }
 }
 
 async function getSessionModelCatalog(client, { force = false } = {}) {
@@ -206,6 +269,112 @@ function serveStatic(response, pathname) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (request.method === "GET" && pathname.startsWith("/api/benchmark/jobs/")) {
+    const jobId = decodeURIComponent(pathname.slice("/api/benchmark/jobs/".length));
+    const job = benchmarkJobs.get(jobId);
+    return job
+      ? sendJson(response, 200, { job })
+      : sendJson(response, 404, { error: "评测任务不存在或已过期" });
+  }
+
+  if (request.method === "GET" && pathname === "/api/benchmark/overview") {
+    const modelAccess = await publicBenchmarkModelAccess();
+    try {
+      return sendJson(response, 200, {
+        api: modelAccess.session,
+        configured: true,
+        labelingError: modelAccess.error,
+        ...(await getBenchmarkWorkbench().overview()),
+        reviewModels: modelAccess.models,
+      });
+    } catch (error) {
+      if (/缺少环境变量 BENCHMARK_/.test(error.message)) {
+        return sendJson(response, 200, {
+          api: modelAccess.session,
+          configured: false,
+          error: error.message,
+          labelingError: modelAccess.error,
+          reviewModels: modelAccess.models,
+        });
+      }
+      throw error;
+    }
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/cases") {
+    const body = await readJson(request);
+    return sendJson(response, 201, {
+      case: await getBenchmarkWorkbench().createCase(body),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/cases/tag") {
+    const body = await readJson(request);
+    return sendJson(response, 200, {
+      label: await getBenchmarkWorkbench().labelCase(body, {
+        client: createOneApiClient(requireApiKey()),
+      }),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/datasets") {
+    const body = await readJson(request);
+    return sendJson(response, 201, {
+      dataset: await getBenchmarkWorkbench().createDataset(body),
+    });
+  }
+
+  if (pathname.startsWith("/api/benchmark/datasets/")) {
+    const datasetId = decodeURIComponent(pathname.slice("/api/benchmark/datasets/".length));
+    const body = await readJson(request);
+    if (request.method === "PATCH") {
+      return sendJson(response, 200, {
+        dataset: await getBenchmarkWorkbench().renameDataset({ ...body, datasetId }),
+      });
+    }
+    if (request.method === "DELETE") {
+      return sendJson(response, 200, {
+        dataset: await getBenchmarkWorkbench().archiveDataset({ ...body, datasetId }),
+      });
+    }
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/experiments/plan") {
+    const body = await readJson(request);
+    return sendJson(response, 200, {
+      plan: await getBenchmarkWorkbench().planExperiment(body),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/experiments/open-base") {
+    const body = await readJson(request);
+    return sendJson(response, 200, {
+      target: await getBenchmarkWorkbench().prepareExperimentView(body),
+    });
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/experiments/run") {
+    const body = await readJson(request);
+    const jobId = `generation-${randomUUID()}`;
+    const service = getBenchmarkWorkbench();
+    const client = createOneApiClient(requireApiKey());
+    const job = benchmarkJobs.enqueue(jobId, "generation", (update) =>
+      service.runExperiment(body, { client, update }),
+    );
+    return sendJson(response, 202, { job });
+  }
+
+  if (request.method === "POST" && pathname === "/api/benchmark/reviews/run") {
+    const body = await readJson(request);
+    const jobId = `review-${randomUUID()}`;
+    const service = getBenchmarkWorkbench();
+    const client = createOneApiClient(requireApiKey());
+    const job = benchmarkJobs.enqueue(jobId, "review", (update) =>
+      service.runReview(body, { client, update }),
+    );
+    return sendJson(response, 202, { job });
+  }
+
   if (
     request.method === "GET" &&
     pathname === "/api/style-dna-reverse/config"

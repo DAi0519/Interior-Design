@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 custom-select.js 生成的 open/disabled/aria-selected 结构与 theme.css 设计令牌
- * [OUTPUT]: 对外提供暖白低圆角下拉、触发器版本反馈、深色选中态、单行辅助信息与键盘焦点视觉
+ * [INPUT]: 依赖 custom-select.js 从配置区与参数区 select 生成的 open/disabled/aria-selected 结构，以及 theme.css/benchmark.css 的共享设计令牌
+ * [OUTPUT]: 对外提供暖白低圆角下拉、38px 对齐触发器、优先完整展示且仅在真实空间不足时截断的选项文案、深色选中态与键盘焦点视觉
  * [POS]: public 的自定义下拉视觉层，替代不可控的系统原生展开菜单
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-.compact-config-field select.custom-select-native {
+.compact-config-field select.custom-select-native,
+.field select.custom-select-native {
   height: 1px;
   opacity: 0;
   pointer-events: none;
@@ -14,6 +15,7 @@
 }
 
 .custom-select {
+  min-width: 0;
   position: relative;
   width: 100%;
 }
@@ -28,7 +30,8 @@
   display: flex;
   font-size: 11px;
   justify-content: space-between;
-  min-height: 36px;
+  min-height: 38px;
+  overflow: hidden;
   padding: 0 10px 0 11px;
   text-align: left;
   transition:
@@ -57,15 +60,19 @@
 .custom-select-value {
   align-items: baseline;
   display: flex;
+  flex: 1 1 auto;
   gap: 6px;
   min-width: 0;
   overflow: hidden;
 }
 
 .custom-select-value strong {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   font-size: 11px;
   font-weight: 400;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -80,6 +87,7 @@
 
 .custom-select-chevron {
   fill: none;
+  flex: 0 0 auto;
   height: 14px;
   stroke: var(--quiet);
   stroke-linecap: round;
@@ -127,15 +135,19 @@
 .custom-select-option > span {
   align-items: baseline;
   display: flex;
+  flex: 1 1 auto;
   gap: 6px;
   min-width: 0;
   overflow: hidden;
 }
 
 .custom-select-option strong {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   font-size: 11px;
   font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

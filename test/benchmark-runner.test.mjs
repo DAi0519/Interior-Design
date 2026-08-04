@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的纯计划器、可注入模型/飞书执行边界
- * [OUTPUT]: 对外提供停用模型排除、Prompt 隔离、Run 真源、失败重试、横评展示与 63 图规模回归保障
+ * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的可筛选纯计划器、可注入模型/飞书执行边界
+ * [OUTPUT]: 对外提供 Case/配置筛选、停用模型排除、Prompt 隔离、Run 真源、失败重试、横评展示与 63 图规模回归保障
  * [POS]: test 的模型横评核心集成测试，所有资源与模型调用均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -99,6 +99,32 @@ test("七个样本只规划三个启用模型，共 21 次融合与 63 张图", 
   assert.equal(plan.summary.imageRuns, 63);
 });
 
+test("边缘输入不进入白模模型横评计划", () => {
+  const data = snapshot(2);
+  data.samples[0].sampleType = "有效白模";
+  data.samples[1].sampleType = "边缘输入";
+
+  const plan = buildBenchmarkPlan(data);
+
+  assert.equal(plan.summary.cases, 1);
+  assert.equal(plan.summary.promptBatches, 3);
+  assert.equal(plan.summary.imageRuns, 9);
+});
+
+test("工作台可选择 Case、配置并显式纳入已完成样本", () => {
+  const data = snapshot(2);
+  data.samples[0].status = "完成";
+  const plan = buildBenchmarkPlan(data, {
+    caseIds: ["CASE-001"],
+    configIds: ["CFG-001"],
+    includeCompletedSamples: true,
+  });
+
+  assert.equal(plan.summary.cases, 1);
+  assert.equal(plan.summary.activeImageModels, 1);
+  assert.equal(plan.summary.imageRuns, 3);
+});
+
 test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", async () => {
   const plan = buildBenchmarkPlan(snapshot());
   const promptCalls = [];
@@ -110,6 +136,7 @@ test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", a
   const uploaded = [];
   const uploadedRunImages = [];
   const statuses = [];
+  const progress = [];
   const client = {
     generateImage: async (request) => {
       imageCalls.push(request);
@@ -173,6 +200,7 @@ test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", a
       styleDna: { style_dna: { overall_style: "cream" } },
       version: 4,
     }),
+    onProgress: (value) => progress.push(value),
     store,
   });
 
@@ -189,6 +217,8 @@ test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", a
   assert.deepEqual(statuses, ["生成中", "完成"]);
   assert.equal(result.generatedPrompts, 3);
   assert.equal(result.generatedImages, 9);
+  assert.equal(progress.at(-1).completed, 9);
+  assert.equal(progress.at(-1).total, 9);
 
   for (let batch = 0; batch < 3; batch += 1) {
     const prompts = imageCalls

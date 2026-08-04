@@ -1,0 +1,167 @@
+/**
+ * [INPUT]: 依赖 benchmark.html 的后台任务卡片结构与 benchmark.css 的颜色、边框和排版令牌
+ * [OUTPUT]: 对外提供批量生成/AI 评分任务的面板归属、阶段、落库状态、用户影响/下一步/折叠技术详情、进度与窄屏布局视觉
+ * [POS]: public 的 Benchmark 运行状态增量视觉层，与数据集和实验配置样式模块并列
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+.job-slot:empty {
+  display: none;
+}
+
+.review-experiment-meta {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 7px 0 0;
+}
+
+#reviewJobSlot .progress-card {
+  margin-bottom: 0;
+}
+
+.job-progress-head,
+.job-progress-row,
+.job-meta {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+.job-progress-title {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+}
+.job-phase,
+.job-status {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  padding: 3px 8px;
+}
+.job-status {
+  background: var(--panel);
+}
+.progress-card[data-status="failed"] {
+  border-color: rgb(180 35 24 / 35%);
+}
+.progress-card[data-status="failed"] .job-status {
+  color: var(--danger);
+}
+
+.job-failure {
+  background: rgb(180 35 24 / 4%);
+  border: 1px solid rgb(180 35 24 / 18%);
+  border-radius: 6px;
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.job-failure-summary,
+.job-failure-next {
+  padding: 14px 16px;
+}
+
+.job-failure-summary > span,
+.job-failure-next span {
+  color: var(--danger);
+  display: block;
+  font: 600 9px/1.3 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  letter-spacing: 0.08em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.job-failure-summary strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.job-failure-summary p,
+.job-failure-next p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 4px 0 0;
+}
+
+.job-failure-next {
+  align-items: center;
+  background: rgb(255 255 255 / 45%);
+  border-top: 1px solid rgb(180 35 24 / 12%);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.job-failure-next > div {
+  min-width: 0;
+}
+
+.job-failure-next .secondary-button {
+  flex: 0 0 auto;
+}
+
+.job-technical-detail {
+  border-top: 1px solid rgb(180 35 24 / 12%);
+  color: var(--muted);
+  padding: 10px 16px;
+}
+
+.job-technical-detail summary {
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.job-technical-detail code {
+  color: var(--danger);
+  display: block;
+  font: 500 10px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  overflow-wrap: anywhere;
+  padding: 10px 0 2px;
+}
+.job-meta {
+  color: var(--muted);
+  font-size: 10px;
+  gap: 12px;
+  margin-top: 11px;
+}
+.job-meta code {
+  font: 500 10px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.job-progress-row {
+  gap: 12px;
+  margin-top: 10px;
+}
+.job-progress-row span {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font: 500 10px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+progress {
+  accent-color: var(--ink);
+  flex: 1;
+  height: 6px;
+  margin: 0;
+  width: 100%;
+}
+@media (max-width: 680px) {
+  .job-progress-head,
+  .job-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .job-meta code {
+    max-width: 100%;
+  }
+  .job-failure-next {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

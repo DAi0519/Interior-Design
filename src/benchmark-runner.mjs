@@ -1,33 +1,20 @@
 /**
- * [INPUT]: 依赖 Benchmark Base 快照、Style DNA/Prompt Agent 发布资源、模型矩阵、参考图校验与 OneAPI 客户端
- * [OUTPUT]: 对外提供确定性横评计划与可断点续跑的串行执行器，逐 Run 留存成功/失败/重试并同步横评展示
+ * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型矩阵、参考图校验与 OneAPI 客户端
+ * [OUTPUT]: 对外提供校验画幅/分辨率/格式/质量档的确定性横评计划、模型可用性预检与可断点续跑的串行执行器，逐 Run 留存成功/失败/重试并同步横评展示
  * [POS]: src 的模型横评应用服务，以一图一行的模型结果为真源、Prompt 批次为冻结实验产物
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { agentModelOrThrow, publicAgentModelCatalog } from "./agent-model-config.mjs";
 import {
-  agentModelOrThrow,
-  publicAgentModelCatalog,
-} from "./agent-model-config.mjs";
-import {
-  baseRunId,
-  providerFromModelId,
-  runIdForAttempt,
-  sha256,
-  stablePromptId,
-  stableRunId,
+  baseRunId, providerFromModelId, runIdForAttempt, sha256, stablePromptId, stableRunId,
 } from "./benchmark-identifiers.mjs";
-import {
-  createGenerationRequest,
-  publicModelCatalog,
-} from "./model-config.mjs";
+import { parseBenchmarkOutputSpec } from "./benchmark-experiment-config.mjs";
+import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { getPublishedPromptAgent } from "./prompt-agent.mjs";
 import { normalizeReferenceImage } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
-import {
-  buildPromptAgentInput,
-  parsePromptAgentOutput,
-} from "./white-model-workflow.mjs";
+import { buildPromptAgentInput, parsePromptAgentOutput } from "./white-model-workflow.mjs";
 
 const COMPLETED_SAMPLE_STATUSES = new Set(["完成"]);
 
@@ -59,20 +46,6 @@ function positiveInteger(value, field) {
   return number;
 }
 
-function parseOutputSpec(value) {
-  const normalized = String(value || "").trim();
-  const resolution = normalized.match(/\b(512|[1-4]K)\b/i)?.[1]?.toUpperCase();
-  const format = normalized.match(/\b(PNG|JPE?G|WEBP)\b/i)?.[1]?.toLowerCase();
-  if (!resolution || !format) {
-    throw benchmarkError(`无法解析输出规格：${normalized || "空"}`);
-  }
-  return {
-    outputFormat: format === "jpg" ? "jpeg" : format,
-    resolution,
-    sourceNearest: normalized.includes("跟随原图比例"),
-  };
-}
-
 function catalogKeyById(catalog, id, field) {
   const entry = catalog.find((model) => model.id === id);
   if (!entry) throw benchmarkError(`${field} 不在本地模型目录：${id}`);
@@ -87,25 +60,41 @@ function assertSame(configs, getter, field) {
   return getter(configs[0]);
 }
 
-function activeSamples(samples, maxCases) {
+function activeSamples(samples, maxCases, includeCompletedSamples = false) {
   const selected = samples
     .filter((sample) => sample.caseId)
-    .filter((sample) => !COMPLETED_SAMPLE_STATUSES.has(sample.status))
+    .filter((sample) => !sample.sampleType || sample.sampleType === "有效白模")
+    .filter((sample) =>
+      includeCompletedSamples || !COMPLETED_SAMPLE_STATUSES.has(sample.status))
     .sort((left, right) => left.caseId.localeCompare(right.caseId));
   return maxCases == null ? selected : selected.slice(0, maxCases);
+}
+
+function selectedIdSet(values, field) {
+  if (values == null) return null;
+  if (!Array.isArray(values) || values.length === 0) {
+    throw benchmarkError(`${field} 必须是非空数组`);
+  }
+  return new Set(values.map((value) => String(value || "").trim()).filter(Boolean));
 }
 
 export function buildBenchmarkPlan(
   snapshot,
   {
+    caseIds = null,
+    configIds = null,
     groupId = null,
+    includeCompletedSamples = false,
     maxCases = null,
     maxPromptBatches = null,
   } = {},
 ) {
+  const selectedCaseIds = selectedIdSet(caseIds, "caseIds");
+  const selectedConfigIds = selectedIdSet(configIds, "configIds");
   const enabledConfigs = snapshot.configs
     .filter((config) => config.enabled)
-    .filter((config) => !groupId || config.groupId === groupId);
+    .filter((config) => !groupId || config.groupId === groupId)
+    .filter((config) => !selectedConfigIds || selectedConfigIds.has(config.configId));
   if (enabledConfigs.length === 0) {
     throw benchmarkError("没有符合条件的已启用生成配置");
   }
@@ -165,10 +154,7 @@ export function buildBenchmarkPlan(
     );
     const promptBatches = maxPromptBatches == null
       ? requestedPromptBatches
-      : Math.min(
-          requestedPromptBatches,
-          positiveInteger(maxPromptBatches, "maxPromptBatches"),
-        );
+      : Math.min(requestedPromptBatches, positiveInteger(maxPromptBatches, "maxPromptBatches"));
     const perBatchImages = positiveInteger(
       assertSame(
         configs,
@@ -185,7 +171,7 @@ export function buildBenchmarkPlan(
       fusionModelId,
       "融合基座模型",
     );
-    const output = parseOutputSpec(outputResource);
+    const output = parseBenchmarkOutputSpec(outputResource);
     const seenModels = new Set();
     const plannedConfigs = configs.map((config) => {
       if (!config.configId) throw benchmarkError("已启用配置缺少配置 ID");
@@ -203,7 +189,12 @@ export function buildBenchmarkPlan(
       };
     });
 
-    const cases = activeSamples(snapshot.samples, maxCases).map((sample) => {
+    const cases = activeSamples(
+      snapshot.samples.filter((sample) =>
+        !selectedCaseIds || selectedCaseIds.has(sample.caseId)),
+      maxCases,
+      includeCompletedSamples,
+    ).map((sample) => {
       const batches = [];
       for (let batch = 1; batch <= promptBatches; batch += 1) {
         const promptId = stablePromptId(sample.caseId, currentGroupId, batch);
@@ -216,11 +207,7 @@ export function buildBenchmarkPlan(
             sampleIndex <= perBatchImages;
             sampleIndex += 1
           ) {
-            const runId = stableRunId(
-              promptId,
-              config.configId,
-              sampleIndex,
-            );
+            const runId = stableRunId(promptId, config.configId, sampleIndex);
             const resultAttempts = (resultIndex.get(runId) || [])
               .sort((left, right) => left.attempt - right.attempt);
             const successfulResult = resultAttempts.findLast(
@@ -364,7 +351,7 @@ function allModelIds(plan) {
   );
 }
 
-async function assertModelAvailability(client, plan) {
+export async function assertBenchmarkModelAvailability(client, plan) {
   const available = new Set(
     (await client.listModels())
       .map((model) => model.id || model.name)
@@ -524,7 +511,8 @@ async function generateRun({
     model: run.config.imageModelLabel,
     output: JSON.stringify({
       format: group.output.outputFormat,
-      quality: "medium",
+      quality: group.output.quality,
+      ratio: group.output.ratio,
       resolution: group.output.resolution,
       sourceNearest: group.output.sourceNearest,
     }),
@@ -545,7 +533,8 @@ async function generateRun({
         modelKey: run.config.imageModelKey,
         outputFormat: group.output.outputFormat,
         prompt: finalPrompt,
-        quality: "medium",
+        quality: group.output.quality,
+        ratio: group.output.ratio,
         referenceImages: [
           {
             dataUrl: reference.imageUrl,
@@ -588,7 +577,8 @@ async function generateRun({
         model: run.config.imageModelLabel,
         output: JSON.stringify({
           format: group.output.outputFormat,
-          quality: "medium",
+          quality: group.output.quality,
+          ratio: group.output.ratio,
           resolution: group.output.resolution,
           sourceNearest: group.output.sourceNearest,
         }),
@@ -657,6 +647,7 @@ export async function runBenchmark(
     execute = false,
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
+    onProgress = () => {},
     store,
   } = {},
 ) {
@@ -664,7 +655,7 @@ export async function runBenchmark(
   if (!client || !store) {
     throw new TypeError("Benchmark 执行需要 client 与 store");
   }
-  await assertModelAvailability(client, plan);
+  await assertBenchmarkModelAvailability(client, plan);
   const counters = {
     failedImages: 0,
     failedPrompts: 0,
@@ -673,6 +664,13 @@ export async function runBenchmark(
     skippedImages: 0,
     skippedPrompts: 0,
   };
+  let completedImages = 0;
+  const reportProgress = (message) => onProgress({
+    completed: completedImages,
+    message,
+    total: plan.summary.imageRuns,
+  });
+  reportProgress("正在检查模型与实验资源");
 
   for (const group of plan.groups) {
     const [style, agent] = await Promise.all([
@@ -725,6 +723,8 @@ export async function runBenchmark(
           });
           sampleFailed += failedRuns.length;
           counters.failedImages += failedRuns.length;
+          completedImages += batch.runs.length;
+          reportProgress(`${sample.caseId} 的 Prompt 批次 ${batch.batch} 失败`);
           continue;
         }
         const comparisonRecordId = await store.saveComparisonRow(
@@ -770,6 +770,8 @@ export async function runBenchmark(
             counters.failedImages += 1;
             sampleFailed += 1;
           }
+          completedImages += 1;
+          reportProgress(`${sample.caseId} · ${run.config.imageModelLabel} · ${status}`);
         }
       }
       const sampleStatus = sampleFailed === 0

@@ -1,3 +1,62 @@
+<!--
+[INPUT]: 依赖用户截图、浏览器渲染证据、真实指针/键盘交互与自动化回归结果
+[OUTPUT]: 对外提供 Canvas Lab 与 Benchmark 视觉实现的分轮验收记录、问题优先级和最终结论
+[POS]: 项目根目录的视觉验收历史，与 DESIGN.md 的设计契约形成实现证据闭环
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+
+# Benchmark White Button Language v10 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-f5bf78b7-bbbf-4ada-8b84-68d57250cc07.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/04/019fcd40-7306-7e20-b11e-4e2a35d10671/benchmark-buttons-after.png`
+- Focused normalized comparison: `/Users/dai/.codex/visualizations/2026/08/04/019fcd40-7306-7e20-b11e-4e2a35d10671/benchmark-buttons-comparison.png`
+- Source pixels: `448 × 169`
+- Implementation pixels: `1280 × 720`；CSS viewport `1280 × 720`、devicePixelRatio `1`
+- State: 桌面端、Benchmark 已连接、样本集面板、9 个已录入样本
+- Normalization: 源图是生图工作台功能分段控件局部，比较图左侧保留源图、右侧并置评测页步骤选中态与样本集动作组；仅比较按钮表面、前景色、边框、阴影与层级，不对不同组件结构做逐像素判断。
+
+## Full-view Comparison
+
+- 评测页保持原有五步信息架构、暖灰画布、单层面板和紧凑密度，没有因按钮纠偏改变布局或业务流程。
+- 原本黑底白字的步骤选中态与主动作改为白底黑字；同步、新建、重命名、删除及顶部工作台切换也使用同一中性表面。
+- 按钮主次继续由位置、字重和文案表达，禁用态保留降透明度，危险动作不再默认铺黑。
+
+## Focused Region Comparison
+
+- 字体与排版：沿用 system-ui，按钮为 `12px / 500–600`，黑色文字与参考图的轻量中性选中态一致。
+- 间距与布局：保留 `32px` 基线、`6px` 圆角和原有 padding；步骤导航增加透明占位边框，状态切换不产生位移。
+- 色彩与令牌：所有动作按钮默认实测为 `rgb(255, 255, 255)` 背景、`rgb(25, 26, 28)` 前景和 `rgb(207, 204, 197)` 边框。
+- 图片与资产：本轮没有新增或替换产品图片、图标、SVG 或装饰资产。
+- 文案与内容：按钮文案与业务语义全部保持不变。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 白底黑字已经覆盖 quiet、primary、secondary、danger 四类动作及当前步骤选中态；表单、下拉、状态徽标等非按钮组件保持既有语义。
+- 页面 `scrollWidth = clientWidth = 1280px`，没有新增横向溢出。
+
+## Interaction Verification
+
+- 真实点击“实验配置”后只有实验配置面板 active；再点击“样本集”后只有样本集面板 active，双向切换通过。
+- 指针按压反馈、键盘焦点圈、禁用态规则保持；默认视觉不显示焦点圈，键盘/自动化聚焦时仍有可辨识轮廓。
+- 浏览器控制台无 error 或 warning。
+
+## Comparison History
+
+- 初始 P1：当前步骤、保存样本、正式运行与 AI 评分等主动作使用黑底白字，与用户提供的生图工作台白底黑字按钮语言明显割裂。
+- v10 修复：四类动作统一为白底黑字细边框；当前步骤改为白底黑字并以低阴影和边框表达选中；加入一致的轻量 hover，保留 press、focus-visible 与 disabled 状态。
+- 修复后证据：同视口浏览器截图、源图/实现同输入对照、步骤双向点击、计算样式、控制台和横向溢出检查均通过。
+
+## Follow-up Polish
+
+- 无阻塞项；本轮不扩展到下拉菜单选项、状态徽标或模型候选卡，避免把“按钮纠偏”扩大成无关重设计。
+
+final result: passed
+
+---
+
 # Style DNA Workbench v15 Design QA
 
 ## Evidence
@@ -164,5 +223,534 @@
 - 暂无阻塞项；重新连接 API Key 后即可按“首轮传附件 → 后续纯文字续改”的真实路径验收。
 
 final result: passed
+
+---
+
+# Benchmark Direct AI Review v12 Design QA
+
+## Evidence
+
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/04/benchmark-review-direct/benchmark-review-direct-viewport.jpg`
+- Browser viewport: `877 × 837`；`scrollWidth = clientWidth = 877px`
+- Live review source: Benchmark Base 成功结果目录；当前样本集命中 `EXP-20260804T081921Z-5ECA` 的 12 张结果
+
+## Findings
+
+- AI 评分不再复用实验配置页持续生成的新草稿 ID，而是从当前样本集已有成功结果中选择评分实验；默认项是最近完成实验。
+- 表单明确显示“12 张成功结果可评分 / 12 张已有评分 / 评分不会重新出图”，已完成评分时主按钮使用“重新评分”而不是误导性的首次评分文案。
+- 评分实验、评分模型、评审批次和三维协议保持单一纵向节奏；任务进度卡按任务类型归入 AI 评分页，不再跳回批量运行。
+
+## Interaction Verification
+
+- 点击“AI 评分”后面板保持 active，已完成实验 `EXP-20260804T081921Z-5ECA` 自动选中；未点击真实评分按钮，避免重复模型调用。
+- 任务归属纯函数覆盖 `review → AI 评分`、`generation → 批量运行`；当前样本集没有成功结果时，服务端在保存空评审批次和调用模型前阻断。
+- 服务重启后 `/api/setup/status` 报告 `ready=true`、`lark-cli 1.0.77`、Benchmark Base 可读；浏览器控制台无 error 或 warning。
+- `npm test` 通过：129 tests，0 fail；前端与服务端模块语法检查、`git diff --check` 通过。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+
+# Benchmark Experiment ID & Failure Guidance v12 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-d6464d6d-6592-4aea-a061-436106f06c0a.png`
+- Browser-rendered failure card: `/Users/dai/.codex/visualizations/2026/08/04/benchmark-experiment-id-error-ui/benchmark-failure-guidance-v2.jpg`
+- Browser-rendered experiment ID control: `/Users/dai/.codex/visualizations/2026/08/04/benchmark-experiment-id-error-ui/benchmark-generated-experiment-id.png`
+- Normalized before/after comparison: `/Users/dai/.codex/visualizations/2026/08/04/benchmark-experiment-id-error-ui/benchmark-failure-before-after-default.png`
+- Source pixels: `1615 × 330`，用户截取的冻结配置失败卡片
+- Implementation failure pixels: `803 × 317`；CSS 视口 `877 × 837`、devicePixelRatio `1`
+- Experiment ID control pixels: `803 × 190`；同一 CSS 视口
+- Normalization: 将实现卡片按源图宽度等比放大后纵向并置；源图为旧版局部裁切，不据此比较页面整体宽度，只比较错误信息层级、间距、色彩和可读性
+- State: 桌面端、历史 `config-write` 失败、`CFG-EE85E8007EA1` 冻结配置冲突、`0 / 12`
+
+## Full-view Comparison
+
+- 旧版把原始配置错误做成整行红色主内容，用户只能看到“失败”，无法知道是否已调用模型以及下一步怎么处理。
+- 新版在同一任务卡片内建立“发生了什么 → 本次影响 → 下一步 → 技术详情”的阅读顺序；标题、阶段、终态和 Base 状态仍保留原位置，没有引入新的外层卡片。
+- 新增实验 ID 控件与模板选择器、最多 Case 数共用同一三列网格和 `38px` 控件基线；ID 只读，辅助说明与“换一个”动作不覆盖输入内容。
+
+## Focused Region Comparison
+
+- 字体与排版：延续 system-ui 与等宽任务/实验 ID 字体；业务解释使用 `13px` 标题和次级正文，技术错误降为折叠后的 `10px` 等宽文本。
+- 间距与布局：解释区使用 `14–16px` 内边距和单一道分隔线；动作保持右对齐，`877px` 视口下卡片宽 `803px`，页面 `scrollWidth = clientWidth = 877px`。
+- 色彩与令牌：继续复用暖灰面板、`--line`、`--muted` 与 `--danger`；危险色只用于标签、边框和技术详情，不再形成抢占主层级的整条高饱和错误带。
+- 图片与资产：本轮没有新增图片、图标、SVG 或装饰资产，不存在占位图、字符图标或清晰度退化。
+- 文案与内容：明确“模型没有被调用，也没有产生结果图”；配置阶段冲突提供“生成新实验 ID”，出图阶段失败则提示保留 ID 断点续跑，避免给出相反操作。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 新版卡片相较源图高度增加是承载业务影响和恢复动作的有意变化；分区边界清晰，技术详情默认折叠，没有恢复成多层套卡或拥挤警报。
+- 实验 ID 使用秒级时间戳加四位随机后缀，减少同一分钟内重复；模板载入不改写 ID，预演与正式运行仍共用一个稳定实验边界。
+
+## Interaction Verification
+
+- 页面初始化生成 `EXP-YYYYMMDDTHHMMSSZ-XXXX`；实测点击“换一个”由 `EXP-20260804T075614Z-F1A7` 更新为 `EXP-20260804T075635Z-4517`。
+- 失败卡片“生成新实验 ID”实测切回实验配置，并生成 `EXP-20260804T080049Z-81AA`；不会覆盖历史实验。
+- “查看技术详情”默认关闭，点击后精确显示 `CFG-EE85E8007EA1 已存在但冻结参数不同`。
+- 实时 Base 快照与当前草稿复核后，`CFG-EE85E8007EA1` 的稳定配置一致性结果为 `true`；展示名称和隐含默认 `medium` 不再造成假冲突。
+- `npm test` 通过：125 tests，0 fail；浏览器控制台无 error 或 warning，页面无横向溢出。
+
+## Comparison History
+
+- 初始 P1：展示名称漂移被当成冻结参数差异，触发假冲突；前端只显示原始错误，没有解释影响或恢复路径。
+- v12 修复：一致性校验改为稳定编码、数值和规范化输出规格；失败卡片新增业务解释、阶段化恢复动作与折叠技术详情；实验 ID 改为系统生成并提供轻量换新入口。
+- 修复后证据：自动化测试、真实 Base 只读等价校验、浏览器 ID 换新/失败恢复/技术详情交互、同屏前后视觉比较和控制台检查全部通过。
+
+## Follow-up Polish
+
+- 无阻塞项；进入出图阶段后的失败继续保留原实验 ID，不自动换新，以维护 Base 断点续跑语义。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Benchmark Dataset UI v6 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-8a2c2fdc-54d4-4461-bf88-6d449f8ca75a.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-ui-final.png`
+- Normalized full-view comparison: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-ui-comparison.png`
+- Source pixels: `2196 × 1474`，对应 `1098 × 737` CSS 视口、devicePixelRatio 2
+- Implementation pixels: `1098 × 737`，CSS 视口 `1098 × 737`、devicePixelRatio 1
+- Normalization: 源图以高质量插值缩小到 `1098 × 737`，与实现同状态并排；只消除像素密度差异，不裁切页面内容
+- State: 桌面端、`000` 空样本集、Benchmark 已连接、Gemini 3.5 Flash 已选
+
+## Full-view Comparison
+
+- 左侧流程导航与右侧工作面板从同一 `y=88px` 起始，并在 `y=713px` 共享底边；此前导航被 sticky top 额外下推且只包裹自身内容。
+- 添加样本与样本表格从同一 `y=251.5px` 起始，均在 `y=712px` 结束；Grid 子面板高度差为 `0px`。
+- AI 模型选择器改为 38px，与其余输入控件统一；API 状态进入下一级辅助行，与选择器垂直间距 8px，不再覆盖模型说明或穿入右侧数据区。
+- 样本集工具栏、表头、表单标题与导航步骤沿用原有暖灰、近黑、6/12px 圆角和 8px 基础节奏，没有引入新的卡片层级。
+
+## Focused Region Comparison
+
+- 原图中模型选择器的内容宽度越过自身 Grid 轨道，API 胶囊和“管理 API”压在触发器上，并继续侵入右栏表格；修复后选择器宽 `260px`、辅助状态宽 `260px`，分别占据两行，重叠量为 `0px`。
+- 自定义选择器根节点、主值与辅助说明均允许收缩；主值和说明只在自身轨道内省略，chevron 固定 14px，不被长模型说明挤压。
+- `1024px` 临界桌面下，数据区由硬编码 `480px` 下限改为可收缩轨道，页面 `scrollWidth = clientWidth = 1024px`，右侧表格不再被面板裁切。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 字体与排版：保持 Inter/system-ui 与技术编号等宽字体；标题、标签、辅助状态层级未发生异常换行。
+- 间距与布局：导航/工作面板、录入/表格均严格等高；模型控件与 API 辅助状态形成 8px 次级间距，全部表单控件统一 38px 基线。
+- 色彩与令牌：继续复用 `--bg`、`--panel`、`--panel-soft`、`--line`、`--ink` 与 `--quiet`；状态仍只用近黑与中性色。
+- 图片与图标：页面没有新增图片资产；既有品牌图标与 chevron 保持原实现，没有用字符或 CSS 图形替代产品资产。
+- 文案与内容：所有既有产品文案、样本数据和空态内容保持不变；长模型说明通过局部截断保留完整可访问名称。
+
+## Interaction Verification
+
+- 模型下拉可打开，8 个候选完整呈现；`aria-expanded` 在打开/关闭间正确切换，Escape 关闭后菜单恢复隐藏。
+- “实验配置 → 样本集”双向导航切换后，active step 与 active panel 始终一致。
+- `640 / 720 / 1000 / 1024 / 1098 / 1280px` 视口均无横向页面溢出；`1000px` 以下自然切换为单栏内容区。
+- `1098 × 737` 同状态实测模型/API 重叠量、导航顶线差、导航底线差、录入/表格顶线差和底线差均为 `0px`。
+- `npm test` 通过：110 tests，0 fail；浏览器控制台无 error 或 warning。
+
+## Comparison History
+
+- 初始 P1：自定义选择器由内容撑宽到超过 Grid 轨道，覆盖 API 状态并侵入样本表格。
+- 初始 P2：自定义选择器 36px、普通输入 38px，控制基线不一致；sticky top 让导航相对工作面板下移，导航与主面板底边断开。
+- 补充 P2：`1024px` 附近 `300px + 480px` 的硬最小列宽超过可用面板宽度，右栏被 `overflow: hidden` 裁切。
+- 修复：约束 Grid 子项和选择器的最小宽度；把 API 状态放到辅助行；统一 38px 控件高度；导航参与主 Grid 拉伸；右栏改为可收缩轨道并保留表格内部滚动。
+- 修复后证据：同状态全屏对照、六档响应式测量、下拉与步骤导航交互、自动化测试及控制台检查全部通过。
+
+## Follow-up Polish
+
+- 无阻塞项；后续若增加更长的模型名称，继续沿用“主值局部省略 + 完整 aria-label”的同一规则即可。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Benchmark Dataset UI v7 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-b5b3954a-3616-4c8d-a3da-83b3f6f905aa.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-api-row-removed.png`
+- Focused before/after comparison: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-api-row-comparison.png`
+- Source pixels: `1316 × 368`，用户截取的模型/API/默认值局部区域
+- Implementation pixels: `877 × 837`，CSS 视口 `877 × 837`、浏览器报告 devicePixelRatio 2
+- Normalization: 实现从同一区域裁取 `843 × 175`，等比放大到 `1316 × 273` 后与源图纵向并置；只判断信息层级、遮挡和垂直节奏，不据此比较字体像素锐度
+- State: 桌面窄视口、Benchmark 已连接、Gemini 3.5 Flash 已选、9 个样本
+
+## Full-view Comparison
+
+- 模型区不再重复全局连接信息；`API 已连接`、`管理 API` 及其容器均从 DOM 删除，而不是通过 CSS 隐藏。
+- AI 打标模型后直接进入“类别默认值 / 类型默认值”，删除了无业务输入价值的中间状态行。
+- 页面其余样本集工具栏、双栏/单栏断点、表格、上传区和保存动作保持不变。
+
+## Focused Region Comparison
+
+- 修复前：38px 模型选择器后插入独立 API 胶囊与管理链接，状态重复且占据一整层垂直节奏，在窄表单里形成明显拥挤。
+- 修复后：模型选择器底边为 `y=443.5px`，默认值控件从 `y=480px` 开始，间距 `36.5px` 完整承载下一组字段标签，不再有漂浮状态或操作链接。
+- DOM 实测 `#labelApiStatus`、`#labelApiLink`、`.sample-api-state` 数量均为 `0`。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 字体与排版：保留原有 Inter/system-ui、标签权重和模型辅助说明；删除状态行后没有异常换行。
+- 间距与布局：模型控件与下一组标签恢复统一表单节奏；没有残留空高度、负 margin 或占位节点。
+- 色彩与令牌：删除了局部第二个近黑胶囊，近黑连接状态只在顶部全局层出现。
+- 图片与图标：本轮没有新增或替换任何图片、品牌资产或图标。
+- 文案与内容：移除重复的“API 已连接 / 管理 API”；API 未连接和无可用模型仍由模型下拉占位文案明确表达。
+
+## Interaction Verification
+
+- AI 打标模型下拉仍可打开并显示 8 个可用候选；Escape 可关闭，`aria-expanded` 正确恢复为 false。
+- API 状态 DOM 删除后，模型目录、默认 Gemini 3.5 Flash、样本数据和禁用逻辑均正常。
+- `npm test` 通过：110 tests，0 fail；浏览器控制台无 error 或 warning。
+
+## Comparison History
+
+- 初始 P2：模型配置区重复呈现全局 API 连接状态和管理入口，形成额外视觉层并挤压默认值字段。
+- 修复：删除对应 HTML、CSS 与控制器写入逻辑，保留模型下拉自身的连接/可用性占位语义；同步提升静态资源版本。
+- 修复后证据：同屏局部对照、DOM 数量检查、下拉交互、自动化测试及控制台检查全部通过。
+
+## Follow-up Polish
+
+- 无阻塞项；连接管理继续由全局连接中心统一承载，不再向局部模型区复制状态。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Topbar Sync UI v8 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-c2f9f47a-7e9a-4ad0-87a6-5a4501cbaf52.png`
+- Source pixels: `1032 × 210`，顶部操作区局部截图
+- Browser-rendered implementation: 当前 Codex Desktop 会话未暴露 in-app Browser 控制接口，无法生成修复后截图
+- State: Benchmark 已连接、顶部操作区显示“刷新 / Benchmark 已连接 / 生图工作台”
+
+## Findings
+
+- [P2] 顶栏“刷新”使用与页面跳转相同的 32px 描边按钮语法，和连接状态在同一层抢占横向空间；局部截图中三个动作形成连续高密度控件带。
+- Fix applied: 从顶栏完整移除“刷新”，顶栏只保留全局连接状态与工作台切换；将动作改名为“同步”并移动到样本集标题行，使用 24px 无边框轻量文字按钮与原位“同步中”反馈。
+- Typography: “同步”使用 10px 次级操作字号，不与 11px 状态及 12px 工作台跳转竞争。
+- Spacing/layout: 顶栏由三项收敛为两项；样本集标题行以 14px 间距组织“同步”和样本计数。
+- Colors/tokens: 继续复用 `--quiet`、`--panel-soft`、`--ink`，没有新增颜色或表面层级。
+- Image quality/assets: 本轮没有新增图片或图标资产。
+- Copy/content: “刷新”改为更符合远端数据语义的“同步”，执行态为“同步中”。
+
+## Interaction Verification
+
+- 静态资源版本已提升；`refreshOverview()` 在请求期间禁用按钮并在成功/失败后恢复“同步”。
+- 自动化测试与语法检查可验证行为代码，但不能替代浏览器视觉与控制台验收。
+
+## Comparison History
+
+- 初始 P2：顶栏大号描边刷新按钮造成拥挤并破坏全局操作层级。
+- 第一轮修复：移除顶栏按钮，将同步降级到样本集标题行。
+- Post-fix evidence: 缺少修复后浏览器截图，无法完成同视口并排比较。
+
+## Follow-up Polish
+
+- 需要刷新后的同区域截图，才能确认顶栏剩余两项的真实间距、裁切、字号和响应式表现。
+
+final result: blocked
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Dataset Sync Group v9 Design QA
+
+## Evidence
+
+- Annotated visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-1aa619c6-f0a3-4c04-a783-576799f003a5.png`
+- Source pixels: `1684 × 358`，样本集标题与管理工具栏局部截图
+- Browser-rendered implementation: 当前 Codex Desktop 会话未暴露 in-app Browser 控制接口，无法生成移动后的截图
+- State: `0` 个样本、同步位于标题计数旁、工具栏含“新建 / 重命名 / 删除”
+
+## Findings
+
+- [P2] “同步”虽然已从全局顶栏移除，但落在样本计数旁形成孤立次级动作；它管理的是当前样本集数据，应与新建、重命名和删除共同构成一个动作组。
+- Fix applied: 将“同步”移动到 `.dataset-actions` 首位，与其余三个动作共用 `quiet-button` 的 38px 高度、6px 间距、描边、圆角和交互状态；标题行恢复只显示样本计数。
+- Typography: 四个动作统一 12px，标题和计数层级恢复纯信息表达。
+- Spacing/layout: 桌面端四项保持同一 flex 行；680px 以下改为四等分 Grid，避免第三项加孤行。
+- Colors/tokens: 四项全部复用既有中性描边按钮令牌，没有新增强调色。
+- Image quality/assets: 本轮没有新增图片或图标资产。
+- Copy/content: 保留“同步 / 新建 / 重命名 / 删除”，只调整归属与排列。
+
+## Interaction Verification
+
+- 静态 HTML 实测管理动作顺序为“同步 / 新建 / 重命名 / 删除”，顶栏和标题行均不再包含同步按钮。
+- 112 项自动化测试通过；`refreshOverview()` 的“同步中”与禁用态保持不变。
+- 缺少浏览器渲染截图与控制台检查，不能据静态 DOM 宣称视觉验收通过。
+
+## Comparison History
+
+- v8 初始修复：同步从顶栏降级到样本标题行。
+- v9 用户纠偏：同步应与样本集 CRUD 动作成组，而不是成为标题旁孤立操作。
+- v9 修复：并入 `.dataset-actions` 首位，并补齐窄屏四列规则。
+- Post-fix evidence: 缺少移动后的浏览器截图。
+
+## Follow-up Polish
+
+- 需要刷新后的同区域截图，确认四项按钮实际宽度、基线和工具栏剩余空间。
+
+final result: blocked
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Experiment Config UI v10 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-b3be527f-34a6-475a-ae23-806a38c23b5d.png`
+- Browser-rendered implementation: `/tmp/benchmark-experiment-config-v10.png`
+- Normalized full-view comparison: `/tmp/benchmark-experiment-config-compare.png`
+- Source pixels: `2128 × 1302`；用户截图展示缺少可编辑参数的桌面实验配置页
+- Implementation pixels: `867 × 1261`；CSS 视口 `867 × 837`、devicePixelRatio 2
+- Comparison pixels: `2126 × 900`；两图等高并排，只比较信息架构、层级和密度，不做不同视口下的逐像素判断
+- State: Benchmark 已连接、`000` 样本集、奶油法式 v4、白模渲染融合 Agent v7、Gemini 3.1 Pro、3 个可执行出图模型
+
+## Full-view Comparison
+
+- 原页只有实验 ID、横评组、最多 Case 数与模型卡，无法在前端控制实际生成参数；实现补齐 Style DNA、融合 Agent、融合基模、比例、分辨率、格式、质量档、Prompt 批次和每批出图数。
+- 配置区明确分成“实验元信息 / 固定参数 / 候选出图模型 / 只读预演”四层，并以“唯一变量：出图模型”锁定横评边界。
+- 867px 窄桌面下导航自然转为顶部五步栏，表单保持两列，候选模型保持 `2 × 2` 网格；页面 `scrollWidth = clientWidth = 867px`，无横向溢出。
+- Banana Pro 因当前横评表缺少对应图片列而保留为禁用态，并直接显示原因；其余三模型默认选中。
+
+## Focused Region Comparison
+
+- 模型选择会实时收敛跨模型公共参数：取消 Seedream 5.0 后分辨率恢复 `1K / 2K / 4K`，重新选择后收敛为 `2K / 4K`。
+- 禁用模型卡需要额外一行原因，初版使第一行高度 `67px`、第二行 `56px`；最终统一四张卡为 `67px`，两行基线和底边完全一致。
+- 所有输入继续复用现有自定义选择器、暖灰表面、6px 圆角和近黑选中态，没有引入新的视觉语言。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 字体与排版：标题、标签、辅助说明和模型原因形成四级层次；长值只在各自选择器内省略。
+- 间距与布局：固定参数采用 10px 网格间距，分区使用 20px 层级间距；四张模型卡最终等高。
+- 色彩与令牌：继续复用 `--panel-soft`、`--line`、`--ink` 与 `--muted`；禁用态只降透明度，不新增警告色。
+- 图片与图标：本轮没有新增图片资产；既有品牌图标、勾选状态和 chevron 保持不变。
+- 文案与内容：预演明确说明“不调用模型、不写入 Base”；真实运行入口明确说明会调用 OneAPI 并写入 Benchmark Base。
+
+## Interaction Verification
+
+- 只读预演以 `1 Case × 1 Prompt 批次 × 3 模型 × 4 张`生成 `12` 个计划任务，可断点跳过 `0`。
+- 预演前后 `/api/benchmark/overview` 的配置记录数均为 `3`，证明预演没有创建 Base 生成配置。
+- 正式运行前会再次检查协议漂移、OneAPI 模型可用性和横评表图片列；未点击“确认并开始”，没有触发真实模型调用。
+- 浏览器控制台 `error / warning` 均为 `0`；最终页面无横向溢出。
+- `npm test` 通过：117 tests，0 fail；前端模块语法检查通过。
+
+## Comparison History
+
+- 初始产品缺口：实验配置只能选历史横评组，无法像生图工作台一样配置真实生成参数。
+- 第一轮实现：新增可编辑实验草稿、资源目录复用、跨模型参数交集、稳定配置 ID、只读预演和正式运行时冻结。
+- 视觉复核问题：Banana Pro 的不可用原因使四张模型卡高度不一致。
+- 最终修复：实验卡片统一 67px 最小高度并提升静态资源版本；截图、联动、预演、零写入和控制台回归全部通过。
+
+## Follow-up Polish
+
+- 无阻塞项；若要启用 Banana Pro，只需在横评表新增其图片附件列，页面会在下次同步后自动解除禁用。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Task Failure UI v11 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-c2c87214-fafa-4286-9598-a7925e1655d9.png`
+- Browser-rendered implementation: `/tmp/benchmark-task-failure-v11.png`
+- Normalized comparison: `/tmp/benchmark-task-failure-comparison-v11.png`
+- Source pixels: `1674 × 1234`；原任务卡只有“任务失败 / failed”和一条无含义进度线
+- Implementation pixels: `867 × 837`；CSS 视口 `867 × 837`
+- Comparison pixels: `2018 × 837`；左侧原图等高缩放，右侧为浏览器实渲结果
+
+## Findings
+
+- 任务状态拆成“冻结生成配置失败 / 冻结生成配置 / 失败”三个互补层级，不再重复同一个英文终态。
+- 原始错误独占浅红详情区，Base 落库状态和任务 ID 位于次级元信息行，错误可诊断但不压过页面主层级。
+- 失败卡高度 `158px`、宽度 `793px`，与上方执行卡共用内容起止线；页面 `scrollWidth = clientWidth = 867px`，无横向溢出。
+- 批量确认文案明确：冻结配置、Prompt、逐 Run、结果图与错误持续写入 Benchmark Base，本地只保留任务状态。
+- 运行状态样式已从基础样式拆成独立 `benchmark-run.css`，基础和浏览器控制器均保持低于 800 行。
+
+## Interaction Verification
+
+- 后台任务公开 `preflight / config-write / generation / review` 阶段、`persisted` 落库标记、起止时间和具体错误；浏览器刷新后优先恢复活动任务，任务注册表过期后回退到本地实验终态。
+- 冻结生成配置写入失败会持久化 `phase=\"config-write\"`，且测试证明不会继续调用出图模型。
+- 服务重启后 `/api/setup/status` 报告 `ready=true`、`lark-cli 1.0.77`、Benchmark Base 可读；未触发真实模型调用或飞书写入。
+- `npm test` 通过：121 tests，0 fail；前端与服务端模块语法检查、`git diff --check` 通过；浏览器控制台无 error 或 warning。
+
+## Comparison History
+
+- v10：失败只暴露通用终态，用户无法判断失败发生在哪一段、是否已经写入 Base，也看不到原始错误。
+- v11：增加阶段化失败、Base 落库状态、错误上下文、任务恢复和固定 CLI 运行时保护。
+
+## Follow-up Polish
+
+- 当前不创建独立飞书“任务编排”表；生成业务数据以既有五张 Benchmark Base 主表为真源，实验任务状态与 AI 评分版本继续由当前 worktree 本地保存。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Score Results v13 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-1281b08d-e045-498e-8561-2a5cad417b57.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/04/benchmark-score-results/benchmark-score-results-v13-final3.jpg`
+- Focused normalized comparison: `/Users/dai/.codex/visualizations/2026/08/04/benchmark-score-results/benchmark-score-results-focused-comparison-final.jpg`
+- Source pixels: `1738 × 1470`，按宽度归一化为 `877 × 742`；源截图从步骤导航起始，不包含全局顶栏
+- Implementation pixels: `877 × 837`；CSS 视口 `877 × 837`，`devicePixelRatio = 2`，截图按 CSS 像素输出
+- State: 当前样本集 `000`、实验 `EXP-20260804T081921Z-5ECA`、最新评审批次 `REVIEW-20260804T0756`
+
+## Findings
+
+- 源界面只显示“12 张已有评分”，没有任何数值、结论或原因，核心任务无法闭环；实现新增五项摘要和 12 条逐 Run 最新评分结果。
+- 评分摘要紧接主操作，显示已评分、可用图、指令遵循、生图效果、专项评分；三维指标保持原始均分，不制造额外综合分。
+- 明细表展示模型、三维分数、可用结论、问题标签、评分原因与置信度；技术 Run ID 在宽屏保留，在当前紧凑视口隐藏，避免挤压业务信息。
+- 字体、暖灰色令牌、6px 圆角、边线、近黑主操作与源页面一致；没有新增图片或替代资产，文案直接使用真实评分数据。
+
+## Interaction Verification
+
+- 点击“AI 评分”后仍停留在评分面板；当前实验自动展示 12 条结果，摘要为 `12 / 12 / 4.83 / 5.00 / 4.83`。
+- 页面 `scrollWidth = clientWidth = 877px`；明细表 `scrollWidth = clientWidth = 801px`，当前视口无页面或表格横向溢出。
+- 刷新后评分结果从脱敏概览恢复；按实验、样本集筛选并为同一 Run 只展示最新评分版本。
+- 浏览器控制台无 error 或 warning；未触发重新评分、模型调用或飞书写入。
+- `npm test` 通过：130 tests，0 fail；前端/服务端模块语法检查与 `git diff --check` 通过。
+
+## Comparison History
+
+- Pass 1：结果区位于协议说明之后，首屏只能看到结果标题；摘要使用 `3 + 2` 排列，末行不对称。修正为紧凑视口先展示结果、协议后置，并让五项摘要单行对齐。
+- Pass 2：技术 Run ID 让表格产生横向滚动，评分原因可读宽度不足。修正为 `≤1000px` 隐藏 Run 列并将表格收敛到容器宽度。
+- Pass 3：最终截图中摘要和首条明细均进入首屏，页面与表格无横向溢出，无剩余 P0/P1/P2 问题。
+
+# Benchmark Formal Review Dimensions v14 Design QA
+
+## Evidence
+
+- Feishu field truth verified read-only from the configured Benchmark result table: `保持一致性 / 风格与材质 / 渲染质量` are number fields; `加权分 / 业务合格` are formula fields.
+- User evidence: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-6775c3d2-0635-407d-9d4f-e37c1d541af4.png`
+
+## Findings
+
+- Previous browser copy and AI JSON used `指令遵循 / 生图效果 / 专项评分`, which did not match the governing Feishu rubric; those scores cannot be fixed by renaming labels.
+- Formal protocol is now versioned as `white-model-review@v2` and outputs only `保持一致性 / 风格与材质 / 渲染质量` raw scores.
+- Existing unversioned reviews are retained as historical facts but marked incompatible, excluded from formal result tables, reviewed counts, usable-image funnels, and analysis.
+- When legacy reviews exist, the page explicitly reports the count and changes the action to “按正式三维评分”; it does not silently delete history or trigger paid model calls.
+
+## Verification
+
+- `npm test`: 131 tests, 0 failures; domain, UI, and workbench coverage includes formal parsing, legacy isolation, result projection, and current-sample scoping.
+- Live overview reports `white-model-review@v2`, 12 successful results, 0 formal reviews, and 12 isolated legacy reviews for `EXP-20260804T081921Z-5ECA`.
+- Live browser shows the three Feishu labels, “按正式三维评分 12 张结果”, and a visible legacy-protocol notice; page horizontal overflow is 0, form/results widths both 843px, and console has no warning or error.
+- Browser QA did not click the scoring action, so no model call or Feishu write was triggered.
+
+# Custom Select Full-Width Copy v15 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-02fc4bc9-92c6-4c73-b323-ea6a74eddbd4.png`
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-review-dropdown-v15.png`
+- Side-by-side comparison: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-dropdown-comparison-v15.png`
+- Source and implementation pixels: `1413 × 794`; implementation CSS viewport: `1413 × 794`. The source is visibly captured at a higher browser zoom/crop, so the focused comparison uses the same AI-scoring dropdown-open state and exact copy rather than treating page-scale differences as layout drift.
+- State: Benchmark `AI 评分` panel, scoring-model custom select expanded, `Gemini 3.1 Pro` selected.
+
+## Findings
+
+- [Resolved P1] The label had `max-width: 55%` inside a content-sized flex container. A 75px `Gemini 3.1 Pro` copy box therefore limited the actual label to 41px despite hundreds of available pixels, producing `Gemi…` in the trigger and every menu row.
+- The trigger value and option-copy containers now flex into the actual remaining width; the arbitrary 55% cap is removed. Ellipsis remains only as a last-resort overflow behavior when the component is genuinely narrower than its content.
+- Focused post-fix measurements confirm all eight scoring-model labels have `scrollWidth <= clientWidth` and `max-width: none`. The longest visible label, `Doubao Seed 1.8`, uses 90px inside a 371px control without truncation.
+- The sample-labeling model dropdown also passes: all eight labels and all detail strings are complete in the same 371px control, including `Gemini 3.5 Flash · 最新 Flash 候选，已通过真实截图图片输入探针`.
+
+## Required Fidelity Surfaces
+
+- Fonts and typography: existing family, weight, size, and line height are unchanged; only the erroneous artificial truncation boundary was removed.
+- Spacing and layout rhythm: control height, padding, option gaps, menu width, radius, shadow, and alignment are unchanged; page horizontal overflow remains `0`.
+- Colors and visual tokens: selected, hover, text, quiet text, border, and background tokens are unchanged.
+- Image quality and assets: this control contains no raster imagery; existing chevron and check assets are unchanged.
+- Copy and content: selected values, model names, and explanatory details now render their complete existing copy; no product text was rewritten.
+
+## Interaction Verification
+
+- Real pointer sequence `Gemini 3.1 Pro → Claude Sonnet 5 → Gemini 3.1 Pro` updates both the native select and visible trigger, closes the menu after selection, and preserves the earlier pointer-focus stabilization.
+- Browser console: no warnings or errors.
+- Automated verification: `132` tests pass, including a stylesheet regression that rejects the former `max-width: 55%` rule and requires both text containers to consume remaining flex width.
+
+## Comparison History
+
+- Pass 1: source evidence and live computed styles identified the P1 truncation. The 803px review control rendered a 75px content box but clipped its label to 41px because the percentage was resolved against content width.
+- Pass 2: after removing the percentage cap and assigning remaining-width flex behavior, all trigger/menu labels and detailed model copy render completely; no new overflow, spacing drift, interaction regression, or console issue remains.
+
+## Final Result
+
+final result: passed
+
+## Follow-up Polish
+
+- P3：未来可在结果量明显增大后增加模型/问题标签筛选；当前 12 条结果无需提前引入额外控件。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Experiment Layout v17 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-972f7f28-ba6e-4c0f-b406-b2d86c017ef0.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-experiment-layout-after-v17.jpg`
+- Side-by-side normalized comparison: `/Users/dai/.codex/visualizations/2026/08/03/019fc722-22b7-7751-8d2d-29613e711992/benchmark-experiment-layout-comparison-v17.jpg`
+- Source pixels: `1632 × 1494`; implementation pixels and CSS viewport: `1580 × 1496`, device density follows the in-app browser capture.
+- Normalized comparison: source and focused implementation regions both resized to `800px` width, composed as `1624 × 732`. The source is defect evidence rather than a prescriptive mock, so QA judges the requested alignment, density and overflow corrections instead of preserving its three-column orphan layout.
+- State: Benchmark `实验配置` panel, service connected, template/config values loaded, no plan generated.
+
+## Findings
+
+- [Resolved P1] Four candidate-model cards previously used three equal tracks, leaving `Seedream 5.0` as an isolated second-row card and breaking the panel rhythm. The model region is now an equal `2 × 2` grid; measured card widths are all `539px` and row starts align.
+- [Resolved P1] The original panel mixed `3 / 4 / compact-2 / 3` unrelated grids, so the run-volume inputs occupied only part of a row while the model cards overflowed the visual hierarchy. The implementation now uses stable `ID / template / Case`, `3`, `4`, `2`, and `2 × 2` groups with one shared content boundary.
+- [Resolved P2] The experiment ID action and template field were cramped by equal-width metadata columns. The metadata grid now reserves `5 / 5 / 2` tracks, while the ID action owns a stable `78px` track.
+- No actionable P0/P1/P2 finding remains. At `1580px`, the document reports `scrollWidth = clientWidth = 1580px`; the form reports `scrollWidth = clientWidth = 1128px`.
+
+## Required Fidelity Surfaces
+
+- Fonts and typography: family, weights, sizes, line heights, label hierarchy and complete dropdown copy are unchanged; no new truncation is introduced.
+- Spacing and layout rhythm: metadata gap is `16px`, parameter gaps are `12px`, section separation is `22px`, and the preview action is separated by one top rule. All controls in each row share the same top and bottom coordinates.
+- Colors and visual tokens: existing warm-gray surfaces, near-black selected state, border and quiet-text tokens are reused without a new accent system.
+- Image quality and assets: the panel contains no product raster imagery; existing brand asset, checkmarks and chevrons are unchanged.
+- Copy and content: all experiment labels, values and safety copy are unchanged; this iteration only reorganizes presentation.
+
+## Interaction Verification
+
+- Real browser click opened the `融合基模` custom select at `355 × 272px` without page overflow; `Escape` closed it and restored `aria-expanded=false`.
+- Reload, DOM snapshot, layout measurement, dropdown open and close completed without a browser-reported page exception. Historical console collection is not exposed by this browser surface; no visible error state appeared.
+- Automated verification: `133` tests pass, including a new regression for semantic grid classes, two-column model cards and single-column small-screen fallback.
+
+## Comparison History
+
+- Pass 1: source and live pre-fix evidence showed cramped equal metadata tracks, a half-empty run-volume row, a three-column four-card orphan, and horizontal clipping risk.
+- Pass 2: after introducing the semantic grid hierarchy and two-column model layout, the full panel fits within the viewport, every row shares stable boundaries, and the candidate cards form a complete rectangle.
+
+## Final Result
+
+final result: passed
+
+## Follow-up Polish
+
+- P3: if this panel later exceeds six candidate models, add model search or grouping instead of shrinking the cards below the current two-column readable width.
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md

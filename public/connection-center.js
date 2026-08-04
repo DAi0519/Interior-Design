@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、工作台连接状态与配置刷新回调
- * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、飞书状态、Device Flow 与无障碍弹层生命周期控制
+ * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、`?connect=api` 深链、工作台连接状态与配置刷新回调
+ * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、评测页直达 API 管理、飞书状态、Device Flow 与无障碍弹层生命周期控制
  * [POS]: public 的运营首次运行控制器，统一连接状态与焦点秩序并与 app.js 生成状态分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -212,7 +212,13 @@ export function bindConnectionCenter({
     ]);
     renderApi(sessionBody);
     renderSetup(setupBody);
-    if (autoOpen && (!session.connected || !setup.ready)) {
+    const url = new URL(window.location.href);
+    const apiDeepLink = url.searchParams.get("connect") === "api";
+    if (apiDeepLink) {
+      url.searchParams.delete("connect");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+    if (apiDeepLink || (autoOpen && (!session.connected || !setup.ready))) {
       open({ focusApi: !session.connected });
     }
     return sessionBody;

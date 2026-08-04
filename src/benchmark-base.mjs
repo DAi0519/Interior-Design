@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、image-artifact.mjs、lark-cli.mjs 与 Benchmark Base 五张运行主表
- * [OUTPUT]: 对外提供 Benchmark 配置解析、分页快照、Prompt/Run/横评幂等写入、参考图与结果附件归档及历史宽表回填
+ * [INPUT]: 依赖 node:fs/os/path、benchmark-base-schema.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
+ * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时单选项适配的冻结配置创建、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/横评幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
  * [POS]: src 的 Benchmark 飞书持久化边界，以模型结果为运行真源、横评宽表为展示派生层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,71 +10,15 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 
 import {
+  resolveGenerationConfigFields,
+  TABLE_FIELDS,
+} from "./benchmark-base-schema.mjs";
+import {
   extensionForImageFormat,
   loadImageBytes,
 } from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 import { recordIdFrom } from "./lark-sync.mjs";
-
-const TABLE_FIELDS = Object.freeze({
-  configs: [
-    "配置 ID",
-    "横评组",
-    "Style DNA",
-    "融合 Agent",
-    "融合基座模型",
-    "出图模型",
-    "输出规格",
-    "提示词批次数",
-    "每批次每模型出图数",
-    "启用",
-  ],
-  prompts: [
-    "Prompt ID",
-    "融合 Prompt",
-    "融合状态",
-    "错误信息",
-    "Prompt 耗时（秒）",
-    "Prompt 成本（元）",
-    "Prompt 请求 ID",
-    "Prompt 哈希",
-  ],
-  comparisons: [
-    "对比 ID",
-    "关联 Case",
-    "提示词批次",
-    "横评组",
-    "白模参考图",
-  ],
-  samples: [
-    "Case ID",
-    "白模参考图",
-    "任务状态",
-  ],
-  results: [
-    "Run ID",
-    "关联 Case",
-    "提示词批次",
-    "生成配置",
-    "实验 ID",
-    "实验类型",
-    "模型与版本",
-    "模型提供商",
-    "采样序号",
-    "尝试序号",
-    "重试来源",
-    "输出参数",
-    "Prompt 哈希",
-    "Prompt 耗时（秒）",
-    "Prompt 成本（元）",
-    "Image 请求 ID",
-    "Image 耗时（秒）",
-    "Image 成本（元）",
-    "生成状态",
-    "错误信息",
-    "生成结果图",
-  ],
-});
 
 const REQUIRED_CONFIG = [
   "baseToken",
@@ -84,6 +28,24 @@ const REQUIRED_CONFIG = [
   "resultTableId",
   "sampleTableId",
 ];
+const EXPERIMENT_VIEW_TARGETS = Object.freeze({
+  comparison: {
+    fieldName: "横评组",
+    tableKey: "comparison",
+    viewName: "01 横向对比（展示）",
+  },
+  report: {
+    fieldName: "实验 ID",
+    tableKey: "report",
+    viewName: "01 模型总表",
+  },
+  results: {
+    fieldName: "实验 ID",
+    tableKey: "results",
+    viewName: "01 运行明细",
+  },
+});
+const REPORT_TABLE_NAME = "06 结果报告";
 
 function requiredEnvironment(source, name) {
   const value = String(source[name] || "").trim();
@@ -191,8 +153,9 @@ export function createBenchmarkBaseStore(
   { run = runLarkCli } = {},
 ) {
   validateConfig(config);
-  let comparisonFieldIds = null;
-  let resultFieldIds = null;
+  const fieldSchemas = new Map();
+  let baseUrl = null;
+  let reportTableId = String(config.reportTableId || "").trim() || null;
 
   async function listRecords(tableId, fields) {
     const records = [];
@@ -224,11 +187,9 @@ export function createBenchmarkBaseStore(
     }
   }
 
-  async function fieldId(tableId, fieldName, cacheName) {
-    let cache = cacheName === "comparison"
-      ? comparisonFieldIds
-      : resultFieldIds;
-    if (!cache) {
+  async function tableFields(tableId) {
+    let fields = fieldSchemas.get(tableId);
+    if (!fields) {
       const body = await run(config, [
         "base",
         "+field-list",
@@ -241,23 +202,29 @@ export function createBenchmarkBaseStore(
         "--format",
         "json",
       ]);
-      cache = new Map(
-        (body?.data?.fields || []).map((field) => [field.name, field.id]),
-      );
-      if (cacheName === "comparison") comparisonFieldIds = cache;
-      if (cacheName === "result") resultFieldIds = cache;
+      fields = body?.data?.fields || [];
+      fieldSchemas.set(tableId, fields);
     }
-    const resolved = cache.get(fieldName);
+    return fields;
+  }
+
+  async function fieldId(tableId, fieldName) {
+    const field = (await tableFields(tableId)).find((item) => item.name === fieldName);
+    const resolved = field?.id;
     if (!resolved) throw new Error(`${tableId} 缺少附件字段：${fieldName}`);
     return resolved;
   }
 
   async function comparisonFieldId(fieldName) {
-    return fieldId(config.compareTableId, fieldName, "comparison");
+    return fieldId(config.compareTableId, fieldName);
   }
 
   async function resultFieldId(fieldName) {
-    return fieldId(config.resultTableId, fieldName, "result");
+    return fieldId(config.resultTableId, fieldName);
+  }
+
+  async function sampleFieldId(fieldName) {
+    return fieldId(config.sampleTableId, fieldName);
   }
 
   async function createRecord(tableId, fields) {
@@ -382,6 +349,18 @@ export function createBenchmarkBaseStore(
   }
 
   return {
+    async createGenerationConfig(generationConfig) {
+      try {
+        const fields = resolveGenerationConfigFields(
+          generationConfig,
+          await tableFields(config.configTableId),
+        );
+        return await createRecord(config.configTableId, fields);
+      } catch (error) {
+        throw new Error(`冻结配置 ${generationConfig.configId} 写入 Benchmark Base 失败：${safeError(error)}`);
+      }
+    },
+
     async downloadSampleImage(sample) {
       const attachments = sample.attachments;
       if (!Array.isArray(attachments) || attachments.length !== 1) {
@@ -493,17 +472,218 @@ export function createBenchmarkBaseStore(
         results: resultRows.map(({ fields, recordId }) => ({
           attachments: fields["生成结果图"] || [],
           attempt: Number(fields["尝试序号"]) || 1,
+          caseLinks: fields["关联 Case"] || [],
+          configLinks: fields["生成配置"] || [],
+          durationSeconds: Number(fields["Image 耗时（秒）"]) || null,
           error: String(fields["错误信息"] || ""),
+          experimentId: String(fields["实验 ID"] || "").trim(),
+          imageCost: Number(fields["Image 成本（元）"]) || null,
+          model: String(fields["模型与版本"] || "").trim(),
+          promptLinks: fields["提示词批次"] || [],
+          provider: String(fields["模型提供商"] || "").trim(),
           recordId,
           runId: String(fields["Run ID"] || "").trim(),
+          sampleIndex: Number(fields["采样序号"]) || 1,
           status: selectValue(fields["生成状态"]),
         })),
         samples: sampleRows.map(({ fields, recordId }) => ({
           attachments: fields["白模参考图"] || [],
           caseId: String(fields["Case ID"] || "").trim(),
+          category: selectValue(fields["空间类型"]),
+          datasetVersion: String(fields["数据集版本"] || "").trim(),
+          edgeType: selectValue(fields["边缘类型"]),
+          inputQuality: selectValue(fields["输入质量"]),
+          lensComplexity: selectValue(fields["镜头复杂度"]),
+          materialComplexity: selectValue(fields["材质复杂度"]),
           recordId,
+          sampleType: selectValue(fields["样本类型"]),
+          source: selectValue(fields["样本来源"]),
+          spatialComplexity: selectValue(fields["空间结构"]),
+          stylingComplexity: selectValue(fields["软装复杂度"]),
           status: selectValue(fields["任务状态"]),
         })),
+      };
+    },
+
+    async listComparisonImageFields() {
+      const fields = await tableFields(config.compareTableId);
+      return fields.map((field) => field.name);
+    },
+
+    async prepareExperimentView(experimentId, target = "results") {
+      const normalizedExperimentId = String(experimentId || "").trim();
+      const definition = EXPERIMENT_VIEW_TARGETS[target];
+      if (!definition) throw new TypeError(`不支持的飞书实验视图：${target}`);
+      if (definition.tableKey === "report" && !reportTableId) {
+        const tableBody = await run(config, [
+          "base",
+          "+table-list",
+          "--as",
+          "user",
+          "--base-token",
+          config.baseToken,
+          "--limit",
+          "100",
+          "--format",
+          "json",
+        ]);
+        reportTableId = String((tableBody?.data?.tables || []).find(
+          (table) => table.name === REPORT_TABLE_NAME,
+        )?.id || "").trim();
+        if (!reportTableId) throw new Error(`Benchmark Base 缺少数据表：${REPORT_TABLE_NAME}`);
+      }
+      const tableId = {
+        comparison: config.compareTableId,
+        report: reportTableId,
+        results: config.resultTableId,
+      }[definition.tableKey];
+      const viewBody = await run(config, [
+        "base",
+        "+view-list",
+        "--as",
+        "user",
+        "--base-token",
+        config.baseToken,
+        "--table-id",
+        tableId,
+        "--limit",
+        "200",
+        "--format",
+        "json",
+      ]);
+      const view = (viewBody?.data?.views || []).find(
+        (item) => item.name === definition.viewName,
+      );
+      if (!view?.id) {
+        throw new Error(`Benchmark Base 缺少视图：${definition.viewName}`);
+      }
+      const conditions = normalizedExperimentId
+        ? [[await fieldId(tableId, definition.fieldName), "intersects", normalizedExperimentId]]
+        : [];
+      await run(config, [
+        "base",
+        "+view-set-filter",
+        "--as",
+        "user",
+        "--base-token",
+        config.baseToken,
+        "--table-id",
+        tableId,
+        "--view-id",
+        view.id,
+        "--json",
+        JSON.stringify({
+          conditions,
+          logic: "and",
+        }),
+        "--format",
+        "json",
+      ]);
+      if (!baseUrl) {
+        const baseBody = await run(config, [
+          "base",
+          "+base-get",
+          "--as",
+          "user",
+          "--base-token",
+          config.baseToken,
+          "--format",
+          "json",
+        ]);
+        baseUrl = String(baseBody?.data?.base?.url || "").trim();
+        if (!baseUrl) throw new Error("飞书未返回 Benchmark Base 链接");
+      }
+      const url = new URL(baseUrl);
+      url.searchParams.set("table", tableId);
+      url.searchParams.set("view", view.id);
+      return {
+        experimentId: normalizedExperimentId || null,
+        target,
+        tableId,
+        url: url.toString(),
+        viewId: view.id,
+        viewName: view.name,
+      };
+    },
+
+    async createSample({
+      caseId,
+      category,
+      datasetVersion,
+      image,
+      edgeType = null,
+      inputQuality = "中",
+      lensComplexity = "中",
+      materialComplexity = "中",
+      sampleType = "有效白模",
+      source = "用户输入",
+      spatialComplexity = "中",
+      stylingComplexity = "中",
+    }) {
+      const normalizedCaseId = String(caseId || "").trim();
+      if (!normalizedCaseId) throw new TypeError("Case ID 不能为空");
+      const recordId = await createRecord(config.sampleTableId, {
+        "Case ID": normalizedCaseId,
+        "数据集版本": String(datasetVersion || "").trim() || null,
+        "任务状态": "待生成",
+        "样本类型": sampleType,
+        "边缘类型": sampleType === "边缘输入" ? edgeType : null,
+        "样本来源": source,
+        "空间类型": category,
+        "镜头复杂度": lensComplexity,
+        "软装复杂度": stylingComplexity,
+        "材质复杂度": materialComplexity,
+        "输入质量": inputQuality,
+        "空间结构": spatialComplexity,
+      });
+      const extension = extensionForMimeType(image.type);
+      await uploadAttachment({
+        bytes: await loadImageBytes(image.dataUrl),
+        fieldId: await sampleFieldId("白模参考图"),
+        fileName: `${normalizedCaseId}.${extension}`,
+        recordId,
+        tableId: config.sampleTableId,
+      });
+      return recordId;
+    },
+
+    async updateSampleDataset(recordIds, datasetName) {
+      const normalizedRecordIds = [...new Set(recordIds.filter(Boolean))];
+      for (let index = 0; index < normalizedRecordIds.length; index += 200) {
+        await run(config, [
+          "base",
+          "+record-batch-update",
+          "--as",
+          "user",
+          "--base-token",
+          config.baseToken,
+          "--table-id",
+          config.sampleTableId,
+          "--json",
+          JSON.stringify({
+            patch: { "数据集版本": datasetName },
+            record_id_list: normalizedRecordIds.slice(index, index + 200),
+          }),
+          "--format",
+          "json",
+        ]);
+      }
+    },
+
+    async downloadResultImage(result) {
+      const attachments = result.attachments;
+      if (!Array.isArray(attachments) || attachments.length === 0) {
+        throw new Error(`${result.runId} 没有生成结果图`);
+      }
+      const attachment = attachments[0];
+      const { bytes } = await downloadAttachment({
+        attachment,
+        recordId: result.recordId,
+        tableId: config.resultTableId,
+      });
+      return {
+        dataUrl: `data:${mimeTypeFromName(attachment.name)};base64,${bytes.toString("base64")}`,
+        name: attachment.name,
       };
     },
 

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 benchmark-base.mjs 的环境配置、Base 返回解析和可注入 CLI 边界
- * [OUTPUT]: 对外提供 Benchmark 五表快照字段、分页保护与 Prompt/Run/横评幂等写入参数回归保障
+ * [INPUT]: 依赖 node:test/assert 与 benchmark-base.mjs 的环境配置、Base 返回解析、实时单选项适配和可注入 CLI 边界
+ * [OUTPUT]: 对外提供 Benchmark 五表快照字段、按稳定编码解析真实选项的冻结生成配置创建、阶段化错误上下文、含人工准入及空间/五维标签的样本录入、实验筛选视图链接、分页保护与 Prompt/Run/横评幂等写入参数回归保障
  * [POS]: test 的 Benchmark 飞书适配测试，使用内存 CLI 替身且不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,14 @@ const config = {
   resultTableId: "results",
   sampleTableId: "samples",
 };
+
+const configFields = [
+  { name: "Style DNA", options: [{ name: "奶油法式 v4 [cream-french@v4]" }], type: "select" },
+  { name: "融合 Agent", options: [{ name: "白模渲染融合 Agent-即梦 v7 [white-model-fusion@v7]" }], type: "select" },
+  { name: "融合基座模型", options: [{ name: "Gemini 3.1 Pro [gemini-3.1-pro-preview]" }], type: "select" },
+  { name: "出图模型", options: [{ name: "GPT Image 2 [gpt-image-2]" }], type: "select" },
+  { name: "输出规格", options: [{ name: "跟随原图比例 · 2K · PNG" }], type: "select" },
+];
 
 function envelope(fields, row, recordId) {
   return {
@@ -65,6 +73,194 @@ test("Base envelope 拒绝不完整分页", () => {
   );
 });
 
+test("横评图片字段目录直接来自实时 Schema", async () => {
+  const store = createBenchmarkBaseStore(config, {
+    run: async () => ({
+      data: { fields: [
+        { id: "fld-ref", name: "白模参考图", type: "attachment" },
+        { id: "fld-gpt", name: "GPT Image 2", type: "attachment" },
+      ] },
+      ok: true,
+    }),
+  });
+  assert.deepEqual(
+    await store.listComparisonImageFields(),
+    ["白模参考图", "GPT Image 2"],
+  );
+});
+
+test("前端飞书跳转先按实验 ID 更新运行明细视图筛选", async () => {
+  const calls = [];
+  const store = createBenchmarkBaseStore(config, {
+    run: async (_config, args) => {
+      calls.push(args);
+      if (args[1] === "+view-list") {
+        return { data: { views: [{ id: "vew-run", name: "01 运行明细" }] }, ok: true };
+      }
+      if (args[1] === "+field-list") {
+        return { data: { fields: [{ id: "fld-experiment", name: "实验 ID" }] }, ok: true };
+      }
+      if (args[1] === "+base-get") {
+        return { data: { base: { url: "https://example.feishu.cn/base/base" } }, ok: true };
+      }
+      return { data: {}, ok: true };
+    },
+  });
+  const target = await store.prepareExperimentView("EXP-001");
+  const filterCall = calls.find((args) => args[1] === "+view-set-filter");
+  assert.deepEqual(JSON.parse(filterCall[filterCall.indexOf("--json") + 1]), {
+    conditions: [["fld-experiment", "intersects", "EXP-001"]],
+    logic: "and",
+  });
+  assert.equal(
+    target.url,
+    "https://example.feishu.cn/base/base?table=results&view=vew-run",
+  );
+});
+
+test("前端从全部实验跳转时清空运行明细视图筛选", async () => {
+  let filter;
+  const store = createBenchmarkBaseStore(config, {
+    run: async (_config, args) => {
+      if (args[1] === "+view-list") {
+        return { data: { views: [{ id: "vew-run", name: "01 运行明细" }] }, ok: true };
+      }
+      if (args[1] === "+view-set-filter") {
+        filter = JSON.parse(args[args.indexOf("--json") + 1]);
+      }
+      if (args[1] === "+base-get") {
+        return { data: { base: { url: "https://example.feishu.cn/base/base" } }, ok: true };
+      }
+      return { data: {}, ok: true };
+    },
+  });
+  const target = await store.prepareExperimentView("");
+  assert.deepEqual(filter, { conditions: [], logic: "and" });
+  assert.equal(target.experimentId, null);
+});
+
+test("批量运行与数据分析分别跳转横评对比和结果报告", async () => {
+  const filterCalls = [];
+  const store = createBenchmarkBaseStore(config, {
+    run: async (_config, args) => {
+      const action = args[1];
+      const tableId = args[args.indexOf("--table-id") + 1];
+      if (action === "+table-list") {
+        return { data: { tables: [{ id: "reports", name: "06 结果报告" }] }, ok: true };
+      }
+      if (action === "+view-list") {
+        return { data: { views: [{
+          id: tableId === "comparisons" ? "vew-compare" : "vew-report",
+          name: tableId === "comparisons" ? "01 横向对比（展示）" : "01 模型总表",
+        }] }, ok: true };
+      }
+      if (action === "+field-list") {
+        return { data: { fields: [{
+          id: tableId === "comparisons" ? "fld-group" : "fld-experiment",
+          name: tableId === "comparisons" ? "横评组" : "实验 ID",
+        }] }, ok: true };
+      }
+      if (action === "+view-set-filter") {
+        filterCalls.push({
+          filter: JSON.parse(args[args.indexOf("--json") + 1]),
+          tableId,
+        });
+      }
+      if (action === "+base-get") {
+        return { data: { base: { url: "https://example.feishu.cn/base/base" } }, ok: true };
+      }
+      return { data: {}, ok: true };
+    },
+  });
+  const comparison = await store.prepareExperimentView("EXP-001", "comparison");
+  const report = await store.prepareExperimentView("EXP-001", "report");
+  assert.equal(comparison.url, "https://example.feishu.cn/base/base?table=comparisons&view=vew-compare");
+  assert.equal(report.url, "https://example.feishu.cn/base/base?table=reports&view=vew-report");
+  assert.deepEqual(filterCalls, [
+    { filter: { conditions: [["fld-group", "intersects", "EXP-001"]], logic: "and" }, tableId: "comparisons" },
+    { filter: { conditions: [["fld-experiment", "intersects", "EXP-001"]], logic: "and" }, tableId: "reports" },
+  ]);
+});
+
+test("正式运行前创建一条冻结生成配置", async () => {
+  let created;
+  const run = async (_config, args) => {
+    if (args[1] === "+field-list") {
+      return { data: { fields: configFields }, ok: true };
+    }
+    created = JSON.parse(args[args.indexOf("--json") + 1]);
+    return { data: { record_id_list: ["rec-config-new"] }, ok: true };
+  };
+  const store = createBenchmarkBaseStore(config, { run });
+  const recordId = await store.createGenerationConfig({
+    configId: "CFG-FROZEN",
+    fusionAgent: "白模渲染融合 Agent [white-model-fusion@v7]",
+    fusionModel: "Gemini 3.1 Pro [gemini-3.1-pro-preview]",
+    groupId: "EXP-NEW",
+    imageModel: "GPT Image 2 [gpt-image-2]",
+    outputSpec: "跟随原图比例 · 2K · PNG · 质量 medium",
+    perBatchImages: 4,
+    promptBatches: 1,
+    styleDna: "Style DNA [cream-french@v4]",
+  });
+  const fields = Object.fromEntries(
+    created.fields.map((field, index) => [field, created.rows[0][index]]),
+  );
+  assert.equal(recordId, "rec-config-new");
+  assert.equal(fields["配置 ID"], "CFG-FROZEN");
+  assert.equal(fields["横评组"], "EXP-NEW");
+  assert.equal(fields["Style DNA"], "奶油法式 v4 [cream-french@v4]");
+  assert.equal(fields["融合 Agent"], "白模渲染融合 Agent-即梦 v7 [white-model-fusion@v7]");
+  assert.equal(fields["输出规格"], "跟随原图比例 · 2K · PNG");
+  assert.equal(fields["启用"], true);
+});
+
+test("Base 未独立承载非默认质量档时在写记录前阻止参数丢失", async () => {
+  let createCalls = 0;
+  const store = createBenchmarkBaseStore(config, {
+    run: async (_config, args) => {
+      if (args[1] === "+field-list") return { data: { fields: configFields }, ok: true };
+      createCalls += 1;
+      return { data: { record_id_list: ["should-not-create"] }, ok: true };
+    },
+  });
+  await assert.rejects(
+    () => store.createGenerationConfig({
+      configId: "CFG-HIGH",
+      fusionAgent: "白模渲染融合 Agent [white-model-fusion@v7]",
+      fusionModel: "Gemini 3.1 Pro [gemini-3.1-pro-preview]",
+      groupId: "EXP-HIGH",
+      imageModel: "GPT Image 2 [gpt-image-2]",
+      outputSpec: "跟随原图比例 · 2K · PNG · 质量 high",
+      perBatchImages: 1,
+      promptBatches: 1,
+      styleDna: "Style DNA [cream-french@v4]",
+    }),
+    /质量档 high 尚未在 Benchmark Base 配置表中独立建模/,
+  );
+  assert.equal(createCalls, 0);
+});
+
+test("冻结配置写入失败时保留配置 ID、Base 阶段和原始错误", async () => {
+  const store = createBenchmarkBaseStore(config, {
+    run: async () => { throw new Error("not_found"); },
+  });
+  await assert.rejects(
+    () => store.createGenerationConfig({
+      configId: "CFG-FAILED",
+      fusionAgent: "融合 [white-model-fusion@v7]",
+      fusionModel: "Gemini [gemini-3.1-pro-preview]",
+      groupId: "EXP-FAILED",
+      imageModel: "GPT Image 2 [gpt-image-2]",
+      outputSpec: "跟随原图比例 · 2K · PNG · 质量 medium",
+      perBatchImages: 1,
+      promptBatches: 1,
+      styleDna: "奶油法式 [cream-french@v4]",
+    }),
+    /冻结配置 CFG-FAILED 写入 Benchmark Base 失败：not_found/,
+  );
+});
+
 test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
   const calls = [];
   const run = async (_config, args) => {
@@ -72,8 +268,8 @@ test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
     const table = args[args.indexOf("--table-id") + 1];
     if (table === "samples") {
       return envelope(
-        ["Case ID", "白模参考图", "任务状态"],
-        ["LIVING-001", [{ file_token: "file", name: "white.png" }], ["待生成"]],
+        ["Case ID", "白模参考图", "任务状态", "样本类型", "样本来源", "空间类型", "数据集版本"],
+        ["LIVING-001", [{ file_token: "file", name: "white.png" }], ["待生成"], ["有效白模"], ["用户输入"], ["客厅"], "WM-MVP-v2"],
         "rec-sample",
       );
     }
@@ -140,6 +336,8 @@ test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
   const snapshot = await store.loadSnapshot();
 
   assert.equal(snapshot.samples[0].caseId, "LIVING-001");
+  assert.equal(snapshot.samples[0].category, "客厅");
+  assert.equal(snapshot.samples[0].datasetVersion, "WM-MVP-v2");
   assert.equal(snapshot.configs[0].enabled, false);
   assert.equal(snapshot.configs[0].imageModel, "Banana Pro [gemini-3-pro-image]");
   assert.equal(snapshot.configs[0].imageModelLabel, "Banana Pro");
@@ -152,6 +350,66 @@ test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
   );
   assert.equal(snapshot.comparisons[0].referenceAttachments.length, 1);
   assert.equal(calls.length, 5);
+});
+
+test("分类样本写入飞书字段并上传唯一参考图", async () => {
+  let created;
+  let uploadArgs;
+  const run = async (_config, args) => {
+    if (args.includes("+record-batch-create")) {
+      created = JSON.parse(args[args.indexOf("--json") + 1]);
+      return { data: { record_id_list: ["rec-case"] }, ok: true };
+    }
+    if (args.includes("+field-list")) {
+      return { data: { fields: [{ id: "fld-image", name: "白模参考图" }] }, ok: true };
+    }
+    uploadArgs = args;
+    return { data: { attachments: {} }, ok: true };
+  };
+  const store = createBenchmarkBaseStore(config, { run });
+  await store.createSample({
+    caseId: "LIVING-010",
+    category: "客厅",
+    datasetVersion: "WM-MVP-v2",
+    edgeType: "CAD/线稿",
+    image: { dataUrl: "data:image/png;base64,aQ==", type: "image/png" },
+    inputQuality: "低",
+    lensComplexity: "高",
+    materialComplexity: "中",
+    sampleType: "边缘输入",
+    source: "用户输入",
+    spatialComplexity: "高",
+    stylingComplexity: "低",
+  });
+
+  const fields = Object.fromEntries(
+    created.fields.map((field, index) => [field, created.rows[0][index]]),
+  );
+  assert.equal(fields["空间类型"], "客厅");
+  assert.equal(fields["数据集版本"], "WM-MVP-v2");
+  assert.equal(fields["边缘类型"], "CAD/线稿");
+  assert.equal(fields["样本类型"], "边缘输入");
+  assert.equal(fields["样本来源"], "用户输入");
+  assert.equal(fields["空间结构"], "高");
+  assert.equal(fields["镜头复杂度"], "高");
+  assert.equal(fields["软装复杂度"], "低");
+  assert.equal(fields["材质复杂度"], "中");
+  assert.equal(fields["输入质量"], "低");
+  assert.equal(uploadArgs[uploadArgs.indexOf("--field-id") + 1], "fld-image");
+});
+
+test("样本集重命名以同值 patch 批量更新飞书样本", async () => {
+  let written;
+  const run = async (_config, args) => {
+    written = { args, body: JSON.parse(args[args.indexOf("--json") + 1]) };
+    return { data: { record_id_list: written.body.record_id_list }, ok: true };
+  };
+  const store = createBenchmarkBaseStore(config, { run });
+  await store.updateSampleDataset(["rec-a", "rec-b"], "白模回归集 v3");
+
+  assert.ok(written.args.includes("+record-batch-update"));
+  assert.deepEqual(written.body.record_id_list, ["rec-a", "rec-b"]);
+  assert.deepEqual(written.body.patch, { "数据集版本": "白模回归集 v3" });
 });
 
 test("Prompt 批次写入关联 Case 与全部配置", async () => {

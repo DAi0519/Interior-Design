@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 .compact-config-field 内的原生 select 选项、禁用/change 语义与浏览器指针/焦点生命周期
- * [OUTPUT]: 对外提供与原生值同步且显式展示详情的自定义下拉触发器、稳定指针选择和完整键盘操作
- * [POS]: public 的表单渐进增强层，统一 Style DNA、场景融合 Agent、出图模型与反推模型下拉视觉
+ * [INPUT]: 依赖 .compact-config-field 与 .field 内的原生 select 选项、禁用/change 语义与浏览器指针/焦点生命周期
+ * [OUTPUT]: 对外提供与原生值同步且显式展示详情的自定义下拉触发器、跨浏览器稳定指针选择和完整键盘操作，并导出指针焦点稳定器
+ * [POS]: public 的表单渐进增强层，统一 Style DNA、场景融合 Agent、出图模型、反推模型、参数与 Benchmark 下拉视觉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -27,6 +27,13 @@ function checkIcon() {
   path.setAttribute("d", "m3.5 8.2 2.7 2.7 6.3-6.3");
   icon.append(path);
   return icon;
+}
+
+export function stabilizePointerFocus(event, item) {
+  if (event.isPrimary === false || event.button !== 0) return false;
+  event.preventDefault();
+  item.focus({ preventScroll: true });
+  return true;
 }
 
 function enhanceSelect(select) {
@@ -114,6 +121,9 @@ function enhanceSelect(select) {
         item.setAttribute("role", "option");
         renderOptionCopy(copy, text);
         item.append(copy, checkIcon());
+        item.addEventListener("pointerdown", (event) => {
+          stabilizePointerFocus(event, item);
+        });
         item.addEventListener("click", () => {
           select.value = option.value;
           select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -165,4 +175,8 @@ function enhanceSelect(select) {
   sync();
 }
 
-document.querySelectorAll(".compact-config-field select").forEach(enhanceSelect);
+if (typeof document !== "undefined") {
+  document
+    .querySelectorAll(".compact-config-field select, .field select")
+    .forEach(enhanceSelect);
+}

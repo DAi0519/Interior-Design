@@ -1,0 +1,174 @@
+/**
+ * [INPUT]: 依赖 benchmark.html 的样本集工具栏/编辑器、benchmark.css 的 Light Command Center 令牌与 benchmark-app.js 的 hidden/disabled 状态
+ * [OUTPUT]: 对外提供样本集选择、新建/重命名/归档、单一职责的 AI 模型选择、空间与五维逐图 AI 标签审核及人工准入控制的紧凑视觉
+ * [POS]: public 的 Benchmark 样本集专用视觉层，与通用评测布局样式分离
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.dataset-toolbar {
+  align-items: flex-end;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.dataset-picker {
+  flex: 1;
+  margin: 0;
+  max-width: 420px;
+}
+
+.dataset-picker select {
+  background: var(--panel);
+}
+
+.dataset-actions,
+.dataset-editor-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.dataset-actions .quiet-button,
+.dataset-editor-actions .quiet-button,
+.dataset-editor-actions .primary-button {
+  min-height: 38px;
+}
+
+.dataset-editor {
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 0 -20px;
+  padding: 14px 20px;
+}
+
+.dataset-editor label {
+  flex: 1;
+  margin: 0;
+  max-width: 420px;
+}
+
+.dataset-empty {
+  color: var(--muted);
+  padding: 48px 20px;
+  text-align: center;
+}
+
+.dataset-grid {
+  margin-top: 14px;
+}
+
+.sample-drafts {
+  display: grid;
+  gap: 8px;
+  margin: -2px 0 14px;
+  max-height: 440px;
+  overflow: auto;
+}
+
+.sample-draft {
+  background: #f8f7f4;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  padding: 10px;
+}
+
+.sample-draft-thumb {
+  aspect-ratio: 1;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  object-fit: cover;
+  width: 48px;
+}
+
+.sample-draft-copy {
+  align-content: start;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sample-draft-copy strong {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-draft-copy small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.sample-draft-status {
+  color: var(--quiet);
+  font: 600 9px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+.sample-draft-status.ai {
+  color: #347048;
+}
+
+.sample-draft-status.manual-required {
+  color: var(--danger);
+}
+
+.sample-draft-controls {
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+
+.sample-draft-controls label {
+  font-size: 9px;
+  margin: 0;
+}
+
+.sample-draft-controls select {
+  background: var(--panel);
+  font-size: 10px;
+  height: 34px;
+  padding: 0 8px;
+}
+
+.dimension-cell {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+@media (max-width: 680px) {
+  .dataset-toolbar,
+  .dataset-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dataset-actions,
+  .dataset-editor-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .dataset-editor-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dataset-picker,
+  .dataset-editor label {
+    max-width: none;
+  }
+
+}
