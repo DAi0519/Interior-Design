@@ -195,7 +195,7 @@
 - 第二十二轮修复后证据：83/83 自动化测试通过，公开 HTML 已加载 CSS v3，`public/` 内 `.button-meta` 与固定数量节点均为 0，主按钮居中规则已由服务端静态资源返回。
 - 第二十三轮需求：融合基模新增 Model Link 卡片 `doubao-seed-2-0-lite-260215`，实际请求使用 `/v1/models` 返回的 `doubao-seed-2.0-lite` 路由别名，同时保留已有 Seed 1.8 兼容候选。
 - 第二十三轮修复：沿用 Prompt Agent 模型白名单与图片输入门槛，新增 `Doubao Seed 2.0 Lite` 候选，不改页面渲染与选择状态机。
-- 第二十三轮修复后证据：105/105 自动化测试通过；独立 4273 端口真实页面显示 10 个融合基模选项，可选择 `Doubao Seed 2.0 Lite` 并同步显示图片输入能力说明，控制台零 error/warn；当前已保存 Key 的真实模型目录包含请求别名且可用性检查返回 `available/selectable=true`。未执行真实模型生成，未把未发生的计费调用记为完成证据。
+- 第二十三轮修复后证据：105/105 自动化测试通过；独立 4273 端口真实页面显示 10 个融合基模选项，可选择 `Doubao Seed 2.0 Lite` 并同步显示图片输入能力说明，控制台零 error/warn；当前已保存 Key 的真实模型目录包含请求别名且可用性检查返回 `available/selectable=true`；飞书“Prompt融合”单选字段已保留原 8 个选项并追加 `Doubao Seed 2.0 Lite`，字段读回与连接状态均正常。未执行真实模型生成，未把未发生的计费调用记为完成证据。
 
 ## Follow-up Polish
 
