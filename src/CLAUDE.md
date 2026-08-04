@@ -16,10 +16,12 @@ local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或
 lark-sync.mjs: 飞书生成记录同步边界，按真实 Base 字段“生图模型”“Prompt融合”分列归档最终出图模型、融合基模及用户原始 Prompt、实际最终 Prompt、画幅适配模式、工作流元数据、结果图与参考图附件
 image-artifact.mjs: 图片产物基础设施，统一生成结果 data URL 解码、受限远程下载与输出扩展名
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，并在冻结配置写入前用稳定编码解析实时单选名称、剥离默认 medium 展示后缀、阻止未建模质量档
+benchmark-base-config.mjs: Benchmark Base 连接/响应协议层，解析五表环境配置、必填项、分页 envelope 与单选字段值
 benchmark-base.mjs: Benchmark 飞书持久化边界，分页读取带空间类型/数据集版本/空间结构/镜头/软装/材质复杂度/输入质量及人工准入类型的样本与其余四张运行表，复用实时字段 Schema 创建冻结生成配置并为写入失败补充配置 ID/阶段上下文，录入完整六项标签、批量同步样本集名称并读写参考图/结果图，幂等写入 Prompt、逐 Run 结果、重试链和展示宽表，并按入口分别筛选“横向对比（展示）”“运行明细”“模型总表”视图
 benchmark-identifiers.mjs: Benchmark 标识基础设施，统一稳定 Prompt/Run/重试 ID、SHA-256 与模型提供商归一化
-benchmark-experiment-config.mjs: Benchmark 实验配置领域层，把前端草稿规范化为共享固定参数与逐模型稳定配置 ID，只接纳 Runner 可执行的 OneAPI 出图模型，校验跨模型画幅/分辨率/格式/质量档，解析输出规格并按方括号稳定编码忽略展示名称漂移
-benchmark-runner.mjs: 模型横评应用服务，校验控制变量和冻结输出规格、支持工作台筛选配置/Case、排除停用配置与边缘输入、生成稳定 Prompt/Run ID，逐 Run 留存成功失败与重试，同时同步模型结果真源和横评展示
+benchmark-experiment-config.mjs: Benchmark 实验配置领域层，把前端草稿规范化为共享固定参数与逐模型稳定配置 ID，支持 OneAPI/ComfyUI 与原图尺寸规格，校验跨模型画幅/分辨率/格式/质量档并按方括号稳定编码忽略展示名称漂移
+benchmark-model-access.mjs: Benchmark Provider 准入层，统一检查 OneAPI 模型权限与 ComfyUI 等外部图像服务健康状态
+benchmark-runner.mjs: 模型横评应用服务，校验控制变量和冻结输出规格、支持工作台筛选配置/Case、排除停用配置与边缘输入、以 OneAPI 融合 Prompt 并按模型路由 OneAPI/ComfyUI 出图，逐 Run 留存成功失败与重试并同步结果真源和横评展示
 benchmark-review.mjs: Benchmark AI 评审领域层，维护与飞书同构的 `white-model-review@v2` 双图三维协议、严格 JSON 解析、旧协议隔离、可用图准入、P95 及模型分类分析
 benchmark-labeling.mjs: Benchmark 样本 AI 标注领域层，维护 `sample-labeling@v2`、受控空间与空间结构/镜头/软装/材质复杂度/输入质量五个独立低中高维度、人工准入隔离、单图视觉模型协议、严格 JSON 解析、理由和置信度
 benchmark-workbench-store.mjs: Benchmark 当前 worktree 本地状态边界，原子持久化样本集、实验、样本分类元数据、评审批次和版本化 AI 评分，并兼容旧状态迁移

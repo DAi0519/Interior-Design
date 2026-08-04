@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-experiment-config.mjs 的实验草稿领域契约
- * [OUTPUT]: 对外提供固定参数冻结、稳定配置 ID、OneAPI Provider 边界、输出规格解析及跨模型参数合法性的回归保障
+ * [OUTPUT]: 对外提供固定参数冻结、稳定配置 ID、双 Provider/原图尺寸输出规格解析及跨模型参数合法性的回归保障
  * [POS]: test 的 Benchmark 实验配置护栏，不读写飞书或调用模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -83,9 +83,22 @@ test("实验草稿在预演前阻止跨模型不兼容参数", () => {
   );
 });
 
-test("实验草稿拒绝仅供日常生图使用的 ComfyUI 工作流", () => {
-  assert.throws(
-    () => normalizeExperimentDraft(draft({ imageModelKeys: ["aiTextureEnhancement"] })),
-    /Flux2 Klein 当前不支持 Benchmark 批量横评/,
+test("实验草稿允许 Flux2 Klein 以原图尺寸进入 Benchmark", () => {
+  const experiment = normalizeExperimentDraft(draft({
+    imageModelKeys: ["aiTextureEnhancement"],
+    resolution: "source",
+  }));
+
+  assert.equal(experiment.configs[0].imageModel, "Flux2 Klein [comfyui:ai-texture-enhancement]");
+  assert.match(experiment.configs[0].outputSpec, /跟随原图比例 · 原图尺寸 · PNG/);
+  assert.deepEqual(
+    parseBenchmarkOutputSpec(experiment.configs[0].outputSpec),
+    {
+      outputFormat: "png",
+      quality: "medium",
+      ratio: null,
+      resolution: "source",
+      sourceNearest: true,
+    },
   );
 });

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark 标识哈希、场景融合/出图模型目录与浏览器提交的实验草稿
- * [OUTPUT]: 对外提供仅接纳 OneAPI 出图模型的实验草稿规范化、冻结配置生成、输出规格解析及基于稳定编码的配置一致性校验
+ * [OUTPUT]: 对外提供跨 OneAPI/ComfyUI Provider 的实验草稿规范化、冻结配置生成、原图尺寸/预设输出规格解析及基于稳定编码的配置一致性校验
  * [POS]: src 的 Benchmark 实验配置领域层，隔离前端草稿、Runner 计划与 Base 配置记录格式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,7 +40,8 @@ function outputSpec(draft) {
     ? "跟随原图比例"
     : requiredText(draft.ratio, "输出比例");
   const quality = String(draft.quality || "medium").toLowerCase();
-  return `${ratio} · ${draft.resolution} · ${draft.outputFormat.toUpperCase()} · 质量 ${quality}`;
+  const resolution = draft.resolution === "source" ? "原图尺寸" : draft.resolution;
+  return `${ratio} · ${resolution} · ${draft.outputFormat.toUpperCase()} · 质量 ${quality}`;
 }
 
 function validateOutputForModel(model, draft) {
@@ -63,7 +64,9 @@ function validateOutputForModel(model, draft) {
 
 export function parseBenchmarkOutputSpec(value) {
   const normalized = String(value || "").trim();
-  const resolution = normalized.match(/\b(512|[1-4]K)\b/i)?.[1]?.toUpperCase();
+  const resolution = normalized.includes("原图尺寸")
+    ? "source"
+    : normalized.match(/\b(512|[1-4]K)\b/i)?.[1]?.toUpperCase();
   const format = normalized.match(/\b(PNG|JPE?G|WEBP)\b/i)?.[1]?.toLowerCase();
   const ratio = normalized.match(/\b(1:1|1:4|1:8|2:3|3:2|3:4|4:1|4:3|4:5|5:4|8:1|9:16|16:9|21:9)\b/)?.[1] || null;
   const quality = normalized.match(/质量\s*(auto|low|medium|high)/i)?.[1]?.toLowerCase() || "medium";
@@ -104,14 +107,7 @@ export function normalizeExperimentDraft(input) {
   if (!fusionModel.imageInput) throw configError(`${fusionModel.label} 不支持白模图片输入`);
   const imageModels = imageModelKeys.map((key) =>
     catalogEntry(modelCatalog, key, "出图模型"));
-  const unsupportedProviders = imageModels.filter(
-    (model) => model.provider !== "oneapi",
-  );
-  if (unsupportedProviders.length) {
-    throw configError(
-      `${unsupportedProviders.map((model) => model.label).join("、")} 当前不支持 Benchmark 批量横评`,
-    );
-  }
+  const rawResolution = requiredText(raw.resolution, "分辨率");
   const draft = {
     agentCode,
     agentVersion,
@@ -123,7 +119,9 @@ export function normalizeExperimentDraft(input) {
     quality: String(raw.quality || "medium").toLowerCase(),
     ratio: String(raw.ratio || "").trim(),
     ratioMode: raw.ratioMode === "preset" ? "preset" : "source",
-    resolution: requiredText(raw.resolution, "分辨率").toUpperCase(),
+    resolution: rawResolution.toLowerCase() === "source"
+      ? "source"
+      : rawResolution.toUpperCase(),
     styleCode,
   };
   if (draft.ratioMode === "preset" && !draft.ratio) {

@@ -25,7 +25,9 @@ function outputPreset(value) {
     ratio: text.includes("跟随原图比例")
       ? "source"
       : text.match(/\b(1:1|1:4|1:8|2:3|3:2|3:4|4:1|4:3|4:5|5:4|8:1|9:16|16:9|21:9)\b/)?.[1] || "source",
-    resolution: text.match(/\b(512|[1-4]K)\b/i)?.[1]?.toUpperCase() || "2K",
+    resolution: text.includes("原图尺寸")
+      ? "source"
+      : text.match(/\b(512|[1-4]K)\b/i)?.[1]?.toUpperCase() || "2K",
   };
 }
 
@@ -76,7 +78,8 @@ export function createExperimentDraftController({ byId, escapeHtml, onChange }) 
 
   function syncOutputOptions(preferred = {}) {
     const models = selectedModels();
-    const ratioOptions = intersect(models.map((model) => new Set(Object.keys(model.sizes))));
+    const ratioOptions = intersect(models.map((model) =>
+      new Set(Object.keys(model.sizes)))).filter((ratio) => ratio !== "source");
     const ratioSelect = byId("experimentRatioSelect");
     setOptions(ratioSelect, [
       { label: "跟随原图 · 最近合法比例", value: "source" },
@@ -86,7 +89,10 @@ export function createExperimentDraftController({ byId, escapeHtml, onChange }) 
     const resolutions = intersect(models.map((model) => modelResolutions(model, ratio)));
     setOptions(
       byId("experimentResolutionSelect"),
-      resolutions.map((value) => ({ label: value, value })),
+      resolutions.map((value) => ({
+        label: value === "source" ? "原图尺寸" : value,
+        value,
+      })),
       preferred.resolution || "2K",
     );
     const formats = intersect(models.map((model) => new Set(model.formats)));

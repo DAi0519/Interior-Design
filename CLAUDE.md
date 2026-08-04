@@ -2,8 +2,8 @@
 Node.js 24+ + 原生 HTTP + HTML + CSS + JavaScript + lark-cli 1.0.77
 
 <directory>
-public/ - 浏览器工作台界面（30 个业务文件及 icons/ 图标资产模块：运营连接中心、双 Provider 生成与能力解释、样本集优先的独立 Benchmark 五步流程、实验配置/运行/评分/分析、Style DNA 对话、自定义下拉与 Light Command Center 样式）
-src/ - 本机设置、飞书 Setup、图片尺寸/产物、模型与 Agent 配置、OneAPI、Flux2 Klein ComfyUI 工作流/客户端、Style DNA/白模编排、Benchmark Base Schema/实验冻结/AI 标注/AI 评分/本地状态及后台任务层（30 个模块）
+public/ - 浏览器工作台界面（32 个业务文件及 icons/ 图标资产模块：运营连接中心、双 Provider 生成与能力解释、样本集优先的独立 Benchmark 五步流程、实验配置/运行/评分/分析、任务呈现/响应式覆盖、Style DNA 对话、自定义下拉与 Light Command Center 样式）
+src/ - 本机设置、飞书 Setup、图片尺寸/产物、模型与 Agent 配置、OneAPI、Flux2 Klein ComfyUI 工作流/客户端、Style DNA/白模编排、Benchmark Base 配置/Schema/实验冻结/Provider 准入/AI 标注/AI 评分/本地状态及后台任务层（32 个模块）
 test/ - Node 原生测试（33 个测试文件，覆盖一键启动、连接与飞书、双 Provider 生成、模型/附件/工作流、Benchmark 样本/实验/运行/评分/分析及浏览器交互）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
@@ -32,6 +32,6 @@ WHITE_MODEL_BENCHMARK.md - 白模渲染 Benchmark 方法与执行规范，统一
 
 生图法则：白模与自由生图默认 Seedream，最终目录包含五个 OneAPI 模型和一个 Flux2 Klein ComfyUI 工作流；OneAPI 按首张参考图匹配最近合法比例，ComfyUI 只接受一张参考图并保持原图尺寸；白模最终提示词按融合输入指纹缓存，首次成功后允许复用或显式重新融合；图片完成即返回并异步归档最终出图 Provider、工作流元数据、场景融合 Agent 与融合基模。
 
-Benchmark 法则：浏览器评测以样本集、可编辑实验草稿、预演、执行、评分和分析为边界，Case ID 与配置 ID 稳定生成；实验只允许出图模型作为唯一变量，正式确认后才冻结并写入 Base；边缘输入不触发生图，AI 样本标注只负责空间及五个复杂度/质量维度，样本准入由人工控制；评分固定使用保持一致性、风格与材质、渲染质量三项原始分，历史协议与正式结果隔离；Base 是配置、Prompt、逐 Run 结果与附件的业务真源，本地只保存工作台状态，失败重试新增 Run 并支持断点续跑。
+Benchmark 法则：浏览器评测以样本集、可编辑实验草稿、预演、执行、评分和分析为边界，Case ID 与配置 ID 稳定生成；实验只允许出图模型作为唯一变量，正式确认后才冻结并写入 Base；Prompt 融合固定走 OneAPI，最终出图按模型 Provider 路由 OneAPI/ComfyUI，原图尺寸工作流只能与输出规格兼容的候选组成实验；边缘输入不触发生图，AI 样本标注只负责空间及五个复杂度/质量维度，样本准入由人工控制；评分固定使用保持一致性、风格与材质、渲染质量三项原始分，历史协议与正式结果隔离；Base 是配置、Prompt、逐 Run 结果与附件的业务真源，本地只保存工作台状态，失败重试新增 Run 并支持断点续跑。
 
 发布法则：对外发布先创建 GitHub 草稿 Release 并校验提交及全部制品摘要，转正式后才清理本地制品；已存在 Release 或远端 Tag 的版本禁止覆盖。

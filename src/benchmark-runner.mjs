@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型矩阵、参考图校验与 OneAPI 客户端
- * [OUTPUT]: 对外提供校验画幅/分辨率/格式/质量档的确定性横评计划、模型可用性预检与可断点续跑的串行执行器，逐 Run 留存成功/失败/重试并同步横评展示
- * [POS]: src 的模型横评应用服务，以一图一行的模型结果为真源、Prompt 批次为冻结实验产物
+ * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端与按模型解析的图像客户端
+ * [OUTPUT]: 对外提供校验画幅/分辨率/格式/质量档的确定性横评计划、OneAPI/ComfyUI 可用性预检与可断点续跑的串行执行器，逐 Run 留存成功/失败/重试并同步横评展示
+ * [POS]: src 的模型横评应用服务，以一图一行的模型结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -10,6 +10,7 @@ import {
   baseRunId, providerFromModelId, runIdForAttempt, sha256, stablePromptId, stableRunId,
 } from "./benchmark-identifiers.mjs";
 import { parseBenchmarkOutputSpec } from "./benchmark-experiment-config.mjs";
+import { assertBenchmarkModelAvailability } from "./benchmark-model-access.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { getPublishedPromptAgent } from "./prompt-agent.mjs";
 import { normalizeReferenceImage } from "./reference-image.mjs";
@@ -17,6 +18,8 @@ import { getPublishedStyle } from "./style-library.mjs";
 import { buildPromptAgentInput, parsePromptAgentOutput } from "./white-model-workflow.mjs";
 
 const COMPLETED_SAMPLE_STATUSES = new Set(["完成"]);
+
+export { assertBenchmarkModelAvailability } from "./benchmark-model-access.mjs";
 
 function benchmarkError(message) {
   const error = new Error(message);
@@ -186,6 +189,7 @@ export function buildBenchmarkPlan(
         imageModelId,
         imageModelKey: imageModel.key,
         imageModelLabel: imageModel.label,
+        imageModelProvider: imageModel.provider || "oneapi",
       };
     });
 
@@ -342,27 +346,6 @@ function finishedResult(run) {
   );
 }
 
-function allModelIds(plan) {
-  return new Set(
-    plan.groups.flatMap((group) => [
-      group.fusionModel.id,
-      ...group.configs.map((config) => config.imageModelId),
-    ]),
-  );
-}
-
-export async function assertBenchmarkModelAvailability(client, plan) {
-  const available = new Set(
-    (await client.listModels())
-      .map((model) => model.id || model.name)
-      .filter(Boolean),
-  );
-  const missing = [...allModelIds(plan)].filter((id) => !available.has(id));
-  if (missing.length > 0) {
-    throw benchmarkError(`当前 API Key 未开放模型：${missing.join("、")}`);
-  }
-}
-
 async function freezePrompt({
   agent,
   batch,
@@ -491,15 +474,16 @@ async function savePromptFailureComparison({
 }
 
 async function generateRun({
-  client,
   comparisonRecordId,
   finalPrompt,
   group,
+  imageClientForModel,
   reference,
   run,
   store,
 }) {
   if (finishedResult(run)) return "skipped";
+  const imageClient = await imageClientForModel(run.config);
   const attempt = run.nextAttempt;
   const runId = runIdForAttempt(run.runId, attempt);
   let resultRecordId = await store.saveRunResult({
@@ -553,7 +537,7 @@ async function generateRun({
         },
       },
     );
-    const result = await client.generateImage(generation.request);
+    const result = await imageClient.generateImage(generation.request);
     if (!result.images?.[0]) throw new Error("出图模型没有返回图片");
     await store.uploadResultImage(
       resultRecordId,
@@ -645,6 +629,7 @@ export async function runBenchmark(
   {
     client,
     execute = false,
+    imageClientForModel = () => client,
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
     onProgress = () => {},
@@ -655,7 +640,14 @@ export async function runBenchmark(
   if (!client || !store) {
     throw new TypeError("Benchmark 执行需要 client 与 store");
   }
-  await assertBenchmarkModelAvailability(client, plan);
+  await assertBenchmarkModelAvailability(client, plan, { imageClientForModel });
+  const imageClients = new Map();
+  const resolveImageClient = async (config) => {
+    if (!imageClients.has(config.imageModelId)) {
+      imageClients.set(config.imageModelId, await imageClientForModel(config));
+    }
+    return imageClients.get(config.imageModelId);
+  };
   const counters = {
     failedImages: 0,
     failedPrompts: 0,
@@ -742,10 +734,10 @@ export async function runBenchmark(
         }
         for (const run of batch.runs) {
           const status = await generateRun({
-            client,
             comparisonRecordId,
             finalPrompt: frozen.finalPrompt,
             group,
+            imageClientForModel: resolveImageClient,
             reference: {
               ...reference,
               compareId: batch.promptId,

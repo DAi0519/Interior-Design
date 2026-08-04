@@ -623,7 +623,11 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
       );
     },
 
-    async runExperiment(input, { client, update = () => {} }) {
+    async runExperiment(input, {
+      client,
+      imageClientForModel = () => client,
+      update = () => {},
+    }) {
       if (input.confirm !== true) throw inputError("批量执行需要显式确认");
       const requestedExperimentId = String(input.experimentId || "").trim();
       let experiment = null;
@@ -646,7 +650,9 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         if (prepared.publicPlan.drift.blocked) {
           throw inputError(prepared.publicPlan.drift.message);
         }
-        await assertBenchmarkModelAvailability(client, prepared.plan);
+        await assertBenchmarkModelAvailability(client, prepared.plan, {
+          imageClientForModel,
+        });
 
         phase = "config-write";
         update({
@@ -668,6 +674,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         const result = await runBenchmark(prepared.plan, {
           client,
           execute: true,
+          imageClientForModel,
           onProgress: update,
           store: baseStore,
         });

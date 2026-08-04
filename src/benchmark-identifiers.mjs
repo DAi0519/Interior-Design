@@ -24,6 +24,7 @@ export function sha256(value) {
 }
 
 export function providerFromModelId(modelId) {
+  if (modelId.startsWith("comfyui:")) return "ComfyUI";
   if (modelId.startsWith("doubao-")) return "ByteDance";
   if (modelId.startsWith("gemini-")) return "Google";
   if (modelId.startsWith("gpt-")) return "OpenAI";

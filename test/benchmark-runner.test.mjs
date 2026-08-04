@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的可筛选纯计划器、可注入模型/飞书执行边界
- * [OUTPUT]: 对外提供 Case/配置筛选、停用模型排除、Prompt 隔离、Run 真源、失败重试、横评展示与 63 图规模回归保障
+ * [OUTPUT]: 对外提供 Case/配置筛选、停用模型排除、Prompt/图像 Provider 分流、Run 真源、失败重试、横评展示与 63 图规模回归保障
  * [POS]: test 的模型横评核心集成测试，所有资源与模型调用均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -304,4 +304,86 @@ test("失败 Run 生成新尝试且保留重试来源", () => {
   assert.equal(run.runId, logicalRunId);
   assert.equal(run.nextAttempt, 2);
   assert.equal(run.retrySource, logicalRunId);
+});
+
+test("Flux2 Klein 横评由 OneAPI 融合 Prompt 并由 ComfyUI 出图", async () => {
+  const value = snapshot();
+  value.configs = [config({
+    configId: "CFG-FLUX",
+    enabled: true,
+    imageModel: "Flux2 Klein [comfyui:ai-texture-enhancement]",
+  })];
+  value.configs[0].outputSpec = "跟随原图比例 · 原图尺寸 · PNG";
+  value.configs[0].promptBatches = 1;
+  const plan = buildBenchmarkPlan(value);
+  const savedRuns = [];
+  let comfyCalls = 0;
+  let oneApiImageCalls = 0;
+  const oneApiClient = {
+    async generateImage() { oneApiImageCalls += 1; },
+    async generatePrompt() {
+      return { text: JSON.stringify(agentPayload(1)) };
+    },
+    async listModels() {
+      return [{ id: "gemini-3.1-pro-preview" }];
+    },
+  };
+  const comfyUiClient = {
+    async checkHealth() { return { available: true }; },
+    async generateImage(request) {
+      comfyCalls += 1;
+      assert.equal(request.model, "comfyui:ai-texture-enhancement");
+      assert.equal(request.size, "1x1");
+      return {
+        images: [{ url: "data:image/png;base64,aQ==" }],
+        outputFormat: "png",
+        requestId: "comfy-prompt-1",
+      };
+    },
+  };
+  let nextId = 0;
+  const store = {
+    async downloadSampleImage() {
+      return {
+        dataUrl: onePixelPng,
+        name: "white.png",
+        size: pngBytes.length,
+        type: "image/png",
+      };
+    },
+    async savePromptBatch(_value, recordId) {
+      return recordId || `prompt-${nextId += 1}`;
+    },
+    async saveComparisonRow(_value, recordId) {
+      return recordId || `comparison-${nextId += 1}`;
+    },
+    async saveRunResult(value, recordId) {
+      savedRuns.push(value);
+      return recordId || `result-${nextId += 1}`;
+    },
+    async updateSampleStatus() {},
+    async uploadComparisonImage() {},
+    async uploadComparisonReference() {},
+    async uploadResultImage() {},
+  };
+
+  const result = await runBenchmark(plan, {
+    client: oneApiClient,
+    execute: true,
+    imageClientForModel: (model) => {
+      assert.equal(model.imageModelProvider, "comfyui");
+      return comfyUiClient;
+    },
+    loadAgent: async () => ({ systemPrompt: "system" }),
+    loadStyle: async () => ({
+      styleDna: { style_dna: { overall_style: "cream" } },
+    }),
+    store,
+  });
+
+  assert.equal(plan.groups[0].configs[0].imageModelProvider, "comfyui");
+  assert.equal(oneApiImageCalls, 0);
+  assert.equal(comfyCalls, 1);
+  assert.equal(result.generatedImages, 1);
+  assert.equal(savedRuns.at(-1).provider, "ComfyUI");
 });

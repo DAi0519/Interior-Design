@@ -378,7 +378,14 @@ async function handleApi(request, response, pathname) {
     const service = getBenchmarkWorkbench();
     const client = createOneApiClient(requireApiKey());
     const job = benchmarkJobs.enqueue(jobId, "generation", (update) =>
-      service.runExperiment(body, { client, update }),
+      service.runExperiment(body, {
+        client,
+        imageClientForModel: (config) => imageClientForModel(
+          config.imageModelKey,
+          { oneApiClient: client },
+        ),
+        update,
+      }),
     );
     return sendJson(response, 202, { job });
   }

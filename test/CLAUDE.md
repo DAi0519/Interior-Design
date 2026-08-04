@@ -19,8 +19,8 @@ oneapi-client.test.mjs: OneAPI Responses 单图分析、双图 AI 评审、图�
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
 image-artifact.test.mjs: 生成图片扩展名、data URL 解码、空响应与下载体积上限测试
 benchmark-base.test.mjs: Benchmark 五表环境配置、稳定编码到实时单选项的冻结配置映射、未建模质量档前置阻断、阶段化错误上下文、空间与五维标签/人工准入样本录入、样本集批量重命名、横评对比/运行明细/结果报告三类实验筛选链接、快照解析、分页保护、Prompt/Run/横评关联写入与附件上传测试，不读写真实 Base
-benchmark-runner.test.mjs: 横评计划规模、Case/配置筛选、停用模型、冻结 Prompt、逐 Run 真源、失败重试、横评同步与预演零调用的内存集成测试
-benchmark-experiment-config.test.mjs: 实验草稿共享参数冻结、稳定配置 ID、OneAPI Provider 边界、稳定编码一致性、输出规格解析与跨模型合法参数交集测试
+benchmark-runner.test.mjs: 横评计划规模、Case/配置筛选、停用模型、OneAPI Prompt/ComfyUI 图像 Provider 分流、逐 Run 真源、失败重试、横评同步与预演零调用的内存集成测试
+benchmark-experiment-config.test.mjs: 实验草稿共享参数冻结、稳定配置 ID、双 Provider/原图尺寸规格、稳定编码一致性与跨模型合法参数交集测试
 benchmark-experiment-ui.test.mjs: 系统实验 ID 的秒级时间戳/随机后缀/唯一性，以及稳定分区网格、双栏模型卡和响应式降列测试
 benchmark-review.test.mjs: 飞书同构 AI 评分 JSON 契约、三维准入、旧协议分析隔离、问题标签、可用图漏斗、模型分类分析与 P95 纯函数测试
 benchmark-review-ui.test.mjs: AI 评分前端当前样本集成功结果筛选、每 Run 最新正式评分选择、旧协议计数、摘要指标及评分任务保持在评分面板的纯函数测试

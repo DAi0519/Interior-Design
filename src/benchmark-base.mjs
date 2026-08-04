@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、benchmark-base-schema.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
+ * [INPUT]: 依赖 node:fs/os/path、benchmark-base-config/schema.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
  * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时单选项适配的冻结配置创建、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/横评幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
  * [POS]: src 的 Benchmark 飞书持久化边界，以模型结果为运行真源、横评宽表为展示派生层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -14,20 +14,22 @@ import {
   TABLE_FIELDS,
 } from "./benchmark-base-schema.mjs";
 import {
+  parseBenchmarkRecordPage,
+  selectValue,
+  validateBenchmarkBaseConfig,
+} from "./benchmark-base-config.mjs";
+import {
   extensionForImageFormat,
   loadImageBytes,
 } from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 import { recordIdFrom } from "./lark-sync.mjs";
 
-const REQUIRED_CONFIG = [
-  "baseToken",
-  "compareTableId",
-  "configTableId",
-  "promptTableId",
-  "resultTableId",
-  "sampleTableId",
-];
+export {
+  benchmarkBaseConfigFromEnv,
+  parseBenchmarkRecordEnvelope,
+} from "./benchmark-base-config.mjs";
+
 const EXPERIMENT_VIEW_TARGETS = Object.freeze({
   comparison: {
     fieldName: "横评组",
@@ -46,75 +48,6 @@ const EXPERIMENT_VIEW_TARGETS = Object.freeze({
   },
 });
 const REPORT_TABLE_NAME = "06 结果报告";
-
-function requiredEnvironment(source, name) {
-  const value = String(source[name] || "").trim();
-  if (!value) throw new Error(`缺少环境变量 ${name}`);
-  return value;
-}
-
-export function benchmarkBaseConfigFromEnv(source = process.env) {
-  return {
-    baseToken: requiredEnvironment(source, "BENCHMARK_BASE_TOKEN"),
-    cliPath: source.LARK_CLI_PATH || "lark-cli",
-    configTableId: requiredEnvironment(
-      source,
-      "BENCHMARK_CONFIG_TABLE_ID",
-    ),
-    compareTableId: requiredEnvironment(
-      source,
-      "BENCHMARK_COMPARE_TABLE_ID",
-    ),
-    promptTableId: requiredEnvironment(
-      source,
-      "BENCHMARK_PROMPT_TABLE_ID",
-    ),
-    resultTableId: requiredEnvironment(
-      source,
-      "BENCHMARK_RESULT_TABLE_ID",
-    ),
-    sampleTableId: requiredEnvironment(
-      source,
-      "BENCHMARK_SAMPLE_TABLE_ID",
-    ),
-  };
-}
-
-function validateConfig(config) {
-  for (const key of REQUIRED_CONFIG) {
-    if (!String(config?.[key] || "").trim()) {
-      throw new TypeError(`Benchmark Base 配置缺少 ${key}`);
-    }
-  }
-}
-
-function selectValue(value) {
-  return Array.isArray(value) ? value[0] ?? null : value ?? null;
-}
-
-function rowObject(fields, row) {
-  return Object.fromEntries(fields.map((field, index) => [field, row[index]]));
-}
-
-export function parseBenchmarkRecordEnvelope(body) {
-  const parsed = parseBenchmarkRecordPage(body);
-  if (body.data.has_more) {
-    throw new Error("飞书 Benchmark 单表超过 200 条，当前读取结果不完整");
-  }
-  return parsed;
-}
-
-function parseBenchmarkRecordPage(body) {
-  if (body?.ok !== true || !Array.isArray(body?.data?.data)) {
-    throw new Error("飞书 Benchmark 表返回格式不正确");
-  }
-  const fields = body.data.fields || [];
-  const recordIds = body.data.record_id_list || [];
-  return body.data.data.map((row, index) => ({
-    fields: rowObject(fields, row),
-    recordId: recordIds[index],
-  }));
-}
 
 function mimeTypeFromName(fileName) {
   const extension = extname(String(fileName || "")).toLowerCase();
@@ -152,7 +85,7 @@ export function createBenchmarkBaseStore(
   config,
   { run = runLarkCli } = {},
 ) {
-  validateConfig(config);
+  validateBenchmarkBaseConfig(config);
   const fieldSchemas = new Map();
   let baseUrl = null;
   let reportTableId = String(config.reportTableId || "").trim() || null;
