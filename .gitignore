@@ -26,5 +26,6 @@ generated/
 node_modules/
 dist/
 .cache/
+.benchmark-workbench/
 tmp/
 *.log

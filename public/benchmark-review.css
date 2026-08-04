@@ -1,0 +1,154 @@
+/**
+ * [INPUT]: 依赖 benchmark.html 的评分结果区与 benchmark.css 的颜色、边框、排版和表格令牌
+ * [OUTPUT]: 对外提供评分摘要、逐图三维分数、可用结论、问题标签、长原因与响应式表格视觉
+ * [POS]: public 的 Benchmark AI 评分结果视觉层，与运行任务、样本集和实验配置样式模块并列
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+.review-results {
+  border-top: 1px solid var(--line);
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 20px;
+}
+
+.review-results-head {
+  align-items: flex-end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.review-results-head .eyebrow {
+  margin-bottom: 4px;
+}
+
+.review-results-head h3 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.review-results-head > span {
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.review-result-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  margin-top: 14px;
+}
+
+.review-result-summary > div {
+  background: var(--panel-soft);
+  border-radius: 6px;
+  min-height: 66px;
+  padding: 12px 14px;
+}
+
+.review-result-summary span {
+  color: var(--muted);
+  display: block;
+  font-size: 10px;
+}
+
+.review-result-summary strong {
+  display: block;
+  font: 600 18px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  margin-top: 5px;
+}
+
+.review-result-table {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.review-result-table table {
+  min-width: 980px;
+}
+
+.review-result-table td {
+  vertical-align: top;
+}
+
+.review-run code {
+  display: block;
+  font: 500 10px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-score {
+  font: 600 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  text-align: center;
+}
+
+.review-verdict {
+  background: var(--panel-soft);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 10px;
+  padding: 2px 7px;
+}
+
+.review-verdict[data-usable="true"] {
+  background: var(--ink);
+  color: white;
+}
+
+.review-reason {
+  line-height: 1.5;
+  max-width: 300px;
+  min-width: 220px;
+  white-space: normal;
+}
+
+.review-reason small {
+  color: var(--quiet);
+  display: block;
+  font-size: 9px;
+  margin-top: 4px;
+}
+
+.review-result-empty {
+  color: var(--muted);
+  margin: 18px 0 2px;
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .review-grid .form-card {
+    order: 1;
+  }
+  .review-results {
+    order: 2;
+  }
+  .review-grid .protocol-card {
+    order: 3;
+  }
+  .review-result-table table {
+    min-width: 760px;
+  }
+  .review-result-table .review-run {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .review-results-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .review-results-head > span {
+    text-align: left;
+  }
+  .review-result-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

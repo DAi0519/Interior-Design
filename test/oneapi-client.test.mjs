@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 OneAPI 请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本响应及敏感错误处理的回归保障
+ * [INPUT]: 依赖 node:test/assert 与 OneAPI 单图分析/多图评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
+ * [OUTPUT]: 对外提供 AI 单图分析、双图评审、图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本响应及敏感错误处理的回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,12 +9,72 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildMultiImageReviewRequest,
   buildResponseImageRequest,
+  buildSingleImageAnalysisRequest,
   buildStyleDnaResponseRequest,
+  createOneApiClient,
   extractResponseText,
   normalizeImages,
   redactUpstreamMessage,
 } from "../src/oneapi-client.mjs";
+
+test("单图分析请求只发送当前图片", () => {
+  const request = buildSingleImageAnalysisRequest({
+    imageUrl: "data:image/png;base64,c2FtcGxl",
+    model: "gemini-3.5-flash",
+    systemPrompt: "只返回 JSON",
+    userPrompt: "识别样本",
+  });
+
+  assert.equal(request.input[0].content.length, 2);
+  assert.equal(request.input[0].content[1].image_url, "data:image/png;base64,c2FtcGxl");
+  assert.equal(request.input[0].content[1].type, "input_image");
+  assert.throws(() => buildSingleImageAnalysisRequest({ imageUrl: "" }), /一张图片/);
+});
+
+test("OneAPI 单图分析客户端不经过多图数量限制", async (context) => {
+  const originalFetch = globalThis.fetch;
+  let requestBody;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return new Response(JSON.stringify({
+      id: "resp-single-image",
+      output_text: '{"category":"客厅"}',
+    }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  const result = await createOneApiClient("test-key").analyzeImage({
+    imageUrl: "data:image/png;base64,c2FtcGxl",
+    model: "gemini-3.5-flash",
+    systemPrompt: "只返回 JSON",
+    userPrompt: "识别样本",
+  });
+
+  assert.equal(requestBody.input[0].content[1].type, "input_image");
+  assert.equal(requestBody.input[0].content.length, 2);
+  assert.equal(result.requestId, "resp-single-image");
+});
+
+test("AI 评审请求固定按参考图、结果图顺序发送", () => {
+  const request = buildMultiImageReviewRequest({
+    imageUrls: ["data:image/png;base64,cmVm", "data:image/png;base64,b3V0"],
+    model: "gpt-5.5",
+    systemPrompt: "只返回 JSON",
+    userPrompt: "开始评分",
+  });
+
+  assert.equal(request.input[0].content[1].image_url.endsWith("cmVm"), true);
+  assert.equal(request.input[0].content[2].image_url.endsWith("b3V0"), true);
+  assert.equal(request.instructions, "只返回 JSON");
+  assert.throws(() => buildMultiImageReviewRequest({ imageUrls: ["one"] }), /两张/);
+});
 
 test("Responses image_generation_call 的 result 裸 Base64 转为 data URL", () => {
   const images = normalizeImages(

@@ -1,0 +1,261 @@
+<!--
+  [INPUT]: 依赖 benchmark.css/benchmark-dataset.css/benchmark-experiment.css/benchmark-run.css/benchmark-review.css/custom-select.css 的 Light Command Center 视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
+  [OUTPUT]: 对外提供继承 Canvas Lab 设计语言、复用生图选择器与用户 OneAPI 模型目录的样本集 CRUD、批量参考图空间与五维逐图 AI 打标/人工准入复核/自动编号录入、稳定对齐且可编辑冻结的实验配置、批量运行、已完成实验直接 AI 评分、逐图评分结果、可按实验 ID 筛选的数据分析及分流到横评对比/运行明细/结果报告的飞书筛选跳转
+  [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
+  [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="室内生图模型批量评测工作台" />
+    <title>Canvas Lab · Benchmark</title>
+    <link rel="stylesheet" href="./benchmark.css?v=11" />
+    <link rel="stylesheet" href="./custom-select.css?v=7" />
+    <link rel="stylesheet" href="./benchmark-dataset.css?v=6" />
+    <link rel="stylesheet" href="./benchmark-experiment.css?v=3" />
+    <link rel="stylesheet" href="./benchmark-run.css?v=2" />
+    <link rel="stylesheet" href="./benchmark-review.css?v=2" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Canvas Lab 首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" />
+              <path d="m6.5 16 3.8-4 2.7 2.6 2.3-2.1 2.2 3.5" />
+              <circle cx="15.8" cy="8.8" r="1.2" />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <strong>Canvas Lab</strong>
+            <small>MODEL EVALUATION</small>
+          </span>
+        </a>
+        <div class="topbar-actions">
+          <span id="connectionStatus" class="status-pill" aria-live="polite">读取中</span>
+          <a class="quiet-button" href="/">生图工作台</a>
+        </div>
+      </header>
+
+      <main class="shell">
+      <aside class="step-nav" aria-label="评测流程">
+        <p class="eyebrow">评测流程</p>
+        <button class="step active" data-step="dataset" type="button">
+          <span>01</span><strong>样本集</strong>
+        </button>
+        <button class="step" data-step="experiment" type="button">
+          <span>02</span><strong>实验配置</strong>
+        </button>
+        <button class="step" data-step="run" type="button">
+          <span>03</span><strong>批量运行</strong>
+        </button>
+        <button class="step" data-step="review" type="button">
+          <span>04</span><strong>AI 评分</strong>
+        </button>
+        <button class="step" data-step="analysis" type="button">
+          <span>05</span><strong>数据分析</strong>
+        </button>
+      </aside>
+
+      <div class="content">
+        <div id="setupNotice" class="notice hidden"></div>
+        <div id="toast" class="toast hidden" role="status"></div>
+
+        <section id="datasetPanel" class="panel active" data-panel="dataset">
+          <div class="panel-heading">
+            <h1>样本集</h1>
+            <div class="metric-inline"><strong id="caseCount">0</strong><span>样本</span></div>
+          </div>
+          <div class="dataset-toolbar">
+            <label class="dataset-picker field">当前样本集<select id="datasetSelect" aria-label="当前样本集" data-requires-service></select></label>
+            <div class="dataset-actions">
+              <button id="refreshButton" class="quiet-button" type="button" data-requires-service>同步</button>
+              <button id="createDatasetButton" class="quiet-button" data-requires-service type="button">新建</button>
+              <button id="renameDatasetButton" class="quiet-button" data-requires-service type="button">重命名</button>
+              <button id="archiveDatasetButton" class="quiet-button" data-requires-service type="button">删除</button>
+            </div>
+          </div>
+          <form id="datasetEditor" class="dataset-editor hidden">
+            <label><span id="datasetEditorLabel">样本集名称</span><input id="datasetNameInput" maxlength="80" required /></label>
+            <div class="dataset-editor-actions">
+              <button id="cancelDatasetButton" class="quiet-button" type="button">取消</button>
+              <button class="primary-button" type="submit">保存</button>
+            </div>
+          </form>
+          <div id="datasetEmpty" class="dataset-empty hidden">先新建一个样本集，再添加参考图。</div>
+          <div class="dataset-grid">
+            <form id="caseForm" class="form-card">
+              <h3>添加样本</h3>
+              <label class="field">AI 打标模型<select id="labelModelSelect" aria-label="AI 打标模型" data-requires-service></select></label>
+              <div class="field-pair">
+                <label class="field">类别默认值<select id="categoryInput" aria-label="类别默认值" required><option>客厅</option><option>客餐厅一体</option><option>独立餐厅</option><option>卧室</option><option>厨房</option><option>卫生间</option><option>玄关</option><option>走廊</option><option>书房</option><option>阳台</option><option>儿童房</option></select></label>
+                <label class="field">样本准入（人工）<select id="sampleTypeInput" aria-label="样本准入"><option>有效白模</option><option>边缘输入</option></select></label>
+              </div>
+              <label class="field">样本来源
+                <select id="sourceInput" aria-label="样本来源"><option>用户输入</option><option>小红书</option><option>抖音</option><option>其他授权来源</option></select>
+              </label>
+              <label class="drop-field">参考图<input id="caseImageInput" data-requires-service required multiple type="file" accept="image/png,image/jpeg,image/webp" /><span id="fileLabel" aria-live="polite">选择多张 PNG / JPEG / WebP</span></label>
+              <div id="sampleDrafts" class="sample-drafts hidden" aria-live="polite"></div>
+              <button id="saveCasesButton" class="primary-button" data-requires-service type="submit">保存样本</button>
+            </form>
+            <div class="table-card">
+              <div class="table-title"><h3 id="caseTableTitle">样本</h3><span id="validCaseCount">0 个进入评测</span></div>
+              <div class="table-scroll"><table><thead><tr><th>编号</th><th>类别</th><th>五维标签</th><th>准入</th><th>状态</th></tr></thead><tbody id="caseRows"></tbody></table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="experiment">
+          <div class="panel-heading">
+            <h1>实验配置</h1>
+          </div>
+          <div id="experimentForm" class="form-card experiment-card">
+            <div class="experiment-meta-grid">
+              <div class="experiment-id-field">
+                <label for="experimentIdInput">实验 ID</label>
+                <div class="experiment-id-control">
+                  <input id="experimentIdInput" aria-describedby="experimentIdHelp" maxlength="80" readonly />
+                  <button id="newExperimentIdButton" class="quiet-button" type="button">换一个</button>
+                </div>
+                <small id="experimentIdHelp">系统自动生成；预演与正式运行共用同一 ID</small>
+              </div>
+              <label class="field">载入配置模板<select id="groupSelect" aria-label="载入配置模板" data-requires-service></select></label>
+              <label>最多 Case 数<input id="maxCasesInput" type="number" min="1" placeholder="全部" /></label>
+            </div>
+            <div class="experiment-divider"></div>
+            <div class="experiment-section-heading">
+              <div><strong>固定参数</strong><span>所有候选模型共用，预演后冻结</span></div>
+              <span class="variable-lock">唯一变量：出图模型</span>
+            </div>
+            <div class="parameter-grid foundation">
+              <label class="field">Style DNA<select id="experimentStyleSelect" aria-label="Style DNA" data-requires-service></select></label>
+              <label class="field">场景融合 Agent<select id="experimentAgentSelect" aria-label="场景融合 Agent" data-requires-service></select></label>
+              <label class="field">融合基模<select id="experimentFusionModelSelect" aria-label="融合基模" data-requires-service></select></label>
+            </div>
+            <div class="parameter-grid output">
+              <label class="field">输出比例<select id="experimentRatioSelect" aria-label="输出比例" data-requires-service></select></label>
+              <label class="field">分辨率<select id="experimentResolutionSelect" aria-label="分辨率" data-requires-service></select></label>
+              <label class="field">格式<select id="experimentFormatSelect" aria-label="输出格式" data-requires-service></select></label>
+              <label class="field">质量档<select id="experimentQualitySelect" aria-label="质量档" data-requires-service></select></label>
+            </div>
+            <div class="parameter-grid volume">
+              <label>Prompt 批次数<input id="promptBatchesInput" type="number" min="1" max="20" value="1" /></label>
+              <label>每模型每批出图<input id="perBatchImagesInput" type="number" min="1" max="20" value="4" /></label>
+            </div>
+            <fieldset><legend>候选出图模型</legend><div id="configOptions" class="config-options"></div></fieldset>
+            <div class="action-row">
+              <button id="planButton" class="secondary-button" data-requires-service type="button">生成只读预演</button>
+              <span>预演不调用模型、不写入 Base；正式运行时才冻结配置。</span>
+            </div>
+          </div>
+          <div id="planResult" class="plan-card empty">尚未生成实验计划</div>
+        </section>
+
+        <section class="panel" data-panel="run">
+          <div class="panel-heading">
+            <h1>批量运行</h1>
+            <div class="panel-heading-actions">
+              <button id="runOpenBaseButton" class="quiet-button" type="button" disabled>横评对比 ↗</button>
+              <span id="runBadge" class="status-pill">等待预演</span>
+            </div>
+          </div>
+          <div class="run-layout">
+            <div class="run-card"><span>Cases</span><strong id="planCases">—</strong></div>
+            <div class="run-card"><span>Prompt 批次</span><strong id="planPrompts">—</strong></div>
+            <div class="run-card"><span>计划出图</span><strong id="planRuns">—</strong></div>
+            <div class="run-card"><span>可断点跳过</span><strong id="planSkipped">—</strong></div>
+          </div>
+          <div id="driftNotice" class="notice neutral">先在实验配置中完成预演。</div>
+          <div class="execution-card">
+            <div><h3>开始真实批量测试</h3><p>确认后先冻结生成配置，再将 Prompt、逐张 Run、结果图与错误持续写入 Benchmark Base；本地只保留任务状态。</p></div>
+            <button id="runButton" class="danger-button" disabled type="button">确认并开始</button>
+          </div>
+          <div id="generationJobSlot" class="job-slot">
+          <div id="jobProgress" class="progress-card hidden" data-status="running">
+            <div class="job-progress-head">
+              <div class="job-progress-title"><strong id="jobMessage">任务运行中</strong><span id="jobPhase" class="job-phase">等待执行</span></div>
+              <span id="jobStatus" class="job-status">运行中</span>
+            </div>
+            <section id="jobFailure" class="job-failure hidden" aria-live="polite">
+              <div class="job-failure-summary">
+                <span>发生了什么</span>
+                <strong id="jobFailureTitle">任务未完成</strong>
+                <p id="jobFailureImpact"></p>
+              </div>
+              <div class="job-failure-next">
+                <div><span>下一步</span><p id="jobFailureAdvice"></p></div>
+                <button id="jobNewExperimentButton" class="secondary-button hidden" type="button">生成新实验 ID</button>
+              </div>
+              <details class="job-technical-detail">
+                <summary>查看技术详情</summary>
+                <code id="jobError"></code>
+              </details>
+            </section>
+            <div class="job-meta"><span id="jobStorage">尚未写入 Benchmark Base</span><code id="jobId"></code></div>
+            <div class="job-progress-row"><progress id="jobBar" max="1" value="0"></progress><span id="jobNumbers">0 / 0</span></div>
+          </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="review">
+          <div class="panel-heading">
+            <h1>AI 评分</h1>
+          </div>
+          <div class="review-grid">
+            <div class="form-card">
+              <div class="field-action">
+                <label class="field">评分实验<select id="reviewExperimentSelect" aria-label="评分实验" data-requires-service></select></label>
+                <button id="reviewOpenBaseButton" class="quiet-button" type="button" disabled>结果明细 ↗</button>
+              </div>
+              <p id="reviewExperimentMeta" class="review-experiment-meta">完成批量运行后，可直接选择实验评分，不会重新出图。</p>
+              <label class="field">评分模型<select id="reviewModelSelect" aria-label="评分模型" data-requires-service></select></label>
+              <label>评审批次 ID<input id="reviewBatchInput" /></label>
+              <div class="rubric"><span>保持一致性 1–5</span><span>风格与材质 1–5</span><span>渲染质量 1–5</span></div>
+              <button id="reviewButton" class="primary-button" data-requires-service type="button">确认并开始 AI 评分</button>
+            </div>
+            <div class="protocol-card"><p class="eyebrow">可用图准入</p><h3>三个原始维度均 ≥ 3</h3><p>先判断是否可评审，再保留原始分数与问题标签。模型结论不会覆盖历史评分字段。</p></div>
+            <section class="review-results" aria-labelledby="reviewResultsTitle">
+              <div class="review-results-head">
+                <div><p class="eyebrow">飞书正式三维</p><h3 id="reviewResultsTitle">评分结果</h3></div>
+                <span id="reviewResultMeta">完成 AI 评分后，逐图分数与原因会显示在这里。</span>
+              </div>
+              <div id="reviewResultSummary" class="review-result-summary"></div>
+              <div id="reviewResultTable" class="review-result-table hidden">
+                <div class="table-scroll"><table><thead><tr><th>模型</th><th class="review-run">Run</th><th>保持一致性</th><th>风格与材质</th><th>渲染质量</th><th>结论</th><th>问题</th><th>评分原因</th></tr></thead><tbody id="reviewResultRows"></tbody></table></div>
+              </div>
+              <p id="reviewResultEmpty" class="review-result-empty">当前实验还没有正式三维评分结果。</p>
+            </section>
+          </div>
+          <div id="reviewJobSlot" class="job-slot"></div>
+        </section>
+
+        <section class="panel" data-panel="analysis">
+          <div class="panel-heading">
+            <h1>数据分析</h1>
+            <div class="analysis-actions">
+              <label class="analysis-scope" for="analysisExperimentSelect">
+                <span>分析范围</span>
+                <select id="analysisExperimentSelect" aria-label="按实验 ID 筛选分析结果"></select>
+              </label>
+              <button id="openExperimentBaseButton" class="quiet-button" type="button" disabled>结果报告 ↗</button>
+            </div>
+          </div>
+          <div class="analysis-kpis">
+            <div><span>结果总数</span><strong id="totalResults">0</strong></div>
+            <div><span>成功出图</span><strong id="generatedResults">0</strong></div>
+            <div><span>已评分</span><strong id="reviewedResults">0</strong></div>
+            <div><span>可用图</span><strong id="usableResults">0</strong></div>
+            <div><span>P95 耗时</span><strong id="p95Results">—</strong></div>
+          </div>
+          <div class="table-card analysis-table"><div class="table-title"><h3>模型 × 类别</h3><span id="analysisScopeMeta">全部实验</span></div><div class="table-scroll"><table><thead><tr><th>模型</th><th>类别</th><th>成功率</th><th>可用图率</th><th>平均原始分</th><th>P95</th><th>样本</th></tr></thead><tbody id="analysisRows"></tbody></table></div></div>
+        </section>
+      </div>
+      </main>
+    </div>
+    <script type="module" src="./custom-select.js?v=5"></script>
+    <script type="module" src="./benchmark-app.js?v=19"></script>
+  </body>
+</html>

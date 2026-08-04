@@ -9,6 +9,8 @@
     "保留四个最终出图模型统一可选与飞书最小权限增量补充授权。"
   ],
   "scripts": {
+    "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",
+    "benchmark:backfill": "node --env-file-if-exists=.env.local benchmark-backfill.mjs",
     "lark:init": "lark-cli config init --new",
     "lark:status": "lark-cli auth status --json --verify",
     "release:check": "node scripts/release-check.mjs",
