@@ -19,7 +19,7 @@
 - Qwen 3.5 Plus：`qwen3.5-plus`，综合能力候选，已通过图片输入探针。
 - Qwen3-VL Plus：`qwen3-vl-plus`，已通过真实截图图片输入探针。
 - Doubao Seed 1.8：`doubao-seed-1.8`，保留现有兼容候选，已通过真实截图图片输入探针。
-- Doubao Seed 2.0 Lite：`doubao-seed-2-0-lite-260215`，Model Link 目录标注支持图片输入。
+- Doubao Seed 2.0 Lite：请求使用 `/v1/models` 暴露的 `doubao-seed-2.0-lite` 路由别名，对应 Model Link 卡片 `doubao-seed-2-0-lite-260215`，目录标注支持图片输入。
 - Kimi K2.5：`kimi-k2.5`，中文与长上下文候选，已通过图片输入探针。
 
 Claude 仅保留 Sonnet 5，不纳入 Opus 系列；Doubao 同时保留 Seed 1.8 兼容候选与 Seed 2.0 Lite 新候选。

@@ -26,7 +26,7 @@ test("Prompt Agent 目录只暴露十个已决策模型", () => {
       { id: "qwen3.5-plus", key: "qwen35plus" },
       { id: "qwen3-vl-plus", key: "qwen3vlplus" },
       { id: "doubao-seed-1.8", key: "doubaoVision" },
-      { id: "doubao-seed-2-0-lite-260215", key: "doubaoSeed20Lite" },
+      { id: "doubao-seed-2.0-lite", key: "doubaoSeed20Lite" },
       { id: "kimi-k2.5", key: "kimi25" },
     ],
   );
@@ -54,7 +54,7 @@ test("接口存在但不支持图片输入的模型不可选择", () => {
     { id: "qwen3.5-plus" },
     { id: "qwen3-vl-plus" },
     { id: "doubao-seed-1.8" },
-    { id: "doubao-seed-2-0-lite-260215" },
+    { id: "doubao-seed-2.0-lite" },
     { id: "kimi-k2.5" },
   ]);
 
