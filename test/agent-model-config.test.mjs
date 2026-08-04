@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 src/agent-model-config.mjs 的 Prompt Agent 候选目录与能力过滤
- * [OUTPUT]: 验证九个决策模型的真实 ID、最新 Doubao、图片输入门槛及接口可用性组合
+ * [OUTPUT]: 验证十个决策模型的真实 ID、Doubao Seed 2.0 Lite、图片输入门槛及接口可用性组合
  * [POS]: test 的 Prompt Agent 模型回归测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@ import {
   publicAgentModelCatalog,
 } from "../src/agent-model-config.mjs";
 
-test("Prompt Agent 目录只暴露九个已决策模型", () => {
+test("Prompt Agent 目录只暴露十个已决策模型", () => {
   const catalog = publicAgentModelCatalog();
   assert.deepEqual(
     catalog.map(({ id, key }) => ({ id, key })),
@@ -26,6 +26,7 @@ test("Prompt Agent 目录只暴露九个已决策模型", () => {
       { id: "qwen3.5-plus", key: "qwen35plus" },
       { id: "qwen3-vl-plus", key: "qwen3vlplus" },
       { id: "doubao-seed-1.8", key: "doubaoVision" },
+      { id: "doubao-seed-2-0-lite-260215", key: "doubaoSeed20Lite" },
       { id: "kimi-k2.5", key: "kimi25" },
     ],
   );
@@ -53,6 +54,7 @@ test("接口存在但不支持图片输入的模型不可选择", () => {
     { id: "qwen3.5-plus" },
     { id: "qwen3-vl-plus" },
     { id: "doubao-seed-1.8" },
+    { id: "doubao-seed-2-0-lite-260215" },
     { id: "kimi-k2.5" },
   ]);
 

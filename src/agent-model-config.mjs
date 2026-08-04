@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖公司 Model Link 当前模型目录与 2026-07-28 真实截图图片输入探针结果
+ * [INPUT]: 依赖公司 Model Link 当前模型目录、2026-07-28 图片输入探针与 2026-08-04 Seed 2.0 目录能力标记
  * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器
  * [POS]: src 的 Prompt Agent 模型白名单，区分“接口存在”与“可读取白模图片”
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -67,8 +67,16 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     id: "doubao-seed-1.8",
     imageInput: true,
     label: "Doubao Seed 1.8",
-    note: "Doubao 最新候选，已通过真实截图图片输入探针",
+    note: "Doubao 现有兼容候选，已通过真实截图图片输入探针",
     shortLabel: "Doubao Seed 1.8",
+  },
+  doubaoSeed20Lite: {
+    accent: "orange",
+    id: "doubao-seed-2-0-lite-260215",
+    imageInput: true,
+    label: "Doubao Seed 2.0 Lite",
+    note: "Model Link 目录标注支持图片输入",
+    shortLabel: "Doubao Seed 2.0 Lite",
   },
   kimi25: {
     accent: "lime",

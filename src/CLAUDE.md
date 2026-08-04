@@ -6,7 +6,7 @@
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
 model-config.mjs: 模型参数真源，维护模型 ID、合法尺寸矩阵、首张参考图可信宽高最近比例选择、格式、GPT 中等质量默认值与请求白名单
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取可信宽高
-agent-model-config.mjs: Prompt Agent 模型真源，维护九个候选 ID、最新 Doubao、图片输入能力与接口可用性组合，不纳入 Opus
+agent-model-config.mjs: Prompt Agent 模型真源，维护十个候选 ID（含 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-client.mjs: OneAPI HTTP 客户端，Prompt Agent、Style DNA 多轮图片/PDF 反推与图生图走 Responses，分别构造 input_image/input_file，纯文生图走 Images API，并统一脱敏错误
 lark-cli.mjs: 飞书 CLI 基础设施，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
