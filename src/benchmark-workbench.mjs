@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark Base、本地版本化状态、样本 AI 标注、横评计划/执行器、AI 评分领域层与可注入 OneAPI 客户端
- * [OUTPUT]: 对外提供样本集 CRUD、空间与五维 AI 待审标签、人工准入类型、自动 Case ID、可编辑实验草稿/只读预演/分阶段冻结配置落库、协议漂移拦截、带失败持久化的批量生成、可评分已完成实验目录、正式/旧协议隔离的脱敏逐图评分结果、版本化 AI 评分、按样本集/实验 ID 切换的分析概览及分流到横评对比/运行明细/结果报告的飞书筛选跳转
+ * [OUTPUT]: 对外提供样本集治理、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、失败持久化批量生成、版本化 AI 评分、实验分析及飞书筛选跳转
  * [POS]: src 的评测工作台应用服务，统一浏览器 API 与既有 CLI Runner 的业务边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -208,11 +208,14 @@ export function publicBenchmarkPlan(plan, snapshot) {
         runs: entry.batches.reduce((total, batch) => total + batch.runs.length, 0),
       })),
       configs: group.configs.map((config) => ({
+        agent: `${config.agent.code}@v${config.agent.version}`,
         configId: config.configId,
         model: config.imageModelLabel,
       })),
       groupId: group.groupId,
       output: group.output,
+      variableKey: group.variableKey,
+      variableType: group.variableType,
     })),
     summary: plan.summary,
   };

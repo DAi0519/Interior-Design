@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、临时目录、Benchmark 本地存储、计划器与 benchmark-workbench.mjs
- * [OUTPUT]: 对外提供样本集迁移/CRUD、空间与五维 AI 待审标签、人工准入、Gemini 3.5 Flash 默认及用户指定视觉模型、自动 Case ID、实验草稿零 Base 写入预演、冻结配置失败持久化、已完成实验直接评分、按实验 ID 汇总分析、正式/旧协议隔离的脱敏逐图评分结果与历史 Run 协议漂移拦截的回归保障
+ * [OUTPUT]: 对外提供样本集迁移/CRUD、空间与五维 AI 待审标签、人工准入、Gemini 3.5 Flash 默认及用户指定视觉模型、自动 Case ID、实验计划生成零 Base 写入、冻结配置失败持久化、已完成实验直接评分、按实验 ID 汇总分析、正式/旧协议隔离的脱敏逐图评分结果与历史 Run 协议漂移拦截的回归保障
  * [POS]: test 的 Benchmark 工作台应用护栏测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -107,7 +107,7 @@ test("历史 Run 不在当前计划时阻止继续混跑", () => {
   assert.match(result.drift.message, /历史 Run/);
 });
 
-test("可编辑实验草稿只读预演时不创建 Base 配置", async () => {
+test("生成实验计划时不创建 Base 配置", async () => {
   let createdConfigs = 0;
   let savedExperiment;
   const baseStore = {

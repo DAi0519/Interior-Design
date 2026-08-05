@@ -5,6 +5,81 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Benchmark Failed Run Recovery v16 Design QA
+
+## Evidence
+
+- User-reported source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-7b2d64fa-c8f5-4170-8564-06aef0f9ab13.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-run-retry/retry-and-comparison-link.jpg`
+- State: 4173 单端口真实服务、当前持久化实验 `EXP-20260805T072053Z-8A5E`、4 个 Run 中 1 张失败。
+
+## Findings
+
+- 初始 P1：Runner 已支持成功 Run 跳过与失败 Run 新尝试，但完成态任务卡没有重试入口，用户无法调用既有能力。
+- 初始 P1：“横评对比”仅绑定页面内存中的预演计划；概览同步或刷新后 `state.plan` 归零，已落库实验的链接被错误禁用。
+- 修复后任务卡按持久化结果显示“重试 1 张失败出图”；重试输入沿用原实验 ID、Case 范围与冻结草稿，Runner 只为失败 Run 创建下一次尝试。
+- 横评入口改为优先读取当前预演实验、否则读取任务持久化实验 ID，页面刷新后仍可用。
+
+## Interaction Verification
+
+- 真实页面读回：任务文案“任务完成，1 张出图失败”，重试按钮可见，横评按钮 `disabled = false`，进度保持 `4 / 4`。
+- 未点击重试，避免产生模型费用；执行级回归确认两张成功、一张失败时只发生 1 次图像调用，失败 Run 写入 attempt 2 并保留重试来源。
+- 真实点击横评入口无 toast/控制台错误；视图准备接口返回 HTTPS 目标并定位横评表与展示视图。
+- 页面无错误覆盖层；自动化测试 `183/183` 通过。
+
+final result: passed
+
+---
+
+# Flux2 Klein Intelligent Resolution Routing v15 Design QA
+
+## Evidence
+
+- User correction: Flux2 Klein 不能因尺寸能力不同而排斥其他候选模型，需支持同组多选。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/flux-resolution-fix/flux-adaptive-routing.jpg`
+- State: 4173 单端口真实服务、Benchmark 已连接、实验配置与只读预演链路。
+
+## Findings
+
+- v14 的互斥方案虽然消除了空分辨率，却破坏了“唯一变量为出图模型”的同组横评目标，因此被用户否决。
+- v15 将分辨率提升为共享语义策略“智能适配”：Flux2 Klein 冻结为原图尺寸，Banana 2、GPT Image 2、Seedream 5.0 分别冻结为共同默认 2K。
+- Runner 仅允许 Provider 尺寸能力导致的 `source / 2K` 差异；格式、质量、比例与原图画幅策略仍要求完全一致，不放松控制变量。
+- 每个 Run 使用自身冻结配置的具体输出规格，记录、请求、结果附件格式与失败记录不再误读横评组的聚合分辨率。
+
+## Interaction Verification
+
+- 真实点击 Flux2 Klein 后，Banana 2、GPT Image 2、Flux2 Klein、Seedream 5.0 四个候选同时保持选中；分辨率显示“智能适配 · Flux 原图 / 其他 2K”。
+- 真实点击“生成只读预演”通过：9 Cases、4 模型、9 Prompt 批次、144 个出图 Run；该动作未调用模型、未写入 Base。
+- 页面有内容、无错误覆盖层、浏览器错误数组为空；自动化测试 `180/180` 通过。
+
+final result: passed
+
+---
+
+# Flux2 Klein Resolution Compatibility v14 Design QA
+
+## Evidence
+
+- User-reported source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-9fee093a-67d3-4d29-a2fa-f82252d66bb2.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/flux-resolution-fix/flux-original-resolution.png`
+- State: 4173 真实服务、实验配置面板、Flux2 Klein 已选、Benchmark 已连接。
+
+## Findings
+
+- 初始 P1：Flux2 Klein 的 `source` 原图尺寸与其他候选模型的 `2K/4K` 求交后为空，分辨率下拉显示“请选择”，但候选卡仍伪装成兼容。
+- 修复后选择 Flux2 Klein 会自动取消固定分辨率模型，分辨率明确显示“原图尺寸”，格式为 PNG、质量档为“不适用”；选择 Banana 2 等固定分辨率模型时会自动取消 Flux 并恢复 2K。
+- Flux 候选卡补充“原图尺寸 · 选择后单独成组”，使互斥行为与 Provider 能力在操作前可见。
+
+## Interaction Verification
+
+- 真实点击 `Banana 2 / GPT Image 2 / Seedream 5.0 → Flux2 Klein` 后，仅 `aiTextureEnhancement` 保持选中，分辨率值为 `source / 原图尺寸`。
+- 再真实点击 Banana 2 后，仅 `banana2` 保持选中，分辨率恢复 `2K`。
+- 浏览器日志为空；自动化测试 `177/177` 通过。
+
+final result: superseded by v15
+
+---
+
 # Benchmark Vertical Flow v13 Design QA
 
 ## Evidence
@@ -406,6 +481,62 @@ final result: passed
 - 任务归属纯函数覆盖 `review → AI 评分`、`generation → 批量运行`；当前样本集没有成功结果时，服务端在保存空评审批次和调用模型前阻断。
 - 服务重启后 `/api/setup/status` 报告 `ready=true`、`lark-cli 1.0.77`、Benchmark Base 可读；浏览器控制台无 error 或 warning。
 - `npm test` 通过：129 tests，0 fail；前端与服务端模块语法检查、`git diff --check` 通过。
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Benchmark Generic Experiment Factor v20 Design QA
+
+## Evidence
+
+- User correction: every quality configuration can become a later A/B test point, not only Prompt and image model.
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-generic-factor/ratio-factor-compact.jpg`
+- State: Benchmark `实验配置`, service connected, `输出比例` selected as the factor; existing model template loaded.
+
+## Findings
+
+- [Resolved P1] The prior two-item switch still encoded product policy in UI branches. The page now exposes one `对比维度` selector backed by an eight-item registry: Style DNA, Prompt version, fusion model, image model, ratio, resolution, format and quality.
+- Selecting a factor hides only its matching fixed field and moves its available values into the candidate area; all remaining fields stay visible as controls. At runtime, prompt-stage factors isolate Prompt generation while image-stage factors reuse the same frozen Prompt.
+- Candidate values remain a compact three-column grid with `48px` minimum row height. The nine ratio values occupy `3 × 3` rows without horizontal overflow; the fixed-parameter grid reflows after any field is removed.
+- Prompt batches and images per candidate remain outside the factor registry because they define sample size rather than image quality.
+
+## Interaction Verification
+
+- Real browser selection changed `出图模型 → 输出比例 → 融合基模`; the hidden field IDs were respectively `experimentFixedImageModelField`, `experimentRatioField` and `experimentFusionModelField`.
+- Fusion-model plan generation succeeded in read-only mode with `9 Cases / 9 Prompt batches / 36 Runs`; the page reported `计划已生成`. Formal execution was not started, so no model generation or Base write occurred.
+- Browser measurements report no horizontal overflow; console log collection is empty.
+- `npm test`: `191` tests, `0` failures. Coverage includes all eight factor normalizations plus image-stage Prompt sharing and separate comparison rows.
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Single Plan Action v18 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-b26200d9-41bd-4e01-8103-a6f274086934.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-plan-action/single-generate-plan-button.jpg`
+- State: Benchmark `实验配置` panel, service connected, configuration loaded, before plan generation.
+
+## Findings
+
+- [Resolved P1] “生成只读预演”和“尚未生成实验计划”把同一动作拆成两个概念及两个视觉对象，制造了并不存在的中间步骤。
+- 实验配置底部现在只保留一个“生成实验计划”按钮；辅助说明和重复空计划卡已删除。
+- 状态语义统一为“等待计划 / 计划已生成”，固定参数明确在正式运行时冻结；只读安全边界保留在运行逻辑和操作文档中，不再占用主界面层级。
+
+## Interaction Verification
+
+- 真实浏览器测得实验配置动作区按钮数为 `1`、文本仅为“生成实验计划”，DOM 中不存在 `planResult`，页面无可见错误。
+- 点击按钮后直接进入“批量运行”，状态显示“计划已生成”，计划为 `9 Cases / 9 Prompt 批次 / 108 Run`，“确认并开始”可用；本次验收未点击正式运行，因此没有调用出图模型或写入 Base。
+- 单实例服务运行于 `127.0.0.1:4173`；`npm test` 通过：`184` tests，`0` fail；`git diff --check` 通过。
+
+## Final Result
 
 final result: passed
 
@@ -912,5 +1043,118 @@ final result: passed
 ## Follow-up Polish
 
 - P3: if this panel later exceeds six candidate models, add model search or grouping instead of shrinking the cards below the current two-column readable width.
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Experiment Variable v19 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-7fb79e1a-ded0-4fb2-a3a1-2f2cf61b9915.png`
+- Model-variable implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-experiment-variable/compact-model-variable.jpg`
+- Prompt-variable implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-experiment-variable/compact-prompt-variable.jpg`
+- State: Benchmark `实验配置`, service connected, existing model-comparison template loaded.
+
+## Findings
+
+- [Resolved P1] “唯一变量：出图模型”是硬编码业务规则，无法表达固定模型后比较 Prompt 版本。实验变量现在是显式维度，首期支持“出图模型 / Prompt 版本”，且两个固定项互斥。
+- [Resolved P1] 六张大卡在两列布局中占据三行并压过固定参数。候选项收敛为 65px 内的紧凑三列列表，六项稳定形成 `3 × 2`；选中计数独立展示，页面横向溢出为 `0`。
+- 模型模式固定一个 Prompt 版本并共享 Prompt；Prompt 模式固定一个出图模型并为每个版本生成独立 Prompt/Run，服务端拒绝双变量组合。
+- 当前发布目录只有 `white-model-fusion@v7`，Prompt 模式如实显示“已选 1 / 可用 1”，生成计划时提示至少需要两个已发布版本，不生成伪比较。
+
+## Interaction Verification
+
+- 真实指针完成“出图模型 → Prompt 版本 → 出图模型”双向切换；固定 Prompt/固定模型字段互斥显示，模型候选的原三项选择在往返后完整保留。
+- 模型模式生成只读计划成功：`9 Cases / 9 Prompt 批次 / 108 Run`，状态为“计划已生成”；未点击正式运行，没有触发出图或 Base 写入。
+- Prompt 模式候选不足时停留在实验配置并显示“Prompt 版本实验至少选择两个已发布版本”。
+- `npm test` 通过：`189` tests，`0` fail；`git diff --check` 通过。
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Factor-first Configuration v21 Design QA
+
+## Evidence
+
+- Source defect evidence: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-5287979e-fd2b-4416-a4f8-01d837c2f54c.png`
+- Factor-first implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-factor-elegance/factor-first.jpg`
+- Compact fixed-parameter implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-factor-elegance/compact-fixed-parameters.jpg`
+- Combined source/implementation comparison: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-factor-elegance/source-implementation-comparison.jpg`
+- Source pixels: `1448 × 693`; browser viewport: `1280 × 720` at device scale `2`. The source is annotated defect evidence, so the combined review compares hierarchy, density, typography and alignment instead of reproducing its incorrect order.
+- State: Benchmark `实验配置`, service connected, model comparison template loaded, `出图模型` selected as the experiment factor.
+
+## Findings
+
+- [Resolved P1] The old page made users parse fixed values before choosing what the experiment changes. The complete factor block now precedes fixed parameters and keeps the candidate set attached to that decision.
+- [Resolved P1] The former helper copy incorrectly described a limited Prompt/model rule and the black “一次只改变一个维度” pill repeated an invariant. Both are removed; the single `实验因子` label and selected value carry the hierarchy.
+- [Resolved P2] The factor selector previously used visually smaller text and a one-off inline layout. It now reuses the product custom-select component at `38px` height with a measured `12px` value, matching the established control language.
+- [Resolved P2] Fixed parameters previously stretched across the panel and looked like primary actions. Desktop layout is now four `220px` tracks with a `916px` maximum content width; responsive breakpoints reduce to two columns and then one column without horizontal overflow.
+- Candidate rows are reduced to `44px` minimum height while preserving full labels, disabled reasons, native checkbox state and three-column desktop rhythm.
+
+## Interaction Verification
+
+- Real pointer interaction opened the custom experiment-factor list, changed `出图模型 → 输出比例`, then returned `输出比例 → 出图模型`; the native value updated each time and the menu closed with `aria-expanded=false`.
+- Browser measurements: factor value `12px`; fixed tracks `220px`; fixed grid `916px`; `scrollWidth = clientWidth = 1280px`; removed annotation nodes count `0`.
+- Browser console warnings/errors: `0`.
+- Automated verification: `191` tests pass, including factor order, removed-copy, selector typography, compact grid and candidate-height regressions; `git diff --check` passes.
+
+## Comparison History
+
+- Pass 1: source comparison exposed reversed decision order, redundant/misleading copy, a visually weak factor selector and full-width fixed controls.
+- Pass 2: factor-first hierarchy, shared selector styling and compact fixed grid resolved all visible P1/P2 findings without changing experiment semantics.
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Inline Factor Meta v22 Design QA
+
+## Evidence
+
+- Source annotation: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-ca1ec13f-8d5b-4bd1-a6c0-10e85d4700c8.png`
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-factor-meta-inline/prompt-factor-inline-meta.jpg`
+- Focused source/implementation comparison: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-factor-meta-inline/source-implementation-comparison.jpg`
+- Source pixels: `1482 × 295`; implementation pixels: `1280 × 720`; CSS viewport: `1280 × 720`, device scale `2`. The focused comparison normalizes the same Prompt-version factor state and includes the first fixed-parameter row.
+- State: Benchmark `实验配置`, `Prompt 版本` selected, one published candidate available and selected.
+
+## Findings
+
+- [Resolved P2] The selection count was detached at the far edge of the panel. It now sits `12px` after the `220px` factor selector and shares the control's `38px` vertical alignment.
+- [Resolved P2] The visible “候选 Prompt 版本” legend repeated the selected factor and created a dead text row. It is visually removed while remaining the fieldset's accessible name.
+- Candidate cards, fixed parameters, colors, typography, selected state and business behavior are unchanged; page horizontal overflow remains `0`.
+
+## Required Fidelity Surfaces
+
+- Typography: selector stays `12px`; compact count stays quiet `10px`; no new wrapping or truncation.
+- Layout: selector, count and candidate card now form one compact left-aligned group; fixed-parameter rhythm is unchanged.
+- Colors and tokens: existing ink, quiet text, border and warm-gray tokens are reused.
+- Image quality: the edited region contains no raster product assets.
+- Copy: redundant visible legend is removed; its dynamic factor name remains available to assistive technology.
+
+## Interaction Verification
+
+- Real pointer selection changed the experiment factor to `Prompt 版本`; the native select and visible trigger agree, the count reads `已选 1 / 可用 1`, and the fieldset is announced as `候选Prompt 版本`.
+- Browser console warnings/errors: `0`.
+- Automated verification: `191` tests pass; `git diff --check` passes.
+
+## Comparison History
+
+- Pass 1: the source annotation identified the remote count and redundant visible legend.
+- Pass 2: the focused combined comparison confirms the count is adjacent to the selector and no duplicate candidate heading remains; no actionable P0/P1/P2 issue remains.
+
+## Final Result
+
+final result: passed
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md

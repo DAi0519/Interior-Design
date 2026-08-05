@@ -18,14 +18,14 @@ image-artifact.mjs: 图片产物基础设施，统一生成结果 data URL 解�
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，并在冻结配置写入前用稳定编码解析实时单选名称、剥离默认 medium 展示后缀、阻止未建模质量档
 benchmark-base-config.mjs: Benchmark Base 连接/响应协议层，解析五表环境配置、必填项、分页 envelope 与单选字段值
 benchmark-base.mjs: Benchmark 飞书持久化边界，分页读取带空间类型/数据集版本/空间结构/镜头/软装/材质复杂度/输入质量及人工准入类型的样本与其余四张运行表，复用实时字段 Schema 创建冻结生成配置并为写入失败补充配置 ID/阶段上下文，录入完整六项标签、批量同步样本集名称并读写参考图/结果图，幂等写入 Prompt、逐 Run 结果、重试链和展示宽表，并按入口分别筛选“横向对比（展示）”“运行明细”“模型总表”视图
-benchmark-identifiers.mjs: Benchmark 标识基础设施，统一稳定 Prompt/Run/重试 ID、SHA-256 与模型提供商归一化
-benchmark-experiment-config.mjs: Benchmark 实验配置领域层，把前端草稿规范化为共享固定参数与逐模型稳定配置 ID，支持 OneAPI/ComfyUI 与原图尺寸规格，校验跨模型画幅/分辨率/格式/质量档并按方括号稳定编码忽略展示名称漂移
+benchmark-identifiers.mjs: Benchmark 标识基础设施，兼容历史模型横评并支持任意提示阶段候选维度的稳定 Prompt/Run/重试 ID、SHA-256 与 Provider 归一化
+benchmark-experiment-config.mjs: Benchmark 实验配置领域层，把 `variableKey + variantValues` 规范化为八类质量配置的单变量候选与稳定配置 ID，并推导提示/出图阶段及校验 Provider 输出能力
 benchmark-model-access.mjs: Benchmark Provider 准入层，统一检查 OneAPI 模型权限与 ComfyUI 等外部图像服务健康状态
-benchmark-runner.mjs: 模型横评应用服务，校验控制变量和冻结输出规格、支持工作台筛选配置/Case、排除停用配置与边缘输入、以 OneAPI 融合 Prompt 并按模型路由 OneAPI/ComfyUI 出图，逐 Run 留存成功失败与重试并同步结果真源和横评展示
+benchmark-runner.mjs: 通用单变量横评应用服务，按因子阶段决定候选间共享或隔离冻结 Prompt，校验模型权限与输出策略，逐 Run 留存成功失败和重试并同步横评展示
 benchmark-review.mjs: Benchmark AI 评审领域层，维护与飞书同构的 `white-model-review@v2` 双图三维协议、严格 JSON 解析、旧协议隔离、可用图准入、P95 及模型分类分析
 benchmark-labeling.mjs: Benchmark 样本 AI 标注领域层，维护 `sample-labeling@v2`、受控空间与空间结构/镜头/软装/材质复杂度/输入质量五个独立低中高维度、人工准入隔离、单图视觉模型协议、严格 JSON 解析、理由和置信度
 benchmark-workbench-store.mjs: Benchmark 当前 worktree 本地状态边界，原子持久化样本集、实验、样本分类元数据、评审批次和版本化 AI 评分，并兼容旧状态迁移
-benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本集 CRUD、空间与五维 Gemini 3.5 Flash 待审标注、人工准入、自动 Case ID 录入、按当前集实验草稿零写入预演/确认后分阶段冻结配置落库/运行/AI 评分/按实验 ID 分析及按入口分流的飞书筛选视图跳转，从 Base 成功结果真源投影可直接评分实验目录、从本地版本状态隔离正式/旧协议并投影脱敏逐图评分结果、前置阻止空评分批次，原子持久化任务阶段与失败原因并拦截历史运行协议漂移
+benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、五维 AI 待审标注、八类单变量零写入计划、确认后配置落库/运行/评分/分析及飞书跳转，并持久化任务阶段与拦截协议漂移
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、结果和可诊断失败消息
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与风格反推独立数据表配置，以 Agent 编码稳定路由并支持白模 Agent 可选展示名，用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取

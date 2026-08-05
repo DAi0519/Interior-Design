@@ -1,15 +1,18 @@
 /**
  * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端与按模型解析的图像客户端
- * [OUTPUT]: 对外提供校验画幅/分辨率/格式/质量档的确定性横评计划、OneAPI/ComfyUI 可用性预检与可断点续跑的串行执行器，逐 Run 留存成功/失败/重试并同步横评展示
- * [POS]: src 的模型横评应用服务，以一图一行的模型结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
+ * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、按实验阶段共享或隔离冻结 Prompt、Provider 分辨率路由、可用性预检与可断点续跑执行器
+ * [POS]: src 的单变量横评应用服务，以一图一行的结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { agentModelOrThrow, publicAgentModelCatalog } from "./agent-model-config.mjs";
+import { baseRunId, providerFromModelId, runIdForAttempt, sha256, stablePromptId, stableRunId } from "./benchmark-identifiers.mjs";
 import {
-  baseRunId, providerFromModelId, runIdForAttempt, sha256, stablePromptId, stableRunId,
-} from "./benchmark-identifiers.mjs";
-import { parseBenchmarkOutputSpec } from "./benchmark-experiment-config.mjs";
+  benchmarkVariableStage,
+  compatibleBenchmarkGroupOutput,
+  inferBenchmarkVariable,
+  parseBenchmarkOutputSpec,
+} from "./benchmark-experiment-config.mjs";
 import { assertBenchmarkModelAvailability } from "./benchmark-model-access.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { getPublishedPromptAgent } from "./prompt-agent.mjs";
@@ -57,9 +60,7 @@ function catalogKeyById(catalog, id, field) {
 
 function assertSame(configs, getter, field) {
   const values = new Set(configs.map(getter));
-  if (values.size !== 1) {
-    throw benchmarkError(`同一横评组的 ${field} 必须完全一致`);
-  }
+  if (values.size !== 1) throw benchmarkError(`同一横评组的 ${field} 必须完全一致`);
   return getter(configs[0]);
 }
 
@@ -131,26 +132,6 @@ export function buildBenchmarkPlan(
     const configs = enabledConfigs
       .filter((config) => config.groupId === currentGroupId)
       .sort((left, right) => left.configId.localeCompare(right.configId));
-    const styleResource = assertSame(
-      configs,
-      (config) => String(config.styleDna),
-      "Style DNA",
-    );
-    const agentResource = assertSame(
-      configs,
-      (config) => String(config.fusionAgent),
-      "融合 Agent",
-    );
-    const fusionModelResource = assertSame(
-      configs,
-      (config) => String(config.fusionModel),
-      "融合基座模型",
-    );
-    const outputResource = assertSame(
-      configs,
-      (config) => String(config.outputSpec),
-      "输出规格",
-    );
     const requestedPromptBatches = positiveInteger(
       assertSame(configs, (config) => config.promptBatches, "提示词批次数"),
       "提示词批次数",
@@ -166,32 +147,45 @@ export function buildBenchmarkPlan(
       ),
       "每批次每模型出图数",
     );
-    const style = versionedResource(styleResource, "Style DNA");
-    const agent = versionedResource(agentResource, "融合 Agent");
-    const fusionModelId = labeledId(fusionModelResource, "融合基座模型");
-    const fusionModel = catalogKeyById(
-      agentCatalog,
-      fusionModelId,
-      "融合基座模型",
-    );
-    const output = parseBenchmarkOutputSpec(outputResource);
-    const seenModels = new Set();
     const plannedConfigs = configs.map((config) => {
       if (!config.configId) throw benchmarkError("已启用配置缺少配置 ID");
       const imageModelId = labeledId(config.imageModel, "出图模型");
-      if (seenModels.has(imageModelId)) {
-        throw benchmarkError(`横评组存在重复出图模型：${imageModelId}`);
-      }
-      seenModels.add(imageModelId);
+      const configAgent = versionedResource(config.fusionAgent, "融合 Agent");
+      const configStyle = versionedResource(config.styleDna, "Style DNA");
+      const fusionModelId = labeledId(config.fusionModel, "融合基座模型");
+      const configFusionModel = catalogKeyById(agentCatalog, fusionModelId, "融合基座模型");
       const imageModel = catalogKeyById(modelCatalog, imageModelId, "出图模型");
       return {
         ...config,
+        agent: configAgent,
+        fusionModel: configFusionModel,
         imageModelId,
         imageModelKey: imageModel.key,
         imageModelLabel: imageModel.label,
         imageModelProvider: imageModel.provider || "oneapi",
+        imageModelSizingMode: imageModel.sizingMode || "preset",
+        output: parseBenchmarkOutputSpec(config.outputSpec),
+        style: configStyle,
       };
     });
+    const variableKey = inferBenchmarkVariable(plannedConfigs);
+    const variableStage = benchmarkVariableStage(variableKey);
+    const variantValue = (config) => ({
+      "style-dna": `${config.style.code}@v${config.style.version}`,
+      "prompt-version": `${config.agent.code}@v${config.agent.version}`,
+      "fusion-model": config.fusionModel.id,
+      "image-model": config.imageModelId,
+      ratio: config.output.sourceNearest ? "source" : config.output.ratio,
+      resolution: config.output.resolution,
+      "output-format": config.output.outputFormat,
+      quality: config.output.quality,
+    })[variableKey];
+    if (new Set(plannedConfigs.map(variantValue)).size !== plannedConfigs.length) {
+      throw benchmarkError(`横评组存在重复候选项：${variableKey}`);
+    }
+    const output = ["ratio", "resolution", "output-format", "quality"].includes(variableKey)
+      ? { variableKey, values: plannedConfigs.map((config) => config.output) }
+      : compatibleBenchmarkGroupOutput(plannedConfigs);
 
     const cases = activeSamples(
       snapshot.samples.filter((sample) =>
@@ -201,78 +195,88 @@ export function buildBenchmarkPlan(
     ).map((sample) => {
       const batches = [];
       for (let batch = 1; batch <= promptBatches; batch += 1) {
-        const promptId = stablePromptId(sample.caseId, currentGroupId, batch);
-        const existingPrompt = promptIndex.get(promptId) || null;
-        const existingComparison = comparisonIndex.get(promptId) || null;
-        const runs = [];
-        for (const config of plannedConfigs) {
-          for (
-            let sampleIndex = 1;
-            sampleIndex <= perBatchImages;
-            sampleIndex += 1
-          ) {
-            const runId = stableRunId(promptId, config.configId, sampleIndex);
-            const resultAttempts = (resultIndex.get(runId) || [])
-              .sort((left, right) => left.attempt - right.attempt);
-            const successfulResult = resultAttempts.findLast(
-              (result) =>
-                result.status === "成功" && result.attachments.length > 0,
-            );
-            const comparisonAttachments =
-              existingComparison?.modelAttachments?.[config.imageModelLabel] ||
-              [];
-            const latestAttempt = resultAttempts.at(-1) || null;
-            runs.push({
-              config,
-              existingResult:
-                successfulResult ||
-                (comparisonAttachments.length >= sampleIndex
-                  ? {
-                      attachments: comparisonAttachments,
-                      recordId: existingComparison.recordId,
-                      source: "comparison",
-                      status: "成功",
-                    }
-                  : null),
-              nextAttempt: Math.max(
-                1,
-                ...resultAttempts.map((result) => result.attempt + 1),
-              ),
-              retrySource:
-                latestAttempt?.status === "失败" ? latestAttempt.runId : "",
-              runId,
-              sampleIndex,
-            });
+        const batchConfigSets = variableKey === "image-model"
+          ? [plannedConfigs]
+          : plannedConfigs.map((config) => [config]);
+        for (const batchConfigs of batchConfigSets) {
+          const promptVariant = variableStage === "prompt" ? batchConfigs[0].configId : "";
+          const promptId = stablePromptId(sample.caseId, currentGroupId, batch, promptVariant);
+          const existingPrompt = promptIndex.get(promptId) || null;
+          const comparisonId = variableKey === "image-model"
+            ? promptId
+            : `${promptId}__${batchConfigs[0].configId}`;
+          const existingComparison = comparisonIndex.get(comparisonId) || null;
+          const runs = [];
+          for (const config of batchConfigs) {
+            for (
+              let sampleIndex = 1;
+              sampleIndex <= perBatchImages;
+              sampleIndex += 1
+            ) {
+              const runId = stableRunId(promptId, config.configId, sampleIndex);
+              const resultAttempts = (resultIndex.get(runId) || [])
+                .sort((left, right) => left.attempt - right.attempt);
+              const successfulResult = resultAttempts.findLast(
+                (result) => result.status === "成功" && result.attachments.length > 0,
+              );
+              const comparisonAttachments =
+                existingComparison?.modelAttachments?.[config.imageModelLabel] || [];
+              const latestAttempt = resultAttempts.at(-1) || null;
+              runs.push({
+                config,
+                existingResult:
+                  successfulResult ||
+                  (comparisonAttachments.length >= sampleIndex
+                    ? {
+                        attachments: comparisonAttachments,
+                        recordId: existingComparison.recordId,
+                        source: "comparison",
+                        status: "成功",
+                      }
+                    : null),
+                nextAttempt: Math.max(1, ...resultAttempts.map((result) => result.attempt + 1)),
+                retrySource: latestAttempt?.status === "失败" ? latestAttempt.runId : "",
+                runId,
+                sampleIndex,
+              });
+            }
           }
+          batches.push({
+            agent: batchConfigs[0].agent,
+            batch,
+            comparisonId,
+            configs: batchConfigs,
+            existingComparison,
+            existingPrompt,
+            fusionModel: batchConfigs[0].fusionModel,
+            promptConfigs: variableStage === "prompt" ? batchConfigs : plannedConfigs,
+            promptId,
+            runs,
+            style: batchConfigs[0].style,
+          });
         }
-        batches.push({
-          batch,
-          existingComparison,
-          existingPrompt,
-          promptId,
-          runs,
-        });
       }
       return { batches, sample };
     });
 
     groups.push({
-      agent,
       cases,
       configs: plannedConfigs,
-      fusionModel,
+      fusionModel: plannedConfigs[0].fusionModel,
       groupId: currentGroupId,
       output,
       partialPromptCoverage: promptBatches < requestedPromptBatches,
-      style,
+      style: plannedConfigs[0].style,
+      variableKey,
+      variableStage,
+      variableType: variableKey,
     });
   }
 
-  const promptBatches = groups.reduce(
-    (total, group) =>
-      total + group.cases.reduce((sum, entry) => sum + entry.batches.length, 0),
+  const promptBatches = groups.reduce((total, group) => total + group.cases.reduce(
+    (sum, entry) => sum + new Set(entry.batches.map((batch) => batch.promptId)).size,
     0,
-  );
+  ), 0);
   const imageRuns = groups.reduce(
     (total, group) =>
       total +
@@ -287,21 +291,12 @@ export function buildBenchmarkPlan(
       ),
     0,
   );
-  const skippedPrompts = groups.reduce(
-    (total, group) =>
-      total +
-      group.cases.reduce(
-        (sum, entry) =>
-          sum +
-          entry.batches.filter(
-            (batch) =>
-              batch.existingPrompt?.status === "完成" &&
-              batch.existingPrompt.finalPrompt,
-          ).length,
-        0,
-      ),
+  const skippedPrompts = groups.reduce((total, group) => total + group.cases.reduce(
+    (sum, entry) => sum + new Set(entry.batches
+      .filter((batch) => batch.existingPrompt?.status === "完成" && batch.existingPrompt.finalPrompt)
+      .map((batch) => batch.promptId)).size,
     0,
-  );
+  ), 0);
   const skippedImages = groups.reduce(
     (total, group) =>
       total +
@@ -327,9 +322,10 @@ export function buildBenchmarkPlan(
     groups,
     summary: {
       activeImageModels: groups.reduce(
-        (total, group) => total + group.configs.length,
+        (total, group) => total + new Set(group.configs.map((config) => config.imageModelId)).size,
         0,
       ),
+      activeVariants: groups.reduce((total, group) => total + group.configs.length, 0),
       cases: groups.reduce((total, group) => total + group.cases.length, 0),
       imageRuns,
       promptBatches,
@@ -371,7 +367,7 @@ async function freezePrompt({
     {
       batch: batch.batch,
       caseRecordId: sample.recordId,
-      configRecordIds: group.configs.map((config) => config.recordId),
+      configRecordIds: batch.promptConfigs.map((config) => config.recordId),
       error: "",
       finalPrompt: "",
       groupId: group.groupId,
@@ -386,7 +382,7 @@ async function freezePrompt({
     const startedAt = Date.now();
     const promptResult = await client.generatePrompt({
       imageUrl: reference.imageUrl,
-      model: group.fusionModel.id,
+      model: batch.fusionModel.id,
       systemPrompt: agent.systemPrompt,
       userPrompt: buildPromptAgentInput({
         styleDna: style.styleDna,
@@ -404,7 +400,7 @@ async function freezePrompt({
       {
         batch: batch.batch,
         caseRecordId: sample.recordId,
-        configRecordIds: group.configs.map((config) => config.recordId),
+        configRecordIds: batch.promptConfigs.map((config) => config.recordId),
         error: "",
         finalPrompt,
         groupId: group.groupId,
@@ -429,7 +425,7 @@ async function freezePrompt({
       {
         batch: batch.batch,
         caseRecordId: sample.recordId,
-        configRecordIds: group.configs.map((config) => config.recordId),
+        configRecordIds: batch.promptConfigs.map((config) => config.recordId),
         error,
         finalPrompt: "",
         groupId: group.groupId,
@@ -460,7 +456,7 @@ async function savePromptFailureComparison({
   const recordId = await store.saveComparisonRow(
     {
       caseRecordId: sample.recordId,
-      compareId: batch.promptId,
+      compareId: batch.comparisonId,
       error,
       groupId: group.groupId,
       promptRecordId,
@@ -491,14 +487,14 @@ async function generateRun({
     caseRecordId: reference.sampleRecordId,
     configRecordId: run.config.recordId,
     experimentId: group.groupId,
-    experimentType: "模型横评",
+    experimentType: "单变量横评",
     model: run.config.imageModelLabel,
     output: JSON.stringify({
-      format: group.output.outputFormat,
-      quality: group.output.quality,
-      ratio: group.output.ratio,
-      resolution: group.output.resolution,
-      sourceNearest: group.output.sourceNearest,
+      format: run.config.output.outputFormat,
+      quality: run.config.output.quality,
+      ratio: run.config.output.ratio,
+      resolution: run.config.output.resolution,
+      sourceNearest: run.config.output.sourceNearest,
     }),
     promptCost: reference.promptCost,
     promptDurationSeconds: reference.promptDurationSeconds,
@@ -515,10 +511,10 @@ async function generateRun({
     const generation = createGenerationRequest(
       {
         modelKey: run.config.imageModelKey,
-        outputFormat: group.output.outputFormat,
+        outputFormat: run.config.output.outputFormat,
         prompt: finalPrompt,
-        quality: group.output.quality,
-        ratio: group.output.ratio,
+        quality: run.config.output.quality,
+        ratio: run.config.output.ratio,
         referenceImages: [
           {
             dataUrl: reference.imageUrl,
@@ -527,10 +523,10 @@ async function generateRun({
             type: reference.mimeType,
           },
         ],
-        resolution: group.output.resolution,
+        resolution: run.config.output.resolution,
       },
       {
-        preferSourceAspect: group.output.sourceNearest,
+        preferSourceAspect: run.config.output.sourceNearest,
         sourceDimensions: {
           height: reference.height,
           width: reference.width,
@@ -542,13 +538,13 @@ async function generateRun({
     await store.uploadResultImage(
       resultRecordId,
       result.images[0],
-      group.output.outputFormat,
+      run.config.output.outputFormat,
     );
     await store.uploadComparisonImage(
       comparisonRecordId,
       run.config.imageModelLabel,
       result.images[0],
-      group.output.outputFormat,
+      run.config.output.outputFormat,
     );
     resultRecordId = await store.saveRunResult(
       {
@@ -557,14 +553,14 @@ async function generateRun({
         configRecordId: run.config.recordId,
         durationSeconds: (Date.now() - startedAt) / 1000,
         experimentId: group.groupId,
-        experimentType: "模型横评",
+        experimentType: "单变量横评",
         model: run.config.imageModelLabel,
         output: JSON.stringify({
-          format: group.output.outputFormat,
-          quality: group.output.quality,
-          ratio: group.output.ratio,
-          resolution: group.output.resolution,
-          sourceNearest: group.output.sourceNearest,
+          format: run.config.output.outputFormat,
+          quality: run.config.output.quality,
+          ratio: run.config.output.ratio,
+          resolution: run.config.output.resolution,
+          sourceNearest: run.config.output.sourceNearest,
         }),
         promptCost: reference.promptCost,
         promptDurationSeconds: reference.promptDurationSeconds,
@@ -590,13 +586,13 @@ async function generateRun({
         durationSeconds: (Date.now() - startedAt) / 1000,
         error,
         experimentId: group.groupId,
-        experimentType: "模型横评",
+        experimentType: "单变量横评",
         model: run.config.imageModelLabel,
         output: JSON.stringify({
-          format: group.output.outputFormat,
+          format: run.config.output.outputFormat,
           quality: "medium",
-          resolution: group.output.resolution,
-          sourceNearest: group.output.sourceNearest,
+          resolution: run.config.output.resolution,
+          sourceNearest: run.config.output.sourceNearest,
         }),
         promptCost: reference.promptCost,
         promptDurationSeconds: reference.promptDurationSeconds,
@@ -665,11 +661,9 @@ export async function runBenchmark(
   reportProgress("正在检查模型与实验资源");
 
   for (const group of plan.groups) {
-    const [style, agent] = await Promise.all([
-      loadStyle(group.style.code, { version: group.style.version }),
-      loadAgent(group.agent.code, { version: group.agent.version }),
-    ]);
-    agentModelOrThrow(group.fusionModel.key);
+    const styles = new Map();
+    const agents = new Map();
+    group.configs.forEach((config) => agentModelOrThrow(config.fusionModel.key));
     for (const { batches, sample } of group.cases) {
       await store.updateSampleStatus(sample.recordId, "生成中");
       let sampleFailed = 0;
@@ -677,29 +671,43 @@ export async function runBenchmark(
       const reference = normalizeReferenceImage(
         await store.downloadSampleImage(sample),
       );
+      const promptCache = new Map();
       for (const batch of batches) {
-        let frozen;
-        try {
-          frozen = await freezePrompt({
-            agent,
-            batch,
-            client,
-            group,
-            reference,
-            sample,
-            store,
-            style,
-          });
-          if (
-            batch.existingPrompt?.status === "完成" &&
-            batch.existingPrompt.finalPrompt
-          ) {
-            counters.skippedPrompts += 1;
-          } else {
-            counters.generatedPrompts += 1;
+        let cachedPrompt = promptCache.get(batch.promptId);
+        if (!cachedPrompt) {
+          const agentKey = `${batch.agent.code}@v${batch.agent.version}`;
+          const styleKey = `${batch.style.code}@v${batch.style.version}`;
+          try {
+            if (!agents.has(agentKey)) {
+              agents.set(agentKey, await loadAgent(batch.agent.code, { version: batch.agent.version }));
+            }
+            if (!styles.has(styleKey)) {
+              styles.set(styleKey, await loadStyle(batch.style.code, { version: batch.style.version }));
+            }
+            const frozen = await freezePrompt({
+              agent: agents.get(agentKey),
+              batch,
+              client,
+              group,
+              reference,
+              sample,
+              store,
+              style: styles.get(styleKey),
+            });
+            cachedPrompt = { frozen };
+            if (batch.existingPrompt?.status === "完成" && batch.existingPrompt.finalPrompt) {
+              counters.skippedPrompts += 1;
+            } else {
+              counters.generatedPrompts += 1;
+            }
+          } catch (error) {
+            cachedPrompt = { error };
+            counters.failedPrompts += 1;
           }
-        } catch (error) {
-          counters.failedPrompts += 1;
+          promptCache.set(batch.promptId, cachedPrompt);
+        }
+        if (cachedPrompt.error) {
+          const { error } = cachedPrompt;
           const failedRuns = batch.runs.filter((run) => !finishedResult(run));
           const finishedRuns = batch.runs.length - failedRuns.length;
           counters.skippedImages += finishedRuns;
@@ -719,10 +727,11 @@ export async function runBenchmark(
           reportProgress(`${sample.caseId} 的 Prompt 批次 ${batch.batch} 失败`);
           continue;
         }
+        const { frozen } = cachedPrompt;
         const comparisonRecordId = await store.saveComparisonRow(
           {
             caseRecordId: sample.recordId,
-            compareId: batch.promptId,
+            compareId: batch.comparisonId,
             error: "",
             groupId: group.groupId,
             promptRecordId: frozen.recordId,
@@ -740,7 +749,7 @@ export async function runBenchmark(
             imageClientForModel: resolveImageClient,
             reference: {
               ...reference,
-              compareId: batch.promptId,
+              compareId: batch.comparisonId,
               promptCost: frozen.cost,
               promptDurationSeconds: frozen.durationSeconds,
               promptHash: frozen.hash,

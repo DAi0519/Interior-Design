@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html 的实验草稿字段与 benchmark.css 的 Light Command Center 令牌
- * [OUTPUT]: 对外提供系统实验 ID 组合控件、12 栏实验元信息、分层参数网格、双栏候选模型、单变量锁提示和模型不可用状态的响应式视觉
+ * [OUTPUT]: 对外提供上置实验因子、选择器与计数同组、无重复候选标题、紧凑候选值、收窄固定参数栅格和不可用状态的响应式视觉
  * [POS]: public 的 Benchmark 实验配置增量视觉层，与样本集增量样式分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,27 +44,17 @@
   white-space: nowrap;
 }
 
-.experiment-id-field small {
-  color: var(--quiet);
-  font-size: 9px;
-  font-weight: 400;
-  line-height: 1.4;
-}
-
 .experiment-divider {
   border-top: 1px solid var(--line);
-  margin: 22px 0 18px;
+  margin: 18px 0;
+}
+
+.experiment-divider.parameter-divider {
+  margin: 18px 0 16px;
 }
 
 .experiment-section-heading {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-}
-
-.experiment-section-heading > div {
-  display: grid;
-  gap: 2px;
+  margin-bottom: 2px;
 }
 
 .experiment-section-heading strong {
@@ -72,34 +62,16 @@
   font-weight: 600;
 }
 
-.experiment-section-heading span {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.experiment-section-heading .variable-lock {
-  background: var(--ink);
-  border-radius: 999px;
-  color: white;
-  padding: 4px 9px;
-}
-
 .parameter-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px 12px;
+  grid-template-columns: repeat(4, minmax(0, 220px));
+  max-width: 916px;
   min-width: 0;
 }
 
-.parameter-grid.foundation {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.parameter-grid.output {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
 .parameter-grid.volume {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 220px));
 }
 
 .parameter-grid > label {
@@ -107,12 +79,12 @@
 }
 
 .experiment-card fieldset {
-  margin-top: 22px;
+  margin-top: 12px;
 }
 
 .experiment-card .config-options {
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .config-option.unavailable {
@@ -121,13 +93,77 @@
 }
 
 .experiment-card .config-option {
-  min-height: 72px;
-  padding: 14px;
+  min-height: 44px;
+  padding: 7px 10px;
+}
+
+.experiment-card .config-option span {
+  min-width: 0;
+}
+
+.experiment-card .config-option strong {
+  font-size: 11px;
+}
+
+.experiment-card .config-option small,
+.experiment-card .config-option em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.experiment-variable {
+  min-width: 0;
+}
+
+.experiment-variable-toolbar {
+  align-items: flex-end;
+  display: flex;
+  gap: 12px;
+}
+
+.experiment-variable-picker {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  width: 220px;
+}
+
+.experiment-variable-picker > span {
+  color: #505154;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.experiment-variable-picker .custom-select-trigger,
+.experiment-variable-picker .custom-select-value strong,
+.experiment-variable-picker .custom-select-option strong {
+  font-size: 12px;
+}
+
+.experiment-variable-toolbar > small {
+  align-items: center;
+  color: var(--quiet);
+  display: flex;
+  font-size: 10px;
+  font-weight: 400;
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.experiment-variable-legend {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .experiment-card .action-row {
   border-top: 1px solid var(--line);
-  margin-top: 20px;
+  margin-top: 16px;
   padding-top: 16px;
 }
 
@@ -146,22 +182,37 @@
   .experiment-id-field {
     grid-column: 1 / -1;
   }
+}
 
-  .parameter-grid.output {
+@media (max-width: 1000px) {
+  .parameter-grid,
+  .parameter-grid.volume {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+  }
+
+  .experiment-card .config-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 680px) {
-  .experiment-section-heading {
-    align-items: flex-start;
+  .experiment-variable-toolbar {
+    align-items: stretch;
     flex-direction: column;
-    gap: 12px;
+    gap: 4px;
+  }
+
+  .experiment-variable-picker {
+    width: 100%;
+  }
+
+  .experiment-variable-toolbar > small {
+    min-height: 18px;
   }
 
   .experiment-meta-grid,
-  .parameter-grid.foundation,
-  .parameter-grid.output,
+  .parameter-grid,
   .parameter-grid.volume,
   .experiment-card .config-options {
     grid-template-columns: 1fr;

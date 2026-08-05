@@ -1,12 +1,16 @@
 /**
  * [INPUT]: 依赖 benchmark.html DOM、浏览器 location/FileReader 与同源 /api/benchmark 接口
- * [OUTPUT]: 对外提供 file 预览保护、样本集 CRUD/筛选、OneAPI 视觉模型选择、空间与五维逐图 AI 打标、人工准入/自动编号上传、实验草稿预演、评分/分析、任务轮询及分流到横评对比/运行明细/结果报告的飞书筛选跳转
+ * [OUTPUT]: 对外提供样本集治理、逐图 AI 打标、八类单变量实验计划生成、失败 Run 重试、持久化横评跳转、评分分析、任务轮询及飞书视图分流
  * [POS]: public 的 Benchmark 页面状态控制器，以样本集为操作主对象，拦截 file 协议误用且所有破坏性外部调用都要求用户二次确认
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { createExperimentDraftController, createExperimentId } from "./benchmark-experiment.js?v=2";
-import { createJobRenderer } from "./benchmark-job-ui.js?v=1";
+import { createExperimentDraftController, createExperimentId } from "./benchmark-experiment.js?v=9";
+import {
+  createJobRenderer,
+  generationRetryInput,
+  persistedGenerationJob,
+} from "./benchmark-job-ui.js?v=2";
 import { createReviewController, jobPanelFor } from "./benchmark-review-ui.js?v=2";
 
 const state = {
@@ -18,6 +22,7 @@ const state = {
   overview: null,
   plan: null,
   pollTimer: null,
+  runExperimentId: window.sessionStorage.getItem("benchmark.runExperimentId") || "",
   sampleDrafts: [],
   sampleLabeling: false,
   sampleLabelingToken: 0,
@@ -83,19 +88,20 @@ function selectedDataset() {
   return (state.overview?.datasets || []).find((dataset) => dataset.datasetId === state.selectedDatasetId) || null;
 }
 
+function currentRunExperimentId() {
+  return state.plan?.groups?.[0]?.groupId || state.runExperimentId;
+}
 function selectedDatasetCases() {
   return (state.overview?.cases || []).filter((entry) => entry.datasetId === state.selectedDatasetId);
 }
 
 function resetPlan() {
   state.plan = null;
-  byId("planResult").classList.add("empty");
-  byId("planResult").textContent = "尚未生成实验计划";
   for (const id of ["planCases", "planPrompts", "planRuns", "planSkipped"]) byId(id).textContent = "—";
-  byId("driftNotice").textContent = "先在实验配置中完成预演。";
+  byId("driftNotice").textContent = "先在实验配置中生成实验计划。";
   byId("driftNotice").classList.add("neutral");
   byId("runButton").disabled = true;
-  byId("runBadge").textContent = "等待预演";
+  byId("runBadge").textContent = "等待计划";
   byId("runBadge").classList.remove("ready");
   syncExperimentBaseButtons();
 }
@@ -179,10 +185,6 @@ function openDatasetEditor(mode) {
 function renderPlan(plan) {
   state.plan = plan;
   const summary = plan.summary;
-  byId("planResult").classList.remove("empty");
-  byId("planResult").innerHTML = `<div class="plan-summary">
-    <div><span>Cases</span><strong>${summary.cases}</strong></div><div><span>模型</span><strong>${summary.activeImageModels}</strong></div><div><span>Prompt</span><strong>${summary.promptBatches}</strong></div><div><span>出图 Run</span><strong>${summary.imageRuns}</strong></div>
-  </div>`;
   byId("planCases").textContent = summary.cases;
   byId("planPrompts").textContent = summary.promptBatches;
   byId("planRuns").textContent = summary.imageRuns;
@@ -190,7 +192,7 @@ function renderPlan(plan) {
   byId("driftNotice").textContent = plan.drift.message;
   byId("driftNotice").classList.toggle("neutral", !plan.drift.blocked);
   byId("runButton").disabled = plan.drift.blocked || summary.imageRuns === 0;
-  byId("runBadge").textContent = plan.drift.blocked ? "协议漂移" : "预演通过";
+  byId("runBadge").textContent = plan.drift.blocked ? "协议漂移" : "计划已生成";
   byId("runBadge").classList.toggle("ready", !plan.drift.blocked);
   syncExperimentBaseButtons();
 }
@@ -240,7 +242,7 @@ function syncExperimentBaseButtons() {
   reviewButton.disabled = !byId("reviewExperimentSelect").value;
   reviewButton.textContent = "结果明细 ↗";
   const runButton = byId("runOpenBaseButton");
-  runButton.disabled = !state.plan?.groups?.[0]?.groupId;
+  runButton.disabled = !currentRunExperimentId();
   runButton.textContent = "横评对比 ↗";
 }
 
@@ -599,13 +601,19 @@ async function planExperiment() {
   if (!state.selectedDatasetId) throw new Error("请先选择样本集");
   if (!input.caseIds.length) throw new Error("当前样本集没有可评测样本");
   if (!input.experimentId) throw new Error("请填写实验 ID");
-  if (!input.draftConfig.imageModelKeys.length) throw new Error("至少选择一个出图模型");
+  if (input.draftConfig.variantValues.length < 2) {
+    throw new Error("实验因子至少选择两个候选值");
+  }
   const body = await api("/api/benchmark/experiments/plan", { body: JSON.stringify(input), method: "POST" });
   renderPlan(body.plan);
   switchPanel("run");
 }
 
 async function startJob(path, input) {
+  if (path === "/api/benchmark/experiments/run") {
+    state.runExperimentId = input.experimentId;
+    window.sessionStorage.setItem("benchmark.runExperimentId", state.runExperimentId);
+  }
   const body = await api(path, { body: JSON.stringify({ ...input, confirm: true }), method: "POST" });
   state.activeJobId = body.job.jobId;
   window.sessionStorage.setItem("benchmark.activeJobId", state.activeJobId);
@@ -621,25 +629,18 @@ function renderPersistedExperiment(experiments = []) {
       right.failedAt || right.completedAt || right.startedAt || right.createdAt || "",
     ).localeCompare(String(
       left.failedAt || left.completedAt || left.startedAt || left.createdAt || "",
-    )))[0];
+  )))[0];
   if (!latest) return false;
-  renderJob({
-    completed: latest.result?.generatedImages || 0,
-    error: latest.error || null,
-    jobId: latest.experimentId,
-    kind: "generation",
-    message: latest.status === "failed"
-      ? JOB_PHASE_LABELS[latest.phase]
-        ? `${JOB_PHASE_LABELS[latest.phase]}失败`
-        : "任务执行失败"
-      : latest.status === "completed" ? "任务完成" : "任务运行中",
-    persisted: latest.status === "completed" || latest.phase === "generation",
-    phase: latest.phase || (latest.status === "completed" ? "generation" : "preflight"),
-    status: latest.status === "completed" ? "success" : latest.status,
-    storage: "Benchmark Base",
-    total: latest.summary?.imageRuns || 0,
-  });
+  state.runExperimentId = latest.experimentId;
+  window.sessionStorage.setItem("benchmark.runExperimentId", state.runExperimentId);
+  renderJob(persistedGenerationJob(latest));
   return true;
+}
+
+async function retryFailedImages() {
+  const experiment = (state.overview?.experiments || [])
+    .find((entry) => entry.experimentId === state.runExperimentId);
+  await startJob("/api/benchmark/experiments/run", generationRetryInput(experiment));
 }
 
 async function pollJob(jobId) {
@@ -727,7 +728,7 @@ function bind() {
   byId("reviewOpenBaseButton").addEventListener("click", (event) =>
     openExperimentInBase(byId("reviewExperimentSelect").value, event.currentTarget, { target: "results" }).catch((error) => toast(error.message)));
   byId("runOpenBaseButton").addEventListener("click", (event) =>
-    openExperimentInBase(state.plan?.groups?.[0]?.groupId, event.currentTarget, { target: "comparison" }).catch((error) => toast(error.message)));
+    openExperimentInBase(currentRunExperimentId(), event.currentTarget, { target: "comparison" }).catch((error) => toast(error.message)));
   byId("createDatasetButton").addEventListener("click", () => openDatasetEditor("create"));
   byId("renameDatasetButton").addEventListener("click", () => openDatasetEditor("rename"));
   byId("archiveDatasetButton").addEventListener("click", () => archiveDataset().catch((error) => toast(error.message)));
@@ -740,6 +741,8 @@ function bind() {
     window.sessionStorage.removeItem("benchmark.activeJobId");
     switchPanel("experiment");
   });
+  byId("jobRetryButton").addEventListener("click", () =>
+    retryFailedImages().catch((error) => toast(error.message)));
   byId("maxCasesInput").addEventListener("input", resetPlan);
   byId("labelModelSelect").addEventListener("change", (event) => {
     state.selectedLabelModelKey = event.target.value;

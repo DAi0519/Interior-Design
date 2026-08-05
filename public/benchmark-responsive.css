@@ -62,7 +62,7 @@
   .step span {
     display: none;
   }
-  .field-pair, .field-pair.three, .config-options, .run-layout, .plan-summary, .analysis-kpis {
+  .field-pair, .field-pair.three, .config-options, .run-layout, .analysis-kpis {
     grid-template-columns: 1fr;
   }
   .step strong {

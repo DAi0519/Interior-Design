@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark 标识哈希、场景融合/出图模型目录与浏览器提交的实验草稿
- * [OUTPUT]: 对外提供跨 OneAPI/ComfyUI Provider 的实验草稿规范化、冻结配置生成、原图尺寸/预设输出规格解析及基于稳定编码的配置一致性校验
+ * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的草稿规范化、因子阶段推导、跨 Provider 智能分辨率、冻结配置生成、输出规格解析及稳定配置一致性校验
  * [POS]: src 的 Benchmark 实验配置领域层，隔离前端草稿、Runner 计划与 Base 配置记录格式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,18 @@ import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { sha256 } from "./benchmark-identifiers.mjs";
 import { publicModelCatalog } from "./model-config.mjs";
 
+export const EXPERIMENT_VARIABLE_KEYS = [
+  "style-dna",
+  "prompt-version",
+  "fusion-model",
+  "image-model",
+  "ratio",
+  "resolution",
+  "output-format",
+  "quality",
+];
+
+const PROMPT_STAGE_VARIABLES = new Set(["style-dna", "prompt-version", "fusion-model"]);
 function configError(message) {
   const error = new Error(message);
   error.statusCode = 400;
@@ -35,12 +47,25 @@ function catalogEntry(catalog, key, field) {
   return entry;
 }
 
-function outputSpec(draft) {
+function promptAgentEntry(value) {
+  const normalized = requiredText(value, "Prompt 版本");
+  const match = normalized.match(/^(.+)@v(\d+)$/);
+  if (!match) throw configError("Prompt 版本必须使用 code@vN");
+  return { code: match[1], version: positiveInteger(match[2], "Prompt 版本") };
+}
+
+function resolutionForModel(model, draft) {
+  if (draft.resolution !== "adaptive") return draft.resolution;
+  return model.sizingMode === "source" ? "source" : model.defaultResolution;
+}
+
+function outputSpec(model, draft) {
   const ratio = draft.ratioMode === "source"
     ? "跟随原图比例"
     : requiredText(draft.ratio, "输出比例");
   const quality = String(draft.quality || "medium").toLowerCase();
-  const resolution = draft.resolution === "source" ? "原图尺寸" : draft.resolution;
+  const modelResolution = resolutionForModel(model, draft);
+  const resolution = modelResolution === "source" ? "原图尺寸" : modelResolution;
   return `${ratio} · ${resolution} · ${draft.outputFormat.toUpperCase()} · 质量 ${quality}`;
 }
 
@@ -54,11 +79,15 @@ function validateOutputForModel(model, draft) {
   if (ratios.some((ratio) => !model.sizes[ratio])) {
     throw configError(`${model.label} 不支持 ${draft.ratio} 画幅`);
   }
-  if (ratios.some((ratio) => !model.sizes[ratio][draft.resolution])) {
-    throw configError(`${model.label} 在当前画幅下不支持 ${draft.resolution}`);
+  const resolution = resolutionForModel(model, draft);
+  if (ratios.some((ratio) => !model.sizes[ratio][resolution])) {
+    throw configError(`${model.label} 在当前画幅下不支持 ${resolution}`);
   }
   if (model.qualityOptions.length && !model.qualityOptions.includes(draft.quality)) {
     throw configError(`${model.label} 不支持 ${draft.quality} 质量档`);
+  }
+  if (!model.qualityOptions.length && draft.quality !== "medium") {
+    throw configError(`${model.label} 不支持质量档变量`);
   }
 }
 
@@ -82,81 +111,178 @@ export function parseBenchmarkOutputSpec(value) {
   };
 }
 
+export function compatibleBenchmarkGroupOutput(configs) {
+  const policyKeys = new Set(configs.map((config) => JSON.stringify({
+    outputFormat: config.output.outputFormat,
+    quality: config.output.quality,
+    ratio: config.output.ratio,
+    sourceNearest: config.output.sourceNearest,
+  })));
+  if (policyKeys.size !== 1) {
+    throw configError("同一横评组的输出策略必须完全一致");
+  }
+  const presetResolutions = new Set();
+  for (const config of configs) {
+    const sourceSized = config.imageModelSizingMode === "source";
+    const sourceResolution = config.output.resolution === "source";
+    if (sourceSized !== sourceResolution) {
+      throw configError(`${config.imageModelLabel} 的分辨率必须匹配模型尺寸能力`);
+    }
+    if (!sourceResolution) presetResolutions.add(config.output.resolution);
+  }
+  if (presetResolutions.size > 1) {
+    throw configError("同一横评组的预设分辨率必须完全一致");
+  }
+  const output = JSON.parse([...policyKeys][0]);
+  const resolutions = new Set(configs.map((config) => config.output.resolution));
+  return {
+    ...output,
+    resolution: resolutions.size === 1 ? configs[0].output.resolution : "adaptive",
+  };
+}
+
+export function benchmarkVariableStage(variableKey) {
+  return PROMPT_STAGE_VARIABLES.has(variableKey) ? "prompt" : "image";
+}
+
+export function inferBenchmarkVariable(configs) {
+  if (!configs.length) throw configError("实验至少需要一个候选配置");
+  const outputFor = (config) => config.output || parseBenchmarkOutputSpec(config.outputSpec);
+  const fields = {
+    "style-dna": (config) => String(config.styleDna),
+    "prompt-version": (config) => String(config.fusionAgent),
+    "fusion-model": (config) => String(config.fusionModel),
+    "image-model": (config) => String(config.imageModel),
+    ratio: (config) => JSON.stringify({ ratio: outputFor(config).ratio, sourceNearest: outputFor(config).sourceNearest }),
+    resolution: (config) => String(outputFor(config).resolution),
+    "output-format": (config) => String(outputFor(config).outputFormat),
+    quality: (config) => String(outputFor(config).quality),
+  };
+  let varying = Object.entries(fields)
+    .filter(([, getter]) => new Set(configs.map(getter)).size > 1)
+    .map(([key]) => key);
+  if (varying.includes("image-model")) {
+    varying = varying.filter((key) => key !== "resolution");
+  }
+  if (varying.length > 1) {
+    throw configError(`同一实验只能改变一个配置项，当前同时变化：${varying.join("、")}`);
+  }
+  return varying[0] || "image-model";
+}
+
 export function normalizeExperimentDraft(input) {
   const raw = input?.draftConfig;
   if (!raw) return null;
   const groupId = requiredText(input.experimentId, "实验 ID");
-  const styleCode = requiredText(raw.styleCode, "Style DNA");
-  if (!/^.+@v\d+$/.test(styleCode)) throw configError("Style DNA 必须使用 code@vN");
-  const agentCode = requiredText(raw.agentCode, "融合 Agent");
-  const agentVersion = positiveInteger(raw.agentVersion, "融合 Agent 版本");
-  const imageModelKeys = [...new Set(
-    (Array.isArray(raw.imageModelKeys) ? raw.imageModelKeys : [])
-      .map((key) => String(key || "").trim())
-      .filter(Boolean),
-  )];
-  if (!imageModelKeys.length) throw configError("至少选择一个出图模型");
-
+  const legacyVariable = raw.variableType === "prompt-version" ? "prompt-version" : "image-model";
+  const variableKey = EXPERIMENT_VARIABLE_KEYS.includes(raw.variableKey)
+    ? raw.variableKey
+    : legacyVariable;
+  const legacyPromptAgent = raw.agentCode && raw.agentVersion
+    ? `${raw.agentCode}@v${raw.agentVersion}`
+    : "";
   const modelCatalog = publicModelCatalog();
   const agentCatalog = publicAgentModelCatalog();
-  const fusionModel = catalogEntry(
-    agentCatalog,
-    requiredText(raw.fusionModelKey, "融合基模"),
-    "融合基模",
-  );
-  if (!fusionModel.imageInput) throw configError(`${fusionModel.label} 不支持白模图片输入`);
-  const imageModels = imageModelKeys.map((key) =>
-    catalogEntry(modelCatalog, key, "出图模型"));
-  const rawResolution = requiredText(raw.resolution, "分辨率");
-  const draft = {
-    agentCode,
-    agentVersion,
-    fusionModel,
-    imageModels,
-    outputFormat: requiredText(raw.outputFormat, "输出格式").toLowerCase(),
-    perBatchImages: positiveInteger(raw.perBatchImages, "每批次每模型出图数"),
-    promptBatches: positiveInteger(raw.promptBatches, "提示词批次数"),
-    quality: String(raw.quality || "medium").toLowerCase(),
-    ratio: String(raw.ratio || "").trim(),
-    ratioMode: raw.ratioMode === "preset" ? "preset" : "source",
-    resolution: rawResolution.toLowerCase() === "source"
-      ? "source"
-      : rawResolution.toUpperCase(),
-    styleCode,
-  };
-  if (draft.ratioMode === "preset" && !draft.ratio) {
-    throw configError("固定画幅模式必须选择输出比例");
+  const fixedPromptAgent = raw.promptAgentKey || legacyPromptAgent || raw.promptAgentKeys?.[0];
+  const fixedImageModel = raw.imageModelKey || raw.imageModelKeys?.[0];
+  let variantValues = Array.isArray(raw.variantValues) ? raw.variantValues : [];
+  if (!variantValues.length && variableKey === "prompt-version") variantValues = raw.promptAgentKeys || [];
+  if (!variantValues.length && variableKey === "image-model") variantValues = raw.imageModelKeys || [];
+  variantValues = [...new Set(variantValues.map((value) => String(value || "").trim()).filter(Boolean))];
+  if (variableKey !== "image-model" && new Set(raw.imageModelKeys || []).size > 1) {
+    throw configError("非出图模型实验必须固定一个出图模型");
   }
-  for (const model of draft.imageModels) validateOutputForModel(model, draft);
+  const explicitGeneralVariable = Boolean(raw.variableKey || raw.variantValues);
+  if (variantValues.length < 2 && (explicitGeneralVariable || variableKey === "prompt-version")) {
+    throw configError("实验因子至少选择两个候选值");
+  }
+  if (!variantValues.length) throw configError("实验因子没有候选值");
 
-  const frozen = {
-    agentCode: draft.agentCode,
-    agentVersion: draft.agentVersion,
-    fusionModelId: draft.fusionModel.id,
-    imageModelIds: draft.imageModels.map((model) => model.id).sort(),
-    outputFormat: draft.outputFormat,
-    perBatchImages: draft.perBatchImages,
-    promptBatches: draft.promptBatches,
-    quality: draft.quality,
-    ratio: draft.ratioMode === "source" ? "source" : draft.ratio,
-    resolution: draft.resolution,
-    styleCode: draft.styleCode,
+  const base = {
+    fusionModelKey: requiredText(raw.fusionModelKey, "融合基模"),
+    imageModelKey: requiredText(fixedImageModel, "出图模型"),
+    outputFormat: requiredText(raw.outputFormat, "输出格式").toLowerCase(),
+    promptAgentKey: requiredText(fixedPromptAgent, "Prompt 版本"),
+    quality: String(raw.quality || "medium").toLowerCase(),
+    ratioValue: raw.ratioMode === "preset" ? requiredText(raw.ratio, "输出比例") : "source",
+    resolution: requiredText(raw.resolution, "分辨率"),
+    styleCode: requiredText(raw.styleCode, "Style DNA"),
   };
+  const treatments = variantValues.map((value) => {
+    const treatment = { ...base, [({
+      "style-dna": "styleCode",
+      "prompt-version": "promptAgentKey",
+      "fusion-model": "fusionModelKey",
+      "image-model": "imageModelKey",
+      ratio: "ratioValue",
+      resolution: "resolution",
+      "output-format": "outputFormat",
+      quality: "quality",
+    })[variableKey]]: value };
+    if (!/^.+@v\d+$/.test(treatment.styleCode)) throw configError("Style DNA 必须使用 code@vN");
+    const agent = promptAgentEntry(treatment.promptAgentKey);
+    const fusionModel = catalogEntry(agentCatalog, treatment.fusionModelKey, "融合基模");
+    if (!fusionModel.imageInput) throw configError(`${fusionModel.label} 不支持白模图片输入`);
+    const model = catalogEntry(modelCatalog, treatment.imageModelKey, "出图模型");
+    const normalized = {
+      agent,
+      fusionModel,
+      model,
+      outputFormat: treatment.outputFormat.toLowerCase(),
+      quality: treatment.quality.toLowerCase(),
+      ratio: treatment.ratioValue === "source" ? "" : treatment.ratioValue,
+      ratioMode: treatment.ratioValue === "source" ? "source" : "preset",
+      resolution: ["adaptive", "source"].includes(treatment.resolution.toLowerCase())
+        ? treatment.resolution.toLowerCase()
+        : treatment.resolution.toUpperCase(),
+      styleCode: treatment.styleCode,
+      value,
+    };
+    validateOutputForModel(model, normalized);
+    return normalized;
+  });
+  if (variableKey === "prompt-version" && new Set(treatments.map((item) => item.agent.code)).size !== 1) {
+    throw configError("Prompt 版本实验只能比较同一个 Agent 的不同版本");
+  }
+  const perBatchImages = positiveInteger(raw.perBatchImages, "每候选每批出图数");
+  const promptBatches = positiveInteger(raw.promptBatches, "提示词批次数");
+  const first = treatments[0];
+  const sharedFrozen = {
+    fusionModelId: first.fusionModel.id,
+    imageModelIds: treatments.map((item) => item.model.id).sort(),
+    outputFormat: first.outputFormat,
+    perBatchImages,
+    promptBatches,
+    quality: first.quality,
+    ratio: first.ratioMode === "source" ? "source" : first.ratio,
+    resolution: first.resolution,
+    styleCode: first.styleCode,
+  };
+  const frozen = variableKey === "image-model"
+    ? { agentCode: first.agent.code, agentVersion: first.agent.version, ...sharedFrozen }
+    : {
+        fixed: base,
+        perBatchImages,
+        promptBatches,
+        variableKey,
+        variantValues: [...variantValues].sort(),
+      };
   const configHash = sha256(JSON.stringify(frozen));
-  const spec = outputSpec(draft);
-  const configs = draft.imageModels.map((model) => ({
-    configId: `CFG-${sha256(`${groupId}:${configHash}:${model.id}`).slice(0, 12).toUpperCase()}`,
+  const configs = treatments.map((treatment) => ({
+    configId: `CFG-${sha256(variableKey === "image-model"
+      ? `${groupId}:${configHash}:${treatment.model.id}`
+      : `${groupId}:${configHash}:${variableKey}:${treatment.value}`).slice(0, 12).toUpperCase()}`,
     enabled: true,
-    fusionAgent: `白模渲染融合 Agent [${draft.agentCode}@v${draft.agentVersion}]`,
-    fusionModel: `${draft.fusionModel.label} [${draft.fusionModel.id}]`,
+    fusionAgent: `白模渲染融合 Agent [${treatment.agent.code}@v${treatment.agent.version}]`,
+    fusionModel: `${treatment.fusionModel.label} [${treatment.fusionModel.id}]`,
     groupId,
-    imageModel: `${model.label} [${model.id}]`,
-    imageModelLabel: model.label,
-    outputSpec: spec,
-    perBatchImages: draft.perBatchImages,
-    promptBatches: draft.promptBatches,
+    imageModel: `${treatment.model.label} [${treatment.model.id}]`,
+    imageModelLabel: treatment.model.label,
+    outputSpec: outputSpec(treatment.model, treatment),
+    perBatchImages,
+    promptBatches,
     recordId: null,
-    styleDna: `Style DNA [${draft.styleCode}]`,
+    styleDna: `Style DNA [${treatment.styleCode}]`,
   }));
   return {
     configHash,
@@ -164,6 +290,9 @@ export function normalizeExperimentDraft(input) {
     configs,
     frozen,
     groupId,
+    variableKey,
+    variableStage: benchmarkVariableStage(variableKey),
+    variableType: variableKey,
   };
 }
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark 任务进度 DOM、任务阶段/状态以及任务所属面板解析器
- * [OUTPUT]: 对外提供生成/评分任务进度、落库状态和分层失败建议渲染器
+ * [OUTPUT]: 对外提供生成/评分任务进度、落库状态、失败出图重试输入、持久化实验任务投影和分层失败建议渲染器
  * [POS]: public 的 Benchmark 任务呈现组件，与 benchmark-app.js 的轮询编排和 benchmark-review-ui.js 的面板归属分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,52 @@ const JOB_STATUS_LABELS = {
   success: "已完成",
 };
 
+export function generationRetryInput(experiment) {
+  const failedImages = Number(experiment?.result?.failedImages || 0);
+  if (experiment?.status !== "completed" || failedImages < 1) {
+    throw new Error("当前实验没有可重试的失败出图");
+  }
+  if (!experiment.options || !experiment.experimentId) {
+    throw new Error("当前实验缺少可恢复的冻结参数");
+  }
+  return {
+    ...experiment.options,
+    experimentId: experiment.experimentId,
+    groupId: experiment.groupId || experiment.experimentId,
+  };
+}
+
+export function persistedGenerationJob(experiment) {
+  const failedImages = Number(experiment?.result?.failedImages || 0);
+  const total = Number(experiment?.summary?.imageRuns || 0);
+  const completed = experiment?.status === "completed"
+    ? total
+    : Number(experiment?.result?.generatedImages || 0);
+  const failedPhase = JOB_PHASE_LABELS[experiment?.phase];
+  return {
+    completed,
+    error: experiment?.error || null,
+    jobId: experiment?.experimentId || "",
+    kind: "generation",
+    message: experiment?.status === "failed"
+      ? `${failedPhase || "任务执行"}失败`
+      : experiment?.status === "completed"
+        ? failedImages ? `任务完成，${failedImages} 张出图失败` : "任务完成"
+        : "任务运行中",
+    persisted: experiment?.status === "completed" || experiment?.phase === "generation",
+    phase: experiment?.phase || (experiment?.status === "completed" ? "generation" : "preflight"),
+    result: experiment?.result || null,
+    status: experiment?.status === "completed" ? "success" : experiment?.status,
+    storage: "Benchmark Base",
+    total,
+  };
+}
+
+export function retryableFailedImages(job) {
+  if (job?.kind === "review" || job?.status !== "success") return 0;
+  return Math.max(0, Number(job?.result?.failedImages || 0));
+}
+
 function failureCopy(job) {
   const error = String(job.error || "");
   const idConflict = error.includes("已存在但冻结参数不同");
@@ -26,8 +72,8 @@ function failureCopy(job) {
     return {
       action: idConflict,
       advice: idConflict
-        ? "当前实验 ID 已关联旧配置。生成新 ID 后重新预演，不会覆盖历史实验。"
-        : "返回实验配置检查提示；修正后重新预演，再开始正式运行。",
+        ? "当前实验 ID 已关联旧配置。生成新 ID 后重新生成计划，不会覆盖历史实验。"
+        : "返回实验配置检查提示；修正后重新生成计划，再开始正式运行。",
       impact: "尚未进入出图阶段，模型没有被调用，也没有产生结果图。",
       title: idConflict ? "实验 ID 与历史冻结配置冲突" : "运行在出图前被拦截",
     };
@@ -91,6 +137,13 @@ export function createJobRenderer({ byId, jobPanelFor }) {
     byId("jobStorage").textContent = job.persisted
       ? `业务数据已写入 ${job.storage || "Benchmark Base"}`
       : `尚未写入 ${job.storage || "Benchmark Base"}`;
+    const failedImages = retryableFailedImages(job);
+    const retryButton = byId("jobRetryButton");
+    retryButton.classList.toggle(
+      "hidden",
+      reviewJob || job.status !== "success" || failedImages < 1,
+    );
+    retryButton.textContent = `重试 ${failedImages} 张失败出图`;
     renderFailure(job);
   };
 }

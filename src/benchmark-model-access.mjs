@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖冻结 Benchmark 计划、OneAPI 模型目录客户端与按配置解析的外部图像客户端
+ * [INPUT]: 依赖包含逐候选融合/出图模型的冻结 Benchmark 计划、OneAPI 模型目录客户端与按配置解析的外部图像客户端
  * [OUTPUT]: 对外提供 OneAPI 模型权限和 ComfyUI 等外部 Provider 健康状态的统一预检
  * [POS]: src 的 Benchmark Provider 准入层，被工作台预检与 Runner 执行共同复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -14,7 +14,7 @@ function accessError(message) {
 function oneApiModelIds(plan) {
   return new Set(
     plan.groups.flatMap((group) => [
-      group.fusionModel.id,
+      ...group.configs.map((config) => config.fusionModel.id),
       ...group.configs
         .filter((config) => config.imageModelProvider === "oneapi")
         .map((config) => config.imageModelId),
