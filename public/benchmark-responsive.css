@@ -1,29 +1,20 @@
 /**
  * [INPUT]: 依赖 benchmark.css、dataset/experiment/run/review 增量样式的桌面布局类名与共享令牌
- * [OUTPUT]: 对外提供 Benchmark 平板/窄屏重排及低动效降级规则
+ * [OUTPUT]: 对外提供 Benchmark 共享产品顶栏下的横向流程条收敛、内容双栏降级、窄屏动作重排及低动效规则
  * [POS]: public 的 Benchmark 响应式覆盖层，与 benchmark.css 的基础视觉分责并最后加载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 @media (max-width: 1000px) {
   .shell {
-    grid-template-columns: 1fr;
+    margin-top: 24px;
   }
   .step-nav {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    position: static;
-  }
-  .step-nav > .eyebrow {
-    display: none;
+    grid-template-columns: 112px minmax(0, 1fr);
+    padding: 12px;
   }
   .step {
-    grid-template-columns: 1fr;
-    padding: 9px;
-    text-align: center;
-  }
-  .step span {
-    display: none;
+    padding: 0 8px;
   }
   .dataset-grid, .review-grid {
     grid-template-columns: 1fr;
@@ -42,17 +33,34 @@
 
 @media (max-width: 680px) {
   .app-shell {
-    padding: 10px;
+    padding: 12px;
   }
   .topbar {
-    padding: 0 12px;
-    top: 10px;
+    top: 12px;
   }
   .status-pill {
     display: none;
   }
   .shell {
-    margin-top: 22px;
+    margin-top: 24px;
+  }
+  .step-nav {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 56px;
+    padding: 8px;
+  }
+  .step-nav-heading {
+    display: none;
+  }
+  .step-list {
+    padding-left: 0;
+  }
+  .step {
+    min-height: 38px;
+    padding: 0 4px;
+  }
+  .step span {
+    display: none;
   }
   .field-pair, .field-pair.three, .config-options, .run-layout, .plan-summary, .analysis-kpis {
     grid-template-columns: 1fr;

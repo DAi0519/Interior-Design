@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心与 Style DNA 对话样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供运营连接中心、Benchmark 导航、默认白模渲染、双 Provider 出图模型下拉、提示词可复用双按钮、自由生图与反推模型/Prompt 版本对话输入框
+  [INPUT]: 依赖生成、连接中心、Style DNA 对话与 product-navigation.css 共享顶栏样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [OUTPUT]: 对外提供运营连接中心、顶部居中的生图/评测切换、默认白模渲染、双 Provider 出图模型下拉、提示词可复用双按钮、自由生图与反推模型/Prompt 版本对话输入框
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="/custom-select.css?v=5" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=8" />
     <link rel="stylesheet" href="/connection-center.css?v=4" />
+    <link rel="stylesheet" href="/product-navigation.css?v=1" />
   </head>
   <body>
     <div class="app-shell">
@@ -39,9 +40,13 @@
           </span>
         </a>
 
+        <nav class="product-switcher" aria-label="工作台切换">
+          <a class="product-switch-option" href="/" aria-current="page">生图工作台</a>
+          <a class="product-switch-option" href="/benchmark.html">模型评测</a>
+        </nav>
+
         <div class="topbar-actions">
-          <a class="connection-button" href="/benchmark.html">模型评测</a>
-          <button id="connectionButton" class="connection-button" type="button">
+          <button id="connectionButton" class="connection-button product-status" type="button">
             <span class="status-dot"></span>
             <span id="connectionLabel">连接中心</span>
           </button>

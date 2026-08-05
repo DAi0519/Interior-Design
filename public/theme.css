@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、带评测导航的磨砂液态玻璃顶栏、桌面视口等高双栏、左栏独立滚动、紧凑版本/模型下拉与高密度工作台视觉
- * [POS]: public 的最终主题层，仅覆盖视觉表达，不改变 app.js 状态或业务交互
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、供 product-navigation.css 复用的磨砂顶栏基底、桌面视口等高双栏、左栏独立滚动、紧凑版本/模型下拉与高密度生图工作台视觉
+ * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

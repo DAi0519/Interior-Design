@@ -5,6 +5,123 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Benchmark Vertical Flow v13 Design QA
+
+## Evidence
+
+- Source visual truth: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-vertical-flow/01-current-left-layout.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-vertical-flow/06-vertical-final-1440x900.png`
+- Full normalized comparison: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-vertical-flow/07-before-after-comparison.png`
+- Focused navigation comparison: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-vertical-flow/08-navigation-focused-comparison.png`
+- Responsive evidence: `04-vertical-1280x720.png`、`05-vertical-720x900.png`
+- Source and implementation pixels: `1440 × 900`；CSS viewport `1440 × 900`，devicePixelRatio `1`，无需密度归一。
+- State: 真实服务、Benchmark 已连接、样本集面板、9 个已录入样本。
+
+## Full-view Comparison
+
+- 旧版用 `360px` 左侧流程面板与右侧工作面板并排，流程标题、暖灰分组和白色选中键帽形成三层视觉嵌套；右侧标题只能与左侧流程标题机械对齐。
+- 新版把主体改为纵向轨道：`1408 × 66px` 单层流程条位于 `y=104px`，完整工作面板位于 `y=186–884px`，两者共享 `x=16–1424px` 左右边界。
+- 当前工作面板独占整行后，样本录入和数据表仍保持原有比例与共同顶线；业务字段、真实数据和顶部产品导航没有改变。
+
+## Focused Region Comparison
+
+- 字体与排版：流程标题保持 `13px / 500`，步骤名保持 `12px / 600`，序号继续使用等宽字体；横向等分后五个步骤扫描路径更短。
+- 间距与布局：流程条只保留一道外边界和一条标题分隔线；步骤容器不再使用暖灰套框或内阴影，当前步骤仅用同层暖灰填充与细微内描边。
+- 色彩与令牌：继续使用暖白面板、暖灰选中态、近黑文字和既有边框令牌，没有引入新色系。
+- 图片与资产：继续复用现有 Canvas Lab Logo；本轮没有新增、替换或伪造图片、图标与装饰资产。
+- 文案与内容：五步名称、顺序、序号和“5 个阶段”均保持不变。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 上下结构消除了左侧空白占高、容器套容器和左右标题基线竞争；流程与内容成为两个职责明确的同级区域。
+- 1280 × 720 页面保持固定视口，流程条 `66px`、工作面板 `518px`；工作面板独立滚动 `scrollTop 0 → 117.5px`，页面保持 `scrollTop = 0`。
+- 720 × 900 恢复自然页面流，`scrollWidth = clientWidth = 720px`，没有横向溢出。
+
+## Interaction Verification
+
+- 真实点击依次完成 `样本集 → 实验配置 → 批量运行 → AI 评分 → 数据分析 → 样本集`；每次只有一个面板 active，所有面板共同使用 `y=186–884px` 边界。
+- 真实数据读取为 9 行，连接状态为“Benchmark 已连接”；浏览器日志为空，无 error 或 warning。
+
+## Comparison History
+
+- 初始 P1：左侧流程外层面板、内部标题分区、暖灰步骤分组和白色选中键帽形成多重嵌套；流程与内容并排后，左右顶部虽然数值对齐，但语义层级和视觉重量不对等。
+- v13 修复：移除左侧轨道与步骤内套框，改为全宽单层横向流程条；当前工作面板下移并独占整行，桌面剩余高度仍由工作面板承接。
+- 修复后证据：同视口完整页纵向对照、导航聚焦对照、五步真实切换、两档响应式、滚动边界、真实数据与浏览器日志检查均通过。
+
+final result: passed
+
+---
+
+# Canvas Lab Product UI Unification v12 Design QA
+
+## Evidence
+
+- Before: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/product-unification-audit/01-benchmark-before.png`、`02-generation-reference.png`、`03-before-comparison.png`
+- Final source / implementation: `10-qa-generation-reference.png`、`11-qa-benchmark-implementation.png`
+- Normalized comparisons: `12-qa-full-comparison.png`、`13-qa-header-comparison.png`、`14-qa-left-panel-comparison.png`
+- Responsive: `15-qa-compact-1280x720.png`、`16-qa-narrow-720x900.png`
+- State: 真实服务、Benchmark 已连接、9 个已录入样本；生图工作台为白模渲染模式。
+
+## Full-view Comparison
+
+- 两个工作台都使用 `x=16 / y=16 / 1408×56px` 顶栏；品牌固定在左、产品切换固定在视觉中心、连接状态固定在右。
+- 1440×900 桌面端两页左面板均为 `x=16 / y=104 / 360×780px`，右侧内容从 `x=392px` 开始，共享 16px 外间距和 32px 区块间距。
+- 主动作恢复近黑底白字，管理动作保持白底黑字细边框；层级由职责决定，不再因页面不同而切换语言。
+
+## Focused Region Comparison
+
+- 字体与排版：两页品牌、导航和面板标题统一为 system-ui；左面板标题均为 `13px / 500`。
+- 间距与布局：顶部三列网格保证中间切换不受左右内容长度影响；评测流程与生图功能区都使用 20px 内边距。
+- 色彩与令牌：沿用 Canvas Lab 暖白画布、白色面板、暖灰分组、近黑文字和细边框。
+- 图片与资产：继续复用现有 Canvas Lab Logo，没有新增、替换或伪造资产。
+- 文案与内容：品牌副标题统一为 `IMAGE COMMAND CENTER`；业务字段、流程步骤与样本数据不变。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 旧版顶部切换位置漂移、品牌排布变化、评测侧栏过窄且字号不一致的问题已经消除。
+- 评测侧栏保留“流程导航”职责，生图侧栏保留“配置表单”职责；结构差异是业务差异，表面语言保持一致。
+
+## Interaction Verification
+
+- 真实指针完成 `数据分析 → 样本集` 双向切换；顶部 `生图工作台 → 模型评测` 双向跳转通过。
+- 1440×900 与 1280×720 均满足 `body.scrollWidth = body.clientWidth`、`body.scrollHeight = body.clientHeight`；活动评测面板独立滚动，页面 `scrollTop` 保持 0。
+- 720×900 恢复自然单列页面流，五步导航转为横向五列，`scrollWidth = clientWidth = 720px`。
+- 浏览器控制台无 error 或 warning。
+
+## Comparison History
+
+- 初始 P1：两页顶栏把产品切换放在不同位置，品牌副标题不一致，评测侧栏为 220px 且使用 9px 眉题，与 360px 生图侧栏形成割裂。
+- v12 修复：新增共享顶部导航样式，使用左品牌 / 中切换 / 右状态的稳定三列结构；评测侧栏统一宽度、表面、字号和选中态，并让桌面面板填满可用视口。
+- 修复后证据：同视口完整页、顶部和左面板三组对照，以及两档响应式、真实交互、滚动边界和控制台检查均通过。
+
+final result: passed
+
+---
+
+# Benchmark Viewport-height Panels v11 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-0c0cc918-89bf-4925-b29e-c6d826527a82.png`
+- Desktop implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-panel-height-1510x968.png`
+- Compact desktop implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-panel-height-1280x720.png`
+- Narrow implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fcf9c-3d01-73d2-8a73-e1bc0e1ad8c3/benchmark-panel-height-720x900.png`
+- State: Benchmark 已连接、样本集面板、9 个已录入样本；Codex 内置浏览器真实页面与真实滚轮验收。
+
+## Findings
+
+- 1510 × 968 桌面视口下，主外壳、步骤导航与当前内容面板均为 `y=88–952px`、高度 `864px`，完整填满顶栏以下的可用视口。
+- 页面 `scrollHeight = clientHeight = 968px`、`scrollWidth = clientWidth = 1510px`，没有新增页面级纵向或横向溢出。
+- 1280 × 720 紧凑桌面下，外壳与面板高度均为 `616px`；内容超过面板时由当前面板以 `overflow-y: auto` 承接，真实滚轮使面板 `scrollTop 0 → 19.5px`，页面保持 `scrollTop = 0`。
+- 720 × 900 窄屏下，桌面定高规则不生效；步骤导航恢复横排，内容面板恢复自然高度，页面 `scrollWidth = clientWidth = 720px`。
+- 真实点击“实验配置 → 样本集”双向切换后，两类活动面板都保持共同底边 `y=952px`；浏览器控制台无 error 或 warning。
+
+final result: passed
+
+---
+
 # Benchmark White Button Language v10 Design QA
 
 ## Evidence

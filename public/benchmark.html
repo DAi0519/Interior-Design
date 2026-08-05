@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供继承 Canvas Lab 设计语言、复用生图选择器与用户 OneAPI 模型目录的样本集 CRUD、批量参考图空间与五维逐图 AI 打标/人工准入复核/自动编号录入、稳定对齐且可编辑冻结的实验配置、批量运行、已完成实验直接 AI 评分、逐图评分结果、可按实验 ID 筛选的数据分析及分流到横评对比/运行明细/结果报告的飞书筛选跳转
+  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css 共享顶栏、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
+  [OUTPUT]: 对外提供继承 Canvas Lab 设计语言、顶部居中的生图/评测切换、单层横向五步评测流程条、复用生图选择器与用户 OneAPI 模型目录的样本集 CRUD、批量参考图空间与五维逐图 AI 打标/人工准入复核/自动编号录入、稳定对齐且可编辑冻结的实验配置、批量运行、已完成实验直接 AI 评分、逐图评分结果、可按实验 ID 筛选的数据分析及分流到横评对比/运行明细/结果报告的飞书筛选跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -11,13 +11,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="室内生图模型批量评测工作台" />
     <title>Canvas Lab · Benchmark</title>
-    <link rel="stylesheet" href="./benchmark.css?v=11" />
+    <link rel="stylesheet" href="./benchmark.css?v=14" />
     <link rel="stylesheet" href="./custom-select.css?v=7" />
     <link rel="stylesheet" href="./benchmark-dataset.css?v=6" />
     <link rel="stylesheet" href="./benchmark-experiment.css?v=3" />
     <link rel="stylesheet" href="./benchmark-run.css?v=2" />
     <link rel="stylesheet" href="./benchmark-review.css?v=2" />
-    <link rel="stylesheet" href="./benchmark-responsive.css?v=1" />
+    <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
+    <link rel="stylesheet" href="./product-navigation.css?v=1" />
   </head>
   <body>
     <div class="app-shell">
@@ -32,34 +33,42 @@
           </span>
           <span class="brand-copy">
             <strong>Canvas Lab</strong>
-            <small>MODEL EVALUATION</small>
+            <small>IMAGE COMMAND CENTER</small>
           </span>
         </a>
+        <nav class="product-switcher" aria-label="工作台切换">
+          <a class="product-switch-option" href="/">生图工作台</a>
+          <a class="product-switch-option" href="/benchmark.html" aria-current="page">模型评测</a>
+        </nav>
         <div class="topbar-actions">
-          <span id="connectionStatus" class="status-pill" aria-live="polite">读取中</span>
-          <a class="quiet-button" href="/">生图工作台</a>
+          <span id="connectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>
         </div>
       </header>
 
       <main class="shell">
-      <aside class="step-nav" aria-label="评测流程">
-        <p class="eyebrow">评测流程</p>
-        <button class="step active" data-step="dataset" type="button">
-          <span>01</span><strong>样本集</strong>
-        </button>
-        <button class="step" data-step="experiment" type="button">
-          <span>02</span><strong>实验配置</strong>
-        </button>
-        <button class="step" data-step="run" type="button">
-          <span>03</span><strong>批量运行</strong>
-        </button>
-        <button class="step" data-step="review" type="button">
-          <span>04</span><strong>AI 评分</strong>
-        </button>
-        <button class="step" data-step="analysis" type="button">
-          <span>05</span><strong>数据分析</strong>
-        </button>
-      </aside>
+      <nav class="step-nav" aria-labelledby="benchmarkFlowTitle">
+        <div class="step-nav-heading">
+          <h2 id="benchmarkFlowTitle">评测流程</h2>
+          <span>5 个阶段</span>
+        </div>
+        <div class="step-list">
+            <button class="step active" data-step="dataset" type="button">
+              <span>01</span><strong>样本集</strong>
+            </button>
+            <button class="step" data-step="experiment" type="button">
+              <span>02</span><strong>实验配置</strong>
+            </button>
+            <button class="step" data-step="run" type="button">
+              <span>03</span><strong>批量运行</strong>
+            </button>
+            <button class="step" data-step="review" type="button">
+              <span>04</span><strong>AI 评分</strong>
+            </button>
+            <button class="step" data-step="analysis" type="button">
+              <span>05</span><strong>数据分析</strong>
+            </button>
+        </div>
+      </nav>
 
       <div class="content">
         <div id="setupNotice" class="notice hidden"></div>
