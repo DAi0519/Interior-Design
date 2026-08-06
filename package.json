@@ -1,12 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "修复 macOS 上自定义下拉可能在 click 前失焦关闭，导致模型看似点击却仍停留在 Seedream 的问题。",
-    "保留四个最终出图模型统一可选与飞书最小权限增量补充授权。"
+    "新增 Base 驱动的 Benchmark 五步工作台，覆盖样本治理、实验配置、执行、评分与分析。",
+    "接入 Seed 2.0 Prompt 融合与 Flux2 Klein ComfyUI 生图/横评 Provider，统一多模型路由和能力说明。",
+    "扩展 Benchmark Runner、断点重试、AI 分类评分、费用归档与历史结果回填能力。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",
