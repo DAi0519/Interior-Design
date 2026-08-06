@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css 共享顶栏、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
+  [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -14,7 +14,7 @@
     <title>Canvas Lab · Benchmark</title>
     <link rel="stylesheet" href="./benchmark.css?v=14" />
     <link rel="stylesheet" href="./custom-select.css?v=7" />
-    <link rel="stylesheet" href="./benchmark-dataset.css?v=7" />
+    <link rel="stylesheet" href="./benchmark-dataset.css?v=9" />
     <link rel="stylesheet" href="./benchmark-experiment.css?v=7" />
     <link rel="stylesheet" href="./benchmark-run.css?v=3" />
     <link rel="stylesheet" href="./benchmark-review.css?v=4" />
@@ -80,41 +80,43 @@
             <h1>样本集</h1>
             <div class="metric-inline"><strong id="caseCount">0</strong><span>样本</span></div>
           </div>
-          <div class="dataset-toolbar">
-            <label class="dataset-picker field">当前样本集<select id="datasetSelect" aria-label="当前样本集" data-requires-service></select></label>
-            <div class="dataset-actions">
-              <button id="refreshButton" class="quiet-button" type="button" data-requires-service>同步</button>
-              <button id="createDatasetButton" class="quiet-button" data-requires-service type="button">新建</button>
-              <button id="renameDatasetButton" class="quiet-button" data-requires-service type="button">重命名</button>
-              <button id="archiveDatasetButton" class="quiet-button" data-requires-service type="button">删除</button>
-            </div>
-          </div>
-          <form id="datasetEditor" class="dataset-editor hidden">
-            <label><span id="datasetEditorLabel">样本集名称</span><input id="datasetNameInput" maxlength="80" required /></label>
-            <div class="dataset-editor-actions">
-              <button id="cancelDatasetButton" class="quiet-button" type="button">取消</button>
-              <button class="primary-button" type="submit">保存</button>
-            </div>
-          </form>
-          <div id="datasetEmpty" class="dataset-empty hidden">先新建一个样本集，再添加参考图。</div>
           <div class="dataset-grid">
-            <form id="caseForm" class="form-card">
-              <h3>添加样本</h3>
-              <div class="sample-category-grid">
-                <label class="field">空间类型来源<select id="categoryModeInput" aria-label="空间类型来源"><option value="fixed" selected>已分好类，沿用本批设置</option><option value="ai">未分类，由 AI 识别</option></select></label>
-                <label id="categoryInputField" class="field">本批空间类型<select id="categoryInput" aria-label="本批空间类型" required><option>客厅</option><option>客餐厅一体</option><option>独立餐厅</option><option>卧室</option><option>厨房</option><option>卫生间</option><option>玄关</option><option>走廊</option><option>书房</option><option>阳台</option><option>儿童房</option></select></label>
+            <div class="dataset-sidebar">
+              <div class="dataset-toolbar">
+                <label class="dataset-picker field">当前样本集<select id="datasetSelect" aria-label="当前样本集" data-requires-service></select></label>
+                <div class="dataset-actions">
+                  <button id="refreshButton" class="quiet-button" type="button" data-requires-service>同步</button>
+                  <button id="createDatasetButton" class="quiet-button" data-requires-service type="button">新建</button>
+                  <button id="renameDatasetButton" class="quiet-button" data-requires-service type="button">重命名</button>
+                  <button id="archiveDatasetButton" class="quiet-button" data-requires-service type="button">删除</button>
+                </div>
               </div>
-              <p id="sampleLabelScopeHint" class="sample-label-scope">空间类型固定为“客厅”；AI 只补空间结构、镜头、软装、材质和输入质量。</p>
-              <label class="field">AI 标签模型<select id="labelModelSelect" aria-label="AI 标签模型" data-requires-service></select></label>
-              <div class="field-pair">
-                <label class="field">样本准入（人工）<select id="sampleTypeInput" aria-label="样本准入"><option>有效白模</option><option>边缘输入</option></select></label>
-                <label class="field">样本来源<select id="sourceInput" aria-label="样本来源"><option>用户输入</option><option>小红书</option><option>抖音</option><option>其他授权来源</option></select></label>
-              </div>
-              <label class="drop-field">参考图<input id="caseImageInput" data-requires-service required multiple type="file" accept="image/png,image/jpeg,image/webp" /><span id="fileLabel" aria-live="polite">选择 PNG / JPEG / WebP，可分次添加</span></label>
-              <div id="sampleDrafts" class="sample-drafts hidden" aria-live="polite"></div>
-              <button id="saveCasesButton" class="primary-button" data-requires-service type="submit">保存样本</button>
-            </form>
-            <div class="table-card">
+              <form id="datasetEditor" class="dataset-editor hidden">
+                <label><span id="datasetEditorLabel">样本集名称</span><input id="datasetNameInput" maxlength="80" required /></label>
+                <div class="dataset-editor-actions">
+                  <button id="cancelDatasetButton" class="quiet-button" type="button">取消</button>
+                  <button class="primary-button" type="submit">保存</button>
+                </div>
+              </form>
+              <div id="datasetEmpty" class="dataset-empty hidden">先新建一个样本集，再添加参考图。</div>
+              <form id="caseForm" class="form-card">
+                <h3>添加样本</h3>
+                <div class="sample-category-grid">
+                  <label class="field">空间类型来源<select id="categoryModeInput" aria-label="空间类型来源"><option value="fixed" selected>已分好类，沿用本批设置</option><option value="ai">未分类，由 AI 识别</option></select></label>
+                  <label id="categoryInputField" class="field">本批空间类型<select id="categoryInput" aria-label="本批空间类型" required><option>客厅</option><option>客餐厅一体</option><option>独立餐厅</option><option>卧室</option><option>厨房</option><option>卫生间</option><option>玄关</option><option>走廊</option><option>书房</option><option>阳台</option><option>儿童房</option></select></label>
+                </div>
+                <p id="sampleLabelScopeHint" class="sample-label-scope">空间类型固定为“客厅”；AI 只补空间结构、镜头、软装、材质和输入质量。</p>
+                <label class="field">AI 标签模型<select id="labelModelSelect" aria-label="AI 标签模型" data-requires-service></select></label>
+                <div class="field-pair">
+                  <label class="field">样本准入（人工）<select id="sampleTypeInput" aria-label="样本准入"><option>有效白模</option><option>边缘输入</option></select></label>
+                  <label class="field">样本来源<select id="sourceInput" aria-label="样本来源"><option>用户输入</option><option>小红书</option><option>抖音</option><option>其他授权来源</option></select></label>
+                </div>
+                <label class="drop-field">参考图<input id="caseImageInput" data-requires-service required multiple type="file" accept="image/png,image/jpeg,image/webp" /><span id="fileLabel" aria-live="polite">选择 PNG / JPEG / WebP，可分次添加</span></label>
+                <div id="sampleDrafts" class="sample-drafts hidden" aria-live="polite"></div>
+                <button id="saveCasesButton" class="primary-button" data-requires-service type="submit">保存样本</button>
+              </form>
+            </div>
+            <div id="caseTableCard" class="table-card">
               <div class="table-title"><h3 id="caseTableTitle">样本</h3><span id="validCaseCount">0 个进入评测</span></div>
               <div class="table-scroll"><table><thead><tr><th>编号</th><th>空间类型</th><th>五维标签</th><th>准入</th><th>状态</th></tr></thead><tbody id="caseRows"></tbody></table></div>
             </div>
@@ -292,6 +294,6 @@
       </main>
     </div>
     <script type="module" src="./custom-select.js?v=5"></script>
-    <script type="module" src="./benchmark-app.js?v=31"></script>
+    <script type="module" src="./benchmark-app.js?v=32"></script>
   </body>
 </html>

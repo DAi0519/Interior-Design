@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html 的样本集工具栏/编辑器/空间类型来源控件、benchmark.css 的 Light Command Center 令牌与 benchmark-app.js 的 hidden/disabled 状态
- * [OUTPUT]: 对外提供样本集选择、新建/重命名/归档、已有分类与 AI 分类双路径、空间与五维逐图标签审核及人工准入控制的紧凑视觉
+ * [OUTPUT]: 对外提供左侧紧凑样本集管理与录入、右侧样本列表、同高同底色的管理/表头带、新建/重命名/归档、已有分类与 AI 分类双路径、空间与五维逐图标签审核及人工准入控制的紧凑视觉
  * [POS]: public 的 Benchmark 样本集专用视觉层，与通用评测布局样式分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,18 +8,32 @@
 .dataset-toolbar {
   align-items: flex-end;
   background: var(--panel-soft);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border-bottom: 1px solid var(--line);
   display: flex;
   gap: 12px;
+  height: 90px;
   justify-content: space-between;
-  padding: 12px;
+  padding: 14px 20px;
+}
+
+#caseTableCard .table-title,
+#caseTableCard th {
+  background: var(--panel-soft);
+}
+
+#caseTableCard .table-title {
+  height: 54px;
+}
+
+#caseTableCard thead tr {
+  height: 36px;
 }
 
 .dataset-picker {
   flex: 1;
   margin: 0;
   max-width: 420px;
+  min-width: 0;
 }
 
 .dataset-picker select {
@@ -45,7 +59,6 @@
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  margin: 0 -20px;
   padding: 14px 20px;
 }
 
@@ -62,7 +75,18 @@
 }
 
 .dataset-grid {
-  margin-top: 14px;
+  margin-top: 0;
+}
+
+.dataset-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dataset-sidebar .form-card {
+  flex: 1;
+  height: auto;
 }
 
 .sample-category-grid {
@@ -171,6 +195,10 @@
   .dataset-editor {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .dataset-toolbar {
+    height: auto;
   }
 
   .dataset-actions,

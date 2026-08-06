@@ -2,7 +2,7 @@
 Node.js 24+ + 原生 HTTP + HTML + CSS + JavaScript + sharp 0.35.3 + lark-cli 1.0.77
 
 <directory>
-public/ - 浏览器工作台界面（34 个业务文件及 icons/ 图标资产模块：运营连接中心、共享三段式产品顶栏、双 Provider 生成与能力解释、横向单层导航的 Benchmark 五步流程、分类来源/五维样本治理、实验配置/运行/评分/分析、任务呈现/响应式覆盖、Style DNA 对话、自定义下拉与 Light Command Center 样式）
+public/ - 浏览器工作台界面（34 个业务文件及 icons/ 图标资产模块：运营连接中心、共享三段式产品顶栏、双 Provider 生成与能力解释、横向单层导航及左管理右列表样本区的 Benchmark 五步流程、分类来源/五维样本治理、实验配置/运行/评分/分析、任务呈现/响应式覆盖、Style DNA 对话、自定义下拉与 Light Command Center 样式）
 src/ - 本机设置、飞书 Setup、图片尺寸/产物、模型与 Agent 配置、OneAPI、Flux2 Klein ComfyUI 工作流/客户端、Style DNA/白模编排、Benchmark Base 配置/Schema/实验冻结/Provider 准入/AI 标注/AI 评分/本地状态及后台任务层（32 个模块）
 test/ - Node 原生测试（34 个测试文件，覆盖一键启动、连接与飞书、双 Provider 生成、模型/附件/工作流、Benchmark 样本分类来源/标签、实验/运行/重试/评分/分析及浏览器交互）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
@@ -23,7 +23,7 @@ benchmark-backfill.mjs - 历史横评数据迁移入口，不调用模型，将�
 README.md - Windows/macOS 运营首次运行、连接中心、安全边界与模型参数说明
 RELEASE.md - 维护者版本更新、发布准入、白名单 ZIP、SHA-256、manifest 与 GitHub Release 操作协议
 DESIGN.md - Light Command Center 在高频生图工作台中的视觉与交互契约
-design-qa.md - 工作台视觉验收历史，记录 Benchmark 样本集、任务失败、评分与实验配置演进；最新样本录入已完成已有分类/AI 分类双路径、动态作用域和人工分类保护的真实浏览器对比验收
+design-qa.md - 工作台视觉验收历史，记录 Benchmark 样本集、任务失败、评分与实验配置演进；最新样本区已完成左管理/右列表、管理表头同高同底色、双路径分类与人工保护的真实浏览器对比验收
 WHITE_MODEL_BENCHMARK.md - 白模渲染 Benchmark 方法与执行规范，统一实验隔离、数据分层、结构化评分、统计决策与落地流程
 .gitignore - 密钥、依赖、发布物、生成物、缓存和私有文档忽略规则
 </config>

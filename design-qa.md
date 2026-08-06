@@ -5,6 +5,104 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Benchmark Header Band Alignment v18 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-9de253ae-6e15-45eb-9928-007a0ec26d09.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/06/019fd62d-e40c-7112-bb17-4cde4efadcfd/benchmark-header-alignment/final-full-1463x945.png`
+- Full comparison: `/Users/dai/.codex/visualizations/2026/08/06/019fd62d-e40c-7112-bb17-4cde4efadcfd/benchmark-header-alignment/comparison-full.png`
+- Focused header comparison: `/Users/dai/.codex/visualizations/2026/08/06/019fd62d-e40c-7112-bb17-4cde4efadcfd/benchmark-header-alignment/comparison-focused.png`
+- Responsive evidence: `final-640x900.png`
+- Source pixels: `1437 × 769`；implementation pixels: `1463 × 783`；CSS viewport override `1463 × 945`，devicePixelRatio `2`。Codex 可见浏览器面板把普通截图裁为 `1463 × 783`，因此全页只比较整体层级，红框区域另取等高像素带做精确比较。
+- State: 真实服务、Benchmark 已连接；源图为 16 个样本，验收时动态数据已增长为 18 个样本，本轮未写 Base。
+
+## Full-view Comparison
+
+- 左侧样本集管理区和右侧“数据集标题 + 列标题”现在共同形成一条连续暖灰表头带，下面的录入区与数据行仍保持白底。
+- 左右分栏比例、面板边界、控件密度、样本内容和五步流程没有因这次对齐修正发生漂移。
+- 源图与实现的样本数量不同属于实时数据变化，不参与视觉差异判断。
+
+## Focused Region Comparison
+
+- 字体与排版：标题、字段标签、按钮和列标题继续使用原字号/字重，没有因固定高度产生垂直拥挤或截断。
+- 间距与布局：左侧工具栏固定为 `90px`；右侧标题行 `54px`、列标题行 `36px`，两侧底边计算值均为 `339px`。
+- 色彩与令牌：左侧工具栏、右侧标题行和右侧列标题均实测为 `rgb(240, 239, 236)`，统一复用 `--panel-soft`。
+- 图片与资产：没有新增、替换或伪造图片、Logo、图标、SVG 与装饰资产。
+- 文案与内容：样本集名称、管理动作、表头字段和动态数据均保持原样。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 1280px 桌面端左右底边完全重合且 `scrollWidth = clientWidth`；640px 窄屏取消固定高度，工具栏自然扩展为 `139.5px`，按钮无重叠且无横向溢出。
+- 暖灰底只作用于用户标注的管理/表头带，没有扩散到录入表单和数据正文。
+
+## Interaction Verification
+
+- 真实点击完成“样本集 → 实验配置 → 样本集”双向切换。
+- 真实点击“新建”显示编辑器；点击“取消”恢复布局，未提交任何外部写入。
+- 浏览器控制台无 error 或 warning；自动化测试 `219/219` 通过。
+
+## Comparison History
+
+- 初始 P2：左侧工具栏为 `89.5px`，右侧标题和列标题合计 `88.2px`，底边相差约 `1.3px`；右侧标题仍是透明白底，与左侧暖灰底割裂。
+- v18 修复：左侧固定 `90px`，右侧拆为 `54px + 36px`，并让工具栏、标题和列标题统一使用 `--panel-soft`；680px 以下恢复自动高度。
+- 修复后证据：计算样式、同输入局部并置、1280/640 两档布局、真实交互、控制台和 219 项回归均通过。
+
+final result: passed
+
+---
+
+# Benchmark Sample Workspace Split Layout v17 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-9008b5c8-b352-49a7-a7db-abe16312be74.png`
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/06/019fd62d-e40c-7112-bb17-4cde4efadcfd/benchmark-split-layout/final-1445x968.png`
+- Full normalized comparison: `/Users/dai/.codex/visualizations/2026/08/06/019fd62d-e40c-7112-bb17-4cde4efadcfd/benchmark-split-layout/comparison-full.png`
+- Focused workspace comparison: `/Users/dai/.codex/visualizations/2026/08/06/019fd62d-e40c-7112-bb17-4cde4efadcfd/benchmark-split-layout/comparison-focused.png`
+- Responsive evidence: `final-1280x720.png`、`final-720x900.png`
+- Source and implementation pixels: `1445 × 968`；CSS viewport `1445 × 968`，浏览器 devicePixelRatio `2`，浏览器截图仍按 CSS 像素输出，因此无需缩放归一。
+- State: 真实服务、Benchmark 已连接、样本集面板、9 个已录入样本。
+
+## Full-view Comparison
+
+- 用户标注把目标分界放在面板约 35% 处；实现左栏宽 `505px`、右栏宽约 `898px`，分界与标注位置一致。
+- “当前样本集”工具栏不再横跨整个工作区，而是与“添加样本”共同归入左栏；样本表从同一顶线开始占据右栏，消除工具栏下方的错位空档。
+- 面板、流程条、顶栏、业务字段和真实数据均保持原有视觉语言与内容，没有扩大重设计范围。
+
+## Focused Region Comparison
+
+- 字体与排版：继续使用既有 system-ui、等宽编号与原字号/字重；工具栏收窄后选中样本集名称保持单行截断能力。
+- 间距与布局：左栏工具栏和录入表单共用 `506px` 轨道，右侧表格同步上移 `89.5px`；两栏共享完整工作区高度和连续分隔线。
+- 色彩与令牌：继续使用暖白面板、暖灰工具栏、近黑文字、既有边框与按钮状态，没有新增颜色或表面层级。
+- 图片与资产：本轮没有新增、替换或伪造图片、Logo、图标、SVG 与装饰资产。
+- 文案与内容：样本集、管理动作、录入字段、9 条样本及准入状态全部保持不变。
+
+## Findings
+
+- 无剩余 P0、P1 或 P2 视觉与可用性问题。
+- 1445 × 968 与 1280 × 720 均保持左右分栏且无横向溢出；1280 × 720 的超高内容继续由活动面板独立滚动承接。
+- 720 × 900 自动降为单栏，样本表位于录入区下方，左右边界一致且 `scrollWidth = clientWidth`。
+- 交互状态保持可达：样本集选择、新建/取消、管理动作、五步导航及表格滚动没有因布局移动失效。
+
+## Interaction Verification
+
+- 真实点击完成“样本集 → 实验配置 → 样本集”双向切换；每次只有目标面板可见。
+- 真实点击“新建”显示行内编辑器，再点击“取消”恢复原布局；未提交数据、未调用模型、未写入 Base。
+- 页面读取到“Benchmark 已连接”和 9 行真实样本；浏览器控制台无 error 或 warning。
+- 自动化测试 `219/219` 通过。
+
+## Comparison History
+
+- 初始 P1：样本集工具栏横跨整行，右侧样本表只能从工具栏下方开始，导致管理录入与样本浏览的左右职责不清，首屏纵向空间浪费。
+- v17 修复：把样本集工具栏、编辑器、空态和录入表单收进左侧轨道，样本表独占右侧轨道并从工作区顶线开始；空样本集时仍保留左栏新建入口。
+- 修复后证据：同尺寸全页/局部并置比较、两档响应式、真实导航与编辑器开合、控制台和 219 项回归均通过。
+
+final result: passed
+
+---
+
 # Benchmark Failed Run Recovery v16 Design QA
 
 ## Evidence
