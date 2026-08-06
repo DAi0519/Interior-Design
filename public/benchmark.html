@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css 共享顶栏、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、失败重试、AI 评分、分析与飞书跳转
+  [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、失败重试、紧凑横向配置的 seven_evaluate_v3.1 单次调用 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -10,13 +10,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="室内生图模型批量评测工作台" />
+    <link rel="icon" href="data:," />
     <title>Canvas Lab · Benchmark</title>
     <link rel="stylesheet" href="./benchmark.css?v=14" />
     <link rel="stylesheet" href="./custom-select.css?v=7" />
-    <link rel="stylesheet" href="./benchmark-dataset.css?v=6" />
+    <link rel="stylesheet" href="./benchmark-dataset.css?v=7" />
     <link rel="stylesheet" href="./benchmark-experiment.css?v=7" />
     <link rel="stylesheet" href="./benchmark-run.css?v=3" />
-    <link rel="stylesheet" href="./benchmark-review.css?v=2" />
+    <link rel="stylesheet" href="./benchmark-review.css?v=4" />
     <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
     <link rel="stylesheet" href="./product-navigation.css?v=1" />
   </head>
@@ -99,21 +100,23 @@
           <div class="dataset-grid">
             <form id="caseForm" class="form-card">
               <h3>添加样本</h3>
-              <label class="field">AI 打标模型<select id="labelModelSelect" aria-label="AI 打标模型" data-requires-service></select></label>
-              <div class="field-pair">
-                <label class="field">类别默认值<select id="categoryInput" aria-label="类别默认值" required><option>客厅</option><option>客餐厅一体</option><option>独立餐厅</option><option>卧室</option><option>厨房</option><option>卫生间</option><option>玄关</option><option>走廊</option><option>书房</option><option>阳台</option><option>儿童房</option></select></label>
-                <label class="field">样本准入（人工）<select id="sampleTypeInput" aria-label="样本准入"><option>有效白模</option><option>边缘输入</option></select></label>
+              <div class="sample-category-grid">
+                <label class="field">空间类型来源<select id="categoryModeInput" aria-label="空间类型来源"><option value="fixed" selected>已分好类，沿用本批设置</option><option value="ai">未分类，由 AI 识别</option></select></label>
+                <label id="categoryInputField" class="field">本批空间类型<select id="categoryInput" aria-label="本批空间类型" required><option>客厅</option><option>客餐厅一体</option><option>独立餐厅</option><option>卧室</option><option>厨房</option><option>卫生间</option><option>玄关</option><option>走廊</option><option>书房</option><option>阳台</option><option>儿童房</option></select></label>
               </div>
-              <label class="field">样本来源
-                <select id="sourceInput" aria-label="样本来源"><option>用户输入</option><option>小红书</option><option>抖音</option><option>其他授权来源</option></select>
-              </label>
-              <label class="drop-field">参考图<input id="caseImageInput" data-requires-service required multiple type="file" accept="image/png,image/jpeg,image/webp" /><span id="fileLabel" aria-live="polite">选择多张 PNG / JPEG / WebP</span></label>
+              <p id="sampleLabelScopeHint" class="sample-label-scope">空间类型固定为“客厅”；AI 只补空间结构、镜头、软装、材质和输入质量。</p>
+              <label class="field">AI 标签模型<select id="labelModelSelect" aria-label="AI 标签模型" data-requires-service></select></label>
+              <div class="field-pair">
+                <label class="field">样本准入（人工）<select id="sampleTypeInput" aria-label="样本准入"><option>有效白模</option><option>边缘输入</option></select></label>
+                <label class="field">样本来源<select id="sourceInput" aria-label="样本来源"><option>用户输入</option><option>小红书</option><option>抖音</option><option>其他授权来源</option></select></label>
+              </div>
+              <label class="drop-field">参考图<input id="caseImageInput" data-requires-service required multiple type="file" accept="image/png,image/jpeg,image/webp" /><span id="fileLabel" aria-live="polite">选择 PNG / JPEG / WebP，可分次添加</span></label>
               <div id="sampleDrafts" class="sample-drafts hidden" aria-live="polite"></div>
               <button id="saveCasesButton" class="primary-button" data-requires-service type="submit">保存样本</button>
             </form>
             <div class="table-card">
               <div class="table-title"><h3 id="caseTableTitle">样本</h3><span id="validCaseCount">0 个进入评测</span></div>
-              <div class="table-scroll"><table><thead><tr><th>编号</th><th>类别</th><th>五维标签</th><th>准入</th><th>状态</th></tr></thead><tbody id="caseRows"></tbody></table></div>
+              <div class="table-scroll"><table><thead><tr><th>编号</th><th>空间类型</th><th>五维标签</th><th>准入</th><th>状态</th></tr></thead><tbody id="caseRows"></tbody></table></div>
             </div>
           </div>
         </section>
@@ -234,26 +237,29 @@
             <h1>AI 评分</h1>
           </div>
           <div class="review-grid">
-            <div class="form-card">
-              <div class="field-action">
-                <label class="field">评分实验<select id="reviewExperimentSelect" aria-label="评分实验" data-requires-service></select></label>
-                <button id="reviewOpenBaseButton" class="quiet-button" type="button" disabled>结果明细 ↗</button>
+            <div class="form-card review-form-card">
+              <div class="review-form-main">
+                <div class="review-experiment-field">
+                  <div class="field-action">
+                    <label class="field">评分实验<select id="reviewExperimentSelect" aria-label="评分实验" data-requires-service></select></label>
+                    <button id="reviewOpenBaseButton" class="quiet-button" type="button" disabled>结果明细 ↗</button>
+                  </div>
+                  <p id="reviewExperimentMeta" class="review-experiment-meta">完成批量运行后，可直接选择实验评分，不会重新出图。</p>
+                </div>
+                <label class="field">评分模型<select id="reviewModelSelect" aria-label="评分模型" data-requires-service></select></label>
+                <label>评审批次 ID<input id="reviewBatchInput" /></label>
+                <button id="reviewButton" class="primary-button" data-requires-service type="button">确认并开始 AI 评分</button>
               </div>
-              <p id="reviewExperimentMeta" class="review-experiment-meta">完成批量运行后，可直接选择实验评分，不会重新出图。</p>
-              <label class="field">评分模型<select id="reviewModelSelect" aria-label="评分模型" data-requires-service></select></label>
-              <label>评审批次 ID<input id="reviewBatchInput" /></label>
               <div class="rubric"><span>保持一致性 1–5</span><span>风格与材质 1–5</span><span>渲染质量 1–5</span></div>
-              <button id="reviewButton" class="primary-button" data-requires-service type="button">确认并开始 AI 评分</button>
             </div>
-            <div class="protocol-card"><p class="eyebrow">可用图准入</p><h3>三个原始维度均 ≥ 3</h3><p>先判断是否可评审，再保留原始分数与问题标签。模型结论不会覆盖历史评分字段。</p></div>
             <section class="review-results" aria-labelledby="reviewResultsTitle">
               <div class="review-results-head">
-                <div><p class="eyebrow">飞书正式三维</p><h3 id="reviewResultsTitle">评分结果</h3></div>
+                <div><p class="eyebrow">正式三维 · 单次严评</p><h3 id="reviewResultsTitle">评分结果</h3></div>
                 <span id="reviewResultMeta">完成 AI 评分后，逐图分数与原因会显示在这里。</span>
               </div>
               <div id="reviewResultSummary" class="review-result-summary"></div>
               <div id="reviewResultTable" class="review-result-table hidden">
-                <div class="table-scroll"><table><thead><tr><th>模型</th><th class="review-run">Run</th><th>保持一致性</th><th>风格与材质</th><th>渲染质量</th><th>结论</th><th>问题</th><th>评分原因</th></tr></thead><tbody id="reviewResultRows"></tbody></table></div>
+                <div class="table-scroll"><table><thead><tr><th>模型</th><th class="review-run">Run</th><th>保持一致性</th><th>风格与材质</th><th>渲染质量</th><th>加权分</th><th>结论</th><th>问题</th><th>评分原因</th></tr></thead><tbody id="reviewResultRows"></tbody></table></div>
               </div>
               <p id="reviewResultEmpty" class="review-result-empty">当前实验还没有正式三维评分结果。</p>
             </section>
@@ -285,6 +291,6 @@
       </main>
     </div>
     <script type="module" src="./custom-select.js?v=5"></script>
-    <script type="module" src="./benchmark-app.js?v=28"></script>
+    <script type="module" src="./benchmark-app.js?v=30"></script>
   </body>
 </html>

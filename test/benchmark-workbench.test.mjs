@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、临时目录、Benchmark 本地存储、计划器与 benchmark-workbench.mjs
- * [OUTPUT]: 对外提供样本集迁移/CRUD、空间与五维 AI 待审标签、人工准入、Gemini 3.5 Flash 默认及用户指定视觉模型、自动 Case ID、实验计划生成零 Base 写入、冻结配置失败持久化、已完成实验直接评分、按实验 ID 汇总分析、正式/旧协议隔离的脱敏逐图评分结果与历史 Run 协议漂移拦截的回归保障
+ * [OUTPUT]: 对外提供样本集迁移/CRUD、空间与五维 AI 待审标签、人工准入、Gemini 3.5 Flash 默认及用户指定视觉模型、自动 Case ID、实验计划生成零 Base 写入、冻结配置失败持久化、已完成实验直接评分/写回及失败批次落库、按实验 ID 汇总分析、正式/旧协议隔离的脱敏逐图评分结果与历史 Run 协议漂移拦截的回归保障
  * [POS]: test 的 Benchmark 工作台应用护栏测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -268,6 +268,7 @@ test("概览从成功结果真源列出当前可直接评分的已完成实验",
     runId: "RUN-1",
     scorerModelId: "gemini-3.1-pro-preview",
     styleMaterialScore: 3,
+    weightedScore: 4.2,
   });
   await localStore.saveReview({
     caseId: "CASE-1",
@@ -328,6 +329,7 @@ test("概览从成功结果真源列出当前可直接评分的已完成实验",
     renderQualityScore: current.renderQualityScore,
     styleMaterialScore: current.styleMaterialScore,
     usable: current.usable,
+    weightedScore: current.weightedScore,
   }, {
     compatible: true,
     consistencyScore: 5,
@@ -335,6 +337,7 @@ test("概览从成功结果真源列出当前可直接评分的已完成实验",
     renderQualityScore: 4,
     styleMaterialScore: 3,
     usable: true,
+    weightedScore: 4.1,
   });
   assert.deepEqual({
     compatible: legacy.compatible,
@@ -369,6 +372,122 @@ test("AI 评分在当前样本集没有成功结果时前置阻止空批次", as
     scorerModelKey: "gemini35flash",
   }, { client: {} }), /没有可评分的成功结果图/);
   assert.equal(savedBatch, false);
+});
+
+test("AI 评分传输失败时把评审批次更新为失败", async () => {
+  const savedBatches = [];
+  const baseStore = {
+    async downloadResultImage() {
+      return { dataUrl: "data:image/png;base64,cmVzdWx0" };
+    },
+    async downloadSampleImage() {
+      return { dataUrl: "data:image/png;base64,c291cmNl" };
+    },
+    async loadSnapshot() {
+      return {
+        comparisons: [],
+        configs: [],
+        prompts: [],
+        results: [{
+          attachments: [{ file_token: "result", name: "result.png" }],
+          caseLinks: [{ id: "rec-case" }],
+          experimentId: "EXP-FAIL",
+          model: "Banana 2",
+          runId: "RUN-FAIL",
+          status: "成功",
+        }],
+        samples: [{ caseId: "CASE-1", recordId: "rec-case" }],
+      };
+    },
+  };
+  const localStore = {
+    async saveReviewBatch(batch) {
+      savedBatches.push(batch);
+    },
+  };
+  const service = createBenchmarkWorkbenchService({ baseStore, localStore });
+
+  await assert.rejects(() => service.runReview({
+    confirm: true,
+    experimentId: "EXP-FAIL",
+    groupId: "EXP-FAIL",
+    reviewBatchId: "REVIEW-FAIL",
+    scorerModelKey: "gemini35flash",
+  }, {
+    client: {
+      async reviewImages() {
+        throw new Error("评分图片超过上游限制");
+      },
+    },
+  }), /评分图片超过上游限制/);
+
+  assert.equal(savedBatches[0].status, "running");
+  assert.deepEqual({
+    completed: savedBatches[1].completed,
+    error: savedBatches[1].error,
+    status: savedBatches[1].status,
+  }, {
+    completed: 0,
+    error: "评分图片超过上游限制",
+    status: "failed",
+  });
+});
+
+test("AI 评分同时保存本地事实并写回对应飞书 Run", async () => {
+  const reviews = [];
+  const writes = [];
+  const baseStore = {
+    async downloadResultImage() { return { dataUrl: "data:image/png;base64,cmVzdWx0" }; },
+    async downloadSampleImage() { return { dataUrl: "data:image/png;base64,c291cmNl" }; },
+    async loadSnapshot() {
+      return {
+        comparisons: [], configs: [], prompts: [],
+        results: [{
+          attachments: [{ file_token: "result", name: "result.png" }],
+          caseLinks: [{ id: "rec-case" }],
+          experimentId: "EXP-SCORE",
+          model: "Banana 2",
+          recordId: "rec-run",
+          runId: "RUN-SCORE",
+          status: "成功",
+        }],
+        samples: [{ caseId: "CASE-1", recordId: "rec-case" }],
+      };
+    },
+    async saveRunReview(recordId, review) { writes.push({ recordId, review }); },
+  };
+  const localStore = {
+    async saveReview(review) { reviews.push(review); },
+    async saveReviewBatch() {},
+  };
+  const service = createBenchmarkWorkbenchService({ baseStore, localStore });
+  const result = await service.runReview({
+    confirm: true,
+    experimentId: "EXP-SCORE",
+    groupId: "EXP-SCORE",
+    reviewBatchId: "REVIEW-SCORE",
+    scorerModelKey: "gemini35flash",
+  }, {
+    client: {
+      async reviewImages() {
+        return {
+          requestId: "req-score",
+          text: JSON.stringify({
+            consistency: { comment: "好", deduction_reason: "轻微偏差", evidence: "门框", score: 4 },
+            input_eligibility: { category: "valid_white_model", reason: "", valid: true },
+            issues: [],
+            rendering_quality: { comment: "好", deduction_reason: "轻微瑕疵", evidence: "边缘", score: 4 },
+            style_material: { comment: "好", deduction_reason: "轻微不足", evidence: "织物", score: 4 },
+          }),
+        };
+      },
+    },
+  });
+
+  assert.deepEqual(result, { completed: 1, reviewBatchId: "REVIEW-SCORE", total: 1 });
+  assert.equal(reviews.length, 1);
+  assert.equal(writes[0].recordId, "rec-run");
+  assert.equal(writes[0].review.weightedScore, 4);
 });
 
 test("现有数据集迁移为样本集并由系统生成 Case ID", async (context) => {

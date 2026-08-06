@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-base.mjs 的环境配置、Base 返回解析、实时单选项适配和可注入 CLI 边界
- * [OUTPUT]: 对外提供 Benchmark 五表快照字段、按稳定编码解析真实选项的冻结生成配置创建、阶段化错误上下文、含人工准入及空间/五维标签的样本录入、实验筛选视图链接、分页保护与 Prompt/Run/横评幂等写入参数回归保障
+ * [OUTPUT]: 对外提供 Benchmark 五表快照字段、按稳定编码解析真实选项且隔离系统时间字段的冻结生成配置创建、阶段化错误上下文、含人工准入及空间/五维标签的样本录入、实验筛选视图链接、分页保护与 Prompt/Run/横评幂等写入参数回归保障
  * [POS]: test 的 Benchmark 飞书适配测试，使用内存 CLI 替身且不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,6 +25,7 @@ const config = {
 };
 
 const configFields = [
+  { name: "创建时间", type: "created_at" },
   { name: "Style DNA", options: [{ name: "奶油法式 v4 [cream-french@v4]" }], type: "select" },
   { name: "融合 Agent", options: [{ name: "白模渲染融合 Agent-即梦 v7 [white-model-fusion@v7]" }], type: "select" },
   { name: "融合基座模型", options: [{ name: "Gemini 3.1 Pro [gemini-3.1-pro-preview]" }], type: "select" },
@@ -209,6 +210,7 @@ test("正式运行前创建一条冻结生成配置", async () => {
   assert.equal(recordId, "rec-config-new");
   assert.equal(fields["配置 ID"], "CFG-FROZEN");
   assert.equal(fields["横评组"], "EXP-NEW");
+  assert.equal(Object.hasOwn(fields, "创建时间"), false);
   assert.equal(fields["Style DNA"], "奶油法式 v4 [cream-french@v4]");
   assert.equal(fields["融合 Agent"], "白模渲染融合 Agent-即梦 v7 [white-model-fusion@v7]");
   assert.equal(fields["输出规格"], "跟随原图比例 · 2K · PNG");
@@ -261,11 +263,14 @@ test("冻结配置写入失败时保留配置 ID、Base 阶段和原始错误", 
   );
 });
 
-test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
+test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停用", async () => {
   const calls = [];
   const run = async (_config, args) => {
     calls.push(args);
     const table = args[args.indexOf("--table-id") + 1];
+    if (args[1] === "+field-list") {
+      return { data: { fields: [{ name: table === "prompts" ? "Prompt 成本（USD）" : "Image 成本（USD）" }] }, ok: true };
+    }
     if (table === "samples") {
       return envelope(
         ["Case ID", "白模参考图", "任务状态", "样本类型", "样本来源", "空间类型", "数据集版本"],
@@ -295,9 +300,9 @@ test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
         [
           "Prompt ID", "融合 Prompt", "融合状态", "错误信息",
           "Prompt 耗时（秒）", "Prompt 成本（元）", "Prompt 请求 ID",
-          "Prompt 哈希",
+          "Prompt 哈希", "Prompt 成本（USD）",
         ],
-        ["P1", "{}", ["完成"], "", 1.2, null, "req-prompt", "hash"],
+        ["P1", "{}", ["完成"], "", 1.2, null, "req-prompt", "hash", 0.01],
         "rec-prompt",
       );
     }
@@ -309,13 +314,13 @@ test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
           "采样序号", "尝试序号", "重试来源", "输出参数",
           "Prompt 哈希", "Prompt 耗时（秒）", "Prompt 成本（元）",
           "Image 请求 ID", "Image 耗时（秒）", "Image 成本（元）",
-          "生成状态", "错误信息", "生成结果图",
+          "生成状态", "错误信息", "生成结果图", "Image 成本（USD）",
         ],
         [
           "RUN-1", [{ id: "rec-sample" }], [{ id: "rec-prompt" }],
           [{ id: "rec-config" }], "GROUP", ["模型横评"], "Banana Pro",
           "Google", 1, 1, "", "{}", "hash", 1.2, null, "req-image",
-          20, null, ["成功"], "", [{ file_token: "result" }],
+          20, null, ["成功"], "", [{ file_token: "result" }], 0.2,
         ],
         "rec-result",
       );
@@ -342,14 +347,16 @@ test("五张表解析为编排快照且 Banana Pro 保持停用", async () => {
   assert.equal(snapshot.configs[0].imageModel, "Banana Pro [gemini-3-pro-image]");
   assert.equal(snapshot.configs[0].imageModelLabel, "Banana Pro");
   assert.equal(snapshot.prompts[0].status, "完成");
+  assert.equal(snapshot.prompts[0].costUsd, 0.01);
   assert.equal(snapshot.results[0].runId, "RUN-1");
+  assert.equal(snapshot.results[0].imageCostUsd, 0.2);
   assert.equal(snapshot.results[0].attachments.length, 1);
   assert.equal(
     snapshot.comparisons[0].modelAttachments["Banana Pro"].length,
     1,
   );
   assert.equal(snapshot.comparisons[0].referenceAttachments.length, 1);
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 7);
 });
 
 test("分类样本写入飞书字段并上传唯一参考图", async () => {
@@ -499,6 +506,61 @@ test("模型结果一图一行写入运行、重试和成本字段", async () =>
   assert.equal(fields["重试来源"], "RUN-1");
   assert.equal(fields["Image 成本（元）"], 0.42);
   assert.deepEqual(fields["关联 Case"], [{ id: "case-rec" }]);
+});
+
+test("可选 USD 成本与三维评分写回运行明细", async () => {
+  const writes = [];
+  const run = async (_config, args) => {
+    if (args[1] === "+field-list") {
+      return { data: { fields: [
+        { name: "Prompt 成本（USD）" },
+        { name: "Image 成本（USD）" },
+        { name: "评分细则" },
+        { name: "评审时间" },
+      ] }, ok: true };
+    }
+    writes.push(JSON.parse(args[args.indexOf("--json") + 1]));
+    return { data: { record_id_list: ["rec-result"] }, ok: true };
+  };
+  const store = createBenchmarkBaseStore(config, { run });
+  await store.saveRunResult({
+    attempt: 1,
+    caseRecordId: "case-rec",
+    configRecordId: "config-rec",
+    experimentId: "EXP",
+    experimentType: "单变量横评",
+    imageCostUsd: 0.0757,
+    model: "GPT Image 2",
+    promptCostUsd: 0.0123,
+    promptRecordId: "prompt-rec",
+    runId: "RUN-USD",
+    sampleIndex: 1,
+    status: "成功",
+  }, "rec-result");
+  await store.saveRunReview("rec-result", {
+    consistencyScore: 4,
+    createdAt: "2026-08-05T15:33:00.000Z",
+    issues: [{ description: "镜头轻微偏移", dimension: "consistency", evidence: "右墙变窄", severity: "MINOR" }],
+    protocolVersion: "white-model-review@v3.1-single-pass",
+    reason: "这是一个超过五十个字符后必须被截断的评分理由，用于确认飞书短文本不会无限增长并保持字段契约稳定。额外字符。",
+    renderQualityScore: 3,
+    reviewable: true,
+    scoreDetails: {
+      consistency: { comment: "整体一致", deduction_reason: "镜头轻微偏移", evidence: "右墙变窄", score: 4 },
+    },
+    styleMaterialScore: 5,
+    weightedScore: 4,
+  });
+
+  assert.equal(writes[0]["Prompt 成本（USD）"], 0.0123);
+  assert.equal(writes[0]["Image 成本（USD）"], 0.0757);
+  assert.deepEqual([
+    writes[1]["保持一致性"], writes[1]["风格与材质"], writes[1]["渲染质量"],
+  ], [4, 5, 3]);
+  assert.equal(Array.from(writes[1]["判断理由（≤50字）"]).length, 50);
+  assert.equal(writes[1]["评审时间"], "2026-08-05 15:33:00");
+  assert.match(writes[1]["评分细则"], /保持一致性：4 \/ 5/);
+  assert.match(writes[1]["评分细则"], /问题明细/);
 });
 
 test("横评宽表参考图上传到固定附件列", async () => {

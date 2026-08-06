@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的可筛选纯计划器、可注入模型/飞书执行边界
- * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、停用模型排除、Provider 智能路由、Run 真源、失败重试、横评展示与规模回归保障
+ * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、停用模型排除、Provider 智能路由、OneAPI 费用传递、Run 真源、失败重试、横评展示与规模回归保障
  * [POS]: test 的模型横评核心集成测试，所有资源与模型调用均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -299,13 +299,15 @@ test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", a
     generateImage: async (request) => {
       imageCalls.push(request);
       return {
+        cost: 0.2,
+        costUsd: 0.2 / 7,
         images: [{ url: "data:image/png;base64,aQ==" }],
         outputFormat: "png",
       };
     },
     generatePrompt: async (request) => {
       promptCalls.push(request);
-      return { text: JSON.stringify(agentPayload(promptCalls.length)) };
+      return { cost: 0.01, costUsd: 0.01 / 7, text: JSON.stringify(agentPayload(promptCalls.length)) };
     },
     listModels: async () => [
       { id: "gemini-3.1-pro-preview" },
@@ -365,9 +367,12 @@ test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", a
   assert.equal(promptCalls.length, 3);
   assert.equal(imageCalls.length, 9);
   assert.equal(savedPrompts.filter((entry) => entry.status === "完成").length, 3);
+  assert.equal(savedPrompts.find((entry) => entry.status === "完成").cost, 0.01);
+  assert.equal(savedPrompts.find((entry) => entry.status === "完成").costUsd, 0.01 / 7);
   assert.equal(savedComparisons.length, 3);
   assert.equal(uploadedReferences.length, 3);
   assert.equal(uploaded.length, 9);
+  assert.equal(savedRuns.findLast((entry) => entry.status === "成功").imageCostUsd, 0.2 / 7);
   assert.equal(uploadedRunImages.length, 9);
   assert.equal(savedRuns.filter((entry) => entry.status === "成功").length, 9);
   assert.equal(savedRuns.filter((entry) => entry.status === "生成中").length, 9);

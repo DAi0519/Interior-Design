@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 benchmark-review-ui.js 的可评分实验筛选、最新评分选择/汇总及任务归属纯函数
- * [OUTPUT]: 对外提供当前样本集评分范围、逐图结果版本、汇总指标和评分任务不跳页的回归保障
+ * [INPUT]: 依赖 node:test/assert 与 benchmark-review-ui.js 的可评分实验筛选、v3.1 最新评分选择/三维加权汇总及任务归属纯函数
+ * [OUTPUT]: 对外提供当前样本集评分范围、逐图结果版本、三维与加权摘要和评分任务不跳页的回归保障
  * [POS]: test 的 Benchmark AI 评分前端护栏，不访问 DOM、Base 或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -45,8 +45,8 @@ test("AI 评分任务留在评分页，出图任务留在批量运行页", () =>
 
 test("评分结果只展示当前实验和样本集内每个 Run 的最新版本", () => {
   const reviews = [
-    { caseId: "CASE-1", compatible: true, consistencyScore: 3, createdAt: "2026-08-04T08:00:00Z", experimentId: "EXP-1", renderQualityScore: 3, runId: "RUN-1", styleMaterialScore: 3, usable: true },
-    { caseId: "CASE-1", compatible: true, consistencyScore: 4, createdAt: "2026-08-04T09:00:00Z", experimentId: "EXP-1", renderQualityScore: 5, runId: "RUN-1", styleMaterialScore: 3, usable: true },
+    { caseId: "CASE-1", compatible: true, consistencyScore: 3, createdAt: "2026-08-04T08:00:00Z", experimentId: "EXP-1", renderQualityScore: 3, runId: "RUN-1", styleMaterialScore: 3, usable: true, weightedScore: 3 },
+    { caseId: "CASE-1", compatible: true, consistencyScore: 4, createdAt: "2026-08-04T09:00:00Z", experimentId: "EXP-1", renderQualityScore: 5, runId: "RUN-1", styleMaterialScore: 3, usable: true, weightedScore: 4 },
     { caseId: "CASE-1", compatible: false, createdAt: "2026-08-04T09:30:00Z", experimentId: "EXP-1", imageQuality: 5, instructionFollowing: 5, runId: "RUN-LEGACY", specializedScore: 5, usable: false },
     { caseId: "CASE-2", compatible: true, createdAt: "2026-08-04T09:00:00Z", experimentId: "EXP-1", runId: "RUN-2", usable: false },
     { caseId: "CASE-1", compatible: true, createdAt: "2026-08-04T09:00:00Z", experimentId: "EXP-2", runId: "RUN-3", usable: false },
@@ -64,5 +64,6 @@ test("评分结果只展示当前实验和样本集内每个 Run 的最新版本
     renderQualityScore: 5,
     styleMaterialScore: 3,
     usable: 1,
+    weightedScore: 4,
   });
 });

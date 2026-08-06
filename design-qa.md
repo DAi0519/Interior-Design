@@ -486,6 +486,150 @@ final result: passed
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
 
+---
+
+# Benchmark Sample Category Source v23 Design QA
+
+## Evidence
+
+- Current-flow baseline: `/Users/dai/Work_qunhe/Interior Design/PRD-Outputs/sample-flow-audit/01-current-sample-flow.jpg`
+- Updated classified-batch flow: `/Users/dai/Work_qunhe/Interior Design/PRD-Outputs/sample-flow-audit/02-updated-sample-flow.jpg`
+- Unclassified AI flow: `/Users/dai/Work_qunhe/Interior Design/PRD-Outputs/sample-flow-audit/03-unclassified-ai-mode.jpg`
+- Combined before/after comparison: `/Users/dai/Work_qunhe/Interior Design/PRD-Outputs/sample-flow-audit/04-before-after-comparison.jpg`
+- State: 4187 本地真实服务、Benchmark 已连接、当前样本集 9 条；没有上传图片、调用标签模型或写入 Base。
+
+## Findings
+
+- [Resolved P1] 原流程把 AI 模型放在第一位，并在返回时直接覆盖“类别默认值”，错误假设所有素材都是未分类原图。
+- [Resolved P1] 添加样本现在先声明空间类型来源，默认“已分好类，沿用本批设置”；本批空间类型成为人工事实，AI 只补五维。
+- [Resolved P1] “未分类，由 AI 识别”是独立显式路径；切换后隐藏无效的批次空间类型，并说明 AI 将完成“分类 + 五维”。
+- [Resolved P2] AI 模型降为从属配置，准入与来源并排，沿用既有 38px 控件、暖灰面板、低圆角和双栏密度，没有增加卡片层级。
+- 逐图状态区分“AI 五维”和“AI 分类 + 五维”；人工修改空间类型不进入五维模型元数据清空范围。
+
+## Interaction Verification
+
+- 真实指针交互完成“已分好类 → 未分类 AI → 已分好类”的往返切换；本批空间类型显示/隐藏和作用域说明同步变化。
+- 真实指针把本批空间类型改为“卧室”，说明同步为“空间类型固定为‘卧室’”，没有触发模型调用或 Base 写入。
+- 合并截图确认原有导航、样本表密度、左右轨道与视觉令牌未漂移；改动仅重排添加样本内的决策顺序。
+- Browser console warnings/errors: `0`。
+- Automated verification: `208` tests pass；`git diff --check`、两个浏览器模块语法检查通过。
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark AI 评分说明卡收敛 v25 Design QA
+
+## Evidence
+
+- Source visual truth: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-8b298b11-1793-4e87-be2a-2b2c705eb017.png`
+- Desktop implementation: `/Users/dai/.codex/visualizations/2026/08/06/benchmark-review-compact/benchmark-review-compact-1480x900.png`
+- Narrow implementation: `/Users/dai/.codex/visualizations/2026/08/06/benchmark-review-compact/benchmark-review-compact-390x844-viewport.png`
+- Focused normalized comparison: `/Users/dai/.codex/visualizations/2026/08/06/benchmark-review-compact/benchmark-review-before-after.png`
+- Source pixels: `1480 × 589`; desktop implementation pixels and CSS viewport: `1480 × 900` at `devicePixelRatio=1`; narrow implementation pixels and CSS viewport: `390 × 844` at `devicePixelRatio=1`.
+- Normalization: focused comparison uses equal-width `1408 × 439` AI 评分 panel crops stacked vertically; the source crop shows the crossed-out protocol card, while the implementation crop shows the same configuration/result boundary after removal.
+- State: isolated service on `127.0.0.1:4186`, live Benchmark Base selected `MODEL-COMPARE-001` with 81 results; no real AI scoring request was submitted.
+
+## Full-view Comparison
+
+- [Resolved P1] The static protocol card occupied the majority of the scoring configuration row without supporting any action. It is removed from the DOM, and its unused base/responsive CSS is removed with it.
+- [Resolved P2] The former narrow vertical form is replaced by one full-width horizontal action band on desktop. Experiment, model, batch ID and the primary action now share one line; the three dimensions remain as small secondary labels below.
+- The scoring-result section and its six summary metrics remain unchanged in hierarchy and begin immediately after the compact configuration band.
+- Desktop form height is `159.5px` across `1406px`, the review grid resolves to one column, and both body and active panel horizontal overflow are `0`.
+
+## Required Fidelity Surfaces
+
+- Fonts and typography: existing Inter/system and monospace ID/metric families, weights and line heights are unchanged; no new wrapping appears at desktop width.
+- Spacing and layout rhythm: the protocol half-column and divider are gone; control heights remain `38px`, panel padding remains `20px`, and the desktop configuration/result boundary moves up to `y=403px`.
+- Colors and visual tokens: all controls continue to use the existing warm-neutral panel, border, ink, muted and disabled tokens; no new color or elevation language was introduced.
+- Image quality and asset fidelity: this control-only change adds or replaces no visible image, logo, illustration or icon asset.
+- Copy and content: redundant protocol prose is removed; action labels, experiment status, three score dimensions and result semantics remain visible.
+
+## Interaction Verification
+
+- Real pointer navigation `AI 评分 → 数据分析 → AI 评分` returned to exactly one active review panel.
+- The live experiment remained selected, the score action was enabled, and `.protocol-card` count was `0`.
+- At `390 × 844`, the form becomes one column, experiment details become a stacked action group, and body/panel horizontal overflow remain `0`.
+- Browser console warnings/errors: `0`; automated verification: Canvas Lab `203/203`; `git diff --check` passes.
+
+## Comparison History
+
+- Initial P1: a non-interactive protocol explanation consumed roughly 64% of the top scoring area and forced the real controls into a narrow vertical column.
+- v25 fix: remove the card and dead styles, promote the controls to a responsive full-width action band, then compare the same AI 评分 region at equal width.
+- Post-fix evidence: the desktop and focused comparison show the reclaimed space, while desktop, 720px and 390px browser checks show no horizontal overflow or console error.
+
+## Follow-up Polish
+
+- No remaining P0, P1, P2 or P3 visual finding in the requested region.
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark seven_evaluate_v3.1 单次评分修正 v24 Design QA
+
+## Evidence
+
+- Updated rule source: `/Users/dai/Work_qunhe/seven_evaluate_v3_source`
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fd175-0e09-7002-9fbb-a4f1629958c3/benchmark-review-v3.1-single-pass.png`
+- State: isolated service on `127.0.0.1:4186`, Benchmark `AI 评分`; no OneAPI key or Benchmark Base token, so no real scoring request was submitted.
+
+## Findings
+
+- [Resolved P1] The updated source requires one normal VLM request per candidate. Eligibility and all three dimensions now share one strict JSON response; a second request occurs only when the first response violates the JSON contract and needs one repair retry.
+- [Resolved P1] Dimension evidence is isolated: consistency compares source and generated images; style/material uses the generated image as primary evidence; rendering quality uses only the generated image. The same defect is not deducted across dimensions without independent evidence.
+- [Resolved P1] The internal protocol is now `white-model-review@v3.1-single-pass`, keeping results produced by the earlier two-stage implementation out of the current aggregate.
+- Existing local severity calibration, `40% / 30% / 30%` weighting and `>= 3.0` availability threshold remain unchanged.
+
+## Interaction Verification
+
+- Real pointer navigation activated `AI 评分`; `reviewActive=1`, the protocol card displayed `seven_evaluate_v3.1 · 单次评测`, and the result eyebrow displayed `正式三维 · 单次严评`.
+- Body and panel horizontal overflow: `0`; browser console/page/HTTP errors: `0`.
+- Automated verification: Canvas Lab `196/196`; updated source-rule project `24/24`; syntax checks and `git diff --check` pass.
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark seven_evaluate_v3.1 评分接入 v23 Design QA
+
+## Evidence
+
+- User source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-b646ee30-7fc2-4027-8f60-b4f59df574fc.png`
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/05/019fd175-0e09-7002-9fbb-a4f1629958c3/benchmark-review-v3.1-verified.png`
+- State: isolated service on `127.0.0.1:4186`, Benchmark `AI 评分`; no OneAPI key or Benchmark Base token and no real scoring action. One synthetic v3.1 result row was injected only after load to verify the completed-result layout.
+
+## Findings
+
+- [Resolved P1] The former protocol card incorrectly required all three dimensions to be at least 3. The page now states the governing local rule: `40% / 30% / 30%` weighted score `>= 3.0`.
+- [Resolved P1] The one-call generic rubric is replaced by an explicit two-stage contract: white-model eligibility/consistency first, style-material/rendering quality second.
+- [Resolved P1] Completed results now expose the weighted score and structured severity issue; local calibration is visible without replacing the three retained dimension scores.
+- Six summary cards stay aligned on desktop. The nine-column result table remains inside its own scroll container on narrow screens instead of widening the page.
+
+## Interaction Verification
+
+- Real pointer navigation activated `AI 评分`; `reviewActive=1` and the protocol card contained `seven_evaluate_v3.1` and `三维加权分 ≥ 3.0`.
+- Desktop `1365px`: six summary cards, nine table headers, body/panel horizontal overflow `0`.
+- Mobile `390px`: body horizontal overflow `0`; the wide detail table scrolls internally by `506px` as designed.
+- Browser console warnings/errors: `0`; HTTP responses `>=400`: `0` after adding the page-local empty favicon.
+- Automated verification: Canvas Lab `195/195`; source-rule project `21/21`; `git diff --check` passes.
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
 # Benchmark Generic Experiment Factor v20 Design QA
 
 ## Evidence

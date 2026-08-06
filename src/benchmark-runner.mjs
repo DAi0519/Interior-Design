@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端与按模型解析的图像客户端
- * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、按实验阶段共享或隔离冻结 Prompt、Provider 分辨率路由、可用性预检与可断点续跑执行器
+ * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、按实验阶段共享或隔离冻结 Prompt、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检与可断点续跑执行器
  * [POS]: src 的单变量横评应用服务，以一图一行的结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -356,6 +356,7 @@ async function freezePrompt({
   if (existing?.status === "完成" && existing.finalPrompt) {
     return {
       cost: existing.cost,
+      costUsd: existing.costUsd,
       durationSeconds: existing.durationSeconds,
       finalPrompt: existing.finalPrompt,
       hash: existing.hash || sha256(existing.finalPrompt),
@@ -409,11 +410,14 @@ async function freezePrompt({
         requestId: promptResult.requestId || "",
         status: "完成",
         durationSeconds,
+        cost: promptResult.cost ?? null,
+        costUsd: promptResult.costUsd ?? null,
       },
       recordId,
     );
     return {
-      cost: null,
+      cost: promptResult.cost ?? null,
+      costUsd: promptResult.costUsd ?? null,
       durationSeconds,
       finalPrompt,
       hash,
@@ -497,6 +501,7 @@ async function generateRun({
       sourceNearest: run.config.output.sourceNearest,
     }),
     promptCost: reference.promptCost,
+    promptCostUsd: reference.promptCostUsd,
     promptDurationSeconds: reference.promptDurationSeconds,
     promptHash: reference.promptHash,
     promptRecordId: reference.promptRecordId,
@@ -563,12 +568,14 @@ async function generateRun({
           sourceNearest: run.config.output.sourceNearest,
         }),
         promptCost: reference.promptCost,
+        promptCostUsd: reference.promptCostUsd,
         promptDurationSeconds: reference.promptDurationSeconds,
         promptHash: reference.promptHash,
         promptRecordId: reference.promptRecordId,
         provider: providerFromModelId(run.config.imageModelId),
         requestId: result.requestId || "",
         imageCost: result.cost ?? null,
+        imageCostUsd: result.costUsd ?? null,
         retrySource: run.retrySource,
         runId,
         sampleIndex: run.sampleIndex,
@@ -595,6 +602,7 @@ async function generateRun({
           sourceNearest: run.config.output.sourceNearest,
         }),
         promptCost: reference.promptCost,
+        promptCostUsd: reference.promptCostUsd,
         promptDurationSeconds: reference.promptDurationSeconds,
         promptHash: reference.promptHash,
         promptRecordId: reference.promptRecordId,
@@ -751,6 +759,7 @@ export async function runBenchmark(
               ...reference,
               compareId: batch.comparisonId,
               promptCost: frozen.cost,
+              promptCostUsd: frozen.costUsd,
               promptDurationSeconds: frozen.durationSeconds,
               promptHash: frozen.hash,
               promptRecordId: frozen.recordId,

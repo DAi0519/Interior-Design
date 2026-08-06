@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html 的五步语义结构与 DESIGN.md 的 Light Command Center 视觉契约
- * [OUTPUT]: 对外提供继承 Canvas Lab 暖灰画布、近黑主动作/浅色管理动作、低圆角控件、单层横向五步流程条、填满桌面剩余视口的纵向工作区、紧凑实验分析筛选/飞书跳转和统一间距节奏
+ * [OUTPUT]: 对外提供继承 Canvas Lab 暖灰画布、近黑主动作/浅色管理动作、低圆角控件、与生图页同构的单层输入焦点反馈、横向五步流程条、填满桌面剩余视口的纵向工作区、紧凑实验分析筛选/飞书跳转和统一间距节奏
  * [POS]: public 的独立 Benchmark 视觉层，复用日常生图页设计语言但不污染其样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -194,9 +194,7 @@ button:disabled {
   transform: none;
 }
 button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible {
+a:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
@@ -388,23 +386,20 @@ select:focus-visible {
 .form-card,
 .table-card,
 .execution-card,
-.progress-card,
-.protocol-card {
+.progress-card {
   background: var(--panel-soft);
   border: 1px solid var(--line);
   border-radius: 6px;
 }
 .dataset-grid .form-card,
 .dataset-grid .table-card,
-.review-grid .form-card,
-.review-grid .protocol-card {
+.review-grid .form-card {
   background: transparent;
   border: 0;
   border-radius: 0;
   height: 100%;
 }
-.dataset-grid .table-card,
-.review-grid .protocol-card {
+.dataset-grid .table-card {
   border-left: 1px solid var(--line);
 }
 .form-card {
@@ -412,8 +407,7 @@ select:focus-visible {
 }
 .form-card h3,
 .table-title h3,
-.execution-card h3,
-.protocol-card h3 {
+.execution-card h3 {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.014em;
@@ -651,28 +645,6 @@ legend {
   font-size: 10px;
   padding: 9px;
   text-align: center;
-}
-.protocol-card {
-  padding: 24px;
-}
-.protocol-card::before {
-  background: var(--ink);
-  border-radius: 999px;
-  content: "";
-  display: block;
-  height: 3px;
-  margin-bottom: 18px;
-  width: 32px;
-}
-.protocol-card h3 {
-  font-size: 20px;
-  line-height: 1.25;
-  max-width: 330px;
-}
-.protocol-card p:last-child {
-  color: var(--muted);
-  margin: 12px 0 0;
-  max-width: 440px;
 }
 .analysis-kpis {
   display: grid;

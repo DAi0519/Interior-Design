@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 benchmark.html DOM、浏览器 location/FileReader 与同源 /api/benchmark 接口
- * [OUTPUT]: 对外提供样本集治理、逐图 AI 打标、八类单变量实验计划生成、失败 Run 重试、持久化横评跳转、评分分析、任务轮询及飞书视图分流
+ * [INPUT]: 依赖 benchmark.html DOM、benchmark-sample-ui.js 的分类来源与标签合并规则、浏览器 location/FileReader 与同源 /api/benchmark 接口
+ * [OUTPUT]: 对外提供可连续累加且缩略图稳定的样本待保存清单、已有空间分类保护/未分类 AI 识别、逐图五维 AI 打标、八类单变量实验计划生成、失败 Run 重试、持久化横评跳转、评分分析、任务轮询及飞书视图分流
  * [POS]: public 的 Benchmark 页面状态控制器，以样本集为操作主对象，拦截 file 协议误用且所有破坏性外部调用都要求用户二次确认
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,10 +12,16 @@ import {
   persistedGenerationJob,
 } from "./benchmark-job-ui.js?v=2";
 import { createReviewController, jobPanelFor } from "./benchmark-review-ui.js?v=2";
+import {
+  AI_DIMENSION_FIELDS, SAMPLE_CATEGORIES, SAMPLE_COMPLEXITY_LEVELS, SAMPLE_EDGE_TYPES, SAMPLE_IMAGE_MAX_BYTES,
+  SAMPLE_IMAGE_TYPES, SAMPLE_TYPES, applyAiSampleLabel, createSampleDraft, sampleDraftStatusCopy,
+  sampleLabelScopeCopy, uniqueSampleFiles,
+} from "./benchmark-sample-ui.js?v=2";
 
 const state = {
   activeJobId: window.sessionStorage.getItem("benchmark.activeJobId") || "",
   apiConnected: false,
+  sampleCategoryMode: window.sessionStorage.getItem("benchmark.sampleCategoryMode") || "fixed",
   datasetEditorMode: null,
   labelModels: [],
   labelingError: null,
@@ -24,6 +30,7 @@ const state = {
   pollTimer: null,
   runExperimentId: window.sessionStorage.getItem("benchmark.runExperimentId") || "",
   sampleDrafts: [],
+  sampleFiles: [],
   sampleLabeling: false,
   sampleLabelingToken: 0,
   selectedLabelModelKey: window.sessionStorage.getItem("benchmark.labelModelKey") || "gemini35flash",
@@ -32,20 +39,6 @@ const state = {
 };
 const byId = (id) => document.getElementById(id);
 const renderJob = createJobRenderer({ byId, jobPanelFor });
-const SAMPLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const SAMPLE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
-const SAMPLE_CATEGORIES = ["客厅", "客餐厅一体", "独立餐厅", "卧室", "厨房", "卫生间", "玄关", "走廊", "书房", "阳台", "儿童房"];
-const SAMPLE_COMPLEXITY_LEVELS = ["低", "中", "高"];
-const SAMPLE_TYPES = ["有效白模", "边缘输入"];
-const SAMPLE_EDGE_TYPES = ["CAD/线稿", "草模/概念图", "已完成材质", "输入不可判断", "内容不相关"];
-const AI_SAMPLE_FIELDS = new Set([
-  "category",
-  "inputQuality",
-  "lensComplexity",
-  "materialComplexity",
-  "spatialComplexity",
-  "stylingComplexity",
-]);
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -340,7 +333,7 @@ function fileAsInput(file) {
 }
 
 function selectedSampleFiles() {
-  return [...byId("caseImageInput").files];
+  return state.sampleFiles;
 }
 
 function validateSampleFiles(files) {
@@ -356,17 +349,36 @@ function optionMarkup(values, selected) {
 }
 
 function discardSampleDrafts() {
-  for (const draft of state.sampleDrafts) URL.revokeObjectURL(draft.previewUrl);
+  state.sampleLabelingToken += 1;
+  for (const draft of state.sampleDrafts) {
+    if (draft.previewUrl.startsWith("blob:")) URL.revokeObjectURL(draft.previewUrl);
+  }
   state.sampleDrafts = [];
+  state.sampleFiles = [];
+  state.sampleLabeling = false;
   renderSampleDrafts();
 }
 
-function draftStatusCopy(draft) {
-  if (draft.status === "labeling") return "AI 打标中";
-  if (draft.status === "ai") return `AI 六维 ${Math.round(draft.confidence * 100)}%`;
-  if (draft.status === "manual") return "已人工修改";
-  if (draft.status === "manual-required") return "需人工确认";
-  return "等待打标";
+function syncSampleCategoryMode({ updateDrafts = false } = {}) {
+  state.sampleCategoryMode = byId("categoryModeInput").value;
+  window.sessionStorage.setItem("benchmark.sampleCategoryMode", state.sampleCategoryMode);
+  byId("categoryInputField").classList.toggle("hidden", state.sampleCategoryMode === "ai");
+  const category = byId("categoryInput").value;
+  byId("sampleLabelScopeHint").textContent = sampleLabelScopeCopy(state.sampleCategoryMode, category);
+  if (!updateDrafts) return;
+  for (const draft of state.sampleDrafts) {
+    draft.categoryMode = state.sampleCategoryMode;
+    if (state.sampleCategoryMode === "ai" && draft.aiCategory) {
+      draft.category = draft.aiCategory;
+      draft.categorySource = "ai";
+      draft.reason = draft.aiReason;
+    } else if (state.sampleCategoryMode === "fixed") {
+      draft.category = category;
+      draft.categorySource = "human";
+      if (draft.aiReason) draft.reason = `空间类型沿用“${category}”；${draft.aiReason}`;
+    }
+  }
+  renderSampleDrafts();
 }
 
 function renderSampleDrafts() {
@@ -379,11 +391,11 @@ function renderSampleDrafts() {
       <img class="sample-draft-thumb" src="${escapeHtml(draft.previewUrl)}" alt="" />
       <div class="sample-draft-copy">
         <strong title="${escapeHtml(draft.file.name)}">${escapeHtml(draft.file.name)}</strong>
-        <span class="sample-draft-status ${escapeHtml(draft.status)}">${escapeHtml(draftStatusCopy(draft))}</span>
-        <small>${escapeHtml(draft.reason || "模型将识别空间与五个独立维度")}</small>
+        <span class="sample-draft-status ${escapeHtml(draft.status)}">${escapeHtml(sampleDraftStatusCopy(draft))}</span>
+        <small>${escapeHtml(draft.reason || sampleLabelScopeCopy(draft.categoryMode, draft.category))}</small>
       </div>
       <div class="sample-draft-controls">
-        <label>类别<select${disabled} data-draft-index="${index}" data-draft-field="category" aria-label="${escapeHtml(draft.file.name)} 类别">${optionMarkup(SAMPLE_CATEGORIES, draft.category)}</select></label>
+        <label>空间类型<select${disabled} data-draft-index="${index}" data-draft-field="category" aria-label="${escapeHtml(draft.file.name)} 空间类型">${optionMarkup(SAMPLE_CATEGORIES, draft.category)}</select></label>
         <label>空间结构<select${disabled} data-draft-index="${index}" data-draft-field="spatialComplexity" aria-label="${escapeHtml(draft.file.name)} 空间结构">${optionMarkup(SAMPLE_COMPLEXITY_LEVELS, draft.spatialComplexity)}</select></label>
         <label>镜头复杂度<select${disabled} data-draft-index="${index}" data-draft-field="lensComplexity" aria-label="${escapeHtml(draft.file.name)} 镜头复杂度">${optionMarkup(SAMPLE_COMPLEXITY_LEVELS, draft.lensComplexity)}</select></label>
         <label>软装复杂度<select${disabled} data-draft-index="${index}" data-draft-field="stylingComplexity" aria-label="${escapeHtml(draft.file.name)} 软装复杂度">${optionMarkup(SAMPLE_COMPLEXITY_LEVELS, draft.stylingComplexity)}</select></label>
@@ -407,43 +419,37 @@ function syncSampleSaveButton(completed = null, total = state.sampleDrafts.lengt
   }
 }
 
-async function prepareSampleDrafts() {
-  const files = selectedSampleFiles();
+async function prepareSampleDrafts(files) {
   validateSampleFiles(files);
-  state.sampleLabelingToken += 1;
-  const token = state.sampleLabelingToken;
-  discardSampleDrafts();
-  const defaultSampleType = byId("sampleTypeInput").value;
-  state.sampleDrafts = files.map((file) => ({
+  const additions = uniqueSampleFiles(state.sampleFiles, files);
+  if (!additions.length) throw new Error("这些图片已经在待保存清单中");
+  const draftDefaults = {
     category: byId("categoryInput").value,
-    confidence: null,
-    edgeType: defaultSampleType === "边缘输入" ? "输入不可判断" : null,
-    file,
-    image: null,
-    inputQuality: "中",
-    labelModel: null,
-    labelPromptVersion: null,
-    labelSource: "human",
-    lensComplexity: "中",
-    materialComplexity: "中",
+    categoryMode: state.sampleCategoryMode,
+    sampleType: byId("sampleTypeInput").value,
+  };
+  state.sampleFiles.push(...additions);
+  state.sampleDrafts.push(...additions.map((file) => createSampleDraft(file, {
+    ...draftDefaults,
     previewUrl: URL.createObjectURL(file),
-    reason: "",
-    sampleType: defaultSampleType,
-    spatialComplexity: "中",
-    status: "waiting",
-    stylingComplexity: "中",
-  }));
-  state.sampleLabeling = true;
-  renderSampleSelection(files);
+  })));
+  byId("caseImageInput").value = "";
+  renderSampleSelection();
   renderSampleDrafts();
-  syncSampleSaveButton(0, files.length);
+  if (files.length !== additions.length) toast(`已跳过 ${files.length - additions.length} 张重复图片`);
+  if (state.sampleLabeling) return;
+  state.sampleLabeling = true;
+  const token = ++state.sampleLabelingToken;
+  syncSampleSaveButton(0);
   let failed = 0;
   const modelKey = byId("labelModelSelect").value;
-  for (const [index, draft] of state.sampleDrafts.entries()) {
+  for (let draft = state.sampleDrafts.find((entry) => entry.status === "waiting"); draft; draft = state.sampleDrafts.find((entry) => entry.status === "waiting")) {
     if (token !== state.sampleLabelingToken) return;
     draft.status = "labeling";
     renderSampleDrafts();
     draft.image = await fileAsInput(draft.file);
+    if (draft.previewUrl.startsWith("blob:")) URL.revokeObjectURL(draft.previewUrl);
+    draft.previewUrl = draft.image.dataUrl;
     if (token !== state.sampleLabelingToken) return;
     try {
       if (!state.apiConnected || !modelKey) {
@@ -454,20 +460,7 @@ async function prepareSampleDrafts() {
         method: "POST",
       });
       if (token !== state.sampleLabelingToken) return;
-      Object.assign(draft, {
-        category: label.category,
-        confidence: label.confidence,
-        inputQuality: label.inputQuality,
-        labelModel: label.modelKey,
-        labelPromptVersion: label.promptVersion,
-        labelSource: "ai",
-        lensComplexity: label.lensComplexity,
-        materialComplexity: label.materialComplexity,
-        reason: label.reason,
-        spatialComplexity: label.spatialComplexity,
-        status: "ai",
-        stylingComplexity: label.stylingComplexity,
-      });
+      Object.assign(draft, applyAiSampleLabel(draft, label));
     } catch (error) {
       if (token !== state.sampleLabelingToken) return;
       failed += 1;
@@ -476,7 +469,7 @@ async function prepareSampleDrafts() {
       draft.status = "manual-required";
     }
     renderSampleDrafts();
-    syncSampleSaveButton(index + 1, files.length);
+    syncSampleSaveButton(state.sampleDrafts.filter((entry) => !["waiting", "labeling"].includes(entry.status)).length);
   }
   if (token !== state.sampleLabelingToken) return;
   state.sampleLabeling = false;
@@ -488,11 +481,11 @@ function renderSampleSelection(files = selectedSampleFiles()) {
   const label = byId("fileLabel");
   const button = byId("saveCasesButton");
   if (!files.length) {
-    label.textContent = "选择多张 PNG / JPEG / WebP";
+    label.textContent = "选择 PNG / JPEG / WebP，可分次添加";
     syncSampleSaveButton();
     return;
   }
-  label.textContent = files.length === 1 ? files[0].name : `已选择 ${files.length} 张图片`;
+  label.textContent = `已添加 ${files.length} 张，可继续选择`;
   if (!state.sampleLabeling) syncSampleSaveButton();
 }
 
@@ -748,15 +741,12 @@ function bind() {
     state.selectedLabelModelKey = event.target.value;
     window.sessionStorage.setItem("benchmark.labelModelKey", state.selectedLabelModelKey);
   });
-  byId("caseImageInput").addEventListener("change", () => {
-    state.sampleLabelingToken += 1;
-    state.sampleLabeling = false;
-    prepareSampleDrafts().catch((error) => {
-      byId("caseImageInput").value = "";
-      discardSampleDrafts();
-      renderSampleSelection([]);
-      toast(error.message);
-    });
+  byId("categoryModeInput").addEventListener("change", () => syncSampleCategoryMode({ updateDrafts: true }));
+  byId("categoryInput").addEventListener("change", () => syncSampleCategoryMode({ updateDrafts: true }));
+  byId("caseImageInput").addEventListener("change", (event) => {
+    const files = [...event.currentTarget.files];
+    event.currentTarget.value = "";
+    prepareSampleDrafts(files).catch((error) => toast(error.message));
   });
   byId("sampleDrafts").addEventListener("change", (event) => {
     const select = event.target.closest("select[data-draft-index]");
@@ -767,7 +757,11 @@ function bind() {
     if (select.dataset.draftField === "sampleType") {
       draft.edgeType = select.value === "边缘输入" ? draft.edgeType || "输入不可判断" : null;
     }
-    if (AI_SAMPLE_FIELDS.has(select.dataset.draftField)) {
+    if (select.dataset.draftField === "category") {
+      draft.categorySource = "human";
+      draft.reason = `空间类型人工调整为“${draft.category}”${draft.aiReason ? `；${draft.aiReason}` : ""}`;
+      draft.status = draft.labelSource === "ai" ? "manual-category" : "manual";
+    } else if (AI_DIMENSION_FIELDS.has(select.dataset.draftField)) {
       draft.confidence = null;
       draft.labelModel = null;
       draft.labelPromptVersion = null;
@@ -789,6 +783,8 @@ function bind() {
 
 defaultIds();
 bind();
+byId("categoryModeInput").value = state.sampleCategoryMode;
+byId("categoryModeInput").dispatchEvent(new Event("change", { bubbles: true }));
 if (!guardDirectFileOpen()) {
   loadOverview()
     .then(() => resumeJob())

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 AI 评分 DOM、当前样本集 Case ID、服务端正式/旧协议评分投影、可评分实验目录与评分模型目录
- * [OUTPUT]: 对外提供当前样本集可评分实验筛选、正式三维最新评分选择/汇总/渲染、旧协议提示、任务归属面板、默认最近完成实验、评分表单状态与提交输入
+ * [INPUT]: 依赖 AI 评分 DOM、当前样本集 Case ID、服务端 seven_evaluate_v3.1 正式/旧协议评分投影、可评分实验目录与评分模型目录
+ * [OUTPUT]: 对外提供当前样本集可评分实验筛选、单次评测三维与加权分最新评分选择/汇总/渲染、旧协议提示、任务归属面板、默认最近完成实验、评分表单状态与提交输入
  * [POS]: public 的 Benchmark AI 评分控制器，与实验草稿控制器和通用页面编排分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,6 +64,7 @@ export function summarizeReviewResults(reviews = []) {
     renderQualityScore: mean(reviews.map((review) => review.renderQualityScore)),
     styleMaterialScore: mean(reviews.map((review) => review.styleMaterialScore)),
     usable: reviews.filter((review) => review.usable).length,
+    weightedScore: mean(reviews.map((review) => review.weightedScore)),
   };
 }
 
@@ -91,6 +92,16 @@ export function createReviewController({ byId, escapeHtml, selectedCaseIds, stor
     return Number.isFinite(value) ? value.toFixed(2) : "—";
   }
 
+  function issueText(review) {
+    if (review.issues?.length) {
+      return review.issues.map((issue) =>
+        `${issue.severity} · ${issue.description || issue.dimension}`).join("；");
+    }
+    return review.issueTags?.length
+      ? review.issueTags.map((tag) => issueLabels[tag] || tag).join("、")
+      : "无";
+  }
+
   function renderResults(experimentId) {
     const reviews = selectLatestReviewResults(sourceReviews, experimentId, selectedCaseIds());
     const legacyCount = countLegacyReviewResults(sourceReviews, experimentId, selectedCaseIds());
@@ -103,26 +114,28 @@ export function createReviewController({ byId, escapeHtml, selectedCaseIds, stor
       ["保持一致性", averageText(summary.consistencyScore)],
       ["风格与材质", averageText(summary.styleMaterialScore)],
       ["渲染质量", averageText(summary.renderQualityScore)],
+      ["加权均分", averageText(summary.weightedScore)],
     ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
     byId("reviewResultMeta").textContent = latest
-      ? `正式三维 · 最新批次 ${latest.reviewBatchId} · ${modelLabels.get(latest.scorerModelId) || latest.scorerModelId}`
+      ? `v3.1 单次评测 · 最新批次 ${latest.reviewBatchId} · ${modelLabels.get(latest.scorerModelId) || latest.scorerModelId}`
       : legacyCount
         ? `检测到 ${legacyCount} 张旧协议评分；维度与飞书不一致，已隔离且不计入正式结果。`
         : "完成 AI 评分后，逐图分数与原因会显示在这里。";
     byId("reviewResultRows").innerHTML = reviews.map((review) => {
-      const issues = review.issueTags?.length
-        ? review.issueTags.map((tag) => issueLabels[tag] || tag).join("、")
-        : "无";
-      const conclusion = !review.reviewable ? "不可评审" : review.usable ? "可用" : "未通过";
+      const conclusion = !review.reviewable ? "输入不准入" : review.usable ? "可用" : "未通过";
+      const adjustment = review.scoreAdjustments?.length
+        ? `<small>本地校准 ${review.scoreAdjustments.length} 项</small>`
+        : "";
       return `<tr>
         <td>${escapeHtml(review.model || "未知模型")}</td>
         <td class="review-run"><code title="${escapeHtml(review.runId)}">${escapeHtml(review.runId)}</code></td>
         <td class="review-score">${scoreText(review.consistencyScore)}</td>
         <td class="review-score">${scoreText(review.styleMaterialScore)}</td>
         <td class="review-score">${scoreText(review.renderQualityScore)}</td>
+        <td class="review-score">${averageText(review.weightedScore)}</td>
         <td><span class="review-verdict" data-usable="${review.usable}">${conclusion}</span></td>
-        <td>${escapeHtml(issues)}</td>
-        <td class="review-reason">${escapeHtml(review.reason || "—")}<small>置信度 ${Math.round(Number(review.confidence || 0) * 100)}%</small></td>
+        <td>${escapeHtml(issueText(review))}</td>
+        <td class="review-reason">${escapeHtml(review.reason || review.inputReason || "—")}${adjustment}</td>
       </tr>`;
     }).join("");
     byId("reviewResultTable").classList.toggle("hidden", !reviews.length);

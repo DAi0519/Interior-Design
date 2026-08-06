@@ -20,7 +20,8 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@larksuite/cli": "1.0.77"
+    "@larksuite/cli": "1.0.77",
+    "sharp": "0.35.3"
   },
   "engines": {
     "node": ">=24"

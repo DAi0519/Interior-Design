@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、benchmark-base-config/schema.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
- * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时单选项适配的冻结配置创建、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/横评幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
+ * [INPUT]: 依赖 node:fs/os/path、benchmark-base-config/schema.mjs、benchmark-review.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
+ * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时单选项适配的冻结配置创建、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/三维评分及可读细则/评审时间/真实费用幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
  * [POS]: src 的 Benchmark 飞书持久化边界，以模型结果为运行真源、横评宽表为展示派生层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,9 +10,11 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 
 import {
+  OPTIONAL_TABLE_FIELDS,
   resolveGenerationConfigFields,
   TABLE_FIELDS,
 } from "./benchmark-base-schema.mjs";
+import { formatBenchmarkReviewDetails } from "./benchmark-review.mjs";
 import {
   parseBenchmarkRecordPage,
   selectValue,
@@ -64,6 +66,12 @@ function mimeTypeFromName(fileName) {
 
 function safeError(error) {
   return String(error?.message || "未知错误").slice(0, 1000);
+}
+
+function numberOrNull(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function displayLabelFromResource(value) {
@@ -139,6 +147,18 @@ export function createBenchmarkBaseStore(
       fieldSchemas.set(tableId, fields);
     }
     return fields;
+  }
+
+  async function availableFields(tableId, required, optional = []) {
+    const names = new Set((await tableFields(tableId)).map((field) => field.name));
+    return [...required, ...optional.filter((field) => names.has(field))];
+  }
+
+  async function optionalPatch(tableId, values) {
+    const entries = Object.entries(values).filter(([, value]) => value != null);
+    if (!entries.length) return {};
+    const names = new Set((await tableFields(tableId)).map((field) => field.name));
+    return Object.fromEntries(entries.filter(([field]) => names.has(field)));
   }
 
   async function fieldId(tableId, fieldName) {
@@ -347,8 +367,8 @@ export function createBenchmarkBaseStore(
         await Promise.all([
           listRecords(config.sampleTableId, TABLE_FIELDS.samples),
           listRecords(config.configTableId, TABLE_FIELDS.configs),
-          listRecords(config.promptTableId, TABLE_FIELDS.prompts),
-          listRecords(config.resultTableId, TABLE_FIELDS.results),
+          listRecords(config.promptTableId, await availableFields(config.promptTableId, TABLE_FIELDS.prompts, OPTIONAL_TABLE_FIELDS.prompts)),
+          listRecords(config.resultTableId, await availableFields(config.resultTableId, TABLE_FIELDS.results, OPTIONAL_TABLE_FIELDS.results)),
         ]);
       const configs = configRows.map(({ fields, recordId }) => {
         const imageModel = selectValue(fields["出图模型"]);
@@ -399,7 +419,8 @@ export function createBenchmarkBaseStore(
           requestId: String(fields["Prompt 请求 ID"] || ""),
           recordId,
           status: selectValue(fields["融合状态"]),
-          cost: Number(fields["Prompt 成本（元）"]) || null,
+          cost: numberOrNull(fields["Prompt 成本（元）"]),
+          costUsd: numberOrNull(fields["Prompt 成本（USD）"]),
           durationSeconds: Number(fields["Prompt 耗时（秒）"]) || null,
         })),
         results: resultRows.map(({ fields, recordId }) => ({
@@ -410,7 +431,8 @@ export function createBenchmarkBaseStore(
           durationSeconds: Number(fields["Image 耗时（秒）"]) || null,
           error: String(fields["错误信息"] || ""),
           experimentId: String(fields["实验 ID"] || "").trim(),
-          imageCost: Number(fields["Image 成本（元）"]) || null,
+          imageCost: numberOrNull(fields["Image 成本（元）"]),
+          imageCostUsd: numberOrNull(fields["Image 成本（USD）"]),
           model: String(fields["模型与版本"] || "").trim(),
           promptLinks: fields["提示词批次"] || [],
           provider: String(fields["模型提供商"] || "").trim(),
@@ -624,6 +646,7 @@ export function createBenchmarkBaseStore(
       return upsertRecord(
         config.promptTableId,
         {
+          ...await optionalPatch(config.promptTableId, { "Prompt 成本（USD）": prompt.costUsd }),
           "Prompt ID": prompt.promptId,
           "关联 Case": [{ id: prompt.caseRecordId }],
           "横评组": prompt.groupId,
@@ -645,6 +668,10 @@ export function createBenchmarkBaseStore(
       return upsertRecord(
         config.resultTableId,
         {
+          ...await optionalPatch(config.resultTableId, {
+            "Image 成本（USD）": result.imageCostUsd,
+            "Prompt 成本（USD）": result.promptCostUsd,
+          }),
           "Run ID": result.runId,
           "关联 Case": [{ id: result.caseRecordId }],
           "提示词批次": [{ id: result.promptRecordId }],
@@ -668,6 +695,21 @@ export function createBenchmarkBaseStore(
         },
         existingRecordId,
       );
+    },
+
+    async saveRunReview(recordId, review) {
+      const reason = Array.from(String(review.reason || "")).slice(0, 50).join("");
+      const reviewedAt = new Date(review.createdAt || Date.now()).toISOString().replace("T", " ").slice(0, 19);
+      return upsertRecord(config.resultTableId, {
+        ...await optionalPatch(config.resultTableId, {
+          "评分细则": formatBenchmarkReviewDetails(review),
+          "评审时间": reviewedAt,
+        }),
+        "保持一致性": review.consistencyScore ?? null,
+        "风格与材质": review.styleMaterialScore ?? null,
+        "渲染质量": review.renderQualityScore ?? null,
+        "判断理由（≤50字）": reason || null,
+      }, recordId);
     },
 
     async saveComparisonRow(comparison, existingRecordId = null) {

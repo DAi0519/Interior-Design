@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark Base 实时字段 Schema 与带稳定编码的冻结生成配置
- * [OUTPUT]: 对外提供五张运行表投影字段，以及把冻结配置解析为真实单选项名称的纯函数
+ * [OUTPUT]: 对外提供五张运行表必需/可选投影字段（含评分细则），以及把冻结配置解析为真实单选项名称的纯函数
  * [POS]: src 的 Benchmark Base Schema 适配层，隔离飞书展示名变化与领域配置稳定编码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,11 @@ export const TABLE_FIELDS = Object.freeze({
     "Prompt 哈希", "Prompt 耗时（秒）", "Prompt 成本（元）", "Image 请求 ID",
     "Image 耗时（秒）", "Image 成本（元）", "生成状态", "错误信息", "生成结果图",
   ],
+});
+
+export const OPTIONAL_TABLE_FIELDS = Object.freeze({
+  prompts: ["Prompt 成本（USD）"],
+  results: ["Prompt 成本（USD）", "Image 成本（USD）", "评分细则", "评审时间"],
 });
 
 function optionNames(fields, fieldName) {

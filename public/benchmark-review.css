@@ -1,9 +1,44 @@
 /**
- * [INPUT]: 依赖 benchmark.html 的评分结果区与 benchmark.css 的颜色、边框、排版和表格令牌
- * [OUTPUT]: 对外提供评分摘要、逐图三维分数、可用结论、问题标签、长原因与响应式表格视觉
- * [POS]: public 的 Benchmark AI 评分结果视觉层，与运行任务、样本集和实验配置样式模块并列
+ * [INPUT]: 依赖 benchmark.html 的紧凑评分配置/结果区与 benchmark.css 的颜色、边框、控件、排版和表格令牌
+ * [OUTPUT]: 对外提供单栏横向评分配置、轻量三维提示、评分摘要、逐图三维/加权分、可用结论、结构化问题、本地校准原因与响应式表格视觉
+ * [POS]: public 的 Benchmark AI 评分视觉层，删除独立协议说明卡并与运行任务、样本集和实验配置样式模块并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+.review-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.review-grid .review-form-card {
+  height: auto;
+}
+
+.review-form-main {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(340px, 1.5fr) minmax(180px, 0.65fr) minmax(220px, 0.8fr) minmax(188px, 0.7fr);
+}
+
+.review-form-main label {
+  margin-top: 0;
+}
+
+.review-form-main > .primary-button {
+  height: 38px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.review-form-card > .rubric {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+}
+
+.review-form-card > .rubric span {
+  padding: 5px 10px;
+}
+
 .review-results {
   border-top: 1px solid var(--line);
   grid-column: 1 / -1;
@@ -36,7 +71,7 @@
 .review-result-summary {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   margin-top: 14px;
 }
 
@@ -122,15 +157,18 @@
 }
 
 @media (max-width: 1000px) {
-  .review-grid .form-card {
-    order: 1;
+  .review-form-main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .review-results {
-    order: 2;
+
+  .review-experiment-field {
+    grid-column: 1 / -1;
   }
-  .review-grid .protocol-card {
-    order: 3;
+
+  .review-form-main > .primary-button {
+    align-self: end;
   }
+
   .review-result-table table {
     min-width: 760px;
   }
@@ -140,6 +178,18 @@
 }
 
 @media (max-width: 680px) {
+  .review-form-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-experiment-field {
+    grid-column: auto;
+  }
+
+  .review-form-main > .primary-button {
+    margin-top: 0;
+  }
+
   .review-results-head {
     align-items: flex-start;
     flex-direction: column;

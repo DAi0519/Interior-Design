@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 benchmark.html 的样本集工具栏/编辑器、benchmark.css 的 Light Command Center 令牌与 benchmark-app.js 的 hidden/disabled 状态
- * [OUTPUT]: 对外提供样本集选择、新建/重命名/归档、单一职责的 AI 模型选择、空间与五维逐图 AI 标签审核及人工准入控制的紧凑视觉
+ * [INPUT]: 依赖 benchmark.html 的样本集工具栏/编辑器/空间类型来源控件、benchmark.css 的 Light Command Center 令牌与 benchmark-app.js 的 hidden/disabled 状态
+ * [OUTPUT]: 对外提供样本集选择、新建/重命名/归档、已有分类与 AI 分类双路径、空间与五维逐图标签审核及人工准入控制的紧凑视觉
  * [POS]: public 的 Benchmark 样本集专用视觉层，与通用评测布局样式分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -63,6 +63,23 @@
 
 .dataset-grid {
   margin-top: 14px;
+}
+
+.sample-category-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sample-category-grid .field {
+  margin-bottom: 0;
+}
+
+.sample-label-scope {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 7px 0 12px;
 }
 
 .sample-drafts {
@@ -169,6 +186,10 @@
   .dataset-picker,
   .dataset-editor label {
     max-width: none;
+  }
+
+  .sample-category-grid {
+    grid-template-columns: 1fr;
   }
 
 }

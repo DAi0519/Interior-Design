@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖全局 fetch 与 AbortController，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供 OneAPI 客户端、单图分析、图生图、多图评审与多轮图片/PDF 文本 Responses 请求构造、请求 ID/响应归一化与错误脱敏
- * [POS]: src 的外部服务边界，文生图走 Images API，单图分析、图片生成与 Style DNA 多模态反推走 Responses
+ * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、全局 fetch 与 AbortController，接收后端内存中的公司 API Key
+ * [OUTPUT]: 对外提供 OneAPI 客户端、单图分析、图生图、限额内多图评审与多轮图片/PDF 文本请求构造、请求 ID/响应/真实费用归一化与错误脱敏
+ * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图走 Images API
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { fitImageDataUrlForRequest } from "./image-artifact.mjs";
 
 const BASE_URL = "https://oneapi.qunhequnhe.com/v1";
 const REQUEST_TIMEOUT_MS = 180_000;
@@ -76,6 +78,15 @@ export function extractResponseText(body) {
     return body.output_text.trim();
   }
 
+  const chatContent = body?.choices?.[0]?.message?.content;
+  if (typeof chatContent === "string" && chatContent.trim()) {
+    return chatContent.trim();
+  }
+  if (Array.isArray(chatContent)) {
+    const chatText = chatContent.map((part) => part?.text).filter(Boolean).join("\n").trim();
+    if (chatText) return chatText;
+  }
+
   const parts = Array.isArray(body?.output)
     ? body.output.flatMap((item) =>
         Array.isArray(item?.content)
@@ -84,6 +95,33 @@ export function extractResponseText(body) {
       )
     : [];
   return parts.join("\n").trim();
+}
+
+export function extractUsageCost(body) {
+  const price = body?.usage?.price;
+  const rawAmount = price?.payable_amount ?? price?.actual_amount;
+  if (rawAmount == null) return null;
+  const nativeAmount = Number(rawAmount);
+  const currency = String(price?.currency || "").trim().toUpperCase();
+  const exchangeRate = Number(price?.exchange_rate);
+  if (!Number.isFinite(nativeAmount) || nativeAmount < 0 || !currency) return null;
+  const costUsd = currency === "USD"
+    ? nativeAmount
+    : Number.isFinite(exchangeRate) && exchangeRate > 0
+      ? nativeAmount / exchangeRate
+      : null;
+  return {
+    cost: currency === "CNY" ? nativeAmount : null,
+    costUsd,
+    currency,
+    exchangeRate: Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : null,
+    nativeAmount,
+  };
+}
+
+function responseUsage(body) {
+  const usageCost = extractUsageCost(body);
+  return usageCost ? { usageCost, ...usageCost } : {};
 }
 
 export function buildResponseImageRequest(generationRequest) {
@@ -231,6 +269,38 @@ export function buildMultiImageReviewRequest({
   });
 }
 
+export function buildChatCompletionsReviewRequest({
+  imageUrls,
+  model,
+  systemPrompt,
+  userPrompt,
+}) {
+  if (!Array.isArray(imageUrls) || imageUrls.length < 2) {
+    throw new TypeError("多图评审至少需要两张图片");
+  }
+  const labels = ["source image", "generated image"];
+  return {
+    messages: [
+      { content: systemPrompt, role: "system" },
+      {
+        content: [
+          { text: userPrompt, type: "text" },
+          ...imageUrls.flatMap((imageUrl, index) => [
+            { text: `${labels[index] || `image ${index + 1}`}:`, type: "text" },
+            { image_url: { url: imageUrl }, type: "image_url" },
+          ]),
+        ],
+        role: "user",
+      },
+    ],
+    model,
+  };
+}
+
+function isAnthropicModel(model) {
+  return /(?:claude|anthropic)/i.test(String(model || ""));
+}
+
 export function createOneApiClient(apiKey) {
   const authorization = `Bearer ${apiKey}`;
 
@@ -292,21 +362,31 @@ export function createOneApiClient(apiKey) {
         );
       }
       return {
+        ...responseUsage(body),
         requestId: body.id || null,
         text,
       };
     },
 
     async reviewImages({ imageUrls, model, systemPrompt, userPrompt }) {
-      const body = await request("/responses", {
-        body: JSON.stringify(
-          buildMultiImageReviewRequest({
-            imageUrls,
+      const requestImageUrls = await Promise.all(
+        imageUrls.map((imageUrl) => fitImageDataUrlForRequest(imageUrl)),
+      );
+      const anthropic = isAnthropicModel(model);
+      const body = await request(anthropic ? "/chat/completions" : "/responses", {
+        body: JSON.stringify(anthropic
+          ? buildChatCompletionsReviewRequest({
+              imageUrls: requestImageUrls,
+              model,
+              systemPrompt,
+              userPrompt,
+            })
+          : buildMultiImageReviewRequest({
+            imageUrls: requestImageUrls,
             model,
             systemPrompt,
             userPrompt,
-          }),
-        ),
+          })),
         method: "POST",
       });
       const text = extractResponseText(body);
@@ -318,6 +398,7 @@ export function createOneApiClient(apiKey) {
         );
       }
       return {
+        ...responseUsage(body),
         requestId: body.id || null,
         text,
       };
@@ -350,6 +431,7 @@ export function createOneApiClient(apiKey) {
         );
       }
       return {
+        ...responseUsage(body),
         created: body.created_at || body.created || null,
         requestId: body.id || null,
         text,
@@ -381,7 +463,7 @@ export function createOneApiClient(apiKey) {
           "empty_style_dna",
         );
       }
-      return { created: body.created_at || body.created || null, text };
+      return { ...responseUsage(body), created: body.created_at || body.created || null, text };
     },
 
     async generateImage(generationRequest) {
@@ -403,6 +485,7 @@ export function createOneApiClient(apiKey) {
       }
 
       return {
+        ...responseUsage(body),
         created: body.created_at || body.created || null,
         images,
         outputFormat: body.output_format || generationRequest.output_format,
