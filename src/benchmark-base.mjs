@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:fs/os/path、benchmark-base-config/schema.mjs、benchmark-review.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
- * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时单选项适配的冻结配置创建、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/三维评分及可读细则/评审时间/真实费用幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
+ * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时字段类型与单选项校验的全部普通回填、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/三维评分及可读细则/评审时间/真实费用幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
  * [POS]: src 的 Benchmark 飞书持久化边界，以模型结果为运行真源、横评宽表为展示派生层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import { extname, join } from "node:path";
 
 import {
   OPTIONAL_TABLE_FIELDS,
+  resolveBaseWriteFields,
   resolveGenerationConfigFields,
   TABLE_FIELDS,
 } from "./benchmark-base-schema.mjs";
@@ -20,10 +21,7 @@ import {
   selectValue,
   validateBenchmarkBaseConfig,
 } from "./benchmark-base-config.mjs";
-import {
-  extensionForImageFormat,
-  loadImageBytes,
-} from "./image-artifact.mjs";
+import { extensionForImageFormat, loadImageBytes } from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 import { recordIdFrom } from "./lark-sync.mjs";
 
@@ -89,10 +87,7 @@ function extensionForMimeType(mimeType) {
   return extension;
 }
 
-export function createBenchmarkBaseStore(
-  config,
-  { run = runLarkCli } = {},
-) {
+export function createBenchmarkBaseStore(config, { run = runLarkCli } = {}) {
   validateBenchmarkBaseConfig(config);
   const fieldSchemas = new Map();
   let baseUrl = null;
@@ -181,7 +176,7 @@ export function createBenchmarkBaseStore(
   }
 
   async function createRecord(tableId, fields) {
-    const entries = Object.entries(fields);
+    const entries = Object.entries(resolveBaseWriteFields(await tableFields(tableId), fields, tableId));
     const body = await run(config, [
       "base",
       "+record-batch-create",
@@ -206,6 +201,7 @@ export function createBenchmarkBaseStore(
 
   async function upsertRecord(tableId, fields, recordId = null) {
     if (!recordId) return createRecord(tableId, fields);
+    const resolvedFields = resolveBaseWriteFields(await tableFields(tableId), fields, tableId);
     const args = [
       "base",
       "+record-upsert",
@@ -216,20 +212,14 @@ export function createBenchmarkBaseStore(
       "--table-id",
       tableId,
       "--json",
-      JSON.stringify(fields),
+      JSON.stringify(resolvedFields),
     ];
     args.push("--record-id", recordId);
     await run(config, args);
     return recordId;
   }
 
-  async function uploadAttachment({
-    fieldId,
-    fileName,
-    recordId,
-    tableId,
-    bytes,
-  }) {
+  async function uploadAttachment({ fieldId, fileName, recordId, tableId, bytes }) {
     const directory = await mkdtemp(join(tmpdir(), "canvas-benchmark-upload-"));
     try {
       await writeFile(join(directory, fileName), bytes);
@@ -302,6 +292,19 @@ export function createBenchmarkBaseStore(
   }
 
   return {
+    async validateExecutionContract(experimentTypes = []) {
+      const contracts = [
+        [config.sampleTableId, "任务状态", ["待生成", "生成中", "完成", "部分失败", "失败"]],
+        [config.promptTableId, "融合状态", ["待生成", "生成中", "完成", "失败"]],
+        [config.resultTableId, "生成状态", ["生成中", "成功", "失败"]],
+        [config.resultTableId, "实验类型", [...new Set(experimentTypes)]],
+      ];
+      for (const [tableId, field, values] of contracts) for (const value of values) {
+        resolveBaseWriteFields(await tableFields(tableId), { [field]: value }, tableId);
+      }
+      return true;
+    },
+
     async createGenerationConfig(generationConfig) {
       try {
         const fields = resolveGenerationConfigFields(
@@ -604,6 +607,11 @@ export function createBenchmarkBaseStore(
 
     async updateSampleDataset(recordIds, datasetName) {
       const normalizedRecordIds = [...new Set(recordIds.filter(Boolean))];
+      const patch = resolveBaseWriteFields(
+        await tableFields(config.sampleTableId),
+        { "数据集版本": datasetName },
+        config.sampleTableId,
+      );
       for (let index = 0; index < normalizedRecordIds.length; index += 200) {
         await run(config, [
           "base",
@@ -616,7 +624,7 @@ export function createBenchmarkBaseStore(
           config.sampleTableId,
           "--json",
           JSON.stringify({
-            patch: { "数据集版本": datasetName },
+            patch,
             record_id_list: normalizedRecordIds.slice(index, index + 200),
           }),
           "--format",

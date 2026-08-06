@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-review.mjs 的 v3.1 单次评分解析、本地校准、加权准入、飞书可读细则投影和统计函数
- * [OUTPUT]: 对外提供 seven_evaluate_v3.1 单次调用、证据隔离提示词、严格 JSON 契约/修复、输入准入、问题严重度封顶、评分细则完整性、旧协议隔离与可用图漏斗回归保障
+ * [OUTPUT]: 对外提供 seven_evaluate_v3.1 单次调用、小数分、证据隔离提示词、完整 JSON 提取/严格契约/修复、输入准入、问题严重度封顶、评分细则完整性、旧协议隔离与可用图漏斗回归保障
  * [POS]: test 的 Benchmark AI 评审领域测试，不调用真实评分模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,10 +15,21 @@ import {
   formatBenchmarkReviewDetails,
   isUsableReview,
   parseBenchmarkReviewOutput,
+  pendingBenchmarkReviewRuns,
   scoreBenchmarkImage,
   summarizeBenchmarkAnalysis,
   weightedBenchmarkScore,
 } from "../src/benchmark-review.mjs";
+
+test("断点继续只保留尚无正式协议评分的 Run", () => {
+  const candidates = [{ runId: "RUN-1" }, { runId: "RUN-2" }];
+  const reviews = [
+    { experimentId: "EXP-1", protocolVersion: BENCHMARK_REVIEW_PROTOCOL_VERSION, runId: "RUN-1" },
+    { experimentId: "EXP-1", protocolVersion: "legacy", runId: "RUN-2" },
+  ];
+  assert.deepEqual(pendingBenchmarkReviewRuns(candidates, reviews, "EXP-1", true), [{ runId: "RUN-2" }]);
+  assert.equal(pendingBenchmarkReviewRuns(candidates, reviews, "EXP-1", false).length, 2);
+});
 
 function scoreBlock(score, deductionReason = score === 5 ? "无明显扣分点" : "存在可见问题") {
   return { comment: "简洁结论", deduction_reason: deductionReason, evidence: "可见证据", score };
@@ -38,7 +49,7 @@ function evaluationPayload({ consistency = 5, rendering = 5, style = 5, valid = 
   });
 }
 
-test("v3.1 单次响应严格解析准入与三维评分且拒绝模型自报总分", () => {
+test("v3.1 单次响应接受 1-5 小数分且拒绝越界分和模型自报总分", () => {
   const parsed = parseBenchmarkReviewOutput(evaluationPayload({ consistency: 4, rendering: 3, style: 4 }));
 
   assert.equal(parsed.details.consistency.score, 4);
@@ -50,10 +61,16 @@ test("v3.1 单次响应严格解析准入与三维评分且拒绝模型自报总
     })),
     /字段不符合评分协议/,
   );
-  assert.throws(
-    () => parseBenchmarkReviewOutput(evaluationPayload({ rendering: 4.5 })),
-    /1-5 整数/,
-  );
+  assert.equal(parseBenchmarkReviewOutput(
+    evaluationPayload({ rendering: 4.5 }),
+  ).details.rendering_quality.score, 4.5);
+  assert.throws(() => parseBenchmarkReviewOutput(evaluationPayload({ rendering: 5.1 })), /1-5 数值/);
+});
+
+test("评分响应允许 JSON 前后带说明并诊断截断内容", () => {
+  const parsed = parseBenchmarkReviewOutput(`结果如下：\n\`\`\`json\n${evaluationPayload({ style: 4.25 })}\n\`\`\``);
+  assert.equal(parsed.details.style_material.score, 4.25);
+  assert.throws(() => parseBenchmarkReviewOutput('{"input_eligibility":'), /可能被截断/);
 });
 
 test("单次 Prompt 固定三个维度的证据边界且不重复扣分", () => {

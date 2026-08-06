@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端与按模型解析的图像客户端
- * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、按实验阶段共享或隔离冻结 Prompt、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检与可断点续跑执行器
+ * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、按实验阶段共享或隔离冻结 Prompt、飞书模型横评/Prompt 横评类型映射、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检与可断点续跑执行器
  * [POS]: src 的单变量横评应用服务，以一图一行的结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -491,7 +491,7 @@ async function generateRun({
     caseRecordId: reference.sampleRecordId,
     configRecordId: run.config.recordId,
     experimentId: group.groupId,
-    experimentType: "单变量横评",
+    experimentType: group.variableStage === "prompt" ? "Prompt 横评" : "模型横评",
     model: run.config.imageModelLabel,
     output: JSON.stringify({
       format: run.config.output.outputFormat,
@@ -558,7 +558,7 @@ async function generateRun({
         configRecordId: run.config.recordId,
         durationSeconds: (Date.now() - startedAt) / 1000,
         experimentId: group.groupId,
-        experimentType: "单变量横评",
+        experimentType: group.variableStage === "prompt" ? "Prompt 横评" : "模型横评",
         model: run.config.imageModelLabel,
         output: JSON.stringify({
           format: run.config.output.outputFormat,
@@ -593,7 +593,7 @@ async function generateRun({
         durationSeconds: (Date.now() - startedAt) / 1000,
         error,
         experimentId: group.groupId,
-        experimentType: "单变量横评",
+        experimentType: group.variableStage === "prompt" ? "Prompt 横评" : "模型横评",
         model: run.config.imageModelLabel,
         output: JSON.stringify({
           format: run.config.output.outputFormat,
@@ -644,6 +644,7 @@ export async function runBenchmark(
   if (!client || !store) {
     throw new TypeError("Benchmark 执行需要 client 与 store");
   }
+  await store.validateExecutionContract?.(plan.groups.map((group) => group.variableStage === "prompt" ? "Prompt 横评" : "模型横评"));
   await assertBenchmarkModelAvailability(client, plan, { imageClientForModel });
   const imageClients = new Map();
   const resolveImageClient = async (config) => {

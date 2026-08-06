@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-base.mjs 的环境配置、Base 返回解析、实时单选项适配和可注入 CLI 边界
- * [OUTPUT]: 对外提供 Benchmark 五表快照字段、按稳定编码解析真实选项且隔离系统时间字段的冻结生成配置创建、阶段化错误上下文、含人工准入及空间/五维标签的样本录入、实验筛选视图链接、分页保护与 Prompt/Run/横评幂等写入参数回归保障
+ * [OUTPUT]: 对外提供 Benchmark 五表快照字段、全部普通回填的实时字段类型/单选阻断、按稳定编码解析真实选项且隔离系统时间字段的冻结配置创建、阶段化错误上下文、样本录入、实验筛选链接与 Prompt/Run/横评幂等写入回归保障
  * [POS]: test 的 Benchmark 飞书适配测试，使用内存 CLI 替身且不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,11 +26,53 @@ const config = {
 
 const configFields = [
   { name: "创建时间", type: "created_at" },
+  { name: "配置 ID", type: "text" },
+  { name: "横评组", type: "text" },
   { name: "Style DNA", options: [{ name: "奶油法式 v4 [cream-french@v4]" }], type: "select" },
   { name: "融合 Agent", options: [{ name: "白模渲染融合 Agent-即梦 v7 [white-model-fusion@v7]" }], type: "select" },
   { name: "融合基座模型", options: [{ name: "Gemini 3.1 Pro [gemini-3.1-pro-preview]" }], type: "select" },
   { name: "出图模型", options: [{ name: "GPT Image 2 [gpt-image-2]" }], type: "select" },
   { name: "输出规格", options: [{ name: "跟随原图比例 · 2K · PNG" }], type: "select" },
+  { name: "提示词批次数", type: "number" },
+  { name: "每批次每模型出图数", type: "number" },
+  { name: "启用", type: "checkbox" },
+];
+
+const sampleWriteFields = [
+  { name: "Case ID", type: "text" },
+  { name: "数据集版本", type: "text" },
+  { name: "任务状态", options: ["待生成", "生成中", "完成", "部分失败", "失败"].map((name) => ({ name })), type: "select" },
+  { name: "样本类型", options: ["有效白模", "边缘输入"].map((name) => ({ name })), type: "select" },
+  { name: "边缘类型", options: ["CAD/线稿"].map((name) => ({ name })), type: "select" },
+  { name: "样本来源", options: ["用户输入"].map((name) => ({ name })), type: "select" },
+  { name: "空间类型", options: ["客厅"].map((name) => ({ name })), type: "select" },
+  ...["镜头复杂度", "软装复杂度", "材质复杂度", "输入质量", "空间结构"].map((name) => ({
+    name,
+    options: ["低", "中", "高"].map((option) => ({ name: option })),
+    type: "select",
+  })),
+  { id: "fld-image", name: "白模参考图", type: "attachment" },
+];
+
+const promptWriteFields = [
+  ...["Prompt ID", "横评组", "融合 Prompt", "错误信息", "Prompt 请求 ID", "Prompt 哈希"].map((name) => ({ name, type: "text" })),
+  ...["Prompt 耗时（秒）", "Prompt 成本（元）", "Prompt 成本（USD）", "提示词批次"].map((name) => ({ name, type: "number" })),
+  { name: "融合状态", options: ["待生成", "生成中", "完成", "失败"].map((name) => ({ name })), type: "select" },
+  ...["关联 Case", "生成配置"].map((name) => ({ name, type: "link" })),
+];
+
+const resultWriteFields = [
+  ...["Run ID", "实验 ID", "模型与版本", "模型提供商", "重试来源", "输出参数", "Prompt 哈希", "Image 请求 ID", "错误信息", "评分细则", "判断理由（≤50字）"].map((name) => ({ name, type: "text" })),
+  ...["采样序号", "尝试序号", "Prompt 耗时（秒）", "Prompt 成本（元）", "Prompt 成本（USD）", "Image 耗时（秒）", "Image 成本（元）", "Image 成本（USD）", "保持一致性", "风格与材质", "渲染质量"].map((name) => ({ name, type: "number" })),
+  { name: "实验类型", options: ["模型横评", "Prompt 横评", "端到端回归"].map((name) => ({ name })), type: "select" },
+  { name: "生成状态", options: ["生成中", "成功", "失败"].map((name) => ({ name })), type: "select" },
+  ...["关联 Case", "提示词批次", "生成配置"].map((name) => ({ name, type: "link" })),
+  { name: "评审时间", type: "datetime" },
+];
+
+const comparisonWriteFields = [
+  ...["对比 ID", "横评组", "评审备注"].map((name) => ({ name, type: "text" })),
+  ...["关联 Case", "提示词批次"].map((name) => ({ name, type: "link" })),
 ];
 
 function envelope(fields, row, recordId) {
@@ -368,7 +410,7 @@ test("分类样本写入飞书字段并上传唯一参考图", async () => {
       return { data: { record_id_list: ["rec-case"] }, ok: true };
     }
     if (args.includes("+field-list")) {
-      return { data: { fields: [{ id: "fld-image", name: "白模参考图" }] }, ok: true };
+      return { data: { fields: sampleWriteFields }, ok: true };
     }
     uploadArgs = args;
     return { data: { attachments: {} }, ok: true };
@@ -408,6 +450,7 @@ test("分类样本写入飞书字段并上传唯一参考图", async () => {
 test("样本集重命名以同值 patch 批量更新飞书样本", async () => {
   let written;
   const run = async (_config, args) => {
+    if (args.includes("+field-list")) return { data: { fields: sampleWriteFields }, ok: true };
     written = { args, body: JSON.parse(args[args.indexOf("--json") + 1]) };
     return { data: { record_id_list: written.body.record_id_list }, ok: true };
   };
@@ -422,6 +465,7 @@ test("样本集重命名以同值 patch 批量更新飞书样本", async () => {
 test("Prompt 批次写入关联 Case 与全部配置", async () => {
   let written;
   const run = async (_config, args) => {
+    if (args.includes("+field-list")) return { data: { fields: promptWriteFields }, ok: true };
     written = JSON.parse(args[args.indexOf("--json") + 1]);
     return { data: { record_id_list: ["rec-new"] }, ok: true };
   };
@@ -449,6 +493,7 @@ test("Prompt 批次写入关联 Case 与全部配置", async () => {
 test("横评宽表写入关联 Case 与 Prompt 批次", async () => {
   let written;
   const run = async (_config, args) => {
+    if (args.includes("+field-list")) return { data: { fields: comparisonWriteFields }, ok: true };
     written = JSON.parse(args[args.indexOf("--json") + 1]);
     return { data: { record_id_list: ["rec-compare"] }, ok: true };
   };
@@ -473,6 +518,7 @@ test("横评宽表写入关联 Case 与 Prompt 批次", async () => {
 test("模型结果一图一行写入运行、重试和成本字段", async () => {
   let written;
   const run = async (_config, args) => {
+    if (args.includes("+field-list")) return { data: { fields: resultWriteFields }, ok: true };
     written = JSON.parse(args[args.indexOf("--json") + 1]);
     return { data: { record_id_list: ["rec-result"] }, ok: true };
   };
@@ -512,12 +558,7 @@ test("可选 USD 成本与三维评分写回运行明细", async () => {
   const writes = [];
   const run = async (_config, args) => {
     if (args[1] === "+field-list") {
-      return { data: { fields: [
-        { name: "Prompt 成本（USD）" },
-        { name: "Image 成本（USD）" },
-        { name: "评分细则" },
-        { name: "评审时间" },
-      ] }, ok: true };
+      return { data: { fields: resultWriteFields }, ok: true };
     }
     writes.push(JSON.parse(args[args.indexOf("--json") + 1]));
     return { data: { record_id_list: ["rec-result"] }, ok: true };
@@ -528,7 +569,7 @@ test("可选 USD 成本与三维评分写回运行明细", async () => {
     caseRecordId: "case-rec",
     configRecordId: "config-rec",
     experimentId: "EXP",
-    experimentType: "单变量横评",
+    experimentType: "模型横评",
     imageCostUsd: 0.0757,
     model: "GPT Image 2",
     promptCostUsd: 0.0123,
@@ -561,6 +602,45 @@ test("可选 USD 成本与三维评分写回运行明细", async () => {
   assert.equal(writes[1]["评审时间"], "2026-08-05 15:33:00");
   assert.match(writes[1]["评分细则"], /保持一致性：4 \/ 5/);
   assert.match(writes[1]["评分细则"], /问题明细/);
+});
+
+test("运行明细单选值不在飞书实时选项时在写入前阻断", async () => {
+  let writeCalls = 0;
+  const store = createBenchmarkBaseStore(config, {
+    run: async (_config, args) => {
+      if (args.includes("+field-list")) return { data: { fields: resultWriteFields }, ok: true };
+      writeCalls += 1;
+      return { data: { record_id_list: ["should-not-write"] }, ok: true };
+    },
+  });
+  await assert.rejects(() => store.saveRunResult({
+    attempt: 1,
+    caseRecordId: "case-rec",
+    configRecordId: "config-rec",
+    experimentId: "EXP",
+    experimentType: "单变量横评",
+    model: "GPT Image 2",
+    promptRecordId: "prompt-rec",
+    runId: "RUN-INVALID-TYPE",
+    sampleIndex: 1,
+    status: "生成中",
+  }), /实验类型.*没有选项：单变量横评/);
+  assert.equal(writeCalls, 0);
+});
+
+test("正式执行前按飞书实时选项校验全部状态与实验类型", async () => {
+  const store = createBenchmarkBaseStore(config, {
+    run: async (_config, args) => {
+      const tableId = args[args.indexOf("--table-id") + 1];
+      const fields = {
+        prompts: promptWriteFields,
+        results: resultWriteFields,
+        samples: sampleWriteFields,
+      }[tableId];
+      return { data: { fields }, ok: true };
+    },
+  });
+  assert.equal(await store.validateExecutionContract(["模型横评", "Prompt 横评"]), true);
 });
 
 test("横评宽表参考图上传到固定附件列", async () => {

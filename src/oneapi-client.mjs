@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、全局 fetch 与 AbortController，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供 OneAPI 客户端、单图分析、图生图、限额内多图评审与多轮图片/PDF 文本请求构造、请求 ID/响应/真实费用归一化与错误脱敏
+ * [OUTPUT]: 对外提供 OneAPI 客户端、单图分析、图生图、4K-token 限额内多图评审与多轮图片/PDF 文本请求构造、请求 ID/响应/真实费用归一化与错误脱敏
  * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图走 Images API
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -211,6 +211,7 @@ export function buildStyleDnaResponseRequest({
 
 function buildImageAnalysisRequest({
   imageUrls,
+  maxOutputTokens = 1024,
   model,
   systemPrompt,
   userPrompt,
@@ -230,7 +231,7 @@ function buildImageAnalysisRequest({
       },
     ],
     instructions: systemPrompt,
-    max_output_tokens: 1024,
+    max_output_tokens: maxOutputTokens,
     model,
   };
 }
@@ -263,6 +264,7 @@ export function buildMultiImageReviewRequest({
   }
   return buildImageAnalysisRequest({
     imageUrls,
+    maxOutputTokens: 4096,
     model,
     systemPrompt,
     userPrompt,

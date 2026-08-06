@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html DOM、benchmark-sample-ui.js 的分类来源与标签合并规则、浏览器 location/FileReader 与同源 /api/benchmark 接口
- * [OUTPUT]: 对外提供可连续累加且缩略图稳定的样本待保存清单、已有空间分类保护/未分类 AI 识别、逐图五维 AI 打标、八类单变量实验计划生成、失败 Run 重试、持久化横评跳转、评分分析、任务轮询及飞书视图分流
+ * [OUTPUT]: 对外提供可连续累加且缩略图稳定的样本待保存清单、已有空间分类保护/未分类 AI 识别、逐图五维 AI 打标、八类单变量实验计划生成、失败 Run 重试、评分断点继续、持久化横评跳转、评分分析、任务轮询及飞书视图分流
  * [POS]: public 的 Benchmark 页面状态控制器，以样本集为操作主对象，拦截 file 协议误用且所有破坏性外部调用都要求用户二次确认
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,8 +10,8 @@ import {
   createJobRenderer,
   generationRetryInput,
   persistedGenerationJob,
-} from "./benchmark-job-ui.js?v=2";
-import { createReviewController, jobPanelFor } from "./benchmark-review-ui.js?v=2";
+} from "./benchmark-job-ui.js?v=3";
+import { createReviewController, jobPanelFor } from "./benchmark-review-ui.js?v=3";
 import {
   AI_DIMENSION_FIELDS, SAMPLE_CATEGORIES, SAMPLE_COMPLEXITY_LEVELS, SAMPLE_EDGE_TYPES, SAMPLE_IMAGE_MAX_BYTES,
   SAMPLE_IMAGE_TYPES, SAMPLE_TYPES, applyAiSampleLabel, createSampleDraft, sampleDraftStatusCopy,
@@ -676,6 +676,13 @@ function defaultIds() {
   byId("reviewBatchInput").value = `REVIEW-${stamp}`;
 }
 
+function startReview() {
+  return startJob("/api/benchmark/reviews/run", {
+    caseIds: selectedDatasetCases().map((entry) => entry.caseId),
+    ...reviewController.input(),
+  });
+}
+
 async function refreshOverview() {
   const button = byId("refreshButton");
   button.disabled = true;
@@ -774,10 +781,8 @@ function bind() {
   byId("caseForm").addEventListener("submit", (event) => submitCase(event).catch((error) => toast(error.message)));
   byId("planButton").addEventListener("click", () => planExperiment().catch((error) => toast(error.message)));
   byId("runButton").addEventListener("click", () => startJob("/api/benchmark/experiments/run", experimentInput()).catch((error) => toast(error.message)));
-  byId("reviewButton").addEventListener("click", () => startJob("/api/benchmark/reviews/run", {
-    caseIds: selectedDatasetCases().map((entry) => entry.caseId),
-    ...reviewController.input(),
-  }).catch((error) => toast(error.message)));
+  byId("reviewButton").addEventListener("click", () => startReview().catch((error) => toast(error.message)));
+  byId("jobReviewResumeButton").addEventListener("click", () => startReview().catch((error) => toast(error.message)));
   byId("refreshButton").addEventListener("click", () => refreshOverview().catch((error) => toast(error.message)));
 }
 

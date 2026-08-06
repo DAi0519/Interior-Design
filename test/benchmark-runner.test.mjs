@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的可筛选纯计划器、可注入模型/飞书执行边界
- * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、停用模型排除、Provider 智能路由、OneAPI 费用传递、Run 真源、失败重试、横评展示与规模回归保障
+ * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、飞书实验类型映射、停用模型排除、Provider 智能路由、OneAPI 费用传递、Run 真源、失败重试、横评展示与规模回归保障
  * [POS]: test 的模型横评核心集成测试，所有资源与模型调用均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -141,6 +141,7 @@ test("Prompt 版本实验运行时逐版本加载 Agent 且固定同一出图模
   const loadedVersions = [];
   const promptSystemPrompts = [];
   const imageModels = [];
+  const runTypes = [];
   let promptRecord = 0;
   let resultRecord = 0;
   const client = {
@@ -162,7 +163,7 @@ test("Prompt 版本实验运行时逐版本加载 Agent 且固定同一出图模
     },
     async saveComparisonRow(_value, recordId) { return recordId || "comparison-rec"; },
     async savePromptBatch(_value, recordId) { promptRecord += recordId ? 0 : 1; return recordId || `prompt-rec-${promptRecord}`; },
-    async saveRunResult(_value, recordId) { resultRecord += recordId ? 0 : 1; return recordId || `result-rec-${resultRecord}`; },
+    async saveRunResult(value, recordId) { runTypes.push(value.experimentType); resultRecord += recordId ? 0 : 1; return recordId || `result-rec-${resultRecord}`; },
     async updateSampleStatus() {},
     async uploadComparisonImage() {},
     async uploadComparisonReference() {},
@@ -183,6 +184,7 @@ test("Prompt 版本实验运行时逐版本加载 Agent 且固定同一出图模
   assert.deepEqual(loadedVersions, [6, 7]);
   assert.deepEqual(promptSystemPrompts, ["system-v6", "system-v7"]);
   assert.deepEqual(imageModels, ["doubao-seedream-5.0", "doubao-seedream-5.0"]);
+  assert.deepEqual([...new Set(runTypes)], ["Prompt 横评"]);
   assert.equal(result.generatedPrompts, 2);
   assert.equal(result.generatedImages, 2);
 });
@@ -376,6 +378,7 @@ test("每批重新融合一次，批内三个模型严格共享冻结 Prompt", a
   assert.equal(uploadedRunImages.length, 9);
   assert.equal(savedRuns.filter((entry) => entry.status === "成功").length, 9);
   assert.equal(savedRuns.filter((entry) => entry.status === "生成中").length, 9);
+  assert.deepEqual([...new Set(savedRuns.map((entry) => entry.experimentType))], ["模型横评"]);
   assert.equal(new Set(uploaded.map((entry) => entry.recordId)).size, 3);
   assert.deepEqual(statuses, ["生成中", "完成"]);
   assert.equal(result.generatedPrompts, 3);

@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css 共享顶栏、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、失败重试、紧凑横向配置的 seven_evaluate_v3.1 单次调用 AI 评分、分析与飞书跳转
+  [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -219,6 +219,7 @@
               </div>
               <div class="job-failure-next">
                 <div><span>下一步</span><p id="jobFailureAdvice"></p></div>
+                <button id="jobReviewResumeButton" class="secondary-button hidden" type="button">继续评分</button>
                 <button id="jobNewExperimentButton" class="secondary-button hidden" type="button">生成新实验 ID</button>
               </div>
               <details class="job-technical-detail">
@@ -250,7 +251,7 @@
                 <label>评审批次 ID<input id="reviewBatchInput" /></label>
                 <button id="reviewButton" class="primary-button" data-requires-service type="button">确认并开始 AI 评分</button>
               </div>
-              <div class="rubric"><span>保持一致性 1–5</span><span>风格与材质 1–5</span><span>渲染质量 1–5</span></div>
+              <div class="rubric"><span>保持一致性 1–5 数值</span><span>风格与材质 1–5 数值</span><span>渲染质量 1–5 数值 · 可含小数</span></div>
             </div>
             <section class="review-results" aria-labelledby="reviewResultsTitle">
               <div class="review-results-head">
@@ -291,6 +292,6 @@
       </main>
     </div>
     <script type="module" src="./custom-select.js?v=5"></script>
-    <script type="module" src="./benchmark-app.js?v=30"></script>
+    <script type="module" src="./benchmark-app.js?v=31"></script>
   </body>
 </html>

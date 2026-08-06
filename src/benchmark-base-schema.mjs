@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark Base 实时字段 Schema 与带稳定编码的冻结生成配置
- * [OUTPUT]: 对外提供五张运行表必需/可选投影字段（含评分细则），以及把冻结配置解析为真实单选项名称的纯函数
+ * [OUTPUT]: 对外提供五张运行表必需/可选投影字段（含评分细则），以及按实时字段类型校验全部普通回填、把冻结配置解析为真实单选项名称的纯函数
  * [POS]: src 的 Benchmark Base Schema 适配层，隔离飞书展示名变化与领域配置稳定编码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,9 +36,40 @@ export const OPTIONAL_TABLE_FIELDS = Object.freeze({
 function optionNames(fields, fieldName) {
   const field = fields.find((item) => item.name === fieldName);
   if (field?.type !== "select" || !Array.isArray(field.options)) {
-    throw new Error(`Benchmark Base 配置表缺少单选字段：${fieldName}`);
+    throw new Error(`Benchmark Base 缺少单选字段：${fieldName}`);
   }
   return field.options.map((option) => String(option.name || "").trim()).filter(Boolean);
+}
+
+function fieldValueMatchesType(field, value) {
+  if (value == null) return true;
+  if (["text", "datetime"].includes(field.type)) return typeof value === "string";
+  if (field.type === "number") return typeof value === "number" && Number.isFinite(value);
+  if (field.type === "checkbox") return typeof value === "boolean";
+  if (field.type === "link") {
+    return Array.isArray(value) && value.every((item) =>
+      item && typeof item === "object" && typeof item.id === "string" && item.id.trim());
+  }
+  return true;
+}
+
+export function resolveBaseWriteFields(fields, values, tableId = "未知表") {
+  return Object.fromEntries(Object.entries(values).map(([fieldName, value]) => {
+    const field = fields.find((item) => item.name === fieldName);
+    if (!field) throw new Error(`Benchmark Base ${tableId} 缺少回填字段：${fieldName}`);
+    if (["attachment", "created_at", "formula", "lookup", "updated_at"].includes(field.type)) {
+      throw new Error(`Benchmark Base ${tableId} 字段不可普通回填：${fieldName} (${field.type})`);
+    }
+    if (field.type === "select" && value != null) {
+      const options = optionNames(fields, fieldName);
+      if (!options.includes(value)) {
+        throw new Error(`Benchmark Base ${tableId} 单选字段 ${fieldName} 没有选项：${value}`);
+      }
+    } else if (!fieldValueMatchesType(field, value)) {
+      throw new Error(`Benchmark Base ${tableId} 字段类型不匹配：${fieldName} (${field.type})`);
+    }
+    return [fieldName, value];
+  }));
 }
 
 function stableCode(value) {

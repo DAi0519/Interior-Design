@@ -490,6 +490,58 @@ test("AI 评分同时保存本地事实并写回对应飞书 Run", async () => {
   assert.equal(writes[0].review.weightedScore, 4);
 });
 
+test("AI 评分断点继续按 Run ID 跳过已有正式评分", async () => {
+  const calls = [];
+  const savedBatches = [];
+  const results = ["RUN-DONE", "RUN-PENDING"].map((runId, index) => ({
+    attachments: [{ file_token: runId, name: `${runId}.png` }],
+    caseLinks: [{ id: "rec-case" }],
+    experimentId: "EXP-RESUME",
+    model: "Banana 2",
+    recordId: `rec-run-${index}`,
+    runId,
+    status: "成功",
+  }));
+  const baseStore = {
+    async downloadResultImage() { return { dataUrl: "data:image/png;base64,cmVzdWx0" }; },
+    async downloadSampleImage() { return { dataUrl: "data:image/png;base64,c291cmNl" }; },
+    async loadSnapshot() {
+      return { comparisons: [], configs: [], prompts: [], results, samples: [{ caseId: "CASE-1", recordId: "rec-case" }] };
+    },
+    async saveRunReview() {},
+  };
+  const localStore = {
+    async read() {
+      return { reviews: [{ experimentId: "EXP-RESUME", protocolVersion: BENCHMARK_REVIEW_PROTOCOL_VERSION, runId: "RUN-DONE" }] };
+    },
+    async saveReview() {},
+    async saveReviewBatch(batch) { savedBatches.push(batch); },
+  };
+  const service = createBenchmarkWorkbenchService({ baseStore, localStore });
+  const result = await service.runReview({
+    confirm: true,
+    experimentId: "EXP-RESUME",
+    groupId: "EXP-RESUME",
+    resume: true,
+    reviewBatchId: "REVIEW-RESUME",
+    scorerModelKey: "gpt",
+  }, { client: { async reviewImages() {
+    calls.push(true);
+    return { requestId: "req-resume", text: JSON.stringify({
+      consistency: { comment: "好", deduction_reason: "轻微偏差", evidence: "门框", score: 4 },
+      input_eligibility: { category: "valid_white_model", reason: "", valid: true },
+      issues: [],
+      rendering_quality: { comment: "好", deduction_reason: "轻微瑕疵", evidence: "边缘", score: 4 },
+      style_material: { comment: "好", deduction_reason: "轻微不足", evidence: "织物", score: 4 },
+    }) };
+  } } });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(result, { completed: 2, reviewBatchId: "REVIEW-RESUME", total: 2 });
+  assert.equal(savedBatches[0].resumedFrom, 1);
+  assert.equal(savedBatches[0].total, 2);
+});
+
 test("现有数据集迁移为样本集并由系统生成 Case ID", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "benchmark-workbench-test-"));
   context.after(() => rm(directory, { force: true, recursive: true }));

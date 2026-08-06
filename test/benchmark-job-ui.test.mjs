@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-job-ui.js 的持久化任务投影和失败出图恢复输入纯函数
- * [OUTPUT]: 对外提供部分失败任务文案、完整进度、重试准入及同实验冻结参数恢复回归保障
+ * [OUTPUT]: 对外提供部分失败任务文案、完整进度、出图重试准入、评分断点继续及同实验冻结参数恢复回归保障
  * [POS]: test 的 Benchmark 任务恢复前端护栏，不访问 DOM、Base 或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,8 +11,15 @@ import test from "node:test";
 import {
   generationRetryInput,
   persistedGenerationJob,
+  reviewResumeLabel,
   retryableFailedImages,
 } from "../public/benchmark-job-ui.js";
+
+test("评分失败卡显示剩余结果的继续动作", () => {
+  assert.equal(reviewResumeLabel({ completed: 1, phase: "review", status: "failed", total: 16 }), "继续评分剩余 15 张");
+  assert.equal(reviewResumeLabel({ completed: 0, phase: "review", status: "failed", total: 16 }), "重试评分 16 张");
+  assert.equal(reviewResumeLabel({ completed: 1, phase: "generation", status: "failed", total: 16 }), "");
+});
 
 const partialExperiment = {
   completedAt: "2026-08-05T04:00:00.000Z",

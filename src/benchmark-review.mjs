@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖可注入的 OneAPI 多图评审客户端，接收白模参考图、生成结果和评分模型
- * [OUTPUT]: 对外提供 seven_evaluate_v3.1 同构的单次三维评分协议、严格 JSON 契约/单次修复、本地降档/加权、飞书可读评分细则投影、旧协议隔离、P95 与分模型/分类分析
+ * [OUTPUT]: 对外提供 seven_evaluate_v3.1 同构的单次三维小数评分协议、完整 JSON 提取/严格契约/单次修复、正式评分 Run 断点筛选、本地降档/加权、飞书可读评分细则投影、旧协议隔离、P95 与分模型/分类分析
  * [POS]: src 的 AI 评审领域层，评分规则与传输、存储和界面解耦
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -103,7 +103,7 @@ rendering_quality 评分锚点
 - 某维度存在 1 个 MAJOR 问题，该维度最高 3。
 - 某维度存在 1 个 CRITICAL 问题，该维度最高 2。
 - 两档之间难以判断时取较低档。
-- score 只能是整数 1、2、3、4、5。
+- score 必须是 1–5 的 JSON 数值，可以使用小数，不要输出字符串。
 - deduction_reason 必须写该维度主要扣分原因；5 分只能写“无明显扣分点”。
 - issues 中每个问题只能归属一个 dimension；severity 只能是 MINOR、MAJOR、CRITICAL。
 - 不得输出权重、总分、合格结论或模型身份。
@@ -152,11 +152,23 @@ function reviewError(message) {
 
 function parseJson(text) {
   const source = String(text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  try {
-    return JSON.parse(source);
-  } catch {
-    throw reviewError("评分模型没有返回合法 JSON");
+  const candidates = [source];
+  const start = source.indexOf("{");
+  const end = source.lastIndexOf("}");
+  if (start >= 0 && end > start) candidates.push(source.slice(start, end + 1));
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // 继续尝试从响应正文中提取完整 JSON 对象。
+    }
   }
+  const diagnosis = !source
+    ? "响应为空"
+    : start >= 0 && end < start
+      ? "JSON 可能被截断，缺少闭合花括号"
+      : `收到 ${Array.from(source).length} 个字符`;
+  throw reviewError(`评分模型没有返回完整合法 JSON（${diagnosis}）`);
 }
 
 function exactKeys(value, expected, label) {
@@ -176,8 +188,8 @@ function requiredText(value, label) {
 }
 
 function score(value, label) {
-  if (!Number.isInteger(value) || value < 1 || value > 5) {
-    throw reviewError(`${label} 必须是 1-5 整数`);
+  if (!Number.isFinite(value) || value < 1 || value > 5) {
+    throw reviewError(`${label} 必须是 1-5 数值`);
   }
   return value;
 }
@@ -334,6 +346,14 @@ function reviewReason(details, entries, fallback = "") {
 
 export function isCurrentBenchmarkReview(review) {
   return review?.protocolVersion === BENCHMARK_REVIEW_PROTOCOL_VERSION;
+}
+
+export function pendingBenchmarkReviewRuns(candidates = [], reviews = [], experimentId = "", resume = false) {
+  if (!resume) return candidates;
+  const reviewedRunIds = new Set(reviews
+    .filter((review) => review.experimentId === experimentId && isCurrentBenchmarkReview(review))
+    .map((review) => review.runId));
+  return candidates.filter((candidate) => !reviewedRunIds.has(candidate.runId));
 }
 
 export function isUsableReview(review) {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 AI 评分 DOM、当前样本集 Case ID、服务端 seven_evaluate_v3.1 正式/旧协议评分投影、可评分实验目录与评分模型目录
- * [OUTPUT]: 对外提供当前样本集可评分实验筛选、单次评测三维与加权分最新评分选择/汇总/渲染、旧协议提示、任务归属面板、默认最近完成实验、评分表单状态与提交输入
+ * [OUTPUT]: 对外提供当前样本集可评分实验筛选、单次评测三维与加权分最新评分选择/汇总/渲染、旧协议提示、任务归属面板、默认最近完成实验/GPT 评分模型、评分表单状态与提交输入
  * [POS]: public 的 Benchmark AI 评分控制器，与实验草稿控制器和通用页面编排分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,21 @@ export function scopeReviewableExperiments(experiments = [], caseIds = []) {
 
 export function jobPanelFor(job = {}) {
   return job.kind === "review" || job.phase === "review" ? "review" : "run";
+}
+
+export function defaultReviewModelKey(models = []) {
+  const selectable = models.filter((model) => model.selectable !== false);
+  return selectable.find((model) => model.key === "gpt")?.key || selectable[0]?.key || "";
+}
+
+export function reviewAction(experiment) {
+  if (!experiment) return { label: "暂无可评分结果", resume: false };
+  const total = Number(experiment.resultCount || 0);
+  const reviewed = Math.min(total, Number(experiment.reviewedCount || 0));
+  if (reviewed >= total) return { label: `重新评分 ${total} 张结果`, resume: false };
+  if (reviewed > 0) return { label: `继续评分剩余 ${total - reviewed} 张`, resume: true };
+  const verb = experiment.legacyReviewedCount ? "按正式三维评分" : "直接评分";
+  return { label: `${verb} ${total} 张结果`, resume: false };
 }
 
 export function selectLatestReviewResults(reviews = [], experimentId = "", caseIds = []) {
@@ -149,13 +164,7 @@ export function createReviewController({ byId, escapeHtml, selectedCaseIds, stor
     const selected = experiments.find((item) => item.experimentId === byId("reviewExperimentSelect").value);
     const ready = Boolean(apiConnected && selected && byId("reviewModelSelect").value);
     byId("reviewButton").disabled = !ready;
-    byId("reviewButton").textContent = selected
-      ? `${selected.reviewedCount >= selected.resultCount
-        ? "重新评分"
-        : selected.legacyReviewedCount
-          ? "按正式三维评分"
-          : "直接评分"} ${selected.resultCount} 张结果`
-      : "暂无可评分结果";
+    byId("reviewButton").textContent = reviewAction(selected).label;
   }
 
   function syncMeta() {
@@ -194,6 +203,7 @@ export function createReviewController({ byId, escapeHtml, selectedCaseIds, stor
     byId("reviewModelSelect").innerHTML = selectable.length
       ? selectable.map((model) => `<option value="${escapeHtml(model.key)}">${escapeHtml(model.label)}</option>`).join("")
       : '<option value="">暂无可用视觉模型</option>';
+    byId("reviewModelSelect").value = defaultReviewModelKey(selectable);
     byId("reviewModelSelect").disabled = selectable.length === 0;
     syncButton();
   }
@@ -204,10 +214,12 @@ export function createReviewController({ byId, escapeHtml, selectedCaseIds, stor
   return {
     input() {
       const experimentId = byId("reviewExperimentSelect").value;
+      const selected = experiments.find((item) => item.experimentId === experimentId);
       return {
         experimentId,
         groupId: experimentId,
         reviewBatchId: byId("reviewBatchInput").value,
+        resume: reviewAction(selected).resume,
         scorerModelKey: byId("reviewModelSelect").value,
       };
     },

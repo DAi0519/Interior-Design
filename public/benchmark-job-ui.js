@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark 任务进度 DOM、任务阶段/状态以及任务所属面板解析器
- * [OUTPUT]: 对外提供生成/评分任务进度、落库状态、失败出图重试输入、持久化实验任务投影和分层失败建议渲染器
+ * [OUTPUT]: 对外提供生成/评分任务进度、落库状态、失败出图重试输入、评分断点继续动作、持久化实验任务投影和分层失败建议渲染器
  * [POS]: public 的 Benchmark 任务呈现组件，与 benchmark-app.js 的轮询编排和 benchmark-review-ui.js 的面板归属分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -65,6 +65,14 @@ export function retryableFailedImages(job) {
   return Math.max(0, Number(job?.result?.failedImages || 0));
 }
 
+export function reviewResumeLabel(job) {
+  if (job?.phase !== "review" || job?.status !== "failed") return "";
+  const total = Number(job.total || 0);
+  const completed = Number(job.completed || 0);
+  const remaining = Math.max(0, total - completed);
+  return completed > 0 ? `继续评分剩余 ${remaining} 张` : `重试评分 ${remaining} 张`;
+}
+
 function failureCopy(job) {
   const error = String(job.error || "");
   const idConflict = error.includes("已存在但冻结参数不同");
@@ -89,7 +97,7 @@ function failureCopy(job) {
   if (job.phase === "review") {
     return {
       action: false,
-      advice: "保留当前评审批次，检查技术详情后重新评分；已完成的出图不会重新生成。",
+      advice: "点击继续评分；系统会按 Run ID 跳过已有正式评分，只处理剩余结果。",
       impact: "Benchmark Base 中的生成结果不受影响，已保存的评分版本也会保留。",
       title: "AI 评分未完成",
     };
@@ -106,7 +114,9 @@ export function createJobRenderer({ byId, jobPanelFor }) {
   function renderFailure(job) {
     const failed = job.status === "failed" && Boolean(job.error);
     const section = byId("jobFailure");
+    const resumeButton = byId("jobReviewResumeButton");
     section.classList.toggle("hidden", !failed);
+    resumeButton.classList.toggle("hidden", !reviewResumeLabel(job));
     if (!failed) return;
     const copy = failureCopy(job);
     byId("jobFailureTitle").textContent = copy.title;
@@ -114,6 +124,7 @@ export function createJobRenderer({ byId, jobPanelFor }) {
     byId("jobFailureAdvice").textContent = copy.advice;
     byId("jobError").textContent = job.error;
     byId("jobNewExperimentButton").classList.toggle("hidden", !copy.action);
+    resumeButton.textContent = reviewResumeLabel(job);
   }
 
   return function renderJob(job) {

@@ -1,12 +1,11 @@
 /**
  * [INPUT]: 依赖 Benchmark Base、本地版本化状态、样本 AI 标注、横评计划/执行器、AI 评分领域层与可注入 OneAPI 客户端
- * [OUTPUT]: 对外提供样本集治理、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、失败持久化批量生成、seven_evaluate_v3.1 同构的单次调用版本化 AI 评分/Run 写回、实验分析及飞书筛选跳转
+ * [OUTPUT]: 对外提供样本集治理、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、失败持久化批量生成、seven_evaluate_v3.1 同构的单次调用/按 Run 断点继续评分与写回、实验分析及飞书筛选跳转
  * [POS]: src 的评测工作台应用服务，统一浏览器 API 与既有 CLI Runner 的业务边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { randomUUID } from "node:crypto";
-
 import { agentModelOrThrow, publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { baseRunId } from "./benchmark-identifiers.mjs";
 import {
@@ -24,6 +23,7 @@ import {
   BENCHMARK_REVIEW_PROTOCOL_VERSION,
   isCurrentBenchmarkReview,
   isUsableReview,
+  pendingBenchmarkReviewRuns,
   scoreBenchmarkImage,
   summarizeBenchmarkAnalysis,
   weightedBenchmarkScore,
@@ -35,7 +35,6 @@ import {
 } from "./benchmark-runner.mjs";
 import { publicModelCatalog } from "./model-config.mjs";
 import { normalizeReferenceImage } from "./reference-image.mjs";
-
 function inputError(message) {
   const error = new Error(message);
   error.statusCode = 400;
@@ -712,46 +711,47 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         throw error;
       }
     },
-
     async runReview(input, { client, update = () => {} }) {
       if (input.confirm !== true) throw inputError("AI 评分需要显式确认");
       update({ message: "正在准备 AI 评分", persisted: false, phase: "review" });
       const scorer = agentModelOrThrow(input.scorerModelKey);
       const snapshot = await snapshotWithCaseIds();
       const samplesByRecordId = new Map(snapshot.samples.map((sample) => [sample.recordId, sample]));
-      const selectedCaseIds = Array.isArray(input.caseIds) && input.caseIds.length
-        ? new Set(input.caseIds)
-        : null;
+      const selectedCaseIds = Array.isArray(input.caseIds) && input.caseIds.length ? new Set(input.caseIds) : null;
       const experimentId = assertExperimentMatchesGroup(input);
       const reviewBatchId = String(input.reviewBatchId || `REVIEW-${randomUUID()}`);
-      const candidates = snapshot.results.filter(
+      const allCandidates = snapshot.results.filter(
         (result) => result.status === "成功" && result.attachments.length &&
           result.experimentId === input.groupId &&
           (!selectedCaseIds || selectedCaseIds.has(resultCaseId(result, samplesByRecordId))),
       );
-      if (!candidates.length) throw inputError(`${experimentId} 在当前样本集中没有可评分的成功结果图`);
+      if (!allCandidates.length) throw inputError(`${experimentId} 在当前样本集中没有可评分的成功结果图`);
+      const reviewState = input.resume === true && localStore.read ? await localStore.read() : { reviews: [] };
+      const candidates = pendingBenchmarkReviewRuns(allCandidates, reviewState.reviews, experimentId, input.resume === true);
+      if (!candidates.length) throw inputError(`${experimentId} 的成功结果已经全部完成正式评分`);
       const batch = {
         createdAt: new Date().toISOString(),
         experimentId,
         protocolVersion: BENCHMARK_REVIEW_PROTOCOL_VERSION,
         reviewBatchId,
         scorerModelId: scorer.id,
-        total: candidates.length,
+        resumedFrom: allCandidates.length - candidates.length,
+        total: allCandidates.length,
       };
       await localStore.saveReviewBatch({ ...batch, status: "running" });
       update({
-        completed: 0,
+        completed: batch.resumedFrom,
         message: "评审批次已保存，开始逐图评分",
         persisted: true,
         phase: "review",
-        total: candidates.length,
+        total: batch.total,
       });
-      let completed = 0;
+      let completed = batch.resumedFrom;
       try {
         for (const result of candidates) {
           const sample = samplesByRecordId.get(result.caseLinks?.[0]?.id);
           if (!sample) continue;
-          update({ completed, message: `正在评分 ${result.runId}`, total: candidates.length });
+          update({ completed, message: `正在评分 ${result.runId}`, total: batch.total });
           const [reference, generated] = await Promise.all([
             baseStore.downloadSampleImage(sample),
             baseStore.downloadResultImage(result),
@@ -783,8 +783,8 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
           completedAt: new Date().toISOString(),
           status: "completed",
         });
-        update({ completed, message: "AI 评分完成", total: candidates.length });
-        return { completed, reviewBatchId, total: candidates.length };
+        update({ completed, message: "AI 评分完成", total: batch.total });
+        return { completed, reviewBatchId, total: batch.total };
       } catch (error) {
         await localStore.saveReviewBatch({
           ...batch,

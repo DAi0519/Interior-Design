@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI 单图分析/多图评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 AI 单图分析、请求侧大图压缩、Claude Chat Completions/其他 Responses 双图评审、图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本/真实费用响应及敏感错误处理的回归保障
+ * [OUTPUT]: 对外提供 AI 单图分析、请求侧大图压缩、Claude Chat Completions/其他 Responses 4K-token 双图评审、图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本/真实费用响应及敏感错误处理的回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -95,6 +95,7 @@ test("AI 评审请求固定按参考图、结果图顺序发送", () => {
   assert.equal(request.input[0].content[1].image_url.endsWith("cmVm"), true);
   assert.equal(request.input[0].content[2].image_url.endsWith("b3V0"), true);
   assert.equal(request.instructions, "只返回 JSON");
+  assert.equal(request.max_output_tokens, 4096);
   assert.throws(() => buildMultiImageReviewRequest({ imageUrls: ["one"] }), /两张/);
 });
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-review-ui.js 的可评分实验筛选、v3.1 最新评分选择/三维加权汇总及任务归属纯函数
- * [OUTPUT]: 对外提供当前样本集评分范围、逐图结果版本、三维与加权摘要和评分任务不跳页的回归保障
+ * [OUTPUT]: 对外提供当前样本集评分范围、逐图结果版本、三维与加权摘要、GPT 默认评分模型和评分任务不跳页的回归保障
  * [POS]: test 的 Benchmark AI 评分前端护栏，不访问 DOM、Base 或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,11 +10,35 @@ import test from "node:test";
 
 import {
   countLegacyReviewResults,
+  defaultReviewModelKey,
   jobPanelFor,
+  reviewAction,
   scopeReviewableExperiments,
   selectLatestReviewResults,
   summarizeReviewResults,
 } from "../public/benchmark-review-ui.js";
+
+test("部分评分显示继续剩余数量，全部完成才显示重新评分", () => {
+  assert.deepEqual(reviewAction({ resultCount: 16, reviewedCount: 1 }), {
+    label: "继续评分剩余 15 张",
+    resume: true,
+  });
+  assert.deepEqual(reviewAction({ resultCount: 16, reviewedCount: 16 }), {
+    label: "重新评分 16 张结果",
+    resume: false,
+  });
+});
+
+test("评分模型默认选择 GPT，GPT 不可用时回退首个可用模型", () => {
+  assert.equal(defaultReviewModelKey([
+    { key: "gemini3pro", selectable: true },
+    { key: "gpt", selectable: true },
+  ]), "gpt");
+  assert.equal(defaultReviewModelKey([
+    { key: "gpt", selectable: false },
+    { key: "qwen35plus", selectable: true },
+  ]), "qwen35plus");
+});
 
 test("AI 评分只列出当前样本集已有成功结果的实验", () => {
   const result = scopeReviewableExperiments([{
