@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的可筛选纯计划器、可注入模型/飞书执行边界
- * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、飞书实验类型映射、停用模型排除、Provider 智能路由、OneAPI 费用传递、Run 真源、失败重试、横评展示与规模回归保障
+ * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、飞书实验类型映射、停用模型排除、Provider 智能路由、主动取消、OneAPI 费用传递、Run 真源、失败重试、横评展示与规模回归保障
  * [POS]: test 的模型横评核心集成测试，所有资源与模型调用均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -101,6 +101,62 @@ test("七个样本只规划三个启用模型，共 21 次融合与 63 张图", 
   assert.equal(plan.summary.cases, 7);
   assert.equal(plan.summary.promptBatches, 21);
   assert.equal(plan.summary.imageRuns, 63);
+});
+
+test("取消当前 Provider 请求后立即停止后续 Run", async () => {
+  const data = snapshot();
+  data.configs = data.configs
+    .filter((entry) => entry.enabled)
+    .map((entry) => ({ ...entry, promptBatches: 1 }));
+  const plan = buildBenchmarkPlan(data);
+  const controller = new AbortController();
+  const reason = new Error("用户已停止任务");
+  reason.name = "AbortError";
+  let imageCalls = 0;
+  const client = {
+    async generateImage() {
+      imageCalls += 1;
+      controller.abort(reason);
+      throw reason;
+    },
+    async generatePrompt() {
+      return { text: JSON.stringify(agentPayload(1)) };
+    },
+    async listModels() {
+      return [
+        { id: "gemini-3.1-pro-preview" },
+        { id: "doubao-seedream-5.0" },
+        { id: "gemini-3.1-flash-image-preview" },
+        { id: "gpt-image-2" },
+      ];
+    },
+  };
+  let nextId = 0;
+  const store = {
+    async downloadSampleImage() {
+      return { dataUrl: onePixelPng, name: "white.png", size: pngBytes.length, type: "image/png" };
+    },
+    async saveComparisonRow(_value, recordId) { return recordId || `comparison-${nextId += 1}`; },
+    async savePromptBatch(_value, recordId) { return recordId || `prompt-${nextId += 1}`; },
+    async saveRunResult(_value, recordId) { return recordId || `result-${nextId += 1}`; },
+    async updateSampleStatus() {},
+    async uploadComparisonImage() {},
+    async uploadComparisonReference() {},
+    async uploadResultImage() {},
+  };
+
+  await assert.rejects(
+    runBenchmark(plan, {
+      client,
+      execute: true,
+      loadAgent: async () => ({ systemPrompt: "system" }),
+      loadStyle: async () => ({ styleDna: "style" }),
+      signal: controller.signal,
+      store,
+    }),
+    (error) => error === reason,
+  );
+  assert.equal(imageCalls, 1);
 });
 
 test("Prompt 版本实验固定模型并为每个版本规划独立 Prompt", () => {
@@ -491,6 +547,7 @@ test("断点重试跳过成功 Run 并只生成失败 Run 的下一次尝试", a
   ];
   const plan = buildBenchmarkPlan(value);
   const savedRuns = [];
+  const progress = [];
   let imageCalls = 0;
   const client = {
     async generateImage() {
@@ -528,12 +585,17 @@ test("断点重试跳过成功 Run 并只生成失败 Run 的下一次尝试", a
     execute: true,
     loadAgent: async () => ({ systemPrompt: "system" }),
     loadStyle: async () => ({ styleDna: {} }),
+    onProgress: (entry) => progress.push(entry),
     store,
   });
 
+  assert.equal(plan.summary.processedImages, 3);
   assert.equal(imageCalls, 1);
   assert.equal(result.generatedImages, 1);
+  assert.equal(result.processedImages, 3);
   assert.equal(result.skippedImages, 2);
+  assert.equal(progress.at(0).completed, 3);
+  assert.equal(progress.at(-1).completed, 3);
   assert.equal(savedRuns.at(-1).attempt, 2);
   assert.equal(savedRuns.at(-1).retrySource, runId("CFG-003"));
 });

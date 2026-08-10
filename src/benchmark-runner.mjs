@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端与按模型解析的图像客户端
- * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、按实验阶段共享或隔离冻结 Prompt、飞书模型横评/Prompt 横评类型映射、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检与可断点续跑执行器
+ * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端、按模型解析的图像客户端与可选取消信号
+ * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、持久化 Run 进度重建、按实验阶段共享或隔离冻结 Prompt、飞书模型横评/Prompt 横评类型映射、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检及可取消/断点续跑执行器
  * [POS]: src 的单变量横评应用服务，以一图一行的结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -223,6 +223,7 @@ export function buildBenchmarkPlan(
                 existingComparison?.modelAttachments?.[config.imageModelLabel] || [];
               const latestAttempt = resultAttempts.at(-1) || null;
               runs.push({
+                attempted: resultAttempts.length > 0,
                 config,
                 existingResult:
                   successfulResult ||
@@ -317,6 +318,20 @@ export function buildBenchmarkPlan(
       ),
     0,
   );
+  const processedImages = groups.reduce(
+    (total, group) =>
+      total +
+      group.cases.reduce(
+        (sum, entry) =>
+          sum + entry.batches.reduce(
+            (batchSum, batch) =>
+              batchSum + batch.runs.filter((run) => run.attempted).length,
+            0,
+          ),
+        0,
+      ),
+    0,
+  );
 
   return {
     groups,
@@ -328,6 +343,7 @@ export function buildBenchmarkPlan(
       activeVariants: groups.reduce((total, group) => total + group.configs.length, 0),
       cases: groups.reduce((total, group) => total + group.cases.length, 0),
       imageRuns,
+      processedImages,
       promptBatches,
       skippedImages,
       skippedPrompts,
@@ -349,9 +365,11 @@ async function freezePrompt({
   group,
   reference,
   sample,
+  signal,
   store,
   style,
 }) {
+  signal?.throwIfAborted();
   const existing = batch.existingPrompt;
   if (existing?.status === "完成" && existing.finalPrompt) {
     return {
@@ -390,6 +408,7 @@ async function freezePrompt({
         userRequirements: "",
       }),
     });
+    signal?.throwIfAborted();
     const finalPrompt = JSON.stringify(
       parsePromptAgentOutput(promptResult.text),
       null,
@@ -480,8 +499,10 @@ async function generateRun({
   imageClientForModel,
   reference,
   run,
+  signal,
   store,
 }) {
+  signal?.throwIfAborted();
   if (finishedResult(run)) return "skipped";
   const imageClient = await imageClientForModel(run.config);
   const attempt = run.nextAttempt;
@@ -538,7 +559,8 @@ async function generateRun({
         },
       },
     );
-    const result = await imageClient.generateImage(generation.request);
+    const result = await imageClient.generateImage(generation.request, { signal });
+    signal?.throwIfAborted();
     if (!result.images?.[0]) throw new Error("出图模型没有返回图片");
     await store.uploadResultImage(
       resultRecordId,
@@ -624,6 +646,7 @@ async function generateRun({
       },
       comparisonRecordId,
     );
+    signal?.throwIfAborted();
     return "failed";
   }
 }
@@ -637,6 +660,7 @@ export async function runBenchmark(
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
     onProgress = () => {},
+    signal = null,
     store,
   } = {},
 ) {
@@ -644,7 +668,9 @@ export async function runBenchmark(
   if (!client || !store) {
     throw new TypeError("Benchmark 执行需要 client 与 store");
   }
+  signal?.throwIfAborted();
   await store.validateExecutionContract?.(plan.groups.map((group) => group.variableStage === "prompt" ? "Prompt 横评" : "模型横评"));
+  signal?.throwIfAborted();
   await assertBenchmarkModelAvailability(client, plan, { imageClientForModel });
   const imageClients = new Map();
   const resolveImageClient = async (config) => {
@@ -661,7 +687,7 @@ export async function runBenchmark(
     skippedImages: 0,
     skippedPrompts: 0,
   };
-  let completedImages = 0;
+  let completedImages = Number(plan.summary.processedImages || 0);
   const reportProgress = (message) => onProgress({
     completed: completedImages,
     message,
@@ -670,10 +696,12 @@ export async function runBenchmark(
   reportProgress("正在检查模型与实验资源");
 
   for (const group of plan.groups) {
+    signal?.throwIfAborted();
     const styles = new Map();
     const agents = new Map();
     group.configs.forEach((config) => agentModelOrThrow(config.fusionModel.key));
     for (const { batches, sample } of group.cases) {
+      signal?.throwIfAborted();
       await store.updateSampleStatus(sample.recordId, "生成中");
       let sampleFailed = 0;
       let sampleSucceeded = 0;
@@ -682,6 +710,7 @@ export async function runBenchmark(
       );
       const promptCache = new Map();
       for (const batch of batches) {
+        signal?.throwIfAborted();
         let cachedPrompt = promptCache.get(batch.promptId);
         if (!cachedPrompt) {
           const agentKey = `${batch.agent.code}@v${batch.agent.version}`;
@@ -700,6 +729,7 @@ export async function runBenchmark(
               group,
               reference,
               sample,
+              signal,
               store,
               style: styles.get(styleKey),
             });
@@ -710,6 +740,7 @@ export async function runBenchmark(
               counters.generatedPrompts += 1;
             }
           } catch (error) {
+            signal?.throwIfAborted();
             cachedPrompt = { error };
             counters.failedPrompts += 1;
           }
@@ -732,7 +763,6 @@ export async function runBenchmark(
           });
           sampleFailed += failedRuns.length;
           counters.failedImages += failedRuns.length;
-          completedImages += batch.runs.length;
           reportProgress(`${sample.caseId} 的 Prompt 批次 ${batch.batch} 失败`);
           continue;
         }
@@ -751,6 +781,7 @@ export async function runBenchmark(
           await store.uploadComparisonReference(comparisonRecordId, reference);
         }
         for (const run of batch.runs) {
+          signal?.throwIfAborted();
           const status = await generateRun({
             comparisonRecordId,
             finalPrompt: frozen.finalPrompt,
@@ -767,6 +798,7 @@ export async function runBenchmark(
               sampleRecordId: sample.recordId,
             },
             run,
+            signal,
             store,
           });
           if (status === "skipped") {
@@ -781,7 +813,7 @@ export async function runBenchmark(
             counters.failedImages += 1;
             sampleFailed += 1;
           }
-          completedImages += 1;
+          if (status !== "skipped" && !run.attempted) completedImages += 1;
           reportProgress(`${sample.caseId} · ${run.config.imageModelLabel} · ${status}`);
         }
       }
@@ -796,5 +828,5 @@ export async function runBenchmark(
     }
   }
 
-  return { ...counters, mode: "execute" };
+  return { ...counters, mode: "execute", processedImages: completedImages };
 }

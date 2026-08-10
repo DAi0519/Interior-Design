@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css 的设计令牌与 index.html 的结果区状态节点
- * [OUTPUT]: 对外提供与左栏标题对齐的结果工具栏、无内框无投影且不会挤出面板的图片态、空态、加载态、错误态和结果元信息视觉
+ * [OUTPUT]: 对外提供结果工具栏、空态/加载态/错误态、单图/四图画廊及逐图下载动作视觉
  * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -187,53 +187,141 @@
   }
 }
 
-.image-result {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
+.result-gallery {
+  align-content: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   height: 100%;
-  justify-content: center;
-  margin: 0;
   min-height: 0;
+  overflow: auto;
+  padding: 2px;
   width: 100%;
 }
 
-.image-result img {
+.result-gallery.multiple {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.result-card {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.result-card img {
+  background: #eeede9;
   border-radius: 8px;
   box-shadow: none;
   display: block;
-  max-height: calc(100% - 72px);
+  max-height: calc(100vh - 285px);
   max-width: 100%;
+  min-height: 0;
   object-fit: contain;
+  width: 100%;
 }
 
-.image-result figcaption {
+.result-card footer {
   align-items: center;
   background: rgb(255 255 255 / 82%);
   border: 1px solid var(--line);
   border-radius: 7px;
   display: flex;
   flex: 0 0 auto;
+  gap: 10px;
   justify-content: space-between;
-  margin-top: 14px;
-  max-width: 720px;
+  margin-top: 8px;
   padding: 10px 12px;
   width: 100%;
 }
 
-.image-result figcaption strong,
-.image-result figcaption span {
+.result-card-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.result-card footer strong,
+.result-card footer span {
   display: block;
 }
 
-.image-result figcaption strong {
+.result-card footer strong {
   font-size: 11px;
   margin-bottom: 2px;
 }
 
-.image-result figcaption span {
+.result-card footer span,
+.result-record-link {
   color: var(--muted);
   font-size: 10px;
+}
+
+.result-record-link {
+  color: var(--text);
+}
+
+.result-download-button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: #fff;
+  font-size: 10px;
+  height: 26px;
+  padding: 0 9px;
+}
+
+.result-download-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.result-card.failed {
+  align-items: center;
+  background: #fff7f5;
+  border: 1px solid #f0d3cd;
+  border-radius: 8px;
+  flex-direction: row;
+  gap: 12px;
+  justify-content: flex-start;
+  min-height: 180px;
+  padding: 18px;
+}
+
+.result-card.failed p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 5px 0 0;
+}
+
+.result-card-error {
+  align-items: center;
+  background: #fff0ed;
+  border-radius: 50%;
+  color: var(--danger);
+  display: flex;
+  flex: 0 0 34px;
+  font-weight: 700;
+  height: 34px;
+  justify-content: center;
+}
+
+@media (max-width: 920px) {
+  .result-gallery.multiple {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .result-card img {
+    max-height: 520px;
+  }
 }
 
 .error-icon {

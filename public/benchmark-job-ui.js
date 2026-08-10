@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Benchmark 任务进度 DOM、任务阶段/状态以及任务所属面板解析器
- * [OUTPUT]: 对外提供生成/评分任务进度、落库状态、失败出图重试输入、评分断点继续动作、持久化实验任务投影和分层失败建议渲染器
+ * [OUTPUT]: 对外提供生成/评分任务进度、停止出图状态、落库状态、停止任务续跑与失败出图重试输入、评分断点继续动作、持久化实验任务投影和分层失败建议渲染器
  * [POS]: public 的 Benchmark 任务呈现组件，与 benchmark-app.js 的轮询编排和 benchmark-review-ui.js 的面板归属分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,10 +14,34 @@ const JOB_PHASE_LABELS = {
 };
 
 const JOB_STATUS_LABELS = {
+  cancelled: "已停止",
+  cancelling: "停止中",
   failed: "失败",
   running: "运行中",
   success: "已完成",
 };
+
+export function canCancelGenerationJob(job) {
+  return job?.kind === "generation" && job?.status === "running";
+}
+
+export function canResumeGenerationJob(job) {
+  return job?.kind === "generation" && job?.status === "cancelled";
+}
+
+export function generationResumeInput(experiment) {
+  if (experiment?.status !== "cancelled") {
+    throw new Error("当前实验不是已停止状态");
+  }
+  if (!experiment.options || !experiment.experimentId) {
+    throw new Error("当前实验缺少可恢复的冻结参数");
+  }
+  return {
+    ...experiment.options,
+    experimentId: experiment.experimentId,
+    groupId: experiment.groupId || experiment.experimentId,
+  };
+}
 
 export function generationRetryInput(experiment) {
   const failedImages = Number(experiment?.result?.failedImages || 0);
@@ -39,7 +63,12 @@ export function persistedGenerationJob(experiment) {
   const total = Number(experiment?.summary?.imageRuns || 0);
   const completed = experiment?.status === "completed"
     ? total
-    : Number(experiment?.result?.generatedImages || 0);
+    : Math.min(total, Number(
+      experiment?.summary?.processedImages ??
+      experiment?.result?.processedImages ??
+      experiment?.result?.generatedImages ??
+      0,
+    ));
   const failedPhase = JOB_PHASE_LABELS[experiment?.phase];
   return {
     completed,
@@ -48,6 +77,8 @@ export function persistedGenerationJob(experiment) {
     kind: "generation",
     message: experiment?.status === "failed"
       ? `${failedPhase || "任务执行"}失败`
+      : experiment?.status === "cancelled"
+        ? "任务已停止，已完成结果已保留"
       : experiment?.status === "completed"
         ? failedImages ? `任务完成，${failedImages} 张出图失败` : "任务完成"
         : "任务运行中",
@@ -149,6 +180,17 @@ export function createJobRenderer({ byId, jobPanelFor }) {
       ? `业务数据已写入 ${job.storage || "Benchmark Base"}`
       : `尚未写入 ${job.storage || "Benchmark Base"}`;
     const failedImages = retryableFailedImages(job);
+    const cancelButton = byId("jobCancelButton");
+    const resumeButton = byId("jobResumeButton");
+    const cancelling = job.status === "cancelling";
+    cancelButton.classList.toggle(
+      "hidden",
+      reviewJob || (!canCancelGenerationJob(job) && !cancelling),
+    );
+    cancelButton.disabled = cancelling;
+    cancelButton.textContent = cancelling ? "正在停止…" : "停止出图";
+    resumeButton.classList.toggle("hidden", reviewJob || !canResumeGenerationJob(job));
+    resumeButton.textContent = "继续生成";
     const retryButton = byId("jobRetryButton");
     retryButton.classList.toggle(
       "hidden",

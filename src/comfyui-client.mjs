@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node fetch/FormData/Blob、Flux2 Klein 工作流工厂、单张已校验参考图与可覆盖的 ComfyUI 服务地址
- * [OUTPUT]: 对外提供 ComfyUI 健康检查、图片上传、工作流排队/轮询、输出下载与统一 generateImage 结果
+ * [INPUT]: 依赖 Node fetch/FormData/Blob、Flux2 Klein 工作流工厂、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
+ * [OUTPUT]: 对外提供 ComfyUI 健康检查、可取消图片上传/工作流排队/轮询、输出下载与统一 generateImage 结果
  * [POS]: src 的第二图像生成服务边界，与 oneapi-client.mjs 并列并隐藏 ComfyUI 异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -140,12 +140,21 @@ export function createComfyUiClient({
   const serviceUrl = normalizedBaseUrl(baseUrl);
 
   async function fetchWithTimeout(pathname, options = {}, search = null) {
+    const timeoutSignal = AbortSignal.timeout(requestTimeoutMs);
+    const signal = options.signal
+      ? AbortSignal.any([timeoutSignal, options.signal])
+      : timeoutSignal;
     try {
       return await fetchImpl(endpoint(serviceUrl, pathname, search), {
         ...options,
-        signal: options.signal || AbortSignal.timeout(requestTimeoutMs),
+        signal,
       });
     } catch (error) {
+      if (options.signal?.aborted && options.signal.reason?.name !== "TimeoutError") {
+        throw options.signal.reason instanceof Error
+          ? options.signal.reason
+          : new DOMException("用户已停止任务", "AbortError");
+      }
       if (error.name === "TimeoutError" || error.name === "AbortError") {
         throw new ComfyUiError("ComfyUI 请求超时", 504, "timeout");
       }
@@ -177,7 +186,7 @@ export function createComfyUiClient({
     return body;
   }
 
-  async function uploadReference(image) {
+  async function uploadReference(image, signal = null) {
     const parsed = dataImage(image.image_url);
     const form = new FormData();
     form.append(
@@ -188,14 +197,15 @@ export function createComfyUiClient({
     form.append("type", "input");
     form.append("overwrite", "false");
     return uploadedImageName(
-      await requestJson("upload/image", { body: form, method: "POST" }),
+      await requestJson("upload/image", { body: form, method: "POST", signal }),
     );
   }
 
-  async function waitForHistory(promptId, queuedAt) {
+  async function waitForHistory(promptId, queuedAt, signal = null) {
     const deadline = Date.now() + requestTimeoutMs;
     while (Date.now() <= deadline) {
-      const body = await requestJson(`history/${encodeURIComponent(promptId)}`);
+      signal?.throwIfAborted();
+      const body = await requestJson(`history/${encodeURIComponent(promptId)}`, { signal });
       const history = body?.[promptId];
       if (history) {
         if (history.status?.completed && history.status?.status_str !== "success") {
@@ -215,8 +225,8 @@ export function createComfyUiClient({
     throw new ComfyUiError("ComfyUI 工作流执行超时", 504, "execution_timeout");
   }
 
-  async function downloadOutput(image) {
-    const response = await fetchWithTimeout("view", {}, {
+  async function downloadOutput(image, signal = null) {
+    const response = await fetchWithTimeout("view", { signal }, {
       filename: image.filename,
       subfolder: image.subfolder || "",
       type: image.type || "output",
@@ -258,7 +268,8 @@ export function createComfyUiClient({
       };
     },
 
-    async generateImage(generationRequest) {
+    async generateImage(generationRequest, { signal = null } = {}) {
+      signal?.throwIfAborted();
       const images = Array.isArray(generationRequest.images)
         ? generationRequest.images
         : [];
@@ -270,7 +281,7 @@ export function createComfyUiClient({
         );
       }
 
-      const imageName = await uploadReference(images[0]);
+      const imageName = await uploadReference(images[0], signal);
       const seed = randomSeed();
       const prompt = workflowFactory({
         imageName,
@@ -282,6 +293,7 @@ export function createComfyUiClient({
         body: JSON.stringify({ client_id: randomUUID(), prompt }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
+        signal,
       });
       if (!queued?.prompt_id) {
         const nodeError = Object.values(queued?.node_errors || {})[0];
@@ -292,9 +304,9 @@ export function createComfyUiClient({
         );
       }
 
-      const history = await waitForHistory(queued.prompt_id, queuedAt);
+      const history = await waitForHistory(queued.prompt_id, queuedAt, signal);
       const output = outputImage(history);
-      const downloaded = await downloadOutput(output);
+      const downloaded = await downloadOutput(output, signal);
       const times = executionTimes(history, queuedAt);
       return {
         created: times.created,

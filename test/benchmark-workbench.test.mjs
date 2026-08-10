@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、临时目录、Benchmark 本地存储、计划器与 benchmark-workbench.mjs
- * [OUTPUT]: 对外提供样本集迁移/CRUD、空间与五维 AI 待审标签、人工准入、Gemini 3.5 Flash 默认及用户指定视觉模型、自动 Case ID、实验计划生成零 Base 写入、冻结配置失败持久化、已完成实验直接评分/写回及失败批次落库、按实验 ID 汇总分析、正式/旧协议隔离的脱敏逐图评分结果与历史 Run 协议漂移拦截的回归保障
+ * [OUTPUT]: 对外提供样本集迁移/CRUD、空间与五维 AI 待审标签、人工准入、Gemini 3.5 Flash 默认及用户指定视觉模型、自动 Case ID、实验计划生成零 Base 写入、停止实验 Base 进度重建、冻结配置失败持久化、已完成实验直接评分/写回及失败批次落库、按实验 ID 汇总分析、正式/旧协议隔离的脱敏逐图评分结果与历史 Run 协议漂移拦截的回归保障
  * [POS]: test 的 Benchmark 工作台应用护栏测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -160,6 +160,68 @@ test("生成实验计划时不创建 Base 配置", async () => {
   assert.equal(plan.summary.imageRuns, 8);
   assert.equal(savedExperiment.status, "planned");
   assert.ok(savedExperiment.options.draftConfig);
+});
+
+test("停止实验从 Base Run 真源重建已处理进度", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "benchmark-stopped-progress-test-"));
+  context.after(() => rm(directory, { force: true, recursive: true }));
+  const localStore = createBenchmarkWorkbenchStore(join(directory, "state.json"));
+  await localStore.saveExperiment({
+    experimentId: "EXP-STOPPED",
+    groupId: "EXP-STOPPED",
+    options: {
+      caseIds: ["CASE-1"],
+      configIds: ["CFG-1"],
+      groupId: "EXP-STOPPED",
+      includeCompletedSamples: true,
+    },
+    status: "cancelled",
+    summary: { imageRuns: 2 },
+  });
+  const baseStore = {
+    async loadSnapshot() {
+      return {
+        comparisons: [],
+        configs: [{
+          configId: "CFG-1",
+          enabled: true,
+          fusionAgent: "融合 [white-model-fusion@v7]",
+          fusionModel: "Gemini [gemini-3.1-pro-preview]",
+          groupId: "EXP-STOPPED",
+          imageModel: "GPT Image 2 [gpt-image-2]",
+          outputSpec: "跟随原图比例 · 2K · PNG",
+          perBatchImages: 2,
+          promptBatches: 1,
+          recordId: "rec-config",
+          styleDna: "奶油法式 [cream-french@v4]",
+        }],
+        prompts: [],
+        results: [{
+          attachments: [],
+          attempt: 1,
+          caseLinks: [{ id: "rec-case" }],
+          experimentId: "EXP-STOPPED",
+          runId: "CASE-1__EXP-STOPPED__P1__CFG-1__S1",
+          status: "失败",
+        }],
+        samples: [{
+          attachments: [{ file_token: "file", name: "white.png" }],
+          caseId: "CASE-1",
+          datasetVersion: "停止续跑集",
+          recordId: "rec-case",
+          sampleType: "有效白模",
+          status: "部分失败",
+        }],
+      };
+    },
+  };
+  const service = createBenchmarkWorkbenchService({ baseStore, localStore });
+
+  const overview = await service.overview();
+  const experiment = overview.experiments.find((entry) => entry.experimentId === "EXP-STOPPED");
+
+  assert.equal(experiment.summary.imageRuns, 2);
+  assert.equal(experiment.summary.processedImages, 1);
 });
 
 test("正式运行冻结配置失败时持久化阶段且不进入出图", async () => {

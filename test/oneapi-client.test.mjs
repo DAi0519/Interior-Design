@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI 单图分析/多图评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 AI 单图分析、请求侧大图压缩、Claude Chat Completions/其他 Responses 4K-token 双图评审、图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本/真实费用响应及敏感错误处理的回归保障
+ * [OUTPUT]: 对外提供 AI 单图分析、主动取消、请求侧大图压缩、Claude Chat Completions/其他 Responses 4K-token 双图评审、图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本/真实费用响应及敏感错误处理的回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,25 @@ test("OneAPI 费用保留原币并统一折算 USD", () => {
     currency: "USD", exchange_rate: 1, payable_amount: 0.0757,
   } } }).costUsd, 0.0757);
   assert.equal(extractUsageCost({ usage: {} }), null);
+});
+
+test("OneAPI 客户端把外部取消信号传给正在运行的模型请求", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, options) => new Promise((resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+  });
+
+  const request = createOneApiClient("test-key", { signal: controller.signal })
+    .generateImage({ model: "test-model", output_format: "png", prompt: "test" });
+  const reason = new Error("用户已停止任务");
+  reason.name = "AbortError";
+  controller.abort(reason);
+
+  await assert.rejects(request, (error) => error === reason);
 });
 
 test("单图分析请求只发送当前图片", () => {

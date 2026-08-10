@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html 的后台任务卡片结构与 benchmark.css 的颜色、边框和排版令牌
- * [OUTPUT]: 对外提供批量生成/AI 评分任务的面板归属、阶段、落库状态、失败出图重试动作、用户影响/下一步/折叠技术详情、进度与窄屏布局视觉
+ * [OUTPUT]: 对外提供批量生成/AI 评分任务的面板归属、阶段、落库状态、停止/继续出图与失败重试动作、用户影响/下一步/折叠技术详情、进度与窄屏布局视觉
  * [POS]: public 的 Benchmark 运行状态增量视觉层，与数据集和实验配置样式模块并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -38,6 +38,19 @@
 }
 .job-progress-actions .secondary-button {
   min-height: 28px;
+}
+.job-progress-actions .job-resume-button {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+  min-height: 28px;
+}
+.job-progress-actions .job-cancel-button {
+  border-color: rgb(180 35 24 / 28%);
+  color: var(--danger);
+}
+.job-progress-actions .job-cancel-button:hover:not(:disabled) {
+  background: rgb(180 35 24 / 6%);
 }
 .job-phase,
 .job-status {

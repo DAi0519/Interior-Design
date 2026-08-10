@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Benchmark Base、本地版本化状态、样本 AI 标注、横评计划/执行器、AI 评分领域层与可注入 OneAPI 客户端
- * [OUTPUT]: 对外提供样本集治理、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、失败持久化批量生成、seven_evaluate_v3.1 同构的单次调用/按 Run 断点继续评分与写回、实验分析及飞书筛选跳转
+ * [INPUT]: 依赖 Benchmark Base、本地版本化状态、样本 AI 标注、横评计划/执行器、AI 评分领域层、可注入 OneAPI 客户端与可选任务取消信号
+ * [OUTPUT]: 对外提供样本集治理、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、可取消/失败持久化批量生成、停止实验 Base 进度重建、seven_evaluate_v3.1 同构的单次调用/按 Run 断点继续评分与写回、实验分析及飞书筛选跳转
  * [POS]: src 的评测工作台应用服务，统一浏览器 API 与既有 CLI Runner 的业务边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -255,8 +255,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
     };
   }
 
-  async function preparePlan(input) {
-    const snapshot = await snapshotWithCaseIds();
+  function preparePlanFromSnapshot(snapshot, input) {
     const draft = normalizeExperimentDraft(input);
     let plannedSnapshot = snapshot;
     let options = planOptions(input);
@@ -290,6 +289,10 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
       publicPlan: publicBenchmarkPlan(plan, plannedSnapshot),
       snapshot: plannedSnapshot,
     };
+  }
+
+  async function preparePlan(input) {
+    return preparePlanFromSnapshot(await snapshotWithCaseIds(), input);
   }
 
   async function materializeDraft(draft) {
@@ -564,6 +567,27 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         });
         planned = publicBenchmarkPlan(plan, snapshot);
       }
+      const experiments = state.experiments.map((experiment) => {
+        if (!["cancelled", "failed", "running"].includes(experiment.status) || !experiment.options) {
+          return experiment;
+        }
+        try {
+          const prepared = preparePlanFromSnapshot(snapshot, {
+            ...experiment.options,
+            experimentId: experiment.experimentId,
+            groupId: experiment.groupId || experiment.experimentId,
+          });
+          return {
+            ...experiment,
+            summary: {
+              ...experiment.summary,
+              processedImages: prepared.plan.summary.processedImages,
+            },
+          };
+        } catch {
+          return experiment;
+        }
+      });
       const comparisonFields = typeof baseStore.listComparisonImageFields === "function"
         ? await baseStore.listComparisonImageFields()
         : snapshot.configs.map((config) => config.imageModelLabel);
@@ -590,7 +614,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
           promptBatches: config.promptBatches,
           styleDna: config.styleDna,
         })),
-        experiments: state.experiments,
+        experiments,
         plan: planned,
         reviewBatches: state.reviewBatches,
         reviewProtocol: {
@@ -635,6 +659,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
     async runExperiment(input, {
       client,
       imageClientForModel = () => client,
+      signal = null,
       update = () => {},
     }) {
       if (input.confirm !== true) throw inputError("批量执行需要显式确认");
@@ -643,6 +668,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
       let phase = "preflight";
       update({ message: "正在检查实验计划与模型权限", persisted: false, phase });
       try {
+        signal?.throwIfAborted();
         const experimentId = assertExperimentMatchesGroup(input);
         let prepared = await preparePlan(input);
         experiment = {
@@ -662,6 +688,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         await assertBenchmarkModelAvailability(client, prepared.plan, {
           imageClientForModel,
         });
+        signal?.throwIfAborted();
 
         phase = "config-write";
         update({
@@ -671,6 +698,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
           total: prepared.plan.summary.imageRuns,
         });
         await materializeDraft(prepared.draft);
+        signal?.throwIfAborted();
         if (prepared.draft) prepared = await preparePlan(input);
 
         phase = "generation";
@@ -685,8 +713,10 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
           execute: true,
           imageClientForModel,
           onProgress: update,
+          signal,
           store: baseStore,
         });
+        signal?.throwIfAborted();
         await localStore.saveExperiment({
           ...experiment,
           completedAt: new Date().toISOString(),
@@ -695,6 +725,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         });
         return result;
       } catch (error) {
+        const cancelled = Boolean(signal?.aborted);
         if (experiment || requestedExperimentId) {
           await localStore.saveExperiment({
             ...(experiment || {
@@ -702,10 +733,14 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
               groupId: String(input.groupId || requestedExperimentId),
               options: planOptions(input),
             }),
-            error: String(error?.message || "评测任务失败").slice(0, 1000),
-            failedAt: new Date().toISOString(),
+            ...(cancelled
+              ? { stoppedAt: new Date().toISOString() }
+              : {
+                  error: String(error?.message || "评测任务失败").slice(0, 1000),
+                  failedAt: new Date().toISOString(),
+                }),
             phase,
-            status: "failed",
+            status: cancelled ? "cancelled" : "failed",
           }).catch(() => {});
         }
         throw error;

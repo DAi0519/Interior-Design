@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供 Prompt 解析/复用、版本化 Style DNA、OneAPI 或 ComfyUI 原图出图及带 Provider 元数据的非阻塞归档
+ * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供 Prompt 解析/复用、版本化 Style DNA、单次或多模型批次中的 OneAPI/ComfyUI 出图及带 Provider 元数据的非阻塞归档
  * [POS]: src 的设计模型渲染应用服务，分离 Prompt 融合与最终出图 Provider 并保持白模画幅
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { createHash } from "node:crypto";
 
 import { agentModelOrThrow } from "./agent-model-config.mjs";
+import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { getPublishedPromptAgent } from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
@@ -195,6 +196,7 @@ export async function executeWhiteModelWorkflow(
     mimeType: generation.preview.referenceImages[index]?.mimeType,
   }));
   const workflow = {
+    ...normalizeGenerationBatch(input),
     agentCode: agent.code,
     agentModel: promptModel.id,
     agentModelLabel: promptModel.label,

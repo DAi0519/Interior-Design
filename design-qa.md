@@ -5,6 +5,54 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Result Direct Download v20 Design QA
+
+## Evidence
+
+- State: 重启后的 4173 本地服务、内存 1 × 1 PNG、未上传用户文件、未调用模型、未写飞书。
+- API evidence: `POST /api/image-download` 返回 `200`、`image/png`、68 字节和 UTF-8 `attachment` 文件名。
+
+## Findings
+
+- 每张成功结果卡新增独立“下载”按钮；批量四图分别保存，失败卡不显示无效动作。
+- 本地服务统一读取 data URL 或远程生成结果，浏览器下载 Blob，规避跨域图片链接忽略 `download` 属性的问题。
+- 文件名包含模型名称与 UTC 时间，JPEG 使用 `.jpg`；文件名中的路径和系统非法字符在服务端清理。
+
+## Interaction Verification
+
+- 重启后真实点击“精模渲染”，页面内容、精模 v1“测试中”和 6 个模型按钮正常加载。
+- 页面无错误覆盖层，浏览器 console 无 error/warning；下载接口使用内存 PNG 完成真实附件响应验证，没有产生模型费用。
+
+final result: passed
+
+---
+
+# Refined Model Multi-model Generation v19 Design QA
+
+## Evidence
+
+- Desktop: `/Users/dai/.codex/visualizations/2026/08/06/019fd64b-f363-7043-b16b-48889edc5179/refined-model-desktop-1440x900.jpg`
+- Narrow: `/Users/dai/.codex/visualizations/2026/08/06/019fd64b-f363-7043-b16b-48889edc5179/refined-model-narrow-720x900.jpg`
+- State: 真实 4188 本地服务、飞书精模 Prompt v1 脱敏目录、未上传图片、未调用模型、未产生模型费用或生成记录。
+
+## Findings
+
+- 新增“精模渲染”入口，四个功能固定为两列；精模模式只显示飞书版本、1 张精模图、出图模型和参数，不展示固定 Prompt 正文或自由 Prompt 输入。
+- 出图模型成为统一的 1–4 项紧凑按钮组，不引入“小评测模式”；选择一个保持普通生成，选择多个时每个模型各生成一张。
+- 参数区明确以第一选中模型为编辑基准，提交时其他模型自动收敛到合法比例、分辨率、格式和质量；多结果桌面两列、窄屏单列，失败卡原位保留。
+- 精模 v1 正确显示“测试中”；`/api/styles` 仅返回编码、名称、版本和上架状态，未泄露 Prompt 正文。
+
+## Interaction Verification
+
+- 真实点击“精模渲染”后，提示词区隐藏，上传区切换为“精模图 / 必填 · 1张 / 不允许多选”。
+- 真实点击选中 Banana Pro、Banana 2、GPT Image 2 与默认 Seedream 5.0；再点击 Flux2 Klein 时仍保持 4 项并显示“最多选择 4 个出图模型”。
+- 1440 × 900 为双栏、四功能 2 × 2、模型 2 列；720 × 900 回退单栏且 `scrollWidth = clientWidth = 720`，无横向溢出。
+- 页面有内容、无错误覆盖层，浏览器 console 无 error/warning；自动化测试 `230/230` 通过。
+
+final result: passed
+
+---
+
 # Benchmark Header Band Alignment v18 Design QA
 
 ## Evidence
@@ -583,8 +631,6 @@ final result: passed
 final result: passed
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
-
----
 
 # Benchmark Sample Category Source v23 Design QA
 
@@ -1394,6 +1440,61 @@ final result: passed
 
 - Pass 1: the source annotation identified the remote count and redundant visible legend.
 - Pass 2: the focused combined comparison confirms the count is adjacent to the selector and no duplicate candidate heading remains; no actionable P0/P1/P2 issue remains.
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Stop Generation v23 Design QA
+
+## Evidence
+
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/07/019fdbaa-dac7-7223-add2-a27539084a72/benchmark-stop-button.png`
+- Browser viewport: `1576 × 703`; state: generation task `145 / 668`, phase `批量出图`, persisted to Benchmark Base.
+
+## Findings
+
+- The running task card now exposes a compact `停止出图` action beside the status pill; restrained danger color separates cancellation from ordinary management actions without turning the whole card into an alert.
+- Clicking the real button moves the task through `停止中` to `已停止`, hides the action after completion and preserves the visible `145 / 668` checkpoint.
+- Final copy states `任务已停止，已完成结果已保留`; no failed-state technical panel is shown for a user-requested cancellation.
+
+## Interaction Verification
+
+- Real pointer click called the cancellation route, then polling rendered the terminal cancelled state.
+- Meaningful page content: present; framework error overlay: `0`; browser console errors: `0`.
+- Automated verification: `239 / 239` tests pass; `git diff --check` passes.
+
+## Final Result
+
+final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Benchmark Resume Generation v24 Design QA
+
+## Evidence
+
+- Browser implementation: `/Users/dai/.codex/visualizations/2026/08/07/019fdbaa-dac7-7223-add2-a27539084a72/benchmark-resume-progress.png`
+- Browser viewport: `1440 × 900`; state: stopped experiment `EXP-20260807T062003Z-DC14`.
+
+## Findings
+
+- The stopped task card reconstructs `143 / 668` from unique Run slots already present in Benchmark Base instead of falling back to a zero local result count.
+- A compact dark `继续生成` primary action appears only in the stopped generation state; status remains a secondary `已停止` pill and the progress bar matches the numeric checkpoint.
+- The continuation request reuses the original experiment/group ID and frozen options, so existing successful Runs remain resumable checkpoints instead of being regenerated.
+
+## Interaction Verification
+
+- Real pointer click submitted `EXP-20260807T062003Z-DC14` with explicit confirmation; the request was intercepted before execution, so no model was called.
+- After the click, the task rendered `运行中`, hid `继续生成`, and restored `停止出图`.
+- Meaningful page content: present; framework error overlay: `0`; horizontal overflow: `0`; browser console errors: `0`.
+- Automated verification: `241 / 241` tests pass; `git diff --check` passes.
 
 ## Final Result
 

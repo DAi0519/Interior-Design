@@ -92,6 +92,21 @@ test("白模在模型合法集合中选择最接近原图的比例", () => {
   assert.equal(generation.preview.sizeMode, "source-nearest");
 });
 
+test("精模与白模都强制单张业务输入", () => {
+  const model = publicModelCatalog().find((entry) => entry.key === "seedream5");
+  assert.deepEqual(
+    referenceCapability({ featureMode: "refinedModel", model, policy: { maxCount: 4 } }),
+    {
+      ariaLabel: "添加精模图",
+      dropLabel: "添加或拖入精模图",
+      limit: 1,
+      multiple: false,
+      optionalLabel: "必填 · 1张",
+      title: "精模图",
+    },
+  );
+});
+
 test("自由生图按首张参考图可信宽高选择最近合法比例", () => {
   const wideJpeg = Buffer.from([
     0xff, 0xd8,

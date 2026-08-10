@@ -1,42 +1,38 @@
 /**
- * [INPUT]: 依赖页面 DOM、浏览器图片尺寸、model-capabilities.js、连接中心、生成动作状态、Style DNA 对话、模型目录及统一生成接口
- * [OUTPUT]: 对外提供默认 Seedream 5.0、五个 OneAPI 模型与单图 Flux2 Klein ComfyUI 工作流、白模双动作、即时结果及异步飞书反馈
- * [POS]: public 的生成状态控制器，按模型能力约束参考图和尺寸但不接触 OneAPI Key、ComfyUI 地址或工作流正文
+ * [INPUT]: 依赖页面 DOM、模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [OUTPUT]: 对外提供精模/白模/自由生图入口、最多四模型各出一张、逐模型参数适配与独立飞书反馈
+ * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { bindGenerationActions } from "./generation-actions.js";
+import { adaptGenerationInputForModel, runGenerationBatch } from "./generation-batch.js";
+import { bindGenerationResults } from "./generation-results.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
+import { bindModelMultiSelect } from "./model-multi-select.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
+import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { readImageDimensions } from "./image-ratio.js";
-import {
-  referenceCapability,
-  sizeControlState,
-  sizeSummary,
-} from "./model-capabilities.js";
+import { referenceCapability, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import {
   api,
   fillSelect,
   formatBytes,
   readFileAsDataUrl,
-  resultMetadata,
-  secureImageUrl,
 } from "./workbench-utils.js";
 import "./custom-select.js?v=5";
 
 const STYLE_CODE_KEY = "canvas-lab.style-code";
 const state = {
-  activeGenerationId: null,
   availablePromptAgents: new Map(),
   catalog: [],
   connected: false,
   featureMode: "whiteModel",
   generating: false,
-  lastImageUrl: null,
-  modelKey: "seedream5",
+  modelKeys: ["seedream5"],
   promptAgentCatalog: [],
   promptAgentModelKey: "gemini3pro",
   ratioMode: "auto",
@@ -47,20 +43,13 @@ const state = {
 };
 
 const elements = {
-  baseRecordButton: document.querySelector("#baseRecordButton"),
   emptyModel: document.querySelector("#emptyModel"),
   emptySize: document.querySelector("#emptySize"),
-  emptyState: document.querySelector("#emptyState"),
-  errorMessage: document.querySelector("#errorMessage"),
-  errorState: document.querySelector("#errorState"),
   exactSize: document.querySelector("#exactSize"),
   featureModeButtons: Array.from(document.querySelectorAll("[data-feature-mode]")),
   formatSelect: document.querySelector("#formatSelect"),
   generationControls: Array.from(document.querySelectorAll(".generation-control")),
   generationResults: Array.from(document.querySelectorAll(".generation-result")),
-  imageResult: document.querySelector("#imageResult"),
-  loadingLabel: document.querySelector("#loadingLabel"),
-  loadingState: document.querySelector("#loadingState"),
   modelAvailability: document.querySelector("#modelAvailability"),
   modelNote: document.querySelector("#modelNote"),
   modelSelect: document.querySelector("#modelSelect"),
@@ -72,6 +61,7 @@ const elements = {
   promptAgentVersionAvailability: document.querySelector("#promptAgentVersionAvailability"),
   promptAgentVersionSelect: document.querySelector("#promptAgentVersionSelect"),
   promptInput: document.querySelector("#promptInput"),
+  promptSection: document.querySelector("#promptSection"),
   qualityField: document.querySelector("#qualityField"),
   qualitySelect: document.querySelector("#qualitySelect"),
   ratioSelect: document.querySelector("#ratioSelect"),
@@ -82,11 +72,11 @@ const elements = {
   referenceList: document.querySelector("#referenceList"),
   referenceOptional: document.querySelector("#referenceOptional"),
   referenceTitleCopy: document.querySelector("#referenceTitleCopy"),
+  refinedPromptAvailability: document.querySelector("#refinedPromptAvailability"),
+  refinedPromptNote: document.querySelector("#refinedPromptNote"),
+  refinedPromptSection: document.querySelector("#refinedPromptSection"),
+  refinedPromptVersionSelect: document.querySelector("#refinedPromptVersionSelect"),
   resolutionSelect: document.querySelector("#resolutionSelect"),
-  resultDuration: document.querySelector("#resultDuration"),
-  resultImage: document.querySelector("#resultImage"),
-  resultMeta: document.querySelector("#resultMeta"),
-  resultModel: document.querySelector("#resultModel"),
   retryButton: document.querySelector("#retryButton"),
   styleAvailability: document.querySelector("#styleAvailability"),
   styleNote: document.querySelector("#styleNote"),
@@ -99,8 +89,18 @@ const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
 });
+const refinedPromptVersionSelect = bindRefinedPromptVersionSelect({
+  availability: elements.refinedPromptAvailability,
+  note: elements.refinedPromptNote,
+  select: elements.refinedPromptVersionSelect,
+});
 
-function selectedModel() { return state.catalog.find((model) => model.key === state.modelKey); }
+function selectedModels() {
+  return state.modelKeys.map((key) =>
+    state.catalog.find((model) => model.key === key)).filter(Boolean);
+}
+
+function selectedModel() { return selectedModels()[0]; }
 
 function selectedSourceImage() {
   return state.featureMode === "styleDna" ? null : state.referenceImages[0];
@@ -210,9 +210,10 @@ function updateReferenceRequirements() {
 }
 
 function selectFeatureMode(featureMode) {
-  if (!["free", "styleDna", "whiteModel"].includes(featureMode)) return;
+  if (!["free", "refinedModel", "styleDna", "whiteModel"].includes(featureMode)) return;
   state.featureMode = featureMode;
   const isWhiteModel = featureMode === "whiteModel";
+  const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
 
   for (const button of elements.featureModeButtons) {
@@ -233,32 +234,27 @@ function selectFeatureMode(featureMode) {
 
   elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
   elements.styleSection.classList.toggle("hidden", !isWhiteModel);
-  selectModel(state.modelKey);
+  elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
+  elements.promptSection.classList.toggle("hidden", isRefinedModel);
+  configurePrimaryModel();
   updateReferenceRequirements();
   renderReferenceImages();
 }
 
 function renderModelSelect() {
-  const options = state.catalog.map((model) => {
-    const presentation = describeFinalModelOption(model);
-    const option = document.createElement("option");
-    option.disabled = !presentation.selectable;
-    option.value = model.key;
-    option.selected = model.key === state.modelKey;
-    option.textContent = presentation.label;
-    return option;
-  });
-  elements.modelSelect.replaceChildren(...options);
-  elements.modelNote.textContent =
-    selectedModel()?.description || "选择负责最终图像生成的模型。";
+  modelMultiSelect.render(state.catalog, state.modelKeys);
+  const count = state.modelKeys.length;
+  elements.modelNote.textContent = count === 1
+    ? `${selectedModel()?.description || ""} 可继续选择，最多 4 个。`
+    : `已选择 ${count} 个；参数以 ${selectedModel()?.label} 为编辑基准，每个模型各生成 1 张。`;
 }
 
-function selectModel(modelKey) {
-  if (!state.catalog.some((entry) => entry.key === modelKey)) return;
-  state.modelKey = modelKey;
+function configurePrimaryModel() {
+  if (!selectedModel()) return;
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
-  const formats = model.formats.filter((format) => state.featureMode !== "whiteModel" || format !== "webp");
+  const formats = model.formats.filter((format) =>
+    !["refinedModel", "whiteModel"].includes(state.featureMode) || format !== "webp");
   renderModelSelect();
   updateReferenceRequirements();
   configureSizeControls();
@@ -295,6 +291,11 @@ function selectModel(modelKey) {
 
   updateComputedSize();
   renderReferenceImages();
+}
+
+function selectModels(modelKeys) {
+  state.modelKeys = modelKeys;
+  configurePrimaryModel();
 }
 
 function configureSizeControls({ preserveResolution = false } = {}) {
@@ -344,7 +345,7 @@ function updateComputedSize() {
 function generationInput() {
   const style = selectedStyle();
   return {
-    modelKey: state.modelKey,
+    modelKey: selectedModel()?.key,
     outputFormat: elements.formatSelect.value,
     prompt: elements.promptInput.value.trim(),
     quality: elements.qualitySelect.value || undefined,
@@ -362,6 +363,7 @@ function generationInput() {
     styleCode: style?.code,
     promptAgentModelKey: state.promptAgentModelKey,
     promptAgentVersion: promptAgentVersionSelect.value(),
+    promptVersion: refinedPromptVersionSelect.value(),
   };
 }
 
@@ -424,7 +426,11 @@ async function addReferenceFiles(fileList) {
   if (!policy) return;
 
   const limit = referenceLimit();
-  const subject = state.featureMode === "whiteModel" ? "白模图" : "参考图";
+  const subject = state.featureMode === "whiteModel"
+    ? "白模图"
+    : state.featureMode === "refinedModel"
+      ? "精模图"
+      : "参考图";
   const remaining = limit - state.referenceImages.length;
   if (remaining <= 0) {
     showToast(`最多添加 ${limit} 张${subject}`);
@@ -504,17 +510,6 @@ function setApiConnectionState(connected) {
   generationActions.setBusy(state.generating);
 }
 
-function setStage(stage) {
-  for (const [name, element] of Object.entries({
-    empty: elements.emptyState,
-    error: elements.errorState,
-    image: elements.imageResult,
-    loading: elements.loadingState,
-  })) {
-    element.classList.toggle("hidden", name !== stage);
-  }
-}
-
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.remove("hidden");
@@ -524,46 +519,14 @@ function showToast(message) {
   }, 2400);
 }
 
-function renderResultSummary(result, model, sync = result.sync) {
-  elements.resultMeta.textContent = resultMetadata(result, sync);
-  elements.baseRecordButton.classList.toggle("hidden", !sync?.recordId);
-  if (sync?.recordUrl) {
-    elements.baseRecordButton.href = sync.recordUrl;
-  } else {
-    elements.baseRecordButton.removeAttribute("href");
-  }
-  elements.resultModel.textContent = model.label;
-}
-
-function wait(milliseconds) {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
-async function followSyncJob(result, model) {
-  const generationId = result.sync?.generationId;
-  if (!generationId || result.sync.status !== "pending") return;
-  state.activeGenerationId = generationId;
-
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    await wait(1500);
-    if (state.activeGenerationId !== generationId) return;
-    try {
-      const body = await api(`/api/sync-jobs/${encodeURIComponent(generationId)}`);
-      if (state.activeGenerationId !== generationId) return;
-      renderResultSummary(result, model, body.sync);
-      if (body.sync.status === "success") {
-        showToast("飞书同步完成");
-        return;
-      }
-      if (body.sync.status === "failed") {
-        showToast(`飞书同步失败：${body.sync.error}`);
-        return;
-      }
-    } catch (error) {
-      if (attempt === 39) showToast(error.message);
-    }
-  }
-}
+const generationResults = bindGenerationResults({ api, showToast });
+const modelMultiSelect = bindModelMultiSelect({
+  container: elements.modelSelect,
+  max: 4,
+  onChange: selectModels,
+  onMessage: showToast,
+  presentOption: describeFinalModelOption,
+});
 
 async function checkAvailableModels() {
   if (!state.connected) return;
@@ -605,11 +568,17 @@ function resetModelAvailability() {
 
 async function generate({ forcePromptRegeneration = false } = {}) {
   if (state.generating) return;
-  const model = selectedModel();
+  const models = selectedModels();
   const whiteModelRequest = state.featureMode === "whiteModel";
-  const requiresOneApi = whiteModelRequest || model?.provider !== "comfyui";
+  const refinedModelRequest = state.featureMode === "refinedModel";
+  const requiresOneApi = whiteModelRequest || models.some(
+    (model) => model.provider !== "comfyui");
   if (!state.connected && requiresOneApi) {
     connectionCenter.open({ focusApi: true });
+    return;
+  }
+  if (models.length < 1 || models.length > 4) {
+    showToast("请选择 1–4 个出图模型");
     return;
   }
   if (state.featureMode === "whiteModel") {
@@ -626,17 +595,28 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
+  if (refinedModelRequest) {
+    if (!refinedPromptVersionSelect.value()) {
+      showToast("飞书精模 Prompt 没有可用版本");
+      return;
+    }
+    if (state.referenceImages.length !== 1) {
+      showToast("精模渲染需要且只允许 1 张带材质模型图");
+      return;
+    }
+  }
   if (
     state.featureMode === "free" &&
-    model?.requiresReferenceImage &&
+    models.some((model) => model.requiresReferenceImage) &&
     state.referenceImages.length !== 1
   ) {
-    showToast(`${model.label} 需要且只允许 1 张参考图`);
+    const required = models.find((model) => model.requiresReferenceImage);
+    showToast(`${required.label} 需要且只允许 1 张参考图`);
     return;
   }
   if (
     state.featureMode === "free" &&
-    model?.provider !== "comfyui" &&
+    models.some((model) => model.provider !== "comfyui") &&
     elements.promptInput.value.trim().length < 3
   ) {
     elements.promptInput.focus();
@@ -645,43 +625,62 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   }
 
   const promptIdentity = whiteModelRequest ? generationActions.currentIdentity() : null;
-  state.activeGenerationId = null;
   state.generating = true;
   generationActions.setBusy(true);
-  elements.loadingLabel.textContent =
+  const loadingCopy =
     whiteModelRequest && forcePromptRegeneration
       ? "正在重新融合提示词并渲染…"
       : whiteModelRequest
       ? "正在读取配置，由 Prompt Agent 整合后渲染…"
-      : model.provider === "comfyui"
-        ? "正在通过 ComfyUI 执行 Flux2 Klein…"
-      : state.referenceImages.length > 0
-        ? `正在使用 ${state.referenceImages.length} 张参考图生成…`
-        : `正在向 ${model.label} 提交生成请求…`;
-  setStage("loading");
+      : refinedModelRequest
+        ? "正在读取固定 Prompt 并忠实渲染精模…"
+        : models.length > 1
+          ? `正在向 ${models.length} 个模型提交请求…`
+          : `正在向 ${models[0].label} 提交生成请求…`;
+  generationResults.showLoading(loadingCopy);
 
   try {
-    const endpoint = whiteModelRequest ? "/api/white-model-render" : "/api/generate";
-    const result = await api(endpoint, {
-      body: JSON.stringify({
-        ...generationInput(),
-        forcePromptRegeneration: whiteModelRequest && forcePromptRegeneration,
-      }),
-      method: "POST",
+    const endpoint = whiteModelRequest
+      ? "/api/white-model-render"
+      : refinedModelRequest
+        ? "/api/refined-model-render"
+        : "/api/generate";
+    const baseInput = generationInput();
+    const batchId = models.length > 1
+      ? crypto.randomUUID().replaceAll("-", "")
+      : null;
+    const outcomes = await runGenerationBatch({
+      concurrency: forcePromptRegeneration ? 1 : 2,
+      items: models,
+      onProgress({ completed, total }) {
+        generationResults.showLoading(`已完成 ${completed} / ${total} 个模型…`);
+      },
+      execute(model, index) {
+        const input = adaptGenerationInputForModel(baseInput, model, {
+          featureMode: state.featureMode,
+          sourceImage: selectedSourceImage(),
+        });
+        return api(endpoint, {
+          body: JSON.stringify({
+            ...input,
+            batchCount: models.length,
+            batchId,
+            batchIndex: index + 1,
+            forcePromptRegeneration:
+              whiteModelRequest && forcePromptRegeneration && index === 0,
+          }),
+          method: "POST",
+        });
+      },
     });
-    const image = result.images[0];
-    const imageUrl = secureImageUrl(image.url);
-    state.lastImageUrl = imageUrl;
-    elements.resultImage.src = imageUrl;
-    renderResultSummary(result, model);
-    if (whiteModelRequest) generationActions.markReusable(promptIdentity);
-    elements.resultDuration.textContent = `${(result.durationMs / 1000).toFixed(1)} 秒`;
-    setStage("image");
-    showToast("生成完成，正在后台同步飞书");
-    void followSyncJob(result, model);
+    const completed = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
+    if (whiteModelRequest && completed > 0) generationActions.markReusable(promptIdentity);
+    generationResults.showResults(outcomes);
+    showToast(completed === models.length
+      ? `${completed} 张图已完成，正在分别同步飞书`
+      : `完成 ${completed} / ${models.length} 张；失败项可查看原因`);
   } catch (error) {
-    elements.errorMessage.textContent = error.message;
-    setStage("error");
+    generationResults.showError(error.message);
   } finally {
     state.generating = false;
     generationActions.setBusy(false);
@@ -742,7 +741,6 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
   selectPromptAgent(event.target.value);
   generationActions.refresh();
 });
-elements.modelSelect.addEventListener("change", (event) => selectModel(event.target.value));
 const loadConfiguration = bindConfigRefresh({
   api,
   onPromptAgentVersions(config) {
@@ -753,6 +751,9 @@ const loadConfiguration = bindConfigRefresh({
     state.styleCatalog = styles;
     renderStyles();
     generationActions.clearReusable();
+  },
+  onRefinedPromptVersions(config) {
+    refinedPromptVersionSelect.render(config);
   },
   showToast,
 });
@@ -767,6 +768,7 @@ elements.promptInput.addEventListener("input", () => {
   generationActions.refresh();
 });
 elements.promptAgentVersionSelect.addEventListener("change", generationActions.refresh);
+elements.refinedPromptVersionSelect.addEventListener("change", generationActions.refresh);
 elements.referenceInput.addEventListener("change", async (event) => {
   await addReferenceFiles(event.target.files);
   event.target.value = "";
@@ -792,6 +794,5 @@ elements.ratioSelect.addEventListener("change", () => {
 });
 elements.resolutionSelect.addEventListener("change", updateComputedSize);
 initialize().catch((error) => {
-  elements.errorMessage.textContent = `工作台初始化失败：${error.message}`;
-  setStage("error");
+  generationResults.showError(`工作台初始化失败：${error.message}`);
 });

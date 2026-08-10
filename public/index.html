@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖生成、连接中心、Style DNA 对话与 product-navigation.css 共享顶栏样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供运营连接中心、顶部居中的生图/评测切换、默认白模渲染、双 Provider 出图模型下拉、提示词可复用双按钮、自由生图与反推模型/Prompt 版本对话输入框
+  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、最多四个出图模型选择、精模脱敏版本与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -15,11 +15,11 @@
     />
     <title>Canvas Lab · 图像模型工作台</title>
     <link rel="stylesheet" href="/styles.css?v=8" />
-    <link rel="stylesheet" href="/result.css?v=8" />
-    <link rel="stylesheet" href="/theme.css?v=14" />
+    <link rel="stylesheet" href="/result.css?v=10" />
+    <link rel="stylesheet" href="/theme.css?v=16" />
     <link rel="stylesheet" href="/generation-actions.css?v=3" />
     <link rel="stylesheet" href="/custom-select.css?v=5" />
-    <link rel="stylesheet" href="/style-dna-chat.css?v=8" />
+    <link rel="stylesheet" href="/style-dna-chat.css?v=9" />
     <link rel="stylesheet" href="/connection-center.css?v=4" />
     <link rel="stylesheet" href="/product-navigation.css?v=1" />
   </head>
@@ -63,6 +63,9 @@
               <button class="feature-mode-option selected" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="true">
                 白模渲染
               </button>
+              <button class="feature-mode-option" data-feature-mode="refinedModel" type="button" role="radio" aria-checked="false">
+                精模渲染
+              </button>
               <button class="feature-mode-option" data-feature-mode="styleDna" type="button" role="radio" aria-checked="false">
                 风格反推
               </button>
@@ -70,6 +73,36 @@
                 自由生图
               </button>
             </div>
+          </section>
+
+          <section id="refinedPromptSection" class="panel-section generation-control hidden" aria-labelledby="refinedPromptTitle">
+            <div class="section-heading">
+              <h2 id="refinedPromptTitle">精模 Prompt</h2>
+              <div class="section-heading-actions">
+                <span id="refinedPromptAvailability" class="micro-status">读取中</span>
+                <button
+                  id="refreshRefinedPromptButton"
+                  class="config-refresh-button"
+                  data-config-refresh
+                  type="button"
+                  aria-label="刷新精模 Prompt"
+                  title="立即读取飞书中最新的精模 Prompt 版本"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 7v5h-5" />
+                    <path d="M4 17v-5h5" />
+                    <path d="M6.1 9A7 7 0 0 1 18 6.5L20 9" />
+                    <path d="M17.9 15A7 7 0 0 1 6 17.5L4 15" />
+                  </svg>
+                  <span data-refresh-label>刷新</span>
+                </button>
+              </div>
+            </div>
+            <div class="compact-config-field">
+              <span class="sr-only">精模 Prompt 版本</span>
+              <select id="refinedPromptVersionSelect" aria-label="精模 Prompt 版本"></select>
+            </div>
+            <p id="refinedPromptNote" class="compact-config-note">正文由飞书管理，工作台不会展示或修改。</p>
           </section>
 
           <div id="styleDnaControls" class="hidden">
@@ -191,13 +224,11 @@
               <h2 id="modelTitle">出图模型</h2>
               <span id="modelAvailability" class="micro-status">等待连接</span>
             </div>
-            <div class="compact-config-field">
-              <select id="modelSelect" aria-label="出图模型" aria-describedby="modelNote"></select>
-            </div>
-            <p id="modelNote" class="compact-config-note">选择负责最终图像生成的模型。</p>
+            <div id="modelSelect" class="model-option-list" role="group" aria-describedby="modelNote"></div>
+            <p id="modelNote" class="compact-config-note">可选择 1–4 个模型，每个模型各生成 1 张。</p>
           </section>
 
-          <section class="panel-section generation-control" aria-labelledby="promptTitle">
+          <section id="promptSection" class="panel-section generation-control" aria-labelledby="promptTitle">
             <div class="section-heading">
               <h2 id="promptTitle">提示词</h2>
               <span id="promptCount" class="character-count">0 / 8000</span>
@@ -290,17 +321,6 @@
             <div class="result-heading">
               <h2>生成结果</h2>
             </div>
-            <div class="toolbar-actions">
-              <a
-                id="baseRecordButton"
-                class="ghost-button hidden"
-                href="#"
-                target="_blank"
-                rel="noreferrer"
-              >
-                打开飞书记录
-              </a>
-            </div>
           </div>
 
           <div id="resultStage" class="result-stage generation-result">
@@ -330,16 +350,7 @@
               </div>
             </div>
 
-            <figure id="imageResult" class="image-result hidden">
-              <img id="resultImage" alt="模型生成结果" />
-              <figcaption>
-                <div>
-                  <strong id="resultModel">—</strong>
-                  <span id="resultMeta">—</span>
-                </div>
-                <span id="resultDuration">—</span>
-              </figcaption>
-            </figure>
+            <div id="resultGallery" class="result-gallery hidden" aria-live="polite"></div>
 
             <div id="errorState" class="error-state hidden" role="alert">
               <div class="error-icon">!</div>
@@ -578,6 +589,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="/app.js?v=30"></script>
+    <script type="module" src="/app.js?v=31"></script>
   </body>
 </html>

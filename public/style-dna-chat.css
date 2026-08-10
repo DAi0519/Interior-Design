@@ -1,17 +1,9 @@
 /**
  * [INPUT]: 依赖 index.html 的 Style DNA 模型/对话结构、styles.css 设计令牌与 style-dna-chat.js 状态类
- * [OUTPUT]: 对外提供反推模型、图片/PDF 附件卡、同起始线等高对话面板、独立滚动消息流与自适应多行输入框视觉
+ * [OUTPUT]: 对外提供反推模型、图片/PDF 附件卡、等高对话面板与独立滚动消息流视觉
  * [POS]: public 的 Style DNA 反推预览样式，与生成结果样式并列且仅在风格反推模式展示
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-
-.feature-mode-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.feature-mode-option {
-  padding-inline: 6px;
-}
 
 .control-panel:has(#styleDnaControls:not(.hidden)) {
   display: flex;

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP 响应由内存 fetch 替身提供
- * [OUTPUT]: 对外提供健康检查、正向 Prompt 原样注入/固定负向 Prompt、单图上传、排队轮询、输出归一化和参考图边界回归保障
+ * [OUTPUT]: 对外提供健康检查、主动取消、正向 Prompt 原样注入/固定负向 Prompt、单图上传、排队轮询、输出归一化和参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -157,6 +157,25 @@ test("ComfyUI 客户端在网络调用前拒绝缺图和多图", async () => {
     }),
     /需要且只允许 1 张参考图/,
   );
+});
+
+test("ComfyUI 客户端响应批量任务的主动取消信号", async () => {
+  const controller = new AbortController();
+  const client = createComfyUiClient({
+    baseUrl: "http://comfy.example/",
+    fetchImpl: async (_url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+    }),
+  });
+  const request = client.generateImage({
+    images: [{ fileName: "source.png", image_url: onePixelPng }],
+    prompt: "保持空间结构",
+  }, { signal: controller.signal });
+  const reason = new Error("用户已停止任务");
+  reason.name = "AbortError";
+  controller.abort(reason);
+
+  await assert.rejects(request, (error) => error === reason);
 });
 
 test("ComfyUI 已完成但没有输出图片时立即失败", async () => {

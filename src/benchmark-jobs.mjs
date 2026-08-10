@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖任务 ID、类型、异步执行函数、阶段更新与可选时钟
- * [OUTPUT]: 对外提供带进度/阶段/落库状态/具体错误的评测后台任务入队和状态查询
+ * [INPUT]: 依赖任务 ID、类型、异步执行函数、AbortController、阶段更新与可选时钟
+ * [OUTPUT]: 对外提供带进度/阶段/落库状态/具体错误的评测后台任务入队、取消和状态查询
  * [POS]: src 的评测工作台进程内调度层，隔离长耗时生图与 AI 评分请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,12 @@ function publicJob(job) {
   };
 }
 
+function cancellationError() {
+  const error = new Error("用户已停止任务");
+  error.name = "AbortError";
+  return error;
+}
+
 function failureMessage(job) {
   const messages = {
     "config-write": "冻结生成配置失败",
@@ -43,6 +49,7 @@ export function createBenchmarkJobRegistry({ maxJobs = 50, now = Date.now } = {}
       if (!finished) break;
       jobs.delete(finished[0]);
     }
+    const controller = new AbortController();
     const job = {
       completed: 0,
       error: null,
@@ -59,10 +66,14 @@ export function createBenchmarkJobRegistry({ maxJobs = 50, now = Date.now } = {}
       total: 0,
     };
     jobs.set(jobId, job);
-    const update = (progress = {}) => Object.assign(job, progress);
+    const update = (progress = {}) => {
+      controller.signal.throwIfAborted();
+      Object.assign(job, progress);
+    };
     Promise.resolve()
-      .then(() => task(update))
+      .then(() => task(update, { signal: controller.signal }))
       .then((result) => {
+        controller.signal.throwIfAborted();
         job.finishedAt = now();
         job.persisted = true;
         job.result = result ?? null;
@@ -72,15 +83,34 @@ export function createBenchmarkJobRegistry({ maxJobs = 50, now = Date.now } = {}
           : "任务完成";
       })
       .catch((error) => {
-        job.error = String(error?.message || "评测任务失败").slice(0, 1000);
         job.finishedAt = now();
+        if (controller.signal.aborted) {
+          job.error = null;
+          job.status = "cancelled";
+          job.message = "任务已停止，已完成结果已保留";
+          return;
+        }
+        job.error = String(error?.message || "评测任务失败").slice(0, 1000);
         job.status = "failed";
         job.message = failureMessage(job);
       });
+    Object.defineProperty(job, "controller", {
+      enumerable: false,
+      value: controller,
+    });
     return publicJob(job);
   }
 
   return {
+    cancel(jobId) {
+      const job = jobs.get(String(jobId || ""));
+      if (!job) return null;
+      if (job.status !== "running") return publicJob(job);
+      job.status = "cancelling";
+      job.message = "正在停止，已完成结果会保留";
+      job.controller.abort(cancellationError());
+      return publicJob(job);
+    },
     enqueue,
     get(jobId) {
       const job = jobs.get(String(jobId || ""));

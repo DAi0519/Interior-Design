@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、模型/Prompt 目录、OneAPI 与 ComfyUI 客户端、白模/风格应用服务、Benchmark 工作流及后台任务
- * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、配置刷新、OneAPI/ComfyUI 双 Provider 生成、样本集 CRUD/AI 标注、实验筛选视图跳转、批量横评/AI 评分及非阻塞任务查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、图片下载、模型/Prompt 目录、双 Provider、精模/白模/风格应用服务与 Benchmark 工作流
+ * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、生成结果下载、精模固定 Prompt、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,6 +16,8 @@ import {
   publicAgentModelCatalog,
 } from "./src/agent-model-config.mjs";
 import { createComfyUiClient } from "./src/comfyui-client.mjs";
+import { normalizeGenerationBatch } from "./src/generation-batch.mjs";
+import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import {
   createGenerationRequest,
   imageProviderForModel,
@@ -41,6 +43,8 @@ import {
   getPublishedPromptAgent,
   listPublishedPromptAgentVersions,
 } from "./src/prompt-agent.mjs";
+import { publicRefinedModelPromptConfig } from "./src/refined-model-prompt.mjs";
+import { executeRefinedModelWorkflow } from "./src/refined-model-workflow.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
 import { createAsyncTtlCache } from "./src/runtime-cache.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
@@ -119,6 +123,16 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
+function sendDownload(response, download) {
+  response.writeHead(200, {
+    ...SECURITY_HEADERS,
+    "Content-Disposition": download.contentDisposition,
+    "Content-Length": download.bytes.length,
+    "Content-Type": download.contentType,
+  });
+  response.end(download.bytes);
+}
+
 function publicPromptAgentCatalog(promptAgents) {
   return {
     defaultVersion: promptAgents[0]?.version || null,
@@ -189,6 +203,7 @@ function getBenchmarkWorkbench() {
 async function verifyLarkConfiguration() {
   await Promise.all([
     listPublicStyles(),
+    publicRefinedModelPromptConfig(),
     getPublishedPromptAgent("white-model-fusion"),
     getPublishedPromptAgent("style-dna-reverse", {
       config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
@@ -288,6 +303,14 @@ function serveStatic(response, pathname) {
 }
 
 async function handleApi(request, response, pathname) {
+  const benchmarkCancelMatch = pathname.match(/^\/api\/benchmark\/jobs\/([^/]+)\/cancel$/);
+  if (request.method === "POST" && benchmarkCancelMatch) {
+    const job = benchmarkJobs.cancel(decodeURIComponent(benchmarkCancelMatch[1]));
+    return job
+      ? sendJson(response, 202, { job })
+      : sendJson(response, 404, { error: "评测任务不存在或已过期" });
+  }
+
   if (request.method === "GET" && pathname.startsWith("/api/benchmark/jobs/")) {
     const jobId = decodeURIComponent(pathname.slice("/api/benchmark/jobs/".length));
     const job = benchmarkJobs.get(jobId);
@@ -376,17 +399,19 @@ async function handleApi(request, response, pathname) {
     const body = await readJson(request);
     const jobId = `generation-${randomUUID()}`;
     const service = getBenchmarkWorkbench();
-    const client = createOneApiClient(requireApiKey());
-    const job = benchmarkJobs.enqueue(jobId, "generation", (update) =>
-      service.runExperiment(body, {
+    const apiKey = requireApiKey();
+    const job = benchmarkJobs.enqueue(jobId, "generation", (update, { signal }) => {
+      const client = createOneApiClient(apiKey, { signal });
+      return service.runExperiment(body, {
         client,
         imageClientForModel: (config) => imageClientForModel(
           config.imageModelKey,
           { oneApiClient: client },
         ),
+        signal,
         update,
-      }),
-    );
+      });
+    });
     return sendJson(response, 202, { job });
   }
 
@@ -462,22 +487,25 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/styles") {
-    const [styles, promptAgents] = await Promise.all([
+    const [styles, promptAgents, refinedPrompt] = await Promise.all([
       listPublicStyles(),
       listPublishedPromptAgentVersions("white-model-fusion"),
+      publicRefinedModelPromptConfig(),
     ]);
     return sendJson(response, 200, {
       promptAgent: publicPromptAgentCatalog(promptAgents),
+      refinedPrompt,
       styles,
     });
   }
 
   if (request.method === "POST" && pathname === "/api/config/refresh") {
-    const [styles, promptAgents] = await Promise.all([
+    const [styles, promptAgents, refinedPrompt] = await Promise.all([
       listPublicStyles({ forceRefresh: true }),
       listPublishedPromptAgentVersions("white-model-fusion", {
         forceRefresh: true,
       }),
+      publicRefinedModelPromptConfig({ forceRefresh: true }),
       getPublishedPromptAgent("style-dna-reverse", {
         config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
         forceRefresh: true,
@@ -485,6 +513,7 @@ async function handleApi(request, response, pathname) {
     ]);
     return sendJson(response, 200, {
       promptAgent: publicPromptAgentCatalog(promptAgents),
+      refinedPrompt,
       styles,
     });
   }
@@ -495,6 +524,11 @@ async function handleApi(request, response, pathname) {
     return job
       ? sendJson(response, 200, { sync: job })
       : sendJson(response, 404, { error: "同步任务不存在或已过期" });
+  }
+
+  if (request.method === "POST" && pathname === "/api/image-download") {
+    const input = await readJson(request);
+    return sendDownload(response, await prepareGeneratedImageDownload(input));
   }
 
   if (request.method === "POST" && pathname === "/api/session") {
@@ -615,6 +649,7 @@ async function handleApi(request, response, pathname) {
       resultImage: result.images[0],
       sourcePrompt: String(input.prompt || "").trim(),
       workflow: {
+        ...normalizeGenerationBatch(input),
         feature: "free-image-generation",
         provider: generation.provider,
         ...(result.metadata || {}),
@@ -633,6 +668,21 @@ async function handleApi(request, response, pathname) {
         transport: result.transport,
       },
     });
+  }
+
+  if (
+    request.method === "POST" &&
+    pathname === "/api/refined-model-render"
+  ) {
+    const input = await readJson(request);
+    const oneApiClient = imageProviderForModel(input.modelKey) === "oneapi"
+      ? createOneApiClient(requireApiKey())
+      : null;
+    const result = await executeRefinedModelWorkflow(input, {
+      imageClient: imageClientForModel(input.modelKey, { oneApiClient }),
+      scheduleSync: scheduleGenerationSync,
+    });
+    return sendJson(response, 200, result);
   }
 
   if (

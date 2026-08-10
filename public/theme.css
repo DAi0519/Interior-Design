@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、供 product-navigation.css 复用的磨砂顶栏基底、桌面视口等高双栏、左栏独立滚动、紧凑版本/模型下拉与高密度生图工作台视觉
+ * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、桌面等高双栏、紧凑配置、独立卡片式功能入口与最多四项出图模型按钮组视觉
  * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -270,35 +270,36 @@ a.connection-button {
 }
 
 .feature-mode-list {
-  background: var(--panel-soft);
-  border: 1px solid var(--line);
-  border-radius: 6px;
   display: grid;
-  gap: 3px;
+  gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 3px;
 }
 
 .feature-mode-option {
-  background: transparent;
-  border: 0;
-  border-radius: 4px;
+  background: var(--panel-soft);
+  border: 1px solid transparent;
+  border-radius: 7px;
   color: var(--muted);
   font-size: 11px;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 38px;
+  padding: 0 12px;
   transition:
     background-color 140ms ease,
-    box-shadow 140ms ease,
+    border-color 140ms ease,
     color 140ms ease,
     transform 120ms var(--ease-out);
 }
 
 .feature-mode-option.selected {
-  background: #fff;
-  box-shadow: var(--key-shadow);
-  color: var(--text);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 600;
+}
+
+.feature-mode-option:focus-visible {
+  outline: 2px solid rgb(23 24 26 / 24%);
+  outline-offset: 2px;
 }
 
 .feature-mode-option small {
@@ -308,6 +309,54 @@ a.connection-button {
   font-size: 8px;
   margin-left: 4px;
   padding: 2px 5px;
+}
+
+.model-option-list {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.model-option-toggle {
+  align-items: center;
+  background: #f3f2ef;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  display: flex;
+  font-size: 11px;
+  gap: 6px;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.model-option-toggle i {
+  align-items: center;
+  background: #dfddd7;
+  border-radius: 50%;
+  display: flex;
+  flex: 0 0 17px;
+  font-size: 10px;
+  font-style: normal;
+  height: 17px;
+  justify-content: center;
+}
+
+.model-option-toggle.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.model-option-toggle.selected i {
+  background: rgb(255 255 255 / 18%);
+}
+
+.model-option-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .compact-config-field {
@@ -635,6 +684,12 @@ select {
 
   .config-refresh-button:hover:not(:disabled) {
     background: var(--panel-soft);
+    color: var(--text);
+  }
+
+  .feature-mode-option:hover:not(.selected) {
+    background: #fff;
+    border-color: var(--line-strong);
     color: var(--text);
   }
 

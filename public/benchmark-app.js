@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html DOM、benchmark-sample-ui.js 的分类来源与标签合并规则、浏览器 location/FileReader 与同源 /api/benchmark 接口
- * [OUTPUT]: 对外提供左右样本工作区空态、可连续累加且缩略图稳定的样本待保存清单、已有空间分类保护/未分类 AI 识别、逐图五维 AI 打标、八类单变量实验计划生成、失败 Run 重试、评分断点继续、持久化横评跳转、评分分析、任务轮询及飞书视图分流
+ * [OUTPUT]: 对外提供左右样本工作区空态、可连续累加且缩略图稳定的样本待保存清单、已有空间分类保护/未分类 AI 识别、逐图五维 AI 打标、八类单变量实验计划生成、停止与继续出图、失败 Run 重试、评分断点继续、持久化横评跳转、评分分析、任务轮询及飞书视图分流
  * [POS]: public 的 Benchmark 页面状态控制器，以样本集为操作主对象，拦截 file 协议误用且所有破坏性外部调用都要求用户二次确认
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,9 +8,10 @@
 import { createExperimentDraftController, createExperimentId } from "./benchmark-experiment.js?v=9";
 import {
   createJobRenderer,
+  generationResumeInput,
   generationRetryInput,
   persistedGenerationJob,
-} from "./benchmark-job-ui.js?v=3";
+} from "./benchmark-job-ui.js?v=4";
 import { createReviewController, jobPanelFor } from "./benchmark-review-ui.js?v=3";
 import {
   AI_DIMENSION_FIELDS, SAMPLE_CATEGORIES, SAMPLE_COMPLEXITY_LEVELS, SAMPLE_EDGE_TYPES, SAMPLE_IMAGE_MAX_BYTES,
@@ -618,7 +619,7 @@ async function startJob(path, input) {
 
 function renderPersistedExperiment(experiments = []) {
   const latest = [...experiments]
-    .filter((experiment) => ["completed", "failed", "running"].includes(experiment.status))
+    .filter((experiment) => ["cancelled", "completed", "failed", "running"].includes(experiment.status))
     .sort((left, right) => String(
       right.failedAt || right.completedAt || right.startedAt || right.createdAt || "",
     ).localeCompare(String(
@@ -637,17 +638,39 @@ async function retryFailedImages() {
   await startJob("/api/benchmark/experiments/run", generationRetryInput(experiment));
 }
 
+async function resumeGeneration() {
+  const experiment = (state.overview?.experiments || [])
+    .find((entry) => entry.experimentId === state.runExperimentId);
+  await startJob("/api/benchmark/experiments/run", generationResumeInput(experiment));
+}
+
 async function pollJob(jobId) {
   window.clearTimeout(state.pollTimer);
   const { job } = await api(`/api/benchmark/jobs/${encodeURIComponent(jobId)}`);
   renderJob(job);
-  if (job.status === "running") {
+  if (["cancelling", "running"].includes(job.status)) {
     state.pollTimer = window.setTimeout(() => pollJob(jobId).catch((error) => toast(error.message)), 1800);
     return job;
   }
-  toast(job.status === "success" ? "任务已完成" : job.error);
+  toast(job.status === "success"
+    ? "任务已完成"
+    : job.status === "cancelled"
+      ? "出图已停止，已完成结果已保留"
+      : job.error);
   await loadOverview();
   return job;
+}
+
+async function cancelActiveJob() {
+  if (!state.activeJobId) throw new Error("当前没有可停止的出图任务");
+  const { job } = await api(
+    `/api/benchmark/jobs/${encodeURIComponent(state.activeJobId)}/cancel`,
+    { body: "{}", method: "POST" },
+  );
+  renderJob(job);
+  if (["cancelling", "running"].includes(job.status)) {
+    pollJob(state.activeJobId).catch((error) => toast(error.message));
+  }
 }
 
 async function resumeJob() {
@@ -744,6 +767,10 @@ function bind() {
   });
   byId("jobRetryButton").addEventListener("click", () =>
     retryFailedImages().catch((error) => toast(error.message)));
+  byId("jobResumeButton").addEventListener("click", () =>
+    resumeGeneration().catch((error) => toast(error.message)));
+  byId("jobCancelButton").addEventListener("click", () =>
+    cancelActiveJob().catch((error) => toast(error.message)));
   byId("maxCasesInput").addEventListener("input", resetPlan);
   byId("labelModelSelect").addEventListener("change", (event) => {
     state.selectedLabelModelKey = event.target.value;
