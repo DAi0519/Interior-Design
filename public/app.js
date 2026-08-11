@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
- * [OUTPUT]: 对外提供精模/白模/自由生图入口、最多四模型各出一张、逐模型参数适配与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、白模智能默认/固定风格路由、模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [OUTPUT]: 对外提供已接入智能默认 Agent 的精模/白模/自由生图入口、最多四模型各出一张、逐模型参数适配与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,7 @@ import { bindModelMultiSelect } from "./model-multi-select.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
+import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { readImageDimensions } from "./image-ratio.js";
 import { referenceCapability, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import {
@@ -25,7 +26,6 @@ import {
 } from "./workbench-utils.js";
 import "./custom-select.js?v=5";
 
-const STYLE_CODE_KEY = "canvas-lab.style-code";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
@@ -38,8 +38,6 @@ const state = {
   ratioMode: "auto",
   referenceImages: [],
   referencePolicy: null,
-  styleCatalog: [],
-  styleCode: sessionStorage.getItem(STYLE_CODE_KEY) || "",
 };
 
 const elements = {
@@ -55,10 +53,14 @@ const elements = {
   modelSelect: document.querySelector("#modelSelect"),
   promptCount: document.querySelector("#promptCount"),
   promptAgentAvailability: document.querySelector("#promptAgentAvailability"),
+  promptAgentModelLabelCopy: document.querySelector("#promptAgentModelLabelCopy"),
   promptAgentModelSelect: document.querySelector("#promptAgentModelSelect"),
   promptAgentNote: document.querySelector("#promptAgentNote"),
   promptAgentSection: document.querySelector("#promptAgentSection"),
+  promptAgentTitle: document.querySelector("#promptAgentTitle"),
   promptAgentVersionAvailability: document.querySelector("#promptAgentVersionAvailability"),
+  promptAgentVersionField: document.querySelector("#promptAgentVersionField"),
+  promptAgentVersionLabel: document.querySelector("#promptAgentVersionLabel"),
   promptAgentVersionSelect: document.querySelector("#promptAgentVersionSelect"),
   promptInput: document.querySelector("#promptInput"),
   promptSection: document.querySelector("#promptSection"),
@@ -81,8 +83,8 @@ const elements = {
   styleAvailability: document.querySelector("#styleAvailability"),
   styleNote: document.querySelector("#styleNote"),
   styleSection: document.querySelector("#styleSection"),
-  styleSelect: document.querySelector("#styleSelect"),
   toast: document.querySelector("#toast"),
+  whiteModelRenderModeList: document.querySelector("#whiteModelRenderModeList"),
 };
 
 const promptAgentVersionSelect = bindPromptAgentVersionSelect({
@@ -111,10 +113,6 @@ function selectedPromptAgentModel() {
     (model) => model.key === state.promptAgentModelKey);
 }
 
-function selectedStyle() {
-  return state.styleCatalog.find((style) => style.code === state.styleCode);
-}
-
 function renderPromptAgentModels() {
   const options = state.promptAgentCatalog.map((model) => {
     const live = state.availablePromptAgents.get(model.id);
@@ -140,52 +138,20 @@ function selectPromptAgent(modelKey) {
   renderPromptAgentModels();
 }
 
-function setStyleCode(styleCode) {
-  state.styleCode = styleCode;
-  if (styleCode) sessionStorage.setItem(STYLE_CODE_KEY, styleCode);
-  else sessionStorage.removeItem(STYLE_CODE_KEY);
-}
-
-function renderStyles() {
-  const styles = [...state.styleCatalog].sort((left, right) =>
-    left.name.localeCompare(right.name) || right.version - left.version);
-  const selectableStyles = styles.filter((style) => style.published && style.validDna);
-  const blocked = state.styleCatalog.find((style) => style.reason);
-  if (!selectableStyles.some((style) => style.code === state.styleCode)) {
-    setStyleCode(selectableStyles[0]?.code || "");
-  }
-
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.disabled = true;
-  placeholder.selected = !state.styleCode;
-  placeholder.textContent = blocked
-    ? `${blocked.name} · ${blocked.reason}`
-    : state.styleCatalog.length
-      ? "没有已上架风格"
-    : "飞书风格库暂无记录";
-
-  const options = styles.map((style) => {
-    const option = document.createElement("option");
-    option.disabled = !style.published || !style.validDna;
-    option.value = style.code;
-    option.selected = style.code === state.styleCode;
-    option.textContent = `${style.name} · v${style.version}${style.reason ? ` · ${style.reason}` : ""}`;
-    return option;
-  });
-  elements.styleSelect.replaceChildren(
-    ...(selectableStyles.length > 0 ? options : [placeholder, ...options]),
+function renderPromptAgentContext(smartDefault) {
+  elements.promptAgentTitle.textContent = smartDefault
+    ? "智能默认 Agent"
+    : "场景融合 Agent";
+  elements.promptAgentVersionAvailability.classList.toggle("hidden", smartDefault);
+  elements.promptAgentVersionField.classList.toggle("hidden", smartDefault);
+  elements.promptAgentVersionLabel.classList.toggle("hidden", smartDefault);
+  elements.promptAgentModelLabelCopy.textContent = smartDefault
+    ? "Agent 基模"
+    : "融合基模";
+  elements.promptAgentModelSelect.setAttribute(
+    "aria-label",
+    smartDefault ? "智能默认 Agent 基模" : "融合基模",
   );
-  elements.styleSelect.disabled = selectableStyles.length === 0;
-  elements.styleAvailability.textContent = `${selectableStyles.length} / ${state.styleCatalog.length} 可选`;
-  elements.styleAvailability.classList.toggle("ready", selectableStyles.length > 0);
-
-  const selected = selectedStyle();
-  elements.styleNote.textContent = selected
-    ? selected.description || `${selected.name} Style DNA 已就绪。`
-    : blocked
-      ? `${blocked.name}：${blocked.reason}；在飞书上架后即可选择。`
-      : "请先在飞书风格库创建并上架 Style DNA。";
 }
 
 function referenceLimit() {
@@ -232,7 +198,9 @@ function selectFeatureMode(featureMode) {
   generationActions.setFeatureMode(featureMode);
   if (isStyleDna) return;
 
+  const smartDefault = whiteModelRenderMode.current().mode === "smart-default";
   elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
+  if (isWhiteModel) renderPromptAgentContext(smartDefault);
   elements.styleSection.classList.toggle("hidden", !isWhiteModel);
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle("hidden", isRefinedModel);
@@ -343,7 +311,7 @@ function updateComputedSize() {
 }
 
 function generationInput() {
-  const style = selectedStyle();
+  const renderMode = whiteModelRenderMode.current();
   return {
     modelKey: selectedModel()?.key,
     outputFormat: elements.formatSelect.value,
@@ -360,7 +328,9 @@ function generationInput() {
       }),
     ),
     resolution: elements.resolutionSelect.value,
-    styleCode: style?.code,
+    renderMode: renderMode.mode,
+    smartDefaultAgentVersion: renderMode.agentVersion || undefined,
+    styleCode: renderMode.styleCode || undefined,
     promptAgentModelKey: state.promptAgentModelKey,
     promptAgentVersion: promptAgentVersionSelect.value(),
     promptVersion: refinedPromptVersionSelect.value(),
@@ -582,13 +552,20 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     return;
   }
   if (state.featureMode === "whiteModel") {
-    if (!promptAgentVersionSelect.value()) {
-      showToast("飞书场景融合 Agent 没有可用的已上架版本");
+    const renderMode = whiteModelRenderMode.current();
+    if (!renderMode.available) {
+      showToast(renderMode.reason || "飞书智能默认 Agent 暂不可用");
       return;
     }
-    if (!selectedStyle()) {
-      showToast("飞书风格库没有可用的已上架 Style DNA");
-      return;
+    if (renderMode.mode === "style-dna") {
+      if (!promptAgentVersionSelect.value()) {
+        showToast("飞书场景融合 Agent 没有可用的已上架版本");
+        return;
+      }
+      if (!renderMode.style) {
+        showToast("飞书风格库没有可用的已上架 Style DNA");
+        return;
+      }
     }
     if (state.referenceImages.length !== 1) {
       showToast("白模渲染需要且只允许 1 张白模图");
@@ -629,9 +606,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   generationActions.setBusy(true);
   const loadingCopy =
     whiteModelRequest && forcePromptRegeneration
-      ? "正在重新融合提示词并渲染…"
+      ? "正在重新生成提示词并渲染…"
       : whiteModelRequest
-      ? "正在读取配置，由 Prompt Agent 整合后渲染…"
+      ? whiteModelRenderMode.current().mode === "smart-default"
+        ? "正在分析白模并智能匹配材质与光线…"
+        : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
       : refinedModelRequest
         ? "正在读取固定 Prompt 并忠实渲染精模…"
         : models.length > 1
@@ -689,12 +668,25 @@ async function generate({ forcePromptRegeneration = false } = {}) {
 
 const generationActions = bindGenerationActions({
   getPromptIdentity: () => JSON.stringify([
-    state.referenceImages.map((image) => image.id), state.styleCode,
+    state.referenceImages.map((image) => image.id),
+    whiteModelRenderMode.current().mode,
+    whiteModelRenderMode.current().styleCode,
+    whiteModelRenderMode.current().agentVersion,
     elements.promptInput.value.trim(), state.promptAgentModelKey,
     promptAgentVersionSelect.value(),
   ]),
   onGenerate: () => void generate(),
   onRegenerate: () => void generate({ forcePromptRegeneration: true }),
+});
+const whiteModelRenderMode = bindWhiteModelRenderMode({
+  availability: elements.styleAvailability,
+  note: elements.styleNote,
+  root: elements.whiteModelRenderModeList,
+  smartDefaultAvailable: false,
+  onChange() {
+    if (state.featureMode === "whiteModel") selectFeatureMode("whiteModel");
+    generationActions.clearReusable();
+  },
 });
 const styleDnaChat = bindStyleDnaChat({
   api,
@@ -747,20 +739,18 @@ const loadConfiguration = bindConfigRefresh({
     promptAgentVersionSelect.render(config);
     generationActions.clearReusable();
   },
+  onSmartDefault(config) {
+    whiteModelRenderMode.setSmartDefault(config);
+    generationActions.clearReusable();
+  },
   onStyles(styles) {
-    state.styleCatalog = styles;
-    renderStyles();
+    whiteModelRenderMode.setStyles(styles);
     generationActions.clearReusable();
   },
   onRefinedPromptVersions(config) {
     refinedPromptVersionSelect.render(config);
   },
   showToast,
-});
-elements.styleSelect.addEventListener("change", (event) => {
-  setStyleCode(event.target.value);
-  renderStyles();
-  generationActions.refresh();
 });
 elements.retryButton.addEventListener("click", () => generate());
 elements.promptInput.addEventListener("input", () => {

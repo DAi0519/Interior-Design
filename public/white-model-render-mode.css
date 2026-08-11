@@ -1,0 +1,80 @@
+/**
+ * [INPUT]: 依赖 white-model-render-mode.js 写入的 selected 状态与紧凑风格按钮语义结构
+ * [OUTPUT]: 对外提供白模智能默认/平台风格的两列紧凑选择、焦点与长名称截断
+ * [POS]: public 的白模风格选择增量视觉层，不影响其他功能模式和通用按钮样式
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.style-choice-list {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.style-choice-option {
+  align-items: center;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 10px;
+  text-align: left;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.style-choice-option:hover {
+  border-color: var(--line-strong);
+}
+
+.style-choice-option:active {
+  transform: scale(0.985);
+}
+
+.style-choice-option:focus-visible {
+  outline: 2px solid rgb(25 26 28 / 22%);
+  outline-offset: 2px;
+}
+
+.style-choice-option.selected {
+  background: var(--mist);
+  border-color: var(--mist);
+  box-shadow: none;
+  color: #fff;
+}
+
+.style-choice-option strong {
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.style-choice-option small {
+  background: var(--graphite);
+  border-radius: 999px;
+  color: var(--quiet);
+  font: 500 7px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  padding: 4px 5px;
+  white-space: nowrap;
+}
+
+.style-choice-option.selected small {
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .style-choice-option {
+    transition: none;
+  }
+}

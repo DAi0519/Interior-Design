@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Style DNA、Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供 Prompt 解析/复用、版本化 Style DNA、单次或多模型批次中的 OneAPI/ComfyUI 出图及带 Provider 元数据的非阻塞归档
- * [POS]: src 的设计模型渲染应用服务，分离 Prompt 融合与最终出图 Provider 并保持白模画幅
+ * [INPUT]: 依赖智能默认/Style DNA 两类 Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供智能默认/固定风格 Prompt 路由、严格解析/复用、单次或多模型批次中的 OneAPI/ComfyUI 出图及带 Provider 元数据的非阻塞归档
+ * [POS]: src 的设计模型渲染应用服务，只在 Prompt 阶段分流并统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,13 +14,21 @@ import { getPublishedPromptAgent } from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
 
+export const SMART_DEFAULT_RENDER_MODE = "smart-default";
+export const STYLE_DNA_RENDER_MODE = "style-dna";
+export const WHITE_MODEL_PHOTOGRAPHY_PROFILE = [
+  "保留输入机位、视角、透视和等效焦段。",
+  "使用大景深、中性白平衡、准确曝光与色彩、自然动态范围、柔和高光、层次清晰的阴影和克制后期。",
+  "不得使用油腻 HDR、过曝窗景、夸张浅景深、虚假镜面或新增广角畸变。",
+].join("");
+
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
 }
 
-export function parsePromptAgentOutput(text) {
+export function parsePromptAgentOutput(text, { strict = false } = {}) {
   const normalized = String(text || "")
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -34,6 +42,7 @@ export function parsePromptAgentOutput(text) {
 
   const visual = payload?.visual_application;
   const required = [
+    ...(strict ? [payload?.scene_preservation] : []),
     visual?.materials,
     visual?.colors,
     visual?.photography,
@@ -41,6 +50,24 @@ export function parsePromptAgentOutput(text) {
   ];
   if (required.some((value) => typeof value !== "string" || !value.trim())) {
     throw workflowError("Prompt Agent 返回内容缺少必需字段", 502);
+  }
+  if (strict) {
+    const rootFields = Object.keys(payload || {}).sort();
+    const visualFields = Object.keys(visual || {}).sort();
+    if (
+      JSON.stringify(rootFields) !== JSON.stringify([
+        "generation_requirement",
+        "scene_preservation",
+        "visual_application",
+      ])
+      || JSON.stringify(visualFields) !== JSON.stringify([
+        "colors",
+        "materials",
+        "photography",
+      ])
+    ) {
+      throw workflowError("智能默认 Agent 返回了合同外字段", 502);
+    }
   }
   return payload;
 }
@@ -57,9 +84,37 @@ export function buildPromptAgentInput({ styleDna, userRequirements }) {
   ].join("\n");
 }
 
+export function buildSmartDefaultPromptAgentInput({
+  photographyProfile = WHITE_MODEL_PHOTOGRAPHY_PROFILE,
+  userRequirements,
+}) {
+  return [
+    "请执行白模智能默认材质化任务。",
+    "",
+    "render_mode:",
+    SMART_DEFAULT_RENDER_MODE,
+    "",
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
+    "photography_profile:",
+    photographyProfile,
+  ].join("\n");
+}
+
+function normalizeRenderMode(input) {
+  const requested = String(input.renderMode || "").trim();
+  if (!requested) return STYLE_DNA_RENDER_MODE;
+  if ([SMART_DEFAULT_RENDER_MODE, STYLE_DNA_RENDER_MODE].includes(requested)) {
+    return requested;
+  }
+  throw workflowError("白模渲染方式不受支持");
+}
+
 function promptResultCacheKey({
   agent,
   promptModel,
+  renderMode,
   style,
   userRequirements,
   whiteModel,
@@ -70,9 +125,10 @@ function promptResultCacheKey({
     agent.version,
     agent.systemPrompt,
     promptModel.id,
-    style.code,
-    style.version,
-    JSON.stringify(style.styleDna),
+    renderMode,
+    style?.code,
+    style?.version,
+    JSON.stringify(style?.styleDna || null),
     userRequirements,
     whiteModel.imageUrl,
     whiteModel.width,
@@ -113,12 +169,21 @@ export async function executeWhiteModelWorkflow(
   }
   const promptModel = agentModelOrThrow(input.promptAgentModelKey);
   const forcePromptRegeneration = input.forcePromptRegeneration === true;
-  const [style, agent] = await Promise.all([
-    loadStyle(input.styleCode),
-    loadAgent("white-model-fusion", {
-      version: input.promptAgentVersion,
-    }),
-  ]);
+  const renderMode = normalizeRenderMode(input);
+  const smartDefault = renderMode === SMART_DEFAULT_RENDER_MODE;
+  const [style, agent] = smartDefault
+    ? [
+        null,
+        await loadAgent("white-model-smart-default", {
+          version: input.smartDefaultAgentVersion,
+        }),
+      ]
+    : await Promise.all([
+        loadStyle(input.styleCode),
+        loadAgent("white-model-fusion", {
+          version: input.promptAgentVersion,
+        }),
+      ]);
   let modelCatalog = availableModels || (await client.listModels());
   let availableIds = new Set(
     modelCatalog.map((model) => model.id || model.name).filter(Boolean),
@@ -142,18 +207,25 @@ export async function executeWhiteModelWorkflow(
       imageUrl: whiteModels[0].imageUrl,
       model: promptModel.id,
       systemPrompt: agent.systemPrompt,
-      userPrompt: buildPromptAgentInput({
-        styleDna: style.styleDna,
-        userRequirements,
-      }),
+      userPrompt: smartDefault
+        ? buildSmartDefaultPromptAgentInput({ userRequirements })
+        : buildPromptAgentInput({
+            styleDna: style.styleDna,
+            userRequirements,
+          }),
     });
-    return JSON.stringify(parsePromptAgentOutput(promptResult.text), null, 2);
+    return JSON.stringify(
+      parsePromptAgentOutput(promptResult.text, { strict: smartDefault }),
+      null,
+      2,
+    );
   };
   const finalPrompt = promptResultCache
     ? await promptResultCache.get(
         promptResultCacheKey({
           agent,
           promptModel,
+          renderMode,
           style,
           userRequirements,
           whiteModel: whiteModels[0],
@@ -206,9 +278,15 @@ export async function executeWhiteModelWorkflow(
     provider: generation.provider,
     promptDurationMs,
     promptReused,
-    styleCode: style.code,
-    styleName: style.name,
-    styleVersion: style.version,
+    renderMode,
+    selectionName: smartDefault ? "智能默认" : style.name,
+    ...(style
+      ? {
+          styleCode: style.code,
+          styleName: style.name,
+          styleVersion: style.version,
+        }
+      : {}),
     ...(result.metadata || {}),
   };
   const syncInput = {
@@ -235,8 +313,11 @@ export async function executeWhiteModelWorkflow(
       reused: promptReused,
       version: agent.version,
     },
+    renderMode,
     request: preview,
-    style: { code: style.code, name: style.name, version: style.version },
+    style: style
+      ? { code: style.code, name: style.name, version: style.version }
+      : null,
     sync,
     upstream: {
       created: result.created,

@@ -1501,3 +1501,121 @@ final result: passed
 final result: passed
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# White-model Render Mode Cards v25 Design QA (Superseded)
+
+## Evidence
+
+- Browser: Codex in-app browser，真实 `http://127.0.0.1:4173/` 本地服务。
+- State: 白模渲染默认页、实时奶油法式 v4 脱敏目录、未上传图片、未调用 Prompt Agent 或出图模型、未写飞书。
+- Viewport: `831 × 837` CSS 像素；页面与控制栏均为 `scrollWidth = clientWidth`，无横向溢出。
+
+## Findings
+
+- 原 Style DNA 下拉替换为两张并列渲染方式卡片；“智能搭配”默认显式选中并标记“待接入”，“奶油法式”保留实时版本与风格简介。
+- 智能搭配当前仅开放前端预览；生成动作在请求前明确提示需上架 `white-model-smart-default` 并接入服务端路由，不伪造已交付能力。
+- 智能搭配状态隐藏奶油法式专属场景融合 Agent；奶油法式状态恢复 Agent 版本和融合基模配置。
+- 两张卡片复用现有暖灰、中性边框与近黑选中令牌；修正初版选中标题对比度后，最终文本和状态徽标清晰可读。
+
+## Interaction Verification
+
+- 真实指针完成 `智能搭配 → 奶油法式 → 智能搭配` 双向切换；`aria-checked` 与视觉选中态同步。
+- 奶油法式选中时“场景融合 Agent”可见，说明为“奶油法式使用 Style DNA 与场景融合 Agent”；切回智能搭配后该区隐藏。
+- 点击智能搭配下“开始渲染”只出现待接入提示，没有发起模型请求。
+- 页面包含两张渲染方式卡片，浏览器 console error/warning 为 `0`；自动化测试 `244 / 244` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: superseded after product review; the cards overemphasized routing and occupied too much space
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# White-model Compact Style Selection v26 Design QA
+
+## Evidence
+
+- Browser: Codex in-app browser，真实 `http://127.0.0.1:4173/` 本地服务。
+- State: 白模渲染默认页、实时奶油法式 v4 脱敏目录、未上传图片、未调用 Prompt Agent 或出图模型、未写飞书。
+- Viewport: `831 × 837` CSS 像素；页面 `scrollWidth = clientWidth`，无横向溢出。
+
+## Findings
+
+- 控件语义从“渲染方式”修正为“风格选择”；智能默认成为第一个风格选项，与奶油法式平级展示。
+- 大卡片收敛为两列紧凑按钮，单项高度 `38px`，整个风格区高度约 `135px`；仅在控件下方展示当前选项的一行说明。
+- 已上架 Style DNA 按风格族动态追加，同一风格族只展示最新版本；以后扩展新风格无需修改前端结构。
+- 内部仍保持正确链路：智能默认不显示场景融合 Agent，固定风格继续使用既有 Style DNA 与融合 Agent。
+
+## Interaction Verification
+
+- 真实指针完成 `智能默认 → 奶油法式 → 智能默认` 双向切换；`aria-checked` 与视觉选中态同步。
+- 奶油法式选中时“场景融合 Agent”可见，切回智能默认后隐藏。
+- 两个风格按钮高度均为 `38px`，页面横向溢出为 `0`，浏览器 console error/warning 为 `0`。
+- 自动化测试 `245 / 245` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed for compact frontend preview; smart-default Agent runtime remains intentionally unimplemented
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# White-model Smart Default Runtime v27 Design QA
+
+## Evidence
+
+- Browser: Codex in-app browser，独立 `http://127.0.0.1:4188/` 本地服务，不影响既有 4173 进程。
+- Live configuration: 飞书 `AI 生图 / 场景融合 Agent` 返回 `white-model-smart-default@v1`，脱敏接口显示 `available=true`，未向浏览器下发 System Prompt。
+- State: 白模渲染默认页、智能默认选中、奶油法式 v4 可切换；未上传图片、未触发 Prompt 或出图费用。
+
+## Findings
+
+- 智能默认已从前端占位升级为真实双路由：服务端直接读取独立 Agent，注入白模、可选补充要求与固定摄影底座，不读取 Style DNA 或场景融合 Agent。
+- 固定平台风格继续读取 Style DNA 与 `white-model-fusion`；两路在严格 Prompt 合同后汇合到既有模型适配、OneAPI/ComfyUI 出图、缓存和飞书归档。
+- 脱敏配置新增智能默认可用态与版本；前端将版本写入请求和提示词复用身份，Agent 下架或缺正文时明确不可用，不静默串到奶油法式。
+- 智能默认严格要求 `scene_preservation`、三项 `visual_application` 和 `generation_requirement`，并拒绝合同外字段；固定风格保留兼容解析，避免破坏已上架融合版本。
+
+## Interaction Verification
+
+- 真实页面默认显示“智能默认”，说明为“AI 根据当前空间自动匹配材质、色彩与光线”，不再出现“Agent 待接入”。
+- 真实指针完成 `智能默认 → 奶油法式 → 智能默认`：奶油法式显示场景融合 Agent，智能默认隐藏；两侧 `aria-checked` 与视觉状态同步。
+- 真实刷新配置返回“智能默认 v1 · Style DNA 4 条 · 融合 Agent 1 个版本 · 精模 Prompt 1 个版本”。
+- 两个风格按钮高度均为 `38px`，横向溢出为 `0`，浏览器日志为空；自动化测试 `247 / 247` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; smart-default runtime is connected and real image generation remains user-triggered
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# White-model Smart Default Base Model v28 Design QA
+
+## Evidence
+
+- Browser: Codex in-app browser，沿用独立 `http://127.0.0.1:4188/` 本地服务与真实模型可用性目录。
+- State: 智能默认 Agent v1、奶油法式 v4、9 / 10 个支持图片输入且当前可选的 Prompt Agent 基模；未上传图片、未触发模型费用。
+
+## Findings
+
+- 智能默认与固定风格共用已有 `promptAgentModelKey` 服务合同，后端本来已按所选基模调用 Agent；本轮只修复前端把整个 Agent 配置区隐藏的错误。
+- 智能默认选中时显示“智能默认 Agent / Agent 基模”，隐藏不属于该路由的融合 Agent 版本；奶油法式选中时恢复“场景融合 Agent / Agent 版本 / 融合基模”。
+- 基模选择继续复用真实模型目录、图片输入能力和 API Key 可用性，不新增第二套模型配置或裸请求。
+
+## Interaction Verification
+
+- 真实指针在智能默认下把基模从 `Gemini 3.1 Pro` 切换为 `Doubao Seed 1.8`；原生值变为 `doubaoVision`，触发器和能力说明同步更新。
+- 真实指针切到奶油法式后显示融合 Agent v7 和“融合基模”，再切回智能默认后恢复“Agent 基模”，所选 Doubao 保持不丢失。
+- 智能默认不显示 Agent 版本，固定风格显示；页面横向溢出为 `0`，浏览器日志为空。
+- 单元回归验证智能默认请求把 `doubaoVision` 解析为真实路由 `doubao-seed-1.8`，并保持不读取 Style DNA。
+
+## Final Result
+
+final result: passed; smart-default Agent base model is user-selectable
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md

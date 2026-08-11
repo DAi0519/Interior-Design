@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与白模渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供可选场景保持字段、提示词复用/重算、独立 Prompt/图像 Provider、版本化 Style DNA、比例及同步调度回归保障
+ * [INPUT]: 依赖 node:test/assert 与白模智能默认/固定风格渲染编排器的可注入服务边界
+ * [OUTPUT]: 对外提供双 Prompt 路由、严格合同、提示词复用/重算、独立 Prompt/图像 Provider、版本化 Style DNA、比例及同步调度回归保障
  * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildSmartDefaultPromptAgentInput,
   executeWhiteModelWorkflow,
   parsePromptAgentOutput,
 } from "../src/white-model-workflow.mjs";
@@ -62,6 +63,85 @@ test("Prompt Agent 输出支持纯 JSON 与代码围栏并验证字段", () => {
     relaxedAgentJson,
   );
   assert.throws(() => parsePromptAgentOutput("{}"), /缺少必需字段/);
+  assert.throws(
+    () => parsePromptAgentOutput(
+      JSON.stringify({ ...agentJson, analysis: "不应输出" }),
+      { strict: true },
+    ),
+    /合同外字段/,
+  );
+});
+
+test("智能默认直接读取独立 Agent 且不读取 Style DNA", async () => {
+  let agentLookup;
+  let promptRequest;
+  let syncedInput;
+  const client = {
+    generateImage: async () => ({
+      created: 1,
+      images: [{ url: "data:image/png;base64,aQ==" }],
+      outputFormat: "png",
+      quality: null,
+      transport: "responses",
+    }),
+    generatePrompt: async (request) => {
+      promptRequest = request;
+      return { text: JSON.stringify(agentJson) };
+    },
+  };
+  const result = await executeWhiteModelWorkflow(
+    {
+      ...input(),
+      promptAgentModelKey: "doubaoVision",
+      renderMode: "smart-default",
+      smartDefaultAgentVersion: 1,
+      styleCode: undefined,
+    },
+    {
+      availableModels: [{ id: "doubao-seed-1.8" }],
+      client,
+      loadAgent: async (code, options) => {
+        agentLookup = { code, options };
+        return {
+          code: "white-model-smart-default",
+          name: "白模智能默认 Agent",
+          systemPrompt: "smart system",
+          version: 1,
+        };
+      },
+      loadStyle: async () => {
+        throw new Error("智能默认不应读取 Style DNA");
+      },
+      scheduleSync(value) {
+        syncedInput = value;
+        return { generationId: "smart-gen", status: "pending" };
+      },
+    },
+  );
+
+  assert.deepEqual(agentLookup, {
+    code: "white-model-smart-default",
+    options: { version: 1 },
+  });
+  assert.equal(promptRequest.systemPrompt, "smart system");
+  assert.equal(promptRequest.model, "doubao-seed-1.8");
+  assert.match(promptRequest.userPrompt, /render_mode:\nsmart-default/);
+  assert.match(promptRequest.userPrompt, /稍微增强自然光/);
+  assert.match(promptRequest.userPrompt, /photography_profile:/);
+  assert.doesNotMatch(promptRequest.userPrompt, /style_dna:/);
+  assert.equal(result.renderMode, "smart-default");
+  assert.equal(result.style, null);
+  assert.equal(result.promptAgent.name, "白模智能默认 Agent");
+  assert.equal(syncedInput.workflow.renderMode, "smart-default");
+  assert.equal(syncedInput.workflow.selectionName, "智能默认");
+  assert.equal("styleCode" in syncedInput.workflow, false);
+});
+
+test("智能默认输入包含固定摄影底座且允许空补充要求", () => {
+  const prompt = buildSmartDefaultPromptAgentInput({ userRequirements: "" });
+  assert.match(prompt, /无补充要求/);
+  assert.match(prompt, /中性白平衡/);
+  assert.match(prompt, /不得使用油腻 HDR/);
 });
 
 test("白模链路复用模型目录并在出图后调度飞书同步", async () => {

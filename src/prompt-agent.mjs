@@ -21,6 +21,7 @@ const AGENT_NAME_FIELD = "Agent 名称";
 
 const AGENT_DISPLAY_NAMES = Object.freeze({
   "style-dna-reverse": "Style DNA 反推 Agent",
+  "white-model-smart-default": "白模智能默认 Agent",
   "white-model-fusion": "白模渲染融合 Agent",
 });
 

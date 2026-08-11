@@ -30,10 +30,10 @@ benchmark-workbench-store.mjs: Benchmark 当前 worktree 本地状态边界，�
 benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、五维 AI 待审标注、八类单变量零写入计划、确认后配置落库/可取消运行、停止实验 Base 进度重建、v3.1 单次评分与按 Run 断点继续/写回/分析及飞书跳转，并持久化任务阶段、评分失败批次、结构化评分事实与拦截协议漂移
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
-prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与风格反推独立数据表配置，以 Agent 编码稳定路由并支持白模 Agent 可选展示名，用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取
+prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内智能默认、白模融合与风格反推配置，以 Agent 编码稳定路由并支持白模 Agent 可选展示名，用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取
 refined-model-prompt.mjs: 精模固定 Prompt 资产边界，读取独立飞书表、公开脱敏含草稿目录并按版本仅在服务端提供正文
 refined-model-workflow.mjs: 精模渲染应用服务，以单张带材质模型图和固定 Prompt 编排双 Provider 出图、批次元数据与独立归档
-white-model-workflow.mjs: 设计模型渲染应用服务，按融合输入指纹复用/重算最终提示词，分离 OneAPI Prompt 客户端与 OneAPI/ComfyUI 图像客户端，并编排版本化 Style DNA、画幅及非阻塞归档
+white-model-workflow.mjs: 设计模型渲染应用服务，智能默认直接调用独立 Agent、固定风格读取版本化 Style DNA 后调用融合 Agent，两路按完整输入指纹复用/重算最终提示词并统一编排 OneAPI/ComfyUI 出图、画幅和非阻塞归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件
 reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高

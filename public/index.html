@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、Style DNA 对话与 product-navigation.css 共享顶栏样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、最多四个出图模型选择、精模脱敏版本与多结果画廊
+  [INPUT]: 依赖生成、连接中心、白模渲染方式、Style DNA 对话与 product-navigation.css 共享顶栏样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、白模智能默认/平台风格紧凑选择、按风格路由切换的 Agent 基模/融合版本、最多四个出图模型选择与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="/style-dna-chat.css?v=9" />
     <link rel="stylesheet" href="/connection-center.css?v=4" />
     <link rel="stylesheet" href="/product-navigation.css?v=1" />
+    <link rel="stylesheet" href="/white-model-render-mode.css?v=2" />
   </head>
   <body>
     <div class="app-shell">
@@ -152,7 +153,7 @@
 
           <section id="styleSection" class="panel-section generation-control hidden" aria-labelledby="styleTitle">
             <div class="section-heading">
-              <h2 id="styleTitle">风格 <span class="optional">Style DNA</span></h2>
+              <h2 id="styleTitle">风格选择</h2>
               <div class="section-heading-actions">
                 <span id="styleAvailability" class="micro-status">读取中</span>
                 <button
@@ -160,8 +161,8 @@
                   class="config-refresh-button"
                   data-config-refresh
                   type="button"
-                  aria-label="刷新 Style DNA"
-                  title="立即读取最新 Style DNA 与融合 Agent"
+                  aria-label="刷新白模渲染配置"
+                  title="立即读取最新平台风格与融合 Agent"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 7v5h-5" />
@@ -173,11 +174,14 @@
                 </button>
               </div>
             </div>
-            <div class="compact-config-field">
-              <span class="sr-only">Style DNA 风格</span>
-              <select id="styleSelect" aria-label="Style DNA 风格" aria-describedby="styleNote"></select>
-            </div>
-            <p id="styleNote" class="compact-config-note">正在读取飞书风格库…</p>
+            <div
+              id="whiteModelRenderModeList"
+              class="style-choice-list"
+              role="radiogroup"
+              aria-label="白模风格选择"
+              aria-describedby="styleNote"
+            ></div>
+            <p id="styleNote" class="compact-config-note">正在读取白模渲染配置…</p>
           </section>
 
           <section id="promptAgentSection" class="panel-section generation-control hidden" aria-labelledby="promptAgentTitle">
@@ -191,7 +195,7 @@
                   data-config-refresh
                   type="button"
                   aria-label="刷新飞书配置"
-                  title="立即读取最新 Style DNA 与融合 Agent"
+                  title="立即读取最新 Agent 与风格配置"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 7v5h-5" />
@@ -204,12 +208,12 @@
               </div>
             </div>
             <div class="compact-config-stack">
-              <label class="compact-config-label" for="promptAgentVersionSelect">Agent 版本</label>
-              <div class="compact-config-field">
+              <label id="promptAgentVersionLabel" class="compact-config-label" for="promptAgentVersionSelect">Agent 版本</label>
+              <div id="promptAgentVersionField" class="compact-config-field">
                 <select id="promptAgentVersionSelect" aria-label="场景融合 Agent 版本"></select>
               </div>
               <label class="compact-config-label" for="promptAgentModelSelect">
-                融合基模
+                <span id="promptAgentModelLabelCopy">融合基模</span>
                 <span id="promptAgentAvailability" class="micro-status">等待连接</span>
               </label>
               <div class="compact-config-field">
@@ -589,6 +593,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="/app.js?v=31"></script>
+    <script type="module" src="/app.js?v=34"></script>
   </body>
 </html>

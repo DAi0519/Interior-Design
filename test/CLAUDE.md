@@ -40,7 +40,8 @@ refined-model-workflow.test.mjs: 精模固定 Prompt、单图、原图比例、�
 reference-image.test.mjs: 默认及调用方自定义的参考图数量、格式、容量、Base64、MIME、真实字节数与可信宽高策略回归测试
 reference-attachment.test.mjs: Style DNA 图片/PDF 附件分流、无数量上限、PDF 文件签名、MIME、真实字节与容量策略回归测试
 style-library.test.mjs: 飞书风格行、Style DNA 合法性、版本化唯一编码、历史版本选择、上下架状态、分页边界和前端脱敏回归测试
-white-model-workflow.test.mjs: 可选 scene_preservation、版本化 Style DNA、提示词复用/重算/条件失效、独立 Prompt/图像 Provider、比例及非阻塞归档测试
+white-model-workflow.test.mjs: 白模智能默认/固定风格双路由、严格 Agent 输出合同、版本化 Style DNA、提示词复用/重算/条件失效、独立 Prompt/图像 Provider、比例及非阻塞归档测试
+white-model-render-mode.test.mjs: 白模前端风格选择单元测试，覆盖智能默认、平台风格扩展/版本去重和失效选择回退
 runtime-cache.test.mjs: 异步 TTL 缓存命中、并发去重、过期、主动刷新和失败清理测试
 sync-jobs.test.mjs: generationId 幂等入队、非阻塞执行与飞书同步状态测试
 
