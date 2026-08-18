@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供四个 OneAPI 模型与一个双档 ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -282,10 +282,10 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K
   assert.equal(generation.preview.sizeMode, "source-tier");
   assert.equal(generation.request.width, 1360);
   assert.equal(generation.request.height, 768);
-  assert.equal(generation.request.workflow_profile, "quality");
-  assert.equal(generation.preview.workflowProfileLabel, "质量优先");
+  assert.equal("workflow_profile" in generation.request, false);
+  assert.equal("workflowProfileLabel" in generation.preview, false);
 
-  const fast = createGenerationRequest({
+  const defaults = createGenerationRequest({
     modelKey: "aiTextureEnhancement",
     outputFormat: "png",
     prompt: "",
@@ -299,9 +299,9 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K
     resolution: "2K",
     workflowProfile: "fast",
   }, { sourceDimensions: { height: 900, width: 1600 } });
-  assert.equal(fast.request.workflow_profile, "fast");
-  assert.equal(fast.request.size, "2736x1536");
-  assert.equal(fast.preview.workflowProfileLabel, "快速");
+  assert.equal("workflow_profile" in defaults.request, false);
+  assert.equal(defaults.request.size, "2736x1536");
+  assert.equal("workflowProfileLabel" in defaults.preview, false);
 });
 
 test("Flux2 Klein 分辨率按约 1MP/4MP 像素面积计算并对齐 16 像素网格", () => {
@@ -378,6 +378,8 @@ test("Flux2 Klein 前端能力锁定原图比例并开放 1K/2K", () => {
     { label: "1K", value: "1K" },
     { label: "2K", value: "2K" },
   ]);
+  assert.equal("workflowProfiles" in model, false);
+  assert.equal("defaultWorkflowProfile" in model, false);
   assert.equal(summary.exactSize, "2736 × 1536");
 });
 
@@ -402,22 +404,6 @@ test("Seedream 4.5 使用真实路由并只暴露 2K 与 4K", () => {
 });
 
 test("拒绝模型不支持的参数组合", () => {
-  assert.throws(
-    () => {
-      const pngDataUrl =
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
-      return createGenerationRequest({
-        modelKey: "aiTextureEnhancement",
-        outputFormat: "png",
-        prompt: "",
-        ratio: "source",
-        referenceImages: [{ dataUrl: pngDataUrl, name: "source.png", type: "image/png" }],
-        resolution: "2K",
-        workflowProfile: "turbo",
-      });
-    },
-    /不支持这个生成档位/,
-  );
   assert.throws(
     () =>
       createGenerationRequest({

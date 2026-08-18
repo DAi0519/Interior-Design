@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/双档契约与 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/工作流档位能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、请求构造器与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps 契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、请求构造器与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -90,8 +90,7 @@ export const MODEL_CONFIGS = Object.freeze({
     defaultFormat: "png",
     defaultRatio: "source",
     defaultResolution: "2K",
-    defaultWorkflowProfile: "quality",
-    description: "ComfyUI · Flux2 Klein 双档工作流，保持原图比例，1K/2K 按总像素自适应",
+    description: "ComfyUI · Flux2 Klein，保持原图比例，1K/2K 按总像素自适应",
     formats: ["png"],
     id: "comfyui:ai-texture-enhancement",
     label: "Flux2 Klein",
@@ -101,10 +100,6 @@ export const MODEL_CONFIGS = Object.freeze({
     requiresReferenceImage: true,
     sizes: FLUX_SOURCE_SIZES,
     sizingMode: "source",
-    workflowProfiles: [
-      { label: "质量优先", value: "quality" },
-      { label: "快速", value: "fast" },
-    ],
   },
   seedream45: {
     accent: "orange",
@@ -212,8 +207,6 @@ export function publicModelCatalog() {
     requiresReferenceImage: model.requiresReferenceImage === true,
     sizes: model.sizes,
     sizingMode: model.sizingMode || "preset",
-    workflowProfiles: model.workflowProfiles || [],
-    defaultWorkflowProfile: model.defaultWorkflowProfile || null,
   }));
 }
 
@@ -247,14 +240,6 @@ export function createGenerationRequest(
       error.statusCode = 400;
       throw error;
     }
-    const workflowProfile = optionOrThrow(
-      (model.workflowProfiles || []).map((profile) => profile.value),
-      String(input.workflowProfile || model.defaultWorkflowProfile),
-      "Flux2 Klein 不支持这个生成档位",
-    );
-    const workflowProfileLabel = model.workflowProfiles.find(
-      (profile) => profile.value === workflowProfile,
-    ).label;
     const resolution = optionOrThrow(
       Object.keys(model.sizes.source),
       String(input.resolution || model.defaultResolution),
@@ -282,8 +267,6 @@ export function createGenerationRequest(
         resolution,
         size,
         sizeMode: "source-tier",
-        workflowProfile,
-        workflowProfileLabel,
       },
       provider: "comfyui",
       request: {
@@ -300,7 +283,6 @@ export function createGenerationRequest(
         size,
         height: dimensions.height,
         width: dimensions.width,
-        workflow_profile: workflowProfile,
       },
     };
   }

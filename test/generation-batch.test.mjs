@@ -63,8 +63,8 @@ test("不同模型自动收敛到各自合法参数而不篡改共同输入", ()
   assert.equal(comfy.ratio, "source");
   assert.equal(comfy.resolution, "2K");
   assert.equal(comfy.outputFormat, "png");
-  assert.equal(comfy.workflowProfile, "fast");
-  assert.equal(gpt.workflowProfile, undefined);
+  assert.equal("workflowProfile" in comfy, false);
+  assert.equal("workflowProfile" in gpt, false);
 });
 
 test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {
@@ -74,7 +74,6 @@ test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {
       outputFormat: "png",
       referenceImageCount: 1,
       size: "1920x1080",
-      workflowProfileLabel: "快速",
     },
     style: { name: "智能默认" },
     upstream: {

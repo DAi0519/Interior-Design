@@ -4,12 +4,12 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
-model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型与 Flux2 Klein ComfyUI 双档工作流、Provider、参考图能力、合法尺寸及 Flux 原图比例约 1MP/4MP 的 1K/2K 请求契约
+model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、合法尺寸及 Flux 原图比例约 1MP/4MP 的 1K/2K 请求契约
 generation-batch.mjs: 多模型生成批次契约，严格校验最多四项的共同批次 ID、总数与序号
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十个候选 ID（含 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-client.mjs: 可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Prompt Agent 支持白模单图或白模+风格参考双图 Responses；Claude 双图 AI 评审按规则源走 Chat Completions，其余分析、Style DNA 多轮反推与图生图走 Responses，统一归一化请求、费用与脱敏错误
-ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，维护质量优先原版 9B/7步与快速 KV 9B/7步双档、原图比例 1K/2K 推理及输出尺寸、Base64 参考图、正向 Prompt 原样注入、固定负向 Prompt、运行时 Seed 及版本元数据
+ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用原版 9B FP8/7 steps、原图比例 1K/2K 推理及输出尺寸、Base64 参考图、正向 Prompt 原样注入、固定负向 Prompt、运行时 Seed 及版本元数据
 comfyui-client.mjs: 支持外部取消信号的 ComfyUI HTTP 客户端，将 Base64 参考图、1K/2K 目标宽高与所选档位工作流原子提交、只对网关读取抖动做安全重试、明确区分服务不可用、保留节点校验详情、轮询 History、恢复多实例间暂不可见的输出并归一为 data URL 与排队/执行元数据
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码

@@ -15,7 +15,7 @@
 - GPT Image 2：`gpt-image-2`
 - Seedream 4.5：`doubao-seedream-4.5`（当前 OneAPI Key 真实开放的上一代对照；未开放 Seedream 4.0）
 - Seedream 5.0：`doubao-seedream-5.0`
-- Flux2 Klein：`comfyui:ai-texture-enhancement`（兼容历史路由 ID；ComfyUI 单张参考图双档工作流，保持原图比例并支持 1K/2K）
+- Flux2 Klein：`comfyui:ai-texture-enhancement`（兼容历史路由 ID；ComfyUI 单张参考图默认使用 9B FP8/7 steps，保持原图比例并支持 1K/2K）
 
 工作台提供“白模渲染 / 精模渲染 / 风格反推 / 自由生图”功能切换，进入页面时仍默认选择白模渲染。精模渲染要求一张带材质模型图，服务端从飞书“精模渲染 Prompt”表读取所选固定版本并保持原图机位、构图与材质体系；Prompt 正文不会下发浏览器。当前 v1 可在“测试中”状态直接内部试用，上架后状态自动切换。
 
@@ -149,7 +149,8 @@ Windows 和 macOS 设置临时环境变量的语法不同，因此运营流程�
 - GPT Image 2：9 种比例，1K / 2K / 4K，PNG / JPEG / WebP，并支持质量档位；白模渲染与自由生图都默认选择“中”。
 - Seedream 4.5：8 种比例，2K / 4K，PNG / JPEG。
 - Seedream 5.0：8 种比例，2K / 3K / 4K，PNG / JPEG。
-- Flux2 Klein：必须且只允许一张 PNG / JPEG / WebP；“质量优先”使用原版 9B FP8、7 steps，“快速”使用 9B KV FP8、同样 7 steps，以受控比较 checkpoint 的速度与画质。两档均保持原图比例，独立支持约 1MP/4MP 总像素的 1K/2K，推理与最终 PNG 使用同一目标尺寸，不再恢复原图像素。结果卡显示总耗时，并把 Flux 拆为 Prompt、排队和 Comfy 执行三段；档位切换可能触发另一套 9B 权重冷加载，真实比较应区分冷态与热态。
+- Flux2 Klein：必须且只允许一张 PNG / JPEG / WebP；工作流默认使用原版 `flux-2-klein-9b-fp8.safetensors` 与 7 steps，不向用户展示模型或 steps 档位。工作流保持原图比例，独立支持约 1MP/4MP 总像素的 1K/2K，推理与最终 PNG 使用同一目标尺寸，不再恢复原图像素。结果卡显示总耗时，并把 Flux 拆为 Prompt、排队和 Comfy 执行三段。
+- 开发交付可直接使用根目录 `FLUX2_KLEIN_COMFYUI_REFERENCE.json`。该单文件包含当前修改版完整 API 工作流、默认 9B FP8/7 steps 参数、1K/2K 面积算法、需要动态替换的节点路径以及 `/prompt` 提交结构，不参与工作台运行。
 
 白模或自由生图上传参考图后，浏览器会按第一张图片的宽高从当前模型合法比例中选择
 最近项；服务端再次从真实 PNG/JPEG/WebP 图片头读取首图宽高并完成同一适配，避免

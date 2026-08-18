@@ -12,7 +12,7 @@ generation-actions.css: 白模生成动作视觉层，提供无固定数量胶�
 final-model-availability.js: 最终出图模型展示解释器，四个可运行 OneAPI 模型与一个 ComfyUI 工作流统一可选且不暴露内部目录状态，由真实生成请求裁决
 model-capabilities.js: 双 Provider 模型能力解释器，以纯函数推导单图/多图文案、数量上限、合法比例/分辨率选项及 Flux 原图比例约 1MP/4MP 的 1K/2K 目标像素摘要
 model-multi-select.js: 出图模型多选控制器，提供至少一项、最多四项的纯选择规则与紧凑按钮组
-generation-batch.js: 多模型生成领域层，逐模型适配合法尺寸、质量及 Flux 工作流档位，并以并发度二保序执行最多四项、保留部分失败
+generation-batch.js: 多模型生成领域层，逐模型适配合法尺寸与质量、剥离遗留 Flux 工作流档位，并以并发度二保序执行最多四项、保留部分失败
 generation-results.js: 多模型结果呈现层，渲染单图/两列画廊、原位失败卡、逐图直接下载及独立飞书同步状态
 reference-upload.js: 参考图上传交互层，统一白模/精模主图与白模风格参考图的预览、删除、拖放、单图原位替换、格式容量校验和变更通知
 white-model-render-mode.js: 白模风格选择层，维护智能默认项、已上架平台风格、选择归一化与内部 Prompt 路由差异

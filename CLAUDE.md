@@ -23,6 +23,7 @@ benchmark-backfill.mjs - 历史横评数据迁移入口，不调用模型，将�
 README.md - Windows/macOS 运营首次运行、连接中心、安全边界与模型参数说明
 RELEASE.md - 维护者版本更新、发布准入、白名单 ZIP、SHA-256、manifest 与 GitHub Release 操作协议
 DESIGN.md - 近白画布/奶油灰面板 Light Command Center 在高频生图工作台中的视觉、GSAP 切换与交互契约
+FLUX2_KLEIN_COMFYUI_REFERENCE.json - 修改版 Flux2 Klein 单文件开发交付包，包含完整 ComfyUI API 工作流、默认 9B FP8/7 steps 参数、1K/2K 总像素规则与运行时节点绑定
 design-qa.md - 工作台视觉验收历史，记录 Benchmark 样本集、任务失败、评分与实验配置演进；最新样本区已完成左管理/右列表、管理表头同高同底色、双路径分类与人工保护的真实浏览器对比验收
 WHITE_MODEL_BENCHMARK.md - 白模渲染 Benchmark 方法与执行规范，统一实验隔离、数据分层、结构化评分、统计决策与落地流程
 .gitignore - 密钥、依赖、发布物、生成物、缓存和私有文档忽略规则

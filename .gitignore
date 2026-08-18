@@ -9,12 +9,15 @@ private/
 assets/
 references/
 outputs/
+output/
 generated/
 *.png
 *.jpg
 *.jpeg
 *.webp
 *.gif
+*.tif
+*.tiff
 *.pdf
 
 # Local secrets and environment

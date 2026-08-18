@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 model-capabilities.js 的合法尺寸推导、统一生成输入、含工作流档位的模型目录与批量执行回调
- * [OUTPUT]: 对外提供逐模型合法尺寸/质量/工作流档位适配和最多四项、并发度受限、保序且允许部分失败的批量调度
+ * [INPUT]: 依赖 model-capabilities.js 的合法尺寸推导、统一生成输入、使用 Flux 默认模型参数的模型目录与批量执行回调
+ * [OUTPUT]: 对外提供逐模型合法尺寸/质量适配、遗留工作流档位剥离和最多四项、并发度受限、保序且允许部分失败的批量调度
  * [POS]: public 的多模型生成领域层，与 DOM、网络客户端和结果渲染分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ export function adaptGenerationInputForModel(
   model,
   { featureMode, sourceImage = null } = {},
 ) {
+  const { workflowProfile: _legacyWorkflowProfile, ...baseInput } = input;
   const controls = sizeControlState({
     currentRatio: input.ratio,
     currentResolution: input.resolution,
@@ -32,20 +33,13 @@ export function adaptGenerationInputForModel(
   const quality = model.qualityOptions.includes(input.quality)
     ? input.quality
     : model.defaultQuality || undefined;
-  const workflowProfiles = model.workflowProfiles || [];
-  const workflowProfile = workflowProfiles.some(
-    (profile) => profile.value === input.workflowProfile,
-  )
-    ? input.workflowProfile
-    : model.defaultWorkflowProfile || undefined;
   return {
-    ...input,
+    ...baseInput,
     modelKey: model.key,
     outputFormat,
     quality,
     ratio: controls.ratio,
     resolution: controls.resolution,
-    workflowProfile,
   };
 }
 

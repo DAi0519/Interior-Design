@@ -62,7 +62,6 @@ export function resultMetadata(result, sync = result.sync) {
     result.style?.name,
     result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
     result.promptAgent?.reused ? "提示词已复用" : null,
-    result.request.workflowProfileLabel,
     result.request.referenceImageCount > 0
       ? `${result.request.referenceImageCount} 张参考图`
       : null,

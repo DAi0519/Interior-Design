@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖页面 DOM、精模预设 Prompt 与可选用户要求、白模智能默认/固定风格路由、支持单图原位替换的双参考图上传、含 Flux 双档位的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [INPUT]: 依赖页面 DOM、精模预设 Prompt 与可选用户要求、白模智能默认/固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
  * [OUTPUT]: 对外提供精模自定义要求、白模与可选风格参考图整合及拖入替换、自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -262,14 +262,6 @@ function configurePrimaryModel() {
       })),
       model.defaultQuality || "auto",
     );
-  } else if (model.workflowProfiles.length > 0) {
-    elements.qualityField.classList.remove("hidden");
-    elements.qualityLabel.textContent = "生成档位";
-    fillSelect(
-      elements.qualitySelect,
-      model.workflowProfiles.map(({ label, value }) => ({ label, value })),
-      model.defaultWorkflowProfile,
-    );
   } else {
     elements.qualityField.classList.add("hidden");
     elements.qualitySelect.replaceChildren();
@@ -363,9 +355,6 @@ function generationInput() {
         }
       : {}),
     resolution: elements.resolutionSelect.value,
-    workflowProfile: model?.workflowProfiles.length
-      ? elements.qualitySelect.value || undefined
-      : undefined,
     renderMode: renderMode.mode,
     smartDefaultAgentVersion: renderMode.agentVersion || undefined,
     styleCode: renderMode.styleCode || undefined,

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node fetch、支持 1K/2K 目标宽高的双档 Flux2 Klein 工作流工厂、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
- * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 参考图与所选档位工作流原子提交、可取消排队/轮询、网关抖动安全恢复、节点错误诊断、多实例输出读取恢复与统一 generateImage 结果
+ * [INPUT]: 依赖 Node fetch、支持 1K/2K 目标宽高且默认使用 9B FP8/7 steps 的 Flux2 Klein 工作流工厂、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
+ * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 参考图与默认参数工作流原子提交、可取消排队/轮询、网关抖动安全恢复、节点错误诊断、多实例输出读取恢复与统一 generateImage 结果
  * [POS]: src 的第二图像生成服务边界，与 oneapi-client.mjs 并列并隐藏 ComfyUI 异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -335,7 +335,6 @@ export function createComfyUiClient({
       }
 
       const reference = dataImage(images[0].image_url);
-      const workflowProfile = String(generationRequest.workflow_profile || "quality");
       const width = Number(generationRequest.width || 2048);
       const height = Number(generationRequest.height || 2048);
       const resolution = String(generationRequest.resolution || "2K");
@@ -347,7 +346,6 @@ export function createComfyUiClient({
         prompt: generationRequest.prompt,
         seed,
         width,
-        workflowProfile,
       });
       const queued = await requestJson("prompt", {
         body: JSON.stringify({ client_id: randomUUID(), prompt }),
@@ -380,7 +378,6 @@ export function createComfyUiClient({
           resolution,
           seed,
           width,
-          workflowProfile,
         }),
         outputFormat: downloaded.outputFormat,
         quality: null,

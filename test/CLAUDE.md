@@ -7,10 +7,10 @@ CLAUDE.md: 本模块地图，维护自动化测试成员清单
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点，并阻止内容宽度百分比导致的无效省略
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 四个 OneAPI 模型与一个双档 ComfyUI 工作流统一可选、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、16 像素对齐、合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
-generation-batch.test.mjs: 服务端批次标识、浏览器逐模型尺寸/质量/工作流档位适配、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
+model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、16 像素对齐、合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
+generation-batch.test.mjs: 服务端批次标识、浏览器逐模型尺寸/质量适配与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
-comfyui-client.test.mjs: ComfyUI 健康检查、主动取消、质量优先/快速双档、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、固定负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
+comfyui-client.test.mjs: 根目录 Flux 开发交付 JSON 同步、ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、固定负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
 generation-actions.test.mjs: 白模首次单按钮、提示词可复用双按钮、融合输入变化失效、自由生图隔离与忙碌文案纯状态测试
