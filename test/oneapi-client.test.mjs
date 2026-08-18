@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI 单图分析/多图评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 AI 单图分析、主动取消、请求侧大图压缩、Claude Chat Completions/其他 Responses 4K-token 双图评审、图生图、Style DNA 多轮图片/PDF 与纯文字续改协议、图片/文本/真实费用响应及敏感错误处理的回归保障
+ * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI Prompt 单/双图、分析/评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
+ * [OUTPUT]: 对外提供 Prompt Agent 白模/风格参考顺序、AI 单图分析、主动取消、请求侧压缩、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,7 @@ import { DEFAULT_MAX_IMAGE_BASE64_BYTES } from "../src/image-artifact.mjs";
 import {
   buildChatCompletionsReviewRequest,
   buildMultiImageReviewRequest,
+  buildPromptGenerationRequest,
   buildResponseImageRequest,
   buildSingleImageAnalysisRequest,
   buildStyleDnaResponseRequest,
@@ -72,6 +73,27 @@ test("单图分析请求只发送当前图片", () => {
   assert.equal(request.input[0].content[1].image_url, "data:image/png;base64,c2FtcGxl");
   assert.equal(request.input[0].content[1].type, "input_image");
   assert.throws(() => buildSingleImageAnalysisRequest({ imageUrl: "" }), /一张图片/);
+});
+
+test("Prompt Agent 请求按顺序携带白模与可选风格参考图", () => {
+  const request = buildPromptGenerationRequest({
+    imageUrls: [
+      "data:image/png;base64,d2hpdGU=",
+      "data:image/png;base64,c3R5bGU=",
+    ],
+    model: "gemini-3.1-pro-preview",
+    systemPrompt: "只返回 JSON",
+    userPrompt: "图片 1 是白模，图片 2 是风格参考",
+  });
+  assert.deepEqual(
+    request.input[0].content.slice(1).map((item) => item.image_url),
+    ["data:image/png;base64,d2hpdGU=", "data:image/png;base64,c3R5bGU="],
+  );
+  assert.equal(request.max_output_tokens, 4096);
+  assert.throws(
+    () => buildPromptGenerationRequest({ imageUrls: [] }),
+    /一至两张图片/,
+  );
 });
 
 test("OneAPI 单图分析客户端不经过多图数量限制", async (context) => {

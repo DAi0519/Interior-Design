@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供可超时/主动取消的 OneAPI 客户端、单图分析、图生图、4K-token 限额内多图评审与多轮图片/PDF 文本请求构造、请求 ID/响应/真实费用归一化与错误脱敏
+ * [OUTPUT]: 对外提供可超时/主动取消的 OneAPI 客户端、Prompt Agent 单/双图输入、图生图、4K-token 多图评审与多轮图片/PDF 请求构造、请求 ID/响应/真实费用归一化与错误脱敏
  * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图走 Images API
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -253,6 +253,31 @@ export function buildSingleImageAnalysisRequest({
   });
 }
 
+export function buildPromptGenerationRequest({
+  imageUrl,
+  imageUrls,
+  model,
+  systemPrompt,
+  userPrompt,
+}) {
+  const resolvedImageUrls = imageUrls ?? (imageUrl ? [imageUrl] : []);
+  if (
+    !Array.isArray(resolvedImageUrls)
+    || resolvedImageUrls.length < 1
+    || resolvedImageUrls.length > 2
+    || resolvedImageUrls.some((value) => typeof value !== "string" || !value.trim())
+  ) {
+    throw new TypeError("Prompt Agent 需要一至两张图片");
+  }
+  return buildImageAnalysisRequest({
+    imageUrls: resolvedImageUrls,
+    maxOutputTokens: 4096,
+    model,
+    systemPrompt,
+    userPrompt,
+  });
+}
+
 export function buildMultiImageReviewRequest({
   imageUrls,
   model,
@@ -415,22 +440,15 @@ export function createOneApiClient(apiKey, { signal: externalSignal = null } = {
       };
     },
 
-    async generatePrompt({ imageUrl, model, systemPrompt, userPrompt }) {
+    async generatePrompt({ imageUrl, imageUrls, model, systemPrompt, userPrompt }) {
       const body = await request("/responses", {
-        body: JSON.stringify({
-          input: [
-            {
-              content: [
-                { text: userPrompt, type: "input_text" },
-                { image_url: imageUrl, type: "input_image" },
-              ],
-              role: "user",
-            },
-          ],
-          instructions: systemPrompt,
-          max_output_tokens: 4096,
+        body: JSON.stringify(buildPromptGenerationRequest({
+          imageUrl,
+          imageUrls,
           model,
-        }),
+          systemPrompt,
+          userPrompt,
+        })),
         method: "POST",
       });
       const text = extractResponseText(body);

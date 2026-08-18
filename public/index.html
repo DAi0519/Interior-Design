@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、白模渲染方式、Style DNA 对话与 product-navigation.css 共享顶栏样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、白模智能默认/平台风格紧凑选择、按风格路由切换的 Agent 基模/融合版本、Flux 双档位、最多四个出图模型选择与多结果画廊
+  [INPUT]: 依赖生成、连接中心、白模渲染方式、支持单图原位替换的双参考图上传、Style DNA 对话、product-navigation.css/js 共享顶栏与固定版本 GSAP、偏白画布/奶油灰面板 Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、提示词前置的白模与可选风格参考双上传、智能默认/平台风格选择、按路由切换的 Agent 配置、Flux 双档位、最多四个出图模型选择与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -14,14 +14,14 @@
       content="五个公司图像模型与 Flux2 Klein ComfyUI 工作流的本地测试工作台"
     />
     <title>Canvas Lab · 图像模型工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=8" />
+    <link rel="stylesheet" href="/styles.css?v=9" />
     <link rel="stylesheet" href="/result.css?v=10" />
-    <link rel="stylesheet" href="/theme.css?v=16" />
+    <link rel="stylesheet" href="/theme.css?v=19" />
     <link rel="stylesheet" href="/generation-actions.css?v=3" />
     <link rel="stylesheet" href="/custom-select.css?v=5" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=9" />
     <link rel="stylesheet" href="/connection-center.css?v=4" />
-    <link rel="stylesheet" href="/product-navigation.css?v=1" />
+    <link rel="stylesheet" href="/product-navigation.css?v=2" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=2" />
   </head>
   <body>
@@ -232,19 +232,6 @@
             <p id="modelNote" class="compact-config-note">可选择 1–4 个模型，每个模型各生成 1 张。</p>
           </section>
 
-          <section id="promptSection" class="panel-section generation-control" aria-labelledby="promptTitle">
-            <div class="section-heading">
-              <h2 id="promptTitle">提示词</h2>
-              <span id="promptCount" class="character-count">0 / 8000</span>
-            </div>
-            <label class="sr-only" for="promptInput">图像提示词</label>
-            <textarea
-              id="promptInput"
-              maxlength="8000"
-              placeholder="描述空间、材质、光线和镜头…"
-            >现代住宅客厅，保留原有门窗位置与空间尺度，现代简约风格，米白色墙面、浅橡木与亚麻材质，低饱和配色，柔和自然光，24mm 广角，视线高度 1.5m，真实室内摄影</textarea>
-          </section>
-
           <section class="panel-section generation-control" aria-labelledby="referenceTitle">
             <div class="section-heading">
               <h2 id="referenceTitle"><span id="referenceTitleCopy">参考图</span> <span id="referenceOptional" class="optional">可选</span></h2>
@@ -267,6 +254,42 @@
               <span id="referenceDropLabel">添加或拖入参考图</span>
               <small>PNG / JPEG / WebP · 单张 8MB</small>
             </div>
+          </section>
+
+          <section id="styleReferenceSection" class="panel-section generation-control" aria-labelledby="styleReferenceTitle">
+            <div class="section-heading">
+              <h2 id="styleReferenceTitle">风格参考图 <span class="optional">可选 · 最多1张</span></h2>
+              <span id="styleReferenceCount" class="micro-status">0 / 1</span>
+            </div>
+            <div id="styleReferenceList" class="reference-list"></div>
+            <div id="styleReferenceDropZone" class="reference-drop-zone">
+              <input
+                id="styleReferenceInput"
+                class="reference-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                aria-label="添加风格参考图"
+              />
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+              </svg>
+              <span>添加或拖入风格参考图</span>
+              <small>只提取材质、色彩与光线 · PNG / JPEG / WebP · 单张 8MB</small>
+            </div>
+          </section>
+
+          <section id="promptSection" class="panel-section generation-control" aria-labelledby="promptTitle">
+            <div class="section-heading">
+              <h2 id="promptTitle">提示词</h2>
+              <span id="promptCount" class="character-count">0 / 8000</span>
+            </div>
+            <label class="sr-only" for="promptInput">图像提示词</label>
+            <textarea
+              id="promptInput"
+              maxlength="8000"
+              placeholder="描述空间、材质、光线和镜头…"
+            >现代住宅客厅，保留原有门窗位置与空间尺度，现代简约风格，米白色墙面、浅橡木与亚麻材质，低饱和配色，柔和自然光，24mm 广角，视线高度 1.5m，真实室内摄影</textarea>
           </section>
 
           <section class="panel-section generation-control" aria-labelledby="parameterTitle">
@@ -593,6 +616,8 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script type="module" src="/app.js?v=34"></script>
+    <script src="/vendor/gsap.min.js"></script>
+    <script type="module" src="/product-navigation.js?v=2"></script>
+    <script type="module" src="/app.js?v=36"></script>
   </body>
 </html>

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供含画幅适配模式、生图模型与 Prompt融合的字段映射和飞书 CLI 返回体兼容性纯函数回归保障
+ * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的同步配置、记录字段构造器、记录 ID 解析器
+ * [OUTPUT]: 对外提供参考图/风格参考图分列配置、画幅适配、生图模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildRecordFields, recordIdFrom } from "../src/lark-sync.mjs";
+import {
+  buildRecordFields,
+  LARK_SYNC_CONFIG,
+  recordIdFrom,
+} from "../src/lark-sync.mjs";
+
+test("生成记录将白模参考图与风格参考图归档到独立附件列", () => {
+  assert.equal(LARK_SYNC_CONFIG.referenceFieldId, "fldhktY1vR");
+  assert.equal(LARK_SYNC_CONFIG.styleReferenceFieldId, "fldFxH3Sxj");
+  assert.notEqual(
+    LARK_SYNC_CONFIG.referenceFieldId,
+    LARK_SYNC_CONFIG.styleReferenceFieldId,
+  );
+});
 
 test("生成结果映射为飞书可写字段且不写只读和附件字段", () => {
   const fields = buildRecordFields({

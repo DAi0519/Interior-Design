@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与白模智能默认/固定风格渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供双 Prompt 路由、智能默认可省略重复生成要求的严格合同、提示词复用/重算、独立 Prompt/图像 Provider、版本化 Style DNA、比例及同步调度回归保障
+ * [OUTPUT]: 对外提供双 Prompt 路由、白模+风格参考双图合同、提示词复用/重算、最终出图单图隔离、独立 Provider、版本化 Style DNA、比例及同步调度回归保障
  * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -163,6 +163,120 @@ test("智能默认输入包含固定摄影底座且允许空补充要求", () =>
   assert.match(prompt, /无补充要求/);
   assert.match(prompt, /中性白平衡/);
   assert.match(prompt, /不得使用油腻 HDR/);
+});
+
+test("风格参考图只进入整合 Agent，不进入最终出图参考数组", async () => {
+  let promptRequest;
+  let generatedRequest;
+  let syncedInput;
+  const styleDataUrl = "data:image/png;base64,c3R5bGU=";
+  const result = await executeWhiteModelWorkflow({
+    ...input(),
+    renderMode: "smart-default",
+    styleCode: undefined,
+    styleReferenceImages: [{
+      dataUrl: styleDataUrl,
+      name: "style.png",
+      size: Buffer.from("style").length,
+      type: "image/png",
+    }],
+  }, {
+    availableModels: [{ id: "gemini-3.1-pro-preview" }],
+    client: {
+      generatePrompt: async (request) => {
+        promptRequest = request;
+        return { text: JSON.stringify(smartDefaultAgentJson) };
+      },
+    },
+    imageClient: {
+      generateImage: async (request) => {
+        generatedRequest = request;
+        return {
+          created: 1,
+          images: [{ url: "data:image/png;base64,aQ==" }],
+          outputFormat: "png",
+          transport: "responses",
+        };
+      },
+    },
+    loadAgent: async () => ({
+      code: "white-model-smart-default",
+      name: "白模智能默认 Agent",
+      systemPrompt: "system",
+      version: 1,
+    }),
+    scheduleSync(value) {
+      syncedInput = value;
+      return { generationId: "style-ref", status: "pending" };
+    },
+  });
+
+  assert.deepEqual(promptRequest.imageUrls, [onePixelPng, styleDataUrl]);
+  assert.match(promptRequest.userPrompt, /图片 1 是白模图/);
+  assert.match(promptRequest.userPrompt, /图片 2 是风格参考图/);
+  assert.equal(generatedRequest.images.length, 1);
+  assert.equal(generatedRequest.images[0].image_url, onePixelPng);
+  assert.equal(syncedInput.referenceImages.length, 1);
+  assert.equal(syncedInput.styleReferenceImages.length, 1);
+  assert.equal(syncedInput.workflow.styleReferenceUsed, true);
+  assert.equal(result.promptAgent.inputImageCount, 2);
+});
+
+test("风格参考图内容变化会使提示词缓存失效", async () => {
+  const promptResultCache = createAsyncTtlCache({ ttlMs: 60_000 });
+  let promptCalls = 0;
+  const dependencies = {
+    availableModels: [{ id: "gemini-3.1-pro-preview" }],
+    client: {
+      generatePrompt: async () => {
+        promptCalls += 1;
+        return { text: JSON.stringify(smartDefaultAgentJson) };
+      },
+    },
+    imageClient: {
+      generateImage: async () => ({
+        created: 1,
+        images: [{ url: "data:image/png;base64,aQ==" }],
+        outputFormat: "png",
+        transport: "responses",
+      }),
+    },
+    loadAgent: async () => ({
+      code: "white-model-smart-default",
+      name: "白模智能默认 Agent",
+      systemPrompt: "system",
+      version: 1,
+    }),
+    promptResultCache,
+  };
+  const styleReference = (content) => [{
+    dataUrl: `data:image/png;base64,${Buffer.from(content).toString("base64")}`,
+    name: "style.png",
+    size: Buffer.from(content).length,
+    type: "image/png",
+  }];
+  const baseInput = {
+    ...input(),
+    renderMode: "smart-default",
+    styleCode: undefined,
+  };
+
+  await executeWhiteModelWorkflow(baseInput, dependencies);
+  await executeWhiteModelWorkflow({
+    ...baseInput,
+    styleReferenceImages: styleReference("style-a"),
+  }, dependencies);
+  await executeWhiteModelWorkflow({
+    ...baseInput,
+    styleReferenceImages: styleReference("style-b"),
+  }, dependencies);
+  const reused = await executeWhiteModelWorkflow({
+    ...baseInput,
+    styleReferenceImages: styleReference("style-b"),
+  }, dependencies);
+
+  assert.equal(promptCalls, 3);
+  assert.equal(reused.promptAgent.reused, true);
 });
 
 test("白模链路复用模型目录并在出图后调度飞书同步", async () => {

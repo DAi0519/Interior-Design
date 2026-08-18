@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖智能默认/Style DNA 两类 Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供智能默认/固定风格 Prompt 路由、支持智能默认省略重复生成要求的严格解析/复用、单次或多模型批次中的 OneAPI/ComfyUI 出图及带 Provider 元数据的非阻塞归档
+ * [INPUT]: 依赖智能默认/Style DNA 两类 Prompt Agent 配置、白模与可选风格参考图、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供白模单图或白模+风格参考双图 Prompt 路由、严格解析/缓存隔离、最终模型仅白模出图及带 Provider 元数据的非阻塞归档
  * [POS]: src 的设计模型渲染应用服务，只在 Prompt 阶段分流并统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -84,7 +84,24 @@ export function parsePromptAgentOutput(text, { strict = false } = {}) {
   return payload;
 }
 
-export function buildPromptAgentInput({ styleDna, userRequirements }) {
+function styleReferenceContract(hasStyleReference) {
+  if (!hasStyleReference) return [];
+  return [
+    "",
+    "input_image_roles:",
+    "图片 1 是白模图，是空间、建筑、家具、物体位置、机位、透视和构图的唯一事实来源。",
+    "图片 2 是风格参考图，只提取可迁移的材质、颜色关系、表面处理、家具造型语言、软装气质和灯光氛围。",
+    "不得迁移图片 2 的房型、家具清单、物体位置、镜头或构图。",
+    "冲突优先级：白模可见空间事实 > 用户明确要求 > 风格参考图 > Style DNA 或系统默认值。",
+    "继续按既有 JSON Schema 输出，不增加分析、图片描述或合同外字段。",
+  ];
+}
+
+export function buildPromptAgentInput({
+  hasStyleReference = false,
+  styleDna,
+  userRequirements,
+}) {
   return [
     "请执行设计模型渲染 Prompt 整合任务。",
     "",
@@ -93,10 +110,12 @@ export function buildPromptAgentInput({ styleDna, userRequirements }) {
     "",
     "user_requirements:",
     String(userRequirements || "").trim() || "无补充要求",
+    ...styleReferenceContract(hasStyleReference),
   ].join("\n");
 }
 
 export function buildSmartDefaultPromptAgentInput({
+  hasStyleReference = false,
   photographyProfile = WHITE_MODEL_PHOTOGRAPHY_PROFILE,
   userRequirements,
 }) {
@@ -111,6 +130,7 @@ export function buildSmartDefaultPromptAgentInput({
     "",
     "photography_profile:",
     photographyProfile,
+    ...styleReferenceContract(hasStyleReference),
   ].join("\n");
 }
 
@@ -128,6 +148,7 @@ function promptResultCacheKey({
   promptModel,
   renderMode,
   style,
+  styleReference,
   userRequirements,
   whiteModel,
 }) {
@@ -145,6 +166,9 @@ function promptResultCacheKey({
     whiteModel.imageUrl,
     whiteModel.width,
     whiteModel.height,
+    styleReference?.imageUrl,
+    styleReference?.width,
+    styleReference?.height,
   ];
   for (const part of parts) {
     hash.update(String(part ?? ""));
@@ -179,6 +203,9 @@ export async function executeWhiteModelWorkflow(
   if (whiteModels.length !== 1) {
     throw workflowError("白模渲染需要且只允许 1 张白模图");
   }
+  const styleReferences = normalizeReferenceImages(input.styleReferenceImages, {
+    maxCount: 1,
+  });
   const promptModel = agentModelOrThrow(input.promptAgentModelKey);
   const forcePromptRegeneration = input.forcePromptRegeneration === true;
   const renderMode = normalizeRenderMode(input);
@@ -216,12 +243,23 @@ export async function executeWhiteModelWorkflow(
   const generateFinalPrompt = async () => {
     promptGenerated = true;
     const promptResult = await client.generatePrompt({
-      imageUrl: whiteModels[0].imageUrl,
+      ...(styleReferences.length > 0
+        ? {
+            imageUrls: [
+              whiteModels[0].imageUrl,
+              styleReferences[0].imageUrl,
+            ],
+          }
+        : { imageUrl: whiteModels[0].imageUrl }),
       model: promptModel.id,
       systemPrompt: agent.systemPrompt,
       userPrompt: smartDefault
-        ? buildSmartDefaultPromptAgentInput({ userRequirements })
+        ? buildSmartDefaultPromptAgentInput({
+            hasStyleReference: styleReferences.length > 0,
+            userRequirements,
+          })
         : buildPromptAgentInput({
+            hasStyleReference: styleReferences.length > 0,
             styleDna: style.styleDna,
             userRequirements,
           }),
@@ -239,6 +277,7 @@ export async function executeWhiteModelWorkflow(
           promptModel,
           renderMode,
           style,
+          styleReference: styleReferences[0],
           userRequirements,
           whiteModel: whiteModels[0],
         }),
@@ -279,6 +318,11 @@ export async function executeWhiteModelWorkflow(
     imageUrl: image.image_url,
     mimeType: generation.preview.referenceImages[index]?.mimeType,
   }));
+  const styleReferenceImages = styleReferences.map((image) => ({
+    fileName: image.fileName,
+    imageUrl: image.imageUrl,
+    mimeType: image.mimeType,
+  }));
   const workflow = {
     ...normalizeGenerationBatch(input),
     agentCode: agent.code,
@@ -292,6 +336,7 @@ export async function executeWhiteModelWorkflow(
     promptReused,
     renderMode,
     selectionName: smartDefault ? "智能默认" : style.name,
+    styleReferenceUsed: styleReferences.length > 0,
     ...(style
       ? {
           styleCode: style.code,
@@ -309,6 +354,7 @@ export async function executeWhiteModelWorkflow(
     referenceImages,
     resultImage: result.images[0],
     sourcePrompt: userRequirements,
+    styleReferenceImages,
     workflow,
   };
   const sync = scheduleSync
@@ -320,6 +366,7 @@ export async function executeWhiteModelWorkflow(
     images: result.images,
     promptAgent: {
       durationMs: promptDurationMs,
+      inputImageCount: 1 + styleReferences.length,
       model: promptModel.id,
       name: agent.name,
       reused: promptReused,

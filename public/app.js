@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、白模智能默认/固定风格路由、含 Flux 双档位的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
- * [OUTPUT]: 对外提供已接入智能默认 Agent 的精模/白模/自由生图入口、最多四模型各出一张、逐模型尺寸/质量/工作流档位适配与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、白模智能默认/固定风格路由、支持单图原位替换的双参考图上传、含 Flux 双档位的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [OUTPUT]: 对外提供白模与可选风格参考图整合及拖入替换、精模/自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,17 +13,12 @@ import { bindGenerationResults } from "./generation-results.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindModelMultiSelect } from "./model-multi-select.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
+import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
-import { readImageDimensions } from "./image-ratio.js";
 import { referenceCapability, sizeControlState, sizeSummary } from "./model-capabilities.js";
-import {
-  api,
-  fillSelect,
-  formatBytes,
-  readFileAsDataUrl,
-} from "./workbench-utils.js";
+import { api, fillSelect } from "./workbench-utils.js";
 import "./custom-select.js?v=5";
 
 const state = {
@@ -36,9 +31,11 @@ const state = {
   promptAgentCatalog: [],
   promptAgentModelKey: "gemini3pro",
   ratioMode: "auto",
-  referenceImages: [],
   referencePolicy: null,
 };
+
+let referenceUpload;
+let styleReferenceUpload;
 
 const elements = {
   emptyModel: document.querySelector("#emptyModel"),
@@ -83,6 +80,11 @@ const elements = {
   retryButton: document.querySelector("#retryButton"),
   styleAvailability: document.querySelector("#styleAvailability"),
   styleNote: document.querySelector("#styleNote"),
+  styleReferenceCount: document.querySelector("#styleReferenceCount"),
+  styleReferenceDropZone: document.querySelector("#styleReferenceDropZone"),
+  styleReferenceInput: document.querySelector("#styleReferenceInput"),
+  styleReferenceList: document.querySelector("#styleReferenceList"),
+  styleReferenceSection: document.querySelector("#styleReferenceSection"),
   styleSection: document.querySelector("#styleSection"),
   toast: document.querySelector("#toast"),
   whiteModelRenderModeList: document.querySelector("#whiteModelRenderModeList"),
@@ -105,8 +107,11 @@ function selectedModels() {
 
 function selectedModel() { return selectedModels()[0]; }
 
+function referenceImages() { return referenceUpload?.images() || []; }
+function styleReferenceImages() { return styleReferenceUpload?.images() || []; }
+
 function selectedSourceImage() {
-  return state.featureMode === "styleDna" ? null : state.referenceImages[0];
+  return state.featureMode === "styleDna" ? null : referenceImages()[0];
 }
 
 function selectedPromptAgentModel() {
@@ -203,11 +208,12 @@ function selectFeatureMode(featureMode) {
   elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
   if (isWhiteModel) renderPromptAgentContext(smartDefault);
   elements.styleSection.classList.toggle("hidden", !isWhiteModel);
+  elements.styleReferenceSection.classList.toggle("hidden", !isWhiteModel);
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle("hidden", isRefinedModel);
   configurePrimaryModel();
   updateReferenceRequirements();
-  renderReferenceImages();
+  referenceUpload.render();
 }
 
 function renderModelSelect() {
@@ -268,7 +274,7 @@ function configurePrimaryModel() {
   }
 
   updateComputedSize();
-  renderReferenceImages();
+  referenceUpload.render();
 }
 
 function selectModels(modelKeys) {
@@ -332,7 +338,7 @@ function generationInput() {
       : undefined,
     ratio: elements.ratioSelect.value,
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
-    referenceImages: state.referenceImages.map(
+    referenceImages: referenceImages().map(
       ({ dataUrl, name, size, type }) => ({
         dataUrl,
         name,
@@ -340,6 +346,18 @@ function generationInput() {
         type,
       }),
     ),
+    ...(state.featureMode === "whiteModel"
+      ? {
+          styleReferenceImages: styleReferenceImages().map(
+            ({ dataUrl, name, size, type }) => ({
+              dataUrl,
+              name,
+              size,
+              type,
+            }),
+          ),
+        }
+      : {}),
     resolution: elements.resolutionSelect.value,
     workflowProfile: model?.workflowProfiles.length
       ? elements.qualitySelect.value || undefined
@@ -355,125 +373,6 @@ function generationInput() {
 
 function updatePromptCount() {
   elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`;
-}
-
-function renderReferenceImages() {
-  const policy = state.referencePolicy;
-  const limit = referenceLimit();
-  elements.referenceCount.textContent = `${state.referenceImages.length} / ${limit}`;
-  elements.referenceDropZone.classList.toggle(
-    "hidden",
-    Boolean(policy && state.referenceImages.length >= limit),
-  );
-
-  elements.referenceList.replaceChildren(
-    ...state.referenceImages.map((image) => {
-      const item = document.createElement("article");
-      item.className = "reference-item";
-
-      const preview = document.createElement("img");
-      preview.src = image.dataUrl;
-      preview.alt = "";
-
-      const copy = document.createElement("div");
-      const name = document.createElement("strong");
-      const size = document.createElement("span");
-      name.textContent = image.name;
-      size.textContent = [
-        formatBytes(image.size),
-        image.width && image.height ? `${image.width} × ${image.height}` : null,
-      ].filter(Boolean).join(" · ");
-      copy.append(name, size);
-
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "reference-remove";
-      remove.ariaLabel = `移除 ${image.name}`;
-      remove.textContent = "×";
-      remove.addEventListener("click", () => {
-        state.referenceImages = state.referenceImages.filter(
-          (entry) => entry.id !== image.id,
-        );
-        state.ratioMode = "auto";
-        renderReferenceImages();
-        generationActions.refresh();
-        configureSizeControls({ preserveResolution: true });
-        updateComputedSize();
-      });
-
-      item.append(preview, copy, remove);
-      return item;
-    }),
-  );
-}
-
-async function addReferenceFiles(fileList) {
-  const policy = state.referencePolicy;
-  if (!policy) return;
-
-  const limit = referenceLimit();
-  const subject = state.featureMode === "whiteModel"
-    ? "白模图"
-    : state.featureMode === "refinedModel"
-      ? "精模图"
-      : "参考图";
-  const remaining = limit - state.referenceImages.length;
-  if (remaining <= 0) {
-    showToast(`最多添加 ${limit} 张${subject}`);
-    return;
-  }
-
-  const incoming = Array.from(fileList);
-  const accepted = incoming.slice(0, remaining);
-  if (incoming.length > remaining) {
-    showToast(`本次只添加前 ${remaining} 张，最多支持 ${limit} 张${subject}`);
-  }
-
-  for (const file of accepted) {
-    if (!policy.accept.includes(file.type)) {
-      showToast(`${file.name} 不是 PNG、JPEG 或 WebP`);
-      return;
-    }
-    if (file.size > policy.maxBytesPerImage) {
-      showToast(`${file.name} 超过单张 8MB 限制`);
-      return;
-    }
-  }
-
-  const currentBytes = state.referenceImages.reduce(
-    (total, image) => total + image.size, 0);
-  const incomingBytes = accepted.reduce((total, file) => total + file.size, 0);
-  if (currentBytes + incomingBytes > policy.maxTotalBytes) {
-    showToast("参考图合计不能超过 20MB");
-    return;
-  }
-
-  let nextImages;
-  try {
-    nextImages = await Promise.all(
-      accepted.map(async (file) => {
-        const dataUrl = await readFileAsDataUrl(file);
-        const dimensions = await readImageDimensions(dataUrl, file.name);
-        return {
-          dataUrl,
-          ...dimensions,
-          id: crypto.randomUUID(),
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        };
-      }),
-    );
-  } catch (error) {
-    showToast(error.message);
-    return;
-  }
-  state.referenceImages.push(...nextImages);
-  if (state.referenceImages.length === nextImages.length) state.ratioMode = "auto";
-  renderReferenceImages();
-  generationActions.refresh();
-  configureSizeControls({ preserveResolution: true });
-  updateComputedSize();
 }
 
 function setApiConnectionState(connected) {
@@ -583,7 +482,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
         return;
       }
     }
-    if (state.referenceImages.length !== 1) {
+    if (referenceImages().length !== 1) {
       showToast("白模渲染需要且只允许 1 张白模图");
       return;
     }
@@ -593,7 +492,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       showToast("飞书精模 Prompt 没有可用版本");
       return;
     }
-    if (state.referenceImages.length !== 1) {
+    if (referenceImages().length !== 1) {
       showToast("精模渲染需要且只允许 1 张带材质模型图");
       return;
     }
@@ -601,7 +500,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   if (
     state.featureMode === "free" &&
     models.some((model) => model.requiresReferenceImage) &&
-    state.referenceImages.length !== 1
+    referenceImages().length !== 1
   ) {
     const required = models.find((model) => model.requiresReferenceImage);
     showToast(`${required.label} 需要且只允许 1 张参考图`);
@@ -625,8 +524,12 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       ? "正在重新生成提示词并渲染…"
       : whiteModelRequest
       ? whiteModelRenderMode.current().mode === "smart-default"
-        ? "正在分析白模并智能匹配材质与光线…"
-        : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
+        ? styleReferenceImages().length
+          ? "正在结合白模与风格参考图生成提示词…"
+          : "正在分析白模并智能匹配材质与光线…"
+        : styleReferenceImages().length
+          ? "正在结合白模、风格参考图与 Style DNA…"
+          : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
       : refinedModelRequest
         ? "正在读取固定 Prompt 并忠实渲染精模…"
         : models.length > 1
@@ -684,7 +587,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
 
 const generationActions = bindGenerationActions({
   getPromptIdentity: () => JSON.stringify([
-    state.referenceImages.map((image) => image.id),
+    referenceImages().map((image) => image.id),
+    styleReferenceImages().map((image) => image.id),
     whiteModelRenderMode.current().mode,
     whiteModelRenderMode.current().styleCode,
     whiteModelRenderMode.current().agentVersion,
@@ -737,7 +641,8 @@ async function initialize() {
   renderPromptAgentModels();
   selectFeatureMode(state.featureMode);
   await loadConfiguration();
-  renderReferenceImages();
+  referenceUpload.render();
+  styleReferenceUpload.render();
   updatePromptCount();
   setApiConnectionState(sessionBody.connected);
   if (sessionBody.connected) await checkAvailableModels();
@@ -768,6 +673,37 @@ const loadConfiguration = bindConfigRefresh({
   },
   showToast,
 });
+referenceUpload = bindReferenceUpload({
+  count: elements.referenceCount,
+  dropZone: elements.referenceDropZone,
+  getLimit: referenceLimit,
+  getPolicy: () => state.referencePolicy,
+  getSubject: () => state.featureMode === "whiteModel"
+    ? "白模图"
+    : state.featureMode === "refinedModel"
+      ? "精模图"
+      : "参考图",
+  input: elements.referenceInput,
+  list: elements.referenceList,
+  onChange({ images, previousImages }) {
+    if (images[0]?.id !== previousImages[0]?.id) state.ratioMode = "auto";
+    generationActions.refresh();
+    configureSizeControls({ preserveResolution: true });
+    updateComputedSize();
+  },
+  showToast,
+});
+styleReferenceUpload = bindReferenceUpload({
+  count: elements.styleReferenceCount,
+  dropZone: elements.styleReferenceDropZone,
+  getLimit: () => 1,
+  getPolicy: () => state.referencePolicy,
+  getSubject: () => "风格参考图",
+  input: elements.styleReferenceInput,
+  list: elements.styleReferenceList,
+  onChange: generationActions.refresh,
+  showToast,
+});
 elements.retryButton.addEventListener("click", () => generate());
 elements.promptInput.addEventListener("input", () => {
   updatePromptCount();
@@ -775,25 +711,6 @@ elements.promptInput.addEventListener("input", () => {
 });
 elements.promptAgentVersionSelect.addEventListener("change", generationActions.refresh);
 elements.refinedPromptVersionSelect.addEventListener("change", generationActions.refresh);
-elements.referenceInput.addEventListener("change", async (event) => {
-  await addReferenceFiles(event.target.files);
-  event.target.value = "";
-});
-for (const eventName of ["dragenter", "dragover"]) {
-  elements.referenceDropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    elements.referenceDropZone.classList.add("dragging");
-  });
-}
-for (const eventName of ["dragleave", "drop"]) {
-  elements.referenceDropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    elements.referenceDropZone.classList.remove("dragging");
-  });
-}
-elements.referenceDropZone.addEventListener("drop", async (event) => {
-  await addReferenceFiles(event.dataTransfer.files);
-});
 elements.ratioSelect.addEventListener("change", () => {
   if (selectedSourceImage()) state.ratioMode = "manual";
   updateComputedSize();

@@ -16,8 +16,8 @@ image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合�
 generation-actions.test.mjs: 白模首次单按钮、提示词可复用双按钮、融合输入变化失效、自由生图隔离与忙碌文案纯状态测试
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
 agent-model-config.test.mjs: 十个 Prompt Agent 候选 ID、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求
-lark-sync.test.mjs: 飞书原始/最终 Prompt、“生图模型”/“Prompt融合”、画幅适配模式与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
-oneapi-client.test.mjs: OneAPI 主动取消、Responses 单图分析/非 Claude 双图评审、Claude Chat Completions 双图评审与 choices 文本解析、超限评审图片 4.9MB 请求侧压缩、图生图质量参数、Style DNA 多轮图片/PDF 与纯文字续改请求、input_image/input_file 分流、响应/原币与 USD 费用归一化、Prompt 文本与错误脱敏测试
+lark-sync.test.mjs: 飞书“参考图”/“风格参考图”分列配置、原始/最终 Prompt、“生图模型”/“Prompt融合”、画幅适配与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
+oneapi-client.test.mjs: OneAPI 主动取消、Prompt Agent 白模/风格参考双图顺序、Responses 单图分析/非 Claude 双图评审、Claude Chat Completions 评审、请求侧压缩、图生图、Style DNA 多轮附件、费用归一化与错误脱敏测试
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
 image-artifact.test.mjs: 生成图片扩展名、data URL 解码、空响应与下载体积上限测试
 image-download.test.mjs: 生成结果下载文件名、MIME、字节透传、附件响应头与非法输入测试，不访问网络
@@ -40,7 +40,7 @@ refined-model-workflow.test.mjs: 精模固定 Prompt、单图、原图比例、�
 reference-image.test.mjs: 默认及调用方自定义的参考图数量、格式、容量、Base64、MIME、真实字节数与可信宽高策略回归测试
 reference-attachment.test.mjs: Style DNA 图片/PDF 附件分流、无数量上限、PDF 文件签名、MIME、真实字节与容量策略回归测试
 style-library.test.mjs: 飞书风格行、Style DNA 合法性、版本化唯一编码、历史版本选择、上下架状态、分页边界和前端脱敏回归测试
-white-model-workflow.test.mjs: 白模智能默认/固定风格双路由、智能默认可省略重复生成要求的严格 Agent 输出合同、版本化 Style DNA、提示词复用/重算/条件失效、独立 Prompt/图像 Provider、比例及非阻塞归档测试
+white-model-workflow.test.mjs: 白模智能默认/固定风格双路由、白模+风格参考双图合同、最终出图单图隔离、风格图缓存失效、版本化 Style DNA、独立 Provider、比例及非阻塞归档测试
 white-model-render-mode.test.mjs: 白模前端风格选择单元测试，覆盖智能默认、平台风格扩展/版本去重和失效选择回退
 runtime-cache.test.mjs: 异步 TTL 缓存命中、并发去重、过期、主动刷新和失败清理测试
 sync-jobs.test.mjs: generationId 幂等入队、非阻塞执行与飞书同步状态测试

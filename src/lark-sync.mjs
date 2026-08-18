@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、image-artifact.mjs、lark-cli.mjs 与已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、生图模型/Prompt融合字段映射、记录 ID 解析、图片附件及 OneAPI/ComfyUI 工作流元数据同步
+ * [INPUT]: 依赖 node:fs/os/path、image-artifact.mjs、lark-cli.mjs、白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
+ * [OUTPUT]: 对外提供原始/最终 Prompt、模型字段映射、记录 ID 解析、结果图/参考图/风格参考图分列附件及工作流元数据同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,8 @@ export const LARK_SYNC_CONFIG = Object.freeze({
   referenceFieldId:
     process.env.LARK_REFERENCE_FIELD_ID || "fldhktY1vR",
   resultFieldId: process.env.LARK_RESULT_FIELD_ID || "fldZPmZ1YY",
+  styleReferenceFieldId:
+    process.env.LARK_STYLE_REFERENCE_FIELD_ID || "fldFxH3Sxj",
   tableId: process.env.LARK_TABLE_ID || "tblFWdK9RlSiZRKC",
 });
 
@@ -144,6 +146,31 @@ async function uploadAttachments(config, recordId, fieldId, fileNames, cwd) {
   return runLarkCli(config, args, { cwd });
 }
 
+async function materializeReferenceImages(
+  images = [],
+  temporaryDirectory,
+  { prefix = "" } = {},
+) {
+  const fileNames = [];
+  for (const [index, reference] of images.entries()) {
+    const extension = reference.mimeType === "image/jpeg"
+      ? "jpg"
+      : reference.mimeType.split("/")[1];
+    const position = index + 1;
+    const fileName = safeFileName(
+      reference.fileName,
+      `${prefix || "reference"}-${position}.${extension}`,
+    );
+    const storedName = [prefix, position, fileName.includes(".")
+      ? fileName
+      : `${fileName}.${extension}`].filter(Boolean).join("-");
+    const path = join(temporaryDirectory, storedName);
+    await writeFile(path, decodeImageDataUrl(reference.imageUrl));
+    fileNames.push(storedName);
+  }
+  return fileNames;
+}
+
 function recordUrl(config, recordId) {
   const url = new URL(config.baseUrl);
   url.searchParams.set("table", config.tableId);
@@ -175,23 +202,27 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
       temporaryDirectory,
     );
 
-    const referenceFileNames = [];
-    for (const [index, reference] of input.referenceImages.entries()) {
-      const extension = reference.mimeType === "image/jpeg" ? "jpg" : reference.mimeType.split("/")[1];
-      const fileName = safeFileName(
-        reference.fileName,
-        `reference-${index + 1}.${extension}`,
-      );
-      const storedName = `${index + 1}-${fileName.includes(".") ? fileName : `${fileName}.${extension}`}`;
-      const path = join(temporaryDirectory, storedName);
-      await writeFile(path, decodeImageDataUrl(reference.imageUrl));
-      referenceFileNames.push(storedName);
-    }
+    const referenceFileNames = await materializeReferenceImages(
+      input.referenceImages,
+      temporaryDirectory,
+    );
     await uploadAttachments(
       config,
       recordId,
       config.referenceFieldId,
       referenceFileNames,
+      temporaryDirectory,
+    );
+    const styleReferenceFileNames = await materializeReferenceImages(
+      input.styleReferenceImages,
+      temporaryDirectory,
+      { prefix: "style" },
+    );
+    await uploadAttachments(
+      config,
+      recordId,
+      config.styleReferenceFieldId,
+      styleReferenceFileNames,
       temporaryDirectory,
     );
 

@@ -1,5 +1,5 @@
 <!--
-  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css 共享顶栏、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
+  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css/js 共享顶栏与固定版本 GSAP、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
   [OUTPUT]: 对外提供统一产品顶栏、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -12,14 +12,14 @@
     <meta name="description" content="室内生图模型批量评测工作台" />
     <link rel="icon" href="data:," />
     <title>Canvas Lab · Benchmark</title>
-    <link rel="stylesheet" href="./benchmark.css?v=14" />
+    <link rel="stylesheet" href="./benchmark.css?v=16" />
     <link rel="stylesheet" href="./custom-select.css?v=7" />
     <link rel="stylesheet" href="./benchmark-dataset.css?v=9" />
     <link rel="stylesheet" href="./benchmark-experiment.css?v=7" />
     <link rel="stylesheet" href="./benchmark-run.css?v=4" />
     <link rel="stylesheet" href="./benchmark-review.css?v=4" />
     <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
-    <link rel="stylesheet" href="./product-navigation.css?v=1" />
+    <link rel="stylesheet" href="./product-navigation.css?v=2" />
   </head>
   <body>
     <div class="app-shell">
@@ -293,6 +293,8 @@
       </div>
       </main>
     </div>
+    <script src="./vendor/gsap.min.js"></script>
+    <script type="module" src="./product-navigation.js?v=2"></script>
     <script type="module" src="./custom-select.js?v=5"></script>
     <script type="module" src="./benchmark-app.js?v=33"></script>
   </body>

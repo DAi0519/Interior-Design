@@ -8,13 +8,13 @@ model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型与 Fl
 generation-batch.mjs: 多模型生成批次契约，严格校验最多四项的共同批次 ID、总数与序号
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十个候选 ID（含 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
-oneapi-client.mjs: 可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Claude 双图 AI 评审按规则源走 Chat Completions 并解析 choices，其余样本单图分析、Prompt Agent、双图评审、Style DNA 多轮图片/PDF 反推与图生图走 Responses；双图评审使用 4096 输出 token，发送前通过 image-artifact 把超限 data URL 收敛到 4.9MB Base64 内，纯文生图走 Images API，统一归一化请求 ID、响应文本、原币/折算 USD 费用与脱敏错误
+oneapi-client.mjs: 可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Prompt Agent 支持白模单图或白模+风格参考双图 Responses；Claude 双图 AI 评审按规则源走 Chat Completions，其余分析、Style DNA 多轮反推与图生图走 Responses，统一归一化请求、费用与脱敏错误
 ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，维护质量优先原版 9B/7步/1920 与快速 KV 9B/7步/1920 双档、Base64 参考图、正向 Prompt 原样注入、固定负向 Prompt、运行时 Seed 及版本元数据
 comfyui-client.mjs: 支持外部取消信号的 ComfyUI HTTP 客户端，将 Base64 参考图与所选档位工作流原子提交、只对网关读取抖动做安全重试、明确区分服务不可用、保留节点校验详情、轮询 History、恢复多实例间暂不可见的输出并归一为 data URL 与排队/执行元数据
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 飞书生成记录同步边界，按真实 Base 字段“生图模型”“Prompt融合”分列归档最终出图模型、融合基模及用户原始 Prompt、实际最终 Prompt、画幅适配模式、工作流元数据、结果图与参考图附件
+lark-sync.mjs: 飞书生成记录同步边界，按真实 Base 字段归档最终出图模型、融合基模、Prompt、工作流元数据和结果图，并将白模/精模“参考图”与可选“风格参考图”附件分列上传
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名与不修改原件的模型请求 JPEG 降质/缩放压缩
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
@@ -33,7 +33,7 @@ style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内智能默认、白模融合与风格反推配置，以 Agent 编码稳定路由并支持白模 Agent 可选展示名，用五分钟进程缓存输出脱敏已上架版本目录与默认最高/指定版本读取
 refined-model-prompt.mjs: 精模固定 Prompt 资产边界，读取独立飞书表、公开脱敏含草稿目录并按版本仅在服务端提供正文
 refined-model-workflow.mjs: 精模渲染应用服务，以单张带材质模型图和固定 Prompt 编排双 Provider 出图、批次元数据与独立归档
-white-model-workflow.mjs: 设计模型渲染应用服务，智能默认直接调用独立 Agent 并允许省略重复的 generation_requirement，固定风格读取版本化 Style DNA 后调用融合 Agent，两路按完整输入指纹复用/重算最终提示词并统一编排 OneAPI/ComfyUI 出图、画幅和非阻塞归档
+white-model-workflow.mjs: 设计模型渲染应用服务，智能默认或固定 Style DNA 路径均可将白模与单张风格参考送入整合 Agent，按含风格图的完整指纹复用提示词，最终模型仍只接收白模并统一编排双 Provider 出图与归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件
 reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高

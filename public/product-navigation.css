@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 index.html/benchmark.html 的品牌、产品切换与连接状态语义，依赖两页共享的 Light Command Center 颜色令牌
- * [OUTPUT]: 对外提供生图工作台与模型评测共用的三段式顶栏、固定居中产品切换、统一品牌锁定与响应式收敛规则
+ * [INPUT]: 依赖 index.html/benchmark.html 的品牌、产品切换与连接状态语义、product-navigation.js 的 GSAP 状态类，以及两页共享的偏白画布/奶油灰面板令牌
+ * [OUTPUT]: 对外提供生图工作台与模型评测共用的三段式顶栏、GSAP 滑动指示块、固定居中产品切换、统一品牌锁定与响应式收敛规则
  * [POS]: public 的跨工作台全局导航视觉真源，最后加载以阻止生图页与评测页再次发生顶栏漂移
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -54,6 +54,21 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   justify-self: center;
   padding: 3px;
+  position: relative;
+}
+
+.product-switch-indicator {
+  background: #fff;
+  border-radius: 999px;
+  bottom: 3px;
+  box-shadow: var(--key-shadow);
+  left: 3px;
+  pointer-events: none;
+  position: absolute;
+  top: 3px;
+  width: calc((100% - 6px) / 2);
+  will-change: transform;
+  z-index: 0;
 }
 
 .product-switch-option {
@@ -68,14 +83,26 @@
   min-height: 30px;
   min-width: 96px;
   padding: 0 14px;
+  position: relative;
   text-decoration: none;
   transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
   white-space: nowrap;
+  z-index: 1;
 }
 
 .product-switch-option[aria-current="page"] {
   background: #fff;
   box-shadow: var(--key-shadow);
+  color: var(--text, var(--ink));
+  font-weight: 600;
+}
+
+.product-switcher.is-motion-ready .product-switch-option[aria-current="page"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.product-switch-option.is-transition-target {
   color: var(--text, var(--ink));
   font-weight: 600;
 }

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、本机设置、飞书 Setup、图片下载、模型/Prompt 目录、双 Provider、精模/白模智能默认与固定风格应用服务及 Benchmark 工作流
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、本机设置、飞书 Setup、图片下载、模型/Prompt 目录、双 Provider、精模/白模智能默认与固定风格应用服务及 Benchmark 工作流
  * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、智能默认/固定风格白模路由、精模固定 Prompt、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -56,7 +56,15 @@ import { executeWhiteModelWorkflow } from "./src/white-model-workflow.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
-const PUBLIC_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "public");
+const ROOT_DIR = fileURLToPath(new URL(".", import.meta.url));
+const PUBLIC_DIR = join(ROOT_DIR, "public");
+const GSAP_BROWSER_BUNDLE = join(
+  ROOT_DIR,
+  "node_modules",
+  "gsap",
+  "dist",
+  "gsap.min.js",
+);
 const BENCHMARK_STATE_FILE = join(
   fileURLToPath(new URL(".", import.meta.url)),
   ".benchmark-workbench",
@@ -306,6 +314,7 @@ function scheduleGenerationSync(input) {
 }
 
 function safeStaticPath(pathname) {
+  if (pathname === "/vendor/gsap.min.js") return GSAP_BROWSER_BUNDLE;
   const requestedPath = pathname === "/" ? "index.html" : pathname.slice(1);
   const resolvedPath = normalize(join(PUBLIC_DIR, requestedPath));
   return resolvedPath.startsWith(PUBLIC_DIR) ? resolvedPath : null;

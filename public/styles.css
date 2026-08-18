@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 index.html 的语义类名与各浏览器控制器写入的 hidden/selected/loading/refreshing 状态
- * [OUTPUT]: 对外提供页面基础、输入控制、配置刷新、按压反馈、基础对话框和响应式适配
+ * [INPUT]: 依赖 index.html 的语义类名与各浏览器控制器写入的 hidden/selected/loading/refreshing/dragging 状态
+ * [OUTPUT]: 对外提供页面基础、输入控制、单图拖放替换反馈、配置刷新、按压反馈、基础对话框和响应式适配
  * [POS]: public 的基础样式入口，与 connection-center.css/result.css 分担连接、输入和输出视觉职责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -275,6 +275,10 @@ input::placeholder {
   display: none;
 }
 
+.reference-list.replace-enabled {
+  grid-template-columns: 1fr;
+}
+
 .reference-item {
   align-items: center;
   background: #f7f8f5;
@@ -315,6 +319,25 @@ input::placeholder {
   color: var(--quiet);
   font-size: 8px;
   margin-top: 2px;
+}
+
+.reference-item .reference-replace-hint {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.reference-list.replace-enabled .reference-item {
+  cursor: copy;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.reference-list.dragging .reference-item {
+  background: #f4f2ed;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(25 26 28 / 6%);
 }
 
 .reference-remove {

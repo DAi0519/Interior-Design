@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 依赖 styles.css/result.css 的结构样式、index.html 的语义类名与用户提供的 Raycast Design MD 反色规则
- * [OUTPUT]: 对外提供 Canvas Lab 浅色设计令牌、桌面等高双栏、紧凑配置、独立卡片式功能入口与最多四项出图模型按钮组视觉
+ * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的语义类名与用户确认的偏白画布/奶油灰面板 Light Command Center 规则
+ * [OUTPUT]: 对外提供 Canvas Lab 近白画布与暖灰面板令牌、桌面等高双栏、紧凑配置、单图替换反馈、独立卡片式功能入口与最多四项出图模型按钮组视觉
  * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 :root {
   color-scheme: light;
-  --bg: #f3f2ef;
+  --bg: #fdfdfc;
   --panel: #fbfbf9;
   --panel-soft: #f0efec;
   --line: #e3e1dc;
@@ -33,15 +33,12 @@
 }
 
 body {
-  background:
-    radial-gradient(circle at 18% -8%, rgb(25 26 28 / 5%), transparent 25rem),
-    radial-gradient(circle at 78% -16%, rgb(83 88 98 / 6%), transparent 36rem),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
 body::before {
-  background: linear-gradient(115deg, transparent 42%, rgb(25 26 28 / 2%) 50%, transparent 58%);
+  background: linear-gradient(115deg, transparent 42%, rgb(17 24 39 / 1.2%) 50%, transparent 58%);
   content: "";
   inset: 0;
   pointer-events: none;
@@ -58,7 +55,7 @@ body::before {
 .topbar {
   -webkit-backdrop-filter: blur(28px) saturate(165%);
   backdrop-filter: blur(28px) saturate(165%);
-  background: linear-gradient(120deg, rgb(255 255 255 / 72%), rgb(248 248 246 / 42%));
+  background: linear-gradient(120deg, rgb(255 255 255 / 78%), rgb(248 248 246 / 52%));
   border: 1px solid rgb(255 255 255 / 82%);
   border-radius: 10px;
   box-shadow:
@@ -178,7 +175,7 @@ a.connection-button {
 
 .control-panel,
 .result-panel {
-  background: rgb(251 251 249 / 92%);
+  background: rgb(251 251 249 / 96%);
   border: 1px solid var(--line-strong);
   border-radius: 12px;
   box-shadow: var(--key-shadow);
@@ -457,6 +454,15 @@ select {
 .reference-remove,
 .reference-drop-zone small {
   color: var(--quiet);
+}
+
+.reference-item .reference-replace-hint {
+  color: var(--muted);
+}
+
+.reference-list.dragging .reference-item {
+  background: #e7e5e0;
+  border-color: var(--accent);
 }
 
 .reference-drop-zone {
