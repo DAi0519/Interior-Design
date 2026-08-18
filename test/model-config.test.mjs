@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供五个 OneAPI 模型与一个 ComfyUI 工作流、Provider/单图/原图尺寸契约、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供四个 OneAPI 模型与一个双档 ComfyUI 工作流、Provider/单图/原图尺寸契约、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,11 +23,10 @@ import {
   sizeSummary,
 } from "../public/model-capabilities.js";
 
-test("目录暴露五个 OneAPI 模型和一个 ComfyUI 工作流", () => {
+test("目录暴露四个 OneAPI 模型和一个 ComfyUI 工作流", () => {
   assert.deepEqual(
     publicModelCatalog().map(({ id, key }) => ({ id, key })),
     [
-      { id: "gemini-3-pro-image", key: "bananaPro" },
       { id: "gemini-3.1-flash-image-preview", key: "banana2" },
       { id: "gpt-image-2", key: "gptImage2" },
       { id: "comfyui:ai-texture-enhancement", key: "aiTextureEnhancement" },
@@ -49,32 +48,18 @@ test("出图模型统一可选且不向使用者暴露内部目录状态", () =>
     finalModelCatalogStatus([
       { available: false },
       { available: false },
-      { available: false },
       { available: true },
       { available: true },
       { available: true },
     ]),
-    "6 个模型可选",
+    "5 个模型可选",
   );
-});
-
-test("Banana Pro 4:3 2K 映射为公司文档精确尺寸", () => {
-  const generation = createGenerationRequest({
-    modelKey: "bananaPro",
-    outputFormat: "png",
-    prompt: "现代简约客厅，柔和自然光",
-    ratio: "4:3",
-    resolution: "2K",
-  });
-  assert.equal(generation.request.size, "2400x1792");
-  assert.equal(generation.request.model, "gemini-3-pro-image");
-  assert.equal("quality" in generation.request, false);
 });
 
 test("白模在模型合法集合中选择最接近原图的比例", () => {
   const generation = createGenerationRequest(
     {
-      modelKey: "bananaPro",
+      modelKey: "banana2",
       outputFormat: "png",
       prompt: "保持白模构图，只映射材质与灯光",
       ratio: "4:3",
@@ -173,7 +158,7 @@ test("OneAPI 模型统一适配合法比例并拒绝缺失原图尺寸", () => {
     () =>
       createGenerationRequest(
         {
-          modelKey: "bananaPro",
+          modelKey: "banana2",
           outputFormat: "png",
           prompt: "保持白模构图，只映射材质与灯光",
           ratio: "4:3",
@@ -237,7 +222,7 @@ test("多张参考图转换为公司接口的 images[].image_url", () => {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
   const bytes = Buffer.from(pngDataUrl.split(",")[1], "base64").length;
   const generation = createGenerationRequest({
-    modelKey: "bananaPro",
+    modelKey: "banana2",
     outputFormat: "png",
     prompt: "保持参考图布局，改为现代简约风格",
     ratio: "4:3",
@@ -293,6 +278,25 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并保持原图尺寸", () 
   assert.equal(generation.request.images[0].fileName, "source.png");
   assert.equal(generation.preview.size, "1x1");
   assert.equal(generation.preview.sizeMode, "source-original");
+  assert.equal(generation.request.workflow_profile, "quality");
+  assert.equal(generation.preview.workflowProfileLabel, "质量优先");
+
+  const fast = createGenerationRequest({
+    modelKey: "aiTextureEnhancement",
+    outputFormat: "png",
+    prompt: "",
+    ratio: "source",
+    referenceImages: [{
+      dataUrl: pngDataUrl,
+      name: "source.png",
+      size: bytes,
+      type: "image/png",
+    }],
+    resolution: "source",
+    workflowProfile: "fast",
+  });
+  assert.equal(fast.request.workflow_profile, "fast");
+  assert.equal(fast.preview.workflowProfileLabel, "快速");
 });
 
 test("Flux2 Klein 拒绝缺图和多图", () => {
@@ -379,6 +383,22 @@ test("Seedream 4.5 使用真实路由并只暴露 2K 与 4K", () => {
 
 test("拒绝模型不支持的参数组合", () => {
   assert.throws(
+    () => {
+      const pngDataUrl =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
+      return createGenerationRequest({
+        modelKey: "aiTextureEnhancement",
+        outputFormat: "png",
+        prompt: "",
+        ratio: "source",
+        referenceImages: [{ dataUrl: pngDataUrl, name: "source.png", type: "image/png" }],
+        resolution: "source",
+        workflowProfile: "turbo",
+      });
+    },
+    /不支持这个生成档位/,
+  );
+  assert.throws(
     () =>
       createGenerationRequest({
         modelKey: "seedream5",
@@ -395,7 +415,7 @@ test("拒绝空提示词与未知模型", () => {
   assert.throws(
     () =>
       createGenerationRequest({
-        modelKey: "bananaPro",
+        modelKey: "banana2",
         outputFormat: "png",
         prompt: " ",
         ratio: "1:1",

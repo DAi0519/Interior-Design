@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖智能默认/Style DNA 两类 Prompt Agent 配置、双 Provider 出图模型矩阵、可信参考图宽高、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供智能默认/固定风格 Prompt 路由、严格解析/复用、单次或多模型批次中的 OneAPI/ComfyUI 出图及带 Provider 元数据的非阻塞归档
+ * [OUTPUT]: 对外提供智能默认/固定风格 Prompt 路由、支持智能默认省略重复生成要求的严格解析/复用、单次或多模型批次中的 OneAPI/ComfyUI 出图及带 Provider 元数据的非阻塞归档
  * [POS]: src 的设计模型渲染应用服务，只在 Prompt 阶段分流并统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -41,12 +41,18 @@ export function parsePromptAgentOutput(text, { strict = false } = {}) {
   }
 
   const visual = payload?.visual_application;
+  const hasGenerationRequirement = Object.hasOwn(
+    payload ?? {},
+    "generation_requirement",
+  );
   const required = [
     ...(strict ? [payload?.scene_preservation] : []),
     visual?.materials,
     visual?.colors,
     visual?.photography,
-    payload?.generation_requirement,
+    ...(!strict || hasGenerationRequirement
+      ? [payload?.generation_requirement]
+      : []),
   ];
   if (required.some((value) => typeof value !== "string" || !value.trim())) {
     throw workflowError("Prompt Agent 返回内容缺少必需字段", 502);
@@ -54,12 +60,18 @@ export function parsePromptAgentOutput(text, { strict = false } = {}) {
   if (strict) {
     const rootFields = Object.keys(payload || {}).sort();
     const visualFields = Object.keys(visual || {}).sort();
-    if (
-      JSON.stringify(rootFields) !== JSON.stringify([
+    const allowedRootFields = [
+      ["scene_preservation", "visual_application"],
+      [
         "generation_requirement",
         "scene_preservation",
         "visual_application",
-      ])
+      ],
+    ];
+    if (
+      !allowedRootFields.some(
+        (fields) => JSON.stringify(rootFields) === JSON.stringify(fields),
+      )
       || JSON.stringify(visualFields) !== JSON.stringify([
         "colors",
         "materials",

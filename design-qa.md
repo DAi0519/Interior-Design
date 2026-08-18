@@ -1619,3 +1619,260 @@ final result: passed; smart-default runtime is connected and real image generati
 final result: passed; smart-default Agent base model is user-selectable
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# White-model Smart Default Compact Contract v29 Design QA
+
+## Evidence
+
+- State: 智能默认 Agent 已移除重复的 `generation_requirement` 输出；截图中的四模型均在 Prompt 解析阶段返回“缺少必需字段”，尚未进入最终出图。
+- Scope: 仅调整服务端智能默认严格合同；固定风格融合 Agent 的兼容合同保持不变。
+
+## Findings
+
+- 智能默认的最小合同为 `scene_preservation` 与 `visual_application.materials/colors/photography`；`generation_requirement` 可省略，旧响应携带非空值时仍兼容。
+- 合同继续拒绝其他根字段和视觉字段；可选字段一旦出现仍必须是非空字符串。
+- 删除的字段与场景保持及三项视觉应用重复，不承载新的下游生成能力。
+
+## Verification
+
+- `test/white-model-workflow.test.mjs` 覆盖无 `generation_requirement` 的真实智能默认路径、旧响应兼容、空可选字段阻断和合同外字段阻断。
+- 全量自动化测试 `247 / 247` 通过，`git diff --check` 通过。
+- 4173 服务重启后，真实 `/api/styles` 返回智能默认 Agent `v2`、`available=true`。
+- 未触发 Prompt Agent 或最终出图费用。
+
+## Final Result
+
+final result: passed; compact smart-default contract is active on the local workbench
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Prompt Validation Recovery v30 Design QA
+
+## Evidence
+
+- Symptom: Flux2 Klein 返回 `ComfyUI 返回错误：Prompt outputs failed validation`，同批其他出图模型可正常完成。
+- Live checks: ComfyUI `0.11.1` 服务和 GPU 正常，Flux2 工作流依赖的模型文件、VAE 与自定义节点均存在；修复过程未提交真实生成任务。
+
+## Findings
+
+- ComfyUI `/prompt` 的 `node_errors` 原先被客户端丢弃，工作台只能显示顶层通用错误，无法区分输入图可见性问题与模型、节点配置问题。
+- 客户端现在保留具体节点、输入项与错误信息；仅在 `LoadImage.image` 校验失败时重新上传参考图并再次提交一次。
+- 模型、节点及其他输入校验失败直接返回具体位置，不自动重试；未知提交状态同样不重试，避免重复 GPU 任务。
+
+## Verification
+
+- 定向测试覆盖 LoadImage 首次失败后的单次重传，以及 `UNETLoader.unet_name` 失败的详情透传和零重试。
+- 全量自动化测试 `249 / 249` 通过，4173 服务重启后 `/api/styles` 正常返回智能默认 Agent `v2`、`available=true`。
+- 未触发 ComfyUI 实际出图；最终画质与该次真实请求结果留给用户重新点击 Flux2 Klein 验证。
+
+## Final Result
+
+final result: passed; Flux2 validation failures are diagnosable and transient LoadImage visibility is recovered once
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Multi-instance Image Transport v31 Design QA
+
+## Evidence
+
+- User retry after v30 still failed at `LoadImage.image` after the single re-upload, proving the failure was stable rather than a one-off upload race.
+- A read-only gateway probe requested the same uploaded input 20 times and alternated between HTTP `200` and `404`; the ComfyUI Kubernetes endpoint routes to multiple replicas whose local input directories are not shared.
+- Live `/object_info/easy loadImageBase64` returned the Base64 loader contract from every one of 12 probes.
+
+## Findings
+
+- The upload-then-submit protocol cannot be made reliable by bounded retries because the two requests may always reach different replicas.
+- Flux2 workflow `2026-08-12.1` now embeds the validated raw image Base64 in `easy loadImageBase64`, so image data and workflow are accepted atomically by one replica.
+- History polling remains safe across replicas; output `/view` now retries only replica-local `404` responses and never resubmits the generation workflow.
+- Node validation messages preserve both ComfyUI's summary and `details`, so future configuration failures retain the actionable input reason.
+
+## Verification
+
+- Live no-GPU canary submitted only the Base64 loader node; ComfyUI accepted and completed prompt `b4ba2b25-a5ba-4606-b9e5-9cb51fb3a068`.
+- Unit coverage verifies raw Base64 injection, no upload request, one prompt submission, detailed node errors, and output retrieval after a replica-local `404`.
+- Full automated suite passed `249 / 249`; no Flux2 model inference or paid image generation was triggered during verification.
+
+## Final Result
+
+final result: passed; Flux2 image transport no longer depends on replica-local upload storage
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Dual Profile and Catalog Cleanup v32 Design QA
+
+## Evidence
+
+- User requirement: keep the existing Flux2 Klein behavior, add a faster selectable profile, and remove the unusable Banana Pro from new generation choices.
+- Live ComfyUI catalog exposes `flux-2-klein-9b-kv-fp8.safetensors`; the existing quality workflow remains available as `flux-2-klein-9b-fp8.safetensors`.
+- Browser: real `http://127.0.0.1:4173/` workbench after service restart; no reference image uploaded and no generation request submitted.
+
+## Findings
+
+- Flux2 workflow `2026-08-12.2` defaults to `质量优先`: standard 9B FP8, 7 steps, 1920 inference long edge.
+- New `快速` profile uses 9B KV FP8, 4 steps, 1536 inference long edge; both profiles restore the original output dimensions and preserve the same Prompt, Seed, structure constraints and output format.
+- The existing fourth parameter cell becomes `生成档位` only when Flux is the primary model, avoiding a fifth control or a second state system; other models retain their existing quality behavior.
+- Banana Pro was removed from `MODEL_CONFIGS` and the public generation catalog. Historical Benchmark/Base parsing and generation records remain compatible and were not deleted or rewritten.
+
+## Interaction Verification
+
+- Live catalog returns five choices: Banana 2, GPT Image 2, Flux2 Klein, Seedream 4.5 and Seedream 5.0; Banana Pro is absent.
+- Real pointer interaction selected Flux as the only model. The parameter area changed from normal quality controls to `生成档位`, defaulted to `质量优先`, and accepted `快速` with native value `fast`.
+- Page horizontal overflow is `0`; browser warning/error log is empty.
+- Targeted tests cover default profile preservation, fast KV/4-step/1536 routing, request propagation, result metadata and per-model batch adaptation without submitting a real image task.
+
+## Final Result
+
+final result: passed; existing Flux quality profile is preserved, fast profile is selectable, and Banana Pro no longer appears for new tasks
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Fast Profile Isolation and Timing v33 Design QA
+
+## Evidence
+
+- The latest real fast-profile task used 9B KV FP8, 4 steps and a 1536 inference long edge, but ComfyUI execution still took 30.476 seconds.
+- Its `execution_cached` event included CLIP, sampler and VAE loaders but not `UNETLoader`, proving that the 9B KV model was cold-loaded inside the measured ComfyUI execution.
+- The shared ComfyUI endpoint was still serving another running task during inspection, so queue and model-residency variability remain external runtime factors.
+
+## Findings
+
+- Workflow `2026-08-12.3` restores the fast profile to the same 1920 inference long edge as quality mode. Fast now isolates only two intended variables: 9B KV FP8 and 4 steps.
+- The existing result duration is explicitly labeled as total time. Flux result metadata additionally exposes Prompt Agent, queue and complete ComfyUI execution durations.
+- `Comfy 执行` is intentionally not labeled as pure inference because it may include cold model load, preprocessing, sampling, VAE decode and image save.
+
+## Verification
+
+- Unit coverage checks the shared 1920 inference width, workflow version and the three timing labels without submitting a GPU task.
+- Full automated suite passed `250 / 250`; `git diff --check` passed.
+- After restarting the 4173 service, live browser interaction selected Flux2 Klein as the only model and switched `生成档位` to native value `fast`; the page retained zero horizontal overflow.
+- No additional Prompt Agent request or ComfyUI image task was submitted during verification.
+
+## Final Result
+
+final result: passed; fast keeps the 1920 inference contract and future Flux results expose actionable timing segments
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Fast Quality Recovery v34 Design QA
+
+## Evidence
+
+- The user confirmed that the warmed KV/4-step profile became clearly faster but produced extremely poor image quality.
+- This isolates the regression to the aggressive fast-profile execution contract rather than cold-load latency alone.
+
+## Findings
+
+- Workflow `2026-08-12.4` removes the KV model from the fast profile. Both profiles now share the original 9B FP8 weights and the same 1920 inference long edge.
+- Fast uses 5 steps instead of quality mode's 7 steps. It retains a sampling reduction while avoiding model-switch cold loads and the observed KV/4-step material-detail collapse.
+- The fast profile remains a selectable performance tradeoff; quality mode is unchanged.
+
+## Verification
+
+- Automated coverage verifies the shared original model, 5-step fast scheduler, 1920 inference width and workflow metadata without submitting another image task.
+- Full automated suite passed `250 / 250`; `git diff --check` passed.
+- The 4173 service was restarted and the live runtime reports workflow `2026-08-12.4`, with both profiles using `flux-2-klein-9b-fp8.safetensors`; quality uses 7 steps and fast uses 5.
+- No additional Prompt Agent request or ComfyUI image task was submitted during verification.
+
+## Final Result
+
+final result: passed at configuration level; real-image quality recovery awaits the user's same-input comparison
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# ComfyUI Gateway Outage Handling v35 Design QA
+
+## Evidence
+
+- The failed Flux request surfaced only `ComfyUI 返回错误：HTTP 502`.
+- Independent live probes to `/system_stats`, `/queue` and `/history` all returned the same nginx `502 Bad Gateway`, including five checks across 26 seconds.
+- The configured ComfyUI endpoint is remote and this workspace has no Kubernetes control plane, so the outage cannot be restarted locally.
+
+## Findings
+
+- The failure is an upstream ComfyUI service outage, not image validation, Prompt content or a 5-step workflow validation error.
+- Safe read operations now retry transient 502/503/504 responses: health checks, history polling after a known prompt ID and output retrieval. Workflow submission POST is never retried automatically because an ambiguous gateway response could otherwise duplicate GPU work.
+- A sustained outage now reports `远端 ComfyUI 服务暂不可用（网关 502），请稍后重试` instead of discarding the nginx response as a generic HTTP number.
+
+## Verification
+
+- Automated coverage simulates a transient history 502 that recovers without resubmitting the prompt and a sustained health-check 502 that returns the explicit service-unavailable contract.
+- Full automated suite passed `251 / 251`; `git diff --check` passed.
+- After the client update and local service reload, the remote ComfyUI health endpoint recovered as version `0.11.1`; the live queue reported zero running and zero pending tasks.
+- No Prompt Agent request, workflow submission or GPU image generation was triggered during diagnosis or verification.
+
+## Final Result
+
+final result: passed; upstream recovered and transient gateway reads no longer discard known tasks
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Original-Model Four-Step Trial v36 Design QA
+
+## Evidence
+
+- The user explicitly requested another fast-profile trial at 4 steps after the 5-step original-model profile was established.
+- The prior unacceptable 4-step result used the separate KV checkpoint; this trial keeps the original 9B FP8 checkpoint, so model choice remains controlled.
+
+## Findings
+
+- Workflow `2026-08-13.1` keeps quality at original 9B FP8, 7 steps and 1920 inference width.
+- Fast now uses the same original 9B FP8 checkpoint and 1920 inference width with 4 steps. No KV weights are loaded.
+- The Feishu `AI 生图 / 生成记录 / 生图模型` field description must match the live 4-step/7-step contract and retain the KV/4-step deprecation note.
+
+## Verification
+
+- Targeted ComfyUI contract tests passed `10 / 10`; the full automated suite passed `251 / 251`; `git diff --check` passed.
+- The 4173 service restarted under its existing supervisor and has exactly one listener. The live runtime reports workflow `2026-08-13.1`, quality at original 9B FP8 / 7 steps / 1920 and fast at the same model / 4 steps / 1920.
+- The Feishu field update was dry-run before execution, then read back successfully with the new 4-step description, unchanged `select` type and all six existing options preserved.
+- No image generation is submitted; visual quality remains a user-controlled same-input comparison.
+
+## Final Result
+
+final result: passed at configuration level; fast now isolates original-model 4 steps and awaits the user's visual test
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Flux2 Klein Seven-Step KV Trial v37 Design QA
+
+## Evidence
+
+- The user requested a sales-oriented fast profile that retains 7 sampling steps while switching to the faster checkpoint.
+- Live ComfyUI `UNETLoader` options expose both `flux-2-klein-9b-fp8.safetensors` and `flux-2-klein-9b-kv-fp8.safetensors`.
+- The prior poor-quality fast result combined KV weights with 4 steps; this trial removes step count as a variable.
+
+## Findings
+
+- Workflow `2026-08-13.2` keeps quality at original 9B FP8, 7 steps and 1920 inference width.
+- Fast uses 9B KV FP8 with the same 7 steps and 1920 inference width. The trial isolates checkpoint choice while preserving sampling depth and inference size.
+- Switching profiles can cold-load a separate 9B checkpoint. Visual and timing evaluation must distinguish cold runs from repeated warm runs.
+
+## Verification
+
+- Targeted ComfyUI contract tests passed `10 / 10`; the full automated suite passed `251 / 251`; `git diff --check` passed.
+- The 4173 service restarted under its existing supervisor with exactly one listener. The live runtime reports workflow `2026-08-13.2`, quality at original 9B FP8 / 7 steps / 1920 and fast at KV 9B FP8 / 7 steps / 1920.
+- The Feishu field update was dry-run before execution, then read back with the new checkpoint comparison description, unchanged `select` type and all six existing options preserved.
+- No image generation is submitted; timing and visual quality remain a user-controlled same-input comparison.
+
+## Final Result
+
+final result: passed at configuration level; the seven-step checkpoint comparison is live and awaits the user's warm/cold visual test
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md

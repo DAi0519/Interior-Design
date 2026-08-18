@@ -11,12 +11,11 @@
 `127.0.0.1`，项目固定安装 `lark-cli` 并使用当前电脑上的飞书用户身份。
 当前适配：
 
-- Banana Pro：`gemini-3-pro-image`（稳定版）
 - Banana 2：`gemini-3.1-flash-image-preview`
 - GPT Image 2：`gpt-image-2`
 - Seedream 4.5：`doubao-seedream-4.5`（当前 OneAPI Key 真实开放的上一代对照；未开放 Seedream 4.0）
 - Seedream 5.0：`doubao-seedream-5.0`
-- Flux2 Klein：`comfyui:ai-texture-enhancement`（兼容历史路由 ID；ComfyUI 单张参考图工作流，保持原图尺寸）
+- Flux2 Klein：`comfyui:ai-texture-enhancement`（兼容历史路由 ID；ComfyUI 单张参考图双档工作流，保持原图尺寸）
 
 工作台提供“白模渲染 / 精模渲染 / 风格反推 / 自由生图”功能切换，进入页面时仍默认选择白模渲染。精模渲染要求一张带材质模型图，服务端从飞书“精模渲染 Prompt”表读取所选固定版本并保持原图机位、构图与材质体系；Prompt 正文不会下发浏览器。当前 v1 可在“测试中”状态直接内部试用，上架后状态自动切换。
 
@@ -33,11 +32,11 @@
 
 Claude 仅保留 Sonnet 5，不纳入 Opus 系列；Doubao 同时保留 Seed 1.8 兼容候选与 Seed 2.0 Lite 新候选。
 
-最终出图模型与 Prompt Agent 使用不同的可用性策略：五个 OneAPI 模型和一个 ComfyUI 工作流启动后统一显示并允许选择，实际请求结果负责最终裁决，不向使用者暴露模型目录、ComfyUI 地址或工作流正文；Prompt Agent 需要处理参考图，继续同时检查目录可见性与图片输入能力。“出图模型”是统一的 1–4 项多选入口：选择一个时保持普通生成，选择多个时用同一输入与同一 Prompt 为每个模型各生成一张。参数区以第一个模型为编辑基准，提交时分别适配各模型合法的画幅、分辨率、格式与质量档，结果按选择顺序并列，单项失败不丢弃其他成功图片。
+最终出图模型与 Prompt Agent 使用不同的可用性策略：四个可运行 OneAPI 模型和一个 ComfyUI 工作流启动后统一显示并允许选择，无法使用的 Banana Pro 不再进入新任务目录；历史 Benchmark 与飞书记录继续兼容其稳定编码。实际请求结果负责最终裁决，不向使用者暴露模型目录、ComfyUI 地址或工作流正文；Prompt Agent 需要处理参考图，继续同时检查目录可见性与图片输入能力。“出图模型”是统一的 1–4 项多选入口：选择一个时保持普通生成，选择多个时用同一输入与同一 Prompt 为每个模型各生成一张。参数区以第一个模型为编辑基准，提交时分别适配各模型合法的画幅、分辨率、格式、质量或 Flux 工作流档位，结果按选择顺序并列，单项失败不丢弃其他成功图片。
 
 所有模型、版本和参数下拉共用原生 `select` 渐进增强；鼠标或触控板按下选项时先把焦点稳定在菜单内，再由 click 提交选择，避免 macOS 浏览器在焦点短暂回到页面时提前关闭菜单。键盘方向键、Home、End、Escape 与确认操作保持可用。
 
-场景融合 Agent 与融合基模选择不改变自由生图请求。白模渲染已经接入两条 Prompt 路由：默认“智能默认”直接读取 `white-model-smart-default`，使用用户所选 Agent 基模，结合白模、可选补充要求和固定摄影底座生成结构化 Prompt，不读取 Style DNA；固定平台风格则使用所选融合基模，按 Agent 编码读取融合版本并结合 Style DNA 调用多模态 Prompt Agent。两路通过同一合同后复用统一出图：OneAPI 模型继续通过 Responses 图生图，Flux2 Klein 由服务端上传原白模到 ComfyUI、把当前 Prompt 原样写入正向节点、注入随机 Seed、排队轮询并下载输出，工作流内只保留固定负向 Prompt。首次白模成功前只显示“开始渲染”；成功后同一组路由输入会显示“再次渲染 / 重新生成提示词”，前者复用最终 Prompt，后者重新运行对应 Prompt Agent。API Key 重连、配置刷新或服务重启会清空复用状态，浏览器不接收 Prompt 正文、ComfyUI 地址或执行图。自由生图选择 Flux2 Klein 时可以不连接 OneAPI，但必须上传且只允许一张图片；没有参考图的 OneAPI 纯文生图仍使用 Images Generations API。
+场景融合 Agent 与融合基模选择不改变自由生图请求。白模渲染已经接入两条 Prompt 路由：默认“智能默认”直接读取 `white-model-smart-default`，使用用户所选 Agent 基模，结合白模、可选补充要求和固定摄影底座生成结构化 Prompt，不读取 Style DNA；固定平台风格则使用所选融合基模，按 Agent 编码读取融合版本并结合 Style DNA 调用多模态 Prompt Agent。两路通过同一合同后复用统一出图：OneAPI 模型继续通过 Responses 图生图，Flux2 Klein 将原白模 Base64 与所选档位工作流原子提交到 ComfyUI，把当前 Prompt 原样写入正向节点、注入随机 Seed、排队轮询并下载输出，工作流内只保留固定负向 Prompt。首次白模成功前只显示“开始渲染”；成功后同一组路由输入会显示“再次渲染 / 重新生成提示词”，前者复用最终 Prompt，后者重新运行对应 Prompt Agent。API Key 重连、配置刷新或服务重启会清空复用状态，浏览器不接收 Prompt 正文、ComfyUI 地址或执行图。自由生图选择 Flux2 Klein 时可以不连接 OneAPI，但必须上传且只允许一张图片；没有参考图的 OneAPI 纯文生图仍使用 Images Generations API。
 
 风格反推首轮接受接口支持的同风格图片或 PDF，并用对话持续收敛形态与空间、材质与色彩、家具与细节、灯光四组变量。附件数量不设产品上限，当前支持 PNG、JPEG、WebP、GIF、PDF，单文件 8MB、合计 20MB；参考附件是首轮唯一必填输入，用户可以只上传附件直接发送。生成草稿后会清空本轮附件，后续可直接输入文字继续修改，也可按需添加新附件。输入框左下角加号添加附件，图片显示缩略图，PDF 显示文件卡。System Prompt 在现有 `AI 生图` Base 的独立 `风格反推prompt` 表中做版本管理；前端只展示已上架版本目录，默认最高版本且可以切回历史上架版本测试，当前标签页刷新后保持所选版本；正文仍只由服务端读取且不能被浏览器覆盖。每轮输出都是未发布草稿，可复制 JSON，但当前不会写入飞书风格库或自动发布。
 
@@ -116,6 +115,7 @@ npm start
 默认只保存在 Node 进程内；只有用户显式选择后才写入项目根目录的
 `.env.local`。该文件已被 Git 忽略，但仍是本机明文文件，不适合共用电脑。
 Flux2 Klein 默认连接项目内配置的公司 ComfyUI 服务，不需要在浏览器填写 Key；如服务迁移，可用 `.env.local` 的 `COMFYUI_BASE_URL` 覆盖。
+ComfyUI 拒绝工作流时，工作台会显示具体节点与输入。Flux2 Klein 将参考图 Base64 与工作流放在同一次请求中提交，不依赖多实例服务间不共享的上传目录；结果文件短暂不可见时只轮询读取，不重复执行工作流。
 
 可以随时检查飞书登录：
 
@@ -145,12 +145,11 @@ Windows 和 macOS 设置临时环境变量的语法不同，因此运营流程�
 
 模型参数来自公司 Model Link 的图片生成说明：
 
-- Banana Pro：10 种比例，1K / 2K / 4K，PNG / JPEG。
 - Banana 2：14 种比例，512 / 1K / 2K / 4K，PNG / JPEG。
 - GPT Image 2：9 种比例，1K / 2K / 4K，PNG / JPEG / WebP，并支持质量档位；白模渲染与自由生图都默认选择“中”。
 - Seedream 4.5：8 种比例，2K / 4K，PNG / JPEG。
 - Seedream 5.0：8 种比例，2K / 3K / 4K，PNG / JPEG。
-- Flux2 Klein：必须且只允许一张 PNG / JPEG / WebP；工作流内部将输入宽度处理到 1920 并保持比例参与推理，最终输出恢复原图宽高，只输出 PNG，不开放比例和分辨率下拉。
+- Flux2 Klein：必须且只允许一张 PNG / JPEG / WebP；“质量优先”使用原版 9B FP8、7 steps、1920 推理长边，“快速”使用 9B KV FP8、同样 7 steps 与 1920 推理长边，以受控比较 checkpoint 的速度与画质。两档最终都恢复原图宽高，只输出 PNG，不开放比例和分辨率下拉。结果卡显示总耗时，并把 Flux 拆为 Prompt、排队和 Comfy 执行三段；档位切换可能触发另一套 9B 权重冷加载，真实比较应区分冷态与热态。
 
 白模或自由生图上传参考图后，浏览器会按第一张图片的宽高从当前模型合法比例中选择
 最近项；服务端再次从真实 PNG/JPEG/WebP 图片头读取首图宽高并完成同一适配，避免

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、白模智能默认/固定风格路由、模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
- * [OUTPUT]: 对外提供已接入智能默认 Agent 的精模/白模/自由生图入口、最多四模型各出一张、逐模型参数适配与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、白模智能默认/固定风格路由、含 Flux 双档位的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [OUTPUT]: 对外提供已接入智能默认 Agent 的精模/白模/自由生图入口、最多四模型各出一张、逐模型尺寸/质量/工作流档位适配与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -65,6 +65,7 @@ const elements = {
   promptInput: document.querySelector("#promptInput"),
   promptSection: document.querySelector("#promptSection"),
   qualityField: document.querySelector("#qualityField"),
+  qualityLabel: document.querySelector("#qualityLabel"),
   qualitySelect: document.querySelector("#qualitySelect"),
   ratioSelect: document.querySelector("#ratioSelect"),
   referenceCount: document.querySelector("#referenceCount"),
@@ -237,6 +238,7 @@ function configurePrimaryModel() {
 
   if (model.qualityOptions.length > 0) {
     elements.qualityField.classList.remove("hidden");
+    elements.qualityLabel.textContent = "生成质量";
     fillSelect(
       elements.qualitySelect,
       model.qualityOptions.map((quality) => ({
@@ -251,6 +253,14 @@ function configurePrimaryModel() {
         value: quality,
       })),
       model.defaultQuality || "auto",
+    );
+  } else if (model.workflowProfiles.length > 0) {
+    elements.qualityField.classList.remove("hidden");
+    elements.qualityLabel.textContent = "生成档位";
+    fillSelect(
+      elements.qualitySelect,
+      model.workflowProfiles.map(({ label, value }) => ({ label, value })),
+      model.defaultWorkflowProfile,
     );
   } else {
     elements.qualityField.classList.add("hidden");
@@ -312,11 +322,14 @@ function updateComputedSize() {
 
 function generationInput() {
   const renderMode = whiteModelRenderMode.current();
+  const model = selectedModel();
   return {
-    modelKey: selectedModel()?.key,
+    modelKey: model?.key,
     outputFormat: elements.formatSelect.value,
     prompt: elements.promptInput.value.trim(),
-    quality: elements.qualitySelect.value || undefined,
+    quality: model?.qualityOptions.length
+      ? elements.qualitySelect.value || undefined
+      : undefined,
     ratio: elements.ratioSelect.value,
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
     referenceImages: state.referenceImages.map(
@@ -328,6 +341,9 @@ function generationInput() {
       }),
     ),
     resolution: elements.resolutionSelect.value,
+    workflowProfile: model?.workflowProfiles.length
+      ? elements.qualitySelect.value || undefined
+      : undefined,
     renderMode: renderMode.mode,
     smartDefaultAgentVersion: renderMode.agentVersion || undefined,
     styleCode: renderMode.styleCode || undefined,

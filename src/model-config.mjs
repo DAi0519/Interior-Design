@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图尺寸契约与 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含生成 Provider/参考图能力的 publicModelCatalog、模型 Provider 查询、请求构造器与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图尺寸/双档契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含生成 Provider/参考图/工作流档位能力的 publicModelCatalog、模型 Provider 查询、请求构造器与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,19 +17,6 @@ const GPT_IMAGE_SIZES = {
   "9:16": { "1K": "576x1024", "2K": "1152x2048", "4K": "2160x3840" },
   "21:9": { "1K": "1024x439", "2K": "2048x878", "4K": "3840x1646" },
   "9:21": { "1K": "439x1024", "2K": "878x2048", "4K": "1646x3840" },
-};
-
-const BANANA_PRO_SIZES = {
-  "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "4096x4096" },
-  "2:3": { "1K": "848x1264", "2K": "1696x2528", "4K": "3392x5056" },
-  "3:2": { "1K": "1264x848", "2K": "2528x1696", "4K": "5056x3392" },
-  "3:4": { "1K": "896x1200", "2K": "1792x2400", "4K": "3584x4800" },
-  "4:3": { "1K": "1200x896", "2K": "2400x1792", "4K": "4800x3584" },
-  "4:5": { "1K": "928x1152", "2K": "1856x2304", "4K": "3712x4608" },
-  "5:4": { "1K": "1152x928", "2K": "2304x1856", "4K": "4608x3712" },
-  "9:16": { "1K": "768x1376", "2K": "1536x2752", "4K": "3072x5504" },
-  "16:9": { "1K": "1376x768", "2K": "2752x1536", "4K": "5504x3072" },
-  "21:9": { "1K": "1584x672", "2K": "3168x1344", "4K": "6336x2688" },
 };
 
 const BANANA_2_SIZES = {
@@ -73,18 +60,6 @@ const SOURCE_IMAGE_SIZE = {
 };
 
 export const MODEL_CONFIGS = Object.freeze({
-  bananaPro: {
-    accent: "lime",
-    defaultFormat: "png",
-    defaultRatio: "4:3",
-    defaultResolution: "2K",
-    description: "构图与文字理解更强，适合复杂空间提示",
-    formats: ["png", "jpeg"],
-    id: "gemini-3-pro-image",
-    label: "Banana Pro",
-    qualityOptions: [],
-    sizes: BANANA_PRO_SIZES,
-  },
   banana2: {
     accent: "purple",
     defaultFormat: "png",
@@ -115,7 +90,8 @@ export const MODEL_CONFIGS = Object.freeze({
     defaultFormat: "png",
     defaultRatio: "source",
     defaultResolution: "source",
-    description: "ComfyUI · Flux2 Klein 工作流，单图保持结构与尺寸并增强真实材质和光影",
+    defaultWorkflowProfile: "quality",
+    description: "ComfyUI · Flux2 Klein 双档工作流，单图保持结构与尺寸并增强真实材质和光影",
     formats: ["png"],
     id: "comfyui:ai-texture-enhancement",
     label: "Flux2 Klein",
@@ -125,6 +101,10 @@ export const MODEL_CONFIGS = Object.freeze({
     requiresReferenceImage: true,
     sizes: SOURCE_IMAGE_SIZE,
     sizingMode: "source",
+    workflowProfiles: [
+      { label: "质量优先", value: "quality" },
+      { label: "快速", value: "fast" },
+    ],
   },
   seedream45: {
     accent: "orange",
@@ -213,6 +193,8 @@ export function publicModelCatalog() {
     requiresReferenceImage: model.requiresReferenceImage === true,
     sizes: model.sizes,
     sizingMode: model.sizingMode || "preset",
+    workflowProfiles: model.workflowProfiles || [],
+    defaultWorkflowProfile: model.defaultWorkflowProfile || null,
   }));
 }
 
@@ -246,6 +228,14 @@ export function createGenerationRequest(
       error.statusCode = 400;
       throw error;
     }
+    const workflowProfile = optionOrThrow(
+      (model.workflowProfiles || []).map((profile) => profile.value),
+      String(input.workflowProfile || model.defaultWorkflowProfile),
+      "Flux2 Klein 不支持这个生成档位",
+    );
+    const workflowProfileLabel = model.workflowProfiles.find(
+      (profile) => profile.value === workflowProfile,
+    ).label;
     const size = `${resolvedSourceDimensions.width}x${resolvedSourceDimensions.height}`;
     return {
       preview: {
@@ -264,6 +254,8 @@ export function createGenerationRequest(
         resolution: "source",
         size,
         sizeMode: "source-original",
+        workflowProfile,
+        workflowProfileLabel,
       },
       provider: "comfyui",
       request: {
@@ -277,6 +269,7 @@ export function createGenerationRequest(
         output_format: "png",
         prompt,
         size,
+        workflow_profile: workflowProfile,
       },
     };
   }

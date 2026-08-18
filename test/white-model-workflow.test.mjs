@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与白模智能默认/固定风格渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供双 Prompt 路由、严格合同、提示词复用/重算、独立 Prompt/图像 Provider、版本化 Style DNA、比例及同步调度回归保障
+ * [OUTPUT]: 对外提供双 Prompt 路由、智能默认可省略重复生成要求的严格合同、提示词复用/重算、独立 Prompt/图像 Provider、版本化 Style DNA、比例及同步调度回归保障
  * [POS]: test 的白模工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,11 @@ const agentJson = {
     materials: "墙面哑光涂料",
     photography: "自然透视",
   },
+};
+
+const smartDefaultAgentJson = {
+  scene_preservation: agentJson.scene_preservation,
+  visual_application: agentJson.visual_application,
 };
 
 const onePixelPng =
@@ -63,6 +68,22 @@ test("Prompt Agent 输出支持纯 JSON 与代码围栏并验证字段", () => {
     relaxedAgentJson,
   );
   assert.throws(() => parsePromptAgentOutput("{}"), /缺少必需字段/);
+  assert.deepEqual(
+    parsePromptAgentOutput(JSON.stringify(smartDefaultAgentJson), {
+      strict: true,
+    }),
+    smartDefaultAgentJson,
+  );
+  assert.throws(
+    () => parsePromptAgentOutput(
+      JSON.stringify({
+        ...smartDefaultAgentJson,
+        generation_requirement: "",
+      }),
+      { strict: true },
+    ),
+    /缺少必需字段/,
+  );
   assert.throws(
     () => parsePromptAgentOutput(
       JSON.stringify({ ...agentJson, analysis: "不应输出" }),
@@ -86,7 +107,7 @@ test("智能默认直接读取独立 Agent 且不读取 Style DNA", async () => 
     }),
     generatePrompt: async (request) => {
       promptRequest = request;
-      return { text: JSON.stringify(agentJson) };
+      return { text: JSON.stringify(smartDefaultAgentJson) };
     },
   };
   const result = await executeWhiteModelWorkflow(
@@ -266,7 +287,7 @@ test("白模由服务端真实图片宽高驱动最近合法比例", async () =>
   const sourceBytes = Buffer.from(onePixelPng.split(",")[1], "base64").length;
   const sourceInput = {
     ...input(),
-    modelKey: "bananaPro",
+    modelKey: "banana2",
     ratio: "4:3",
     ratioMode: "auto",
     referenceImages: [{

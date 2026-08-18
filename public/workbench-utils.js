@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果
- * [OUTPUT]: 对外提供同源 JSON API、图片地址/文件读取、字节与结果摘要格式化及原生下拉填充工具
+ * [OUTPUT]: 对外提供同源 JSON API、图片地址/文件读取、字节、结果摘要与 ComfyUI 分段耗时格式化及原生下拉填充工具
  * [POS]: public 的无状态浏览器基础设施，被生成与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -62,8 +62,21 @@ export function resultMetadata(result, sync = result.sync) {
     result.style?.name,
     result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
     result.promptAgent?.reused ? "提示词已复用" : null,
+    result.request.workflowProfileLabel,
     result.request.referenceImageCount > 0
       ? `${result.request.referenceImageCount} 张参考图`
+      : null,
+    result.upstream?.metadata?.engine === "comfyui" &&
+    Number.isFinite(result.promptAgent?.durationMs)
+      ? `Prompt ${(result.promptAgent.durationMs / 1000).toFixed(1)}s`
+      : null,
+    result.upstream?.metadata?.engine === "comfyui" &&
+    Number.isFinite(result.upstream.metadata.queueDurationMs)
+      ? `排队 ${(result.upstream.metadata.queueDurationMs / 1000).toFixed(1)}s`
+      : null,
+    result.upstream?.metadata?.engine === "comfyui" &&
+    Number.isFinite(result.upstream.metadata.executionDurationMs)
+      ? `Comfy 执行 ${(result.upstream.metadata.executionDurationMs / 1000).toFixed(1)}s`
       : null,
     syncLabel,
   ]

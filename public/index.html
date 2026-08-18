@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖生成、连接中心、白模渲染方式、Style DNA 对话与 product-navigation.css 共享顶栏样式、Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、白模智能默认/平台风格紧凑选择、按风格路由切换的 Agent 基模/融合版本、最多四个出图模型选择与多结果画廊
+  [OUTPUT]: 对外提供精模/白模/自由生图/风格反推入口、白模智能默认/平台风格紧凑选择、按风格路由切换的 Agent 基模/融合版本、Flux 双档位、最多四个出图模型选择与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -289,7 +289,7 @@
                 <select id="formatSelect"></select>
               </label>
               <label id="qualityField" class="field">
-                <span>生成质量</span>
+                <span id="qualityLabel">生成质量</span>
                 <select id="qualitySelect"></select>
               </label>
             </div>
@@ -338,7 +338,7 @@
               <h3>等待生成</h3>
               <p>配置完成后，结果会显示在这里。</p>
               <div class="empty-specs">
-                <span id="emptyModel">Banana Pro</span>
+                <span id="emptyModel">Seedream 5.0</span>
                 <i></i>
                 <span id="emptySize">2400 × 1792</span>
               </div>
@@ -350,7 +350,7 @@
               </div>
               <div>
                 <h3>正在生成</h3>
-                <p id="loadingLabel">正在向 Banana Pro 提交请求…</p>
+                <p id="loadingLabel">正在向 Seedream 5.0 提交请求…</p>
               </div>
             </div>
 

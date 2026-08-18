@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与服务端/浏览器批量生成纯规则
- * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型参数适配、保序并发与部分失败回归保障
+ * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型参数适配、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
  * [POS]: test 的多模型批量生成单元测试，不发送真实模型请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import {
   adaptGenerationInputForModel,
   runGenerationBatch,
 } from "../public/generation-batch.js";
+import { resultMetadata } from "../public/workbench-utils.js";
 import { normalizeGenerationBatch } from "../src/generation-batch.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
 
@@ -42,6 +43,7 @@ test("不同模型自动收敛到各自合法参数而不篡改共同输入", ()
     ratio: "8:1",
     ratioMode: "manual",
     resolution: "512",
+    workflowProfile: "fast",
   };
   const gpt = adaptGenerationInputForModel(
     input,
@@ -61,6 +63,32 @@ test("不同模型自动收敛到各自合法参数而不篡改共同输入", ()
   assert.equal(comfy.ratio, "source");
   assert.equal(comfy.resolution, "source");
   assert.equal(comfy.outputFormat, "png");
+  assert.equal(comfy.workflowProfile, "fast");
+  assert.equal(gpt.workflowProfile, undefined);
+});
+
+test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {
+  const metadata = resultMetadata({
+    promptAgent: { durationMs: 8_650, version: 3 },
+    request: {
+      outputFormat: "png",
+      referenceImageCount: 1,
+      size: "1920x1080",
+      workflowProfileLabel: "快速",
+    },
+    style: { name: "智能默认" },
+    upstream: {
+      metadata: {
+        engine: "comfyui",
+        executionDurationMs: 30_476,
+        queueDurationMs: 1_250,
+      },
+    },
+  });
+
+  assert.match(metadata, /Prompt 8\.7s/);
+  assert.match(metadata, /排队 1\.3s/);
+  assert.match(metadata, /Comfy 执行 30\.5s/);
 });
 
 test("批量调度最多并发两个并按模型顺序保留部分失败", async () => {

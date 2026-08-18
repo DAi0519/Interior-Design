@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、外部正向 Prompt、固定负向 Prompt、上传图片名与运行时随机种子
- * [OUTPUT]: 对外提供版本化 Flux2 Klein 工作流工厂、稳定输入输出节点与可归档工作流元数据
+ * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、质量优先/快速档、外部正向 Prompt、固定负向 Prompt、参考图 Base64 与运行时随机种子
+ * [OUTPUT]: 对外提供双档版本化 Flux2 Klein 工作流工厂、稳定输入输出节点与可归档工作流元数据
  * [POS]: src 的 ComfyUI 工作流定义，仅描述机器执行图，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,22 @@ export const AI_TEXTURE_WORKFLOW = Object.freeze({
   label: "Flux2 Klein",
   model: "flux-2-klein-9b-fp8.safetensors",
   outputNodeId: "72",
-  version: "2026-08-04.1",
+  version: "2026-08-13.2",
+});
+
+export const AI_TEXTURE_PROFILES = Object.freeze({
+  quality: Object.freeze({
+    inferenceWidth: 1920,
+    label: "质量优先",
+    model: AI_TEXTURE_WORKFLOW.model,
+    steps: 7,
+  }),
+  fast: Object.freeze({
+    inferenceWidth: 1920,
+    label: "快速",
+    model: "flux-2-klein-9b-kv-fp8.safetensors",
+    steps: 7,
+  }),
 });
 
 const NEGATIVE_PROMPT =
@@ -20,11 +35,28 @@ function positivePrompt(userPrompt) {
   return String(userPrompt || "").trim();
 }
 
-export function createAiTextureWorkflow({ imageName, prompt, seed }) {
+function workflowProfile(value) {
+  const key = String(value || "quality");
+  const profile = AI_TEXTURE_PROFILES[key];
+  if (!profile) throw new TypeError("Flux2 Klein 工作流档位不受支持");
+  return { key, ...profile };
+}
+
+export function createAiTextureWorkflow({
+  imageBase64,
+  prompt,
+  seed,
+  workflowProfile: requestedProfile = "quality",
+}) {
+  const profile = workflowProfile(requestedProfile);
   return {
     "71": {
-      class_type: "LoadImage",
-      inputs: { image: imageName },
+      class_type: "easy loadImageBase64",
+      inputs: {
+        base64_data: imageBase64,
+        image_output: "Hide",
+        save_prefix: "CanvasLab_Input",
+      },
     },
     "72": {
       class_type: "SaveImage",
@@ -76,7 +108,7 @@ export function createAiTextureWorkflow({ imageName, prompt, seed }) {
       class_type: "Flux2Scheduler",
       inputs: {
         height: ["easy imageSize-913eae800a3359e3775764c823c3e7ea", 1],
-        steps: 7,
+        steps: profile.steps,
         width: ["easy imageSize-913eae800a3359e3775764c823c3e7ea", 0],
       },
     },
@@ -101,7 +133,7 @@ export function createAiTextureWorkflow({ imageName, prompt, seed }) {
         interpolation: "lanczos",
         method: "keep proportion",
         multiple_of: 0,
-        width: 1920,
+        width: profile.inferenceWidth,
       },
     },
     "KSamplerSelect-ea15f99cba5b444c6edd8a1509542292": {
@@ -139,7 +171,7 @@ export function createAiTextureWorkflow({ imageName, prompt, seed }) {
     "UNETLoader-268b01374c2e0d44c2854c95c42a0a6e": {
       class_type: "UNETLoader",
       inputs: {
-        unet_name: AI_TEXTURE_WORKFLOW.model,
+        unet_name: profile.model,
         weight_dtype: "fp8_e4m3fn_fast",
       },
     },
@@ -177,15 +209,21 @@ export function aiTextureWorkflowMetadata({
   promptId,
   queueDurationMs,
   seed,
+  workflowProfile: requestedProfile = "quality",
 }) {
+  const profile = workflowProfile(requestedProfile);
   return {
     engine: "comfyui",
     executionDurationMs,
-    model: AI_TEXTURE_WORKFLOW.model,
+    inferenceWidth: profile.inferenceWidth,
+    model: profile.model,
     promptId,
     queueDurationMs,
     seed,
+    steps: profile.steps,
     workflowId: AI_TEXTURE_WORKFLOW.id,
+    workflowProfile: profile.key,
+    workflowProfileLabel: profile.label,
     workflowVersion: AI_TEXTURE_WORKFLOW.version,
   };
 }

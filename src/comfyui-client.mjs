@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node fetch/FormData/Blob、Flux2 Klein 工作流工厂、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
- * [OUTPUT]: 对外提供 ComfyUI 健康检查、可取消图片上传/工作流排队/轮询、输出下载与统一 generateImage 结果
+ * [INPUT]: 依赖 Node fetch、双档 Flux2 Klein 工作流工厂、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
+ * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 参考图与所选档位工作流原子提交、可取消排队/轮询、网关抖动安全恢复、节点错误诊断、多实例输出读取恢复与统一 generateImage 结果
  * [POS]: src 的第二图像生成服务边界，与 oneapi-client.mjs 并列并隐藏 ComfyUI 异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,14 +19,59 @@ export const DEFAULT_COMFYUI_BASE_URL =
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_OUTPUT_BYTES = 60 * 1024 * 1024;
+const MAX_OUTPUT_DOWNLOAD_ATTEMPTS = 20;
+const MAX_GATEWAY_READ_ATTEMPTS = 3;
+const TRANSIENT_GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 export class ComfyUiError extends Error {
-  constructor(message, statusCode = 502, code = null) {
+  constructor(message, statusCode = 502, code = null, details = null) {
     super(message);
     this.name = "ComfyUiError";
     this.statusCode = statusCode;
     this.code = code;
+    this.details = details;
   }
+}
+
+function promptNodeFailures(body) {
+  const failures = [];
+  for (const [nodeId, node] of Object.entries(body?.node_errors || {})) {
+    const errors = Array.isArray(node?.errors) ? node.errors : [];
+    for (const error of errors) {
+      const summary = String(error?.message || "").trim();
+      const detail = String(error?.details || "").trim();
+      failures.push({
+        classType: String(node?.class_type || "").trim(),
+        inputName: String(error?.extra_info?.input_name || "").trim(),
+        message:
+          summary && detail && detail !== summary
+            ? `${summary}（${detail}）`
+            : summary || detail || "节点输入无效",
+        nodeId,
+        type: String(error?.type || "").trim(),
+      });
+    }
+  }
+  return failures;
+}
+
+function promptValidationError(body, statusCode = 502) {
+  const failures = promptNodeFailures(body);
+  if (failures.length === 0) return null;
+  const message = failures
+    .slice(0, 3)
+    .map((failure) => {
+      const node = failure.classType || failure.nodeId;
+      const input = failure.inputName ? `.${failure.inputName}` : "";
+      return `${node}${input}：${failure.message}`;
+    })
+    .join("；");
+  return new ComfyUiError(
+    `ComfyUI 节点校验失败：${message}`.slice(0, 1000),
+    statusCode,
+    "prompt_validation",
+    { nodeFailures: failures },
+  );
 }
 
 function normalizedBaseUrl(value) {
@@ -65,23 +110,6 @@ function dataImage(value) {
     bytes: Buffer.from(match[2].replace(/\s/g, ""), "base64"),
     mimeType: match[1],
   };
-}
-
-function safeUploadName(fileName, mimeType) {
-  const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1];
-  const base = String(fileName || "reference")
-    .replace(/\.[^.]+$/, "")
-    .replace(/[^\p{L}\p{N}._-]/gu, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 60) || "reference";
-  return `canvas-lab-${randomUUID()}-${base}.${extension}`;
-}
-
-function uploadedImageName(upload) {
-  if (!upload?.name) {
-    throw new ComfyUiError("ComfyUI 已响应上传请求，但没有返回图片名", 502, "empty_upload");
-  }
-  return upload.subfolder ? `${upload.subfolder}/${upload.name}` : upload.name;
 }
 
 function outputImage(history) {
@@ -166,15 +194,37 @@ export function createComfyUiClient({
     }
   }
 
-  async function requestJson(pathname, options = {}) {
-    const response = await fetchWithTimeout(pathname, options);
-    let body = {};
-    try {
-      body = await response.json();
-    } catch {
-      body = {};
-    }
-    if (!response.ok) {
+  async function requestJson(pathname, { retryGateway = false, ...options } = {}) {
+    const attempts = retryGateway ? MAX_GATEWAY_READ_ATTEMPTS : 1;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const response = await fetchWithTimeout(pathname, options);
+      let body = {};
+      try {
+        body = await response.json();
+      } catch {
+        body = {};
+      }
+      if (response.ok) return body;
+      if (
+        retryGateway &&
+        TRANSIENT_GATEWAY_STATUSES.has(response.status) &&
+        attempt < attempts - 1
+      ) {
+        await waitImpl(Math.min(pollIntervalMs, 1_000));
+        continue;
+      }
+      const validationError = promptValidationError(
+        body,
+        response.status >= 400 && response.status < 600 ? response.status : 502,
+      );
+      if (validationError) throw validationError;
+      if (TRANSIENT_GATEWAY_STATUSES.has(response.status)) {
+        throw new ComfyUiError(
+          `远端 ComfyUI 服务暂不可用（网关 ${response.status}），请稍后重试`,
+          response.status,
+          "service_unavailable",
+        );
+      }
       const message =
         body?.error?.message || body?.error || body?.message || `HTTP ${response.status}`;
       throw new ComfyUiError(
@@ -183,21 +233,10 @@ export function createComfyUiClient({
         "upstream",
       );
     }
-    return body;
-  }
-
-  async function uploadReference(image, signal = null) {
-    const parsed = dataImage(image.image_url);
-    const form = new FormData();
-    form.append(
-      "image",
-      new Blob([parsed.bytes], { type: parsed.mimeType }),
-      safeUploadName(image.fileName, parsed.mimeType),
-    );
-    form.append("type", "input");
-    form.append("overwrite", "false");
-    return uploadedImageName(
-      await requestJson("upload/image", { body: form, method: "POST", signal }),
+    throw new ComfyUiError(
+      "远端 ComfyUI 服务暂不可用，请稍后重试",
+      502,
+      "service_unavailable",
     );
   }
 
@@ -205,7 +244,10 @@ export function createComfyUiClient({
     const deadline = Date.now() + requestTimeoutMs;
     while (Date.now() <= deadline) {
       signal?.throwIfAborted();
-      const body = await requestJson(`history/${encodeURIComponent(promptId)}`, { signal });
+      const body = await requestJson(`history/${encodeURIComponent(promptId)}`, {
+        retryGateway: true,
+        signal,
+      });
       const history = body?.[promptId];
       if (history) {
         if (history.status?.completed && history.status?.status_str !== "success") {
@@ -226,15 +268,25 @@ export function createComfyUiClient({
   }
 
   async function downloadOutput(image, signal = null) {
-    const response = await fetchWithTimeout("view", { signal }, {
-      filename: image.filename,
-      subfolder: image.subfolder || "",
-      type: image.type || "output",
-    });
-    if (!response.ok) {
+    let response;
+    for (let attempt = 0; attempt < MAX_OUTPUT_DOWNLOAD_ATTEMPTS; attempt += 1) {
+      response = await fetchWithTimeout("view", { signal }, {
+        filename: image.filename,
+        subfolder: image.subfolder || "",
+        type: image.type || "output",
+      });
+      if (
+        response.ok ||
+        (response.status !== 404 && !TRANSIENT_GATEWAY_STATUSES.has(response.status))
+      ) break;
+      if (attempt < MAX_OUTPUT_DOWNLOAD_ATTEMPTS - 1) {
+        await waitImpl(Math.min(pollIntervalMs, 250));
+      }
+    }
+    if (!response?.ok) {
       throw new ComfyUiError(
-        `读取 ComfyUI 输出失败（${response.status}）`,
-        response.status,
+        `读取 ComfyUI 输出失败（${response?.status || 502}）`,
+        response?.status || 502,
         "output_download",
       );
     }
@@ -260,6 +312,7 @@ export function createComfyUiClient({
     async checkHealth() {
       const body = await requestJson("system_stats", {
         method: "GET",
+        retryGateway: true,
         signal: AbortSignal.timeout(Math.min(requestTimeoutMs, 10_000)),
       });
       return {
@@ -281,14 +334,16 @@ export function createComfyUiClient({
         );
       }
 
-      const imageName = await uploadReference(images[0], signal);
+      const reference = dataImage(images[0].image_url);
+      const workflowProfile = String(generationRequest.workflow_profile || "quality");
       const seed = randomSeed();
+      const queuedAt = Date.now();
       const prompt = workflowFactory({
-        imageName,
+        imageBase64: reference.bytes.toString("base64"),
         prompt: generationRequest.prompt,
         seed,
+        workflowProfile,
       });
-      const queuedAt = Date.now();
       const queued = await requestJson("prompt", {
         body: JSON.stringify({ client_id: randomUUID(), prompt }),
         headers: { "Content-Type": "application/json" },
@@ -296,9 +351,10 @@ export function createComfyUiClient({
         signal,
       });
       if (!queued?.prompt_id) {
-        const nodeError = Object.values(queued?.node_errors || {})[0];
+        const validationError = promptValidationError(queued);
+        if (validationError) throw validationError;
         throw new ComfyUiError(
-          String(nodeError?.errors?.[0]?.message || "ComfyUI 没有返回 prompt_id"),
+          "ComfyUI 没有返回 prompt_id",
           502,
           "empty_prompt_id",
         );
@@ -316,6 +372,7 @@ export function createComfyUiClient({
           promptId: queued.prompt_id,
           queueDurationMs: times.queueDurationMs,
           seed,
+          workflowProfile,
         }),
         outputFormat: downloaded.outputFormat,
         quality: null,

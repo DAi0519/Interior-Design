@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、同源图片下载接口、结果区 DOM 与 Toast 回调
- * [OUTPUT]: 对外提供空态、加载态、错误态、多模型结果画廊、逐图下载和独立飞书同步轮询
+ * [OUTPUT]: 对外提供空态、加载态、错误态、多模型结果画廊、总耗时/ComfyUI 分段耗时、逐图下载和独立飞书同步轮询
  * [POS]: public 的生成结果呈现层，承接单模型与最多四模型的成功或部分失败结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -139,7 +139,7 @@ export function bindGenerationResults({ api, showToast }) {
     const record = document.createElement("a");
     model.textContent = outcome.item.label;
     meta.dataset.resultMeta = "";
-    duration.textContent = `${(result.durationMs / 1000).toFixed(1)} 秒`;
+    duration.textContent = `总 ${(result.durationMs / 1000).toFixed(1)} 秒`;
     actions.className = "result-card-actions";
     download.type = "button";
     download.className = "result-download-button";
