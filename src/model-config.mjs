@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图尺寸/双档契约与 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含生成 Provider/参考图/工作流档位能力的 publicModelCatalog、模型 Provider 查询、请求构造器与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/双档契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/工作流档位能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、请求构造器与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -55,8 +55,8 @@ const SEEDREAM_4_5_SIZES = Object.fromEntries(
   ]),
 );
 
-const SOURCE_IMAGE_SIZE = {
-  source: { source: "保持原图" },
+const FLUX_SOURCE_SIZES = {
+  source: { "1K": "1048576", "2K": "4194304" },
 };
 
 export const MODEL_CONFIGS = Object.freeze({
@@ -89,9 +89,9 @@ export const MODEL_CONFIGS = Object.freeze({
     accent: "lime",
     defaultFormat: "png",
     defaultRatio: "source",
-    defaultResolution: "source",
+    defaultResolution: "2K",
     defaultWorkflowProfile: "quality",
-    description: "ComfyUI · Flux2 Klein 双档工作流，单图保持结构与尺寸并增强真实材质和光影",
+    description: "ComfyUI · Flux2 Klein 双档工作流，保持原图比例，1K/2K 按总像素自适应",
     formats: ["png"],
     id: "comfyui:ai-texture-enhancement",
     label: "Flux2 Klein",
@@ -99,7 +99,7 @@ export const MODEL_CONFIGS = Object.freeze({
     provider: "comfyui",
     qualityOptions: [],
     requiresReferenceImage: true,
-    sizes: SOURCE_IMAGE_SIZE,
+    sizes: FLUX_SOURCE_SIZES,
     sizingMode: "source",
     workflowProfiles: [
       { label: "质量优先", value: "quality" },
@@ -158,6 +158,25 @@ function validDimensions(value) {
     value.width > 0 &&
     value.height > 0
   );
+}
+
+function alignToLatentGrid(value) {
+  return Math.max(16, Math.round(value / 16) * 16);
+}
+
+export function fitSourceDimensionsToPixelArea(sourceDimensions, pixelArea) {
+  if (!validDimensions(sourceDimensions)) {
+    throw new TypeError("无法读取参考图尺寸");
+  }
+  const target = Number(pixelArea);
+  if (!Number.isInteger(target) || target < 256) {
+    throw new TypeError("Flux2 Klein 分辨率档位不正确");
+  }
+  const aspectRatio = sourceDimensions.width / sourceDimensions.height;
+  return {
+    height: alignToLatentGrid(Math.sqrt(target / aspectRatio)),
+    width: alignToLatentGrid(Math.sqrt(target * aspectRatio)),
+  };
 }
 
 function ratioNumber(value) {
@@ -236,7 +255,16 @@ export function createGenerationRequest(
     const workflowProfileLabel = model.workflowProfiles.find(
       (profile) => profile.value === workflowProfile,
     ).label;
-    const size = `${resolvedSourceDimensions.width}x${resolvedSourceDimensions.height}`;
+    const resolution = optionOrThrow(
+      Object.keys(model.sizes.source),
+      String(input.resolution || model.defaultResolution),
+      "Flux2 Klein 不支持这个分辨率档位",
+    );
+    const dimensions = fitSourceDimensionsToPixelArea(
+      resolvedSourceDimensions,
+      Number(model.sizes.source[resolution]),
+    );
+    const size = `${dimensions.width}x${dimensions.height}`;
     return {
       preview: {
         referenceImageCount: 1,
@@ -251,9 +279,9 @@ export function createGenerationRequest(
           size: image.size,
           width: image.width,
         })),
-        resolution: "source",
+        resolution,
         size,
-        sizeMode: "source-original",
+        sizeMode: "source-tier",
         workflowProfile,
         workflowProfileLabel,
       },
@@ -268,7 +296,10 @@ export function createGenerationRequest(
         n: 1,
         output_format: "png",
         prompt,
+        resolution,
         size,
+        height: dimensions.height,
+        width: dimensions.width,
         workflow_profile: workflowProfile,
       },
     };

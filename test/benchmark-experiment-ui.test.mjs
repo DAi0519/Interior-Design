@@ -16,7 +16,7 @@ import {
 
 const experimentModels = [
   { defaultResolution: "2K", sizes: { "4:3": { "2K": {} } }, sizingMode: "preset" },
-  { defaultResolution: "source", sizes: { source: { source: {} } }, sizingMode: "source" },
+  { defaultResolution: "2K", sizes: { source: { "1K": {}, "2K": {} } }, sizingMode: "source" },
 ];
 
 test("每个新实验生成带秒级时间戳和随机后缀的独立 ID", () => {
@@ -33,10 +33,10 @@ test("每个新实验生成带秒级时间戳和随机后缀的独立 ID", () =>
   );
 });
 
-test("Flux2 Klein 与固定分辨率模型同组时显示智能适配", () => {
+test("Flux2 Klein 与固定分辨率模型同组时按各模型默认 2K 智能适配", () => {
   assert.deepEqual(
     experimentResolutionOptions(experimentModels, "source"),
-    [{ label: "智能适配 · Flux 原图 / 其他 2K", value: "adaptive" }],
+    [{ label: "智能适配 · 各模型 2K", value: "adaptive" }],
   );
 });
 

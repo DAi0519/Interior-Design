@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 image-ratio.js 的最近比例与原图比例文案，接收公开模型能力、功能模式、参考图及当前尺寸选择
- * [OUTPUT]: 对外提供白模/精模参考图数量文案、比例分辨率选项和结果尺寸摘要的纯状态推导
+ * [INPUT]: 依赖 image-ratio.js 的最近比例与原图比例文案，接收公开模型能力、功能模式、参考图、Flux 1K/2K 像素面积档位及当前尺寸选择
+ * [OUTPUT]: 对外提供白模/精模参考图数量文案、比例分辨率选项和含 Flux 原图比例目标像素面积的结果尺寸摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -42,13 +42,13 @@ export function sizeControlState({
   ratioMode,
   sourceImage,
 }) {
-  const sourceOnly = model.sizingMode === "source";
+  const sourceAspect = model.sizingMode === "source";
   const defaultResolutions = Object.keys(model.sizes[model.defaultRatio]);
   const preservedResolution =
     preserveResolution && defaultResolutions.includes(currentResolution)
       ? currentResolution
       : model.defaultResolution;
-  const automaticRatio = sourceOnly
+  const automaticRatio = sourceAspect
     ? model.defaultRatio
     : nearestSupportedRatio(model, sourceImage);
   const ratio =
@@ -63,13 +63,13 @@ export function sizeControlState({
       : resolutions[0];
   return {
     ratio,
-    ratioDisabled: sourceOnly,
+    ratioDisabled: sourceAspect,
     ratioOptions: Object.keys(model.sizes).map((value) => ({
       label: value === "source" ? "跟随原图" : value,
       value,
     })),
     resolution,
-    resolutionDisabled: sourceOnly,
+    resolutionDisabled: resolutions.length <= 1,
     resolutionOptions: resolutions.map((value) => ({
       label: value === "source" ? "原图尺寸" : value,
       value,
@@ -79,10 +79,21 @@ export function sizeControlState({
 
 export function sizeSummary({ model, ratio, ratioMode, resolution, sourceImage }) {
   if (model.sizingMode === "source") {
-    const value = sourceImage
-      ? `${sourceImage.width} × ${sourceImage.height}`
-      : "上传参考图后读取";
-    return { emptySize: value, exactSize: value, resolution };
+    const resolutions = Object.keys(model.sizes.source || {});
+    const resolvedResolution = resolutions.includes(resolution)
+      ? resolution
+      : model.defaultResolution;
+    const pixelArea = Number(model.sizes.source?.[resolvedResolution]);
+    const dimensions = sourceImage && Number.isInteger(pixelArea)
+      ? {
+          height: Math.max(16, Math.round(Math.sqrt(pixelArea * sourceImage.height / sourceImage.width) / 16) * 16),
+          width: Math.max(16, Math.round(Math.sqrt(pixelArea * sourceImage.width / sourceImage.height) / 16) * 16),
+        }
+      : null;
+    const value = dimensions
+      ? `${dimensions.width} × ${dimensions.height}`
+      : "上传参考图后计算";
+    return { emptySize: value, exactSize: value, resolution: resolvedResolution };
   }
 
   const resolutions = Object.keys(model.sizes[ratio] || {});

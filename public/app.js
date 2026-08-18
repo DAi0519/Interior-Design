@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、白模智能默认/固定风格路由、支持单图原位替换的双参考图上传、含 Flux 双档位的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
- * [OUTPUT]: 对外提供白模与可选风格参考图整合及拖入替换、精模/自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、精模预设 Prompt 与可选用户要求、白模智能默认/固定风格路由、支持单图原位替换的双参考图上传、含 Flux 双档位的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [OUTPUT]: 对外提供精模自定义要求、白模与可选风格参考图整合及拖入替换、自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,6 +73,8 @@ const elements = {
   referenceOptional: document.querySelector("#referenceOptional"),
   referenceTitleCopy: document.querySelector("#referenceTitleCopy"),
   refinedPromptAvailability: document.querySelector("#refinedPromptAvailability"),
+  refinedPromptCount: document.querySelector("#refinedPromptCount"),
+  refinedPromptInput: document.querySelector("#refinedPromptInput"),
   refinedPromptNote: document.querySelector("#refinedPromptNote"),
   refinedPromptSection: document.querySelector("#refinedPromptSection"),
   refinedPromptVersionSelect: document.querySelector("#refinedPromptVersionSelect"),
@@ -332,7 +334,9 @@ function generationInput() {
   return {
     modelKey: model?.key,
     outputFormat: elements.formatSelect.value,
-    prompt: elements.promptInput.value.trim(),
+    prompt: state.featureMode === "refinedModel"
+      ? elements.refinedPromptInput.value.trim()
+      : elements.promptInput.value.trim(),
     quality: model?.qualityOptions.length
       ? elements.qualitySelect.value || undefined
       : undefined,
@@ -373,6 +377,10 @@ function generationInput() {
 
 function updatePromptCount() {
   elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`;
+}
+
+function updateRefinedPromptCount() {
+  elements.refinedPromptCount.textContent = `${elements.refinedPromptInput.value.length} / 8000`;
 }
 
 function setApiConnectionState(connected) {
@@ -531,7 +539,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
           ? "正在结合白模、风格参考图与 Style DNA…"
           : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
       : refinedModelRequest
-        ? "正在读取固定 Prompt 并忠实渲染精模…"
+        ? elements.refinedPromptInput.value.trim()
+          ? "正在拼接自定义要求并忠实渲染精模…"
+          : "正在读取固定 Prompt 并忠实渲染精模…"
         : models.length > 1
           ? `正在向 ${models.length} 个模型提交请求…`
           : `正在向 ${models[0].label} 提交生成请求…`;
@@ -709,6 +719,7 @@ elements.promptInput.addEventListener("input", () => {
   updatePromptCount();
   generationActions.refresh();
 });
+elements.refinedPromptInput.addEventListener("input", updateRefinedPromptCount);
 elements.promptAgentVersionSelect.addEventListener("change", generationActions.refresh);
 elements.refinedPromptVersionSelect.addEventListener("change", generationActions.refresh);
 elements.ratioSelect.addEventListener("change", () => {

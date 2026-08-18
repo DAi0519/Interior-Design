@@ -16,11 +16,6 @@ import { getPublishedStyle } from "./style-library.mjs";
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";
-export const WHITE_MODEL_PHOTOGRAPHY_PROFILE = [
-  "保留输入机位、视角、透视和等效焦段。",
-  "使用大景深、中性白平衡、准确曝光与色彩、自然动态范围、柔和高光、层次清晰的阴影和克制后期。",
-  "不得使用油腻 HDR、过曝窗景、夸张浅景深、虚假镜面或新增广角畸变。",
-].join("");
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -116,7 +111,6 @@ export function buildPromptAgentInput({
 
 export function buildSmartDefaultPromptAgentInput({
   hasStyleReference = false,
-  photographyProfile = WHITE_MODEL_PHOTOGRAPHY_PROFILE,
   userRequirements,
 }) {
   return [
@@ -127,9 +121,6 @@ export function buildSmartDefaultPromptAgentInput({
     "",
     "user_requirements:",
     String(userRequirements || "").trim() || "无补充要求",
-    "",
-    "photography_profile:",
-    photographyProfile,
     ...styleReferenceContract(hasStyleReference),
   ].join("\n");
 }

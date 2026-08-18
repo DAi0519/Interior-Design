@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP 响应由内存 fetch 替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、质量优先/快速档、正向 Prompt 原样注入/固定负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、多实例输出读取恢复、排队轮询、输出归一化和参考图边界回归保障
+ * [OUTPUT]: 对外提供健康检查、主动取消、质量优先/快速档、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/固定负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、多实例输出读取恢复、排队轮询、输出归一化和参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,9 +20,12 @@ const onePixelPng =
 
 test("工作流工厂原样写入正向 Prompt、保留固定负向 Prompt 与稳定节点", () => {
   const workflow = createAiTextureWorkflow({
+    height: 576,
     imageBase64: "example-base64",
     prompt: "保持奶油白配色",
+    resolution: "1K",
     seed: 42,
+    width: 1024,
   });
 
   assert.equal(workflow["71"].class_type, "easy loadImageBase64");
@@ -51,15 +54,22 @@ test("工作流工厂原样写入正向 Prompt、保留固定负向 Prompt 与�
   );
   assert.equal(
     workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.width,
-    1920,
+    1024,
+  );
+  assert.equal(
+    workflow["ImageResize+-6348ae83bed7de73d2de60a62eb38a93"].inputs.height,
+    576,
   );
 });
 
-test("快速档使用 9B KV、保留 7 steps 并保持 1920 推理长边", () => {
+test("快速档使用 9B KV、保留 7 steps 并接受 2K 目标尺寸", () => {
   const workflow = createAiTextureWorkflow({
+    height: 1152,
     imageBase64: "example-base64",
     prompt: "保持空间结构",
+    resolution: "2K",
     seed: 42,
+    width: 2048,
     workflowProfile: "fast",
   });
 
@@ -74,7 +84,11 @@ test("快速档使用 9B KV、保留 7 steps 并保持 1920 推理长边", () =>
   );
   assert.equal(
     workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.width,
-    1920,
+    2048,
+  );
+  assert.equal(
+    workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.height,
+    1152,
   );
 });
 
@@ -155,8 +169,11 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
     version: "0.11.1",
   });
   const result = await client.generateImage({
+    height: 576,
     images: [{ fileName: "source.png", image_url: onePixelPng }],
     prompt: "保持空间结构",
+    resolution: "1K",
+    width: 1024,
     workflow_profile: "fast",
   });
 
@@ -178,11 +195,13 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
   assert.equal(result.metadata.promptId, "prompt-1");
   assert.equal(result.metadata.seed, 123);
   assert.equal(result.metadata.executionDurationMs, 1_500);
-  assert.equal(result.metadata.workflowVersion, "2026-08-13.2");
+  assert.equal(result.metadata.workflowVersion, "2026-08-18.2");
   assert.equal(result.metadata.workflowProfile, "fast");
   assert.equal(result.metadata.model, AI_TEXTURE_PROFILES.fast.model);
   assert.equal(result.metadata.steps, 7);
-  assert.equal(result.metadata.inferenceWidth, 1920);
+  assert.equal(result.metadata.resolution, "1K");
+  assert.equal(result.metadata.inferenceWidth, 1024);
+  assert.equal(result.metadata.inferenceHeight, 576);
   assert.equal(historyRequests, 2);
   assert.equal(outputRequests, 2);
 });

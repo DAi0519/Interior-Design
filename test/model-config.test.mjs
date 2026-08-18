@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供四个 OneAPI 模型与一个双档 ComfyUI 工作流、Provider/单图/原图尺寸契约、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供四个 OneAPI 模型与一个双档 ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import test from "node:test";
 import {
   MODEL_CONFIGS,
   createGenerationRequest,
+  fitSourceDimensionsToPixelArea,
   publicModelCatalog,
 } from "../src/model-config.mjs";
 import {
@@ -254,7 +255,7 @@ test("多张参考图转换为公司接口的 images[].image_url", () => {
   );
 });
 
-test("Flux2 Klein 走 ComfyUI、允许空补充要求并保持原图尺寸", () => {
+test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K/2K", () => {
   const pngDataUrl =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
   const bytes = Buffer.from(pngDataUrl.split(",")[1], "base64").length;
@@ -269,15 +270,18 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并保持原图尺寸", () 
       size: bytes,
       type: "image/png",
     }],
-    resolution: "source",
-  });
+    resolution: "1K",
+  }, { sourceDimensions: { height: 900, width: 1600 } });
 
   assert.equal(generation.provider, "comfyui");
   assert.equal(generation.request.model, "comfyui:ai-texture-enhancement");
   assert.equal(MODEL_CONFIGS.aiTextureEnhancement.label, "Flux2 Klein");
   assert.equal(generation.request.images[0].fileName, "source.png");
-  assert.equal(generation.preview.size, "1x1");
-  assert.equal(generation.preview.sizeMode, "source-original");
+  assert.equal(generation.preview.resolution, "1K");
+  assert.equal(generation.preview.size, "1360x768");
+  assert.equal(generation.preview.sizeMode, "source-tier");
+  assert.equal(generation.request.width, 1360);
+  assert.equal(generation.request.height, 768);
   assert.equal(generation.request.workflow_profile, "quality");
   assert.equal(generation.preview.workflowProfileLabel, "质量优先");
 
@@ -292,11 +296,23 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并保持原图尺寸", () 
       size: bytes,
       type: "image/png",
     }],
-    resolution: "source",
+    resolution: "2K",
     workflowProfile: "fast",
-  });
+  }, { sourceDimensions: { height: 900, width: 1600 } });
   assert.equal(fast.request.workflow_profile, "fast");
+  assert.equal(fast.request.size, "2736x1536");
   assert.equal(fast.preview.workflowProfileLabel, "快速");
+});
+
+test("Flux2 Klein 分辨率按约 1MP/4MP 像素面积计算并对齐 16 像素网格", () => {
+  assert.deepEqual(
+    fitSourceDimensionsToPixelArea({ height: 1600, width: 900 }, 1024 ** 2),
+    { height: 1360, width: 768 },
+  );
+  assert.deepEqual(
+    fitSourceDimensionsToPixelArea({ height: 1000, width: 1500 }, 2048 ** 2),
+    { height: 1680, width: 2512 },
+  );
 });
 
 test("Flux2 Klein 拒绝缺图和多图", () => {
@@ -313,7 +329,7 @@ test("Flux2 Klein 拒绝缺图和多图", () => {
     outputFormat: "png",
     prompt: "",
     ratio: "source",
-    resolution: "source",
+    resolution: "2K",
   };
 
   assert.throws(
@@ -326,7 +342,7 @@ test("Flux2 Klein 拒绝缺图和多图", () => {
   );
 });
 
-test("Flux2 Klein 前端能力锁定单图与原图尺寸", () => {
+test("Flux2 Klein 前端能力锁定原图比例并开放 1K/2K", () => {
   const model = publicModelCatalog().find(
     (entry) => entry.key === "aiTextureEnhancement",
   );
@@ -356,9 +372,13 @@ test("Flux2 Klein 前端能力锁定单图与原图尺寸", () => {
   assert.equal(reference.optionalLabel, "必填 · 1张");
   assert.equal(controls.ratio, "source");
   assert.equal(controls.ratioDisabled, true);
-  assert.equal(controls.resolution, "source");
-  assert.equal(controls.resolutionDisabled, true);
-  assert.equal(summary.exactSize, "1600 × 900");
+  assert.equal(controls.resolution, "2K");
+  assert.equal(controls.resolutionDisabled, false);
+  assert.deepEqual(controls.resolutionOptions, [
+    { label: "1K", value: "1K" },
+    { label: "2K", value: "2K" },
+  ]);
+  assert.equal(summary.exactSize, "2736 × 1536");
 });
 
 test("Seedream 5.0 不暴露 1K，并保持横竖比例一致", () => {
@@ -392,7 +412,7 @@ test("拒绝模型不支持的参数组合", () => {
         prompt: "",
         ratio: "source",
         referenceImages: [{ dataUrl: pngDataUrl, name: "source.png", type: "image/png" }],
-        resolution: "source",
+        resolution: "2K",
         workflowProfile: "turbo",
       });
     },

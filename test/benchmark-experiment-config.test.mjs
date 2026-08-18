@@ -83,21 +83,21 @@ test("实验计划生成前阻止跨模型不兼容参数", () => {
   );
 });
 
-test("实验草稿允许 Flux2 Klein 以原图尺寸进入 Benchmark", () => {
+test("实验草稿允许 Flux2 Klein 以原图比例和 2K 进入 Benchmark", () => {
   const experiment = normalizeExperimentDraft(draft({
     imageModelKeys: ["aiTextureEnhancement"],
-    resolution: "source",
+    resolution: "2K",
   }));
 
   assert.equal(experiment.configs[0].imageModel, "Flux2 Klein [comfyui:ai-texture-enhancement]");
-  assert.match(experiment.configs[0].outputSpec, /跟随原图比例 · 原图尺寸 · PNG/);
+  assert.match(experiment.configs[0].outputSpec, /跟随原图比例 · 2K · PNG/);
   assert.deepEqual(
     parseBenchmarkOutputSpec(experiment.configs[0].outputSpec),
     {
       outputFormat: "png",
       quality: "medium",
       ratio: null,
-      resolution: "source",
+      resolution: "2K",
       sourceNearest: true,
     },
   );
@@ -112,7 +112,7 @@ test("混合候选按 Provider 智能路由分辨率", () => {
   const presetConfigs = experiment.configs.filter((config) => config !== flux);
 
   assert.equal(experiment.frozen.resolution, "adaptive");
-  assert.match(flux.outputSpec, /跟随原图比例 · 原图尺寸 · PNG/);
+  assert.match(flux.outputSpec, /跟随原图比例 · 2K · PNG/);
   assert.ok(presetConfigs.every((config) => /跟随原图比例 · 2K · PNG/.test(config.outputSpec)));
 });
 

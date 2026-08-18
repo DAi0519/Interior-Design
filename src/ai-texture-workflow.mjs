@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、质量优先/快速档、外部正向 Prompt、固定负向 Prompt、参考图 Base64 与运行时随机种子
- * [OUTPUT]: 对外提供双档版本化 Flux2 Klein 工作流工厂、稳定输入输出节点与可归档工作流元数据
+ * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、质量优先/快速档、1K/2K 目标宽高、外部正向 Prompt、固定负向 Prompt、参考图 Base64 与运行时随机种子
+ * [OUTPUT]: 对外提供分辨率受控的双档版本化 Flux2 Klein 工作流工厂、稳定输入输出节点与可归档工作流元数据
  * [POS]: src 的 ComfyUI 工作流定义，仅描述机器执行图，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,18 +10,16 @@ export const AI_TEXTURE_WORKFLOW = Object.freeze({
   label: "Flux2 Klein",
   model: "flux-2-klein-9b-fp8.safetensors",
   outputNodeId: "72",
-  version: "2026-08-13.2",
+  version: "2026-08-18.2",
 });
 
 export const AI_TEXTURE_PROFILES = Object.freeze({
   quality: Object.freeze({
-    inferenceWidth: 1920,
     label: "质量优先",
     model: AI_TEXTURE_WORKFLOW.model,
     steps: 7,
   }),
   fast: Object.freeze({
-    inferenceWidth: 1920,
     label: "快速",
     model: "flux-2-klein-9b-kv-fp8.safetensors",
     steps: 7,
@@ -43,12 +41,17 @@ function workflowProfile(value) {
 }
 
 export function createAiTextureWorkflow({
+  height = 2048,
   imageBase64,
   prompt,
   seed,
+  width = 2048,
   workflowProfile: requestedProfile = "quality",
 }) {
   const profile = workflowProfile(requestedProfile);
+  if (![width, height].every((value) => Number.isInteger(value) && value >= 16)) {
+    throw new TypeError("Flux2 Klein 工作流尺寸不正确");
+  }
   return {
     "71": {
       class_type: "easy loadImageBase64",
@@ -116,24 +119,24 @@ export function createAiTextureWorkflow({
       class_type: "ImageResize+",
       inputs: {
         condition: "always",
-        height: ["easy imageSize-ed4fe9336fafaac0072f654c28a92a22", 1],
+        height,
         image: ["VAEDecode-9b4768f234a1daa86399fd937e8cd4e4", 0],
         interpolation: "lanczos",
         method: "stretch",
         multiple_of: 0,
-        width: ["easy imageSize-ed4fe9336fafaac0072f654c28a92a22", 0],
+        width,
       },
     },
     "ImageResize+-a38908ad3622430bf340597ca425274c": {
       class_type: "ImageResize+",
       inputs: {
         condition: "always",
-        height: 0,
+        height,
         image: ["71", 0],
         interpolation: "lanczos",
-        method: "keep proportion",
+        method: "stretch",
         multiple_of: 0,
-        width: profile.inferenceWidth,
+        width,
       },
     },
     "KSamplerSelect-ea15f99cba5b444c6edd8a1509542292": {
@@ -197,28 +200,29 @@ export function createAiTextureWorkflow({
       class_type: "easy imageSize",
       inputs: { image: ["ImageResize+-a38908ad3622430bf340597ca425274c", 0] },
     },
-    "easy imageSize-ed4fe9336fafaac0072f654c28a92a22": {
-      class_type: "easy imageSize",
-      inputs: { image: ["71", 0] },
-    },
   };
 }
 
 export function aiTextureWorkflowMetadata({
   executionDurationMs,
+  height,
   promptId,
   queueDurationMs,
+  resolution,
   seed,
+  width,
   workflowProfile: requestedProfile = "quality",
 }) {
   const profile = workflowProfile(requestedProfile);
   return {
     engine: "comfyui",
     executionDurationMs,
-    inferenceWidth: profile.inferenceWidth,
+    inferenceHeight: height,
+    inferenceWidth: width,
     model: profile.model,
     promptId,
     queueDurationMs,
+    resolution,
     seed,
     steps: profile.steps,
     workflowId: AI_TEXTURE_WORKFLOW.id,

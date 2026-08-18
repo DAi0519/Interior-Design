@@ -614,25 +614,25 @@ test("混合 Provider 横评共享输出策略并按模型路由分辨率", () =
       imageModel: "GPT Image 2 [gpt-image-2]",
     }),
   ];
-  value.configs[0].outputSpec = "跟随原图比例 · 原图尺寸 · PNG · 质量 medium";
+  value.configs[0].outputSpec = "跟随原图比例 · 2K · PNG · 质量 medium";
 
   const plan = buildBenchmarkPlan(value, { maxPromptBatches: 1 });
 
-  assert.equal(plan.groups[0].output.resolution, "adaptive");
+  assert.equal(plan.groups[0].output.resolution, "2K");
   assert.deepEqual(
     plan.groups[0].configs.map((entry) => [
       entry.imageModelLabel,
       entry.output.resolution,
     ]),
     [
-      ["Flux2 Klein", "source"],
+      ["Flux2 Klein", "2K"],
       ["GPT Image 2", "2K"],
     ],
   );
   assert.deepEqual(
     plan.groups[0].cases[0].batches[0].runs.map((run) =>
       run.config.output.resolution),
-    ["source", "2K"],
+    ["2K", "2K"],
   );
 });
 
@@ -643,7 +643,7 @@ test("同一横评组仍拒绝两个不同的预设分辨率", () => {
 
   assert.throws(
     () => buildBenchmarkPlan(value),
-    /预设分辨率必须完全一致/,
+    /分辨率必须完全一致/,
   );
 });
 
@@ -654,7 +654,7 @@ test("Flux2 Klein 横评由 OneAPI 融合 Prompt 并由 ComfyUI 出图", async (
     enabled: true,
     imageModel: "Flux2 Klein [comfyui:ai-texture-enhancement]",
   })];
-  value.configs[0].outputSpec = "跟随原图比例 · 原图尺寸 · PNG";
+  value.configs[0].outputSpec = "跟随原图比例 · 2K · PNG";
   value.configs[0].promptBatches = 1;
   const plan = buildBenchmarkPlan(value);
   const savedRuns = [];
@@ -674,7 +674,8 @@ test("Flux2 Klein 横评由 OneAPI 融合 Prompt 并由 ComfyUI 出图", async (
     async generateImage(request) {
       comfyCalls += 1;
       assert.equal(request.model, "comfyui:ai-texture-enhancement");
-      assert.equal(request.size, "1x1");
+      assert.equal(request.size, "2048x2048");
+      assert.equal(request.resolution, "2K");
       return {
         images: [{ url: "data:image/png;base64,aQ==" }],
         outputFormat: "png",

@@ -61,7 +61,7 @@ test("不同模型自动收敛到各自合法参数而不篡改共同输入", ()
   assert.equal(gpt.resolution, "2K");
   assert.equal(gpt.quality, "high");
   assert.equal(comfy.ratio, "source");
-  assert.equal(comfy.resolution, "source");
+  assert.equal(comfy.resolution, "2K");
   assert.equal(comfy.outputFormat, "png");
   assert.equal(comfy.workflowProfile, "fast");
   assert.equal(gpt.workflowProfile, undefined);

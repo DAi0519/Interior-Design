@@ -148,7 +148,7 @@ test("智能默认直接读取独立 Agent 且不读取 Style DNA", async () => 
   assert.equal(promptRequest.model, "doubao-seed-1.8");
   assert.match(promptRequest.userPrompt, /render_mode:\nsmart-default/);
   assert.match(promptRequest.userPrompt, /稍微增强自然光/);
-  assert.match(promptRequest.userPrompt, /photography_profile:/);
+  assert.doesNotMatch(promptRequest.userPrompt, /photography_profile:/);
   assert.doesNotMatch(promptRequest.userPrompt, /style_dna:/);
   assert.equal(result.renderMode, "smart-default");
   assert.equal(result.style, null);
@@ -158,11 +158,10 @@ test("智能默认直接读取独立 Agent 且不读取 Style DNA", async () => 
   assert.equal("styleCode" in syncedInput.workflow, false);
 });
 
-test("智能默认输入包含固定摄影底座且允许空补充要求", () => {
+test("智能默认摄影规则由 Agent 固定且运行时只传可变要求", () => {
   const prompt = buildSmartDefaultPromptAgentInput({ userRequirements: "" });
   assert.match(prompt, /无补充要求/);
-  assert.match(prompt, /中性白平衡/);
-  assert.match(prompt, /不得使用油腻 HDR/);
+  assert.doesNotMatch(prompt, /photography_profile|中性白平衡|油腻 HDR/);
 });
 
 test("风格参考图只进入整合 Agent，不进入最终出图参考数组", async () => {

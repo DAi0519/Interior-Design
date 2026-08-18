@@ -59,9 +59,9 @@ export function experimentResolutionOptions(models, ratio) {
   const sourceModels = models.filter((model) => model.sizingMode === "source");
   const presetModels = models.filter((model) => model.sizingMode !== "source");
   if (sourceModels.length && presetModels.length) {
-    const defaults = [...new Set(presetModels.map((model) => model.defaultResolution))];
-    const presetLabel = defaults.length === 1 ? defaults[0] : "默认档位";
-    return [{ label: `智能适配 · Flux 原图 / 其他 ${presetLabel}`, value: "adaptive" }];
+    const defaults = [...new Set(models.map((model) => model.defaultResolution))];
+    const label = defaults.length === 1 ? `各模型 ${defaults[0]}` : "各模型默认档位";
+    return [{ label: `智能适配 · ${label}`, value: "adaptive" }];
   }
   return intersect(models.map((model) => modelResolutions(model, ratio))).map((value) => ({
     label: value === "source" ? "原图尺寸" : value,
@@ -165,7 +165,7 @@ export function createExperimentDraftController({ byId, escapeHtml, onChange }) 
       description: imageModel.description,
       disabled: !state.supportedLabels.has(imageModel.label),
       label: imageModel.label,
-      note: imageModel.sizingMode === "source" ? "原图尺寸智能路由" : "",
+      note: imageModel.sizingMode === "source" ? "原图比例 · 1K/2K" : "",
       unavailable: "横评表未配置图片列",
       value: imageModel.key,
     }));

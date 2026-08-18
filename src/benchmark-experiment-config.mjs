@@ -56,7 +56,7 @@ function promptAgentEntry(value) {
 
 function resolutionForModel(model, draft) {
   if (draft.resolution !== "adaptive") return draft.resolution;
-  return model.sizingMode === "source" ? "source" : model.defaultResolution;
+  return model.defaultResolution;
 }
 
 function outputSpec(model, draft) {
@@ -121,23 +121,17 @@ export function compatibleBenchmarkGroupOutput(configs) {
   if (policyKeys.size !== 1) {
     throw configError("同一横评组的输出策略必须完全一致");
   }
-  const presetResolutions = new Set();
+  const resolutions = new Set();
   for (const config of configs) {
-    const sourceSized = config.imageModelSizingMode === "source";
-    const sourceResolution = config.output.resolution === "source";
-    if (sourceSized !== sourceResolution) {
-      throw configError(`${config.imageModelLabel} 的分辨率必须匹配模型尺寸能力`);
-    }
-    if (!sourceResolution) presetResolutions.add(config.output.resolution);
+    resolutions.add(config.output.resolution);
   }
-  if (presetResolutions.size > 1) {
-    throw configError("同一横评组的预设分辨率必须完全一致");
+  if (resolutions.size > 1) {
+    throw configError("同一横评组的分辨率必须完全一致");
   }
   const output = JSON.parse([...policyKeys][0]);
-  const resolutions = new Set(configs.map((config) => config.output.resolution));
   return {
     ...output,
-    resolution: resolutions.size === 1 ? configs[0].output.resolution : "adaptive",
+    resolution: configs[0].output.resolution,
   };
 }
 

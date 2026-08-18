@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的语义类名与用户确认的偏白画布/奶油灰面板 Light Command Center 规则
- * [OUTPUT]: 对外提供 Canvas Lab 近白画布与暖灰面板令牌、桌面等高双栏、紧凑配置、单图替换反馈、独立卡片式功能入口与最多四项出图模型按钮组视觉
+ * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的精模自定义要求及其他语义类名与用户确认的偏白画布/奶油灰面板 Light Command Center 规则
+ * [OUTPUT]: 对外提供 Canvas Lab 近白画布与暖灰面板令牌、桌面等高双栏、精模自定义要求、紧凑配置、单图替换反馈、独立卡片式功能入口与最多四项出图模型按钮组视觉
  * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -390,6 +390,14 @@ a.connection-button {
   line-height: 1.45;
   margin: 7px 1px 0;
   overflow: hidden;
+}
+
+.refined-custom-prompt-heading {
+  margin-top: 14px;
+}
+
+#refinedPromptInput {
+  min-height: 88px;
 }
 
 textarea,
