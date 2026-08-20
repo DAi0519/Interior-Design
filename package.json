@@ -1,13 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "修复 Benchmark Base 字段漂移校验与实验类型回填，按飞书实时 Schema 阻断错误写入。",
-    "AI 评分默认使用 GPT，支持 1–5 小数分、完整评分细则回填和更稳定的 JSON 响应解析。",
-    "新增按 Run ID 断点续评，评分中断后只处理剩余结果，不重复评分或重新出图。"
+    "新增空房设计独立链路，支持必填房间类型、智能默认与平台风格融合，并完整归档输入与生成元数据。",
+    "精模、白模与空房统一支持最多四个模型批量生成；Flux2 Klein 按原图比例提供 1K/2K 输出。",
+    "升级双参考图上传替换、跨工作台导航与多结果画廊，改善高频生图和 Benchmark 操作体验。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",
