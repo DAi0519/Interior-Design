@@ -3,9 +3,9 @@ Node.js 24+ + 原生 HTTP + HTML + CSS + JavaScript + GSAP 3.15.0 + sharp 0.35.3
 
 <directory>
 .impeccable/ - Impeccable 项目级设计工作流配置（1 个子目录：live）
-public/ - 浏览器工作台界面（43 个业务文件及 icons/ 图标资产模块：运营连接中心、精模/白模/空房设计/自由生图、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、GSAP 跨工作台切换与近白画布/奶油灰面板 Light Command Center 样式）
-src/ - 本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein ComfyUI、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（38 个模块）
-test/ - Node 原生测试（41 个测试文件，覆盖连接与飞书、双 Provider、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
+public/ - 浏览器工作台界面（46 个业务文件及 icons/ 图标资产模块：运营连接中心、精模/白模/空房设计/自由生图、按功能及跨页恢复的后台生成任务、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、GSAP 跨工作台切换与近白画布/奶油灰面板 Light Command Center 样式）
+src/ - 本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein ComfyUI、日常生图后台任务/应用服务、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（40 个模块）
+test/ - Node 原生测试（44 个测试文件，覆盖连接与飞书、双 Provider、可恢复生成任务、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、本机设置、飞书 Setup、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、精模预设 Prompt 与用户补充、白模/空房双模式设计应用服务及 Benchmark 工作流
- * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、本机设置、飞书 Setup、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、精模预设 Prompt 与用户补充、可恢复生成任务、白模/空房双模式设计应用服务及 Benchmark 工作流
+ * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、按功能恢复的后台生成任务、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,13 +20,13 @@ import {
   EMPTY_ROOM_TYPES,
   EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
 } from "./src/empty-room-type.mjs";
-import { normalizeGenerationBatch } from "./src/generation-batch.mjs";
-import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import {
-  createGenerationRequest,
-  imageProviderForModel,
-  publicModelCatalog,
-} from "./src/model-config.mjs";
+  createGenerationJobRegistry,
+  runGenerationJobBatch,
+} from "./src/generation-jobs.mjs";
+import { createGenerationService } from "./src/generation-service.mjs";
+import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
+import { imageProviderForModel, publicModelCatalog } from "./src/model-config.mjs";
 import {
   benchmarkBaseConfigFromEnv,
   createBenchmarkBaseStore,
@@ -52,7 +52,6 @@ import {
   publicSmartDefaultConfig,
 } from "./src/prompt-agent.mjs";
 import { publicRefinedModelPromptConfig } from "./src/refined-model-prompt.mjs";
-import { executeRefinedModelWorkflow } from "./src/refined-model-workflow.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
 import { createAsyncTtlCache } from "./src/runtime-cache.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
@@ -60,7 +59,6 @@ import {
   executeStyleDnaReverse,
   publicStyleDnaReverseConfig,
 } from "./src/style-dna-reverse.mjs";
-import { executeWhiteModelWorkflow } from "./src/white-model-workflow.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
@@ -99,6 +97,7 @@ let sessionApiKeySource = sessionApiKey
 let sessionModelCatalog = null;
 let sessionModelCatalogRequest = null;
 const syncJobs = createSyncJobRegistry();
+const generationJobs = createGenerationJobRegistry();
 const benchmarkJobs = createBenchmarkJobRegistry();
 const larkSetup = createLarkSetupService();
 const comfyUiClient = createComfyUiClient();
@@ -295,6 +294,14 @@ function scheduleGenerationSync(input) {
   return syncJobs.enqueue(generationId, () => syncGenerationToLark(syncInput));
 }
 
+const generationService = createGenerationService({
+  getSessionModelCatalog,
+  imageClientForModel,
+  promptResultCache: whiteModelPromptResultCache,
+  requireApiKey,
+  scheduleGenerationSync,
+});
+
 function safeStaticPath(pathname) {
   if (pathname === "/vendor/gsap.min.js") return GSAP_BROWSER_BUNDLE;
   const requestedPath = pathname === "/" ? "index.html" : pathname.slice(1);
@@ -316,6 +323,61 @@ function serveStatic(response, pathname) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (request.method === "GET" && pathname.startsWith("/api/generation-jobs/")) {
+    const jobId = decodeURIComponent(pathname.slice("/api/generation-jobs/".length));
+    const job = generationJobs.get(jobId);
+    return job
+      ? sendJson(response, 200, { job })
+      : sendJson(response, 404, { error: "生成任务不存在或已过期" });
+  }
+
+  if (request.method === "POST" && pathname === "/api/generation-jobs") {
+    const body = await readJson(request);
+    const featureMode = String(body.featureMode || "");
+    const jobId = String(body.jobId || "");
+    const items = Array.isArray(body.items) ? body.items : [];
+    if (!/^generation-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
+      return sendJson(response, 400, { error: "生成任务 ID 无效" });
+    }
+    if (!["emptyRoom", "free", "refinedModel", "whiteModel"].includes(featureMode)) {
+      return sendJson(response, 400, { error: "不支持的生成功能" });
+    }
+    if (items.length < 1 || items.length > 4) {
+      return sendJson(response, 400, { error: "生成任务需要 1–4 个模型" });
+    }
+    const sharedInput = body.sharedInput && typeof body.sharedInput === "object"
+      ? body.sharedInput
+      : {};
+    const job = generationJobs.enqueue(
+      jobId,
+      { featureMode, total: items.length },
+      async (update) => ({
+        outcomes: await runGenerationJobBatch({
+          concurrency: body.forcePromptRegeneration ? 1 : 2,
+          items,
+          onProgress({ completed, total }) {
+            update({
+              completed,
+              message: `已完成 ${completed} / ${total} 个模型`,
+            });
+          },
+          execute(item, index) {
+            return generationService.executeForMode(featureMode, {
+              ...sharedInput,
+              ...(item.input || {}),
+              batchCount: items.length,
+              batchId: body.batchId || null,
+              batchIndex: index + 1,
+              forcePromptRegeneration:
+                Boolean(body.forcePromptRegeneration) && index === 0,
+            });
+          },
+        }),
+      }),
+    );
+    return sendJson(response, 202, { job });
+  }
+
   const benchmarkCancelMatch = pathname.match(/^\/api\/benchmark\/jobs\/([^/]+)\/cancel$/);
   if (request.method === "POST" && benchmarkCancelMatch) {
     const job = benchmarkJobs.cancel(decodeURIComponent(benchmarkCancelMatch[1]));
@@ -652,57 +714,7 @@ async function handleApi(request, response, pathname) {
 
   if (request.method === "POST" && pathname === "/api/generate") {
     const input = await readJson(request);
-    const generation = createGenerationRequest(input, {
-      preferSourceAspect: input.ratioMode === "auto",
-    });
-    const client = imageClientForModel(input.modelKey);
-    const startedAt = Date.now();
-    const result = await client.generateImage(generation.request);
-    const durationMs = Date.now() - startedAt;
-    const preview = {
-      ...generation.preview,
-      provider: generation.provider,
-      quality: result.quality ?? generation.preview.quality,
-      transport: result.transport,
-    };
-    const model = publicModelCatalog().find(
-      (entry) => entry.key === String(input.modelKey || ""),
-    );
-    const referenceImages = (generation.request.images || []).map(
-      (image, index) => ({
-        fileName: generation.preview.referenceImages[index]?.fileName,
-        imageUrl: image.image_url,
-        mimeType: generation.preview.referenceImages[index]?.mimeType,
-      }),
-    );
-    const sync = scheduleGenerationSync({
-      durationMs,
-      finalPrompt: generation.request.prompt,
-      modelLabel: model.label,
-      preview,
-      referenceImages,
-      resultImage: result.images[0],
-      sourcePrompt: String(input.prompt || "").trim(),
-      workflow: {
-        ...normalizeGenerationBatch(input),
-        feature: "free-image-generation",
-        provider: generation.provider,
-        ...(result.metadata || {}),
-      },
-    });
-
-    return sendJson(response, 200, {
-      durationMs,
-      images: result.images,
-      request: preview,
-      sync,
-      upstream: {
-        created: result.created,
-        metadata: result.metadata || null,
-        outputFormat: result.outputFormat,
-        transport: result.transport,
-      },
-    });
+    return sendJson(response, 200, await generationService.executeFree(input));
   }
 
   if (
@@ -710,14 +722,7 @@ async function handleApi(request, response, pathname) {
     pathname === "/api/refined-model-render"
   ) {
     const input = await readJson(request);
-    const oneApiClient = imageProviderForModel(input.modelKey) === "oneapi"
-      ? createOneApiClient(requireApiKey())
-      : null;
-    const result = await executeRefinedModelWorkflow(input, {
-      imageClient: imageClientForModel(input.modelKey, { oneApiClient }),
-      scheduleSync: scheduleGenerationSync,
-    });
-    return sendJson(response, 200, result);
+    return sendJson(response, 200, await generationService.executeRefined(input));
   }
 
   if (
@@ -725,20 +730,7 @@ async function handleApi(request, response, pathname) {
     pathname === "/api/white-model-render"
   ) {
     const input = await readJson(request);
-    const client = createOneApiClient(requireApiKey());
-    const imageClient = imageClientForModel(input.modelKey, {
-      oneApiClient: client,
-    });
-    const availableModels = await getSessionModelCatalog(client);
-    const result = await executeWhiteModelWorkflow(input, {
-      availableModels,
-      client,
-      imageClient,
-      promptResultCache: whiteModelPromptResultCache,
-      refreshModels: () => getSessionModelCatalog(client, { force: true }),
-      scheduleSync: scheduleGenerationSync,
-    });
-    return sendJson(response, 200, result);
+    return sendJson(response, 200, await generationService.executeDesign(input));
   }
 
   if (

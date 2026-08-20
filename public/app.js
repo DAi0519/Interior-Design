@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
- * [OUTPUT]: 对外提供空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/结果画廊、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供按功能及跨页恢复的生成中/结果状态、空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、自由生图、最多四模型各出一张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,8 +9,13 @@ import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { bindEmptyRoomType } from "./empty-room-type.js";
 import { bindGenerationActions } from "./generation-actions.js";
-import { adaptGenerationInputForModel, runGenerationBatch } from "./generation-batch.js";
 import { bindGenerationResults } from "./generation-results.js";
+import { bindGenerationTaskController } from "./generation-task-controller.js";
+import {
+  buildGenerationJobRequest,
+  generationLoadingCopy,
+} from "./generation-task-request.js";
+import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindModelMultiSelect } from "./model-multi-select.js";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
@@ -27,7 +32,6 @@ const state = {
   connected: false,
   emptyRoomConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
   featureMode: "whiteModel",
-  generating: false,
   modelKeys: ["seedream5"],
   promptAgentCatalog: [],
   promptAgentModelKey: "gemini3pro",
@@ -212,7 +216,10 @@ function selectFeatureMode(featureMode) {
   }
   styleDnaChat.setVisible(isStyleDna);
   generationActions.setFeatureMode(featureMode);
-  if (isStyleDna) return;
+  if (isStyleDna) {
+    generationActions.setBusy(false);
+    return;
+  }
 
   whiteModelRenderMode.setPlatformStylesEnabled(
     !isEmptyRoom || styleReferenceImages().length === 0,
@@ -236,6 +243,7 @@ function selectFeatureMode(featureMode) {
   configurePrimaryModel();
   updateReferenceRequirements();
   referenceUpload.render();
+  renderActiveGenerationTask();
 }
 
 function renderModelSelect() {
@@ -417,7 +425,7 @@ function setApiConnectionState(connected) {
     : "等待连接";
   elements.modelAvailability.classList.toggle("ready", connected || workflowCount > 0);
   elements.promptAgentAvailability.classList.toggle("ready", connected);
-  generationActions.setBusy(state.generating);
+  renderActiveGenerationTask();
 }
 
 function showToast(message) {
@@ -430,6 +438,13 @@ function showToast(message) {
 }
 
 const generationResults = bindGenerationResults({ api, showToast });
+const generationTasks = bindGenerationTaskController({
+  generationResults,
+  getFeatureMode: () => state.featureMode,
+  onBusy: (busy) => generationActions.setBusy(busy),
+});
+function renderActiveGenerationTask() { generationTasks.render(); }
+
 const modelMultiSelect = bindModelMultiSelect({
   container: elements.modelSelect,
   max: 4,
@@ -477,12 +492,13 @@ function resetModelAvailability() {
 }
 
 async function generate({ forcePromptRegeneration = false } = {}) {
-  if (state.generating) return;
+  const featureMode = state.featureMode;
+  if (generationTasks.view(featureMode).stage === "loading") return;
   const models = selectedModels();
-  const whiteModelRequest = state.featureMode === "whiteModel";
-  const emptyRoomRequest = state.featureMode === "emptyRoom";
+  const whiteModelRequest = featureMode === "whiteModel";
+  const emptyRoomRequest = featureMode === "emptyRoom";
   const designPromptRequest = whiteModelRequest || emptyRoomRequest;
-  const refinedModelRequest = state.featureMode === "refinedModel";
+  const refinedModelRequest = featureMode === "refinedModel";
   const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
   if (roomTypeValidation?.message) {
     emptyRoomType.focusInvalid();
@@ -535,7 +551,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
   }
   if (
-    state.featureMode === "free" &&
+    featureMode === "free" &&
     models.some((model) => model.requiresReferenceImage) &&
     referenceImages().length !== 1
   ) {
@@ -544,7 +560,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     return;
   }
   if (
-    state.featureMode === "free" &&
+    featureMode === "free" &&
     models.some((model) => model.provider !== "comfyui") &&
     elements.promptInput.value.trim().length < 3
   ) {
@@ -556,81 +572,62 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const promptIdentity = designPromptRequest
     ? generationActions.currentIdentity()
     : null;
-  state.generating = true;
-  generationActions.setBusy(true);
-  const loadingCopy =
-    designPromptRequest && forcePromptRegeneration
-      ? "正在重新生成提示词并渲染…"
-      : designPromptRequest
-      ? emptyRoomRequest
-        ? whiteModelRenderMode.current().mode === "smart-default"
-          ? styleReferenceImages().length
-            ? "正在结合空房与风格参考图生成完整设计…"
-            : "正在分析空房并生成布局、家具与材质方案…"
-          : "正在读取 Style DNA 并生成完整空房设计…"
-        : whiteModelRenderMode.current().mode === "smart-default"
-          ? styleReferenceImages().length
-            ? "正在结合白模与风格参考图生成提示词…"
-            : "正在分析白模并智能匹配材质与光线…"
-          : styleReferenceImages().length
-            ? "正在结合白模、风格参考图与 Style DNA…"
-            : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
-      : refinedModelRequest
-        ? elements.refinedPromptInput.value.trim()
-          ? "正在拼接自定义要求并忠实渲染精模…"
-          : "正在读取固定 Prompt 并忠实渲染精模…"
-        : models.length > 1
-          ? `正在向 ${models.length} 个模型提交请求…`
-          : `正在向 ${models[0].label} 提交生成请求…`;
-  generationResults.showLoading(loadingCopy);
+  const loadingCopy = generationLoadingCopy({
+    designPromptRequest,
+    emptyRoomRequest,
+    forcePromptRegeneration,
+    models,
+    refinedModelRequest,
+    refinedPrompt: elements.refinedPromptInput.value.trim(),
+    renderMode: whiteModelRenderMode.current().mode,
+    styleReferenceCount: styleReferenceImages().length,
+  });
+  const task = createGenerationTask({
+    featureMode,
+    loadingLabel: loadingCopy,
+    models,
+  });
+  generationTasks.start(task);
 
   try {
-    const endpoint = designPromptRequest
-      ? "/api/white-model-render"
-      : refinedModelRequest
-        ? "/api/refined-model-render"
-        : "/api/generate";
     const baseInput = generationInput();
+    const sourceImage = selectedSourceImage();
     const batchId = models.length > 1
       ? crypto.randomUUID().replaceAll("-", "")
       : null;
-    const outcomes = await runGenerationBatch({
-      concurrency: forcePromptRegeneration ? 1 : 2,
-      items: models,
-      onProgress({ completed, total }) {
-        generationResults.showLoading(`已完成 ${completed} / ${total} 个模型…`);
-      },
-      execute(model, index) {
-        const input = adaptGenerationInputForModel(baseInput, model, {
-          featureMode: state.featureMode,
-          sourceImage: selectedSourceImage(),
-        });
-        return api(endpoint, {
-          body: JSON.stringify({
-            ...input,
-            batchCount: models.length,
-            batchId,
-            batchIndex: index + 1,
-            forcePromptRegeneration:
-              designPromptRequest && forcePromptRegeneration && index === 0,
-          }),
-          method: "POST",
-        });
-      },
+    const body = await api("/api/generation-jobs", {
+      body: JSON.stringify(buildGenerationJobRequest({
+        baseInput,
+        batchId,
+        featureMode,
+        forcePromptRegeneration: designPromptRequest && forcePromptRegeneration,
+        jobId: task.jobId,
+        models,
+        sourceImage,
+      })),
+      method: "POST",
     });
+    generationTasks.setJob(task.jobId, body.job);
+    const job = await generationTasks.follow(task);
+    if (job.status === "failed" || job.status === "missing") {
+      throw new Error(generationTasks.view(featureMode).message);
+    }
+    const outcomes = job.result?.outcomes || [];
     const completed = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
     if (designPromptRequest && completed > 0) {
       generationActions.markReusable(promptIdentity);
     }
-    generationResults.showResults(outcomes);
     showToast(completed === models.length
       ? `${completed} 张图已完成，正在分别同步飞书`
       : `完成 ${completed} / ${models.length} 张；失败项可查看原因`);
   } catch (error) {
-    generationResults.showError(error.message);
+    generationTasks.setJob(task.jobId, {
+      error: error.message,
+      jobId: task.jobId,
+      status: "failed",
+    });
   } finally {
-    state.generating = false;
-    generationActions.setBusy(false);
+    if (state.featureMode === featureMode) renderActiveGenerationTask();
   }
 }
 
@@ -692,6 +689,7 @@ async function initialize() {
   styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
   selectFeatureMode(state.featureMode);
+  generationTasks.resume();
   await loadConfiguration();
   referenceUpload.render();
   styleReferenceUpload.render();
