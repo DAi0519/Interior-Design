@@ -3,6 +3,16 @@
 面向维护者的源码收口流程。发布对象仍是 Windows/macOS 可运行的源码 ZIP，不把
 `.codex`、测试、产品文档、本机配置、依赖目录或密钥交给使用者。
 
+## 步骤真源
+
+- `package.json`：只定义 `release:check`、`release:pack`、`release:publish` 三个命令入口。
+- `scripts/release-check.mjs`：发布准入，检查 Git/package/lock、源码契约、疑似密钥、测试与生产依赖审计。
+- `scripts/release-pack.mjs`：先调用准入门，再用白名单 Git 快照完成真实 `npm ci`、启动冒烟并生成 ZIP、SHA-256 和 manifest。
+- `scripts/release-publish.mjs`：先调用打包器，再创建 GitHub 草稿 Release，核对提交与全部附件摘要，最后转正式并清理本地制品。
+- `scripts/release-files.mjs`：定义进入运行包的文件白名单、版本格式和制品名称。
+
+调用关系固定为 `release:publish → release:pack → release:check`；任一内层步骤失败，外层立即停止。
+
 ## 一次发布
 
 1. 在独立 worktree/功能分支完成修改和验收。
@@ -48,7 +58,7 @@ npm run release:pack
 
 - package 与 lock 名称/版本一致，版本符合 SemVer，Node.js 为 24+。
 - Git 工作区干净，`git diff --check` 通过。
-- 业务源码单文件不超过 800 行，JS/MJS 具备 L3 契约。
+- 业务源码单文件不超过 800 行，JS/MJS 具备 L3 契约；检查失败时一次列出全部超限文件和契约缺失，不再逐个修复后才发现下一项。
 - 发布白名单中不存在疑似私钥或常见 Token。
 - `npm ci --dry-run`、自动化测试和生产依赖审计通过。
 - 在临时发布快照中真实执行 `npm ci`，启动服务并读取首页及 `/api/catalog`。

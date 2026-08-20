@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 release-check 的 macOS 启动权限及可注入有限重试边界
- * [OUTPUT]: 对外提供启动权限、瞬时失败恢复、连续失败阻断与重试间隔回归保障
+ * [INPUT]: 依赖 node:test/assert 与 release-check 的源码契约聚合、macOS 启动权限及可注入有限重试边界
+ * [OUTPUT]: 对外提供全部超限文件一次汇总、启动权限、瞬时失败恢复、连续失败阻断与重试间隔回归保障
  * [POS]: scripts 的发布准入重试单元测试，不执行真实 Git、npm、网络或等待
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,8 +10,29 @@ import test from "node:test";
 
 import {
   assertMacLauncherMode,
+  assertSourceContractEntries,
+  MAX_SOURCE_LINES,
   runCommandWithRetries,
 } from "./release-check.mjs";
+
+test("源码契约检查一次汇总全部超限文件", () => {
+  const overLimit = Array.from(
+    { length: MAX_SOURCE_LINES + 1 },
+    () => ".sample {}",
+  ).join("\n");
+  assert.throws(
+    () => assertSourceContractEntries([
+      { file: "public/oversized.css", text: overLimit },
+      { file: "src/also-oversized.css", text: overLimit },
+    ]),
+    (error) => {
+      assert.match(error.message, /发现 2 项问题/);
+      assert.match(error.message, /public\/oversized\.css 为 801 行/);
+      assert.match(error.message, /src\/also-oversized\.css 为 801 行/);
+      return true;
+    },
+  );
+});
 
 test("macOS 双击入口必须保留 Git 可执行权限", () => {
   assert.doesNotThrow(() => assertMacLauncherMode("100755"));

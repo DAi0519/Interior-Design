@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Git 工作区、package/lock、Node/npm、发布白名单与项目源码文档契约
- * [OUTPUT]: 对外提供可复用 runReleaseChecks，并执行干净提交、启动权限、测试、依赖与安全检查
- * [POS]: scripts 的发布准入门，阻断脏工作区、版本漂移、超长文件、契约缺失和疑似密钥
+ * [OUTPUT]: 对外提供可复用 runReleaseChecks 与源码契约聚合断言，并执行干净提交、启动权限、测试、依赖与安全检查
+ * [POS]: scripts 的发布准入门，一次汇总全部超长文件与契约缺失，并阻断脏工作区、版本漂移和疑似密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -18,6 +18,7 @@ import {
 
 export const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+export const MAX_SOURCE_LINES = 800;
 
 export function runCommand(label, command, args, {
   capture = false,
@@ -112,6 +113,26 @@ function lineCount(text) {
     : normalized.split("\n").length;
 }
 
+export function assertSourceContractEntries(entries) {
+  const issues = [];
+  for (const { file, text } of entries) {
+    const count = lineCount(text);
+    if (count > MAX_SOURCE_LINES) {
+      issues.push(`${file} 为 ${count} 行，超过 ${MAX_SOURCE_LINES} 行上限`);
+    }
+    if (![".js", ".mjs"].includes(extname(file))) continue;
+    const header = text.split(/\r?\n/, 14).join("\n");
+    for (const key of ["INPUT", "OUTPUT", "POS", "PROTOCOL"]) {
+      if (!header.includes(`[${key}]`)) {
+        issues.push(`${file} 缺少 L3 [${key}] 文件头契约`);
+      }
+    }
+  }
+  if (issues.length > 0) {
+    throw new Error(`源码契约检查发现 ${issues.length} 项问题：\n- ${issues.join("\n- ")}`);
+  }
+}
+
 async function assertSourceContracts(files) {
   const codeExtensions = new Set([".css", ".html", ".js", ".mjs"]);
   const sourceFiles = files.filter((file) =>
@@ -120,18 +141,11 @@ async function assertSourceContracts(files) {
       ["public/", "scripts/", "src/", "test/"].some((prefix) =>
         file.startsWith(prefix))
     ) && codeExtensions.has(extname(file)));
-  for (const file of sourceFiles) {
-    const text = await readFile(resolve(projectRoot, file), "utf8");
-    const count = lineCount(text);
-    if (count > 800) throw new Error(`${file} 为 ${count} 行，超过 800 行上限`);
-    if (![".js", ".mjs"].includes(extname(file))) continue;
-    const header = text.split(/\r?\n/, 14).join("\n");
-    for (const key of ["INPUT", "OUTPUT", "POS", "PROTOCOL"]) {
-      if (!header.includes(`[${key}]`)) {
-        throw new Error(`${file} 缺少 L3 [${key}] 文件头契约`);
-      }
-    }
-  }
+  const entries = await Promise.all(sourceFiles.map(async (file) => ({
+    file,
+    text: await readFile(resolve(projectRoot, file), "utf8"),
+  })));
+  assertSourceContractEntries(entries);
 }
 
 async function assertNoLikelySecrets(files) {
