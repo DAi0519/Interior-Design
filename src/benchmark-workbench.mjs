@@ -21,12 +21,11 @@ import {
 import {
   BENCHMARK_REVIEW_DIMENSIONS,
   BENCHMARK_REVIEW_PROTOCOL_VERSION,
-  isCurrentBenchmarkReview,
-  isUsableReview,
   pendingBenchmarkReviewRuns,
+  publicReviewResultList,
+  reviewableExperimentList,
   scoreBenchmarkImage,
   summarizeBenchmarkAnalysis,
-  weightedBenchmarkScore,
 } from "./benchmark-review.mjs";
 import {
   assertBenchmarkModelAvailability,
@@ -87,88 +86,6 @@ function sampleLabels(input) {
 function resultCaseId(result, samplesByRecordId) {
   const recordId = result.caseLinks?.[0]?.id;
   return samplesByRecordId.get(recordId)?.caseId || "";
-}
-
-function reviewableExperimentList(snapshot, state) {
-  const experimentById = new Map(
-    state.experiments.map((experiment) => [experiment.experimentId, experiment]),
-  );
-  const reviewedRuns = new Set(
-    state.reviews
-      .filter(isCurrentBenchmarkReview)
-      .map((review) => `${review.experimentId}:${review.runId}`),
-  );
-  const legacyReviewedRuns = new Set(
-    state.reviews
-      .filter((review) => !isCurrentBenchmarkReview(review))
-      .map((review) => `${review.experimentId}:${review.runId}`),
-  );
-  const groups = new Map();
-  for (const result of snapshot.results) {
-    if (result.status !== "成功" || !result.attachments.length || !result.experimentId) continue;
-    const experimentId = result.experimentId;
-    const caseId = String(result.caseId || "").trim();
-    if (!caseId) continue;
-    const experiment = experimentById.get(experimentId);
-    if (!groups.has(experimentId)) {
-      groups.set(experimentId, {
-        cases: new Map(),
-        completedAt: experiment?.completedAt || null,
-        experimentId,
-        status: experiment?.status || "results-ready",
-      });
-    }
-    const group = groups.get(experimentId);
-    const item = group.cases.get(caseId) || {
-      caseId,
-      legacyReviewedCount: 0,
-      resultCount: 0,
-      reviewedCount: 0,
-    };
-    item.resultCount += 1;
-    if (reviewedRuns.has(`${experimentId}:${result.runId}`)) item.reviewedCount += 1;
-    if (legacyReviewedRuns.has(`${experimentId}:${result.runId}`)) item.legacyReviewedCount += 1;
-    group.cases.set(caseId, item);
-  }
-  return [...groups.values()].map((group) => {
-    const cases = [...group.cases.values()].sort((left, right) => left.caseId.localeCompare(right.caseId));
-    return {
-      cases,
-      completedAt: group.completedAt,
-      experimentId: group.experimentId,
-      legacyReviewedCount: cases.reduce((total, item) => total + item.legacyReviewedCount, 0),
-      resultCount: cases.reduce((total, item) => total + item.resultCount, 0),
-      reviewedCount: cases.reduce((total, item) => total + item.reviewedCount, 0),
-      status: group.status,
-    };
-  }).sort((left, right) => String(right.completedAt || "").localeCompare(String(left.completedAt || "")) ||
-    right.experimentId.localeCompare(left.experimentId));
-}
-
-function publicReviewResultList(state) {
-  return state.reviews.map((review) => ({
-    caseId: review.caseId,
-    compatible: isCurrentBenchmarkReview(review),
-    consistencyScore: review.consistencyScore,
-    createdAt: review.createdAt,
-    experimentId: review.experimentId,
-    inputCategory: review.inputCategory,
-    inputReason: review.inputReason,
-    issueTags: review.issueTags,
-    issues: review.issues,
-    model: review.model,
-    protocolVersion: review.protocolVersion || "legacy-unknown",
-    reason: review.reason,
-    renderQualityScore: review.renderQualityScore,
-    reviewBatchId: review.reviewBatchId,
-    reviewable: review.reviewable,
-    runId: review.runId,
-    scoreAdjustments: review.scoreAdjustments,
-    scorerModelId: review.scorerModelId,
-    styleMaterialScore: review.styleMaterialScore,
-    usable: isUsableReview(review),
-    weightedScore: weightedBenchmarkScore(review),
-  })).sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
 }
 
 function inferredCategory(caseId) {
