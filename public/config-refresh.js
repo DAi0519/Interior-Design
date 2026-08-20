@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖页面飞书配置刷新按钮、调用方 API、智能默认/Style DNA/融合 Agent/精模 Prompt 目录应用与 Toast 回调
- * [OUTPUT]: 对外提供 bindConfigRefresh，管理多入口共享的飞书配置单次刷新、互斥状态与四类脱敏配置反馈
+ * [INPUT]: 依赖页面飞书配置刷新按钮、调用方 API、白模与空房双模式 Agent/Style DNA/精模 Prompt 目录应用与 Toast 回调
+ * [OUTPUT]: 对外提供 bindConfigRefresh，管理多入口共享的飞书配置单次刷新、互斥状态与双模式脱敏配置反馈
  * [POS]: public 的配置刷新交互控制器，与 app.js 的生图状态和上传流程隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export function bindConfigRefresh({
   api,
+  onEmptyRoom,
   onPromptAgentVersions,
   onRefinedPromptVersions,
   onSmartDefault,
@@ -17,8 +18,15 @@ export function bindConfigRefresh({
   const styleAvailability = document.querySelector("#styleAvailability");
   const styleNote = document.querySelector("#styleNote");
   let pending = false;
+  const unavailableEmptyRoom = (reason) => ({
+    promptAgent: { defaultVersion: null, reason, versions: [] },
+    smartDefault: { available: false, reason, version: null },
+  });
 
   function apply(body) {
+    onEmptyRoom(body.emptyRoom || unavailableEmptyRoom(
+      "当前服务尚未提供空房双模式配置，请重启工作台",
+    ));
     onStyles(body.styles);
     onSmartDefault(body.smartDefault);
     onPromptAgentVersions(body.promptAgent);
@@ -30,6 +38,7 @@ export function bindConfigRefresh({
     try {
       apply(await api("/api/styles"));
     } catch (error) {
+      onEmptyRoom(unavailableEmptyRoom(error.message));
       onStyles([]);
       onSmartDefault({ available: false, reason: error.message, version: null });
       onPromptAgentVersions({ defaultVersion: null, versions: [] });
@@ -59,8 +68,9 @@ export function bindConfigRefresh({
     try {
       const body = await api("/api/config/refresh", { method: "POST" });
       apply(body);
+      const emptyRoom = body.emptyRoom || unavailableEmptyRoom("不可用");
       showToast(
-        `配置已更新 · 智能默认 ${body.smartDefault.available ? `v${body.smartDefault.version}` : "不可用"} · Style DNA ${body.styles.length} 条 · 融合 Agent ${body.promptAgent.versions.length} 个版本 · 精模 Prompt ${body.refinedPrompt.versions.length} 个版本`,
+        `配置已更新 · 白模 ${body.smartDefault.available ? `v${body.smartDefault.version}` : "不可用"} · 空房智能默认 ${emptyRoom.smartDefault.available ? `v${emptyRoom.smartDefault.version}` : "不可用"} · 空房融合 ${emptyRoom.promptAgent.versions.length} 个版本 · Style DNA ${body.styles.length} 条 · 白模融合 ${body.promptAgent.versions.length} 个版本 · 精模 Prompt ${body.refinedPrompt.versions.length} 个版本`,
       );
     } catch (error) {
       showToast(`配置刷新失败：${error.message}`);

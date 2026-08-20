@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、image-artifact.mjs、lark-cli.mjs、白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、模型字段映射、记录 ID 解析、结果图/参考图/风格参考图分列附件及工作流元数据同步
+ * [INPUT]: 依赖 node:fs/os/path、空房房间类型/其他详情真源、image-artifact.mjs、lark-cli.mjs、白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
+ * [OUTPUT]: 对外提供原始/最终 Prompt、产品链路/空间类型/其他空间类型/设计方式/Agent/风格字段投影、模型字段映射、记录 ID 解析、三类附件及完整工作流元数据同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,10 @@ import {
   extensionForImageFormat,
   loadImageBytes,
 } from "./image-artifact.mjs";
+import {
+  normalizeEmptyRoomType,
+  normalizeEmptyRoomTypeDetail,
+} from "./empty-room-type.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 
 export const LARK_SYNC_CONFIG = Object.freeze({
@@ -31,9 +35,51 @@ export const LARK_SYNC_CONFIG = Object.freeze({
   tableId: process.env.LARK_TABLE_ID || "tblFWdK9RlSiZRKC",
 });
 
+const FEATURE_LABELS = Object.freeze({
+  "empty-room-design": "空房设计",
+  "free-image-generation": "自由生图",
+  "refined-model-rendering": "精模渲染",
+  "white-model-rendering": "白模渲染",
+});
+
+const RENDER_MODE_LABELS = Object.freeze({
+  "smart-default": "智能默认",
+  "style-dna": "平台风格",
+});
+
 function titleFromPrompt(prompt) {
   const compact = String(prompt).replace(/\s+/g, " ").trim();
   return compact.length > 36 ? `${compact.slice(0, 36)}…` : compact;
+}
+
+function workflowRecordFields(workflow) {
+  if (!workflow) return {};
+  const feature = FEATURE_LABELS[workflow.feature];
+  const renderMode = RENDER_MODE_LABELS[workflow.renderMode];
+  const roomType = normalizeEmptyRoomType(workflow.roomType);
+  const roomTypeDetail = roomType === "其他"
+    ? normalizeEmptyRoomTypeDetail(workflow.roomTypeDetail)
+    : "";
+  const agentCode = String(workflow.agentCode || "").trim();
+  const agentVersion = Number(workflow.agentVersion);
+  const styleName = String(workflow.styleName || "").trim();
+  const selectionName = String(workflow.selectionName || "").trim();
+  const styleVersion = Number(workflow.styleVersion);
+  const styleSelection = styleName && Number.isInteger(styleVersion)
+    ? `${styleName} · v${styleVersion}`
+    : styleName || selectionName;
+
+  return {
+    ...(feature ? { "功能": feature } : {}),
+    ...(roomType ? { "空间类型": roomType } : {}),
+    ...(roomTypeDetail ? { "其他空间类型": roomTypeDetail } : {}),
+    ...(renderMode ? { "设计方式": renderMode } : {}),
+    ...(agentCode ? { "Agent 编码": agentCode } : {}),
+    ...(Number.isInteger(agentVersion) && agentVersion > 0
+      ? { "Agent 版本": agentVersion }
+      : {}),
+    ...(styleSelection ? { "风格选择": styleSelection } : {}),
+  };
 }
 
 export function buildRecordFields({
@@ -57,6 +103,7 @@ export function buildRecordFields({
 
   return {
     "标题": titleFromPrompt(finalPrompt),
+    ...workflowRecordFields(workflow),
     "生图模型": modelLabel,
     ...(workflow?.agentModelLabel
       ? { "Prompt融合": workflow.agentModelLabel }

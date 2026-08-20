@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与 AI 生图 Base 内独立表的统一 Prompt Agent 版本协议
- * [OUTPUT]: 对外提供保留 Agent 编码且支持可选展示名的白模/风格反推 Prompt 资源配置、脱敏已上架版本目录、默认最高版本与指定已上架版本读取
+ * [OUTPUT]: 对外提供保留 Agent 编码且支持可选展示名的白模/空房双模式/风格反推 Prompt 资源配置、脱敏已上架版本目录、默认最高版本与指定已上架版本读取
  * [POS]: src 的服务端 Prompt 资产边界，让不同执行链复用同一发布与缓存语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,9 @@ const AGENT_FIELDS = [
 const AGENT_NAME_FIELD = "Agent 名称";
 
 const AGENT_DISPLAY_NAMES = Object.freeze({
+  "empty-room-design": "空房设计 Agent",
+  "empty-room-fusion": "空房风格融合 Agent",
+  "empty-room-smart-default": "空房智能默认 Agent",
   "style-dna-reverse": "Style DNA 反推 Agent",
   "white-model-smart-default": "白模智能默认 Agent",
   "white-model-fusion": "白模渲染融合 Agent",
@@ -40,6 +43,16 @@ export const STYLE_DNA_REVERSE_PROMPT_CONFIG = Object.freeze({
   cliPath: process.env.LARK_CLI_PATH || "lark-cli",
   tableId:
     process.env.LARK_STYLE_DNA_PROMPT_TABLE_ID || "tblzu0zDCdS6QRfK",
+});
+
+export const EMPTY_ROOM_PROMPT_CONFIG = Object.freeze({
+  baseToken:
+    process.env.LARK_EMPTY_ROOM_PROMPT_BASE_TOKEN ||
+    "SALobKnnra17iSsGT2ccC52PnHd",
+  cliPath: process.env.LARK_CLI_PATH || "lark-cli",
+  displayNameField: AGENT_NAME_FIELD,
+  tableId:
+    process.env.LARK_EMPTY_ROOM_PROMPT_TABLE_ID || "tbly0sllVNcZwkXl",
 });
 
 function values(value) {
@@ -164,6 +177,76 @@ export async function listPublishedPromptAgentVersions(
     name,
     version,
   }));
+}
+
+export function publicPromptAgentCatalog(promptAgents) {
+  return {
+    defaultVersion: promptAgents[0]?.version || null,
+    versions: promptAgents.map((entry) => ({
+      ...entry,
+      published: true,
+      validPrompt: true,
+    })),
+  };
+}
+
+async function publicSingleAgentConfig({
+  code,
+  config,
+  description,
+  fallbackName,
+  options = {},
+}) {
+  try {
+    const [agent] = await listPublishedPromptAgentVersions(code, {
+      ...options,
+      ...(config ? { config } : {}),
+    });
+    return {
+      available: true,
+      ...(description ? { description } : {}),
+      name: agent.name,
+      version: agent.version,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      ...(description ? { description } : {}),
+      name: fallbackName,
+      reason: error.message,
+      version: null,
+    };
+  }
+}
+
+export function publicSmartDefaultConfig(options = {}) {
+  return publicSingleAgentConfig({
+    code: "white-model-smart-default",
+    fallbackName: "白模智能默认 Agent",
+    options,
+  });
+}
+
+export async function publicEmptyRoomConfig(options = {}) {
+  const smartDefault = await publicSingleAgentConfig({
+    code: "empty-room-smart-default",
+    config: EMPTY_ROOM_PROMPT_CONFIG,
+    description: "AI 根据空房空间自动完成布局、家具、材质与光线",
+    fallbackName: "空房智能默认 Agent",
+    options,
+  });
+  try {
+    const promptAgents = await listPublishedPromptAgentVersions(
+      "empty-room-fusion",
+      { ...options, config: EMPTY_ROOM_PROMPT_CONFIG },
+    );
+    return { promptAgent: publicPromptAgentCatalog(promptAgents), smartDefault };
+  } catch (error) {
+    return {
+      promptAgent: { defaultVersion: null, reason: error.message, versions: [] },
+      smartDefault,
+    };
+  }
 }
 
 export async function getPublishedPromptAgent(

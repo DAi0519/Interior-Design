@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、本机设置、飞书 Setup、图片下载、模型/Prompt 目录、双 Provider、精模预设 Prompt 与用户补充、白模智能默认与固定风格应用服务及 Benchmark 工作流
- * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、智能默认/固定风格白模路由、精模用户要求前置与预设 Prompt 后置、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、本机设置、飞书 Setup、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、精模预设 Prompt 与用户补充、白模/空房双模式设计应用服务及 Benchmark 工作流
+ * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,6 +16,10 @@ import {
   publicAgentModelCatalog,
 } from "./src/agent-model-config.mjs";
 import { createComfyUiClient } from "./src/comfyui-client.mjs";
+import {
+  EMPTY_ROOM_TYPES,
+  EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
+} from "./src/empty-room-type.mjs";
 import { normalizeGenerationBatch } from "./src/generation-batch.mjs";
 import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import {
@@ -39,9 +43,13 @@ import {
 } from "./src/local-settings.mjs";
 import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
 import {
+  EMPTY_ROOM_PROMPT_CONFIG,
   STYLE_DNA_REVERSE_PROMPT_CONFIG,
   getPublishedPromptAgent,
   listPublishedPromptAgentVersions,
+  publicEmptyRoomConfig,
+  publicPromptAgentCatalog,
+  publicSmartDefaultConfig,
 } from "./src/prompt-agent.mjs";
 import { publicRefinedModelPromptConfig } from "./src/refined-model-prompt.mjs";
 import { executeRefinedModelWorkflow } from "./src/refined-model-workflow.mjs";
@@ -141,38 +149,6 @@ function sendDownload(response, download) {
   response.end(download.bytes);
 }
 
-function publicPromptAgentCatalog(promptAgents) {
-  return {
-    defaultVersion: promptAgents[0]?.version || null,
-    versions: promptAgents.map((entry) => ({
-      ...entry,
-      published: true,
-      validPrompt: true,
-    })),
-  };
-}
-
-async function publicSmartDefaultConfig(options = {}) {
-  try {
-    const [agent] = await listPublishedPromptAgentVersions(
-      "white-model-smart-default",
-      options,
-    );
-    return {
-      available: true,
-      name: agent.name,
-      version: agent.version,
-    };
-  } catch (error) {
-    return {
-      available: false,
-      name: "白模智能默认 Agent",
-      reason: error.message,
-      version: null,
-    };
-  }
-}
-
 async function readJson(request) {
   const chunks = [];
   let totalBytes = 0;
@@ -235,6 +211,12 @@ async function verifyLarkConfiguration() {
     publicRefinedModelPromptConfig(),
     getPublishedPromptAgent("white-model-fusion"),
     getPublishedPromptAgent("white-model-smart-default"),
+    getPublishedPromptAgent("empty-room-smart-default", {
+      config: EMPTY_ROOM_PROMPT_CONFIG,
+    }),
+    getPublishedPromptAgent("empty-room-fusion", {
+      config: EMPTY_ROOM_PROMPT_CONFIG,
+    }),
     getPublishedPromptAgent("style-dna-reverse", {
       config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
     }),
@@ -479,6 +461,8 @@ async function handleApi(request, response, pathname) {
     const { REFERENCE_IMAGE_POLICY } = await import("./src/reference-image.mjs");
     return sendJson(response, 200, {
       agentModels: publicAgentModelCatalog(),
+      emptyRoomTypeDetailMaxLength: EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
+      emptyRoomTypes: EMPTY_ROOM_TYPES,
       models: publicModelCatalog(),
       referenceImage: REFERENCE_IMAGE_POLICY,
     });
@@ -518,13 +502,21 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/styles") {
-    const [styles, promptAgents, refinedPrompt, smartDefault] = await Promise.all([
+    const [
+      styles,
+      promptAgents,
+      refinedPrompt,
+      smartDefault,
+      emptyRoom,
+    ] = await Promise.all([
       listPublicStyles(),
       listPublishedPromptAgentVersions("white-model-fusion"),
       publicRefinedModelPromptConfig(),
       publicSmartDefaultConfig(),
+      publicEmptyRoomConfig(),
     ]);
     return sendJson(response, 200, {
+      emptyRoom,
       promptAgent: publicPromptAgentCatalog(promptAgents),
       refinedPrompt,
       smartDefault,
@@ -533,19 +525,27 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "POST" && pathname === "/api/config/refresh") {
-    const [styles, promptAgents, refinedPrompt, smartDefault] = await Promise.all([
+    const [
+      styles,
+      promptAgents,
+      refinedPrompt,
+      smartDefault,
+      emptyRoom,
+    ] = await Promise.all([
       listPublicStyles({ forceRefresh: true }),
       listPublishedPromptAgentVersions("white-model-fusion", {
         forceRefresh: true,
       }),
       publicRefinedModelPromptConfig({ forceRefresh: true }),
       publicSmartDefaultConfig({ forceRefresh: true }),
+      publicEmptyRoomConfig({ forceRefresh: true }),
       getPublishedPromptAgent("style-dna-reverse", {
         config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
         forceRefresh: true,
       }),
     ]);
     return sendJson(response, 200, {
+      emptyRoom,
       promptAgent: publicPromptAgentCatalog(promptAgents),
       refinedPrompt,
       smartDefault,

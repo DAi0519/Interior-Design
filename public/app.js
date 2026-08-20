@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖页面 DOM、精模预设 Prompt 与可选用户要求、白模智能默认/固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
- * [OUTPUT]: 对外提供精模自定义要求、白模与可选风格参考图整合及拖入替换、自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/批量调度/结果画廊、连接中心、生成动作、Style DNA 对话及统一生成接口
+ * [OUTPUT]: 对外提供空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、自由生图、最多四模型各出一张、逐模型参数适配与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
+import { bindEmptyRoomType } from "./empty-room-type.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { adaptGenerationInputForModel, runGenerationBatch } from "./generation-batch.js";
 import { bindGenerationResults } from "./generation-results.js";
@@ -20,11 +21,11 @@ import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { referenceCapability, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
 import "./custom-select.js?v=5";
-
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
   connected: false,
+  emptyRoomConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
   featureMode: "whiteModel",
   generating: false,
   modelKeys: ["seedream5"],
@@ -32,13 +33,14 @@ const state = {
   promptAgentModelKey: "gemini3pro",
   ratioMode: "auto",
   referencePolicy: null,
+  fusionPromptConfig: { defaultVersion: null, versions: [] },
+  smartDefaultConfig: { available: false, reason: "读取中", version: null },
 };
-
 let referenceUpload;
 let styleReferenceUpload;
-
 const elements = {
   emptyModel: document.querySelector("#emptyModel"),
+  emptyRoomTypeSection: document.querySelector("#emptyRoomTypeSection"),
   emptySize: document.querySelector("#emptySize"),
   exactSize: document.querySelector("#exactSize"),
   featureModeButtons: Array.from(document.querySelectorAll("[data-feature-mode]")),
@@ -88,10 +90,12 @@ const elements = {
   styleReferenceList: document.querySelector("#styleReferenceList"),
   styleReferenceSection: document.querySelector("#styleReferenceSection"),
   styleSection: document.querySelector("#styleSection"),
+  styleTitle: document.querySelector("#styleTitle"),
   toast: document.querySelector("#toast"),
   whiteModelRenderModeList: document.querySelector("#whiteModelRenderModeList"),
 };
-
+const emptyRoomType = bindEmptyRoomType({ root: document.querySelector("#emptyRoomTypeList"),
+  onChange: () => generationActions.clearReusable() });
 const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
@@ -101,26 +105,22 @@ const refinedPromptVersionSelect = bindRefinedPromptVersionSelect({
   note: elements.refinedPromptNote,
   select: elements.refinedPromptVersionSelect,
 });
-
-function selectedModels() {
-  return state.modelKeys.map((key) =>
-    state.catalog.find((model) => model.key === key)).filter(Boolean);
-}
-
+function selectedModels() { return state.modelKeys.map((key) =>
+  state.catalog.find((model) => model.key === key)).filter(Boolean); }
 function selectedModel() { return selectedModels()[0]; }
-
 function referenceImages() { return referenceUpload?.images() || []; }
 function styleReferenceImages() { return styleReferenceUpload?.images() || []; }
-
-function selectedSourceImage() {
-  return state.featureMode === "styleDna" ? null : referenceImages()[0];
+function selectedSourceImage() { return state.featureMode === "styleDna" ? null : referenceImages()[0]; }
+function isDesignPromptFlow() { return ["emptyRoom", "whiteModel"].includes(state.featureMode); }
+function activeDesignPromptConfig() {
+  return state.featureMode === "emptyRoom"
+    ? state.emptyRoomConfig.smartDefault
+    : state.smartDefaultConfig;
 }
-
-function selectedPromptAgentModel() {
-  return state.promptAgentCatalog.find(
-    (model) => model.key === state.promptAgentModelKey);
-}
-
+function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
+  state.featureMode === "emptyRoom" ? state.emptyRoomConfig.promptAgent : state.fusionPromptConfig); }
+function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
+  (model) => model.key === state.promptAgentModelKey); }
 function renderPromptAgentModels() {
   const options = state.promptAgentCatalog.map((model) => {
     const live = state.availablePromptAgents.get(model.id);
@@ -135,7 +135,11 @@ function renderPromptAgentModels() {
   });
   elements.promptAgentModelSelect.replaceChildren(...options);
   const selected = selectedPromptAgentModel();
-  elements.promptAgentNote.textContent = selected?.note || "用于理解白模并整合最终提示词。";
+  elements.promptAgentNote.textContent = state.featureMode === "emptyRoom"
+    ? selected?.note
+      ? `${selected.note}；用于理解空房并生成完整设计提示词。`
+      : "用于理解空房并生成完整设计提示词。"
+    : selected?.note || "用于理解白模并整合最终提示词。";
 }
 
 function selectPromptAgent(modelKey) {
@@ -145,21 +149,22 @@ function selectPromptAgent(modelKey) {
   state.promptAgentModelKey = modelKey;
   renderPromptAgentModels();
 }
-
 function renderPromptAgentContext(smartDefault) {
-  elements.promptAgentTitle.textContent = smartDefault
-    ? "智能默认 Agent"
-    : "场景融合 Agent";
-  elements.promptAgentVersionAvailability.classList.toggle("hidden", smartDefault);
-  elements.promptAgentVersionField.classList.toggle("hidden", smartDefault);
-  elements.promptAgentVersionLabel.classList.toggle("hidden", smartDefault);
-  elements.promptAgentModelLabelCopy.textContent = smartDefault
+  const emptyRoom = state.featureMode === "emptyRoom";
+  const implicitVersion = smartDefault;
+  elements.promptAgentTitle.textContent = emptyRoom
+    ? smartDefault ? "空房智能默认 Agent" : "空房风格融合 Agent"
+    : smartDefault ? "智能默认 Agent" : "场景融合 Agent";
+  elements.promptAgentVersionAvailability.classList.toggle("hidden", implicitVersion);
+  elements.promptAgentVersionField.classList.toggle("hidden", implicitVersion);
+  elements.promptAgentVersionLabel.classList.toggle("hidden", implicitVersion);
+  elements.promptAgentModelLabelCopy.textContent = implicitVersion
     ? "Agent 基模"
     : "融合基模";
-  elements.promptAgentModelSelect.setAttribute(
-    "aria-label",
-    smartDefault ? "智能默认 Agent 基模" : "融合基模",
-  );
+  elements.promptAgentModelSelect.setAttribute("aria-label", emptyRoom
+    ? smartDefault ? "空房智能默认 Agent 基模" : "空房风格融合基模"
+    : smartDefault ? "智能默认 Agent 基模" : "融合基模");
+  renderPromptAgentModels();
 }
 
 function referenceLimit() {
@@ -184,9 +189,12 @@ function updateReferenceRequirements() {
 }
 
 function selectFeatureMode(featureMode) {
-  if (!["free", "refinedModel", "styleDna", "whiteModel"].includes(featureMode)) return;
+  const supported = ["emptyRoom", "free", "refinedModel", "styleDna", "whiteModel"];
+  if (!supported.includes(featureMode)) return;
   state.featureMode = featureMode;
   const isWhiteModel = featureMode === "whiteModel";
+  const isEmptyRoom = featureMode === "emptyRoom";
+  const isDesignModel = isWhiteModel || isEmptyRoom;
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
 
@@ -206,11 +214,23 @@ function selectFeatureMode(featureMode) {
   generationActions.setFeatureMode(featureMode);
   if (isStyleDna) return;
 
+  whiteModelRenderMode.setPlatformStylesEnabled(
+    !isEmptyRoom || styleReferenceImages().length === 0,
+    "已上传风格参考图，空房设计固定使用智能默认",
+  );
+  whiteModelRenderMode.setSmartDefault(activeDesignPromptConfig());
   const smartDefault = whiteModelRenderMode.current().mode === "smart-default";
-  elements.promptAgentSection.classList.toggle("hidden", !isWhiteModel);
-  if (isWhiteModel) renderPromptAgentContext(smartDefault);
-  elements.styleSection.classList.toggle("hidden", !isWhiteModel);
-  elements.styleReferenceSection.classList.toggle("hidden", !isWhiteModel);
+  elements.promptAgentSection.classList.toggle("hidden", !isDesignModel);
+  if (isDesignModel) {
+    renderActivePromptAgentVersions();
+    renderPromptAgentContext(smartDefault);
+  }
+  elements.styleSection.classList.toggle("hidden", !isDesignModel);
+  elements.emptyRoomTypeSection.classList.toggle("hidden", !isEmptyRoom);
+  elements.styleReferenceSection.classList.toggle("hidden", !isDesignModel);
+  elements.styleTitle.textContent = isEmptyRoom ? "设计风格" : "风格选择";
+  elements.whiteModelRenderModeList.setAttribute("aria-label",
+    isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle("hidden", isRefinedModel);
   configurePrimaryModel();
@@ -231,7 +251,8 @@ function configurePrimaryModel() {
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
   const formats = model.formats.filter((format) =>
-    !["refinedModel", "whiteModel"].includes(state.featureMode) || format !== "webp");
+    !["emptyRoom", "refinedModel", "whiteModel"].includes(state.featureMode)
+      || format !== "webp");
   renderModelSelect();
   updateReferenceRequirements();
   configureSizeControls();
@@ -323,7 +344,10 @@ function updateComputedSize() {
 function generationInput() {
   const renderMode = whiteModelRenderMode.current();
   const model = selectedModel();
+  const emptyRoom = state.featureMode === "emptyRoom";
+  const whiteModel = state.featureMode === "whiteModel";
   return {
+    featureMode: state.featureMode,
     modelKey: model?.key,
     outputFormat: elements.formatSelect.value,
     prompt: state.featureMode === "refinedModel"
@@ -342,7 +366,7 @@ function generationInput() {
         type,
       }),
     ),
-    ...(state.featureMode === "whiteModel"
+    ...(isDesignPromptFlow()
       ? {
           styleReferenceImages: styleReferenceImages().map(
             ({ dataUrl, name, size, type }) => ({
@@ -356,21 +380,25 @@ function generationInput() {
       : {}),
     resolution: elements.resolutionSelect.value,
     renderMode: renderMode.mode,
-    smartDefaultAgentVersion: renderMode.agentVersion || undefined,
+    ...(emptyRoom ? emptyRoomType.requestFields() : {}),
+    emptyRoomSmartDefaultVersion: emptyRoom && renderMode.mode === "smart-default"
+      ? renderMode.agentVersion || undefined
+      : undefined,
+    emptyRoomPromptAgentVersion: emptyRoom && renderMode.mode === "style-dna"
+      ? promptAgentVersionSelect.value()
+      : undefined,
+    smartDefaultAgentVersion: whiteModel
+      ? renderMode.agentVersion || undefined
+      : undefined,
     styleCode: renderMode.styleCode || undefined,
     promptAgentModelKey: state.promptAgentModelKey,
-    promptAgentVersion: promptAgentVersionSelect.value(),
+    promptAgentVersion: whiteModel ? promptAgentVersionSelect.value() : undefined,
     promptVersion: refinedPromptVersionSelect.value(),
   };
 }
 
-function updatePromptCount() {
-  elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`;
-}
-
-function updateRefinedPromptCount() {
-  elements.refinedPromptCount.textContent = `${elements.refinedPromptInput.value.length} / 8000`;
-}
+function updatePromptCount() { elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`; }
+function updateRefinedPromptCount() { elements.refinedPromptCount.textContent = `${elements.refinedPromptInput.value.length} / 8000`; }
 
 function setApiConnectionState(connected) {
   if (state.connected !== connected) generationActions.clearReusable();
@@ -452,8 +480,16 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   if (state.generating) return;
   const models = selectedModels();
   const whiteModelRequest = state.featureMode === "whiteModel";
+  const emptyRoomRequest = state.featureMode === "emptyRoom";
+  const designPromptRequest = whiteModelRequest || emptyRoomRequest;
   const refinedModelRequest = state.featureMode === "refinedModel";
-  const requiresOneApi = whiteModelRequest || models.some(
+  const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
+  if (roomTypeValidation?.message) {
+    emptyRoomType.focusInvalid();
+    showToast(roomTypeValidation.message);
+    return;
+  }
+  const requiresOneApi = designPromptRequest || models.some(
     (model) => model.provider !== "comfyui");
   if (!state.connected && requiresOneApi) {
     connectionCenter.open({ focusApi: true });
@@ -463,7 +499,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     showToast("请选择 1–4 个出图模型");
     return;
   }
-  if (state.featureMode === "whiteModel") {
+  if (designPromptRequest) {
     const renderMode = whiteModelRenderMode.current();
     if (!renderMode.available) {
       showToast(renderMode.reason || "飞书智能默认 Agent 暂不可用");
@@ -471,7 +507,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
     if (renderMode.mode === "style-dna") {
       if (!promptAgentVersionSelect.value()) {
-        showToast("飞书场景融合 Agent 没有可用的已上架版本");
+        showToast(emptyRoomRequest
+          ? "飞书空房风格融合 Agent 没有可用的已上架版本"
+          : "飞书场景融合 Agent 没有可用的已上架版本");
         return;
       }
       if (!renderMode.style) {
@@ -480,7 +518,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       }
     }
     if (referenceImages().length !== 1) {
-      showToast("白模渲染需要且只允许 1 张白模图");
+      showToast(emptyRoomRequest
+        ? "空房设计需要且只允许 1 张空房图"
+        : "白模渲染需要且只允许 1 张白模图");
       return;
     }
   }
@@ -513,20 +553,28 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     return;
   }
 
-  const promptIdentity = whiteModelRequest ? generationActions.currentIdentity() : null;
+  const promptIdentity = designPromptRequest
+    ? generationActions.currentIdentity()
+    : null;
   state.generating = true;
   generationActions.setBusy(true);
   const loadingCopy =
-    whiteModelRequest && forcePromptRegeneration
+    designPromptRequest && forcePromptRegeneration
       ? "正在重新生成提示词并渲染…"
-      : whiteModelRequest
-      ? whiteModelRenderMode.current().mode === "smart-default"
-        ? styleReferenceImages().length
-          ? "正在结合白模与风格参考图生成提示词…"
-          : "正在分析白模并智能匹配材质与光线…"
-        : styleReferenceImages().length
-          ? "正在结合白模、风格参考图与 Style DNA…"
-          : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
+      : designPromptRequest
+      ? emptyRoomRequest
+        ? whiteModelRenderMode.current().mode === "smart-default"
+          ? styleReferenceImages().length
+            ? "正在结合空房与风格参考图生成完整设计…"
+            : "正在分析空房并生成布局、家具与材质方案…"
+          : "正在读取 Style DNA 并生成完整空房设计…"
+        : whiteModelRenderMode.current().mode === "smart-default"
+          ? styleReferenceImages().length
+            ? "正在结合白模与风格参考图生成提示词…"
+            : "正在分析白模并智能匹配材质与光线…"
+          : styleReferenceImages().length
+            ? "正在结合白模、风格参考图与 Style DNA…"
+            : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…"
       : refinedModelRequest
         ? elements.refinedPromptInput.value.trim()
           ? "正在拼接自定义要求并忠实渲染精模…"
@@ -537,7 +585,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   generationResults.showLoading(loadingCopy);
 
   try {
-    const endpoint = whiteModelRequest
+    const endpoint = designPromptRequest
       ? "/api/white-model-render"
       : refinedModelRequest
         ? "/api/refined-model-render"
@@ -564,14 +612,16 @@ async function generate({ forcePromptRegeneration = false } = {}) {
             batchId,
             batchIndex: index + 1,
             forcePromptRegeneration:
-              whiteModelRequest && forcePromptRegeneration && index === 0,
+              designPromptRequest && forcePromptRegeneration && index === 0,
           }),
           method: "POST",
         });
       },
     });
     const completed = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
-    if (whiteModelRequest && completed > 0) generationActions.markReusable(promptIdentity);
+    if (designPromptRequest && completed > 0) {
+      generationActions.markReusable(promptIdentity);
+    }
     generationResults.showResults(outcomes);
     showToast(completed === models.length
       ? `${completed} 张图已完成，正在分别同步飞书`
@@ -586,6 +636,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
 
 const generationActions = bindGenerationActions({
   getPromptIdentity: () => JSON.stringify([
+    state.featureMode,
+    emptyRoomType.value(),
     referenceImages().map((image) => image.id),
     styleReferenceImages().map((image) => image.id),
     whiteModelRenderMode.current().mode,
@@ -603,7 +655,7 @@ const whiteModelRenderMode = bindWhiteModelRenderMode({
   root: elements.whiteModelRenderModeList,
   smartDefaultAvailable: false,
   onChange() {
-    if (state.featureMode === "whiteModel") selectFeatureMode("whiteModel");
+    if (isDesignPromptFlow()) selectFeatureMode(state.featureMode);
     generationActions.clearReusable();
   },
 });
@@ -636,6 +688,7 @@ async function initialize() {
   state.catalog = catalogBody.models;
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
+  emptyRoomType.setOptions(catalogBody.emptyRoomTypes, catalogBody.emptyRoomTypeDetailMaxLength);
   styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
   selectFeatureMode(state.featureMode);
@@ -655,12 +708,25 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
 });
 const loadConfiguration = bindConfigRefresh({
   api,
+  onEmptyRoom(config) {
+    state.emptyRoomConfig = config;
+    if (state.featureMode === "emptyRoom") {
+      whiteModelRenderMode.setSmartDefault(config.smartDefault);
+      selectFeatureMode("emptyRoom");
+    }
+    generationActions.clearReusable();
+  },
   onPromptAgentVersions(config) {
-    promptAgentVersionSelect.render(config);
+    state.fusionPromptConfig = config;
+    if (state.featureMode === "whiteModel") renderActivePromptAgentVersions();
     generationActions.clearReusable();
   },
   onSmartDefault(config) {
-    whiteModelRenderMode.setSmartDefault(config);
+    state.smartDefaultConfig = config;
+    if (state.featureMode === "whiteModel") {
+      whiteModelRenderMode.setSmartDefault(config);
+      selectFeatureMode("whiteModel");
+    }
     generationActions.clearReusable();
   },
   onStyles(styles) {
@@ -679,9 +745,11 @@ referenceUpload = bindReferenceUpload({
   getPolicy: () => state.referencePolicy,
   getSubject: () => state.featureMode === "whiteModel"
     ? "白模图"
-    : state.featureMode === "refinedModel"
-      ? "精模图"
-      : "参考图",
+    : state.featureMode === "emptyRoom"
+      ? "空房图"
+      : state.featureMode === "refinedModel"
+        ? "精模图"
+        : "参考图",
   input: elements.referenceInput,
   list: elements.referenceList,
   onChange({ images, previousImages }) {
@@ -700,7 +768,16 @@ styleReferenceUpload = bindReferenceUpload({
   getSubject: () => "风格参考图",
   input: elements.styleReferenceInput,
   list: elements.styleReferenceList,
-  onChange: generationActions.refresh,
+  onChange({ images }) {
+    if (state.featureMode === "emptyRoom") {
+      whiteModelRenderMode.setPlatformStylesEnabled(
+        images.length === 0,
+        "已上传风格参考图，空房设计固定使用智能默认",
+      );
+      selectFeatureMode("emptyRoom");
+    }
+    generationActions.refresh();
+  },
   showToast,
 });
 elements.retryButton.addEventListener("click", () => generate());

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/反推展示名派生、脱敏已上架目录、版本选择、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/空房双模式/反推展示名派生、脱敏已上架目录、独立空房双配置、版本选择、System Prompt 与分页边界回归保障
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import {
   getPublishedPromptAgent,
   listPublishedPromptAgentVersions,
   parsePromptAgentEnvelope,
+  publicEmptyRoomConfig,
 } from "../src/prompt-agent.mjs";
 
 const fields = [
@@ -152,4 +153,34 @@ test("同一读取器支持 AI 生图 Base 内独立的风格反推 Prompt 表",
   assert.equal(agent.code, "style-dna-reverse");
   assert.equal(agent.name, "Style DNA 反推 Agent");
   assert.equal(agent.systemPrompt, "Reverse JSON");
+});
+
+test("空房设计独立表向前端公开智能默认与融合版本目录", async () => {
+  const config = await publicEmptyRoomConfig({
+    run: async () =>
+      envelope([
+        ["empty-room-smart-default", 1, ["上架"], ["空房设计"], "Smart Prompt"],
+        ["empty-room-fusion", 2, ["上架"], ["空房设计"], "Fusion Prompt"],
+      ]),
+  });
+
+  assert.deepEqual(config, {
+    promptAgent: {
+      defaultVersion: 2,
+      versions: [{
+        code: "empty-room-fusion",
+        name: "空房风格融合 Agent",
+        published: true,
+        validPrompt: true,
+        version: 2,
+      }],
+    },
+    smartDefault: {
+      available: true,
+      description: "AI 根据空房空间自动完成布局、家具、材质与光线",
+      name: "空房智能默认 Agent",
+      version: 1,
+    },
+  });
+  assert.equal("systemPrompt" in config.smartDefault, false);
 });

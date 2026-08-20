@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖生成动作 DOM、调用方提供的融合输入指纹与普通生成/强制重新融合回调
+ * [INPUT]: 依赖生成动作 DOM、调用方提供的白模/空房设计 Prompt 输入指纹与普通生成/强制重新生成 Prompt 回调
  * [OUTPUT]: 对外提供纯状态推导 generationActionState 与 bindGenerationActions 生成动作控制器
  * [POS]: public 的生成动作状态层，负责首次单按钮与提示词可复用后的双按钮切换
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -11,14 +11,15 @@ export function generationActionState({
   featureMode,
   reusableIdentity = null,
 }) {
-  const hasReusablePrompt = featureMode === "whiteModel"
+  const designPromptFlow = ["whiteModel", "emptyRoom"].includes(featureMode);
+  const hasReusablePrompt = designPromptFlow
     && Boolean(reusableIdentity)
     && currentIdentity === reusableIdentity;
   return {
     hasReusablePrompt,
     mainLabel: busy
       ? "生成中…"
-      : featureMode === "whiteModel"
+      : designPromptFlow
         ? hasReusablePrompt ? "再次渲染" : "开始渲染"
         : "开始生成",
   };

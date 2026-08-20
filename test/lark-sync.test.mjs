@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的同步配置、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供参考图/风格参考图分列配置、画幅适配、生图模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
+ * [OUTPUT]: 对外提供附件分列、产品链路/空间类型/其他空间类型/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,12 +39,23 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
     },
     sourcePrompt: "现代简约客厅，柔和自然光",
     workflow: {
+      agentCode: "white-model-fusion",
       agentModelLabel: "Gemini 3.1 Pro",
+      agentVersion: 7,
       feature: "white-model-rendering",
+      renderMode: "style-dna",
+      selectionName: "奶油法式",
       styleCode: "cream-french@v1",
+      styleName: "奶油法式",
+      styleVersion: 4,
     },
   });
 
+  assert.equal(fields["功能"], "白模渲染");
+  assert.equal(fields["设计方式"], "平台风格");
+  assert.equal(fields["Agent 编码"], "white-model-fusion");
+  assert.equal(fields["Agent 版本"], 7);
+  assert.equal(fields["风格选择"], "奶油法式 · v4");
   assert.equal(fields["生图模型"], "GPT Image 2");
   assert.equal(fields["Prompt融合"], "Gemini 3.1 Pro");
   assert.equal(fields["原始 Prompt"], "现代简约客厅，柔和自然光");
@@ -65,11 +76,74 @@ test("生成结果映射为飞书可写字段且不写只读和附件字段", ()
     sizeMode: "preset",
     transport: "responses",
     workflow: {
+      agentCode: "white-model-fusion",
       agentModelLabel: "Gemini 3.1 Pro",
+      agentVersion: 7,
       feature: "white-model-rendering",
+      renderMode: "style-dna",
+      selectionName: "奶油法式",
       styleCode: "cream-french@v1",
+      styleName: "奶油法式",
+      styleVersion: 4,
     },
   });
+});
+
+test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
+  const base = {
+    durationMs: 2000,
+    finalPrompt: "完整空房设计 Prompt",
+    modelLabel: "Banana 2",
+    preview: {
+      outputFormat: "png",
+      ratio: "4:3",
+      referenceImageCount: 1,
+      resolution: "2K",
+      size: "2400x1792",
+    },
+  };
+  const smart = buildRecordFields({
+    ...base,
+    workflow: {
+      agentCode: "empty-room-smart-default",
+      agentVersion: 1,
+      feature: "empty-room-design",
+      renderMode: "smart-default",
+      roomType: "其他",
+      roomTypeDetail: "衣帽间",
+      selectionName: "智能默认",
+    },
+  });
+  const fusion = buildRecordFields({
+    ...base,
+    workflow: {
+      agentCode: "empty-room-fusion",
+      agentVersion: 1,
+      feature: "empty-room-design",
+      renderMode: "style-dna",
+      roomType: "儿童房",
+      selectionName: "现代简约",
+      styleName: "现代简约",
+      styleVersion: 3,
+    },
+  });
+  const refined = buildRecordFields({
+    ...base,
+    workflow: { feature: "refined-model-rendering", promptVersion: 2 },
+  });
+
+  assert.deepEqual(
+    [smart["功能"], smart["空间类型"], smart["其他空间类型"], smart["设计方式"], smart["Agent 编码"], smart["Agent 版本"], smart["风格选择"]],
+    ["空房设计", "其他", "衣帽间", "智能默认", "empty-room-smart-default", 1, "智能默认"],
+  );
+  assert.deepEqual(
+    [fusion["功能"], fusion["空间类型"], fusion["设计方式"], fusion["Agent 编码"], fusion["Agent 版本"], fusion["风格选择"]],
+    ["空房设计", "儿童房", "平台风格", "empty-room-fusion", 1, "现代简约 · v3"],
+  );
+  assert.equal(refined["功能"], "精模渲染");
+  assert.equal("其他空间类型" in fusion, false);
+  assert.equal("设计方式" in refined, false);
+  assert.equal("Agent 编码" in refined, false);
 });
 
 test("长 Prompt 只截断标题，不截断最终内容且允许原始输入为空", () => {

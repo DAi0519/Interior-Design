@@ -1,21 +1,31 @@
 /**
- * [INPUT]: 依赖智能默认/Style DNA 两类 Prompt Agent 配置、白模与可选风格参考图、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供白模单图或白模+风格参考双图 Prompt 路由、严格解析/缓存隔离、最终模型仅白模出图及带 Provider 元数据的非阻塞归档
- * [POS]: src 的设计模型渲染应用服务，只在 Prompt 阶段分流并统一复用最终出图、画幅和归档链路
+ * [INPUT]: 依赖白模与空房双模式的独立 Prompt Agent 配置、空房必填房间类型及“其他”详情、Style DNA、必填主图与仅智能默认可用的风格参考图、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供白模/空房按智能默认或平台融合 Agent 分流、空房房间类型/其他详情校验与注入、严格解析/缓存隔离、最终模型仅接收主图及带 Provider 元数据的非阻塞归档
+ * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from "node:crypto";
 
 import { agentModelOrThrow } from "./agent-model-config.mjs";
+import {
+  EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
+  normalizeEmptyRoomType,
+  normalizeEmptyRoomTypeDetail,
+} from "./empty-room-type.mjs";
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
-import { getPublishedPromptAgent } from "./prompt-agent.mjs";
+import {
+  EMPTY_ROOM_PROMPT_CONFIG,
+  getPublishedPromptAgent,
+} from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";
+export const EMPTY_ROOM_FEATURE_MODE = "emptyRoom";
+export const WHITE_MODEL_FEATURE_MODE = "whiteModel";
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -125,19 +135,76 @@ export function buildSmartDefaultPromptAgentInput({
   ].join("\n");
 }
 
+export function buildEmptyRoomSmartDefaultPromptAgentInput({
+  hasStyleReference = false,
+  roomType,
+  roomTypeDetail,
+  userRequirements,
+}) {
+  return [
+    "请执行空房智能默认设计任务。",
+    "",
+    "room_type:",
+    String(roomType || "").trim(),
+    "",
+    "room_type_detail:",
+    String(roomTypeDetail || "").trim() || "不适用",
+    "",
+    "style_reference_present:",
+    hasStyleReference ? "true" : "false",
+    "",
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+  ].join("\n");
+}
+
+export function buildEmptyRoomFusionPromptAgentInput({
+  roomType,
+  roomTypeDetail,
+  styleDna,
+  userRequirements,
+}) {
+  return [
+    "请执行空房平台风格融合任务。",
+    "",
+    "room_type:",
+    String(roomType || "").trim(),
+    "",
+    "room_type_detail:",
+    String(roomTypeDetail || "").trim() || "不适用",
+    "",
+    "style_dna:",
+    JSON.stringify(styleDna),
+    "",
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+  ].join("\n");
+}
+
+function normalizeFeatureMode(input) {
+  const requested = String(input.featureMode || WHITE_MODEL_FEATURE_MODE).trim();
+  if ([WHITE_MODEL_FEATURE_MODE, EMPTY_ROOM_FEATURE_MODE].includes(requested)) {
+    return requested;
+  }
+  throw workflowError("设计功能不受支持");
+}
+
 function normalizeRenderMode(input) {
   const requested = String(input.renderMode || "").trim();
   if (!requested) return STYLE_DNA_RENDER_MODE;
   if ([SMART_DEFAULT_RENDER_MODE, STYLE_DNA_RENDER_MODE].includes(requested)) {
     return requested;
   }
-  throw workflowError("白模渲染方式不受支持");
+  throw workflowError("设计渲染方式不受支持");
 }
 
 function promptResultCacheKey({
   agent,
+  featureMode,
   promptModel,
   renderMode,
+  roomType,
+  roomTypeDetail,
   style,
   styleReference,
   userRequirements,
@@ -148,8 +215,11 @@ function promptResultCacheKey({
     agent.code,
     agent.version,
     agent.systemPrompt,
+    featureMode,
     promptModel.id,
     renderMode,
+    roomType,
+    roomTypeDetail,
     style?.code,
     style?.version,
     JSON.stringify(style?.styleDna || null),
@@ -181,18 +251,48 @@ export async function executeWhiteModelWorkflow(
     scheduleSync = null,
   },
 ) {
-  if (!client) throw new TypeError("white model workflow requires client");
+  if (!client) throw new TypeError("design model workflow requires client");
   if (!imageClient) {
-    throw new TypeError("white model workflow requires image client");
+    throw new TypeError("design model workflow requires image client");
   }
 
   const userRequirements = String(input.prompt || "").trim();
   if (userRequirements.length > 8000) {
     throw workflowError("补充要求不能超过 8000 字符");
   }
-  const whiteModels = normalizeReferenceImages(input.referenceImages);
-  if (whiteModels.length !== 1) {
-    throw workflowError("白模渲染需要且只允许 1 张白模图");
+  const featureMode = normalizeFeatureMode(input);
+  const emptyRoom = featureMode === EMPTY_ROOM_FEATURE_MODE;
+  const roomType = emptyRoom ? normalizeEmptyRoomType(input.roomType) : null;
+  if (emptyRoom && !String(input.roomType || "").trim()) {
+    throw workflowError("空房设计必须选择房间类型");
+  }
+  if (emptyRoom && !roomType) throw workflowError("空房房间类型不受支持");
+  const normalizedRoomTypeDetail = normalizeEmptyRoomTypeDetail(
+    input.roomTypeDetail,
+  );
+  if (
+    emptyRoom && roomType === "其他" && !normalizedRoomTypeDetail
+  ) {
+    throw workflowError("选择其他时必须填写具体空间类型");
+  }
+  if (
+    emptyRoom && roomType === "其他"
+    && normalizedRoomTypeDetail.length > EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH
+  ) {
+    throw workflowError(
+      `具体空间类型不能超过 ${EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH} 个字符`,
+    );
+  }
+  const roomTypeDetail = emptyRoom && roomType === "其他"
+    ? normalizedRoomTypeDetail
+    : null;
+  const sourceImages = normalizeReferenceImages(input.referenceImages);
+  if (sourceImages.length !== 1) {
+    throw workflowError(
+      emptyRoom
+        ? "空房设计需要且只允许 1 张空房图"
+        : "白模渲染需要且只允许 1 张白模图",
+    );
   }
   const styleReferences = normalizeReferenceImages(input.styleReferenceImages, {
     maxCount: 1,
@@ -201,19 +301,38 @@ export async function executeWhiteModelWorkflow(
   const forcePromptRegeneration = input.forcePromptRegeneration === true;
   const renderMode = normalizeRenderMode(input);
   const smartDefault = renderMode === SMART_DEFAULT_RENDER_MODE;
-  const [style, agent] = smartDefault
-    ? [
-        null,
-        await loadAgent("white-model-smart-default", {
-          version: input.smartDefaultAgentVersion,
-        }),
-      ]
-    : await Promise.all([
+  if (emptyRoom && !smartDefault && styleReferences.length > 0) {
+    throw workflowError("空房平台风格模式不接收风格参考图，请改用智能默认");
+  }
+  let style = null;
+  let agent;
+  if (emptyRoom) {
+    if (smartDefault) {
+      agent = await loadAgent("empty-room-smart-default", {
+        config: EMPTY_ROOM_PROMPT_CONFIG,
+        version: input.emptyRoomSmartDefaultVersion,
+      });
+    } else {
+      [style, agent] = await Promise.all([
         loadStyle(input.styleCode),
-        loadAgent("white-model-fusion", {
-          version: input.promptAgentVersion,
+        loadAgent("empty-room-fusion", {
+          config: EMPTY_ROOM_PROMPT_CONFIG,
+          version: input.emptyRoomPromptAgentVersion,
         }),
       ]);
+    }
+  } else if (smartDefault) {
+    agent = await loadAgent("white-model-smart-default", {
+      version: input.smartDefaultAgentVersion,
+    });
+  } else {
+    [style, agent] = await Promise.all([
+      loadStyle(input.styleCode),
+      loadAgent("white-model-fusion", {
+        version: input.promptAgentVersion,
+      }),
+    ]);
+  }
   let modelCatalog = availableModels || (await client.listModels());
   let availableIds = new Set(
     modelCatalog.map((model) => model.id || model.name).filter(Boolean),
@@ -237,26 +356,42 @@ export async function executeWhiteModelWorkflow(
       ...(styleReferences.length > 0
         ? {
             imageUrls: [
-              whiteModels[0].imageUrl,
+              sourceImages[0].imageUrl,
               styleReferences[0].imageUrl,
             ],
           }
-        : { imageUrl: whiteModels[0].imageUrl }),
+        : { imageUrl: sourceImages[0].imageUrl }),
       model: promptModel.id,
       systemPrompt: agent.systemPrompt,
-      userPrompt: smartDefault
-        ? buildSmartDefaultPromptAgentInput({
-            hasStyleReference: styleReferences.length > 0,
-            userRequirements,
-          })
-        : buildPromptAgentInput({
-            hasStyleReference: styleReferences.length > 0,
-            styleDna: style.styleDna,
-            userRequirements,
-          }),
+      userPrompt: emptyRoom
+        ? smartDefault
+          ? buildEmptyRoomSmartDefaultPromptAgentInput({
+              hasStyleReference: styleReferences.length > 0,
+              roomType,
+              roomTypeDetail,
+              userRequirements,
+            })
+          : buildEmptyRoomFusionPromptAgentInput({
+              roomType,
+              roomTypeDetail,
+              styleDna: style.styleDna,
+              userRequirements,
+            })
+        : smartDefault
+          ? buildSmartDefaultPromptAgentInput({
+              hasStyleReference: styleReferences.length > 0,
+              userRequirements,
+            })
+          : buildPromptAgentInput({
+              hasStyleReference: styleReferences.length > 0,
+              styleDna: style.styleDna,
+              userRequirements,
+            }),
     });
     return JSON.stringify(
-      parsePromptAgentOutput(promptResult.text, { strict: smartDefault }),
+      parsePromptAgentOutput(promptResult.text, {
+        strict: smartDefault || emptyRoom,
+      }),
       null,
       2,
     );
@@ -265,12 +400,15 @@ export async function executeWhiteModelWorkflow(
     ? await promptResultCache.get(
         promptResultCacheKey({
           agent,
+          featureMode,
           promptModel,
           renderMode,
+          roomType,
+          roomTypeDetail,
           style,
           styleReference: styleReferences[0],
           userRequirements,
-          whiteModel: whiteModels[0],
+          whiteModel: sourceImages[0],
         }),
         generateFinalPrompt,
         { force: forcePromptRegeneration },
@@ -286,8 +424,8 @@ export async function executeWhiteModelWorkflow(
     {
       preferSourceAspect: input.ratioMode !== "manual",
       sourceDimensions: {
-        height: whiteModels[0].height,
-        width: whiteModels[0].width,
+        height: sourceImages[0].height,
+        width: sourceImages[0].width,
       },
     },
   );
@@ -320,12 +458,14 @@ export async function executeWhiteModelWorkflow(
     agentModel: promptModel.id,
     agentModelLabel: promptModel.label,
     agentVersion: agent.version,
-    feature: "white-model-rendering",
+    feature: emptyRoom ? "empty-room-design" : "white-model-rendering",
     imageDurationMs,
     provider: generation.provider,
     promptDurationMs,
     promptReused,
     renderMode,
+    ...(roomType ? { roomType } : {}),
+    ...(roomTypeDetail ? { roomTypeDetail } : {}),
     selectionName: smartDefault ? "智能默认" : style.name,
     styleReferenceUsed: styleReferences.length > 0,
     ...(style
@@ -354,6 +494,7 @@ export async function executeWhiteModelWorkflow(
 
   return {
     durationMs,
+    featureMode,
     images: result.images,
     promptAgent: {
       durationMs: promptDurationMs,
@@ -364,6 +505,8 @@ export async function executeWhiteModelWorkflow(
       version: agent.version,
     },
     renderMode,
+    roomType,
+    roomTypeDetail,
     request: preview,
     style: style
       ? { code: style.code, name: style.name, version: style.version }

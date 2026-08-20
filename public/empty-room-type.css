@@ -1,0 +1,95 @@
+/**
+ * [INPUT]: 依赖 empty-room-type.js 写入的 selected/其他类型输入状态与 index.html 的必填语义
+ * [OUTPUT]: 对外提供空房房间类型三列按钮、其他类型条件输入、必填标识、焦点、按压与低动效样式
+ * [POS]: public 的空房房间类型增量视觉层，遵循生图工作台中性按钮与深色选中规则
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.required-badge {
+  background: #fff0e8;
+  border-radius: 999px;
+  color: #d85a24;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 4px 7px;
+}
+
+.room-type-list {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.room-type-option {
+  background: var(--panel-soft);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  min-height: 36px;
+  padding: 0 8px;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.room-type-option:hover {
+  border-color: var(--line-strong);
+}
+
+.room-type-option:active {
+  transform: scale(0.97);
+}
+
+.room-type-option:focus-visible {
+  outline: 2px solid rgb(23 24 26 / 24%);
+  outline-offset: 2px;
+}
+
+.room-type-option.selected {
+  background: var(--mist);
+  border-color: var(--mist);
+  color: #fff;
+  font-weight: 600;
+}
+
+.room-type-detail {
+  margin-top: 12px;
+}
+
+.room-type-detail-label {
+  color: var(--ink);
+  display: grid;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 7px;
+}
+
+.room-type-detail-input {
+  background: var(--panel-soft);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+  height: 38px;
+  padding: 0 11px;
+}
+
+.room-type-detail-input:focus {
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px rgb(23 24 26 / 7%);
+  outline: none;
+}
+
+.room-type-detail-input::placeholder {
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-type-option {
+    transition: none;
+  }
+}

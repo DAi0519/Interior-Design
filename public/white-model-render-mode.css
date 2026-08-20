@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 white-model-render-mode.js 写入的 selected 状态与紧凑风格按钮语义结构
- * [OUTPUT]: 对外提供白模智能默认/平台风格的两列紧凑选择、焦点与长名称截断
- * [POS]: public 的白模风格选择增量视觉层，不影响其他功能模式和通用按钮样式
+ * [INPUT]: 依赖 white-model-render-mode.js 写入的 selected/disabled 状态与紧凑风格按钮语义结构
+ * [OUTPUT]: 对外提供白模/空房智能默认与平台风格的两列紧凑选择、焦点、禁用态与长名称截断
+ * [POS]: public 的设计风格选择增量视觉层，不影响其他功能模式和通用按钮样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -33,6 +33,16 @@
 
 .style-choice-option:hover {
   border-color: var(--line-strong);
+}
+
+.style-choice-option:disabled {
+  border-color: var(--line);
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.style-choice-option:disabled:active {
+  transform: none;
 }
 
 .style-choice-option:active {

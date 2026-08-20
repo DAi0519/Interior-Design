@@ -1,6 +1,6 @@
 <!--
-[INPUT]: 依赖当前 Canvas Lab/Benchmark 运行架构、环境变量、模型目录与飞书集成边界
-[OUTPUT]: 对外提供本地安装、精模/白模/多模型出图、实验计划生成/可取消冻结运行、飞书同步与 CLI Runner 使用说明
+[INPUT]: 依赖当前 Canvas Lab/Benchmark 运行架构、空房房间类型合同、环境变量、模型目录与飞书集成边界
+[OUTPUT]: 对外提供本地安装、精模/白模/空房房间类型必填/多模型出图、实验计划生成/可取消冻结运行、飞书同步与 CLI Runner 使用说明
 [POS]: 项目根目录的运营与开发入口文档，与 CLAUDE.md 架构地图和各模块契约保持同构
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -17,7 +17,7 @@
 - Seedream 5.0：`doubao-seedream-5.0`
 - Flux2 Klein：`comfyui:ai-texture-enhancement`（兼容历史路由 ID；ComfyUI 单张参考图默认使用 9B FP8/7 steps，保持原图比例并支持 1K/2K）
 
-工作台提供“白模渲染 / 精模渲染 / 风格反推 / 自由生图”功能切换，进入页面时仍默认选择白模渲染。精模渲染要求一张带材质模型图，服务端从飞书“精模渲染 Prompt”表读取所选固定版本并保持原图机位、构图与材质体系；Prompt 正文不会下发浏览器。当前 v1 可在“测试中”状态直接内部试用，上架后状态自动切换。
+工作台提供“白模渲染 / 空房设计 / 精模渲染 / 风格反推 / 自由生图”功能切换，进入页面时仍默认选择白模渲染。空房设计要求客户从客厅、厨房、卧室、书房、餐厅、儿童房、卫生间、阳台、玄关、其他中必填一项且不设默认，同时上传一张空房图，可选一张风格参考图，并复用白模的风格选择、Prompt Agent 基模、最多四模型批量、结果下载和飞书归档链路；服务端按模式路由到独立“空房设计prompt”表中的 `empty-room-smart-default` 或 `empty-room-fusion`，Prompt 正文不会下发浏览器。精模渲染要求一张带材质模型图，服务端从飞书“精模渲染 Prompt”表读取所选固定版本并保持原图机位、构图与材质体系；Prompt 正文不会下发浏览器。当前 v1 可在“测试中”状态直接内部试用，上架后状态自动切换。
 
 - DeepSeek 4 Pro：`deepseek-v4-pro`，当前路由不接受图片输入，因此禁用。
 - Gemini 3.1 Pro：`gemini-3.1-pro-preview`，已通过图片输入探针。
@@ -38,11 +38,13 @@ Claude 仅保留 Sonnet 5，不纳入 Opus 系列；Doubao 同时保留 Seed 1.8
 
 场景融合 Agent 与融合基模选择不改变自由生图请求。白模渲染已经接入两条 Prompt 路由：默认“智能默认”直接读取 `white-model-smart-default`，使用用户所选 Agent 基模，结合白模、可选补充要求和固定摄影底座生成结构化 Prompt，不读取 Style DNA；固定平台风格则使用所选融合基模，按 Agent 编码读取融合版本并结合 Style DNA 调用多模态 Prompt Agent。两路通过同一合同后复用统一出图：OneAPI 模型继续通过 Responses 图生图，Flux2 Klein 将原白模 Base64 与所选档位工作流原子提交到 ComfyUI，把当前 Prompt 原样写入正向节点、注入随机 Seed、排队轮询并下载输出，工作流内只保留固定负向 Prompt。首次白模成功前只显示“开始渲染”；成功后同一组路由输入会显示“再次渲染 / 重新生成提示词”，前者复用最终 Prompt，后者重新运行对应 Prompt Agent。API Key 重连、配置刷新或服务重启会清空复用状态，浏览器不接收 Prompt 正文、ComfyUI 地址或执行图。自由生图选择 Flux2 Klein 时可以不连接 OneAPI，但必须上传且只允许一张图片；没有参考图的 OneAPI 纯文生图仍使用 Images Generations API。
 
+空房设计使用同一技术工作流，但客户选择的 `room_type` 是空间功能事实；选择“其他”时，前端展开并强制填写不超过 40 字的 `room_type_detail`，它是唯一具体空间功能。独立 Agent 不得从图片、Style DNA 或补充要求改判。Agent 只锁定原图建筑壳体、门窗、固定构件、机位、透视和构图，允许新增尺度合理的家具、灯具、窗帘、地毯、艺术品、植物与必要软装。智能默认读取 `empty-room-smart-default@v3`，接收空房图、必填房间类型/详情、可选风格参考图与用户要求；平台 Style DNA 读取 `empty-room-fusion@v3`，只接收空房图、必填房间类型/详情、Style DNA 与用户要求。上传风格参考图后前端自动切回智能默认，平台风格继续展示但不可选，服务端同时拒绝平台融合夹带风格图。风格参考图只进入 Prompt Agent，最终出图模型仍只接收原空房图。Prompt 缓存指纹包含功能、房间类型、其他详情、Agent/Prompt 版本、风格、补充要求及输入图，不能与白模、其他房间类型或不同详情结果串用；生成响应与飞书记录同步保留“空间类型”及条件字段“其他空间类型”。
+
 风格反推首轮接受接口支持的同风格图片或 PDF，并用对话持续收敛形态与空间、材质与色彩、家具与细节、灯光四组变量。附件数量不设产品上限，当前支持 PNG、JPEG、WebP、GIF、PDF，单文件 8MB、合计 20MB；参考附件是首轮唯一必填输入，用户可以只上传附件直接发送。生成草稿后会清空本轮附件，后续可直接输入文字继续修改，也可按需添加新附件。输入框左下角加号添加附件，图片显示缩略图，PDF 显示文件卡。System Prompt 在现有 `AI 生图` Base 的独立 `风格反推prompt` 表中做版本管理；前端只展示已上架版本目录，默认最高版本且可以切回历史上架版本测试，当前标签页刷新后保持所选版本；正文仍只由服务端读取且不能被浏览器覆盖。每轮输出都是未发布草稿，可复制 JSON，但当前不会写入飞书风格库或自动发布。
 
-白模渲染的紧凑“风格选择”首项为智能默认，其可用态和版本来自飞书 `white-model-smart-default`；其他选项读取“AI 生图 / 风格库”。服务端将 Style DNA 基础编码与版本合成为唯一运行时编码，例如 `cream-french@v1`、`cream-french@v2`，同风格在前端只展示最新已上架完整版本。前端只接收脱敏名称、版本和摘要，智能默认 System Prompt 与完整 Style DNA 均仅由服务端读取。固定风格的“场景融合 Agent”继续使用版本下拉，只返回已上架且正文完整的版本；精模 Prompt 目录可显式展示“测试中”草稿版本供内部试用。最终出图模型进入工作台时默认 Seedream 5.0。四类配置在服务端缓存 5 分钟；点击生成配置刷新入口即可读取最新智能默认、Style DNA、融合 Agent 与精模 Prompt，无需重启服务。
+白模渲染与空房设计的紧凑“风格选择”首项为智能默认；白模可用态和版本来自飞书 `white-model-smart-default`，空房智能默认来自独立 `empty-room-smart-default`，其他选项共同读取“AI 生图 / 风格库”。服务端将 Style DNA 基础编码与版本合成为唯一运行时编码，例如 `cream-french@v1`、`cream-french@v2`，同风格在前端只展示最新已上架完整版本。前端只接收脱敏名称、版本和摘要，System Prompt 与完整 Style DNA 均仅由服务端读取。白模与空房固定风格分别使用 `white-model-fusion` 和 `empty-room-fusion` 的已上架版本目录；精模 Prompt 目录可显式展示“测试中”草稿版本供内部试用。最终出图模型进入工作台时默认 Seedream 5.0。配置在服务端缓存 5 分钟；点击生成配置刷新入口即可读取最新白模双模式、空房双模式、Style DNA 与精模 Prompt，无需重启服务。
 
-每次生成成功后，图片会立即返回工作台，每张成功结果卡都提供“下载”按钮；本地服务代为读取 data URL 或远程结果，避免浏览器跨域导致只能打开、不能保存。精模渲染可填写自定义要求，服务端会将其放在飞书预设 Prompt 前面。用户输入的“原始 Prompt”、实际“最终 Prompt”、模型参数、工作流元数据、结果图和参考图随后在后台同步到飞书“AI 生图记录”。多模型中的每张图独立下载、独立同步，并携带共同批次 ID、总数与序号；飞书失败不影响图片下载。
+每次生成成功后，图片会立即返回工作台，每张成功结果卡都提供“下载”按钮；本地服务代为读取 data URL 或远程结果，避免浏览器跨域导致只能打开、不能保存。精模渲染可填写自定义要求，服务端会将其放在飞书预设 Prompt 前面。用户输入的“原始 Prompt”、实际“最终 Prompt”、空房“空间类型”及选择“其他”时的“其他空间类型”、模型参数、工作流元数据、结果图和参考图随后在后台同步到飞书“AI 生图记录”。多模型中的每张图独立下载、独立同步，并携带共同批次 ID、总数与序号；不适用的类型字段留空，飞书失败不影响图片下载。
 
 “耗时（秒）”按每张结果独立记录生成主链路：自由/精模生图为出图模型耗时，白模渲染为 Prompt Agent 开始到出图模型完成的总耗时。Style DNA/Prompt 配置读取、模型目录检查和飞书同步耗时均不计入。
 
@@ -54,7 +56,7 @@ Claude 仅保留 Sonnet 5，不纳入 Opus 系列；Doubao 同时保留 Seed 1.8
 - Node.js 24 或更高版本。
 - 私有 GitHub 仓库或 Release 源码 ZIP 的访问权限。
 - 运营自己的 OneAPI Key。
-- 运营飞书账号已拥有共享 `AI 生图` Base 中风格库、白模 Prompt Agent、精模渲染 Prompt、风格反推 Prompt 与生成记录表的读取权限。
+- 运营飞书账号已拥有共享 `AI 生图` Base 中风格库、白模 Prompt Agent、空房设计 Prompt、精模渲染 Prompt、风格反推 Prompt 与生成记录表的读取权限。
 
 ### 一键启动（推荐）
 
@@ -252,6 +254,8 @@ npm run benchmark:backfill
 - `LARK_CLI_PATH`
 - `LARK_AGENT_BASE_TOKEN`
 - `LARK_AGENT_TABLE_ID`
+- `LARK_EMPTY_ROOM_PROMPT_BASE_TOKEN`
+- `LARK_EMPTY_ROOM_PROMPT_TABLE_ID`
 - `LARK_STYLE_BASE_TOKEN`
 - `LARK_STYLE_TABLE_ID`
 - `LARK_STYLE_DNA_PROMPT_BASE_TOKEN`
@@ -265,6 +269,8 @@ npm run benchmark:backfill
 会主动重读。白模场景融合表可用 `Agent 名称` 调整版本下拉展示名；`Agent 编码`
 仍是稳定路由主键。飞书登录用户
 必须拥有该 Base 的读取权限。
+
+空房设计默认读取同一 `AI 生图` Base 内的独立数据表 `空房设计prompt`，稳定路由编码为 `empty-room-smart-default` 与 `empty-room-fusion`，当前生产版本均为 v3。两条 Prompt 都接收服务端校验后的必填 `room_type`，选择“其他”时同时接收必填 `room_type_detail`，禁止图片识别、Style DNA 或补充要求覆盖客户选择。公开接口只返回名称、版本、可用性与简短说明；服务端按模式读取已上架完整 System Prompt，浏览器不能读取或覆盖正文。
 
 精模渲染默认读取同一 `AI 生图` Base 的 `精模渲染 Prompt` 表，稳定路由编码为
 `refined-model-render`。公开接口只返回名称、版本与上架状态；内部测试允许明确选择

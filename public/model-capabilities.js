@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 image-ratio.js 的最近比例与原图比例文案，接收公开模型能力、功能模式、参考图、Flux 1K/2K 像素面积档位及当前尺寸选择
- * [OUTPUT]: 对外提供白模/精模参考图数量文案、比例分辨率选项和含 Flux 原图比例目标像素面积的结果尺寸摘要
+ * [OUTPUT]: 对外提供白模/空房/精模参考图数量文案、比例分辨率选项和含 Flux 原图比例目标像素面积的结果尺寸摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,16 +9,18 @@ import { nearestSupportedRatio, sourceAspectLabel } from "./image-ratio.js";
 
 export function referenceCapability({ featureMode, model, policy }) {
   const isWhiteModel = featureMode === "whiteModel";
+  const isEmptyRoom = featureMode === "emptyRoom";
   const isRefinedModel = featureMode === "refinedModel";
-  const fixedSingleImage = isWhiteModel || isRefinedModel;
+  const fixedSingleImage = isWhiteModel || isEmptyRoom || isRefinedModel;
+  const subject = isWhiteModel ? "白模图" : isEmptyRoom ? "空房图" : "精模图";
   const requiresSingleImage =
     fixedSingleImage || model?.requiresReferenceImage === true;
   return {
     ariaLabel: fixedSingleImage
-      ? `添加${isWhiteModel ? "白模图" : "精模图"}`
+      ? `添加${subject}`
       : "添加参考图",
     dropLabel: fixedSingleImage
-      ? `添加或拖入${isWhiteModel ? "白模图" : "精模图"}`
+      ? `添加或拖入${subject}`
       : requiresSingleImage
         ? "添加或拖入待增强图片"
         : "添加或拖入参考图",
@@ -30,7 +32,7 @@ export function referenceCapability({ featureMode, model, policy }) {
         ),
     multiple: !requiresSingleImage,
     optionalLabel: requiresSingleImage ? "必填 · 1张" : "可选",
-    title: isWhiteModel ? "白模图" : isRefinedModel ? "精模图" : "参考图",
+    title: fixedSingleImage ? subject : "参考图",
   };
 }
 

@@ -65,6 +65,13 @@ test("不同模型自动收敛到各自合法参数而不篡改共同输入", ()
   assert.equal(comfy.outputFormat, "png");
   assert.equal("workflowProfile" in comfy, false);
   assert.equal("workflowProfile" in gpt, false);
+
+  const emptyRoom = adaptGenerationInputForModel(
+    { ...input, outputFormat: "webp" },
+    catalog.find((model) => model.key === "seedream5"),
+    { featureMode: "emptyRoom", sourceImage: { height: 900, width: 1600 } },
+  );
+  assert.notEqual(emptyRoom.outputFormat, "webp");
 });
 
 test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {

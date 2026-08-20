@@ -21,7 +21,8 @@ export function adaptGenerationInputForModel(
     ratioMode: input.ratioMode,
     sourceImage,
   });
-  const fixedPromptFlow = ["whiteModel", "refinedModel"].includes(featureMode);
+  const fixedPromptFlow = ["emptyRoom", "whiteModel", "refinedModel"]
+    .includes(featureMode);
   const formats = model.formats.filter(
     (format) => !fixedPromptFlow || format !== "webp",
   );
