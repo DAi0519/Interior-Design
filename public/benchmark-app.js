@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 benchmark.html DOM、benchmark-sample-ui.js 的分类来源与标签合并规则、浏览器 location/FileReader 与同源 /api/benchmark 接口
+ * [INPUT]: 依赖 benchmark.html DOM、benchmark-sample-ui.js 的分类来源与标签合并规则、workbench-utils.js 的通用浏览器基础设施、浏览器 location 与同源 /api/benchmark 接口
  * [OUTPUT]: 对外提供左右样本工作区空态、可连续累加且缩略图稳定的样本待保存清单、已有空间分类保护/未分类 AI 识别、逐图五维 AI 打标、八类单变量实验计划生成、停止与继续出图、失败 Run 重试、评分断点继续、持久化横评跳转、评分分析、任务轮询及飞书视图分流
  * [POS]: public 的 Benchmark 页面状态控制器，以样本集为操作主对象，拦截 file 协议误用且所有破坏性外部调用都要求用户二次确认
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -18,6 +18,7 @@ import {
   SAMPLE_IMAGE_TYPES, SAMPLE_TYPES, applyAiSampleLabel, createSampleDraft, sampleDraftStatusCopy,
   sampleLabelScopeCopy, uniqueSampleFiles,
 } from "./benchmark-sample-ui.js?v=2";
+import { api, escapeHtml, formatRate, readFileAsInput } from "./workbench-utils.js";
 
 const state = {
   activeJobId: window.sessionStorage.getItem("benchmark.activeJobId") || "",
@@ -41,32 +42,12 @@ const state = {
 const byId = (id) => document.getElementById(id);
 const renderJob = createJobRenderer({ byId, jobPanelFor });
 
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || `请求失败（${response.status}）`);
-  return body;
-}
-
 function toast(message) {
   const element = byId("toast");
   element.textContent = message;
   element.classList.remove("hidden");
   window.clearTimeout(toast.timer);
   toast.timer = window.setTimeout(() => element.classList.add("hidden"), 3200);
-}
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
-  })[character]);
-}
-
-function formatRate(value) {
-  return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
 }
 
 function switchPanel(name) {
@@ -325,19 +306,6 @@ async function loadOverview() {
   });
 }
 
-function fileAsInput(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("图片读取失败"));
-    reader.onload = () => resolve({ dataUrl: reader.result, name: file.name, size: file.size, type: file.type });
-    reader.readAsDataURL(file);
-  });
-}
-
-function selectedSampleFiles() {
-  return state.sampleFiles;
-}
-
 function validateSampleFiles(files) {
   if (!files.length) throw new Error("请选择至少一张参考图");
   const invalidType = files.find((file) => !SAMPLE_IMAGE_TYPES.has(file.type));
@@ -449,7 +417,7 @@ async function prepareSampleDrafts(files) {
     if (token !== state.sampleLabelingToken) return;
     draft.status = "labeling";
     renderSampleDrafts();
-    draft.image = await fileAsInput(draft.file);
+    draft.image = await readFileAsInput(draft.file);
     if (draft.previewUrl.startsWith("blob:")) URL.revokeObjectURL(draft.previewUrl);
     draft.previewUrl = draft.image.dataUrl;
     if (token !== state.sampleLabelingToken) return;
@@ -479,7 +447,7 @@ async function prepareSampleDrafts(files) {
   if (failed) toast(`${failed} 张未完成 AI 打标，请人工确认后保存`);
 }
 
-function renderSampleSelection(files = selectedSampleFiles()) {
+function renderSampleSelection(files = state.sampleFiles) {
   const label = byId("fileLabel");
   const button = byId("saveCasesButton");
   if (!files.length) {
@@ -499,7 +467,7 @@ function setCaseFormBusy(busy, progress = "") {
 
 async function submitCase(event) {
   event.preventDefault();
-  const files = selectedSampleFiles();
+  const files = state.sampleFiles;
   validateSampleFiles(files);
   if (state.sampleLabeling) throw new Error("请等待 AI 打标完成");
   if (state.sampleDrafts.length !== files.length || state.sampleDrafts.some((draft) => !draft.image)) {
