@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端、按模型解析的图像客户端与可选取消信号
+ * [INPUT]: 依赖 benchmark-plan-input.mjs 的计划输入规则、带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端、按模型解析的图像客户端与可选取消信号
  * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、持久化 Run 进度重建、按实验阶段共享或隔离冻结 Prompt、飞书模型横评/Prompt 横评类型映射、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检及可取消/断点续跑执行器
  * [POS]: src 的单变量横评应用服务，以一图一行的结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -14,73 +14,22 @@ import {
   parseBenchmarkOutputSpec,
 } from "./benchmark-experiment-config.mjs";
 import { assertBenchmarkModelAvailability } from "./benchmark-model-access.mjs";
+import {
+  activeSamples,
+  assertSame,
+  catalogKeyById,
+  labeledId,
+  positiveInteger,
+  selectedIdSet,
+  versionedResource,
+} from "./benchmark-plan-input.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { getPublishedPromptAgent } from "./prompt-agent.mjs";
 import { normalizeReferenceImage } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
 import { buildPromptAgentInput, parsePromptAgentOutput } from "./white-model-workflow.mjs";
 
-const COMPLETED_SAMPLE_STATUSES = new Set(["完成"]);
-
 export { assertBenchmarkModelAvailability } from "./benchmark-model-access.mjs";
-
-function benchmarkError(message) {
-  const error = new Error(message);
-  error.statusCode = 400;
-  return error;
-}
-
-function labeledId(value, field) {
-  const normalized = String(value || "").trim();
-  const match = normalized.match(/\[([^\]]+)\]\s*$/);
-  if (!match) throw benchmarkError(`${field} 缺少 [资源 ID]`);
-  return match[1].trim();
-}
-
-function versionedResource(value, field) {
-  const resource = labeledId(value, field);
-  const match = resource.match(/^(.+)@v(\d+)$/);
-  if (!match) throw benchmarkError(`${field} 必须使用 code@vN`);
-  return { code: match[1], version: Number(match[2]) };
-}
-
-function positiveInteger(value, field) {
-  const number = Number(value);
-  if (!Number.isInteger(number) || number < 1) {
-    throw benchmarkError(`${field} 必须是正整数`);
-  }
-  return number;
-}
-
-function catalogKeyById(catalog, id, field) {
-  const entry = catalog.find((model) => model.id === id);
-  if (!entry) throw benchmarkError(`${field} 不在本地模型目录：${id}`);
-  return entry;
-}
-
-function assertSame(configs, getter, field) {
-  const values = new Set(configs.map(getter));
-  if (values.size !== 1) throw benchmarkError(`同一横评组的 ${field} 必须完全一致`);
-  return getter(configs[0]);
-}
-
-function activeSamples(samples, maxCases, includeCompletedSamples = false) {
-  const selected = samples
-    .filter((sample) => sample.caseId)
-    .filter((sample) => !sample.sampleType || sample.sampleType === "有效白模")
-    .filter((sample) =>
-      includeCompletedSamples || !COMPLETED_SAMPLE_STATUSES.has(sample.status))
-    .sort((left, right) => left.caseId.localeCompare(right.caseId));
-  return maxCases == null ? selected : selected.slice(0, maxCases);
-}
-
-function selectedIdSet(values, field) {
-  if (values == null) return null;
-  if (!Array.isArray(values) || values.length === 0) {
-    throw benchmarkError(`${field} 必须是非空数组`);
-  }
-  return new Set(values.map((value) => String(value || "").trim()).filter(Boolean));
-}
 
 export function buildBenchmarkPlan(
   snapshot,
