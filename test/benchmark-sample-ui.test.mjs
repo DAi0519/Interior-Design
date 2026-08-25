@@ -94,5 +94,5 @@ test("Benchmark 文本输入只保留与生图工作台一致的单层焦点反�
   const css = await readFile(new URL("../public/benchmark.css", import.meta.url), "utf8");
 
   assert.doesNotMatch(css, /input:focus-visible|select:focus-visible/);
-  assert.match(css, /input:focus,\s*select:focus\s*\{[\s\S]*box-shadow:\s*0 0 0 3px rgb\(25 26 28 \/ 8%\)/);
+  assert.match(css, /input:focus,\s*select:focus\s*\{[\s\S]*box-shadow:\s*0 0 0 3px rgb\(32 32 36 \/ 7%\), var\(--control-shadow\)/);
 });

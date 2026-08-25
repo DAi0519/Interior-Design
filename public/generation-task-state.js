@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sessionStorage 的当前标签页状态、功能编码、生成任务 ID 与服务端任务快照
- * [OUTPUT]: 对外提供按功能持久化的生成任务引用、安全读取及结果区阶段推导
+ * [OUTPUT]: 对外提供按功能持久化的生成任务引用、安全读取及按生成图片计数的结果区阶段推导
  * [POS]: public 的生成任务恢复状态层，只保存任务引用而不复制图片结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -65,7 +65,7 @@ export function generationTaskView(task, job) {
     const total = Number(job?.total) || task.items.length;
     return {
       message: completed > 0
-        ? `已完成 ${completed} / ${total} 个模型…`
+        ? `已完成 ${completed} / ${total} 张图…`
         : task.loadingLabel,
       stage: "loading",
     };

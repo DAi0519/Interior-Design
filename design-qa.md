@@ -5,6 +5,152 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Subtle Button Borders v26 Design QA
+
+## Evidence
+
+- Source request: 用户在透明边界版本后明确反馈“可以来个淡色细边？透明边界确实有点不清晰”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/subtle-button-borders-workbench.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/subtle-button-borders-benchmark.png`
+- Result render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/subtle-button-borders-result.png`
+- State: 当前工作区 `127.0.0.1:4173` 真实工作台与 Benchmark；结果下载使用无模型费用视觉夹具复用最终样式层。未发起生成、未调用模型、未写入飞书。
+
+## Findings
+
+- 白色普通动作键从透明边界改为近纸面的 `#eee8eb` 1px 淡灰粉细边，hover 仅收深为 `#e5dde1`；它比已否决的 `#ded5da` 莓灰边界更轻，只辅助识别轮廓。
+- 黑莓选中键、START、提交/运行和连接中心矩形动作改用 `rgb(255 255 255 / 10%)` 暖白细边，hover 提至 14%、active 降至 8%、disabled 降至 6%，避免在深色按钮外重新形成黑边或莓灰边。
+- 输入框、自定义下拉触发器和虚线拖拽上传区继续使用原结构边界；本轮只调整动作按钮，不把所有控件压成同一层。
+
+## Interaction Verification
+
+- 生图页最终加载 `raycast-accent.css?v=25`；连接键和未选功能键实测 `1px solid rgb(238, 232, 235)`，选中功能键与 START 实测 `1px solid rgba(255, 255, 255, 0.1)`。
+- 真实指针悬停未选功能键后边界变为 `rgb(229, 221, 225)`，同时保留上浮 1px；几何尺寸未变化。
+- Benchmark 未选/当前步骤、同步、主动作、停止/继续动作分别命中浅色/深色细边令牌。可见按钮中的 `rgb(209, 209, 213)` 仅来自带 `role="combobox"` 的自定义下拉触发器。
+- 结果下载按钮实测为纯白背景、`1px solid rgb(238, 232, 235)`、30px 高和深莓灰文字；浏览器无 error 或 warning。
+
+final result: passed
+
+---
+
+# Borderless Action Keys v25 Design QA
+
+## Evidence
+
+- Source request: 用户明确要求“所有按钮都取消莓灰细边，没有必要”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/borderless-buttons-workbench-1280x720.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/borderless-buttons-benchmark-1280x720.png`
+- Result render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/borderless-buttons-result-1280x720.png`
+- State: 当前工作区 `127.0.0.1:4173` 真实工作台与 Benchmark；结果下载使用无模型费用视觉夹具复用最终样式层。未发起生成、未调用模型、未写入飞书。
+
+## Findings
+
+- 所有动作按钮撤除莓灰、黑莓和危险色可见细边，统一保留透明 1px 占位，默认、选中、hover、active、disabled 与 loading 状态切换不改变几何尺寸。
+- 白色普通键继续依靠纯白填充、深莓灰文字和近距键帽阴影建立层级；黑莓选中键与主动作继续依靠深色填充、暖白文字和珊瑚弥散建立层级，不再同时使用描边重复表达。
+- 输入框、自定义下拉触发器和虚线拖拽上传区属于输入/结构控件，保留自身边界；本轮没有把“按钮无描边”扩大为“所有控件无边界”。
+
+## Interaction Verification
+
+- 生图页扫描连接键、功能键、刷新、生成、重新融合、Ghost、图标、连接中心矩形动作和 Style DNA 动作后，没有任何动作按钮保留非透明可见边界。
+- Benchmark 扫描 51 个按钮节点，其中当前可见 10 个；所有按钮最终均无非透明可见边界。步骤、普通管理动作、主动作、停止/继续/重试状态均由同一最终样式层覆盖。
+- 真实指针悬停“空房设计”后仍保持透明边界，同时保留共享 hover 阴影与上浮 1px；结果下载按钮实测为 `1px solid transparent`。
+
+final result: passed
+
+---
+
+# Result Download Brand Key v24 Design QA
+
+## Evidence
+
+- Source request: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-e8ed8c99-ae2f-4b9f-bfb4-4903c8c3466f.png`
+- Browser render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/result-download-brand-key-1280x720.png`
+- State: `127.0.0.1:4173` 真实工作台样式通过无模型费用结果卡夹具加载；夹具复用线上页面的 `styles.css`、`result.css`、`theme.css` 和最终 `raycast-accent.css?v=23`，未发起生成、未调用模型、未写入飞书。
+
+## Findings
+
+- 结果卡“下载”不再使用独立的 26px 深色小胶囊；它作为结果区次级动作加入浅色面板品牌键帽体系，主次关系与 START 深色主动作明确分离。
+- 最终计算样式为纯白背景、`#ded5da` 1px 莓灰边界、`#5b5157` 深莓灰文字、6px 圆角、30px 高度、48px 最小宽度、11px/600 字重和共享近距阴影。
+- 下载行为、逐图粒度、飞书记录链接与失败卡结构均未改变；单图或多图结果继续各自持有一个下载动作，失败卡不新增无效按钮。
+
+## Interaction Verification
+
+- 真实指针悬停后边界收深为 `#cbbfc5`、阴影提升为共享 hover 阴影、文字转为黑莓石墨并上浮 1px；按压、禁用与键盘焦点由同一共享状态规则和自动化护栏覆盖。
+- 结果卡元数据、总耗时与下载键保持同一行，视觉夹具无内容重叠或横向溢出；浏览器页面无错误覆盖层。
+
+final result: passed
+
+---
+
+# Generation Scan Neutral Motion v23 Design QA
+
+## Evidence
+
+- Source request: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-633a7729-bb5a-41b2-a831-9b9c62257764.png`
+- State: 当前工作区 `127.0.0.1:4173` 真实页面；读取隐藏生成状态节点的最终计算样式，未发起生成、未调用模型、未写入飞书。
+
+## Findings
+
+- 移除 `raycast-accent.css` 对 `.scan-line` 的莓色渐变、莓色辉光、模糊和 12px 高度覆盖，恢复 `theme.css` 已有黑白灰生成动效，不新增第三套颜色。
+- 最终计算样式为 `rgb(32, 32, 36)` 近黑扫描线、`rgba(25, 26, 28, 0.22) 0 0 20px` 中性灰辉光、`2px` 高度和 `filter: none`。
+- 珊瑚莓色仍保留在选中态、主动作、焦点、拖放和进度等既有品牌语义中；本轮只收敛生成过程动效。
+
+## Interaction Verification
+
+- 真实页面重新加载后读取 `.scan-line` 最终级联，确认没有被后续样式重新染成莓色。
+- 浏览器 console 无 error 或 warning；为避免产生模型费用，本轮没有真实提交生成请求。
+
+final result: passed
+
+---
+
+# Connection Button Stable State v22 Design QA
+
+## Evidence
+
+- Source request: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-121b8a84-e9e9-41ee-95a1-ed23d4611000.png`
+- Browser render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/connection-button-stable-state/connection-center-unconnected-1440x180.png`
+- State: 当前工作区 `127.0.0.1:4173` 真实页面；连接按钮保持 `connection-button product-status`，没有 `.connected`，文案为“连接中心”。未断开现有会话、未调用模型、未写入飞书。
+
+## Findings
+
+- 初始、读取中与未连接状态不再退化为黑莓顶栏上的“裸文字 + 灰点”；连接按钮在全部异步状态保持同一枚纯白 6px 键帽，状态只通过圆点与文案变化。
+- 未连接状态计算样式为白色背景、透明边界、深莓文字和同源近距阴影；灰点固定为 `#a69ca1`。外层继续为透明背景、`0px` 边界、无阴影和 `0px` 内距，没有恢复上一轮移除的黑色外轨。
+- 连接状态语义未改变：没有 `.connected` 时仍显示“连接中心”，没有用视觉修复伪装连接成功。
+
+## Interaction Verification
+
+- 真实页面首次加载后直接捕获未连接状态，按钮轮廓完整且与中间当前产品白色键帽语言一致。
+- 顶栏三段布局未发生位移；页面无错误覆盖层，浏览器 console 无 error 或 warning。
+
+final result: passed
+
+---
+
+# Benchmark Button Language v21 Design QA
+
+## Evidence
+
+- Source request: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-c60be52c-99c2-4045-9a40-29a272499a89.png`
+- Desktop render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/benchmark-button-language/desktop-1440x900.png`
+- Narrow render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/benchmark-button-language/narrow-640x900.png`
+- State: 当前工作区 `127.0.0.1:4173` 真实服务、Benchmark 已连接、18 个样本；未调用模型、未写入飞书。
+
+## Findings
+
+- 顶栏连接状态移除 `.topbar-actions` 的深色背景、1px 外边界、内阴影和 3px 内距；白色连接键直接落在黑莓顶栏上，保留自身 6px 圆角与近距阴影，不再出现一圈黑色外轨。
+- 五步导航复用内容区品牌键帽：普通步骤为纯白面、莓灰 `1px` 边界和深莓灰文字；当前步骤反转为黑莓底、暖白文字、同源珊瑚弥散与选中阴影。
+- 桌面端五个步骤等宽约 `241px × 40px`；窄屏为等宽约 `116px × 38px`。`1440px` 与 `640px` 两档均满足 `scrollWidth = clientWidth`，没有横向溢出。
+
+## Interaction Verification
+
+- 真实点击完成“样本集 → 实验配置 → 样本集”双向切换，活动面板和当前步骤同步更新。
+- 连接键计算样式为透明边界；外层计算样式为 `background: transparent`、`border-width: 0`、`box-shadow: none`、`padding: 0`。
+- 窄屏保留五个单行步骤键与可见键盘焦点；连接状态按既有响应式规则隐藏。浏览器 console 无 error 或 warning。
+
+final result: passed
+
+---
+
 # Result Direct Download v20 Design QA
 
 ## Evidence
@@ -629,6 +775,580 @@ final result: passed
 - `npm test` 通过：129 tests，0 fail；前端与服务端模块语法检查、`git diff --check` 通过。
 
 final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Responsive START Content Gap v57 Design QA
+
+## Evidence
+
+- 用户指出窄屏参数区与底部 START / RUNNING 动作 Bar 仍然贴得过近，希望中间保留间距。
+- 本机 `4173` 真实工作台以当前 `680 × 832` CSS viewport 读取参数区、输出格式控件、动作区与按钮的几何坐标。
+
+## Findings
+
+- 根因是 `≤900px` 动作区回到文档流后仍继承桌面 `margin: 0 12px`，参数区边缘与按钮上缘几何间距为 `0px`；已有 18px 仅属于参数区内部 padding，无法形成两个业务组之间的视觉停顿。
+- `≤900px` 动作区改为上下各 12px、左右各 12px 的独立内容安全间距；`≤560px` 继续保持左右 10px 与底部 10px，只新增 12px 顶部间距。
+- `≥901px` 的 sticky 定位、20px 光学底距、高不透明深莓表面和两层向下遮罩阴影均保持不变；没有增加容器、边界或视觉套层。
+
+## Verification
+
+- 实页刷新后加载 `generation-actions.css?v=11`；参数区边缘到按钮从 `0px` 增为 `12px`，输出格式触发器到按钮从 `18px` 增为 `30px`，动作区计算 margin 为 `12px`。
+- 浏览器视觉检查确认参数组、主动作和结果面板的层级清晰，按钮上下均有呼吸区且没有重新露出分割线或套框。
+- 专项回归 `7 / 7`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过；Impeccable 布局扫描在降级正则模式下无新增发现。
+
+## Final Result
+
+final result: passed; the responsive action bar now separates cleanly from the parameter group without changing the desktop sticky mask
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Desktop START Sticky Safe Gap v58 Design QA
+
+## Evidence
+
+- 用户以宽屏工作台截图指出输出格式仍与 START Bar 紧贴；上一轮只修复 `≤900px` 文档流状态，没有覆盖 `≥901px` sticky 状态。
+- 本机 `4173` 真实工作台以 `1440 × 900` CSS viewport 滚动配置栏到底，读取参数区、输出格式触发器、动作区和按钮的几何坐标。
+
+## Findings
+
+- 修改前宽屏按钮因 `bottom: 20px` 被 sticky 机制向上抬起，参数区边缘到按钮为 `-20.05px`，输出格式触发器与按钮发生 `2.05px` 实际重叠。
+- 宽屏动作区增加 `32px` 顶部流内间距：其中 20px 精确抵消 sticky 抬升，剩余 12px 作为参数组与主动作之间的可见安全距离。
+- 20px 底部光学间距、高不透明深莓表面、双层向下遮罩阴影、无套框外层与滚动边界锁定均保持不变。
+
+## Verification
+
+- 最终宽屏实页加载 `generation-actions.css?v=12`，参数区边缘到按钮为 `11.95px`，输出格式触发器到按钮为 `29.95px`，重叠量为 `0px`；动作区计算 margin 为 `32px 12px 0px`。
+- `680 × 832` 回归仍读回 12px 间距、静态文档流与 `margin: 12px`；宽窄屏均无新增容器、边界或视觉套层。
+- 专项回归 `7 / 7`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过；Impeccable 布局扫描在降级正则模式下无新增发现。
+
+## Final Result
+
+final result: passed; the desktop sticky lift is now explicitly compensated and the final output control no longer touches or sits beneath START
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Visual Convergence v38 Design QA
+
+## Evidence
+
+- Source direction: Raycast 官方产品与文档当前强调快速、键盘优先、原生与可缩放的紧凑/扩展界面；本轮只提取操作型界面语言，不复制营销页面、品牌色或产品内容。
+- Browser surfaces: 生图工作台与 Benchmark 分别以 `1440 × 900` 和 `390 × 844` 真实 CSS viewport 渲染；窄屏两页均满足 `scrollWidth = innerWidth = 390`。
+- State: 本机 `4173` 真实服务；页面读取现有脱敏目录与 Benchmark 数据，未触发图片生成、评分或 Base 写入。
+
+## Findings
+
+- 两页统一从奶油暖灰收敛为近白银灰画布、半透明命令面板、冷静控件层与更清晰的环境阴影；业务结构、文案与交互状态机保持不变。
+- 顶栏继续保持品牌/工作台切换/连接状态三段式同排结构，产品切换从全圆胶囊改为 `9px / 6px` 低圆角分段控件，减少 Apple 式占位并强化 Raycast 命令面板感。
+- 工作区与 Benchmark 流程条统一缩短为顶栏下 `16px` 起始；面板、按钮、输入、自定义下拉和深色选中态共享近距键帽阴影、银灰边线与聚焦反馈。
+- 生图页桌面仍为左配置/右结果等高双栏，Benchmark 桌面仍为流程条/单层工作面板；两页 390px 窄屏均保持单行顶栏、无横向溢出。
+
+## Verification
+
+- Chromium 浏览器检查覆盖两页 `1440 × 900` 与 `390 × 844`：页面有内容、无错误覆盖层、无 console error/warning、无横向溢出；功能切换、自定义下拉与 Benchmark 步骤切换均真实点击通过。
+- Impeccable detector 以降级正则模式完成一次扫描；Inter 是现有设计合同与 Raycast 操作型界面的刻意选择，动态飞书二维码位于默认隐藏授权面板并在授权时注入 `src`，两项警告均不是本轮缺陷。
+- 自动化测试 `283 / 283` 通过；`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; Raycast visual language converged without changing product behavior
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Text-only Brand Header v39 Design QA
+
+## Evidence
+
+- 用户明确要求移除品牌图标和副标题小字，并让 `Canvas Lab` 主标题使用更有辨识度的字体。
+- Chromium 真实渲染覆盖生图工作台与 Benchmark 的 `1440 × 900`、`390 × 844` 四个页面状态；本机可用 `Avenir Next Condensed` 700。
+
+## Findings
+
+- 两页顶栏品牌区只保留 `Canvas Lab`，不再渲染图标或 `IMAGE COMMAND CENTER`；共享样式中的旧图标与副标题规则同步删除。
+- 标题使用 `Avenir Next Condensed` 700、18px 和轻微负字距，窄屏收敛为 16px；Avenir Next、Inter 与系统无衬线只承担缺字或跨平台回退。
+- 桌面与 390px 窄屏的品牌、产品切换和可见状态保持同一水平中线；中央切换器中心偏差均为 `0px`，两页均无横向溢出。
+
+## Verification
+
+- 四个浏览器状态均有真实内容、无错误覆盖层、无 console error/warning，品牌图标计数和副标题计数均为 `0`；窄屏双向跨页点击后 `aria-current` 与 URL 一致。
+- Impeccable 字体扫描以降级正则模式完成一次检查；唯一警告是业务正文沿用现有 Inter，品牌标题本轮已使用更有辨识度的 Avenir Next Condensed。
+- 自动化测试 `283 / 283` 通过。
+
+## Final Result
+
+final result: passed; the shared header now uses a text-only Canvas Lab wordmark without losing centered navigation
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Embedded Raycast Inter v40 Design QA
+
+## Evidence
+
+- Raycast 官方站当前正文计算样式为 `Inter, "Inter Fallback", sans-serif`，全局启用 `calt`、`kern`、`liga`、`ss03`；首页主标题使用 Inter 600。
+- 项目固定安装 OFL-1.1 的 `@fontsource-variable/inter@5.3.0`，只向浏览器暴露 47KB 拉丁可变字重正常体；中文继续使用原有系统回退，不重复装载无效字形。
+
+## Findings
+
+- `Canvas Lab` 从依赖 macOS 的 Avenir Next Condensed 改为项目内 `Inter Raycast` 600，启用与 Raycast 相同的四项 OpenType 特性，Windows 与 macOS 不再因系统字体库存不同而改变标题字形。
+- 两页在首屏预加载 `/vendor/inter-variable-latin.woff2`；服务端仅把固定 npm 依赖中的单一字体文件映射到该同源地址，CSP 无需放行外部字体域名。
+- 390px 首轮中 Benchmark 品牌与切换器只有 1px 空隙；最终将移动端标题收为 15px、切换器横向内距收为 7px，最小间距恢复为 8.6px，中央导航偏差保持 `0px`。
+
+## Verification
+
+- Chromium 四状态检查覆盖两页 `1440 × 900` 与 `390 × 844`：`document.fonts.check` 为 true，实际请求仅命中 `http://127.0.0.1:4173/vendor/inter-variable-latin.woff2`，传输 48,556 字节，无外部字体请求。
+- 四状态均无错误覆盖层、console error/warning 或横向溢出；品牌、切换器与可见状态保持同排，图标和副标题继续为零。
+- 新增字体合同测试后，自动化测试 `284 / 284` 通过。Impeccable 字体扫描只报告用户明确指定的 Inter 与既有正文 Inter，属于本轮有证据的 Raycast 字体选择。
+
+## Final Result
+
+final result: passed; Raycast Inter is self-hosted from the pinned project dependency and stable across desktop and mobile
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Brand Optical Midline v41 Design QA
+
+## Evidence
+
+- 用户提供的顶栏截图对应约 `862px` CSS 宽度与 `2x` 像素密度，并指出三段内容虽然接近居中但视觉中线不一致。
+- 修改前实时 Range 数据显示顶栏、品牌容器、产品切换器和连接状态盒模型中心均为 `Y = 40px`，但 `Canvas Lab` 字面中心为 `39.5px`，比两组控件文字高 `0.5px`。
+
+## Findings
+
+- 问题不是三栏 Grid 或中央导航偏移，而是 18px Inter Variable 的字面度量；`Canvas Lab` 没有下行字母，视觉重心相对 28px 行盒上浮。
+- 桌面与中宽屏只对品牌字面应用 `translateY(0.5px)`，不移动品牌容器、不改变顶栏轨道和导航坐标；390px 下 15px 字号本身已经对齐，因此窄屏明确取消该补偿。
+
+## Verification
+
+- 在用户截图同构的 `862px @2x` 生图页中，顶栏、品牌盒、产品切换器、状态盒及三组文字中心最终均为 `Y = 40px`，中央导航相对顶栏中心偏差为 `0px`。
+- 浏览器复核覆盖两页 `862px @2x`、`1440px` 与 `390px` 六个状态：所有容器中心偏差为 `0px`，无横向溢出或 console error/warning；生图页桌面与窄屏字面中心偏差均为 `0px`。
+- Impeccable layout 扫描未发现规则问题；自动化测试 `284 / 284` 通过。
+
+## Final Result
+
+final result: passed; the requested header now has both geometric centering and responsive optical compensation
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Unified Choice Controls v42 Design QA
+
+## Evidence
+
+- User source: `/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/codex-clipboard-99b71bfc-b09e-4a6a-8f02-bf0140f4c350.png`，指出功能、风格选择与出图模型三组按钮的表面语言不统一。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/choice-controls-desktop.png` 与 `choice-controls-mobile-viewport.png`。
+- State: 本机 `4173` 真实工作台；只切换本地选择状态，未上传图片、未触发 Prompt Agent、出图或 Base 写入。
+
+## Findings
+
+- 根因是三组控件分别维护尺寸和状态：模型按钮为 36px，风格按钮为 7px 圆角/10px 内距，功能按钮居中且模型缺少完整焦点与 hover 反馈。
+- 最终三组复用同一组选择控件令牌：两列 8px 间距、38px 高度、6px 圆角、12px 横向内距、11px/500 左对齐文本、银灰描边和近距键帽阴影。
+- 选中态统一为近黑、白字、600 字重与同一投影；hover、`scale(0.97)` 按压、2px 键盘焦点和禁用态反馈同构。风格版本徽标与模型加号/勾选保留各自业务语义。
+
+## Verification
+
+- Chromium `1440 × 900` 计算样式读回证明三组默认态与选中态的高度、圆角、内距、字号、字重、背景、边框和阴影逐项一致；真实点击平台风格、增加/取消模型及键盘 Tab 焦点均通过，console error/warning 为 0。
+- `390 × 844` 下三组按钮全部为 `38 × 170px`，页面横向溢出为 0，错误覆盖层为 0；桌面与窄屏截图均显示相同的两列轮廓。
+- Impeccable detector 按要求在最终 UI 上完成一次扫描；唯一告警是既有隐藏飞书授权二维码在授权时动态注入 `src`，与本轮按钮无关。自动化测试 `286 / 286` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; the three workbench choice groups now share one Raycast-style control language without losing their distinct state metadata
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Coral Accent v43 Design QA
+
+## Evidence
+
+- 用户指出当前 Raycast 收敛版本只有黑白灰明度层级，缺少可辨识的重点色，并明确要求补充。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-accent-final.png` 与 `raycast-accent-benchmark.png`。
+- State: 本机 `4173` 真实生图与 Benchmark 页面；只切换本地控件与页面，不上传图片、不触发模型或 Base 写入。
+
+## Findings
+
+- 新增跨工作台最终颜色层 `raycast-accent.css`：主珊瑚红 `#ff6363`、可达性深色 `#c9364d`、选区/焦点外圈浅色 `#ffe9ec`，并由两页在全部组件 CSS 之后加载。
+- 黑色继续承载主按钮和大面积选中面；珊瑚红只进入当前工作台短下划线、功能选中圆点、风格版本徽标、模型勾选圆、主动作图标、Benchmark 当前步骤编号、焦点、拖放和进度。
+- 第一轮真实验收发现既有高优先级焦点规则仍覆盖共享重点色；最终以明确的关键控件焦点选择器修复，避免使用 `!important` 或改动各业务组件。
+
+## Verification
+
+- 生图页 `1440 × 900` 实测当前页、功能、风格、模型和主动作图标均读回 `rgb(255, 99, 99)`；两页最后一张样式表均为 `raycast-accent.css?v=2`。
+- 生图功能按钮与 Benchmark 步骤的真实键盘焦点最终均为 `rgb(201, 54, 77) solid 2px`；深珊瑚对白底对比度 `5.10:1`，深色文字对主珊瑚对比度 `5.58:1`。
+- 两页桌面与 `390 × 844` 均无横向溢出、错误覆盖层或 console error/warning；生图按钮在窄屏继续保持 38px 高。
+- Impeccable detector 按要求对最终两页完成一次扫描；唯一告警仍是授权时动态注入 `src` 的既有隐藏飞书二维码，与本轮颜色层无关。自动化测试 `288 / 288` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; Raycast coral now supplies deliberate emphasis across both workbenches while neutral surfaces and dark primary hierarchy remain intact
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Diffuse Coral v44 Design QA
+
+## Evidence
+
+- 用户明确否决 v43 的红点、红短线和红徽标，认为重点色添加过于刻意、生硬，并要求改为精致的弥散渐变。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-diffuse-desktop.png`、`raycast-diffuse-mobile.png` 与 `raycast-diffuse-benchmark.png`。
+- State: 本机 `4173` 真实生图与 Benchmark 页面；未上传图片、未触发模型、评分或 Base 写入。
+
+## Findings
+
+- 删除当前工作台红短线、功能红点、风格红徽标、模型红勾选圆、主动作红图标和 Benchmark 红色步骤编号；原有文字、勾选、版本徽标与深色选中面继续提供非颜色状态语义。
+- 珊瑚红改为 8%–18% 低浓度弥散层：页面顶部暖雾、顶栏中央柔光、移动分段指示块底部晕染、深色选中控件右上角扩散、主动作右上角扩散和当前步骤底部扩散。
+- 键盘焦点、拖放和原生进度仍使用对比度足够的深珊瑚红；加载扫描线改为 12px 半透明渐变带与 1px 模糊，不再显示硬色线。
+
+## Verification
+
+- 生图页计算样式确认 `body::before`、`topbar::before`、产品切换指示块、功能/风格/模型选中态全部加载径向渐变；旧当前页和功能伪元素的 `content` 均为 `none`，模型与风格徽标恢复半透明白色。
+- Benchmark 当前步骤使用 11% 底部弥散渐变且文字保持近黑；生图真实键盘焦点继续为 `rgb(201, 54, 77) solid 2px`。
+- 生图与 Benchmark 的 `1440 × 900`、`390 × 844` 均无横向溢出、错误覆盖层或 console error/warning；窄屏选择按钮继续保持 38px 高。
+- Impeccable detector 按要求对最终两页完成一次扫描；唯一告警仍是授权时动态注入 `src` 的既有隐藏飞书二维码，与本轮渐变无关。自动化测试 `288 / 288` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; the coral accent now behaves as a restrained ambient field instead of a set of attached red markers
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Focused Diffuse Coral v45 Design QA
+
+## Evidence
+
+- 用户认为 v44 在导航区域的重点色没有必要，同时操作区弥散浓度过低，整体观感不够鲜明。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-focused-diffuse-desktop.png` 与 `raycast-focused-diffuse-benchmark.png`。
+- State: 本机 `4173` 真实生图与 Benchmark 页面；未上传图片、未触发模型、评分或 Base 写入。
+
+## Findings
+
+- 页面环境、顶栏高光和产品切换指示块恢复纯净银灰/白色，导航不再消费品牌重点色。
+- 深色选中控件与主动作改为右上角珊瑚亮雾叠加深珊瑚广域雾的双层光场，最高浓度由 18% 提升到 30%；Benchmark 当前步骤底部弥散由 11% 提升到 18%。
+- 颜色仍被限制在状态与动作内部，不恢复红点、红短线、红徽标或整块红色按钮。
+
+## Verification
+
+- 生图页最后样式表为 `raycast-accent.css?v=4`；页面环境只保留白色线性高光，顶栏伪元素只保留中性白光，产品切换指示块无背景图片，三处导航区域均不再加载品牌色径向渐变。
+- 功能与模型选中项读回 30% 亮珊瑚 + 18% 深珊瑚双层径向渐变，主动作读回 26% + 14% 双层渐变；Benchmark 当前步骤读回 18% 底部弥散且文字保持 `rgb(32, 32, 36)`。
+- 两页均无横向溢出或 console warning/error；专项重点色测试 `2 / 2`、最终全量测试 `288 / 288` 通过，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; navigation is neutral again while the operational states carry a stronger, layered Raycast coral field
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Deep Berry Surface v46 Design QA
+
+## Evidence
+
+- 用户确认不再使用无色相的死黑按钮，并选择推荐的深莓石墨方案。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-deep-berry-desktop.png`。
+- State: 本机 `4173` 真实生图与 Benchmark 页面；未上传图片、未触发模型、评分或 Base 写入。
+
+## Findings
+
+- 功能、风格、模型选中态与两页主动作共享 `#30272d` 深莓石墨底色、`#503a45` 同色系边界和 `#fff7f8` 暖白文字，移除近黑底色对珊瑚弥散层的吞噬。
+- 默认态保留 30%/18% 或 26%/14% 双层珊瑚光场；细指针悬停切换到 `#3b2d35` 并增强顶部光场，不再回退到既有 `#2b2c2f` 死黑 hover。
+- 导航、页面环境和 Benchmark 当前步骤保持 v45 的中性/浅色关系，品牌色仍集中于操作状态。
+
+## Verification
+
+- 生图与 Benchmark 最终样式表均为 `raycast-accent.css?v=5`；两页主动作计算底色均为 `rgb(48, 39, 45)`、边界 `rgb(80, 58, 69)`、文字 `rgb(255, 247, 248)`，功能与模型选中态相同。
+- 暖白文字对默认深莓石墨的对比度为 `13.70:1`，对悬停底色为 `12.35:1`；两页均无横向溢出或 console warning/error。
+- 专项重点色测试 `2 / 2`、最终全量测试 `288 / 288` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; selected controls and primary actions now use a chromatic deep-berry surface instead of dead black, with contrast and interaction states preserved
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Typographic Generate Action v47 Design QA
+
+## Evidence
+
+- 用户指出生图主动作 hover 会退回中性灰，并要求重新设计按钮：删除装饰图标，只保留有识别度的帅气字体。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-action-button-hover.png`。
+- Font source: Smiley Sans v2.0.1 官方未修改 WOFF2，随项目保留 SIL Open Font License 1.1；只用于生图主动作，不改变正文和其他控件。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 从 `#generateButton` 删除星形 SVG，动态文案节点保持不变，既有“开始生成 / 开始渲染 / 再次渲染 / 生成中”状态机无需改写。
+- 主动作使用内嵌 Smiley Sans 的窄斜展示字形：默认 20px/400/`0.08em`，提示词复用后的窄列为 18px/`0.06em`；按钮高度从 48px 提升为 54px，让字形成为唯一视觉主体。
+- 新增 `.generation-actions .generate-button:hover:not(:disabled)` 高优先级规则，hover 使用 `#3b2d35` 深莓底、40%/24% 双层珊瑚弥散、同色系边界和有偏移柔和阴影，不再被旧中性灰规则覆盖。
+
+## Verification
+
+- 真实页面计算样式确认 `Canvas Action Display` 已加载，主动作字体 20px/400、字距 1.6px，SVG 数量为 0；默认态底色 `rgb(48, 39, 45)`。
+- 真实指针 hover 命中 `:hover`，底色读回 `rgb(59, 45, 53)`，径向渐变为 40%/24%，边界 `rgb(108, 70, 85)`，文字继续为暖白；页面无横向溢出或 console warning/error。
+- 主动作与重点色专项测试 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过；Impeccable 字体扫描在 HTML parser 依赖缺失时降级为正则检查，目标文件无告警，真实计算字体/hover/溢出另由浏览器验收覆盖。
+
+## Final Result
+
+final result: passed; the generate action is now an icon-free typographic signature with a stable chromatic hover instead of a gray fallback
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast START Generate Action v48 Design QA
+
+## Evidence
+
+- 用户确认 hover 不应变灰，并进一步要求主动作移除图标、重新设计且按钮名称固定为 `START`。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-start-button-hover.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 空闲态视觉文案统一为 `START`，运行态显示 `RUNNING…`；白模首次、提示词复用、空房和自由生图的真实中文动作语义继续通过动态 `aria-label` 区分。
+- 主动作继续保持无 SVG 图标结构，并针对拉丁大写将 Smiley Sans 调整为全宽态 21px/`0.18em`、复用窄列 19px/`0.14em`，用等值 `text-indent` 消除尾字距造成的光学偏左。
+- 高优先级 hover 继续锁定深莓珊瑚体系，不允许旧通用按钮规则回退到 `#2b2c2f` 中性灰。
+
+## Verification
+
+- 真实页面默认态读回 `START`、中文 `aria-label="开始渲染"`、SVG 数量 0、21px 字号、3.78px 字距与同值缩进，按钮为 `318 × 54px` 且页面无横向溢出。
+- 真实指针 hover 命中 `:hover`；底色 `rgb(59, 45, 53)`、双层弥散 40%/24%、边界 `rgb(108, 70, 85)`、暖白文字与偏移柔和阴影均生效，console warning/error 为 0。
+- 主动作与重点色专项测试 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; the generate action now presents a stable icon-free START signature while preserving semantic Chinese state labels and chromatic hover behavior
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Raycast Light Rose START Action v49 Design QA
+
+## Evidence
+
+- 用户希望查看与整体浅色页面更一致的 START 主动作方案，并明确以当前按钮为范围。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-start-button-light-hover.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 只将生图 START 主动作从深莓暗面改为暖白玫瑰键帽；功能/风格/模型选中态和 Benchmark 主动作继续保留既有深莓层级，避免把整套操作层级同时翻转。
+- 默认态使用暖白至淡玫瑰线性表面、22% 右上珊瑚弥散、深莓文字和有偏移柔影；hover 将弥散提升到 30% 并加深玫瑰边界，仍保持浅色。
+- active 使用更近距内压阴影；RUNNING/disabled 使用淡灰玫瑰表面、深色文字和 `opacity: 1`，四态均不回退为灰黑按钮。
+
+## Verification
+
+- 真实页面最终样式表为 `raycast-accent.css?v=7`；默认 START 读回暖白/淡玫瑰渐变、`rgb(113, 53, 68)` 文字、`rgb(230, 203, 210)` 边界与偏移柔影，SVG 数量为 0，页面无横向溢出或 console warning/error。
+- 真实指针 hover 命中 `:hover`，读回 30% 珊瑚弥散、暖白至 `rgb(243, 216, 223)` 表面、`rgb(101, 44, 59)` 文字、玫瑰边界和 9px 偏移阴影。
+- 默认、hover、RUNNING 最暗背景处的文字对比度分别为 `7.42:1`、`7.94:1`、`5.38:1`；专项测试 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; START now uses a light rose keycap surface that belongs to the pale workbench while preserving hierarchy, contrast and all interaction states
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Responsive START Action Dock v50 Design QA
+
+## Evidence
+
+- 用户指出单列窄屏中的 START 按钮仍然过长并浪费空间，同时要求重新审视宽屏空间分配。
+- Browser-rendered wide implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-responsive-wide.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 单按钮从全宽收为默认 200px，`≤560px` 进一步收为 184px 并右对齐；提示词可复用、需要承载两个动作时才扩到 300px，避免单一五字母动作占满整行。
+- 桌面配置栏从固定最高 360px 改为随视口在 360–420px 间增长，结果区继续使用剩余空间；1280px 下实际轨道为 384px / 848px。
+- `>900px` 的动作区成为配置栏底部 82px 高粘性动作坞，参数滚动时主动作保持可达；单列布局恢复普通文档流，`≤560px` 的动作区压缩到 74px。
+- 第一轮验收发现 `.generation-control` 同时标记多个业务区块；最终将所有布局规则收窄到 `.action-section.generation-control` 并增加否定回归，避免误伤参数、模型和参考图区域。
+
+## Verification
+
+- 1280 × 720 真实页面读回配置栏 384px、结果区 848px、动作坞 `sticky` / 82px / `14px 20px`，START 为 `200 × 54px` 且右对齐；五个可见业务区块仍为 382px 宽的 `display: block`。
+- 宽屏页面无横向溢出或 console warning/error；窄屏 184px、74px、文档流与单列合同由静态回归测试覆盖，未把不可用的浏览器视口改写冒充为手机实测。
+- 专项回归 `11 / 11`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; compact START widths and a responsive desktop action dock reduce dead space without disturbing shared business sections or the narrow single-column flow
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Raycast Deep Berry START Action v51 Design QA
+
+## Evidence
+
+- 用户明确撤回浅色 START 方案，要求主动作恢复深色，同时保留上一轮紧凑宽度和响应式布局。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-start-button-dark.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- START 恢复为深莓石墨暗面而非无色死黑：默认使用 `#30272d`、双层珊瑚弥散、暖白文字与有偏移柔影，继续保留 Raycast 重点色。
+- hover 提升到 `#3b2d35` 并增强珊瑚弥散，不再变灰；active 使用 `#281f25` 近距内压，RUNNING/disabled 使用 `#352b31`、降低弥散且保持 `opacity: 1`。
+- 只改颜色状态层；200px 默认、184px 窄屏、300px 双动作、宽屏右对齐粘性动作坞与无图标 Smiley Sans 字形全部保持不变。
+
+## Verification
+
+- 1280 × 720 真实页面读回 START `200 × 54px`、`rgb(48, 39, 45)` 深莓底、`rgb(255, 247, 248)` 文字、`rgb(80, 58, 69)` 边界、30%/16% 双层珊瑚弥散和有偏移柔影。
+- hover、active、RUNNING/disabled 的深色合同由专项测试锁定；专项回归 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+- Impeccable 机械检查只报告既有飞书二维码运行时空 `src`；该节点由授权流程动态注入，与本次 START 调整无关。
+
+## Final Result
+
+final result: passed; START is dark again with a chromatic berry surface and coral diffusion, while the compact responsive layout remains unchanged
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Raycast Floating Glass START Bar v52 Design QA
+
+## Evidence
+
+- 用户否定右侧紧凑键帽，要求 START 恢复为横向长 Bar，并让底部操作区像顶栏一样呈现半透明磨砂悬浮感。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-floating-glass-start-bar.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 单按钮和 65/35 双按钮组均横向铺满同一动作 Bar，深莓 START 继续承担主操作，不把磨砂表面误作弱化的浅色主按钮。
+- 动作 Bar 与配置栏左右、底部各留 12px，复用顶栏的半透明银灰双层渐变、`blur(30px) saturate(150%)`、12px 圆角、顶部内高光和有偏移环境阴影。
+- 桌面端以 `bottom: 12px` 粘在滚动栏底部；单列布局恢复文档流，`≤560px` 边距收为 10px、内距收为 8px，不遮挡内容。
+
+## Verification
+
+- 1280 × 720 真实页面读回动作 Bar `358 × 76px`、左右 12px 边距、10px 内距、30px 模糊、150% 饱和、12px 圆角和四层深度阴影；内部 START 为 `336 × 54px`。
+- 页面 `scrollWidth = clientWidth = 1280`，无横向溢出；窄屏流式合同和双动作满宽合同由专项测试覆盖。
+- Impeccable 布局机械检查无新增发现；专项回归 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; the full-width deep START now sits inside a floating glass action bar that echoes the navigation without flattening primary-action hierarchy
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Single-Surface Floating START Bar v53 Design QA
+
+## Evidence
+
+- 用户指出上一版形成“配置面板 → 磨砂动作框 → 深色按钮”的三层套框，要求删除无意义容器层。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-single-surface-start-bar.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 外层 `.action-section.generation-control` 退回纯布局容器：透明背景、零边框、零圆角、零阴影、零模糊、零内距，仅保留 sticky、宽度和 12px 外部留白。
+- START 成为唯一视觉表面：半透明深莓渐变、`blur(22px) saturate(150%)`、顶部内高光和有偏移阴影直接作用于按钮，不再额外包裹玻璃卡。
+- 按钮边界改为透明，避免在深色表面之外再出现一圈描边；hover、active 和 RUNNING 继续保持同一单层表面语法。
+
+## Verification
+
+- 1280 × 720 真实页面读回外层容器 `358 × 54px`、`background: none`、`border: 0`、`box-shadow: none`、`backdrop-filter: none`、`padding: 0`；内部 START 同为 `358 × 54px`。
+- START 读回 22px 模糊、150% 饱和、半透明深莓双层渐变、透明边界与单组悬浮阴影；页面无横向溢出。
+- Impeccable 机械检查只报告既有飞书二维码运行时空 `src`；专项回归 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; the redundant glass wrapper is removed and START itself is now the only floating visual surface
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# START Divider and Scroll Boundary v54 Design QA
+
+## Evidence
+
+- 用户指出 START 上方仍残留细分割线，并要求配置面板到顶/到底后不能继续拉出多余空白。
+- Browser-rendered bottom boundary: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-scroll-clamped-start-bar.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 分割线来自 START 前一个参数 `.panel-section` 的通用 `border-bottom`，不是按钮或动作容器；按 `aria-labelledby="parameterTitle"` 精确归零，不影响其他业务分区。
+- 桌面 `.control-panel` 从 `overscroll-behavior: contain` 改为横纵轴 `none`，阻止滚动链与顶部/底部橡皮筋空白。
+- sticky 动作容器从 `margin: 0 12px 12px` 收为 `margin: 0 12px`，悬浮距离只由 `bottom: 12px` 提供，删除重复尾部空间；窄屏正常文档流仍保留 10px 底距。
+
+## Verification
+
+- 1280 × 720 真实页面读回参数区 `border-bottom-width: 0px`；动作容器 `margin: 0 12px`、`bottom: 12px`，START 与面板底部实际间隔 13px（含外层 1px 边界）。
+- 配置栏读回 `overflow-y: auto`、`overscroll-behavior-x/y: none`；程序化越界滚动在顶部钳制为 `0`，底部钳制为真实 `maxScrollTop`，没有横向溢出。
+- Impeccable 机械检查只报告既有飞书二维码运行时空 `src`；专项回归 `11 / 11`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; the inherited divider is removed and the control panel now clamps cleanly at both scroll boundaries without duplicate bottom space
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# START Optical Bottom Gap v55 Design QA
+
+## Evidence
+
+- 用户确认滚动尾部不应产生多余空间，但指出 12px 几何底距被按钮下投影吃掉，视觉上仍然贴底。
+- Browser-rendered implementation: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-start-optical-bottom-gap.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- 不恢复底部 margin、不增加滚动内容高度，只把桌面 sticky 光学底距从 12px 提高到 20px，为 8px 下投影留出可见呼吸区。
+- 横向 12px 边距、单层磨砂表面、零分割线和 `overscroll-behavior: none` 全部保持不变。
+
+## Verification
+
+- 1280 × 720 真实页面读回 `bottom: 20px`、`margin: 0 12px`；START 几何下缘与配置面板下缘相距 21px（含外层 1px 边界），按钮仍为 `358 × 54px`。
+- 配置栏继续读回 `overscroll-behavior-y: none`，没有用滚动空白换取视觉间距。
+- Impeccable 机械检查只报告既有飞书二维码运行时空 `src`；专项回归 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; the floating START now has a deliberate optical bottom gap without reintroducing scroll slack or wrapper chrome
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# Restarted START Shadow Mask v56 Design QA
+
+## Evidence
+
+- 用户要求重启工作台，并指出 START 下方需要更重的阴影遮住滚动到悬浮按钮下方的面板内容。
+- Browser-rendered implementation after restart: `/Users/dai/.codex/visualizations/2026/08/21/01a02210-fe74-7880-8cfa-ce201ae373b3/raycast-start-bottom-shadow-mask.png`。
+- State: 本机 `4173` 真实生图页；未上传图片、未触发模型或 Base 写入。
+
+## Findings
+
+- START 深莓表面从 90%–94% 提高到 97%–99% 不透明，保留 22px 磨砂但不再让下层文本穿过按钮主体。
+- 默认态底部使用 `0 12px 24px / 32%` 与 `0 22px 32px / 34%` 两层向下深影；hover、active 和 RUNNING/disabled 各自保留对应遮罩阴影，避免状态切换后重新露底。
+- 不增加外层遮罩卡、不改变 20px 光学底距，也不恢复任何滚动尾部空间。
+
+## Verification
+
+- `launchctl kickstart -k gui/501/com.canvas-lab.workspace` 已原位重启当前项目；Node PID 从 `66104` 更新为 `51562`，cwd 仍为 `/Users/dai/Work_qunhe/Interior Design`。
+- 重启后首页与 `/api/styles` 均返回 HTTP 200，页面加载 `generation-actions.css?v=10` 与 `raycast-accent.css?v=10`。
+- 真实页面在配置栏滚动到底后读回 99%/97% 深莓渐变、两层向下遮罩阴影、20px sticky 底距、`overscroll-behavior-y: none`；专项回归 `9 / 9`、全量自动化测试 `289 / 289` 与 `git diff --check` 均通过。
+
+## Final Result
+
+final result: passed; the workbench is restarted on the current checkout and the START bar now masks underlying scrolled content with a denser surface and heavier downward shadow
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
 
@@ -1874,5 +2594,59 @@ final result: passed at configuration level; fast now isolates original-model 4 
 ## Final Result
 
 final result: passed at configuration level; the seven-step checkpoint comparison is live and awaits the user's warm/cold visual test
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Cross-workbench Static Surface Navigation Design QA
+
+## Evidence
+
+- 用户在生图工作台与模型评测跨页切换时观察到微弱面板缩放与视觉闪烁。
+- 源码审查确认共享导航曾对整块内容面板执行 `0.94 → 1` 淡入，Benchmark 活动面板同时叠加 `opacity: 0.45` 与 `translateY(2px)` 的 160ms 入场。
+
+## Findings
+
+- 面板没有真实尺寸缩放，但双层透明度与位移动画会改变大面积边缘和阴影对比，形成微缩放错觉。
+- 产品文字键的 `scale(0.97)` 按压反馈进一步放大了切换瞬间的脉冲感。
+- 跨页导航现在只保留白色指示块的 160ms transform 位移；工作区、流程条和活动面板静态呈现。
+
+## Verification
+
+- 顶栏动效、重点色和选择控件静态护栏通过 `7 / 7`，`git diff --check` 通过。
+- 真实浏览器在 1280×720 下双向切换完成：两页顶栏均为 `1248×56 @ (16,16)`，主容器均为 `1248×600 @ (16,88)`。
+- 生图页配置/结果面板与 Benchmark 流程条/活动面板的计算样式均为 `animation-name: none`、`transform: none`、`opacity: 1`。
+
+## Final Result
+
+final result: passed; cross-workbench navigation keeps only the product indicator motion and no longer animates large content surfaces
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Generation Count Direct Keys Design QA
+
+## Evidence
+
+- 原生成张数下拉位于参数区底部，展开列表会与 sticky START 动作区争夺可视空间，出现遮挡和截断。
+- 该字段只有 `1–4` 四个离散值，不需要搜索、长列表或复杂菜单能力。
+
+## Findings
+
+- 单模型数量改为四个等宽直接选择键；选中态复用黑莓石墨品牌键帽，未选态保持近纸面白色。
+- 控件不再创建浮层，因此不会越过参数区边界，也不会被 START 动作区遮挡。
+- 多模型选择时数量键隐藏并恢复为一张；回到单模型后默认显示 `1 张`。
+
+## Verification
+
+- 完整自动化测试通过 `296 / 296`，`git diff --check` 通过。
+- 真实浏览器在 `1280×720` 下显示四个同排数量键；直接选择 `4 张` 后当前态正确切换。
+- 增选第二个模型后数量控件隐藏；恢复单模型后 `1 张` 自动选中；页面控制台无错误。
+
+## Final Result
+
+final result: passed; generation count is now a direct four-key choice with no dropdown overlay conflict
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md

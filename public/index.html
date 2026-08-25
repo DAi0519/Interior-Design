@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、精模自定义要求、空房必填房间类型、白模/空房设计方式、支持单图原位替换的双参考图上传、Style DNA 对话、product-navigation.css/js 共享顶栏与固定版本 GSAP、偏白画布/奶油灰面板 Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供精模预设 Prompt 版本与自定义要求、白模/空房设计/自由生图/风格反推入口、按功能保留的生成中/结果区、空房房间类型必填、提示词前置的主图与可选风格参考双上传、智能默认/平台风格选择、按功能切换的独立 Agent 配置、Flux 双档位、最多四个出图模型选择与多结果画廊
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、精模自定义要求、空房必填房间类型、白模/空房设计方式、支持单图原位替换的双参考图上传、Style DNA 对话、product-navigation.css/js 共享纯文字品牌顶栏、raycast-accent.css 共享重点色、内嵌 Smiley Sans 主动作字体与固定版本 GSAP、Raycast 向近白银灰 Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、珊瑚红当前态与焦点反馈、无图标 START 展示字体主动作、精模预设 Prompt 版本与自定义要求、白模/空房设计/自由生图/风格反推入口、按功能保留的生成中/结果区、空房房间类型必填、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、替代格式下拉的单模型 1–4 张直接选择键、固定 PNG 输出、按功能切换的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -13,33 +13,27 @@
       name="description"
       content="五个公司图像模型与 Flux2 Klein ComfyUI 工作流的本地测试工作台"
     />
+    <link rel="icon" href="data:," />
+    <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/smiley-sans-v2.0.1.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · 图像模型工作台</title>
-    <link rel="stylesheet" href="/styles.css?v=9" />
+    <link rel="stylesheet" href="/styles.css?v=12" />
     <link rel="stylesheet" href="/result.css?v=10" />
-    <link rel="stylesheet" href="/theme.css?v=19" />
-    <link rel="stylesheet" href="/generation-actions.css?v=3" />
-    <link rel="stylesheet" href="/custom-select.css?v=5" />
+    <link rel="stylesheet" href="/theme.css?v=25" />
+    <link rel="stylesheet" href="/generation-actions.css?v=12" />
+    <link rel="stylesheet" href="/custom-select.css?v=6" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=9" />
-    <link rel="stylesheet" href="/connection-center.css?v=4" />
-    <link rel="stylesheet" href="/product-navigation.css?v=2" />
-    <link rel="stylesheet" href="/white-model-render-mode.css?v=3" />
+    <link rel="stylesheet" href="/connection-center.css?v=5" />
+    <link rel="stylesheet" href="/product-navigation.css?v=8" />
+    <link rel="stylesheet" href="/white-model-render-mode.css?v=4" />
     <link rel="stylesheet" href="/empty-room-type.css?v=1" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=26" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="/" aria-label="Canvas Lab 首页">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="img">
-              <path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" />
-              <path d="m6.5 16 3.8-4 2.7 2.6 2.3-2.1 2.2 3.5" />
-              <circle cx="15.8" cy="8.8" r="1.2" />
-            </svg>
-          </span>
-          <span class="brand-copy">
-            <strong>Canvas Lab</strong>
-            <small>IMAGE COMMAND CENTER</small>
-          </span>
+          <span class="brand-title">Canvas Lab</span>
         </a>
 
         <nav class="product-switcher" aria-label="工作台切换">
@@ -335,10 +329,15 @@
                 <span>分辨率</span>
                 <select id="resolutionSelect"></select>
               </label>
-              <label class="field">
-                <span>输出格式</span>
-                <select id="formatSelect"></select>
-              </label>
+              <div id="generationCountField" class="field">
+                <span id="generationCountLabel">生成张数</span>
+                <div class="generation-count-list" role="radiogroup" aria-labelledby="generationCountLabel">
+                  <button class="generation-count-option selected" data-generation-count="1" type="button" role="radio" aria-checked="true">1 张</button>
+                  <button class="generation-count-option" data-generation-count="2" type="button" role="radio" aria-checked="false">2 张</button>
+                  <button class="generation-count-option" data-generation-count="3" type="button" role="radio" aria-checked="false">3 张</button>
+                  <button class="generation-count-option" data-generation-count="4" type="button" role="radio" aria-checked="false">4 张</button>
+                </div>
+              </div>
               <label id="qualityField" class="field">
                 <span id="qualityLabel">生成质量</span>
                 <select id="qualitySelect"></select>
@@ -348,12 +347,9 @@
 
           <section class="action-section generation-control">
             <div id="generationActions" class="generation-actions">
-              <button id="generateButton" class="generate-button" type="button">
+              <button id="generateButton" class="generate-button" type="button" aria-label="开始生成">
                 <span class="button-label">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m12 3-1.1 4.1A5.2 5.2 0 0 1 7.1 11L3 12l4.1 1.1a5.2 5.2 0 0 1 3.8 3.8L12 21l1.1-4.1a5.2 5.2 0 0 1 3.8-3.8L21 12l-4.1-1.1a5.2 5.2 0 0 1-3.8-3.8L12 3Z" />
-                  </svg>
-                  <span>开始生成</span>
+                  <span>START</span>
                 </span>
               </button>
               <button
@@ -646,6 +642,6 @@
 
     <script src="/vendor/gsap.min.js"></script>
     <script type="module" src="/product-navigation.js?v=2"></script>
-    <script type="module" src="/app.js?v=38"></script>
+    <script type="module" src="/app.js?v=41"></script>
   </body>
 </html>

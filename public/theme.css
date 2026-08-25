@@ -1,30 +1,46 @@
 /**
- * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的精模自定义要求及其他语义类名与用户确认的偏白画布/奶油灰面板 Light Command Center 规则
- * [OUTPUT]: 对外提供 Canvas Lab 近白画布与暖灰面板令牌、桌面等高双栏、精模自定义要求、紧凑配置、单图替换反馈、独立卡片式功能入口与最多四项出图模型按钮组视觉
+ * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的精模自定义要求及其他语义类名与用户确认的 Raycast 向 Light Command Center 规则
+ * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、360–420px 自适应配置栏与结果区桌面双栏、无边界回弹的配置栏滚动、精模自定义要求、紧凑配置、单图替换反馈，以及功能/风格/出图模型/生成张数共享的紧凑选择按钮视觉令牌
  * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 :root {
   color-scheme: light;
-  --bg: #fdfdfc;
-  --panel: #fbfbf9;
-  --panel-soft: #f0efec;
-  --line: #e3e1dc;
-  --line-strong: #cfccc5;
-  --text: #191a1c;
-  --muted: #68696b;
-  --quiet: #96928a;
-  --accent: #17181a;
+  --bg: #f5f5f6;
+  --panel: #fcfcfd;
+  --panel-soft: #f0f0f2;
+  --line: #e2e2e5;
+  --line-strong: #d1d1d5;
+  --text: #202024;
+  --muted: #67676d;
+  --quiet: #929299;
+  --accent: #202024;
   --accent-ink: #fff;
   --danger: #b42318;
-  --mist: #17181a;
+  --mist: #202024;
   --iron: #fff;
-  --graphite: #e9e7e2;
+  --graphite: #e9e9ec;
   --key-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 80%),
-    inset 0 -1px 0 rgb(25 26 28 / 5%),
-    0 10px 28px rgb(25 26 28 / 5%);
+    inset 0 1px 0 rgb(255 255 255 / 92%),
+    inset 0 -1px 0 rgb(20 20 24 / 5%),
+    0 1px 2px rgb(20 20 24 / 4%),
+    0 14px 34px rgb(20 20 24 / 6%);
+  --control-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 92%),
+    0 1px 2px rgb(20 20 24 / 5%);
+  --choice-control-bg: rgb(240 240 242 / 88%);
+  --choice-control-border: rgb(226 226 229 / 92%);
+  --choice-control-radius: 6px;
+  --choice-control-height: 38px;
+  --choice-control-padding: 12px;
+  --choice-control-gap: 8px;
+  --choice-control-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 74%),
+    0 1px 2px rgb(20 20 24 / 4%);
+  --choice-control-selected-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 4px 12px rgb(20 20 24 / 12%);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
@@ -33,17 +49,28 @@
 }
 
 body {
-  background: var(--bg);
+  background: linear-gradient(180deg, #fbfbfc 0, var(--bg) 44%, #f2f2f4 100%);
+  caret-color: var(--accent);
   color: var(--text);
 }
 
 body::before {
-  background: linear-gradient(115deg, transparent 42%, rgb(17 24 39 / 1.2%) 50%, transparent 58%);
+  background: linear-gradient(120deg, transparent 22%, rgb(255 255 255 / 42%) 48%, transparent 74%);
   content: "";
   inset: 0;
   pointer-events: none;
   position: fixed;
   z-index: -1;
+}
+
+::selection {
+  background: #dcdce1;
+  color: var(--text);
+}
+
+* {
+  scrollbar-color: #c8c8ce transparent;
+  scrollbar-width: thin;
 }
 
 .app-shell {
@@ -53,87 +80,13 @@ body::before {
 }
 
 .topbar {
-  -webkit-backdrop-filter: blur(28px) saturate(165%);
-  backdrop-filter: blur(28px) saturate(165%);
-  background: linear-gradient(120deg, rgb(255 255 255 / 78%), rgb(248 248 246 / 52%));
-  border: 1px solid rgb(255 255 255 / 82%);
-  border-radius: 10px;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 96%),
-    inset 0 -1px 0 rgb(25 26 28 / 5%),
-    0 10px 32px rgb(25 26 28 / 8%),
-    0 0 0 1px rgb(25 26 28 / 5%);
-  height: 56px;
-  isolation: isolate;
-  overflow: hidden;
-  padding: 0 16px;
   top: 16px;
 }
 
-.topbar::before {
-  background:
-    radial-gradient(ellipse at 16% -50%, rgb(255 255 255 / 92%), transparent 46%),
-    linear-gradient(105deg, transparent 32%, rgb(255 255 255 / 34%) 50%, transparent 68%);
-  content: "";
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: -1;
-}
-
-.topbar::after {
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 84%), transparent);
-  content: "";
-  height: 1px;
-  left: 8%;
-  pointer-events: none;
-  position: absolute;
-  right: 8%;
-  top: 0;
-}
-
-.brand {
-  gap: 12px;
-}
-
-.brand-mark {
-  background: var(--accent);
-  border-radius: 6px;
-  box-shadow: 0 5px 14px rgb(25 26 28 / 16%);
-  color: #fff;
-  height: 28px;
-  transform: rotate(45deg);
-  width: 28px;
-}
-
-.brand-mark svg {
-  height: 16px;
-  transform: rotate(-45deg);
-  width: 16px;
-}
-
-.brand-copy {
-  display: grid;
-  gap: 2px;
-}
-
-.brand-copy strong {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.brand-copy small {
-  color: var(--quiet);
-  font: 500 8px/1 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  letter-spacing: 0.12em;
-}
-
 .connection-button {
-  background: rgb(255 255 255 / 72%);
+  background: rgb(255 255 255 / 66%);
   border: 1px solid var(--line-strong);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%);
+  box-shadow: var(--control-shadow);
   color: var(--muted);
   min-height: 32px;
   white-space: nowrap;
@@ -167,24 +120,26 @@ a.connection-button {
 
 .workspace {
   gap: 16px;
-  grid-template-columns: minmax(328px, 360px) minmax(0, 1fr);
-  margin-top: 32px;
+  grid-template-columns: minmax(360px, clamp(360px, 30vw, 420px)) minmax(0, 1fr);
+  margin-top: 16px;
   max-width: none;
   min-height: calc(100vh - 120px);
 }
 
 .control-panel,
 .result-panel {
-  background: rgb(251 251 249 / 96%);
-  border: 1px solid var(--line-strong);
+  background: rgb(252 252 253 / 88%);
+  border: 1px solid rgb(209 209 213 / 92%);
   border-radius: 12px;
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+  backdrop-filter: blur(22px) saturate(125%);
   box-shadow: var(--key-shadow);
   overflow: hidden;
 }
 
 .panel-section {
   border-bottom-color: var(--line);
-  padding: 20px;
+  padding: 18px 20px;
 }
 
 .first-section {
@@ -198,8 +153,8 @@ a.connection-button {
 .section-heading h2,
 .result-toolbar h2 {
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.014em;
+  font-weight: 600;
+  letter-spacing: -0.006em;
 }
 
 .optional,
@@ -268,33 +223,49 @@ a.connection-button {
 
 .feature-mode-list {
   display: grid;
-  gap: 8px;
+  gap: var(--choice-control-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.feature-mode-option {
-  background: var(--panel-soft);
-  border: 1px solid transparent;
-  border-radius: 7px;
+.feature-mode-option,
+.model-option-toggle,
+.generation-count-option {
+  align-items: center;
+  background: var(--choice-control-bg);
+  border: 1px solid var(--choice-control-border);
+  border-radius: var(--choice-control-radius);
+  box-shadow: var(--choice-control-shadow);
   color: var(--muted);
+  display: flex;
   font-size: 11px;
-  min-height: 38px;
-  padding: 0 12px;
+  font-weight: 500;
+  gap: 6px;
+  justify-content: space-between;
+  min-height: var(--choice-control-height);
+  min-width: 0;
+  padding: 0 var(--choice-control-padding);
+  text-align: left;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
+    box-shadow 140ms ease,
     color 140ms ease,
     transform 120ms var(--ease-out);
 }
 
-.feature-mode-option.selected {
+.feature-mode-option.selected,
+.model-option-toggle.selected,
+.generation-count-option.selected {
   background: var(--accent);
   border-color: var(--accent);
+  box-shadow: var(--choice-control-selected-shadow);
   color: var(--accent-ink);
   font-weight: 600;
 }
 
-.feature-mode-option:focus-visible {
+.feature-mode-option:focus-visible,
+.model-option-toggle:focus-visible,
+.generation-count-option:focus-visible {
   outline: 2px solid rgb(23 24 26 / 24%);
   outline-offset: 2px;
 }
@@ -310,28 +281,32 @@ a.connection-button {
 
 .model-option-list {
   display: grid;
-  gap: 7px;
+  gap: var(--choice-control-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.model-option-toggle {
-  align-items: center;
-  background: #f3f2ef;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  color: var(--muted);
-  display: flex;
-  font-size: 11px;
+.generation-count-list {
+  display: grid;
   gap: 6px;
-  justify-content: space-between;
-  min-height: 36px;
-  padding: 0 10px;
-  text-align: left;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.generation-count-option {
+  justify-content: center;
+  padding: 0 4px;
+  text-align: center;
+}
+
+.model-option-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-option-toggle i {
   align-items: center;
-  background: #dfddd7;
+  background: #dedee2;
   border-radius: 50%;
   display: flex;
   flex: 0 0 17px;
@@ -341,19 +316,24 @@ a.connection-button {
   justify-content: center;
 }
 
-.model-option-toggle.selected {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
 .model-option-toggle.selected i {
   background: rgb(255 255 255 / 18%);
 }
 
-.model-option-toggle:disabled {
+.model-option-toggle:active,
+.generation-count-option:active {
+  transform: scale(0.97);
+}
+
+.model-option-toggle:disabled,
+.generation-count-option:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.46;
+}
+
+.model-option-toggle:disabled:active,
+.generation-count-option:disabled:active {
+  transform: none;
 }
 
 .compact-config-field {
@@ -403,7 +383,7 @@ a.connection-button {
 textarea,
 input,
 select {
-  background: var(--panel-soft);
+  background: rgb(244 244 246 / 94%);
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--text);
@@ -419,8 +399,8 @@ textarea:focus,
 input:focus,
 select:focus {
   background: #fff;
-  border-color: #626366;
-  box-shadow: 0 0 0 3px rgb(25 26 28 / 6%);
+  border-color: #77777e;
+  box-shadow: 0 0 0 3px rgb(32 32 36 / 7%), var(--control-shadow);
 }
 
 textarea {
@@ -440,7 +420,7 @@ select {
 
 .size-badge {
   background: var(--graphite);
-  border: 1px solid #d8d5cf;
+  border: 1px solid #d7d7db;
   color: var(--muted);
 }
 
@@ -475,7 +455,7 @@ select {
 
 .reference-drop-zone {
   background: var(--panel-soft);
-  border-color: #c8c5be;
+  border-color: #c9c9ce;
   border-radius: 6px;
   color: var(--muted);
 }
@@ -499,7 +479,7 @@ select {
 }
 
 .action-section {
-  background: linear-gradient(180deg, rgb(25 26 28 / 1.5%), transparent);
+  background: linear-gradient(180deg, rgb(20 20 24 / 2%), transparent);
   padding: 20px;
 }
 
@@ -508,16 +488,12 @@ select {
   background: var(--mist);
   border: 1px solid var(--mist);
   border-radius: 6px;
-  box-shadow: 0 5px 12px rgb(25 26 28 / 14%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 6px 16px rgb(20 20 24 / 16%);
   color: var(--iron);
 }
 
 .generate-button {
   min-height: 48px;
-}
-
-.button-label svg {
-  stroke: #fff;
 }
 
 .generate-button:disabled,
@@ -544,10 +520,10 @@ select {
 
 .ghost-button,
 .icon-button {
-  background: rgb(255 255 255 / 72%);
+  background: rgb(255 255 255 / 76%);
   border: 1px solid var(--line-strong);
   border-radius: 6px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%);
+  box-shadow: var(--control-shadow);
   color: var(--muted);
 }
 
@@ -560,9 +536,9 @@ select {
 
 .empty-icon {
   background: #fff;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: var(--key-shadow);
+  box-shadow: var(--control-shadow);
 }
 
 .empty-icon svg {
@@ -572,9 +548,9 @@ select {
 .empty-state h3,
 .loading-state h3,
 .error-state h3 {
-  font-size: 18px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
 }
 
 .empty-state > p,
@@ -585,7 +561,7 @@ select {
 
 .empty-specs {
   background: var(--graphite);
-  border-color: #d8d5cf;
+  border-color: #d7d7db;
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
@@ -701,7 +677,9 @@ select {
     color: var(--text);
   }
 
-  .feature-mode-option:hover:not(.selected) {
+  .feature-mode-option:hover:not(.selected):not(:disabled),
+  .model-option-toggle:hover:not(.selected):not(:disabled),
+  .generation-count-option:hover:not(.selected):not(:disabled) {
     background: #fff;
     border-color: var(--line-strong);
     color: var(--text);
@@ -738,7 +716,8 @@ select {
   .control-panel {
     overflow-x: hidden;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
     position: relative;
     scrollbar-gutter: stable;
   }
@@ -773,10 +752,6 @@ select {
     border-radius: 0;
     border-right: 0;
     top: 0;
-  }
-
-  .brand-copy small {
-    display: none;
   }
 
   .workspace {

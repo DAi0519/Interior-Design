@@ -5,18 +5,22 @@
 
 CLAUDE.md: 本模块地图，维护自动化测试成员清单
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点，并阻止内容宽度百分比导致的无效省略
+choice-controls.test.mjs: 生图页功能、风格、出图模型与生成张数四类选择按钮回归测试，验证共享高度、圆角、内距、字重、阴影与完整交互状态
+generation-count.test.mjs: 单模型生成张数直接选择回归测试，验证 1–4 张归一化、四键静态语义、无下拉菜单及四列紧凑布局
+product-navigation.test.mjs: 共享顶栏字体与动效回归测试，验证两页预加载同源 Inter Variable、服务端精确暴露固定字体资产、Raycast OpenType 特性、依赖版本，以及跨页只移动指示块且内容面板静止
+raycast-accent.test.mjs: 跨工作台重点色回归测试，验证珊瑚红/黑莓石墨令牌、双页最终加载顺序、全部动作按钮的近纸面淡灰粉/低透明暖白细边、黑莓顶栏全状态稳定白色连接键与浅色面板纯白普通键/黑莓选中键、Benchmark 流程导航、结果下载白色次级键、START/连接中心动作的完整交互状态、生成黑白灰扫描线、莓色底部遮罩阴影、功能焦点及硬标记移除
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
 model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模单图、原图比例约 1MP/4MP 的 1K-2K 契约、16 像素对齐、合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
-generation-batch.test.mjs: 服务端批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
+generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、最多两路并发、保序与部分失败测试，不调用真实生图服务
-generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
-generation-task-request.test.mjs: 分功能加载文案、多模型后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
+generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数的生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
+generation-task-request.test.mjs: 日常生图固定 PNG 且无格式 UI、单模型 1–4 张展开、分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
 comfyui-client.test.mjs: 根目录 Flux 开发交付 JSON 同步、ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、固定负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
-generation-actions.test.mjs: 白模/空房首次单按钮、提示词可复用双按钮、Prompt 输入变化失效、自由生图隔离与忙碌文案纯状态测试
+generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、输入变化、自由生图、START/RUNNING… 视觉文案、中文 aria-label、无图标结构、内嵌 Smiley Sans、无视觉套框/底部分割线/边界回弹、全断点 12px 内容安全间距且保留 20px 光学底距的横向悬浮动作与宽屏粘性定位
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
 agent-model-config.test.mjs: 十个 Prompt Agent 候选 ID、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求

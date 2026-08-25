@@ -1,9 +1,17 @@
 /**
- * [INPUT]: 依赖 index.html 的生成动作结构、generation-actions.js 的 has-reusable-prompt/hidden/disabled 状态与全局主题令牌
- * [OUTPUT]: 对外提供首次全宽主按钮、提示词可复用后的同骨架 65/35 深浅双按钮及焦点、悬停和按压反馈
+ * [INPUT]: 依赖 index.html 的无图标 START 生成动作结构、smiley-sans-v2.0.1.woff2 的展示字形、generation-actions.js 的 has-reusable-prompt/hidden/disabled 状态与全局主题令牌
+ * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向磨砂 START 主按钮、提示词可复用后的 65/35 深浅双按钮、无额外视觉套框/底部分割线、全断点内容安全间距并为投影预留光学底距的粘性动作布局，以及焦点、悬停和按压反馈
  * [POS]: public 的生成动作视觉层，与 styles.css/theme.css 的通用主按钮规则分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+@font-face {
+  font-display: swap;
+  font-family: "Canvas Action Display";
+  font-style: normal;
+  font-weight: 400;
+  src: url("/smiley-sans-v2.0.1.woff2") format("woff2");
+}
 
 .generation-actions {
   display: grid;
@@ -14,10 +22,46 @@
 
 .generation-actions.has-reusable-prompt {
   grid-template-columns: minmax(0, 1.8fr) minmax(104px, 1fr);
+  width: 100%;
+}
+
+.panel-section[aria-labelledby="parameterTitle"] {
+  border-bottom: 0;
+}
+
+.action-section.generation-control {
+  align-items: center;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  display: flex;
+  min-height: 54px;
+  margin: 0 12px;
+  overflow: visible;
+  padding: 0;
+  width: calc(100% - 24px);
 }
 
 .generation-actions .generate-button {
   justify-content: center;
+  min-height: 54px;
+}
+
+.generation-actions .generate-button .button-label {
+  display: block;
+  font-family: "Canvas Action Display", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-size: 21px;
+  font-style: normal;
+  font-synthesis: none;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-indent: 0.18em;
+  white-space: nowrap;
 }
 
 .generation-actions.has-reusable-prompt .generate-button,
@@ -31,14 +75,15 @@
   padding: 0 14px;
 }
 
-.generation-actions.has-reusable-prompt .button-label {
-  gap: 8px;
-}
-
-.generation-actions.has-reusable-prompt .button-label svg,
 .regenerate-prompt-button svg {
   height: 17px;
   width: 17px;
+}
+
+.generation-actions.has-reusable-prompt .generate-button .button-label {
+  font-size: 19px;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
 }
 
 .regenerate-prompt-button {
@@ -87,5 +132,27 @@
   .regenerate-prompt-button:hover:not(:disabled) {
     background: var(--line);
     border-color: var(--line);
+  }
+}
+
+@media (min-width: 901px) {
+  .action-section.generation-control {
+    bottom: 20px;
+    margin: 32px 12px 0;
+    position: sticky;
+    z-index: 4;
+  }
+}
+
+@media (max-width: 900px) {
+  .action-section.generation-control {
+    margin: 12px 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .action-section.generation-control {
+    margin: 12px 10px 10px;
+    width: calc(100% - 20px);
   }
 }

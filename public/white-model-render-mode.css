@@ -1,42 +1,41 @@
 /**
- * [INPUT]: 依赖 white-model-render-mode.js 写入的 selected/disabled 状态与紧凑风格按钮语义结构
- * [OUTPUT]: 对外提供白模/空房智能默认与平台风格的两列紧凑选择、焦点、禁用态与长名称截断
- * [POS]: public 的设计风格选择增量视觉层，不影响其他功能模式和通用按钮样式
+ * [INPUT]: 依赖 white-model-render-mode.js 写入的 selected/disabled 状态、紧凑风格按钮语义结构与 theme.css 的共享选择控件令牌
+ * [OUTPUT]: 对外提供与功能/出图模型同构的两列风格选择按钮、焦点、禁用态与长名称截断
+ * [POS]: public 的设计风格选择增量视觉层，复用工作台选择控件语言并保留风格版本徽标
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 .style-choice-list {
   display: grid;
-  gap: 7px;
+  gap: var(--choice-control-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .style-choice-option {
   align-items: center;
-  background: var(--panel-soft);
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  background: var(--choice-control-bg);
+  border: 1px solid var(--choice-control-border);
+  border-radius: var(--choice-control-radius);
+  box-shadow: var(--choice-control-shadow);
   color: var(--muted);
   display: flex;
+  font-size: 11px;
+  font-weight: 500;
   gap: 6px;
   justify-content: space-between;
-  min-height: 38px;
+  min-height: var(--choice-control-height);
   min-width: 0;
-  padding: 0 10px;
+  padding: 0 var(--choice-control-padding);
   text-align: left;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
     box-shadow 140ms ease,
+    color 140ms ease,
     transform 120ms var(--ease-out);
 }
 
-.style-choice-option:hover {
-  border-color: var(--line-strong);
-}
-
 .style-choice-option:disabled {
-  border-color: var(--line);
   cursor: not-allowed;
   opacity: 0.46;
 }
@@ -46,24 +45,24 @@
 }
 
 .style-choice-option:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
 }
 
 .style-choice-option:focus-visible {
-  outline: 2px solid rgb(25 26 28 / 22%);
+  outline: 2px solid rgb(23 24 26 / 24%);
   outline-offset: 2px;
 }
 
 .style-choice-option.selected {
-  background: var(--mist);
-  border-color: var(--mist);
-  box-shadow: none;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--choice-control-selected-shadow);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 .style-choice-option strong {
-  font-size: 11px;
-  font-weight: 600;
+  font: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -81,6 +80,14 @@
 .style-choice-option.selected small {
   background: rgb(255 255 255 / 16%);
   color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .style-choice-option:hover:not(.selected):not(:disabled) {
+    background: #fff;
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

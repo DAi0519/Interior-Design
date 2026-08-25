@@ -27,7 +27,7 @@ test("服务端只在多模型请求中保留严格批次元数据", () => {
     batchId: "batch_20260806",
     batchIndex: 3,
   });
-  assert.throws(() => normalizeGenerationBatch({ batchCount: 5 }), /最多选择 4 个/);
+  assert.throws(() => normalizeGenerationBatch({ batchCount: 5 }), /最多生成 4 张图/);
   assert.throws(
     () => normalizeGenerationBatch({ batchCount: 2, batchIndex: 1 }),
     /批次 ID/,

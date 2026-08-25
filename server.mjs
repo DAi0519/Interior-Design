@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、本机设置、飞书 Setup、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、精模预设 Prompt 与用户补充、可恢复生成任务、白模/空房双模式设计应用服务及 Benchmark 工作流
- * [OUTPUT]: 对外提供本地生图与评测工作台、连接中心、按功能恢复的后台生成任务、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、内嵌 Inter 变量字体、本机设置、飞书 Setup、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、精模预设 Prompt 与用户补充、可恢复生成任务、白模/空房双模式设计应用服务及 Benchmark 工作流
+ * [OUTPUT]: 对外提供本地生图与评测工作台、同源 Raycast 字体资产、连接中心、按功能恢复的后台生成任务、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、单模型多张/多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,6 +64,10 @@ const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const ROOT_DIR = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT_DIR, "public");
+const INTER_VARIABLE_LATIN_FONT = join(
+  ROOT_DIR,
+  "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+);
 const GSAP_BROWSER_BUNDLE = join(
   ROOT_DIR,
   "node_modules",
@@ -114,6 +118,7 @@ const MIME_TYPES = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
+  ".woff2": "font/woff2",
 };
 
 const SECURITY_HEADERS = {
@@ -303,6 +308,7 @@ const generationService = createGenerationService({
 });
 
 function safeStaticPath(pathname) {
+  if (pathname === "/vendor/inter-variable-latin.woff2") return INTER_VARIABLE_LATIN_FONT;
   if (pathname === "/vendor/gsap.min.js") return GSAP_BROWSER_BUNDLE;
   const requestedPath = pathname === "/" ? "index.html" : pathname.slice(1);
   const resolvedPath = normalize(join(PUBLIC_DIR, requestedPath));
@@ -343,7 +349,7 @@ async function handleApi(request, response, pathname) {
       return sendJson(response, 400, { error: "不支持的生成功能" });
     }
     if (items.length < 1 || items.length > 4) {
-      return sendJson(response, 400, { error: "生成任务需要 1–4 个模型" });
+      return sendJson(response, 400, { error: "生成任务需要 1–4 个生成项" });
     }
     const sharedInput = body.sharedInput && typeof body.sharedInput === "object"
       ? body.sharedInput
@@ -358,7 +364,7 @@ async function handleApi(request, response, pathname) {
           onProgress({ completed, total }) {
             update({
               completed,
-              message: `已完成 ${completed} / ${total} 个模型`,
+              message: `已完成 ${completed} / ${total} 张图`,
             });
           },
           execute(item, index) {

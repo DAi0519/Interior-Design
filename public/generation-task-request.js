@@ -1,16 +1,34 @@
 /**
- * [INPUT]: 依赖统一生成输入、逐模型参数适配、功能/风格/参考图状态与后台任务批次元数据
- * [OUTPUT]: 对外提供不重复图片载荷的后台生成任务请求与分功能加载文案
+ * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、功能/风格/参考图状态与后台任务批次元数据
+ * [OUTPUT]: 对外提供单模型多张生成项展开、不重复图片载荷的后台生成任务请求与分功能加载文案
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 
+export function generationItemsForSelection(models, generationCount = 1) {
+  if (!Array.isArray(models) || models.length < 1 || models.length > 4) {
+    throw new RangeError("请选择 1–4 个出图模型");
+  }
+  const count = Number(generationCount);
+  if (!Number.isInteger(count) || count < 1 || count > 4) {
+    throw new RangeError("单模型生成张数需要在 1–4 张之间");
+  }
+  if (models.length > 1) return models;
+  if (count === 1) return models;
+  const [model] = models;
+  return Array.from({ length: count }, (_, index) => ({
+    ...model,
+    label: `${model.label} · ${index + 1}/${count}`,
+  }));
+}
+
 export function generationLoadingCopy({
   designPromptRequest,
   emptyRoomRequest,
   forcePromptRegeneration,
+  generationCount = 1,
   models,
   refinedModelRequest,
   refinedPrompt,
@@ -42,6 +60,9 @@ export function generationLoadingCopy({
     return refinedPrompt
       ? "正在拼接自定义要求并忠实渲染精模…"
       : "正在读取固定 Prompt 并忠实渲染精模…";
+  }
+  if (models.length === 1 && generationCount > 1) {
+    return `正在向 ${models[0].label} 提交 ${generationCount} 张生成请求…`;
   }
   return models.length > 1
     ? `正在向 ${models.length} 个模型提交请求…`

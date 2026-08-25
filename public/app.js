@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/结果画廊、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供按功能及跨页恢复的生成中/结果状态、空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、自由生图、最多四模型各出一张与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/单模型 1–4 张直接选择键/结果画廊、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供按功能及跨页恢复的生成中/结果状态、空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、固定 PNG 的自由生图、单模型 1–4 张或最多四模型各一张生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,11 +8,13 @@
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { bindEmptyRoomType } from "./empty-room-type.js";
+import { bindGenerationCount } from "./generation-count.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
 import {
   buildGenerationJobRequest,
+  generationItemsForSelection,
   generationLoadingCopy,
 } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
@@ -48,7 +50,6 @@ const elements = {
   emptySize: document.querySelector("#emptySize"),
   exactSize: document.querySelector("#exactSize"),
   featureModeButtons: Array.from(document.querySelectorAll("[data-feature-mode]")),
-  formatSelect: document.querySelector("#formatSelect"),
   generationControls: Array.from(document.querySelectorAll(".generation-control")),
   generationResults: Array.from(document.querySelectorAll(".generation-result")),
   modelAvailability: document.querySelector("#modelAvailability"),
@@ -100,6 +101,9 @@ const elements = {
 };
 const emptyRoomType = bindEmptyRoomType({ root: document.querySelector("#emptyRoomTypeList"),
   onChange: () => generationActions.clearReusable() });
+const generationCount = bindGenerationCount({
+  root: document.querySelector("#generationCountField"),
+});
 const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
@@ -250,7 +254,7 @@ function renderModelSelect() {
   modelMultiSelect.render(state.catalog, state.modelKeys);
   const count = state.modelKeys.length;
   elements.modelNote.textContent = count === 1
-    ? `${selectedModel()?.description || ""} 可继续选择，最多 4 个。`
+    ? `${selectedModel()?.description || ""} 单模型支持生成 1–4 张；也可继续选择模型。`
     : `已选择 ${count} 个；参数以 ${selectedModel()?.label} 为编辑基准，每个模型各生成 1 张。`;
 }
 
@@ -258,20 +262,10 @@ function configurePrimaryModel() {
   if (!selectedModel()) return;
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
-  const formats = model.formats.filter((format) =>
-    !["emptyRoom", "refinedModel", "whiteModel"].includes(state.featureMode)
-      || format !== "webp");
   renderModelSelect();
+  generationCount.setSingleModel(state.modelKeys.length === 1);
   updateReferenceRequirements();
   configureSizeControls();
-  fillSelect(
-    elements.formatSelect,
-    formats.map((format) => ({
-      label: format === "jpeg" ? "JPEG" : format.toUpperCase(),
-      value: format,
-    })),
-    model.defaultFormat,
-  );
 
   if (model.qualityOptions.length > 0) {
     elements.qualityField.classList.remove("hidden");
@@ -357,7 +351,7 @@ function generationInput() {
   return {
     featureMode: state.featureMode,
     modelKey: model?.key,
-    outputFormat: elements.formatSelect.value,
+    outputFormat: "png",
     prompt: state.featureMode === "refinedModel"
       ? elements.refinedPromptInput.value.trim()
       : elements.promptInput.value.trim(),
@@ -576,23 +570,25 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     designPromptRequest,
     emptyRoomRequest,
     forcePromptRegeneration,
+    generationCount: generationCount.value(),
     models,
     refinedModelRequest,
     refinedPrompt: elements.refinedPromptInput.value.trim(),
     renderMode: whiteModelRenderMode.current().mode,
     styleReferenceCount: styleReferenceImages().length,
   });
+  const generationItems = generationItemsForSelection(models, generationCount.value());
   const task = createGenerationTask({
     featureMode,
     loadingLabel: loadingCopy,
-    models,
+    models: generationItems,
   });
   generationTasks.start(task);
 
   try {
     const baseInput = generationInput();
     const sourceImage = selectedSourceImage();
-    const batchId = models.length > 1
+    const batchId = generationItems.length > 1
       ? crypto.randomUUID().replaceAll("-", "")
       : null;
     const body = await api("/api/generation-jobs", {
@@ -602,7 +598,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
         featureMode,
         forcePromptRegeneration: designPromptRequest && forcePromptRegeneration,
         jobId: task.jobId,
-        models,
+        models: generationItems,
         sourceImage,
       })),
       method: "POST",
@@ -617,9 +613,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     if (designPromptRequest && completed > 0) {
       generationActions.markReusable(promptIdentity);
     }
-    showToast(completed === models.length
+    showToast(completed === generationItems.length
       ? `${completed} 张图已完成，正在分别同步飞书`
-      : `完成 ${completed} / ${models.length} 张；失败项可查看原因`);
+      : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
     generationTasks.setJob(task.jobId, {
       error: error.message,

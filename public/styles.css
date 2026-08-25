@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 index.html 的语义类名与各浏览器控制器写入的 hidden/selected/loading/refreshing/dragging 状态
- * [OUTPUT]: 对外提供页面基础、输入控制、单图拖放替换反馈、配置刷新、按压反馈、基础对话框和响应式适配
+ * [OUTPUT]: 对外提供页面基础、纯文字品牌锚点、输入控制、单模型生成张数参数、单图拖放替换反馈、配置刷新、按压反馈、基础对话框和响应式适配
  * [POS]: public 的基础样式入口，与 connection-center.css/result.css 分担连接、输入和输出视觉职责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -89,33 +89,7 @@ button {
   align-items: center;
   color: inherit;
   display: inline-flex;
-  gap: 10px;
   text-decoration: none;
-}
-
-.brand-mark {
-  align-items: center;
-  background: var(--text);
-  border-radius: 9px;
-  color: white;
-  display: inline-flex;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
-}
-
-.brand-mark svg {
-  fill: none;
-  height: 18px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-  width: 18px;
-}
-
-.brand strong {
-  font-size: 14px;
 }
 
 .connection-button {
@@ -468,16 +442,6 @@ input::placeholder {
   align-items: center;
   display: flex;
   gap: 10px;
-}
-
-.button-label svg {
-  fill: none;
-  height: 19px;
-  stroke: var(--accent);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-  width: 19px;
 }
 
 .dialog-backdrop {

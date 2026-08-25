@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 custom-select.js 从配置区与参数区 select 生成的 open/disabled/aria-selected 结构，以及 theme.css/benchmark.css 的共享设计令牌
- * [OUTPUT]: 对外提供暖白低圆角下拉、38px 对齐触发器、优先完整展示且仅在真实空间不足时截断的选项文案、深色选中态与键盘焦点视觉
+ * [INPUT]: 依赖 custom-select.js 从配置区与参数区 select 生成的 open/disabled/aria-selected 结构，以及 theme.css/benchmark.css 的共享 Raycast 向银灰设计令牌
+ * [OUTPUT]: 对外提供半透明低圆角下拉、38px 对齐触发器、优先完整展示且仅在真实空间不足时截断的选项文案、深色选中态与键盘焦点视觉
  * [POS]: public 的自定义下拉视觉层，替代不可控的系统原生展开菜单
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,10 +22,10 @@
 
 .custom-select-trigger {
   align-items: center;
-  background: rgb(255 255 255 / 78%);
+  background: rgb(255 255 255 / 74%);
   border: 1px solid var(--line-strong);
   border-radius: 6px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 95%);
+  box-shadow: var(--control-shadow, inset 0 1px 0 rgb(255 255 255 / 95%));
   color: var(--text);
   display: flex;
   font-size: 11px;
@@ -43,8 +43,8 @@
 }
 
 .custom-select-trigger:focus-visible {
-  border-color: #8d8981;
-  box-shadow: 0 0 0 3px rgb(25 26 28 / 9%);
+  border-color: #77777e;
+  box-shadow: 0 0 0 3px rgb(32 32 36 / 8%), var(--control-shadow, none);
   outline: 0;
 }
 
@@ -102,10 +102,12 @@
 }
 
 .custom-select-menu {
-  background: rgb(251 251 249 / 98%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  background: rgb(252 252 253 / 96%);
   border: 1px solid var(--line-strong);
   border-radius: 6px;
-  box-shadow: 0 14px 36px rgb(25 26 28 / 16%), inset 0 1px 0 #fff;
+  box-shadow: 0 18px 44px rgb(20 20 24 / 18%), inset 0 1px 0 #fff;
   left: 0;
   max-height: 272px;
   overflow-y: auto;
@@ -193,14 +195,14 @@
 }
 
 .custom-select-option:focus-visible {
-  box-shadow: inset 0 0 0 1px #aaa69e;
+  box-shadow: inset 0 0 0 1px #9b9ba2;
   outline: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .custom-select-trigger:hover:not(:disabled) {
     background: #fff;
-    border-color: #aaa69e;
+    border-color: #a8a8ae;
   }
 
   .custom-select-option:hover:not(:disabled):not([aria-selected="true"]) {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、内存 sessionStorage 替身与 generation-task-state.js 的任务引用/视图推导
- * [OUTPUT]: 对外提供按功能保留任务、生成中进度、完成结果与过期错误的纯状态回归保障
+ * [OUTPUT]: 对外提供按功能保留任务、按图片计数的生成中进度、完成结果与过期错误的纯状态回归保障
  * [POS]: test 的生成页恢复状态测试，不访问真实浏览器存储
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -58,7 +58,7 @@ test("任务快照稳定推导加载、结果与过期状态", () => {
     ],
   });
   assert.deepEqual(generationTaskView(task, { completed: 1, status: "running", total: 2 }), {
-    message: "已完成 1 / 2 个模型…",
+    message: "已完成 1 / 2 张图…",
     stage: "loading",
   });
   const outcomes = [{ status: "fulfilled" }, { status: "rejected" }];
