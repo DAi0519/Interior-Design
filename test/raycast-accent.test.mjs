@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const accentHref = "raycast-accent.css?v=26";
+const accentHref = "raycast-accent.css?v=27";
 
 test("两页最后加载同一份 Raycast 珊瑚红重点色层", async () => {
   const [indexHtml, benchmarkHtml] = await Promise.all([

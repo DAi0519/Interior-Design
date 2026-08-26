@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 指针焦点稳定器与 custom-select.css 文字布局契约
- * [OUTPUT]: 验证主指针在 click 前固定选项焦点、辅助按键不篡改焦点、选项文字不受内容宽度百分比二次裁切
+ * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 指针焦点稳定器/定位增强与 custom-select.css 文字及向上菜单布局契约
+ * [OUTPUT]: 验证主指针在 click 前固定选项焦点、辅助按键不篡改焦点、选项文字不受内容宽度百分比二次裁切，并支持声明式向上展开
  * [POS]: test 的跨浏览器自定义下拉竞态回归测试，不启动浏览器或修改原生 select
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,4 +64,25 @@ test("下拉文案使用真实剩余宽度而不是内容宽度的固定百分�
   assert.doesNotMatch(stylesheet, /max-width:\s*55%/);
   assert.match(stylesheet, /\.custom-select-value\s*\{[^}]*flex:\s*1 1 auto/s);
   assert.match(stylesheet, /\.custom-select-option\s*>\s*span\s*\{[^}]*flex:\s*1 1 auto/s);
+});
+
+test("底部参数下拉可声明向上展开以避开粘性动作区", async () => {
+  const [script, stylesheet] = await Promise.all([
+    readFile(new URL("../public/custom-select.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/custom-select.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(script, /select\.dataset\.dropdownPlacement === "top"/);
+  assert.match(script, /"custom-select--top"/);
+  assert.match(stylesheet, /\.custom-select--top \.custom-select-menu\s*{[^}]*bottom: calc\(100% \+ 4px\)[^}]*top: auto/s);
+});
+
+test("列表焦点可用 Enter 或 Space 显式提交当前选项", async () => {
+  const script = await readFile(
+    new URL("../public/custom-select.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(script, /event\.key === "Enter" \|\| event\.key === " "/);
+  assert.match(script, /item\.click\(\)/);
 });

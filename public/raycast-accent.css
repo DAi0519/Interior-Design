@@ -149,7 +149,6 @@ body {
 
 .feature-mode-option,
 .model-option-toggle,
-.generation-count-option,
 .style-choice-option,
 .room-type-option,
 .quiet-button,
@@ -176,7 +175,6 @@ body {
 
 .feature-mode-option,
 .model-option-toggle,
-.generation-count-option,
 .style-choice-option,
 .room-type-option {
   min-height: var(--choice-control-height, 38px);
@@ -209,7 +207,6 @@ body {
 
 .feature-mode-option.selected,
 .model-option-toggle.selected,
-.generation-count-option.selected,
 .style-choice-option.selected,
 .room-type-option.selected,
 .custom-select-option[aria-selected="true"] {
@@ -268,7 +265,6 @@ body {
 
   .feature-mode-option:hover:not(.selected):not(:disabled),
   .model-option-toggle:hover:not(.selected):not(:disabled),
-  .generation-count-option:hover:not(.selected):not(:disabled),
   .style-choice-option:hover:not(.selected):not(:disabled),
   .room-type-option:hover:not(.selected):not(:disabled),
   .quiet-button:hover:not(:disabled),
@@ -319,7 +315,6 @@ body {
 
 .feature-mode-option:active:not(:disabled),
 .model-option-toggle:active:not(:disabled),
-.generation-count-option:active:not(:disabled),
 .style-choice-option:active:not(:disabled),
 .room-type-option:active:not(:disabled),
 .quiet-button:active:not(:disabled),
@@ -400,7 +395,6 @@ a:focus-visible,
 .product-switch-option:focus-visible,
 .feature-mode-option:focus-visible,
 .model-option-toggle:focus-visible,
-.generation-count-option:focus-visible,
 .style-choice-option:focus-visible,
 .room-type-option:focus-visible,
 .generation-actions .generate-button:focus-visible,

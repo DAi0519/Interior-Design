@@ -2626,27 +2626,27 @@ final result: passed; cross-workbench navigation keeps only the product indicato
 
 ---
 
-# Generation Count Direct Keys Design QA
+# Generation Count Upward Dropdown Design QA
 
 ## Evidence
 
-- 原生成张数下拉位于参数区底部，展开列表会与 sticky START 动作区争夺可视空间，出现遮挡和截断。
-- 该字段只有 `1–4` 四个离散值，不需要搜索、长列表或复杂菜单能力。
+- 用户明确要求保留下拉，不接受四键直接选择方案。
+- 原下拉位于参数区底部，向下展开时会进入 sticky START 的空间，出现遮挡和截断。
 
 ## Findings
 
-- 单模型数量改为四个等宽直接选择键；选中态复用黑莓石墨品牌键帽，未选态保持近纸面白色。
-- 控件不再创建浮层，因此不会越过参数区边界，也不会被 START 动作区遮挡。
-- 多模型选择时数量键隐藏并恢复为一张；回到单模型后默认显示 `1 张`。
+- 单模型数量恢复为 `1–4 张` 自定义下拉，继续复用暖白触发器、黑莓选中项和勾选反馈。
+- 生成张数菜单固定从触发器上方展开，完整保留在配置栏内，与 START 保持独立空间。
+- 方向键、Home/End、Escape 继续可用，并显式补齐 Enter/Space 提交；多模型时隐藏并恢复为一张。
 
 ## Verification
 
-- 完整自动化测试通过 `296 / 296`，`git diff --check` 通过。
-- 真实浏览器在 `1280×720` 下显示四个同排数量键；直接选择 `4 张` 后当前态正确切换。
-- 增选第二个模型后数量控件隐藏；恢复单模型后 `1 张` 自动选中；页面控制台无错误。
+- 本次下拉专项回归通过 `24 / 24`；排除既有缺失 ComfyUI 交付文件所对应的测试文件后，其余自动化测试通过 `274 / 274`，`git diff --check` 通过。
+- 真实浏览器在 `1280×720` 下测得菜单 `top=379.14 / bottom=541.14`、触发器 `top=545.14 / bottom=583.14`、START `top=613 / bottom=667`，三者无重叠。
+- 鼠标完成 `1 → 4 → 1` 双向选择；键盘以 ArrowUp 打开、End 聚焦 `4 张`、Enter 提交并关闭菜单；多模型隐藏/单模型恢复与页面控制台均正常。
 
 ## Final Result
 
-final result: passed; generation count is now a direct four-key choice with no dropdown overlay conflict
+final result: passed; generation count remains a dropdown and now opens upward with complete pointer and keyboard interaction
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md

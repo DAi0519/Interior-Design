@@ -4,9 +4,9 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护自动化测试成员清单
-custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点，并阻止内容宽度百分比导致的无效省略
-choice-controls.test.mjs: 生图页功能、风格、出图模型与生成张数四类选择按钮回归测试，验证共享高度、圆角、内距、字重、阴影与完整交互状态
-generation-count.test.mjs: 单模型生成张数直接选择回归测试，验证 1–4 张归一化、四键静态语义、无下拉菜单及四列紧凑布局
+custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点、声明式向上菜单、Enter/Space 确认，并阻止内容宽度百分比导致的无效省略
+choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影与完整交互状态
+generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
 product-navigation.test.mjs: 共享顶栏字体与动效回归测试，验证两页预加载同源 Inter Variable、服务端精确暴露固定字体资产、Raycast OpenType 特性、依赖版本，以及跨页只移动指示块且内容面板静止
 raycast-accent.test.mjs: 跨工作台重点色回归测试，验证珊瑚红/黑莓石墨令牌、双页最终加载顺序、全部动作按钮的近纸面淡灰粉/低透明暖白细边、黑莓顶栏全状态稳定白色连接键与浅色面板纯白普通键/黑莓选中键、Benchmark 流程导航、结果下载白色次级键、START/连接中心动作的完整交互状态、生成黑白灰扫描线、莓色底部遮罩阴影、功能焦点及硬标记移除
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试

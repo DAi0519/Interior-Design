@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 .compact-config-field 与 .field 内的原生 select 选项、禁用/change 语义与浏览器指针/焦点生命周期
- * [OUTPUT]: 对外提供与原生值同步且显式展示详情的自定义下拉触发器、跨浏览器稳定指针选择和完整键盘操作，并导出指针焦点稳定器
+ * [INPUT]: 依赖 .compact-config-field 与 .field 内的原生 select 选项、可选 data-dropdown-placement、禁用/change 语义与浏览器指针/焦点生命周期
+ * [OUTPUT]: 对外提供与原生值同步且显式展示详情的自定义下拉触发器、向上/向下菜单定位、跨浏览器稳定指针选择和完整键盘操作，并导出指针焦点稳定器
  * [POS]: public 的表单渐进增强层，统一 Style DNA、场景融合 Agent、出图模型、反推模型、参数与 Benchmark 下拉视觉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -50,6 +50,10 @@ function enhanceSelect(select) {
   const menuId = `${select.id}-menu`;
 
   root.className = "custom-select";
+  root.classList.toggle(
+    "custom-select--top",
+    select.dataset.dropdownPlacement === "top",
+  );
   trigger.className = "custom-select-trigger";
   trigger.type = "button";
   trigger.setAttribute("aria-controls", menuId);
@@ -149,6 +153,11 @@ function enhanceSelect(select) {
     if (event.key === "Escape") {
       event.preventDefault();
       close({ focusTrigger: true });
+    } else if (event.key === "Enter" || event.key === " ") {
+      const item = document.activeElement;
+      if (!item?.classList.contains("custom-select-option")) return;
+      event.preventDefault();
+      item.click();
     } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
       event.preventDefault();
       focusItem(event.key === "ArrowDown" ? 1 : -1);

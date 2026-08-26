@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的精模自定义要求及其他语义类名与用户确认的 Raycast 向 Light Command Center 规则
- * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、360–420px 自适应配置栏与结果区桌面双栏、无边界回弹的配置栏滚动、精模自定义要求、紧凑配置、单图替换反馈，以及功能/风格/出图模型/生成张数共享的紧凑选择按钮视觉令牌
+ * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、360–420px 自适应配置栏与结果区桌面双栏、无边界回弹的配置栏滚动、精模自定义要求、紧凑配置、单图替换反馈，以及功能/风格/出图模型共享的紧凑选择按钮视觉令牌
  * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -228,8 +228,7 @@ a.connection-button {
 }
 
 .feature-mode-option,
-.model-option-toggle,
-.generation-count-option {
+.model-option-toggle {
   align-items: center;
   background: var(--choice-control-bg);
   border: 1px solid var(--choice-control-border);
@@ -254,8 +253,7 @@ a.connection-button {
 }
 
 .feature-mode-option.selected,
-.model-option-toggle.selected,
-.generation-count-option.selected {
+.model-option-toggle.selected {
   background: var(--accent);
   border-color: var(--accent);
   box-shadow: var(--choice-control-selected-shadow);
@@ -264,8 +262,7 @@ a.connection-button {
 }
 
 .feature-mode-option:focus-visible,
-.model-option-toggle:focus-visible,
-.generation-count-option:focus-visible {
+.model-option-toggle:focus-visible {
   outline: 2px solid rgb(23 24 26 / 24%);
   outline-offset: 2px;
 }
@@ -283,18 +280,6 @@ a.connection-button {
   display: grid;
   gap: var(--choice-control-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.generation-count-list {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.generation-count-option {
-  justify-content: center;
-  padding: 0 4px;
-  text-align: center;
 }
 
 .model-option-toggle span {
@@ -320,19 +305,16 @@ a.connection-button {
   background: rgb(255 255 255 / 18%);
 }
 
-.model-option-toggle:active,
-.generation-count-option:active {
+.model-option-toggle:active {
   transform: scale(0.97);
 }
 
-.model-option-toggle:disabled,
-.generation-count-option:disabled {
+.model-option-toggle:disabled {
   cursor: not-allowed;
   opacity: 0.46;
 }
 
-.model-option-toggle:disabled:active,
-.generation-count-option:disabled:active {
+.model-option-toggle:disabled:active {
   transform: none;
 }
 
@@ -678,8 +660,7 @@ select {
   }
 
   .feature-mode-option:hover:not(.selected):not(:disabled),
-  .model-option-toggle:hover:not(.selected):not(:disabled),
-  .generation-count-option:hover:not(.selected):not(:disabled) {
+  .model-option-toggle:hover:not(.selected):not(:disabled) {
     background: #fff;
     border-color: var(--line-strong);
     color: var(--text);

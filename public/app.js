@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/单模型 1–4 张直接选择键/结果画廊、连接中心、生成动作与 Style DNA 对话
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/单模型 1–4 张下拉/结果画廊、连接中心、生成动作与 Style DNA 对话
  * [OUTPUT]: 对外提供按功能及跨页恢复的生成中/结果状态、空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、固定 PNG 的自由生图、单模型 1–4 张或最多四模型各一张生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -27,7 +27,7 @@ import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { referenceCapability, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
-import "./custom-select.js?v=5";
+import "./custom-select.js?v=7";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
