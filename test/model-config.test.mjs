@@ -324,6 +324,23 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K
   assert.equal("workflow_profile" in defaults.request, false);
   assert.equal(defaults.request.size, "2720x1536");
   assert.equal("workflowProfileLabel" in defaults.preview, false);
+
+  const longPrompt = "完整正向提示词".repeat(1200);
+  const longPromptGeneration = createGenerationRequest({
+    modelKey: "aiTextureEnhancement",
+    outputFormat: "png",
+    prompt: longPrompt,
+    ratio: "source",
+    referenceImages: [{
+      dataUrl: pngDataUrl,
+      name: "source.png",
+      size: bytes,
+      type: "image/png",
+    }],
+    resolution: "2K",
+  }, { sourceDimensions: { height: 900, width: 1600 } });
+  assert.ok(longPrompt.length > 8000);
+  assert.equal(longPromptGeneration.request.prompt, longPrompt);
 });
 
 test("Flux2 Klein 分辨率按约 1MP/4MP 像素面积计算并对齐 16 像素网格", () => {

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps/可选负向 Prompt 契约与 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/全 OneAPI 2:1 画幅/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、请求构造器与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps/不限长正向 Prompt/可选负向 Prompt 契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/全 OneAPI 2:1 画幅/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、Flux 正向 Prompt 不设本地字符上限的请求构造器与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -236,11 +236,6 @@ export function createGenerationRequest(
   const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
 
   if (model.provider === "comfyui") {
-    if (prompt.length > 8000) {
-      const error = new Error("补充要求不能超过 8000 字符");
-      error.statusCode = 400;
-      throw error;
-    }
     if (referenceImages.length !== 1) {
       const error = new Error("Flux2 Klein 需要且只允许 1 张参考图");
       error.statusCode = 400;

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖版本化 Prompt 读取边界与飞书“效果图美化 Prompt”表的完整模块源文
- * [OUTPUT]: 对外提供当前已上架版本的脱敏状态、兼容 [Main Objective]/[BASE]/历史首句的八正向模块校验、受控枚举归一化及固定顺序拼接
+ * [INPUT]: 依赖版本化 Prompt 读取边界与飞书“效果图美化 Prompt”表的 JSON 模块源文
+ * [OUTPUT]: 对外提供当前已上架版本的脱敏状态、固定 JSON Schema 校验、可读模块渲染、受控枚举归一化与默认保持/环境契约互斥拼接
  * [POS]: src 的效果图美化 Prompt 资产边界，飞书是正文真源且浏览器不接触正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,21 +32,14 @@ export const EFFECT_WEATHER_VALUES = Object.freeze([
   "foggy",
 ]);
 
-const BASE_MARKERS = Object.freeze([
-  "[Main Objective]",
-  "[BASE]",
-  "HIGHEST PRIORITY — SOURCE-LOCKED, WEATHER-SAFE INTERIOR FURNITURE PRESENTATION.",
+const ROOT_KEYS = Object.freeze(["BASE", "DEFAULT", "CONTRACT", "TIME", "WEATHER"]);
+const BASE_KEYS = Object.freeze([
+  "Main Objective",
+  "Source Lock",
+  "Global Lighting Optimization",
 ]);
-
-const MODULE_MARKERS = Object.freeze([
-  ["daytime", "TIME MODULE — DAYTIME."],
-  ["dusk", "TIME MODULE — DUSK."],
-  ["night", "TIME MODULE — NIGHT."],
-  ["clear", "WEATHER MODULE — CLEAR SUNNY WEATHER."],
-  ["overcast", "WEATHER MODULE — OVERCAST WEATHER."],
-  ["rainy", "WEATHER MODULE — EXTERIOR-ONLY RAINY WEATHER."],
-  ["foggy", "WEATHER MODULE — EXTERIOR-ONLY LIGHT-TO-MODERATE FOG."],
-]);
+const TIME_KEYS = Object.freeze(["DAYTIME", "DUSK", "NIGHT"]);
+const WEATHER_KEYS = Object.freeze(["CLEAR", "OVERCAST", "RAINY", "FOGGY"]);
 
 function promptError(message) {
   const error = new Error(message);
@@ -64,33 +57,52 @@ function normalizeSelection(value, allowed, label) {
   return normalized;
 }
 
-export function splitEffectEnhancementPrompt(source) {
-  const prompt = String(source || "").trim();
-  const matchedBaseMarkers = BASE_MARKERS.filter((marker) => prompt.includes(marker));
-  if (matchedBaseMarkers.length !== 1) {
-    throw promptError("飞书效果图美化 Prompt 模块缺失、重复或顺序错误");
-  }
-  const markers = [
-    ["base", matchedBaseMarkers[0]],
-    ...MODULE_MARKERS,
-  ];
-  const positions = markers.map(([key, marker]) => ({
-    key,
-    marker,
-    position: prompt.indexOf(marker),
-  }));
+function assertExactObject(value, keys) {
   if (
-    positions.some(({ position }) => position < 0)
-    || positions.some(({ marker }) => prompt.indexOf(marker) !== prompt.lastIndexOf(marker))
-    || positions.some((entry, index) => index > 0
-      && entry.position <= positions[index - 1].position)
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.keys(value).length !== keys.length
+    || Object.keys(value).some((key, index) => key !== keys[index])
   ) {
-    throw promptError("飞书效果图美化 Prompt 模块缺失、重复或顺序错误");
+    throw promptError("飞书效果图美化 Prompt JSON 结构错误");
   }
-  return Object.fromEntries(positions.map((entry, index) => {
-    const end = positions[index + 1]?.position ?? prompt.length;
-    return [entry.key, prompt.slice(entry.position, end).trim()];
-  }));
+}
+
+function requireText(value) {
+  if (typeof value !== "string" || !value.trim() || value !== value.trim()) {
+    throw promptError("飞书效果图美化 Prompt JSON 结构错误");
+  }
+  return value;
+}
+
+export function parseEffectEnhancementPrompt(source) {
+  let prompt;
+  try {
+    prompt = JSON.parse(String(source || ""));
+  } catch {
+    throw promptError("飞书效果图美化 Prompt JSON 结构错误");
+  }
+  assertExactObject(prompt, ROOT_KEYS);
+  assertExactObject(prompt.BASE, BASE_KEYS);
+  assertExactObject(prompt.TIME, TIME_KEYS);
+  assertExactObject(prompt.WEATHER, WEATHER_KEYS);
+
+  const baseSections = BASE_KEYS.map(
+    (title) => `[${title}]\n${requireText(prompt.BASE[title])}`,
+  ).join("\n\n");
+  return {
+    base: `[BASE]\n${baseSections}`,
+    default: `[DEFAULT]\n${requireText(prompt.DEFAULT)}`,
+    contract: `[CONTRACT]\n${requireText(prompt.CONTRACT)}`,
+    daytime: `[TIME:DAYTIME]\n${requireText(prompt.TIME.DAYTIME)}`,
+    dusk: `[TIME:DUSK]\n${requireText(prompt.TIME.DUSK)}`,
+    night: `[TIME:NIGHT]\n${requireText(prompt.TIME.NIGHT)}`,
+    clear: `[WEATHER:CLEAR]\n${requireText(prompt.WEATHER.CLEAR)}`,
+    overcast: `[WEATHER:OVERCAST]\n${requireText(prompt.WEATHER.OVERCAST)}`,
+    rainy: `[WEATHER:RAINY]\n${requireText(prompt.WEATHER.RAINY)}`,
+    foggy: `[WEATHER:FOGGY]\n${requireText(prompt.WEATHER.FOGGY)}`,
+  };
 }
 
 export function composeEffectEnhancementPrompt(source, {
@@ -103,12 +115,15 @@ export function composeEffectEnhancementPrompt(source, {
     EFFECT_WEATHER_VALUES,
     "天气",
   );
-  const modules = splitEffectEnhancementPrompt(source);
+  const modules = parseEffectEnhancementPrompt(source);
+  const hasAnyEnvironmentOverride = normalizedTime !== "preserve"
+    || normalizedWeather !== "preserve";
   return [
     modules.base,
+    hasAnyEnvironmentOverride ? modules.contract : modules.default,
     normalizedTime === "preserve" ? null : modules[normalizedTime],
     normalizedWeather === "preserve" ? null : modules[normalizedWeather],
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 export async function getEffectEnhancementPrompt(options = {}) {

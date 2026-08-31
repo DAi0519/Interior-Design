@@ -11,12 +11,12 @@ product-navigation.test.mjs: 共享顶栏字体与动效回归测试，验证两
 raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字导航/内容反色选中态、中性浅色普通按钮与唯一 `#de742f` 哑光橙精密键帽关键动作/保色 RUNNING/小面积状态回声令牌、双页最终加载顺序、普通保存/授权/连接/恢复动作不染橙、普通禁用不被忙碌态污染、石墨灰选择面/全局莓色/橙色明暗变体移除、生成黑白灰扫描线和中性焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
+model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、Flux 不限长正向 Prompt、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
 generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、最多两路并发、保序与部分失败测试，不调用真实生图服务
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数的生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
 generation-task-request.test.mjs: 日常生图固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
-effect-render-enhancement.test.mjs: 效果图美化专项测试，覆盖当前已上架 Prompt 版本回显、不可用恢复文案、天气/时段 UI、`[Main Objective]`/`[BASE]`/历史首句兼容、飞书正向模块完整性、基础→时段→天气拼接、非法枚举、单图、原图比例、脱敏响应与归档元数据内存集成测试
+effect-render-enhancement.test.mjs: 效果图美化专项测试，覆盖当前已上架 Prompt 版本回显、天气/时段 UI、固定 JSON Schema 的完整性/类型/顺序及旧标题渲染、默认时段天气与夜景外景深暗/曝光证据强锁、任一环境覆盖即退出默认模块、基础→契约→时段→天气拼接、非法枚举、单图、原图比例、脱敏响应与归档元数据内存集成测试
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
 comfyui-client.test.mjs: ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、默认负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
 flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
