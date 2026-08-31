@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、空房房间类型/其他详情真源、image-artifact.mjs、lark-cli.mjs、白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、产品链路/空间类型/其他空间类型/设计方式/Agent/风格字段投影、模型字段映射、记录 ID 解析、三类附件及完整工作流元数据同步
+ * [INPUT]: 依赖 node:fs/os/path、空房房间类型/其他详情真源、image-artifact.mjs、lark-cli.mjs、效果图美化/白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
+ * [OUTPUT]: 对外提供原始/最终 Prompt、含效果图美化的产品链路/空间类型/其他空间类型/设计方式/Agent/风格字段投影、生成记录 Schema 准入、模型字段映射、记录 ID 解析、三类附件及完整工作流元数据同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,11 +36,13 @@ export const LARK_SYNC_CONFIG = Object.freeze({
 });
 
 const FEATURE_LABELS = Object.freeze({
+  "effect-render-enhancement": "效果图美化",
   "empty-room-design": "空房设计",
   "free-image-generation": "自由生图",
   "refined-model-rendering": "精模渲染",
   "white-model-rendering": "白模渲染",
 });
+const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS));
 
 const RENDER_MODE_LABELS = Object.freeze({
   "smart-default": "智能默认",
@@ -127,6 +129,33 @@ export function recordIdFrom(body) {
     body?.data?.id ||
     null
   );
+}
+
+export function assertLarkSyncSchema(body) {
+  const fields = body?.data?.fields || body?.fields || [];
+  const featureField = fields.find((field) => field.name === "功能");
+  const options = featureField?.type === "select"
+    ? new Set((featureField.options || []).map((option) => option.name))
+    : new Set();
+  const missing = REQUIRED_FEATURE_LABELS.filter((label) => !options.has(label));
+  if (!featureField || featureField.type !== "select" || missing.length > 0) {
+    throw new Error(`飞书生成记录“功能”字段缺少选项：${missing.join("、") || "字段类型应为单选"}`);
+  }
+  return { featureOptions: [...options] };
+}
+
+export async function verifyLarkSyncSchema(config = LARK_SYNC_CONFIG) {
+  const body = await runLarkCli(config, [
+    "base",
+    "+field-list",
+    "--as",
+    "user",
+    "--base-token",
+    config.baseToken,
+    "--table-id",
+    config.tableId,
+  ]);
+  return assertLarkSyncSchema(body);
 }
 
 async function createRecord(config, fields) {

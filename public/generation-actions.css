@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 index.html 的无图标 START 生成动作结构、smiley-sans-v2.0.1.woff2 的展示字形、generation-actions.js 的 has-reusable-prompt/hidden/disabled 状态与全局主题令牌
- * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向磨砂 START 主按钮、提示词可复用后的 65/35 深浅双按钮、无额外视觉套框/底部分割线、全断点内容安全间距并为投影预留光学底距的粘性动作布局，以及焦点、悬停和按压反馈
+ * [INPUT]: 依赖 index.html 的无图标 START 生成动作结构、smiley-sans-v2.0.1.woff2 的展示字形、generation-actions.js 的 has-reusable-prompt/is-busy/hidden/disabled 状态与全局主题令牌
+ * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向哑光橙 START 精密键帽、保留功能色并以中性扫光表达进行中的 RUNNING 状态、提示词可复用后的 65/35 主次双按钮、无额外视觉套框/底部分割线、全断点内容安全间距并为投影预留光学底距的粘性动作布局，以及焦点、悬停和按压反馈
  * [POS]: public 的生成动作视觉层，与 styles.css/theme.css 的通用主按钮规则分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -49,6 +49,8 @@
 .generation-actions .generate-button {
   justify-content: center;
   min-height: 54px;
+  overflow: hidden;
+  position: relative;
 }
 
 .generation-actions .generate-button .button-label {
@@ -60,8 +62,39 @@
   font-weight: 400;
   letter-spacing: 0.18em;
   line-height: 1;
+  position: relative;
   text-indent: 0.18em;
+  transform: translateY(-0.5px);
   white-space: nowrap;
+  z-index: 1;
+}
+
+.generation-actions.is-busy .generate-button::after {
+  animation: generation-action-scan 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  background: linear-gradient(
+    105deg,
+    transparent 18%,
+    rgb(255 255 255 / 20%) 43%,
+    rgb(32 32 36 / 8%) 51%,
+    transparent 74%
+  );
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-120%);
+  will-change: transform;
+}
+
+@keyframes generation-action-scan {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  64%,
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .generation-actions.has-reusable-prompt .generate-button,
@@ -154,5 +187,12 @@
   .action-section.generation-control {
     margin: 12px 10px 10px;
     width: calc(100% - 20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .generation-actions.is-busy .generate-button::after {
+    animation: none;
+    opacity: 0;
   }
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、全模型 2:1 自动适配、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -78,8 +78,19 @@ test("白模在模型合法集合中选择最接近原图的比例", () => {
   assert.equal(generation.preview.sizeMode, "source-nearest");
 });
 
-test("精模、白模与空房设计都强制单张业务输入", () => {
+test("精模、效果图美化、白模与空房设计都强制单张业务输入", () => {
   const model = publicModelCatalog().find((entry) => entry.key === "seedream5");
+  assert.deepEqual(
+    referenceCapability({ featureMode: "effectEnhancement", model, policy: { maxCount: 4 } }),
+    {
+      ariaLabel: "添加待美化效果图",
+      dropLabel: "添加或拖入待美化效果图",
+      limit: 1,
+      multiple: false,
+      optionalLabel: "必填 · 1张",
+      title: "待美化效果图",
+    },
+  );
   assert.deepEqual(
     referenceCapability({ featureMode: "refinedModel", model, policy: { maxCount: 4 } }),
     {
@@ -311,7 +322,7 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K
     workflowProfile: "fast",
   }, { sourceDimensions: { height: 900, width: 1600 } });
   assert.equal("workflow_profile" in defaults.request, false);
-  assert.equal(defaults.request.size, "2736x1536");
+  assert.equal(defaults.request.size, "2720x1536");
   assert.equal("workflowProfileLabel" in defaults.preview, false);
 });
 
@@ -322,7 +333,11 @@ test("Flux2 Klein 分辨率按约 1MP/4MP 像素面积计算并对齐 16 像素�
   );
   assert.deepEqual(
     fitSourceDimensionsToPixelArea({ height: 1000, width: 1500 }, 2048 ** 2),
-    { height: 1680, width: 2512 },
+    { height: 1664, width: 2496 },
+  );
+  assert.deepEqual(
+    fitSourceDimensionsToPixelArea({ height: 1000, width: 2000 }, 2048 ** 2),
+    { height: 1440, width: 2880 },
   );
 });
 
@@ -391,7 +406,7 @@ test("Flux2 Klein 前端能力锁定原图比例并开放 1K/2K", () => {
   ]);
   assert.equal("workflowProfiles" in model, false);
   assert.equal("defaultWorkflowProfile" in model, false);
-  assert.equal(summary.exactSize, "2736 × 1536");
+  assert.equal(summary.exactSize, "2720 × 1536");
 });
 
 test("Seedream 5.0 不暴露 1K，并保持横竖比例一致", () => {
@@ -402,6 +417,50 @@ test("Seedream 5.0 不暴露 1K，并保持横竖比例一致", () => {
   ]);
   assert.equal(MODEL_CONFIGS.seedream5.sizes["3:2"]["4K"], "4992x3328");
   assert.equal(MODEL_CONFIGS.seedream5.sizes["2:3"]["4K"], "3328x4992");
+});
+
+test("Seedream 4.5 与 5.0 共享 2:1 画幅并按原图自动命中", () => {
+  assert.deepEqual(MODEL_CONFIGS.seedream45.sizes["2:1"], {
+    "2K": "2880x1440",
+    "4K": "5760x2880",
+  });
+  assert.deepEqual(MODEL_CONFIGS.seedream5.sizes["2:1"], {
+    "2K": "2880x1440",
+    "3K": "4352x2176",
+    "4K": "5760x2880",
+  });
+
+  const generation = createGenerationRequest(
+    {
+      modelKey: "seedream45",
+      outputFormat: "png",
+      prompt: "保持室内效果图构图并提升真实感",
+      ratio: "16:9",
+      resolution: "2K",
+    },
+    {
+      preferSourceAspect: true,
+      sourceDimensions: { height: 1000, width: 2000 },
+    },
+  );
+
+  assert.equal(generation.preview.ratio, "2:1");
+  assert.equal(generation.preview.size, "2880x1440");
+  assert.equal(generation.request.size, "2880x1440");
+});
+
+test("Banana 2 与 GPT Image 2 公开网关实测可用的 2:1 尺寸", () => {
+  assert.deepEqual(MODEL_CONFIGS.banana2.sizes["2:1"], {
+    "512": "720x360",
+    "1K": "1440x720",
+    "2K": "2880x1440",
+    "4K": "5760x2880",
+  });
+  assert.deepEqual(MODEL_CONFIGS.gptImage2.sizes["2:1"], {
+    "1K": "1024x512",
+    "2K": "2048x1024",
+    "4K": "3840x1920",
+  });
 });
 
 test("Seedream 4.5 使用真实路由并只暴露 2K 与 4K", () => {

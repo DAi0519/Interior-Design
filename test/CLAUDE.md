@@ -5,26 +5,28 @@
 
 CLAUDE.md: 本模块地图，维护自动化测试成员清单
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点、声明式向上菜单、Enter/Space 确认，并阻止内容宽度百分比导致的无效省略
-choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影与完整交互状态
+choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影、纯黑白字选中态与完整交互状态
 generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
 product-navigation.test.mjs: 共享顶栏字体与动效回归测试，验证两页预加载同源 Inter Variable、服务端精确暴露固定字体资产、Raycast OpenType 特性、依赖版本，以及跨页只移动指示块且内容面板静止
-raycast-accent.test.mjs: 跨工作台重点色回归测试，验证珊瑚红/黑莓石墨令牌、双页最终加载顺序、全部动作按钮的近纸面淡灰粉/低透明暖白细边、黑莓顶栏全状态稳定白色连接键与浅色面板纯白普通键/黑莓选中键、Benchmark 流程导航、结果下载白色次级键、START/连接中心动作的完整交互状态、生成黑白灰扫描线、莓色底部遮罩阴影、功能焦点及硬标记移除
+raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字导航/内容反色选中态、中性浅色普通按钮与唯一 `#de742f` 哑光橙精密键帽关键动作/保色 RUNNING/小面积状态回声令牌、双页最终加载顺序、普通保存/授权/连接/恢复动作不染橙、普通禁用不被忙碌态污染、石墨灰选择面/全局莓色/橙色明暗变体移除、生成黑白灰扫描线和中性焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模单图、原图比例约 1MP/4MP 的 1K-2K 契约、16 像素对齐、合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
+model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
 generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、最多两路并发、保序与部分失败测试，不调用真实生图服务
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数的生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
-generation-task-request.test.mjs: 日常生图固定 PNG 且无格式 UI、单模型 1–4 张展开、分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
+generation-task-request.test.mjs: 日常生图固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
+effect-render-enhancement.test.mjs: 效果图美化专项测试，覆盖当前已上架 Prompt 版本回显、不可用恢复文案、天气/时段 UI、`[Main Objective]`/`[BASE]`/历史首句兼容、飞书正向模块完整性、基础→时段→天气拼接、非法枚举、单图、原图比例、脱敏响应与归档元数据内存集成测试
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
-comfyui-client.test.mjs: 根目录 Flux 开发交付 JSON 同步、ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、固定负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
+comfyui-client.test.mjs: ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、默认负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
+flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
-generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、输入变化、自由生图、START/RUNNING… 视觉文案、中文 aria-label、无图标结构、内嵌 Smiley Sans、无视觉套框/底部分割线/边界回弹、全断点 12px 内容安全间距且保留 20px 光学底距的横向悬浮动作与宽屏粘性定位
+generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、输入变化、自由生图、START/RUNNING… 视觉文案、中文 aria-label/aria-busy、保留橙色并带中性扫光的运行态、无图标结构、内嵌 Smiley Sans、精密键帽光学与反馈、无视觉套框/底部分割线/边界回弹、全断点 12px 内容安全间距且保留 20px 光学底距的横向悬浮动作与宽屏粘性定位
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
 agent-model-config.test.mjs: 十个 Prompt Agent 候选 ID、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求
-lark-sync.test.mjs: 飞书附件分列、功能/空房空间类型/其他空间类型/设计方式/Agent/风格、原始/最终 Prompt、生图模型/Prompt融合、画幅适配与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
+lark-sync.test.mjs: 飞书附件分列、含效果图美化的功能/空房空间类型/其他空间类型/设计方式/Agent/风格、原始/最终 Prompt、生图模型/Prompt融合、天气时段元数据与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
 oneapi-client.test.mjs: OneAPI 主动取消、Prompt Agent 白模/风格参考双图顺序、Responses 单图分析/非 Claude 双图评审、Claude Chat Completions 评审、请求侧压缩、图生图、Style DNA 多轮附件、费用归一化与错误脱敏测试
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
 image-artifact.test.mjs: 生成图片扩展名、data URL 解码、空响应与下载体积上限测试

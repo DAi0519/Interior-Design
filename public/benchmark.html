@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、product-navigation.css/js 共享纯文字品牌顶栏、raycast-accent.css 共享重点色与固定版本 GSAP、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、珊瑚红当前态与焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
+  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="./benchmark-review.css?v=4" />
     <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
     <link rel="stylesheet" href="./product-navigation.css?v=8" />
-    <link rel="stylesheet" href="./raycast-accent.css?v=27" />
+    <link rel="stylesheet" href="./raycast-accent.css?v=37" />
   </head>
   <body>
     <div class="app-shell">
@@ -175,7 +175,7 @@
               <label>每候选每批出图<input id="perBatchImagesInput" type="number" min="1" max="20" value="4" /></label>
             </div>
             <div class="action-row">
-              <button id="planButton" class="secondary-button" data-requires-service type="button">生成实验计划</button>
+              <button id="planButton" class="secondary-button functional-accent-button" data-requires-service type="button">生成实验计划</button>
             </div>
           </div>
         </section>
@@ -197,7 +197,7 @@
           <div id="driftNotice" class="notice neutral">先在实验配置中生成实验计划。</div>
           <div class="execution-card">
             <div><h3>开始真实批量测试</h3><p>确认后先冻结生成配置，再将 Prompt、逐张 Run、结果图与错误持续写入 Benchmark Base；本地只保留任务状态。</p></div>
-            <button id="runButton" class="danger-button" disabled type="button">确认并开始</button>
+            <button id="runButton" class="danger-button functional-accent-button" disabled type="button">确认并开始</button>
           </div>
           <div id="generationJobSlot" class="job-slot">
           <div id="jobProgress" class="progress-card hidden" data-status="running">
@@ -243,7 +243,7 @@
                 </div>
                 <label class="field">评分模型<select id="reviewModelSelect" aria-label="评分模型" data-requires-service></select></label>
                 <label>评审批次 ID<input id="reviewBatchInput" /></label>
-                <button id="reviewButton" class="primary-button" data-requires-service type="button">确认并开始 AI 评分</button>
+                <button id="reviewButton" class="primary-button functional-accent-button" data-requires-service type="button">确认并开始 AI 评分</button>
               </div>
               <div class="rubric"><span>保持一致性 1–5 数值</span><span>风格与材质 1–5 数值</span><span>渲染质量 1–5 数值 · 可含小数</span></div>
             </div>

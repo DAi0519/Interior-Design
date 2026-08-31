@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖白模与空房双模式的独立 Prompt Agent 配置、空房必填房间类型及“其他”详情、Style DNA、必填主图与仅智能默认可用的风格参考图、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [INPUT]: 依赖白模与空房双模式的独立 Prompt Agent 配置、空房必填房间类型及“其他”详情、Style DNA、必填主图与仅智能默认可用的风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
  * [OUTPUT]: 对外提供白模/空房按智能默认或平台融合 Agent 分流、空房房间类型/其他详情校验与注入、严格解析/缓存隔离、最终模型仅接收主图及带 Provider 元数据的非阻塞归档
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -468,6 +468,7 @@ export async function executeWhiteModelWorkflow(
     ...(roomTypeDetail ? { roomTypeDetail } : {}),
     selectionName: smartDefault ? "智能默认" : style.name,
     styleReferenceUsed: styleReferences.length > 0,
+    ...(generation.workflowMetadata || {}),
     ...(style
       ? {
           styleCode: style.code,

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、内嵌 Inter 变量字体、本机设置、飞书 Setup、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、精模预设 Prompt 与用户补充、可恢复生成任务、白模/空房双模式设计应用服务及 Benchmark 工作流
- * [OUTPUT]: 对外提供本地生图与评测工作台、同源 Raycast 字体资产、连接中心、按功能恢复的后台生成任务、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、单模型多张/多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、内嵌 Inter 变量字体、本机设置、飞书 Setup 与生成记录 Schema、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、效果图美化天气时段正向 Prompt及当前上架版本、精模预设 Prompt 与用户补充、可恢复生成任务、白模/空房双模式设计应用服务及 Benchmark 工作流
+ * [OUTPUT]: 对外提供本地生图与评测工作台、同源 Raycast 字体资产、含生成记录功能选项准入的连接中心、按功能恢复的后台生成任务、效果图美化当前上架 Prompt 脱敏状态及基础→时段→天气拼接、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、单模型多张/多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
  * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ import {
   EMPTY_ROOM_TYPES,
   EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
 } from "./src/empty-room-type.mjs";
+import { publicEffectEnhancementPromptConfig } from "./src/effect-render-enhancement-prompt.mjs";
 import {
   createGenerationJobRegistry,
   runGenerationJobBatch,
@@ -34,7 +35,7 @@ import {
 import { createBenchmarkJobRegistry } from "./src/benchmark-jobs.mjs";
 import { createBenchmarkWorkbenchService } from "./src/benchmark-workbench.mjs";
 import { createBenchmarkWorkbenchStore } from "./src/benchmark-workbench-store.mjs";
-import { syncGenerationToLark } from "./src/lark-sync.mjs";
+import { syncGenerationToLark, verifyLarkSyncSchema } from "./src/lark-sync.mjs";
 import { createLarkSetupService } from "./src/lark-setup.mjs";
 import {
   hasPersistedOneApiKey,
@@ -59,7 +60,6 @@ import {
   executeStyleDnaReverse,
   publicStyleDnaReverseConfig,
 } from "./src/style-dna-reverse.mjs";
-
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const ROOT_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -211,6 +211,7 @@ function getBenchmarkWorkbench() {
 
 async function verifyLarkConfiguration() {
   await Promise.all([
+    verifyLarkSyncSchema(),
     listPublicStyles(),
     publicRefinedModelPromptConfig(),
     getPublishedPromptAgent("white-model-fusion"),
@@ -345,7 +346,13 @@ async function handleApi(request, response, pathname) {
     if (!/^generation-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
       return sendJson(response, 400, { error: "生成任务 ID 无效" });
     }
-    if (!["emptyRoom", "free", "refinedModel", "whiteModel"].includes(featureMode)) {
+    if (![
+      "effectEnhancement",
+      "emptyRoom",
+      "free",
+      "refinedModel",
+      "whiteModel",
+    ].includes(featureMode)) {
       return sendJson(response, 400, { error: "不支持的生成功能" });
     }
     if (items.length < 1 || items.length > 4) {
@@ -574,17 +581,20 @@ async function handleApi(request, response, pathname) {
       styles,
       promptAgents,
       refinedPrompt,
+      effectEnhancementPrompt,
       smartDefault,
       emptyRoom,
     ] = await Promise.all([
       listPublicStyles(),
       listPublishedPromptAgentVersions("white-model-fusion"),
       publicRefinedModelPromptConfig(),
+      publicEffectEnhancementPromptConfig(),
       publicSmartDefaultConfig(),
       publicEmptyRoomConfig(),
     ]);
     return sendJson(response, 200, {
       emptyRoom,
+      effectEnhancementPrompt,
       promptAgent: publicPromptAgentCatalog(promptAgents),
       refinedPrompt,
       smartDefault,
@@ -597,6 +607,7 @@ async function handleApi(request, response, pathname) {
       styles,
       promptAgents,
       refinedPrompt,
+      effectEnhancementPrompt,
       smartDefault,
       emptyRoom,
     ] = await Promise.all([
@@ -605,6 +616,7 @@ async function handleApi(request, response, pathname) {
         forceRefresh: true,
       }),
       publicRefinedModelPromptConfig({ forceRefresh: true }),
+      publicEffectEnhancementPromptConfig({ forceRefresh: true }),
       publicSmartDefaultConfig({ forceRefresh: true }),
       publicEmptyRoomConfig({ forceRefresh: true }),
       getPublishedPromptAgent("style-dna-reverse", {
@@ -614,6 +626,7 @@ async function handleApi(request, response, pathname) {
     ]);
     return sendJson(response, 200, {
       emptyRoom,
+      effectEnhancementPrompt,
       promptAgent: publicPromptAgentCatalog(promptAgents),
       refinedPrompt,
       smartDefault,

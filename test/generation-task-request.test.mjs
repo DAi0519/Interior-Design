@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/编排器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
+ * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
  * [OUTPUT]: 对外提供固定 PNG 且无格式选择 UI、单模型 1–4 张展开、分功能加载文案与批任务只传一份图片载荷的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -17,13 +17,14 @@ import {
 import { publicModelCatalog } from "../src/model-config.mjs";
 
 test("日常生图移除输出格式 UI 并固定提交 PNG", async () => {
-  const [html, app] = await Promise.all([
+  const [html, app, generationInput] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/generation-input.js", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(html, /id="formatSelect"|>输出格式</);
   assert.match(html, /id="generationCountField" class="field"/);
-  assert.match(app, /outputFormat:\s*"png"/);
+  assert.match(generationInput, /outputFormat:\s*"png"/);
   assert.doesNotMatch(app, /formatSelect/);
 });
 
@@ -105,4 +106,19 @@ test("白模风格参考与精模自定义要求显示对应加载文案", () =>
     renderMode: "smart-default",
     styleReferenceCount: 0,
   }), /自定义要求/);
+});
+
+test("效果图美化显示天气时段专用加载文案", () => {
+  assert.match(generationLoadingCopy({
+    designPromptRequest: false,
+    effectEnhancementRequest: true,
+    emptyRoomRequest: false,
+    forcePromptRegeneration: false,
+    generationCount: 1,
+    models: [{ label: "Seedream 5.0" }],
+    refinedModelRequest: false,
+    refinedPrompt: "",
+    renderMode: "smart-default",
+    styleReferenceCount: 0,
+  }), /时段与天气规则/);
 });

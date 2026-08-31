@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与 AI 生图 Base 的“精模渲染 Prompt”表
- * [OUTPUT]: 对外提供固定 Prompt 版本解析、脱敏目录、草稿测试选择与指定版本正文读取
+ * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与具有同构字段的精模/效果图美化 Prompt 表
+ * [OUTPUT]: 对外提供可定制来源标签的固定 Prompt 版本解析、脱敏目录、草稿测试选择与指定版本正文读取
  * [POS]: src 的精模固定 Prompt 资产边界，正文只在服务端进入出图链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,18 +32,18 @@ function selectValues(value) {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
-export function parseRefinedModelPromptEnvelope(body) {
+export function parseRefinedModelPromptEnvelope(body, { label = "精模" } = {}) {
   if (body?.ok !== true || !Array.isArray(body?.data?.data)) {
-    throw new Error("飞书精模 Prompt 表返回格式不正确");
+    throw new Error(`飞书${label} Prompt 表返回格式不正确`);
   }
   if (body.data.has_more) {
-    throw new Error("飞书精模 Prompt 表超过 200 条，请增加服务端分页读取");
+    throw new Error(`飞书${label} Prompt 表超过 200 条，请增加服务端分页读取`);
   }
 
   const fields = body.data.fields || [];
   const missing = PROMPT_FIELDS.filter((field) => !fields.includes(field));
   if (missing.length > 0) {
-    throw new Error(`飞书精模 Prompt 表缺少字段：${missing.join("、")}`);
+    throw new Error(`飞书${label} Prompt 表缺少字段：${missing.join("、")}`);
   }
   const at = (row, name) => row[fields.indexOf(name)];
   return body.data.data.map((row) => {
@@ -71,6 +71,7 @@ export function parseRefinedModelPromptEnvelope(body) {
 export async function listRefinedModelPrompts({
   config = REFINED_MODEL_PROMPT_CONFIG,
   forceRefresh = false,
+  label = "精模",
   run = runLarkCli,
 } = {}) {
   const load = async () => {
@@ -93,7 +94,7 @@ export async function listRefinedModelPrompts({
         "json",
       ],
     );
-    return parseRefinedModelPromptEnvelope(body);
+    return parseRefinedModelPromptEnvelope(body, { label });
   };
 
   if (run !== runLarkCli) return load();
@@ -122,14 +123,14 @@ export async function publicRefinedModelPromptConfig(options = {}) {
 
 export async function getRefinedModelPrompt(
   code = DEFAULT_REFINED_MODEL_PROMPT_CODE,
-  { allowDraft = false, version = null, ...options } = {},
+  { allowDraft = false, label = "精模", version = null, ...options } = {},
 ) {
   const normalizedCode = String(code || "").trim();
-  const matching = (await listRefinedModelPrompts(options))
+  const matching = (await listRefinedModelPrompts({ ...options, label }))
     .filter((entry) => entry.code === normalizedCode)
     .sort((left, right) => right.version - left.version);
   if (matching.length === 0) {
-    const error = new Error(`飞书精模 Prompt 表中没有 ${normalizedCode} 配置`);
+    const error = new Error(`飞书${label} Prompt 表中没有 ${normalizedCode} 配置`);
     error.statusCode = 404;
     throw error;
   }
@@ -139,7 +140,7 @@ export async function getRefinedModelPrompt(
     requestedVersion != null &&
     (!Number.isInteger(requestedVersion) || requestedVersion <= 0)
   ) {
-    const error = new Error("精模 Prompt 版本必须是正整数");
+    const error = new Error(`${label} Prompt 版本必须是正整数`);
     error.statusCode = 400;
     throw error;
   }
@@ -147,7 +148,7 @@ export async function getRefinedModelPrompt(
     ? matching.find((entry) => entry.validPrompt && (allowDraft || entry.published))
     : matching.find((entry) => entry.version === requestedVersion);
   if (!prompt || !prompt.validPrompt) {
-    const error = new Error("指定的精模 Prompt 版本不存在或正文不完整");
+    const error = new Error(`指定的${label} Prompt 版本不存在或正文不完整`);
     error.statusCode = 409;
     throw error;
   }

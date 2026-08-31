@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的同步配置、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供附件分列、产品链路/空间类型/其他空间类型/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
+ * [INPUT]: 依赖 node:test/assert 与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
+ * [OUTPUT]: 对外提供附件分列、含效果图美化的产品链路 Schema/空间类型/其他空间类型/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertLarkSyncSchema,
   buildRecordFields,
   LARK_SYNC_CONFIG,
   recordIdFrom,
@@ -20,6 +21,23 @@ test("生成记录将白模参考图与风格参考图归档到独立附件列",
   assert.notEqual(
     LARK_SYNC_CONFIG.referenceFieldId,
     LARK_SYNC_CONFIG.styleReferenceFieldId,
+  );
+});
+
+test("生成记录 Schema 必须包含效果图美化等全部功能选项", () => {
+  const fields = [{
+    name: "功能",
+    options: ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图美化"]
+      .map((name) => ({ name })),
+    type: "select",
+  }];
+  assert.deepEqual(assertLarkSyncSchema({ data: { fields } }), {
+    featureOptions: ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图美化"],
+  });
+  fields[0].options.pop();
+  assert.throws(
+    () => assertLarkSyncSchema({ data: { fields } }),
+    /缺少选项：效果图美化/,
   );
 });
 
@@ -131,6 +149,15 @@ test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
     ...base,
     workflow: { feature: "refined-model-rendering", promptVersion: 2 },
   });
+  const enhancement = buildRecordFields({
+    ...base,
+    workflow: {
+      effectTime: "night",
+      effectWeather: "rainy",
+      feature: "effect-render-enhancement",
+      promptVersion: 1,
+    },
+  });
 
   assert.deepEqual(
     [smart["功能"], smart["空间类型"], smart["其他空间类型"], smart["设计方式"], smart["Agent 编码"], smart["Agent 版本"], smart["风格选择"]],
@@ -141,6 +168,16 @@ test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
     ["空房设计", "儿童房", "平台风格", "empty-room-fusion", 1, "现代简约 · v3"],
   );
   assert.equal(refined["功能"], "精模渲染");
+  assert.equal(enhancement["功能"], "效果图美化");
+  assert.deepEqual(
+    JSON.parse(enhancement["生成参数"]).workflow,
+    {
+      effectTime: "night",
+      effectWeather: "rainy",
+      feature: "effect-render-enhancement",
+      promptVersion: 1,
+    },
+  );
   assert.equal("其他空间类型" in fusion, false);
   assert.equal("设计方式" in refined, false);
   assert.equal("Agent 编码" in refined, false);

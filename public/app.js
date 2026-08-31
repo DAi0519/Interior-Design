@@ -1,14 +1,16 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用 Flux 默认模型参数的模型多选/单模型 1–4 张下拉/结果画廊、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供按功能及跨页恢复的生成中/结果状态、空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、固定 PNG 的自由生图、单模型 1–4 张或最多四模型各一张生成与独立飞书反馈
- * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、精模 Prompt 正文或工作流正文
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、效果图美化天气/时段受控选项、空房必填房间类型及“其他”详情、精模预设 Prompt 与可选用户要求、白模/空房双模式独立 Agent 与固定风格路由、支持单图原位替换的双参考图上传、使用可选负向 Prompt 覆盖与默认模型参数的 Flux 模型多选/单模型 1–4 张下拉/结果画廊、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供按功能及跨页恢复的生成中/结果状态、效果图美化及可独立/组合的天气时段提交、空房房间类型显式选择及“其他”详情条件必填、精模自定义要求、白模/空房双模式与仅智能默认可用的风格参考图整合及拖入替换、Flux 默认/自定义负向 Prompt 实验、固定 PNG 的自由生图、单模型 1–4 张或最多四模型各一张生成与独立飞书反馈
+ * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、效果图美化/精模 Prompt 正文或工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { bindEmptyRoomType } from "./empty-room-type.js";
+import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
+import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
@@ -48,6 +50,9 @@ const elements = {
   emptyModel: document.querySelector("#emptyModel"),
   emptyRoomTypeSection: document.querySelector("#emptyRoomTypeSection"),
   emptySize: document.querySelector("#emptySize"),
+  effectEnhancementSection: document.querySelector("#effectEnhancementSection"),
+  effectTimeSelect: document.querySelector("#effectTimeSelect"),
+  effectWeatherSelect: document.querySelector("#effectWeatherSelect"),
   exactSize: document.querySelector("#exactSize"),
   featureModeButtons: Array.from(document.querySelectorAll("[data-feature-mode]")),
   generationControls: Array.from(document.querySelectorAll(".generation-control")),
@@ -103,6 +108,12 @@ const emptyRoomType = bindEmptyRoomType({ root: document.querySelector("#emptyRo
   onChange: () => generationActions.clearReusable() });
 const generationCount = bindGenerationCount({
   root: document.querySelector("#generationCountField"),
+});
+const fluxNegativePrompt = bindFluxNegativePrompt({
+  count: document.querySelector("#negativePromptCount"),
+  note: document.querySelector("#negativePromptNote"),
+  root: document.querySelector("#negativePromptSection"),
+  textarea: document.querySelector("#negativePromptInput"),
 });
 const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
@@ -197,12 +208,20 @@ function updateReferenceRequirements() {
 }
 
 function selectFeatureMode(featureMode) {
-  const supported = ["emptyRoom", "free", "refinedModel", "styleDna", "whiteModel"];
+  const supported = [
+    "effectEnhancement",
+    "emptyRoom",
+    "free",
+    "refinedModel",
+    "styleDna",
+    "whiteModel",
+  ];
   if (!supported.includes(featureMode)) return;
   state.featureMode = featureMode;
   const isWhiteModel = featureMode === "whiteModel";
   const isEmptyRoom = featureMode === "emptyRoom";
   const isDesignModel = isWhiteModel || isEmptyRoom;
+  const isEffectEnhancement = featureMode === "effectEnhancement";
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
 
@@ -237,13 +256,17 @@ function selectFeatureMode(featureMode) {
     renderPromptAgentContext(smartDefault);
   }
   elements.styleSection.classList.toggle("hidden", !isDesignModel);
+  elements.effectEnhancementSection.classList.toggle("hidden", !isEffectEnhancement);
   elements.emptyRoomTypeSection.classList.toggle("hidden", !isEmptyRoom);
   elements.styleReferenceSection.classList.toggle("hidden", !isDesignModel);
   elements.styleTitle.textContent = isEmptyRoom ? "设计风格" : "风格选择";
   elements.whiteModelRenderModeList.setAttribute("aria-label",
     isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
-  elements.promptSection.classList.toggle("hidden", isRefinedModel);
+  elements.promptSection.classList.toggle(
+    "hidden",
+    isRefinedModel || isEffectEnhancement,
+  );
   configurePrimaryModel();
   updateReferenceRequirements();
   referenceUpload.render();
@@ -263,6 +286,7 @@ function configurePrimaryModel() {
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
   renderModelSelect();
+  fluxNegativePrompt.render(state.modelKeys);
   generationCount.setSingleModel(state.modelKeys.length === 1);
   updateReferenceRequirements();
   configureSizeControls();
@@ -345,58 +369,28 @@ function updateComputedSize() {
 
 function generationInput() {
   const renderMode = whiteModelRenderMode.current();
-  const model = selectedModel();
-  const emptyRoom = state.featureMode === "emptyRoom";
-  const whiteModel = state.featureMode === "whiteModel";
-  return {
+  return buildGenerationInput({
+    effectTime: elements.effectTimeSelect.value,
+    effectWeather: elements.effectWeatherSelect.value,
+    emptyRoomFields: emptyRoomType.requestFields(),
     featureMode: state.featureMode,
-    modelKey: model?.key,
-    outputFormat: "png",
-    prompt: state.featureMode === "refinedModel"
-      ? elements.refinedPromptInput.value.trim()
-      : elements.promptInput.value.trim(),
-    quality: model?.qualityOptions.length
-      ? elements.qualitySelect.value || undefined
-      : undefined,
+    model: selectedModel(),
+    negativePrompt: fluxNegativePrompt.value(),
+    prompt: {
+      free: elements.promptInput.value.trim(),
+      refined: elements.refinedPromptInput.value.trim(),
+    },
+    promptAgentModelKey: state.promptAgentModelKey,
+    promptAgentVersion: promptAgentVersionSelect.value(),
+    promptVersion: refinedPromptVersionSelect.value(),
+    quality: elements.qualitySelect.value,
     ratio: elements.ratioSelect.value,
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
-    referenceImages: referenceImages().map(
-      ({ dataUrl, name, size, type }) => ({
-        dataUrl,
-        name,
-        size,
-        type,
-      }),
-    ),
-    ...(isDesignPromptFlow()
-      ? {
-          styleReferenceImages: styleReferenceImages().map(
-            ({ dataUrl, name, size, type }) => ({
-              dataUrl,
-              name,
-              size,
-              type,
-            }),
-          ),
-        }
-      : {}),
+    referenceImages: referenceImages(),
+    renderMode,
     resolution: elements.resolutionSelect.value,
-    renderMode: renderMode.mode,
-    ...(emptyRoom ? emptyRoomType.requestFields() : {}),
-    emptyRoomSmartDefaultVersion: emptyRoom && renderMode.mode === "smart-default"
-      ? renderMode.agentVersion || undefined
-      : undefined,
-    emptyRoomPromptAgentVersion: emptyRoom && renderMode.mode === "style-dna"
-      ? promptAgentVersionSelect.value()
-      : undefined,
-    smartDefaultAgentVersion: whiteModel
-      ? renderMode.agentVersion || undefined
-      : undefined,
-    styleCode: renderMode.styleCode || undefined,
-    promptAgentModelKey: state.promptAgentModelKey,
-    promptAgentVersion: whiteModel ? promptAgentVersionSelect.value() : undefined,
-    promptVersion: refinedPromptVersionSelect.value(),
-  };
+    styleReferenceImages: styleReferenceImages(),
+  });
 }
 
 function updatePromptCount() { elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`; }
@@ -493,6 +487,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const emptyRoomRequest = featureMode === "emptyRoom";
   const designPromptRequest = whiteModelRequest || emptyRoomRequest;
   const refinedModelRequest = featureMode === "refinedModel";
+  const effectEnhancementRequest = featureMode === "effectEnhancement";
   const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
   if (roomTypeValidation?.message) {
     emptyRoomType.focusInvalid();
@@ -544,6 +539,10 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
+  if (effectEnhancementRequest && referenceImages().length !== 1) {
+    showToast("效果图美化需要且只允许 1 张待美化效果图");
+    return;
+  }
   if (
     featureMode === "free" &&
     models.some((model) => model.requiresReferenceImage) &&
@@ -569,6 +568,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const loadingCopy = generationLoadingCopy({
     designPromptRequest,
     emptyRoomRequest,
+    effectEnhancementRequest,
     forcePromptRegeneration,
     generationCount: generationCount.value(),
     models,
@@ -743,7 +743,9 @@ referenceUpload = bindReferenceUpload({
       ? "空房图"
       : state.featureMode === "refinedModel"
         ? "精模图"
-        : "参考图",
+        : state.featureMode === "effectEnhancement"
+          ? "待美化效果图"
+          : "参考图",
   input: elements.referenceInput,
   list: elements.referenceList,
   onChange({ images, previousImages }) {
@@ -782,6 +784,8 @@ elements.promptInput.addEventListener("input", () => {
 elements.refinedPromptInput.addEventListener("input", updateRefinedPromptCount);
 elements.promptAgentVersionSelect.addEventListener("change", generationActions.refresh);
 elements.refinedPromptVersionSelect.addEventListener("change", generationActions.refresh);
+elements.effectTimeSelect.addEventListener("change", generationActions.refresh);
+elements.effectWeatherSelect.addEventListener("change", generationActions.refresh);
 elements.ratioSelect.addEventListener("change", () => {
   if (selectedSourceImage()) state.ratioMode = "manual";
   updateComputedSize();

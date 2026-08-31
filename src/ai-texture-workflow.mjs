@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、默认 9B FP8/7 steps 参数、1K/2K 目标宽高、外部正向 Prompt、固定负向 Prompt、参考图 Base64 与运行时随机种子
+ * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、默认 9B FP8/7 steps 参数、1K/2K 目标宽高、外部正向 Prompt、可选自定义负向 Prompt 与系统默认回退、参考图 Base64 与运行时随机种子
  * [OUTPUT]: 对外提供分辨率受控且使用默认模型参数的版本化 Flux2 Klein 工作流工厂、稳定输入输出节点与可归档工作流元数据
  * [POS]: src 的 ComfyUI 工作流定义，仅描述机器执行图，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -10,7 +10,7 @@ export const AI_TEXTURE_WORKFLOW = Object.freeze({
   label: "Flux2 Klein",
   model: "flux-2-klein-9b-fp8.safetensors",
   outputNodeId: "72",
-  version: "2026-08-18.3",
+  version: "2026-08-28.1",
 });
 
 export const AI_TEXTURE_DEFAULTS = Object.freeze({
@@ -18,8 +18,21 @@ export const AI_TEXTURE_DEFAULTS = Object.freeze({
   steps: 7,
 });
 
-const NEGATIVE_PROMPT =
+export const AI_TEXTURE_DEFAULT_NEGATIVE_PROMPT =
   "(alter material colors:1.2), (change material types:1.2), matte materials converted to glossy finishes, CG plastic feel, unreasonable light sources, exaggerated light intensity, add non-existent objects and structures, color distortion or unwanted color shifts, localized blown-out highlights, pitch-black shadows with no details, extra noise or artifacts, altered original structural models or proportions";
+
+export function resolveAiTextureNegativePrompt(userPrompt) {
+  const custom = String(userPrompt || "").trim();
+  if (custom.length > 8000) {
+    const error = new TypeError("Flux2 Klein 负向提示词不能超过 8000 字符");
+    error.statusCode = 400;
+    throw error;
+  }
+  return {
+    mode: custom ? "custom" : "default",
+    text: custom || AI_TEXTURE_DEFAULT_NEGATIVE_PROMPT,
+  };
+}
 
 function positivePrompt(userPrompt) {
   return String(userPrompt || "").trim();
@@ -28,6 +41,7 @@ function positivePrompt(userPrompt) {
 export function createAiTextureWorkflow({
   height = 2048,
   imageBase64,
+  negativePrompt,
   prompt,
   seed,
   width = 2048,
@@ -35,6 +49,7 @@ export function createAiTextureWorkflow({
   if (![width, height].every((value) => Number.isInteger(value) && value >= 16)) {
     throw new TypeError("Flux2 Klein 工作流尺寸不正确");
   }
+  const resolvedNegativePrompt = resolveAiTextureNegativePrompt(negativePrompt);
   return {
     "71": {
       class_type: "easy loadImageBase64",
@@ -72,7 +87,7 @@ export function createAiTextureWorkflow({
       class_type: "CLIPTextEncode",
       inputs: {
         clip: ["CLIPLoader-002794d3ba7c17c4f83b82f42961d3d8", 0],
-        text: NEGATIVE_PROMPT,
+        text: resolvedNegativePrompt.text,
       },
     },
     "CLIPTextEncode-acd7e32aef39aafe3f6c0abb0498e47a": {
@@ -189,6 +204,7 @@ export function createAiTextureWorkflow({
 export function aiTextureWorkflowMetadata({
   executionDurationMs,
   height,
+  negativePromptMode,
   promptId,
   queueDurationMs,
   resolution,
@@ -201,6 +217,7 @@ export function aiTextureWorkflowMetadata({
     inferenceHeight: height,
     inferenceWidth: width,
     model: AI_TEXTURE_DEFAULTS.model,
+    negativePromptMode,
     promptId,
     queueDurationMs,
     resolution,

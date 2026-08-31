@@ -1,19 +1,17 @@
 /**
- * [INPUT]: 依赖固定精模 Prompt、可选用户补充要求/Flux 负向 Prompt、单张带材质模型图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
- * [OUTPUT]: 对外提供用户要求前置、预设 Prompt 后置的精模忠实渲染、实际参数摘要和独立飞书同步任务
- * [POS]: src 的精模渲染应用服务，与白模 Style DNA/Prompt Agent 链路隔离并复用出图基础设施
+ * [INPUT]: 依赖飞书效果图美化 Prompt 源文、天气/时段受控枚举、可选 Flux 负向 Prompt、单张待美化效果图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
+ * [OUTPUT]: 对外提供基础→可选时段→可选天气的正向 Prompt 美化执行、实际参数摘要与独立飞书同步任务
+ * [POS]: src 的效果图美化应用服务，与精模及白模 Agent 链路隔离并复用出图基础设施
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import {
+  composeEffectEnhancementPrompt,
+  getEffectEnhancementPrompt,
+} from "./effect-render-enhancement-prompt.mjs";
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
-import {
-  DEFAULT_REFINED_MODEL_PROMPT_CODE,
-  getRefinedModelPrompt,
-} from "./refined-model-prompt.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
-
-const MAX_USER_PROMPT_LENGTH = 8000;
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -21,38 +19,27 @@ function workflowError(message, statusCode = 400) {
   return error;
 }
 
-export function composeRefinedModelPrompt(presetPrompt, userPrompt = "") {
-  const preset = String(presetPrompt || "").trim();
-  const custom = String(userPrompt || "").trim();
-  if (custom.length > MAX_USER_PROMPT_LENGTH) {
-    throw workflowError(`精模自定义要求不能超过 ${MAX_USER_PROMPT_LENGTH} 个字符`);
-  }
-  if (!custom) return preset;
-  return `${custom}\n\n${preset}`;
-}
-
-export async function executeRefinedModelWorkflow(
+export async function executeEffectRenderEnhancementWorkflow(
   input,
   {
     imageClient,
-    loadPrompt = getRefinedModelPrompt,
+    loadPrompt = getEffectEnhancementPrompt,
     scheduleSync = null,
   },
 ) {
   if (!imageClient) {
-    throw new TypeError("refined model workflow requires image client");
+    throw new TypeError("effect render enhancement workflow requires image client");
   }
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   if (referenceImages.length !== 1) {
-    throw workflowError("精模渲染需要且只允许 1 张带材质模型图");
+    throw workflowError("效果图美化需要且只允许 1 张待美化效果图");
   }
 
-  const promptAsset = await loadPrompt(
-    input.promptCode || DEFAULT_REFINED_MODEL_PROMPT_CODE,
-    { allowDraft: true, version: input.promptVersion },
-  );
-  const sourcePrompt = String(input.prompt || "").trim();
-  const finalPrompt = composeRefinedModelPrompt(promptAsset.prompt, sourcePrompt);
+  const promptAsset = await loadPrompt();
+  const finalPrompt = composeEffectEnhancementPrompt(promptAsset.prompt, {
+    time: input.effectTime,
+    weather: input.effectWeather,
+  });
   const batch = normalizeGenerationBatch(input);
   const generation = createGenerationRequest(
     { ...input, prompt: finalPrompt },
@@ -88,8 +75,9 @@ export async function executeRefinedModelWorkflow(
   }));
   const workflow = {
     ...batch,
-    feature: "refined-model-rendering",
-    customPromptUsed: Boolean(sourcePrompt),
+    effectTime: String(input.effectTime || "preserve"),
+    effectWeather: String(input.effectWeather || "preserve"),
+    feature: "effect-render-enhancement",
     promptCode: promptAsset.code,
     promptPublished: promptAsset.published,
     promptVersion: promptAsset.version,
@@ -105,7 +93,7 @@ export async function executeRefinedModelWorkflow(
         preview,
         referenceImages: archivedReferences,
         resultImage,
-        sourcePrompt,
+        sourcePrompt: "",
         workflow,
       })
     : { generationId: null, status: "skipped" };

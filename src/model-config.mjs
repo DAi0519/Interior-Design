@@ -1,14 +1,16 @@
 /**
- * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps 契约与 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、请求构造器与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps/可选负向 Prompt 契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/全 OneAPI 2:1 画幅/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、请求构造器与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { resolveAiTextureNegativePrompt } from "./ai-texture-workflow.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 
 const GPT_IMAGE_SIZES = {
   "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "3840x3840" },
+  "2:1": { "1K": "1024x512", "2K": "2048x1024", "4K": "3840x1920" },
   "3:2": { "1K": "1536x1024", "2K": "3072x2048", "4K": "3840x2560" },
   "2:3": { "1K": "1024x1536", "2K": "2048x3072", "4K": "2560x3840" },
   "3:4": { "1K": "768x1024", "2K": "1536x2048", "4K": "2880x3840" },
@@ -24,6 +26,7 @@ const BANANA_2_SIZES = {
   "1:4": { "512": "256x1024", "1K": "512x2048", "2K": "1024x4096", "4K": "2048x8192" },
   "1:8": { "512": "192x1536", "1K": "384x3072", "2K": "768x6144", "4K": "1536x12288" },
   "2:3": { "512": "424x632", "1K": "848x1264", "2K": "1696x2528", "4K": "3392x5056" },
+  "2:1": { "512": "720x360", "1K": "1440x720", "2K": "2880x1440", "4K": "5760x2880" },
   "3:2": { "512": "632x424", "1K": "1264x848", "2K": "2528x1696", "4K": "5056x3392" },
   "3:4": { "512": "448x600", "1K": "896x1200", "2K": "1792x2400", "4K": "3584x4800" },
   "4:1": { "512": "1024x256", "1K": "2048x512", "2K": "4096x1024", "4K": "8192x2048" },
@@ -38,6 +41,7 @@ const BANANA_2_SIZES = {
 
 const SEEDREAM_5_SIZES = {
   "1:1": { "2K": "2048x2048", "3K": "3072x3072", "4K": "4096x4096" },
+  "2:1": { "2K": "2880x1440", "3K": "4352x2176", "4K": "5760x2880" },
   "3:4": { "2K": "1728x2304", "3K": "2592x3456", "4K": "3520x4704" },
   "4:3": { "2K": "2304x1728", "3K": "3456x2592", "4K": "4704x3520" },
   "16:9": { "2K": "2848x1600", "3K": "4096x2304", "4K": "5504x3040" },
@@ -159,6 +163,10 @@ function alignToLatentGrid(value) {
   return Math.max(16, Math.round(value / 16) * 16);
 }
 
+function alignDownToLatentGrid(value) {
+  return Math.max(16, Math.floor(value / 16) * 16);
+}
+
 export function fitSourceDimensionsToPixelArea(sourceDimensions, pixelArea) {
   if (!validDimensions(sourceDimensions)) {
     throw new TypeError("无法读取参考图尺寸");
@@ -168,9 +176,12 @@ export function fitSourceDimensionsToPixelArea(sourceDimensions, pixelArea) {
     throw new TypeError("Flux2 Klein 分辨率档位不正确");
   }
   const aspectRatio = sourceDimensions.width / sourceDimensions.height;
+  const height = alignDownToLatentGrid(Math.sqrt(target / aspectRatio));
+  let width = alignToLatentGrid(height * aspectRatio);
+  while (width * height > target && width > 16) width -= 16;
   return {
-    height: alignToLatentGrid(Math.sqrt(target / aspectRatio)),
-    width: alignToLatentGrid(Math.sqrt(target * aspectRatio)),
+    height,
+    width,
   };
 }
 
@@ -249,11 +260,13 @@ export function createGenerationRequest(
       resolvedSourceDimensions,
       Number(model.sizes.source[resolution]),
     );
+    const negativePrompt = resolveAiTextureNegativePrompt(input.negativePrompt);
     const size = `${dimensions.width}x${dimensions.height}`;
     return {
       preview: {
         referenceImageCount: 1,
         model: model.id,
+        negativePromptMode: negativePrompt.mode,
         outputFormat: "png",
         quality: null,
         ratio: "source",
@@ -277,12 +290,18 @@ export function createGenerationRequest(
         })),
         model: model.id,
         n: 1,
+        negative_prompt: negativePrompt.text,
+        negative_prompt_mode: negativePrompt.mode,
         output_format: "png",
         prompt,
         resolution,
         size,
         height: dimensions.height,
         width: dimensions.width,
+      },
+      workflowMetadata: {
+        negativePrompt: negativePrompt.text,
+        negativePromptMode: negativePrompt.mode,
       },
     };
   }

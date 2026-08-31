@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、精模/白模/空房工作流，以及调用方注入的密钥、模型目录、图片客户端、Prompt 缓存与同步调度
- * [OUTPUT]: 对外提供自由生图、精模、白模/空房单模型执行及按功能统一路由
+ * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、效果图美化/精模/白模/空房工作流、Flux 可选负向 Prompt，以及调用方注入的密钥、模型目录、图片客户端、Prompt 缓存与同步调度
+ * [OUTPUT]: 对外提供自由生图、效果图美化、精模、白模/空房单模型执行及按功能统一路由
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
+import { executeEffectRenderEnhancementWorkflow } from "./effect-render-enhancement-workflow.mjs";
 import {
   createGenerationRequest,
   imageProviderForModel,
@@ -58,6 +59,7 @@ export function createGenerationService({
         ...normalizeGenerationBatch(input),
         feature: "free-image-generation",
         provider: generation.provider,
+        ...(generation.workflowMetadata || {}),
         ...(result.metadata || {}),
       },
     });
@@ -85,6 +87,16 @@ export function createGenerationService({
     });
   }
 
+  async function executeEffectEnhancement(input) {
+    const oneApiClient = imageProviderForModel(input.modelKey) === "oneapi"
+      ? createOneApiClient(requireApiKey())
+      : null;
+    return executeEffectRenderEnhancementWorkflow(input, {
+      imageClient: imageClientForModel(input.modelKey, { oneApiClient }),
+      scheduleSync: scheduleGenerationSync,
+    });
+  }
+
   async function executeDesign(input) {
     const client = createOneApiClient(requireApiKey());
     const imageClient = imageClientForModel(input.modelKey, {
@@ -105,10 +117,19 @@ export function createGenerationService({
     if (["emptyRoom", "whiteModel"].includes(featureMode)) {
       return executeDesign(input);
     }
+    if (featureMode === "effectEnhancement") {
+      return executeEffectEnhancement(input);
+    }
     if (featureMode === "refinedModel") return executeRefined(input);
     if (featureMode === "free") return executeFree(input);
     throw new TypeError("不支持的生成功能");
   }
 
-  return { executeDesign, executeForMode, executeFree, executeRefined };
+  return {
+    executeDesign,
+    executeEffectEnhancement,
+    executeForMode,
+    executeFree,
+    executeRefined,
+  };
 }

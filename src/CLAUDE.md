@@ -4,20 +4,22 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
-model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、合法尺寸及 Flux 原图比例约 1MP/4MP 的 1K/2K 请求契约
+model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、默认/自定义负向 Prompt、含全 OneAPI 2:1 的合法尺寸及 Flux 原图比例约 1MP/4MP 且不超面积的 1K/2K 请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询及有界结果保留
-generation-service.mjs: 日常生图应用服务，统一自由生图、精模、白模/空房的 Provider/工作流路由、记录同步与脱离 HTTP 的单模型执行
+generation-service.mjs: 日常生图应用服务，统一自由生图、效果图美化、精模、白模/空房的 Provider/工作流路由、Flux 负向 Prompt 归档、记录同步与脱离 HTTP 的单模型执行
+effect-render-enhancement-prompt.mjs: 效果图美化 Prompt 资产边界，读取独立飞书表中当前已上架源文、向浏览器公开脱敏名称/版本状态、兼容 `[Main Objective]`/`[BASE]`/历史首句标记、校验八个正向模块并按基础→时段→天气拼接
+effect-render-enhancement-workflow.mjs: 效果图美化应用服务，以单张效果图和天气/时段枚举编排双 Provider 出图、批次元数据与飞书归档
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十个候选 ID（含 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-client.mjs: 可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Prompt Agent 支持白模单图或白模+风格参考双图 Responses；Claude 双图 AI 评审按规则源走 Chat Completions，其余分析、Style DNA 多轮反推与图生图走 Responses，统一归一化请求、费用与脱敏错误
-ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用原版 9B FP8/7 steps、原图比例 1K/2K 推理及输出尺寸、Base64 参考图、正向 Prompt 原样注入、固定负向 Prompt、运行时 Seed 及版本元数据
-comfyui-client.mjs: 支持外部取消信号的 ComfyUI HTTP 客户端，将 Base64 参考图、1K/2K 目标宽高与所选档位工作流原子提交、只对网关读取抖动做安全重试、明确区分服务不可用、保留节点校验详情、轮询 History、恢复多实例间暂不可见的输出并归一为 data URL 与排队/执行元数据
+ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用原版 9B FP8/7 steps、原图比例 1K/2K 推理及输出尺寸、Base64 参考图、正向 Prompt 原样注入、空值回退默认/非空值整段覆盖的负向 Prompt、运行时 Seed 及版本元数据
+comfyui-client.mjs: 支持外部取消信号的 ComfyUI HTTP 客户端，将 Base64 参考图、正向/负向 Prompt、1K/2K 目标宽高与所选档位工作流原子提交、只对网关读取抖动做安全重试、明确区分服务不可用、保留节点校验详情、轮询 History、恢复多实例间暂不可见的输出并归一为 data URL 与排队/执行/负向模式元数据
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 飞书生成记录同步边界，按真实 Base 字段投影功能、空房空间类型/其他空间类型、设计方式、Agent 编码/版本、风格选择、最终出图模型、融合基模与 Prompt，同时保留完整工作流 JSON，并将主参考图、结果图与可选风格参考图分列上传
+lark-sync.mjs: 飞书生成记录同步边界，按实时 Schema 准入全部功能选项，投影含效果图美化的功能、空房空间类型/其他空间类型、设计方式、Agent 编码/版本、风格选择、最终出图模型、融合基模与 Prompt，同时保留完整天气/时段工作流 JSON，并将主参考图、结果图与可选风格参考图分列上传
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名与不修改原件的模型请求 JPEG 降质/缩放压缩
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
@@ -35,7 +37,7 @@ benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与空房智能默认/平台融合、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取
-refined-model-prompt.mjs: 精模固定 Prompt 资产边界，读取独立飞书表、公开脱敏含草稿目录并按版本仅在服务端提供正文
+refined-model-prompt.mjs: 同构版本化 Prompt 读取边界，为精模与效果图美化独立飞书表解析脱敏目录并按版本仅在服务端提供正文
 refined-model-workflow.mjs: 精模渲染应用服务，以单张带材质模型图、可选用户要求前置且飞书预设 Prompt 后置的顺序编排双 Provider 出图、批次元数据与原始/最终 Prompt 独立归档
 white-model-workflow.mjs: 设计模型渲染应用服务，白模和空房均按智能默认/平台融合稳定编码选 Agent，空房在 Agent 前强制校验客户房间类型及“其他”详情并注入两种 Prompt，仅智能默认允许主图加单张风格参考，平台融合只接收主图与 Style DNA 并拒绝混合风格来源；按含功能/房间类型/详情/Prompt/风格图的完整指纹复用提示词，最终模型仍只接收主图并统一编排双 Provider 出图与归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 index.html 连接中心语义结构、styles.css 弹层基础与 connection-center.js 状态类
- * [OUTPUT]: 对外提供 OneAPI/飞书无套框双分区、与工作台一致的黑莓石墨暖白文字动作按钮、状态行、授权二维码和窄屏连接中心布局
+ * [INPUT]: 依赖 index.html 连接中心语义结构、styles.css 弹层基础、raycast-accent.css 的中性主动作边界令牌与 connection-center.js 状态类
+ * [OUTPUT]: 对外提供 OneAPI/飞书无套框双分区、与工作台一致的中性浅色动作按钮、状态行、授权二维码和窄屏连接中心布局
  * [POS]: public 的首次运行视觉层，在单一弹层表面内组织模型访问与配置同步
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -130,16 +130,13 @@
 }
 
 .connection-action-button {
-  background:
-    radial-gradient(circle at 92% 6%, rgb(255 99 99 / 24%), transparent 38%),
-    radial-gradient(ellipse 96% 180% at 100% 0%, rgb(201 54 77 / 14%), transparent 74%),
-    var(--brand-surface, #30272d);
-  border: 1px solid var(--brand-surface-border, #503a45);
+  background: var(--brand-key-primary-bg, #f8f8f9);
+  border: 1px solid var(--brand-key-primary-border, #c5c6cb);
   border-radius: 6px;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 12%),
-    0 4px 12px rgb(64 38 49 / 18%);
-  color: var(--brand-surface-ink, #fff7f8);
+    inset 0 1px 0 #fff,
+    0 2px 6px rgb(25 26 28 / 12%);
+  color: var(--brand-key-strong-ink, #202024);
   font-size: 11px;
   font-weight: 600;
   height: 32px;
@@ -154,13 +151,9 @@
 }
 
 .connection-action-button:active {
-  background:
-    radial-gradient(circle at 92% 6%, rgb(255 99 99 / 18%), transparent 38%),
-    #292329;
-  border-color: #493741;
-  box-shadow:
-    inset 0 2px 4px rgb(12 8 10 / 30%),
-    0 2px 8px rgb(64 38 49 / 14%);
+  background: var(--brand-key-active-bg, #dedfe3);
+  border-color: var(--brand-key-active-border, #bbbcc2);
+  box-shadow: inset 0 2px 4px rgb(25 26 28 / 12%);
   transform: scale(0.97);
 }
 
@@ -285,15 +278,12 @@
 
 @media (hover: hover) and (pointer: fine) {
   .connection-action-button:hover:not(:disabled) {
-    background:
-      radial-gradient(circle at 90% 4%, rgb(255 119 126 / 34%), transparent 40%),
-      radial-gradient(ellipse 96% 180% at 100% 0%, rgb(201 54 77 / 18%), transparent 74%),
-      var(--brand-surface-hover, #3b2d35);
-    border-color: #62424f;
+    background: var(--brand-key-hover-bg, #fafafa);
+    border-color: var(--brand-key-hover-border, #d7d8dc);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 16%),
-      0 5px 14px rgb(64 38 49 / 24%);
-    color: #fff;
+      inset 0 1px 0 #fff,
+      0 3px 8px rgb(25 26 28 / 11%);
+    color: var(--brand-key-strong-ink, #202024);
   }
 }
 

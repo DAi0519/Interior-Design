@@ -5,6 +5,279 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Colored RUNNING State v60 Design QA
+
+## Evidence
+
+- 用户明确要求生成按钮运行时不要退回纯白，而应继续保留颜色并优化运行反馈。
+- 现有逻辑只通过原生 `disabled` 阻止重复提交，最终颜色层将其与普通不可用状态统一为中性浅灰，导致运行状态丢失关键动作识别。
+- 桌面实渲：`/Users/dai/.codex/visualizations/2026/08/28/01a04660-22e7-7de2-be34-4c467fb80742/start-running-colored-desktop-v60.png`。
+- 窄屏实渲：`/Users/dai/.codex/visualizations/2026/08/28/01a04660-22e7-7de2-be34-4c467fb80742/start-running-colored-mobile-v60.png`。
+
+## Findings
+
+- 运行态增加独立 `is-busy` 与 `aria-busy=true`，继续用原生 disabled 阻止重复提交，但不再与普通 disabled 共用视觉。
+- RUNNING 保留唯一的 `#de742f / #202024` 功能色，以较浅中性阴影和横向黑白灰扫光表达进行中；不新增橙色明暗变体、彩色辉光或额外图标。
+- 普通 disabled 与 Benchmark 未就绪动作继续使用中性浅灰，不被本次忙碌状态规则污染；`prefers-reduced-motion` 下移除扫光并保留静态橙色 RUNNING。
+
+## Verification
+
+- 真实 Chromium 运行态读回 `RUNNING…`、`disabled=true`、`aria-busy=true`、`aria-label="生成中"`、`cursor: progress`，面与边界保持精确 `rgb(222, 116, 47)`，文字保持 `rgb(32, 32, 36)`。
+- 桌面为 `358 × 54px`，窄屏为 `368 × 54px`，横向溢出均为 0；1.8 秒扫光在两次采样间从 `-262.39px` 移动到 `326.29px`，证明动画真实运行。
+- 普通 disabled 独立读回 `rgb(243, 243, 244) / rgb(230, 230, 232)`、无阴影；低动效媒体条件下 RUNNING 仍保持同一橙色，扫光读回 `animation-name: none / opacity: 0`。
+- 生成动作与共享功能色专项测试通过 `10 / 10`。完整 `npm test` 为 `297 / 298`；唯一失败仍是既有缺失 `FLUX2_KLEIN_COMFYUI_REFERENCE.json` 的 `ENOENT`，本轮未恢复用户删除的交付文件。
+- Impeccable 检测器因本机 HTML 解析模块不可用退化为正则扫描，只报告连接流程动态注入的既有飞书二维码空 `src` 占位；该节点与本次按钮无关，结果不作为完整可访问性证明。
+
+## Final Result
+
+final result: passed; RUNNING keeps the matte orange action identity while remaining semantically disabled, visibly active and distinct from ordinary unavailable controls
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# START Precision Keycap v59 Design QA
+
+## Evidence
+
+- 用户以当前橙色 START 截图要求继续优化按钮设计，并附带高光边缘按钮的实现资料作为参考。
+- 当前页面已经把 `#de742f` 哑光橙固定为唯一关键执行色，因此本轮不改变颜色、文案、尺寸、布局或业务状态。
+- 桌面实渲：`/Users/dai/.codex/visualizations/2026/08/28/01a04660-22e7-7de2-be34-4c467fb80742/start-precision-desktop-v59.png`。
+- 窄屏实渲：`/Users/dai/.codex/visualizations/2026/08/28/01a04660-22e7-7de2-be34-4c467fb80742/start-precision-mobile-v59.png`。
+
+## Findings
+
+- START 与 Benchmark 三个关键执行动作共用新的精密键帽深度令牌：顶部暖白内高光、底部近黑微压边和纯中性悬浮阴影，不引入彩色辉光或第二层套框。
+- hover 仅上浮 1px 并增加中性投影，active 下沉 1px 且收缩至 0.985；disabled 继续回到无投影中性浅灰。
+- Smiley Sans 的 START 字面上移 0.5px 做光学居中；不引入 React、WebGL 或 `ogl`，保持现有原生 HTML/CSS 架构与性能边界。
+
+## Verification
+
+- 真实 Chromium 桌面读回 START `358 × 54px`、`rgb(222, 116, 47)` 面与同色边界、四层中性精密键帽阴影；窄屏读回 `368 × 54px`、左右各 11px，两个视口横向溢出均为 0。
+- hover 读回 `translateY(-1px)` 与增强后的中性阴影；active 读回 `translateY(1px) scale(0.985)` 与内压阴影；disabled 回到 `rgb(243, 243, 244)`、无阴影；键盘焦点保留 2px 中性可见轮廓。
+- 生成动作与共享功能色专项测试通过 `10 / 10`；排除既有缺失 `FLUX2_KLEIN_COMFYUI_REFERENCE.json` 的 ComfyUI 测试后，其余 `284 / 284` 通过。完整 `npm test` 为 `297 / 298`，唯一失败仍是该缺失文件的 `ENOENT`，本轮未恢复用户删除的交付文件。
+- Impeccable 检测器因本机 HTML 解析模块不可用退化为正则扫描，只报告连接流程动态注入的既有飞书二维码空 `src` 占位；该节点与本次按钮无关，结果不作为完整可访问性证明。
+
+## Final Result
+
+final result: passed for the START design and interaction path; the unrelated missing ComfyUI delivery file remains the only full-suite blocker
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Pure Black Reverse Selection v36 Design QA
+
+## Evidence
+
+- Source request: 用户明确否定石墨灰选中面，要求“不要石墨灰了，就纯黑吧”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/pure-black-workbench-v35.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/pure-black-benchmark-v35.png`
+- Mobile render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/pure-black-mobile-v35.png`
+- State: `127.0.0.1:4173` 生图工作台与 Benchmark 真实页面；仅切换本地评测步骤和临时视口，未触发生图、实验运行或飞书写入。
+
+## Findings
+
+- 顶部当前产品、功能/房间/风格/模型、渐进增强下拉选中项、Benchmark 当前步骤与候选卡的默认面、边界和按压面全部统一为 `#000`，白字保持不变。
+- 顶栏指示块显式覆盖基础层的近黑边界，避免出现“黑色面 + `#202024` 边”的伪纯黑；连接就绪圆点同步使用纯黑。
+- `#de742f` 功能橙保持原值，只继续承担关键执行动作和小面积勾选/序号回声；普通按钮、输入与结构边界保持既有冷浅灰语言。
+
+## Interaction Verification
+
+- 生图页最终加载 `raycast-accent.css?v=35`；顶部指示块、已选功能和已选风格均实测为 `rgb(0, 0, 0)` 背景/边界与白字。
+- Benchmark 顶部指示块和当前步骤均实测为 `rgb(0, 0, 0)` 背景/边界与白字，当前序号继续为 `rgb(222, 116, 47)`。
+- `390 × 844` 窄屏与 `1280 × 720` 桌面均无横向溢出；白字/纯黑对比为 `21.00:1`，功能橙/纯黑对比为 `6.65:1`。
+- 两页控制台均无 error 或 warning；选择控件、顶栏和最终颜色层专项测试 `7/7` 通过，`git diff --check` 通过。
+- Impeccable 检测器因本机 HTML 解析模块不可用退化为正则扫描，只报告既有运行时飞书二维码空 `src` 占位，与本次颜色变更无关；该结果不作为完整可访问性证明。
+
+final result: passed
+
+---
+
+# Single Functional Orange v35 Design QA
+
+## Evidence
+
+- Source request: 用户明确要求橙色不再变淡，所有橙色统一为精确的 `#de742f`。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/unified-orange-workbench-v34.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/unified-orange-benchmark-v34.png`
+- State: `127.0.0.1:4173` 生图工作台与 Benchmark 真实页面；仅切换本地评测步骤，未触发生图、实验运行或飞书写入。
+
+## Findings
+
+- 橙色默认面、边界、hover、active、模型勾选、风格徽标、下拉勾选、实验复选框、当前步骤编号、结果元信息点与执行进度全部复用唯一的 `#de742f`。
+- 删除 `#ffad73` 亮橙、`#9a4318` 深橙、`#f5dfd0` 淡橙，以及主动作 hover/active 的五个橙色明暗变体；交互状态继续由位移、阴影和按压反馈区分。
+- 石墨灰反色选择面、白字和中性普通按钮保持不变；橙色实心小徽标与勾选圆统一使用 `#202024` 图文。
+
+## Interaction Verification
+
+- 生图页最终加载 `raycast-accent.css?v=34`；START 的背景/边界、模型勾选圆、风格徽标与结果元信息点均实测为 `rgb(222, 116, 47)`。
+- Benchmark 当前步骤序号、三个已选候选复选框与实验计划动作均实测为 `rgb(222, 116, 47)`；候选卡保持 `rgb(69, 70, 75)` 石墨灰面、`rgb(52, 53, 58)` 边界和白字。
+- 两页控制台均无 error 或 warning；选择控件、顶栏和最终颜色层专项测试 `7/7` 通过，`git diff --check` 通过，现行样式与契约中的橙色明暗变体扫描为 `0`。
+
+final result: passed
+
+---
+
+# Graphite Reverse Selection v34 Design QA
+
+## Evidence
+
+- Source request: 用户澄清讨论对象不是橙色主动作，而是灰色选中按钮，并最终确认“改成真正的石墨灰”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/graphite-selected-empty-room-v33.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/graphite-selected-benchmark-ready-v33.png`
+- State: `127.0.0.1:4173` 生图工作台与 Benchmark 真实页面；仅切换本地功能、房间类型和评测步骤，未触发生图、实验运行或飞书写入。
+
+## Findings
+
+- 顶部当前产品、功能/房间/风格/模型、渐进增强下拉选中项、Benchmark 当前步骤和实验候选卡统一改为 `#45464b` 石墨灰面、`#34353a` 边界与白字；按压态使用 `#393a3f / #2f3035`。
+- 普通保存、连接、继续、下载和危险动作继续使用白至冷浅灰表面；新增独立 `#c5c6cb` 主动作边界令牌，避免深色选中边界污染普通按钮。
+- 深色面上的模型勾选圆、当前步骤编号、候选复选框和下拉勾选改为 `#ffad73` 亮橙；风格徽标继续使用 `#f5dfd0 / #9a4318`，结果元信息点和执行进度继续使用原哑光橙。
+- 浏览器文本选区不复用深色按钮背景，继续使用独立浅灰，避免深色文字与石墨背景发生冲突。
+
+## Interaction Verification
+
+- Workbench 实测功能、房间类型与风格选中键为 `rgb(69, 70, 75)`、`rgb(52, 53, 58)` 边界和白字；顶部当前产品文字同为白色。
+- Benchmark 当前步骤与三个已选候选卡实测为同一石墨灰白字表面，步骤编号和复选框为 `rgb(255, 173, 115)`；页面控制台无 error 或 warning。
+- 白字与 `#45464b` 的对比为 `9.41:1`，亮橙与石墨灰的对比为 `5.15:1`；两者均超过对应 WCAG AA 要求。
+- 选择控件、顶栏和最终颜色层专项测试 `7/7` 通过，`git diff --check` 通过，`public` 莓色扫描保持 `0`。
+
+final result: passed
+
+---
+
+# Orange Micro Accents v33 Design QA
+
+## Evidence
+
+- Source request: 用户认可哑光橙主动作后，指出橙色只出现在生成按钮上，希望在小面积位置形成呼应、降低突兀感。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/orange-micro-accents-workbench-ready-v32.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/orange-micro-accents-experiment-v32.png`
+- State: `127.0.0.1:4173` 生图工作台与 Benchmark 真实页面；未触发生图、实验运行或飞书写入。
+
+## Findings
+
+- 完整橙色键面继续只属于 START 与三个 Benchmark 阶段推进动作；新增橙色只占用已有的小面积状态载体，不增加装饰性圆点或额外组件。
+- 生图页把模型已选勾选圆改为 `#de742f / #202024`，风格已选徽标改为 `#f5dfd0 / #9a4318`，结果空态的 3px 元信息分隔点改为功能橙；按钮主体和结果标签主体仍为中性灰。
+- Benchmark 当前步骤只将 10px 序号改为 `#9a4318`，实验候选复选框使用 `#de742f`；流程按钮与候选卡继续使用 `#e8e8eb / #c5c6cb` 中性选中面。
+- 自定义下拉已选勾选使用同一深橙；连接圆点、焦点圈、拖放、保存/恢复动作、成功/危险状态保持既有中性或语义颜色。
+
+## Interaction Verification
+
+- Workbench 实测柔和风格徽标为 `rgb(245, 223, 208) / rgb(154, 67, 24)`，结果元信息点为 `rgb(222, 116, 47)`；START 仍是页面唯一大面积橙色。
+- Benchmark 真实切换到“实验配置”后，当前序号为 `rgb(154, 67, 24)`，三个已选候选复选框为 `rgb(222, 116, 47)`，候选卡背景保持中性浅灰。
+- 深橙文字在 `#e8e8eb` 选中面和 `#f5dfd0` 柔和徽标上的对比分别为 `5.38:1 / 5.12:1`；主橙与石墨图标对比为 `5.14:1`。
+- 选择控件、顶栏和最终颜色层专项测试 `7/7` 通过，`git diff --check` 通过。
+
+final result: passed
+
+---
+
+# Clear Neutral Product Switch v32 Design QA
+
+## Evidence
+
+- Source request: 用户指出顶部“生图工作台 / 模型评测”的浅灰轨道与当前项颜色过近，反馈“这里有点颜色区分不开了”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/top-nav-contrast-v31.png`
+- State: `127.0.0.1:4173` 生图工作台与 Benchmark 真实页面；未触发生图、实验运行或飞书写入。
+
+## Findings
+
+- 产品切换轨道继续使用 `#f2f2f4`，当前项从内容区共享的 `#e8e8eb` 独立为 `#d9dade`，灰阶差从 10 提升到 25，缩小截图下仍能识别。
+- 当前项增加 `#c1c2c7` 1px 内描边和纯中性近距阴影；未选文字继续使用 `#6f7077`，当前文字使用 `#202024 / 600`，不引入莓色或把橙色扩散到导航。
+- 只新增顶部导航专属选中令牌，内容区功能、风格、模型与 Benchmark 候选按钮仍保持原 `#e8e8eb / #c5c6cb` 选择语言。
+
+## Interaction Verification
+
+- 生图页滑动指示块实测为 `rgb(217, 218, 222)`，轨道为 `rgb(242, 242, 244)`，内描边为 `rgb(193, 194, 199)`；最终样式层加载 `raycast-accent.css?v=31`。
+- 真实点击完成“生图工作台 → 模型评测”，目标页当前项、指示块与轨道计算值保持一致；CSS 同一规则同时覆盖 GSAP 指示块和无动效 `aria-current` 降级态。
+- 顶栏/导航专项测试 `5/5` 通过，`git diff --check` 通过，`public` 莓色扫描保持 `0`。
+
+final result: passed
+
+---
+
+# Rams Functional Orange without Berry v31 Design QA
+
+## Evidence
+
+- Source request: 用户确认采用 Dieter Rams / Braun 式橙色功能动作后，指出实验候选模型仍可见莓色，并明确“这个不用了”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/rams-orange-workbench-v30.jpg`
+- Benchmark selection render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/rams-orange-benchmark-selection-v30.jpg`
+- State: 当前工作区 `127.0.0.1:4173` 真实工作台与 Benchmark；未触发生图、实验运行或飞书写入。
+
+## Findings
+
+- 新增 `functional-accent-button` 功能语义，只赋给 `START`、`生成实验计划`、`确认并开始`、`确认并开始 AI 评分`；保存样本、完成授权、连接、下载、停止、继续和重试保持中性浅色。
+- 功能动作默认使用 `#de742f / #c9682b`，hover 使用 `#e9823d / #d57632`，active 使用 `#cf6d32 / #b95b26`，配 `#202024` 文字与中性阴影，不使用橙色辉光；disabled 回到中性浅灰。
+- 实验候选模型从深色表面和莓色复选框改为 `#e8e8eb / #c5c6cb` 浅灰选中、`#202024` 文字与 `#2f3035` 石墨勾选。文本光标、输入焦点、拖放和普通复选框同步改为中性石墨；执行进度改用功能橙。
+- `public` 中已移除 `#ff6363`、`#c9364d`、`#ffe9ec`、对应 RGB、黑莓表面令牌及连接中心遗留莓色径向渐变。
+
+## Interaction Verification
+
+- 生图页实测 START 为 `rgb(222, 116, 47)`、`1px solid rgb(201, 104, 43)` 和 `rgb(32, 32, 36)` 文字；全页交互控件莓色扫描为 `0`。
+- Benchmark 三个阶段动作带功能强调类；不可执行的正式运行按钮实测回到中性 disabled。保存样本和继续生成保持中性浅色，不误染橙。
+- Benchmark 五个候选模型中三个已选项实测为 `rgb(232, 232, 235)`、`rgb(197, 198, 203)` 边界、石墨文字与 `rgb(47, 48, 53)` 勾选；全页交互控件莓色扫描为 `0`。
+- 默认、hover、active 橙色与石墨文字对比分别为 `5.14:1 / 5.97:1 / 4.55:1`；两页控制台均无 error 或 warning。
+
+final result: passed
+
+---
+
+# Neutral Light Top Navigation v30 Design QA
+
+## Evidence
+
+- Source request: 用户在确认全按钮中性浅色后补充“顶部导航栏也改一下”，并要求“按钮选中后的灰色可以深一点”。
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/neutral-light-topbar-workbench-v29.jpg`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/neutral-light-topbar-benchmark-v29.jpg`
+- State: 当前工作区 `127.0.0.1:4173` 真实工作台与 Benchmark；未触发生图、未写入飞书。
+
+## Findings
+
+- 顶栏从黑莓暗面与莓色弥散改为冷白至银灰 `94% / 90%` 半透明纵向面、`#d9dadd` 细边、白色顶部内高光和纯中性环境阴影；Canvas Lab 标题改为 `#202024` 石墨色。
+- 产品切换使用 `#f2f2f4 / #dedfe2` 浅灰内轨，当前页指示块与全局选择按钮统一使用加深的 `#e8e8eb` 选中面、`#c5c6cb` 选中边界和 `#202024` 文字。active 同步加深为 `#dedfe3 / #bbbcc2`。
+- 顶栏连接键继续使用纯白面与 `#e3e3e6` 淡边，取消暗色环境专用重阴影；产品切换仍只移动 GSAP 指示块，不改变导航布局或业务行为。
+
+## Interaction Verification
+
+- 生图页与 Benchmark 均加载 `raycast-accent.css?v=29`；两页顶栏实测为中性纵向渐变、`1px solid rgb(217, 218, 221)` 和无彩色的四层深度阴影。
+- 生图页当前产品指示块、Benchmark 当前产品指示块和当前流程步骤均实测为 `rgb(232, 232, 235)`；Benchmark 当前步骤边界为 `rgb(197, 198, 203)`，选中层级明显高于普通白色键。
+- 两页控制台均无 error 或 warning；顶栏字体/切换动效/中性颜色专项测试 `7/7` 通过。
+
+final result: passed
+
+---
+
+# Neutral Light Button System v29 Design QA
+
+## Evidence
+
+- Source request: 用户基于“原版 / 中性浅色（推荐） / 冷青绿互补色”对比图确认“都给我做成中性浅色，之前我们改过的按钮都按这个方案来”。
+- Approved comparison: `/Users/dai/.codex/generated_images/01a032fa-452a-72a2-ba5a-4674ae61b96d/exec-fada6c76-bfee-4dee-b6bb-0952414c6c2d.png`
+- Workbench render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/neutral-light-buttons-workbench-v28.png`
+- Benchmark render: `/Users/dai/.codex/visualizations/2026/08/24/01a032fa-452a-72a2-ba5a-4674ae61b96d/neutral-light-buttons-benchmark-v28.png`
+- State: 当前工作区 `127.0.0.1:4173` 真实工作台与 Benchmark；结果下载使用无产品生图费用视觉夹具复用最终样式层。未触发 Canvas Lab 生图、未写入飞书。
+
+## Findings
+
+- 连接键、功能/风格/房间/模型选择、Benchmark 步骤与业务动作、START/重新融合、连接中心矩形动作、停止/继续、Ghost/Icon 和结果下载全部统一为白至冷浅灰键面、石墨文字、冷灰细边与中性阴影。
+- 普通键使用 `#fff / #e3e3e6 / #5b5b61`；选中键使用 `#f4f4f5 / #cfd0d4 / #202024`；主动作使用 `#f8f8f9` 和略强中性阴影。模型选中勾选固定为 `#2f3035` 圆面与白色勾。
+- hover、active、disabled 分别使用 `#fafafa / #d7d8dc`、`#ececef / #c7c8cc`、`#f3f3f4 / #e6e6e8`，状态切换不改变 1px 几何槽位。按钮键盘焦点改为中性石墨。
+- 珊瑚红与黑莓表面退出按钮语义；珊瑚色只保留顶栏环境、输入焦点、拖放和运行进度，顶栏本身的黑莓环境不在本轮按钮反色范围内。
+
+## Interaction Verification
+
+- 生图页最终加载 `raycast-accent.css?v=28`。Seedream 5.0 选中按钮实测 `rgb(244, 244, 245)` 背景、`rgb(207, 208, 212)` 细边、`rgb(32, 32, 36)` 文字和 `rgb(47, 48, 53)` 深色勾选圆面；START 实测 `rgba(250, 250, 251, 0.99)` 背景与同源中性阴影。
+- 未选功能键悬停后实测 `rgb(250, 250, 250)` 背景、`rgb(215, 216, 220)` 边界和上浮 1px；无莓色计算值。
+- Benchmark 扫描 24 个步骤/普通/主/危险/任务动作节点，没有任何按钮命中莓色或黑莓表面；当前步骤以浅灰面、较强边界、字重和阴影保持可辨识层级。
+- 结果下载实测为纯白背景、`1px solid rgb(227, 227, 230)`、石墨文字和中性近距阴影。工作台与 Benchmark 控制台均无 error 或 warning。
+- 中性按钮专项测试 `5/5` 通过；排除既有缺失 ComfyUI 参考文件的其余测试 `274/274` 通过。完整 `npm test` 唯一失败来自工作区缺少 `FLUX2_KLEIN_COMFYUI_REFERENCE.json`，与本轮 UI 变更无关，未伪造该外部工作流夹具。
+
+final result: passed
+
+---
+
 # Subtle Button Borders v26 Design QA
 
 ## Evidence
@@ -775,6 +1048,32 @@ final result: passed
 - `npm test` 通过：129 tests，0 fail；前端与服务端模块语法检查、`git diff --check` 通过。
 
 final result: passed
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+# All-model 2:1 Shared Aspect Ratio Design QA
+
+## Evidence
+
+- 用户在效果图美化上传 2:1 原图后，尺寸徽标显示 `2:1 → 16:9`，说明自动适配只能从缺失 2:1 的模型矩阵选择最近项。
+- 火山方舟图片生成接口允许传入显式像素尺寸；公司 OneAPI 对 Banana 2、GPT Image 2、Seedream 4.5 与 Seedream 5.0 的 2:1 真实请求均成功返回图片，其中 GPT 额外验证了工作台实际使用的 `2048x1024`。
+
+## Findings
+
+- 画幅选项由 `src/model-config.mjs` 的共享模型能力表统一提供，不应在白模、空房、精模、效果图美化或自由生图中分别维护。
+- Banana 2、GPT Image 2、Seedream 4.5/5.0 均增加公司网关实测放行的 2:1；所有生图功能继续只消费一份共享模型矩阵。
+- Seedream 2:1 尺寸固定为 2K `2880x1440`、3K `4352x2176`、4K `5760x2880`；Seedream 4.5 只暴露 2K/4K。
+- Flux2 Klein 不使用比例枚举，2:1 原图通过动态尺寸链路得到 `2880x1440`；换算先锁定高度网格、再收敛宽度，确保 16 像素对齐且不突破 1K/2K 像素面积预算。
+
+## Verification
+
+- 四个 OneAPI 模型的 2:1 请求均真实返回；排除用户已删除的 ComfyUI 交付 JSON 所在测试文件后，其余自动化回归通过 `284 / 284`，`git diff --check` 通过。
+- 真实浏览器依次切换五个模型：Banana 2、Seedream 4.5/5.0 显示 `2:1 → 2:1 · 2880x1440`，GPT Image 2 显示 `2:1 → 2:1 · 2048x1024`，Flux2 Klein 显示 `2880 × 1440`；页面无错误覆盖层、console error/warning 或 page error。
+- 效果图美化上传内存生成的 `2000x1000` PNG 后自动选择 2:1，徽标与结果空态同步显示 `2:1 → 2:1 · 2880x1440`。
+
+## Final Result
+
+final result: passed; 2:1 is supported by every image-generation model through either the verified OneAPI matrix or Flux source-ratio sizing
 
 [PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
 

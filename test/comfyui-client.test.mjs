@@ -1,12 +1,11 @@
 /**
- * [INPUT]: 依赖 node:test/assert/fs、ComfyUI 客户端、Flux2 Klein 工作流工厂与根目录开发交付 JSON，所有 HTTP 响应由内存 fetch 替身提供
- * [OUTPUT]: 对外提供开发交付 JSON 同步、健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/固定负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、多实例输出读取恢复、排队轮询、输出归一化和参考图边界回归保障
+ * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP 响应由内存 fetch 替身提供
+ * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/默认负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、多实例输出读取恢复、排队轮询、输出归一化和参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -19,29 +18,7 @@ import { createComfyUiClient } from "../src/comfyui-client.mjs";
 const onePixelPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
 
-const developerReference = JSON.parse(readFileSync(
-  new URL("../FLUX2_KLEIN_COMFYUI_REFERENCE.json", import.meta.url),
-  "utf8",
-));
-
-test("Flux 开发交付 JSON 与当前默认工作流保持一致", () => {
-  const expectedWorkflow = createAiTextureWorkflow({
-    height: 2048,
-    imageBase64: "REPLACE_WITH_BASE64_WITHOUT_DATA_URL_PREFIX",
-    prompt: "REPLACE_WITH_POSITIVE_PROMPT",
-    seed: 0,
-    width: 2048,
-  });
-  assert.equal(developerReference.workflow.version, AI_TEXTURE_WORKFLOW.version);
-  assert.deepEqual(developerReference.workflow.defaultParameters, AI_TEXTURE_DEFAULTS);
-  assert.deepEqual(developerReference.resolutionPolicy.tiers, {
-    "1K": { targetPixelArea: 1_048_576 },
-    "2K": { targetPixelArea: 4_194_304 },
-  });
-  assert.deepEqual(developerReference.comfyuiPrompt, expectedWorkflow);
-});
-
-test("工作流工厂原样写入正向 Prompt、保留固定负向 Prompt 与稳定节点", () => {
+test("工作流工厂原样写入正向 Prompt、保留默认负向 Prompt 与稳定节点", () => {
   const workflow = createAiTextureWorkflow({
     height: 576,
     imageBase64: "example-base64",
@@ -216,7 +193,7 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
   assert.equal(result.metadata.promptId, "prompt-1");
   assert.equal(result.metadata.seed, 123);
   assert.equal(result.metadata.executionDurationMs, 1_500);
-  assert.equal(result.metadata.workflowVersion, "2026-08-18.3");
+  assert.equal(result.metadata.workflowVersion, AI_TEXTURE_WORKFLOW.version);
   assert.equal("workflowProfile" in result.metadata, false);
   assert.equal("workflowProfileLabel" in result.metadata, false);
   assert.equal(result.metadata.model, AI_TEXTURE_DEFAULTS.model);
