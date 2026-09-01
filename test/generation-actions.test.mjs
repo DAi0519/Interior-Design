@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与浏览器生成动作模块、入口 HTML、动作/主题 CSS 和内嵌 Smiley Sans 字体资产
- * [OUTPUT]: 对外提供白模/空房首次单按钮、提示词复用双按钮、输入失效、自由生图隔离、START/RUNNING… 视觉文案、中文 aria-label/aria-busy、保留橙色并带中性扫光的运行态、无图标展示字体、精密键帽反馈、无视觉套框/分割线/边界回弹、全断点内容安全间距且保留光学底距的横向悬浮动作与宽屏粘性行为回归保障
+ * [OUTPUT]: 对外提供白模/空房首次单按钮、提示词复用双按钮、输入失效、自由生图隔离、START/RUNNING… 视觉文案、中文 aria-label/aria-busy、保留橙色并带中性扫光的运行态、无图标展示字体、精密键帽反馈、桌面独立滚动区与不遮挡配置的底部动作栏、窄屏自然流布局回归保障
  * [POS]: test 的生成动作状态与静态视觉合同测试，不创建 DOM 或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -84,8 +84,8 @@ test("主动作使用项目内嵌展示字体且不包含装饰图标", async ()
   assert.match(css, /font-family: "Canvas Action Display"/);
   assert.match(css, /src: url\("\/smiley-sans-v2\.0\.1\.woff2"\) format\("woff2"\)/);
   assert.match(css, /\.generation-actions \.generate-button \.button-label\s*{[^}]*font-size: 21px[^}]*letter-spacing: 0\.18em[^}]*text-indent: 0\.18em/s);
-  assert.match(html, /\/theme\.css\?v=26/);
-  assert.match(html, /\/generation-actions\.css\?v=14/);
+  assert.match(html, /\/theme\.css\?v=27/);
+  assert.match(html, /\/generation-actions\.css\?v=15/);
   assert.match(css, /\.generation-actions \.generate-button \.button-label\s*{[^}]*transform: translateY\(-0\.5px\)/s);
   assert.match(actionsJs, /generateButton\.setAttribute\("aria-busy", String\(busy\)\)/);
   assert.match(actionsJs, /root\.classList\.toggle\("is-busy", busy\)/);
@@ -96,12 +96,15 @@ test("主动作使用项目内嵌展示字体且不包含装饰图标", async ()
   assert.match(css, /\.generation-actions\.has-reusable-prompt\s*{[^}]*width: 100%/s);
   assert.match(css, /\.panel-section\[aria-labelledby="parameterTitle"\]\s*{[^}]*border-bottom: 0/s);
   assert.match(css, /\.action-section\.generation-control\s*{[^}]*backdrop-filter: none[^}]*background: transparent[^}]*border: 0[^}]*box-shadow: none[^}]*min-height: 54px[^}]*margin: 0 12px[^}]*overflow: visible[^}]*padding: 0[^}]*width: calc\(100% - 24px\)/s);
-  assert.match(css, /@media \(min-width: 901px\)\s*{[^}]*\.action-section\.generation-control\s*{[^}]*bottom: 20px[^}]*margin: 32px 12px 0[^}]*position: sticky/s);
+  assert.match(html, /<aside class="control-panel"[^>]*>\s*<div class="control-panel-scroll">[\s\S]*<\/div>\s*<section class="action-section generation-control">/);
+  assert.match(css, /@media \(min-width: 901px\)\s*{[^}]*\.action-section\.generation-control\s*{[^}]*background: linear-gradient[^}]*box-shadow: 0 -12px 28px[^}]*margin: 0[^}]*min-height: 78px[^}]*padding: 12px[^}]*position: relative[^}]*width: 100%/s);
+  assert.doesNotMatch(css, /position: sticky/);
   assert.match(css, /@media \(max-width: 900px\)\s*{[^}]*\.action-section\.generation-control\s*{[^}]*margin: 12px 12px/s);
   assert.doesNotMatch(css, /(?:^|\n)\.generation-control\s*{/);
   assert.match(css, /@media \(max-width: 560px\)\s*{[^}]*\.action-section\.generation-control\s*{[^}]*margin: 12px 10px 10px[^}]*width: calc\(100% - 20px\)/s);
   assert.match(themeCss, /grid-template-columns: minmax\(360px, clamp\(360px, 30vw, 420px\)\) minmax\(0, 1fr\)/);
-  assert.match(themeCss, /\.control-panel\s*{[^}]*overflow-y: auto[^}]*overscroll-behavior-x: none[^}]*overscroll-behavior-y: none/s);
+  assert.match(themeCss, /\.control-panel\s*{[^}]*display: grid[^}]*grid-template-rows: minmax\(0, 1fr\) auto[^}]*overflow: hidden/s);
+  assert.match(themeCss, /\.control-panel-scroll\s*{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*overscroll-behavior-x: none[^}]*overscroll-behavior-y: none/s);
   assert.doesNotMatch(themeCss, /overscroll-behavior: contain/);
   assert.ok(font.size > 1_000_000);
   assert.match(license, /SIL OPEN FONT LICENSE Version 1\.1/);

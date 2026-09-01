@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图美化当前上架 Prompt 状态与天气/时段受控选项、精模自定义要求、空房必填房间类型、白模/空房设计方式、Flux 自定义负向 Prompt、支持单图原位替换的双参考图上传、Style DNA 对话、product-navigation.css/js 共享纯文字品牌顶栏、raycast-accent.css 共享重点色、内嵌 Smiley Sans 主动作字体与固定版本 GSAP、Raycast 向近白银灰 Light Command Center 视觉规则，以及 app.js 各浏览器控制器
-  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、哑光橙无图标 START 展示字体主动作、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、精模预设 Prompt 版本与自定义要求、白模/空房设计/自由生图/风格反推入口、按功能保留的生成中/结果区、空房房间类型必填、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换的独立 Agent 配置、Flux 双档位与多结果画廊
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图美化当前上架 Prompt 状态与天气/时段受控选项、精模自定义要求、空房必填房间类型、白模/空房设计方式、Flux 自定义负向 Prompt、支持单图原位替换的双参考图上传、Style DNA 对话、GSAP 与 product-navigation.css/js 共享纯文字品牌顶栏、raycast-accent.css 共享重点色、内嵌 Smiley Sans 主动作字体、Raycast 向近白银灰 Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、精模预设 Prompt 版本与自定义要求、白模/空房设计/自由生图/风格反推入口、按功能保留的生成中/结果区、空房房间类型必填、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -11,7 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="五个公司图像模型与 Flux2 Klein ComfyUI 工作流的本地测试工作台"
+      content="四个最终出图选项与本地模型评测能力的图像工作台"
     />
     <link rel="icon" href="data:," />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -19,15 +19,15 @@
     <title>Canvas Lab · 图像模型工作台</title>
     <link rel="stylesheet" href="/styles.css?v=12" />
     <link rel="stylesheet" href="/result.css?v=10" />
-    <link rel="stylesheet" href="/theme.css?v=26" />
-    <link rel="stylesheet" href="/generation-actions.css?v=14" />
+    <link rel="stylesheet" href="/theme.css?v=27" />
+    <link rel="stylesheet" href="/generation-actions.css?v=15" />
     <link rel="stylesheet" href="/custom-select.css?v=9" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=9" />
     <link rel="stylesheet" href="/connection-center.css?v=5" />
-    <link rel="stylesheet" href="/product-navigation.css?v=8" />
+    <link rel="stylesheet" href="/product-navigation.css?v=12" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=4" />
     <link rel="stylesheet" href="/empty-room-type.css?v=1" />
-    <link rel="stylesheet" href="/raycast-accent.css?v=37" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=42" />
   </head>
   <body>
     <div class="app-shell">
@@ -51,6 +51,7 @@
 
       <main class="workspace">
         <aside class="control-panel" aria-label="生成配置">
+          <div class="control-panel-scroll">
           <section class="panel-section first-section" aria-labelledby="featureModeTitle">
             <div class="section-heading">
               <h2 id="featureModeTitle">功能</h2>
@@ -415,6 +416,7 @@
               </label>
             </div>
           </section>
+          </div>
 
           <section class="action-section generation-control">
             <div id="generationActions" class="generation-actions">
@@ -712,7 +714,7 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="/vendor/gsap.min.js"></script>
-    <script type="module" src="/product-navigation.js?v=2"></script>
+    <script type="module" src="/product-navigation.js?v=7"></script>
     <script type="module" src="/app.js?v=43"></script>
   </body>
 </html>

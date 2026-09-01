@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 theme.css/benchmark.css 的中性令牌、product-navigation.css 的当前页语义，以及两页控件写入的 selected/active/loading/focus 状态
- * [OUTPUT]: 对外提供跨工作台共享的中性按钮与反色选择系统，以冷白银灰顶栏、纯黑白字选中面、浅色普通键与淡灰细边统一产品导航和全部选择状态，并让唯一的 #de742f 哑光橙统一标记 START、实验计划、正式运行、AI 评分、执行进度及小面积选择指示；不再提供石墨灰选择面、橙色明暗变体与莓色语义，生成扫描动效继续使用原有黑白灰
+ * [OUTPUT]: 对外提供跨工作台共享的中性按钮与反色选择系统，以冷白银灰顶栏、GSAP transform 同步位移的纯黑白字导航激活视窗、浅色普通键与淡灰细边统一全部选择状态，让唯一的 #f37021 标志性盒橙统一标记关键执行及小面积选择指示，并提供减少动态/透明度与增强对比度的系统偏好降级
  * [POS]: public 的跨工作台最终颜色层，最后加载以统一生图与评测界面的颜色氛围而不改变中性表面、业务布局和控件语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,12 +15,12 @@
   --brand-nav-selected-border: #000;
   --brand-nav-selected-ink: #fff;
   --brand-nav-muted-ink: #6f7077;
-  --functional-action-bg: #de742f;
-  --functional-action-border: #de742f;
-  --functional-action-hover-bg: #de742f;
-  --functional-action-hover-border: #de742f;
-  --functional-action-active-bg: #de742f;
-  --functional-action-active-border: #de742f;
+  --functional-action-bg: #f37021;
+  --functional-action-border: #f37021;
+  --functional-action-hover-bg: #f37021;
+  --functional-action-hover-border: #f37021;
+  --functional-action-active-bg: #f37021;
+  --functional-action-active-border: #f37021;
   --functional-action-ink: #202024;
   --functional-action-shadow:
     inset 0 1px 0 rgb(255 255 255 / 42%),
@@ -82,6 +82,11 @@
 
 body {
   caret-color: var(--brand-key-strong-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(button, .product-switch-option, .custom-select-trigger, .custom-select-option) {
+  touch-action: manipulation;
 }
 
 ::selection {
@@ -133,7 +138,7 @@ body {
   padding: 0;
 }
 
-.topbar .product-switch-indicator,
+.topbar .product-switch-active-viewport,
 .topbar .product-switch-option[aria-current="page"] {
   background: var(--brand-nav-selected-bg);
   border-color: var(--brand-nav-selected-border);
@@ -147,9 +152,16 @@ body {
 }
 
 .topbar .product-switch-option[aria-current="page"],
-.topbar .product-switch-option.is-transition-target {
+.topbar .product-switch-active-option {
   color: var(--brand-nav-selected-ink);
   font-weight: 600;
+}
+
+.topbar .product-switcher.is-motion-ready .product-switch-option[aria-current="page"] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--brand-nav-muted-ink);
+  font-weight: 500;
 }
 
 .topbar .product-status {
@@ -615,6 +627,74 @@ progress {
 
 .topbar :where(.product-switch-option, .connection-button):focus-visible {
   outline-color: var(--brand-key-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .feature-mode-option,
+    .model-option-toggle,
+    .style-choice-option,
+    .room-type-option,
+    .quiet-button,
+    .secondary-button,
+    .result-download-button,
+    .generate-button,
+    .primary-button,
+    .danger-button,
+    .connection-button,
+    .product-switch-option
+  ) {
+    transition-duration: 0.01ms !important;
+  }
+
+  :where(
+    .feature-mode-option,
+    .model-option-toggle,
+    .style-choice-option,
+    .room-type-option,
+    .quiet-button,
+    .secondary-button,
+    .result-download-button,
+    .generate-button,
+    .primary-button,
+    .danger-button,
+    .connection-button
+  ):active {
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .topbar,
+  .control-panel,
+  .result-panel,
+  .image-result figcaption {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #fcfcfd;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .topbar,
+  .control-panel,
+  .result-panel {
+    background: #fff;
+    border-color: #8f9097;
+  }
+
+  :where(
+    .feature-mode-option,
+    .model-option-toggle,
+    .style-choice-option,
+    .room-type-option,
+    .custom-select-trigger,
+    input,
+    textarea,
+    select
+  ) {
+    border-color: #77787f;
+  }
 }
 
 @media (max-width: 480px) {

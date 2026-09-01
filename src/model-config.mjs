@@ -52,13 +52,6 @@ const SEEDREAM_5_SIZES = {
   "21:9": { "2K": "3136x1344", "3K": "4704x2016", "4K": "6240x2656" },
 };
 
-const SEEDREAM_4_5_SIZES = Object.fromEntries(
-  Object.entries(SEEDREAM_5_SIZES).map(([ratio, sizes]) => [
-    ratio,
-    { "2K": sizes["2K"], "4K": sizes["4K"] },
-  ]),
-);
-
 const FLUX_SOURCE_SIZES = {
   source: { "1K": "1048576", "2K": "4194304" },
 };
@@ -104,18 +97,6 @@ export const MODEL_CONFIGS = Object.freeze({
     requiresReferenceImage: true,
     sizes: FLUX_SOURCE_SIZES,
     sizingMode: "source",
-  },
-  seedream45: {
-    accent: "orange",
-    defaultFormat: "png",
-    defaultRatio: "4:3",
-    defaultResolution: "2K",
-    description: "上一代 Seedream 写实对照，支持 2K 与 4K",
-    formats: ["png", "jpeg"],
-    id: "doubao-seedream-4.5",
-    label: "Seedream 4.5",
-    qualityOptions: [],
-    sizes: SEEDREAM_4_5_SIZES,
   },
   seedream5: {
     accent: "orange",

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 index.html 的无图标 START 生成动作结构、smiley-sans-v2.0.1.woff2 的展示字形、generation-actions.js 的 has-reusable-prompt/is-busy/hidden/disabled 状态与全局主题令牌
- * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向哑光橙 START 精密键帽、保留功能色并以中性扫光表达进行中的 RUNNING 状态、提示词可复用后的 65/35 主次双按钮、无额外视觉套框/底部分割线、全断点内容安全间距并为投影预留光学底距的粘性动作布局，以及焦点、悬停和按压反馈
+ * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向标志性盒橙 START 精密键帽、保留功能色并以中性扫光表达进行中的 RUNNING 状态、提示词可复用后的 65/35 主次双按钮、桌面端与配置滚动区分离且不遮挡控件的底部动作栏、窄屏自然流布局，以及焦点、悬停和按压反馈
  * [POS]: public 的生成动作视觉层，与 styles.css/theme.css 的通用主按钮规则分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -170,10 +170,25 @@
 
 @media (min-width: 901px) {
   .action-section.generation-control {
-    bottom: 20px;
-    margin: 32px 12px 0;
-    position: sticky;
+    background: linear-gradient(180deg, rgb(252 252 253 / 90%), rgb(252 252 253 / 98%));
+    box-shadow: 0 -12px 28px rgb(25 26 28 / 7%);
+    margin: 0;
+    min-height: 78px;
+    padding: 12px;
+    position: relative;
+    width: 100%;
     z-index: 4;
+  }
+
+  .action-section.generation-control::before {
+    background: linear-gradient(180deg, transparent, rgb(252 252 253 / 76%));
+    content: "";
+    height: 18px;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: -18px;
   }
 }
 

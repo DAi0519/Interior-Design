@@ -13,7 +13,6 @@
 
 - Banana 2：`gemini-3.1-flash-image-preview`
 - GPT Image 2：`gpt-image-2`
-- Seedream 4.5：`doubao-seedream-4.5`（当前 OneAPI Key 真实开放的上一代对照；未开放 Seedream 4.0）
 - Seedream 5.0：`doubao-seedream-5.0`
 - Flux2 Klein：`comfyui:ai-texture-enhancement`（兼容历史路由 ID；ComfyUI 单张参考图默认使用 9B FP8/7 steps，保持原图比例并支持 1K/2K）
 
@@ -151,14 +150,13 @@ Windows 和 macOS 设置临时环境变量的语法不同，因此运营流程�
 
 - Banana 2：15 种比例（含 2:1），512 / 1K / 2K / 4K，PNG / JPEG。
 - GPT Image 2：10 种比例（含 2:1），1K / 2K / 4K，PNG / JPEG / WebP，并支持质量档位；白模渲染与自由生图都默认选择“中”。
-- Seedream 4.5：9 种比例（含 2:1），2K / 4K，PNG / JPEG。
 - Seedream 5.0：9 种比例（含 2:1），2K / 3K / 4K，PNG / JPEG。
 - Flux2 Klein：必须且只允许一张 PNG / JPEG / WebP；工作流默认使用原版 `flux-2-klein-9b-fp8.safetensors` 与 7 steps，不向用户展示模型或 steps 档位。工作流保持原图比例，独立支持约 1MP/4MP 总像素的 1K/2K，推理与最终 PNG 使用同一目标尺寸，不再恢复原图像素。正向 Prompt 不设本地字符上限；负向 Prompt 留空沿用系统默认，非空值限制 8000 字符并整段覆盖。结果卡显示默认/自定义负向、总耗时，并把 Flux 拆为 Prompt、排队和 Comfy 执行三段。
 
 白模、空房、精模、效果图美化或自由生图上传参考图后，浏览器会按第一张图片的宽高从当前模型合法比例中选择
 最近项；服务端再次从真实 PNG/JPEG/WebP 图片头读取首图宽高并完成同一适配，避免
 信任客户端声明。用户手动改动画幅比例后以手选值为准；继续添加其他参考图不会覆盖
-手选值，移除首图或切换出图模型后会按新的首图重新适配。四个 OneAPI 模型均支持 2:1；分辨率档位始终独立选择，
+手选值，移除首图或切换出图模型后会按新的首图重新适配。三个 OneAPI 模型均支持 2:1；分辨率档位始终独立选择，
 不继承原图像素数。Flux2 Klein 的比例控件锁定为“跟随原图”，分辨率可选 1K/2K；服务端再次读取真实宽高、按约 1MP/4MP 总像素计算宽高并对齐到 16 像素网格，同时要求单图。没有参考图时，自由生图的 OneAPI 模型继续使用手选的“比例 + 分辨率档位”。
 
 ## 多参考图

@@ -4,7 +4,7 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
-model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、Flux 不限长正向 Prompt、默认/自定义负向 Prompt、含全 OneAPI 2:1 的合法尺寸及 Flux 原图比例约 1MP/4MP 且不超面积的 1K/2K 请求契约
+model-config.mjs: 模型参数真源，维护三个可运行 OneAPI 模型与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、Flux 不限长正向 Prompt、默认/自定义负向 Prompt、含全 OneAPI 2:1 的合法尺寸及 Flux 原图比例约 1MP/4MP 且不超面积的 1K/2K 请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询及有界结果保留
 generation-service.mjs: 日常生图应用服务，统一自由生图、效果图美化、精模、白模/空房的 Provider/工作流路由、Flux 负向 Prompt 归档、记录同步与脱离 HTTP 的单模型执行

@@ -7,11 +7,11 @@ CLAUDE.md: 本模块地图，维护自动化测试成员清单
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点、声明式向上菜单、Enter/Space 确认，并阻止内容宽度百分比导致的无效省略
 choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影、纯黑白字选中态与完整交互状态
 generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
-product-navigation.test.mjs: 共享顶栏字体与动效回归测试，验证两页预加载同源 Inter Variable、服务端精确暴露固定字体资产、Raycast OpenType 特性、依赖版本，以及跨页只移动指示块且内容面板静止
-raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字导航/内容反色选中态、中性浅色普通按钮与唯一 `#de742f` 哑光橙精密键帽关键动作/保色 RUNNING/小面积状态回声令牌、双页最终加载顺序、普通保存/授权/连接/恢复动作不染橙、普通禁用不被忙碌态污染、石墨灰选择面/全局莓色/橙色明暗变体移除、生成黑白灰扫描线和中性焦点
+product-navigation.test.mjs: 共享顶栏字体与全局动效回归测试，验证两页预加载同源 Inter Variable、Raycast OpenType 特性、全部 CSS 禁止 transition all/布局属性补间、双页 reduced-motion、GSAP 双层 transform 激活态、按点击时间续播 180ms power3.inOut、overwrite auto、无颜色/内容动效与 matchMedia reduced-motion 瞬时落位
+raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、双页最终加载顺序和中性焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 四个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、Flux 不限长正向 Prompt、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵、Seedream 4.5 路由及请求白名单测试，不发送真实请求
+model-config.test.mjs: 三个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、Flux 不限长正向 Prompt、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵及请求白名单测试，不发送真实请求
 generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、最多两路并发、保序与部分失败测试，不调用真实生图服务
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数的生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
@@ -22,7 +22,7 @@ comfyui-client.test.mjs: ComfyUI 健康检查、主动取消、默认 9B FP8/7 s
 flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
-generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、输入变化、自由生图、START/RUNNING… 视觉文案、中文 aria-label/aria-busy、保留橙色并带中性扫光的运行态、无图标结构、内嵌 Smiley Sans、精密键帽光学与反馈、无视觉套框/底部分割线/边界回弹、全断点 12px 内容安全间距且保留 20px 光学底距的横向悬浮动作与宽屏粘性定位
+generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与忙碌态、内嵌 Smiley Sans、精密键帽反馈、桌面独立配置滚动区、不遮挡控件的底部动作栏及窄屏自然流布局
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
 agent-model-config.test.mjs: 十个 Prompt Agent 候选 ID、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求

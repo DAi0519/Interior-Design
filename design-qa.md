@@ -5,6 +5,64 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
+# Iconic Box Orange v61 Design QA
+
+## Evidence
+
+- 用户明确要求橙色更具标志性，方向为爱马仕盒橙感；本轮只重映射共享功能色，不改变纯黑反色选择面、布局或业务交互。
+- 桌面实渲：`/Users/dai/.codex/visualizations/2026/08/31/01a0576e-91ce-7610-a19b-304ef34b66c8/iconic-box-orange-desktop.png`。
+- 390px 窄屏实渲：`/Users/dai/.codex/visualizations/2026/08/31/01a0576e-91ce-7610-a19b-304ef34b66c8/iconic-box-orange-mobile.png`。
+
+## Findings
+
+- 唯一功能橙由 `#de742f` 统一升级为标志性盒橙 `#f37021`，默认、边界、hover、active、模型勾选、风格版本徽标与 START/RUNNING 全部继续复用同一组语义令牌。
+- 橙色小徽标与勾选圆内部保持近黑 `#202024`；不改成白色，因为近黑对比为 `5.53:1`，白色只有 `2.94:1`，不适合小字号与小图标。
+- 黑色选中卡、白字和中性普通控件保持不变；交互状态继续由位移、阴影与按压反馈表达，不新增橙色明暗变体。
+
+## Verification
+
+- 真实页面读回根令牌 `#f37021`；新中式 `v1` 徽标、四个模型勾选圆和 START 均为 `rgb(243, 112, 33)` 背景、`rgb(32, 32, 36)` 内容。
+- 桌面 `1280px` 与窄屏 `390px` 的 `scrollWidth` 均等于视口宽度，无横向溢出；窄屏模型按钮保持双列，控制台无 error、warning。
+- 共享功能色、选择控件、生成动作和产品导航专项测试通过 `14 / 14`；完整 `npm test` 通过 `314 / 314`，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; the functional accent is now a more iconic box orange while preserving readable near-black micro content and the existing black selection hierarchy
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
+# Global Motion Smoothness v62 Design QA
+
+## Evidence
+
+- 用户要求用 GSAP Core 检查全局动画流畅性，并消除工作台与页面状态切换卡顿。
+- 基线冷缓存连续往返中，跨工作台导航在首个 `requestAnimationFrame` 后才启动完整 `280ms` tween，首轮出现约 `166ms` 动画帧空洞；功能模式和 Benchmark 五步页内切换未出现持续长任务。
+- 全部 17 份顶层 CSS 未发现 `transition: all`，也未使用 width、height、top、left、margin、padding、grid 或 flex 作为 transition 属性。
+
+## Findings
+
+- 跨页点击继续使用原生导航，不人为延迟跳转；`sessionStorage` 同时传递来源索引和点击时间。
+- 目标页立即创建暂停的 GSAP 双层 transform tween，并按点击后已消耗时间 seek 后续播；总时长收敛为 `180ms power3.inOut`。若页面加载已超过 180ms，则直接落位，不补播迟到动画。
+- 激活视窗和白字轨道继续只动画 `xPercent`，使用 `force3D` 与 `overwrite: "auto"`；颜色、字重、内容面板与 Benchmark 五步内容保持静态。
+- 生图页与 Benchmark 页都保留全局 `prefers-reduced-motion` 降级；导航在减少动态模式下不创建位置补间。
+
+## Verification
+
+- 冷缓存、正常 CPU 与 4× CPU 压力下完成 12 次跨页往返；两页均加载 `product-navigation.js?v=7`，没有控制台错误、长任务或错误遮罩，修复前约 `166ms` 的首帧后空洞不再出现。
+- 稳定轮次的导航运动帧间隔约 `17.6ms`；关闭缓存并施加 4× CPU 的极限采样中仅有少量单帧 `22–28ms`，时间轴会继续推进而不会在恢复后补播完整时长。
+- 1280×720 真实浏览器检查显示两页顶栏仍为 `1248×56 @ (16,16)`，各自只有一个激活视窗；工作区没有透明度、缩放或位移动画。
+- 动效专项回归通过 `3 / 3`，全量自动化通过 `315 / 315`，`git diff --check` 通过。
+
+## Final Result
+
+final result: passed; cross-workbench motion now follows click time, skips stale playback under load, and keeps all page surfaces static
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
 # Colored RUNNING State v60 Design QA
 
 ## Evidence

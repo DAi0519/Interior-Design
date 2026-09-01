@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与两页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮实现
- * [OUTPUT]: 对外提供冷白银灰顶栏、纯黑白字反色选中态、中性浅色普通按钮、单一 #de742f 哑光橙精密键帽关键动作与保色 RUNNING 状态、小面积状态回声、双页最终加载顺序、Benchmark 当前步骤、结果下载、START/连接中心全交互状态、生成黑白灰扫描动效及中性按钮焦点回归保障
+ * [OUTPUT]: 对外提供冷白银灰顶栏、由 GSAP transform 同步位移的纯黑白字导航激活视窗、中性浅色普通按钮、单一 #f37021 标志性盒橙关键动作及系统偏好、双页最终加载顺序和中性焦点回归保障
  * [POS]: test 的跨工作台 Raycast 重点色护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const accentHref = "raycast-accent.css?v=37";
+const accentHref = "raycast-accent.css?v=42";
 
 test("两页最后加载同一份 Raycast 统一按钮层", async () => {
   const [indexHtml, benchmarkHtml] = await Promise.all([
@@ -24,7 +24,7 @@ test("两页最后加载同一份 Raycast 统一按钮层", async () => {
   }
 });
 
-test("按钮以纯黑白字表达选中并统一用 #de742f 标记关键执行与小面积状态", async () => {
+test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行与小面积状态", async () => {
   const [css, themeCss, indexHtml, benchmarkHtml] = await Promise.all([
     readFile(new URL("../public/raycast-accent.css", import.meta.url), "utf8"),
     readFile(new URL("../public/theme.css", import.meta.url), "utf8"),
@@ -42,13 +42,14 @@ test("按钮以纯黑白字表达选中并统一用 #de742f 标记关键执行�
   assert.match(css, /--brand-nav-selected-border: #000/);
   assert.match(css, /--brand-nav-selected-ink: #fff/);
   assert.match(css, /--brand-nav-muted-ink: #6f7077/);
-  assert.match(css, /--functional-action-bg: #de742f/);
-  assert.match(css, /--functional-action-border: #de742f/);
-  assert.match(css, /--functional-action-hover-bg: #de742f/);
-  assert.match(css, /--functional-action-hover-border: #de742f/);
-  assert.match(css, /--functional-action-active-bg: #de742f/);
-  assert.match(css, /--functional-action-active-border: #de742f/);
+  assert.match(css, /--functional-action-bg: #f37021/);
+  assert.match(css, /--functional-action-border: #f37021/);
+  assert.match(css, /--functional-action-hover-bg: #f37021/);
+  assert.match(css, /--functional-action-hover-border: #f37021/);
+  assert.match(css, /--functional-action-active-bg: #f37021/);
+  assert.match(css, /--functional-action-active-border: #f37021/);
   assert.match(css, /--functional-action-ink: #202024/);
+  assert.doesNotMatch(css, /#de742f/);
   assert.match(css, /--functional-action-shadow:\s*inset 0 1px 0 rgb\(255 255 255 \/ 42%\),\s*inset 0 -1px 0 rgb\(32 32 36 \/ 18%\),\s*0 1px 2px rgb\(25 26 28 \/ 18%\),\s*0 8px 18px rgb\(25 26 28 \/ 14%\)/s);
   assert.match(css, /--functional-action-hover-shadow:[^;]*0 12px 24px rgb\(25 26 28 \/ 16%\)/s);
   assert.match(css, /--functional-action-active-shadow:[^;]*inset 0 2px 4px rgb\(25 26 28 \/ 18%\)[^;]*0 3px 8px rgb\(25 26 28 \/ 11%\)/s);
@@ -85,9 +86,9 @@ test("按钮以纯黑白字表达选中并统一用 #de742f 标记关键执行�
   assert.match(css, /\.topbar \.product-switcher\s*\{[^}]*var\(--brand-nav-track-bg\)[^}]*var\(--brand-nav-track-border\)[^}]*border-radius: 9px/s);
   assert.match(css, /\.topbar \.topbar-actions\s*\{[^}]*background: transparent[^}]*border: 0[^}]*box-shadow: none[^}]*padding: 0/s);
   assert.match(css, /--brand-nav-selected-shadow:\s*inset 0 0 0 1px var\(--brand-nav-selected-border\),\s*inset 0 1px 0 rgb\(255 255 255 \/ 14%\),\s*0 2px 5px rgb\(25 26 28 \/ 20%\)/s);
-  assert.match(css, /\.topbar \.product-switch-indicator,[^{]*\.topbar \.product-switch-option\[aria-current="page"\]\s*\{[^}]*var\(--brand-nav-selected-bg\)[^}]*border-color: var\(--brand-nav-selected-border\)[^}]*var\(--brand-control-radius\)[^}]*var\(--brand-nav-selected-shadow\)/s);
+  assert.match(css, /\.topbar \.product-switch-active-viewport,[^{]*\.topbar \.product-switch-option\[aria-current="page"\]\s*\{[^}]*var\(--brand-nav-selected-bg\)[^}]*border-color: var\(--brand-nav-selected-border\)[^}]*var\(--brand-control-radius\)[^}]*var\(--brand-nav-selected-shadow\)/s);
   assert.match(css, /\.topbar \.product-switch-option\s*\{[^}]*var\(--brand-nav-muted-ink\)/s);
-  assert.match(css, /\.topbar \.product-switch-option\[aria-current="page"\],[^{]*\.topbar \.product-switch-option\.is-transition-target\s*\{[^}]*var\(--brand-nav-selected-ink\)/s);
+  assert.match(css, /\.topbar \.product-switch-option\[aria-current="page"\],[^{]*\.topbar \.product-switch-active-option\s*\{[^}]*var\(--brand-nav-selected-ink\)/s);
   assert.match(css, /\.topbar \.product-status\s*\{[^}]*font-weight: 500[^}]*min-height: 30px/s);
   assert.match(css, /\.topbar \.connection-button,[^{]*\.topbar \.status-pill\s*\{[^}]*background: #fff[^}]*border-color: var\(--brand-key-border\)[^}]*border-radius: var\(--brand-control-radius\)[^}]*var\(--brand-key-shadow\)[^}]*font-weight: 600[^}]*min-height: 30px/s);
   assert.match(css, /\.topbar \.connection-button:not\(\.connected\) \.status-dot,[^{]*\.topbar \.status-pill:not\(\.ready\)::before\s*\{[^}]*background: #a69ca1[^}]*box-shadow: none[^}]*height: 6px[^}]*width: 6px/s);
@@ -158,6 +159,10 @@ test("按钮以纯黑白字表达选中并统一用 #de742f 标记关键执行�
   assert.doesNotMatch(css, /\.scan-line\s*\{/);
   assert.match(themeCss, /\.scan-line\s*\{[^}]*background: var\(--accent\)[^}]*0 0 20px rgb\(25 26 28 \/ 22%\)/s);
   assert.match(css, /:where\(button, a, input, textarea, select\):focus-visible\s*\{[^}]*outline-color: var\(--brand-key-focus\)/s);
+  assert.match(css, /:where\(button, \.product-switch-option, \.custom-select-trigger, \.custom-select-option\)\s*\{[^}]*touch-action: manipulation/s);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition-duration: 0\.01ms !important[\s\S]*transform: none !important/s);
+  assert.match(css, /@media \(prefers-reduced-transparency: reduce\)[\s\S]*backdrop-filter: none[\s\S]*background: #fcfcfd/s);
+  assert.match(css, /@media \(prefers-contrast: more\)[\s\S]*background: #fff[\s\S]*border-color: #8f9097/s);
   assert.match(css, /\.custom-select-trigger:focus-visible\s*\{[^}]*border-color: var\(--brand-key-focus\)[^}]*var\(--brand-key-focus-ring\)/s);
   assert.match(css, /\.config-option input,[^{]*\.remember-control input\s*\{[^}]*accent-color: var\(--brand-check-bg\)/s);
   assert.match(css, /progress\s*{[^}]*accent-color: var\(--functional-action-bg\)/s);
