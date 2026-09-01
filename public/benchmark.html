@@ -1,5 +1,5 @@
 <!--
-  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、GSAP 与 product-navigation.css/js 共享纯文字品牌顶栏、raycast-accent.css 共享重点色、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
+  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、三工作台共享 product-navigation.css/js/raycast-accent.css、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
   [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="./benchmark-run.css?v=4" />
     <link rel="stylesheet" href="./benchmark-review.css?v=4" />
     <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
-    <link rel="stylesheet" href="./product-navigation.css?v=12" />
+    <link rel="stylesheet" href="./product-navigation.css?v=14" />
     <link rel="stylesheet" href="./raycast-accent.css?v=42" />
   </head>
   <body>
@@ -29,8 +29,16 @@
         <a class="brand" href="/" aria-label="Canvas Lab 首页">
           <span class="brand-title">Canvas Lab</span>
         </a>
-        <nav class="product-switcher" aria-label="工作台切换">
+        <nav id="productSwitcher" class="product-switcher" data-active-index="2" aria-label="工作台切换">
+          <span class="product-switch-active-viewport" aria-hidden="true">
+            <span class="product-switch-active-layer">
+              <span class="product-switch-active-option">生图工作台</span>
+              <span class="product-switch-active-option">Beta跑图</span>
+              <span class="product-switch-active-option">模型评测</span>
+            </span>
+          </span>
           <a class="product-switch-option" href="/">生图工作台</a>
+          <a class="product-switch-option" href="/beta.html">Beta跑图</a>
           <a class="product-switch-option" href="/benchmark.html" aria-current="page">模型评测</a>
         </nav>
         <div class="topbar-actions">
@@ -285,8 +293,7 @@
       </div>
       </main>
     </div>
-    <script src="/vendor/gsap.min.js"></script>
-    <script type="module" src="./product-navigation.js?v=7"></script>
+    <script type="module" src="./product-navigation.js?v=9"></script>
     <script type="module" src="./custom-select.js?v=7"></script>
     <script type="module" src="./benchmark-app.js?v=34"></script>
   </body>

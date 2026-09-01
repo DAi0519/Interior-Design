@@ -1,0 +1,245 @@
+<!--
+  [INPUT]: 依赖 beta.css/beta-app.js/beta-sample-library.js、工作台公开模型/Prompt 配置、独立 /api/beta 样本集与任务接口，以及共享导航、下拉、上传、动作控件系统
+  [OUTPUT]: 对外提供名为“Beta跑图”的无步骤编号四分区配置、飞书样本集选择/一次创建复用、经服务端回读确认的飞书同步状态、不设结果数量上限的五场景批量配置、同选项键帽近距阴影的 38px 中性保存动作、START，以及区分生成/飞书同步的右侧任务监控
+  [POS]: public 的独立 Beta跑图配置与任务监控页，只负责样本、生成设置和进度可见性；结果统一在飞书查看，不承载站内画廊、Style DNA 反推或 AI 评分
+  [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <title>Canvas Lab · Beta跑图</title>
+    <link rel="stylesheet" href="/beta.css?v=13" />
+    <link rel="stylesheet" href="/generation-actions.css?v=15" />
+    <link rel="stylesheet" href="/custom-select.css?v=9" />
+    <link rel="stylesheet" href="/product-navigation.css?v=14" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=42" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Canvas Lab 首页">
+          <span class="brand-title">Canvas Lab</span>
+        </a>
+        <nav id="productSwitcher" class="product-switcher" data-active-index="1" aria-label="工作台切换">
+          <span class="product-switch-active-viewport" aria-hidden="true">
+            <span class="product-switch-active-layer">
+              <span class="product-switch-active-option">生图工作台</span>
+              <span class="product-switch-active-option">Beta跑图</span>
+              <span class="product-switch-active-option">模型评测</span>
+            </span>
+          </span>
+          <a class="product-switch-option" href="/">生图工作台</a>
+          <a class="product-switch-option" href="/beta.html" aria-current="page">Beta跑图</a>
+          <a class="product-switch-option" href="/benchmark.html">模型评测</a>
+        </nav>
+        <div class="topbar-actions">
+          <span id="betaConnectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>
+        </div>
+      </header>
+
+      <main class="beta-shell">
+        <h1 class="visually-hidden">Beta跑图</h1>
+        <div class="beta-grid">
+          <form id="betaForm" class="beta-card beta-config-card">
+            <div class="beta-config-scroll">
+            <section class="beta-section">
+              <div class="section-heading">
+                <h2>选择任务</h2>
+                <a id="betaBaseLink" class="section-link" href="https://lq9n5lvfn2i.feishu.cn/base/ORwJbt5EYauNORsrhqJcpetLnEb" target="_blank" rel="noreferrer">打开飞书</a>
+              </div>
+              <div id="betaFeatureOptions" class="feature-options" role="radiogroup" aria-label="Beta跑图功能">
+                <button class="feature-mode-option selected" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="true">白模渲染</button>
+                <button class="feature-mode-option" data-feature-mode="emptyRoom" type="button" role="radio" aria-checked="false">空房设计</button>
+                <button class="feature-mode-option" data-feature-mode="refinedModel" type="button" role="radio" aria-checked="false">精模渲染</button>
+                <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图美化</button>
+                <button class="feature-mode-option" data-feature-mode="free" type="button" role="radio" aria-checked="false">自由生图</button>
+              </div>
+            </section>
+
+            <section class="beta-section">
+              <div class="section-heading">
+                <h2>选择样本集</h2>
+                <div class="section-heading-meta">
+                  <small id="sampleSetSyncStatus" class="sample-set-sync-status" role="status" aria-atomic="true">读取飞书中</small>
+                  <small id="sampleCount">0 个样本</small>
+                </div>
+              </div>
+              <div id="sampleSetLibraryPanel" class="sample-set-panel">
+                <label class="field sample-set-picker">
+                  <span>已有样本集</span>
+                  <select id="sampleSetSelect" aria-label="选择样本集"><option value="">正在读取</option></select>
+                </label>
+                <div class="sample-set-toolbar">
+                  <button id="newSampleSetButton" class="quiet-button" type="button">新建样本集</button>
+                </div>
+              </div>
+              <div id="sampleSetCreatePanel" class="sample-set-panel hidden">
+                <label class="field">
+                  <span>样本集名称</span>
+                  <input id="sampleSetNameInput" maxlength="80" placeholder="例如：白模回归 · 客厅组" />
+                </label>
+                <div id="sourceFilesField" class="upload-field">
+                  <div class="upload-field-copy">
+                    <strong id="sourceFilesTitle">白模图</strong>
+                  </div>
+                  <div id="sourceFilesDropZone" class="reference-drop-zone">
+                    <input id="sourceFilesInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加白模图" multiple />
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                      <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                    </svg>
+                    <span id="sourceFilesDropLabel">添加或拖入白模图</span>
+                    <small>PNG / JPEG / WebP · 单张 8MB · 合计 20MB</small>
+                  </div>
+                </div>
+                <label id="freePromptsField" class="field hidden">
+                  <span>提示词 · 每行一个样本</span>
+                  <textarea id="freePromptsInput" rows="5" placeholder="现代客厅，柔和自然光…&#10;极简卧室，低饱和材质…"></textarea>
+                </label>
+                <div class="sample-set-actions">
+                  <button id="cancelSampleSetButton" class="quiet-button" type="button">取消</button>
+                  <button id="saveSampleSetButton" class="quiet-button sample-set-save" type="button">保存样本集</button>
+                </div>
+              </div>
+              <div id="sampleList" class="sample-list reference-list hidden" aria-live="polite"></div>
+              <div id="freePromptList" class="sample-list hidden" aria-live="polite"></div>
+            </section>
+
+            <section class="beta-section">
+              <div class="section-heading">
+                <h2>任务设置</h2>
+                <small id="configStatus">读取中</small>
+              </div>
+              <label id="commonPromptField" class="field">
+                <span id="commonPromptLabel">补充要求（可选）</span>
+                <textarea id="commonPromptInput" rows="3" placeholder="整批共用的补充要求"></textarea>
+              </label>
+              <div id="designFields" class="field-grid">
+                <label class="field"><span>设计方式</span><select id="renderModeSelect"><option value="smart-default">智能默认</option><option value="style-dna">平台风格</option></select></label>
+                <label id="styleField" class="field hidden"><span>平台风格</span><select id="styleSelect"></select></label>
+                <label class="field"><span>提示词模型</span><select id="promptAgentModelSelect"></select></label>
+                <label id="promptAgentVersionField" class="field hidden"><span>融合版本</span><select id="promptAgentVersionSelect"></select></label>
+              </div>
+              <div id="styleReferenceField" class="upload-field compact-upload">
+                <div class="upload-field-copy">
+                  <strong>风格参考图（可选）</strong>
+                </div>
+                <div id="styleReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
+                <div id="styleReferenceDropZone" class="reference-drop-zone">
+                  <input id="styleReferenceInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加风格参考图" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                    <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                  </svg>
+                  <span>添加或拖入风格参考图</span>
+                  <small>PNG / JPEG / WebP · 单张 8MB</small>
+                </div>
+              </div>
+              <div id="emptyRoomFields" class="field-grid hidden">
+                <label class="field"><span>房间类型</span><select id="roomTypeSelect"></select></label>
+                <label id="roomTypeDetailField" class="field hidden"><span>具体空间类型</span><input id="roomTypeDetailInput" maxlength="40" placeholder="例如：衣帽间" /></label>
+              </div>
+              <div id="effectFields" class="field-grid hidden">
+                <label class="field"><span>时段</span><select id="effectTimeSelect"><option value="preserve">保持原时段</option><option value="daytime">日间</option><option value="dusk">黄昏</option><option value="night">夜间</option></select></label>
+                <label class="field"><span>天气</span><select id="effectWeatherSelect"><option value="preserve">保持原天气</option><option value="clear">晴天</option><option value="overcast">阴天</option><option value="rainy">雨天</option><option value="foggy">雾天</option></select></label>
+              </div>
+              <label id="refinedPromptField" class="field hidden"><span>精模 Prompt 版本</span><select id="refinedPromptSelect"></select></label>
+              <div id="freeReferenceField" class="upload-field compact-upload hidden">
+                <div class="upload-field-copy">
+                  <strong>参考图（可选）</strong>
+                </div>
+                <div id="freeReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
+                <div id="freeReferenceDropZone" class="reference-drop-zone">
+                  <input id="freeReferenceInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加自由生图参考图" />
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                    <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                  </svg>
+                  <span>添加或拖入参考图</span>
+                  <small>PNG / JPEG / WebP · 单张 8MB</small>
+                </div>
+              </div>
+            </section>
+
+            <section class="beta-section">
+              <div class="section-heading">
+                <h2>输出设置</h2>
+                <small>最多选择 4 个</small>
+              </div>
+              <div id="modelOptions" class="model-options" role="group" aria-label="出图模型"></div>
+              <div class="field-grid output-grid">
+                <label class="field"><span>输出比例</span><select id="ratioSelect" data-dropdown-placement="top"></select></label>
+                <label class="field"><span>分辨率</span><select id="resolutionSelect" data-dropdown-placement="top"></select></label>
+                <label id="qualityField" class="field"><span>质量档</span><select id="qualitySelect" data-dropdown-placement="top"></select></label>
+              </div>
+              <label id="negativePromptField" class="field hidden"><span>Flux 负向提示词（可选）</span><textarea id="negativePromptInput" rows="2" placeholder="留空使用系统默认"></textarea></label>
+            </section>
+            </div>
+
+            <div class="run-bar">
+              <div class="run-meta">
+                <div><strong id="runSummary">请选择样本集</strong></div>
+                <span id="runHint">结果自动同步飞书</span>
+              </div>
+              <div id="betaGenerationActions" class="generation-actions">
+                <button id="runButton" class="generate-button functional-accent-button" type="submit" aria-label="开始批量运行" aria-busy="false">
+                  <span class="button-label"><span id="runButtonLabel">START</span></span>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <aside class="beta-card beta-monitor-card" aria-labelledby="jobMonitorTitle">
+            <div class="monitor-heading">
+              <div>
+                <h2 id="jobMonitorTitle">任务监控</h2>
+                <p>生成与飞书同步</p>
+              </div>
+              <span id="jobStatus" class="job-status" data-state="idle" role="status" aria-live="polite">待运行</span>
+            </div>
+
+            <div class="monitor-batch">
+              <span>当前批次</span>
+              <strong id="monitorBatchSummary">尚未开始</strong>
+            </div>
+
+            <div id="jobProgress" class="job-progress" aria-live="polite">
+              <div class="job-progress-row">
+                <div class="progress-copy">
+                  <span>生成进度</span>
+                  <strong id="generationProgressCount">0 / 0</strong>
+                </div>
+                <div id="generationProgressTrack" class="progress-track generation-progress-track" role="progressbar" aria-label="生成进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+                  <span id="generationProgressBar"></span>
+                </div>
+              </div>
+              <div class="job-progress-row">
+                <div class="progress-copy">
+                  <span>飞书同步</span>
+                  <strong id="jobProgressCount">0 / 0</strong>
+                </div>
+                <div id="jobProgressTrack" class="progress-track sync-progress-track" role="progressbar" aria-label="飞书同步进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+                  <span id="jobProgressBar"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="monitor-message">
+              <span>当前状态</span>
+              <p id="jobProgressLabel">运行后，这里会持续显示生成与同步进度。</p>
+            </div>
+
+            <a id="monitorBaseLink" class="monitor-base-link" href="https://lq9n5lvfn2i.feishu.cn/base/ORwJbt5EYauNORsrhqJcpetLnEb" target="_blank" rel="noreferrer">在飞书查看结果</a>
+          </aside>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="/product-navigation.js?v=9"></script>
+    <script type="module" src="/beta-app.js?v=7"></script>
+  </body>
+</html>

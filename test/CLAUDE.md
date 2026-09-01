@@ -7,13 +7,16 @@ CLAUDE.md: 本模块地图，维护自动化测试成员清单
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点、声明式向上菜单、Enter/Space 确认，并阻止内容宽度百分比导致的无效省略
 choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影、纯黑白字选中态与完整交互状态
 generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
-product-navigation.test.mjs: 共享顶栏字体与全局动效回归测试，验证两页预加载同源 Inter Variable、Raycast OpenType 特性、全部 CSS 禁止 transition all/布局属性补间、双页 reduced-motion、GSAP 双层 transform 激活态、按点击时间续播 180ms power3.inOut、overwrite auto、无颜色/内容动效与 matchMedia reduced-motion 瞬时落位
-raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、双页最终加载顺序和中性焦点
+product-navigation.test.mjs: 共享顶栏字体与全局动效回归测试，验证三页预加载同源 Inter Variable、Raycast OpenType 特性、全部 CSS 禁止 transition all/布局属性补间、三页静态首帧激活层、140ms 导航前双层 transform、反复点击重定向、原生链接降级与 reduced-motion 瞬时切换
+raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、含 Beta 全宽 START 的唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、三页最终加载顺序和中性焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
 model-config.test.mjs: 三个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、Flux 不限长正向 Prompt、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵及请求白名单测试，不发送真实请求
 generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
-generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、最多两路并发、保序与部分失败测试，不调用真实生图服务
+generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、领域阶段快照透传、最多两路并发、保序与部分失败测试，不调用真实生图服务
+beta-base.test.mjs: Beta跑图新 Base 三表隔离/字段 ID、五功能映射、场景/配置快照、版本/费用回填与结果附件回读门槛测试，使用 CLI 替身且不读写真实 Base
+beta-runner.test.mjs: Beta跑图五功能样本集准入、不设结果数量上限、图片资产去重恢复、两路并发、已生成/已同步双阶段快照、三次 Attempt 自动重跑和全量飞书归档门槛内存集成测试
+beta-ui.test.mjs: Beta跑图独立第三工作台、飞书样本集选择/创建及服务端回读同步状态、不设结果数量上限、同选项键帽近距阴影的 38px 中性保存动作、五功能无反推、多模型、桌面配置/监控双栏、无页面空白滚动、生成/飞书同步双进度、无站内结果画廊与原 Benchmark 保留的静态合同测试
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数的生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
 generation-task-request.test.mjs: 日常生图固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
 effect-render-enhancement.test.mjs: 效果图美化专项测试，覆盖当前已上架 Prompt 版本回显、天气/时段 UI、固定 JSON Schema 的完整性/类型/顺序及旧标题渲染、默认时段天气与夜景外景深暗/曝光证据强锁、任一环境覆盖即退出默认模块、基础→契约→时段→天气拼接、非法枚举、单图、原图比例、脱敏响应与归档元数据内存集成测试

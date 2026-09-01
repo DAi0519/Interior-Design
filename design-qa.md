@@ -33,6 +33,34 @@ final result: passed; the functional accent is now a more iconic box orange whil
 
 ---
 
+# Beta Run Monitor And Scroll Boundary Design QA
+
+## Evidence
+
+- 用户指出 Beta跑图底部存在无意义的大段空白滚动，并要求生成后在右侧持续看到生成与飞书同步进度，不要求站内展示结果图。
+- 修改前真实浏览器在 `1280×720` 下测得配置卡仅到 `y=702`，但裁切区内的下拉控件仍把文档 `scrollHeight` 撑到 `991px`；任务接口只有单一 `completed`，无法区分模型生成与飞书归档。
+
+## Findings
+
+- 桌面端改为视口内的“配置 + 任务监控”双栏：页面禁止外层滚动，左侧配置独立滚动；`960px` 以下恢复自然单栏页面滚动。
+- 右侧常驻显示当前批次、生成进度、飞书同步、当前状态和飞书结果入口，不创建结果画廊。
+- 服务端任务快照新增 `stages.generated` 与 `stages.synced`：模型返回后只递增生成，飞书附件写入并回读成功后才递增同步与整批完成。
+
+## Verification
+
+- 完整自动化测试通过 `331 / 331`，`node --check public/beta-app.js` 与专项生成任务/Beta UI 回归通过。
+- 服务在 `127.0.0.1:4173` 重启后健康；真实浏览器在 `1280×720` 下测得左栏 `898×618`、右栏 `336×618`，`body overflow-y: hidden`，配置区 `overflow-y: auto`，页面不再出现可操作的空白滚动。
+- 飞书样本集真实加载后显示“已同步飞书”、`10 个样本 × 1 个模型 = 10 张结果`，监控显示“预计 10 张结果 / 生成 0 / 10 / 飞书同步 0 / 10”，START 可用且页面不存在结果卡。
+- 本轮未触发真实模型生成，因此没有产生模型费用；运行中/成功/失败的双阶段变化由服务端内存集成测试和浏览器静态状态共同覆盖。
+
+## Final Result
+
+final result: passed; Beta跑图桌面端移除无意义页面空滚动，并提供不复制结果图的生成/飞书同步双阶段监控
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
 # Global Motion Smoothness v62 Design QA
 
 ## Evidence

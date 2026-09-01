@@ -1,5 +1,5 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图美化当前上架 Prompt 状态与天气/时段受控选项、精模自定义要求、空房必填房间类型、白模/空房设计方式、Flux 自定义负向 Prompt、支持单图原位替换的双参考图上传、Style DNA 对话、GSAP 与 product-navigation.css/js 共享纯文字品牌顶栏、raycast-accent.css 共享重点色、内嵌 Smiley Sans 主动作字体、Raycast 向近白银灰 Light Command Center 视觉规则，以及 app.js 各浏览器控制器
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图美化/精模/空房/白模/Flux/Style DNA 控件、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
   [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、精模预设 Prompt 版本与自定义要求、白模/空房设计/自由生图/风格反推入口、按功能保留的生成中/结果区、空房房间类型必填、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="/custom-select.css?v=9" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=9" />
     <link rel="stylesheet" href="/connection-center.css?v=5" />
-    <link rel="stylesheet" href="/product-navigation.css?v=12" />
+    <link rel="stylesheet" href="/product-navigation.css?v=14" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=4" />
     <link rel="stylesheet" href="/empty-room-type.css?v=1" />
     <link rel="stylesheet" href="/raycast-accent.css?v=42" />
@@ -36,8 +36,16 @@
           <span class="brand-title">Canvas Lab</span>
         </a>
 
-        <nav class="product-switcher" aria-label="工作台切换">
+        <nav id="productSwitcher" class="product-switcher" data-active-index="0" aria-label="工作台切换">
+          <span class="product-switch-active-viewport" aria-hidden="true">
+            <span class="product-switch-active-layer">
+              <span class="product-switch-active-option">生图工作台</span>
+              <span class="product-switch-active-option">Beta跑图</span>
+              <span class="product-switch-active-option">模型评测</span>
+            </span>
+          </span>
           <a class="product-switch-option" href="/" aria-current="page">生图工作台</a>
+          <a class="product-switch-option" href="/beta.html">Beta跑图</a>
           <a class="product-switch-option" href="/benchmark.html">模型评测</a>
         </nav>
 
@@ -713,8 +721,7 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script src="/vendor/gsap.min.js"></script>
-    <script type="module" src="/product-navigation.js?v=7"></script>
+    <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app.js?v=43"></script>
   </body>
 </html>

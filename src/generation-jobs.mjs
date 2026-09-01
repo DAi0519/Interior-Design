@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖生成任务 ID、功能/模型摘要、异步批处理执行函数、进度回调与可选时钟
- * [OUTPUT]: 对外提供进程内生成任务入队/查询、有界并发批执行与可恢复结果快照
+ * [INPUT]: 依赖生成任务 ID、功能/模型摘要、可选领域阶段快照、异步批处理执行函数、进度回调与可选时钟
+ * [OUTPUT]: 对外提供进程内生成任务入队/查询、透传领域阶段进度的可恢复结果快照，以及有界并发批执行
  * [POS]: src 的日常生图后台任务层，让页面切换不再中断生成状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,7 @@ function publicJob(job) {
     jobId: job.jobId,
     message: job.message,
     result: job.result,
+    stages: job.stages,
     startedAt: job.startedAt,
     status: job.status,
     total: job.total,
@@ -88,7 +89,7 @@ export function createGenerationJobRegistry({
     }
   }
 
-  function enqueue(jobId, { featureMode, total }, task) {
+  function enqueue(jobId, { featureMode, stages = null, total }, task) {
     cleanup();
     if (jobs.has(jobId)) return publicJob(jobs.get(jobId));
     const job = {
@@ -99,6 +100,7 @@ export function createGenerationJobRegistry({
       jobId,
       message: "生成任务已接收",
       result: null,
+      stages,
       startedAt: now(),
       status: "running",
       total,

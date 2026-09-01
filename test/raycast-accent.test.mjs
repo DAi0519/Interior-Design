@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与两页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮实现
- * [OUTPUT]: 对外提供冷白银灰顶栏、由 GSAP transform 同步位移的纯黑白字导航激活视窗、中性浅色普通按钮、单一 #f37021 标志性盒橙关键动作及系统偏好、双页最终加载顺序和中性焦点回归保障
+ * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮实现
+ * [OUTPUT]: 对外提供冷白银灰顶栏、由导航前 transform 位移的纯黑白字激活视窗、中性浅色普通按钮、含 Beta 全宽 START 的单一 #f37021 标志性盒橙关键动作及系统偏好、三页最终加载顺序和中性焦点回归保障
  * [POS]: test 的跨工作台 Raycast 重点色护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,13 +11,14 @@ import test from "node:test";
 
 const accentHref = "raycast-accent.css?v=42";
 
-test("两页最后加载同一份 Raycast 统一按钮层", async () => {
-  const [indexHtml, benchmarkHtml] = await Promise.all([
+test("三页最后加载同一份 Raycast 统一按钮层", async () => {
+  const [indexHtml, betaHtml, benchmarkHtml] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/benchmark.html", import.meta.url), "utf8"),
   ]);
 
-  for (const html of [indexHtml, benchmarkHtml]) {
+  for (const html of [indexHtml, betaHtml, benchmarkHtml]) {
     const stylesheets = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)" \/>/g)]
       .map((match) => match[1]);
     assert.match(stylesheets.at(-1), new RegExp(`${accentHref.replace("?", "\\?")}$`));
@@ -25,10 +26,11 @@ test("两页最后加载同一份 Raycast 统一按钮层", async () => {
 });
 
 test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行与小面积状态", async () => {
-  const [css, themeCss, indexHtml, benchmarkHtml] = await Promise.all([
+  const [css, themeCss, indexHtml, betaHtml, benchmarkHtml] = await Promise.all([
     readFile(new URL("../public/raycast-accent.css", import.meta.url), "utf8"),
     readFile(new URL("../public/theme.css", import.meta.url), "utf8"),
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/benchmark.html", import.meta.url), "utf8"),
   ]);
 
@@ -86,9 +88,9 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /\.topbar \.product-switcher\s*\{[^}]*var\(--brand-nav-track-bg\)[^}]*var\(--brand-nav-track-border\)[^}]*border-radius: 9px/s);
   assert.match(css, /\.topbar \.topbar-actions\s*\{[^}]*background: transparent[^}]*border: 0[^}]*box-shadow: none[^}]*padding: 0/s);
   assert.match(css, /--brand-nav-selected-shadow:\s*inset 0 0 0 1px var\(--brand-nav-selected-border\),\s*inset 0 1px 0 rgb\(255 255 255 \/ 14%\),\s*0 2px 5px rgb\(25 26 28 \/ 20%\)/s);
-  assert.match(css, /\.topbar \.product-switch-active-viewport,[^{]*\.topbar \.product-switch-option\[aria-current="page"\]\s*\{[^}]*var\(--brand-nav-selected-bg\)[^}]*border-color: var\(--brand-nav-selected-border\)[^}]*var\(--brand-control-radius\)[^}]*var\(--brand-nav-selected-shadow\)/s);
+  assert.match(css, /\.topbar \.product-switch-active-viewport\s*\{[^}]*var\(--brand-nav-selected-bg\)[^}]*border-color: var\(--brand-nav-selected-border\)[^}]*var\(--brand-control-radius\)[^}]*var\(--brand-nav-selected-shadow\)/s);
   assert.match(css, /\.topbar \.product-switch-option\s*\{[^}]*var\(--brand-nav-muted-ink\)/s);
-  assert.match(css, /\.topbar \.product-switch-option\[aria-current="page"\],[^{]*\.topbar \.product-switch-active-option\s*\{[^}]*var\(--brand-nav-selected-ink\)/s);
+  assert.match(css, /\.topbar \.product-switch-active-option\s*\{[^}]*var\(--brand-nav-selected-ink\)/s);
   assert.match(css, /\.topbar \.product-status\s*\{[^}]*font-weight: 500[^}]*min-height: 30px/s);
   assert.match(css, /\.topbar \.connection-button,[^{]*\.topbar \.status-pill\s*\{[^}]*background: #fff[^}]*border-color: var\(--brand-key-border\)[^}]*border-radius: var\(--brand-control-radius\)[^}]*var\(--brand-key-shadow\)[^}]*font-weight: 600[^}]*min-height: 30px/s);
   assert.match(css, /\.topbar \.connection-button:not\(\.connected\) \.status-dot,[^{]*\.topbar \.status-pill:not\(\.ready\)::before\s*\{[^}]*background: #a69ca1[^}]*box-shadow: none[^}]*height: 6px[^}]*width: 6px/s);
@@ -127,6 +129,7 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /\.generation-actions \.generate-button:active:not\(:disabled\)\s*{[^}]*rgb\(236 236 239 \/ 99%\)[^}]*border-color: var\(--brand-key-active-border\)[^}]*0 5px 12px rgb\(25 26 28 \/ 12%\)/s);
   assert.match(css, /\.generation-actions \.generate-button:disabled\s*{[^}]*rgb\(243 243 244 \/ 99%\)[^}]*border-color: var\(--brand-key-disabled-border\)[^}]*var\(--brand-key-muted-ink\)[^}]*opacity: 1/s);
   assert.match(indexHtml, /id="generateButton" class="generate-button functional-accent-button"/);
+  assert.match(betaHtml, /id="runButton" class="generate-button functional-accent-button"/);
   assert.match(benchmarkHtml, /id="planButton" class="secondary-button functional-accent-button"/);
   assert.match(benchmarkHtml, /id="runButton" class="danger-button functional-accent-button"/);
   assert.match(benchmarkHtml, /id="reviewButton" class="primary-button functional-accent-button"/);

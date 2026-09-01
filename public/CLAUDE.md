@@ -28,13 +28,18 @@ white-model-render-mode.css: 白模/空房风格选择增量视觉层，复用�
 lark-permission-labels.js: 飞书授权文案解释器，把最小 Scope 编码映射为连接中心可理解的中文能力名称并保留未知项诊断
 custom-select.js: 原生 select 渐进增强层，提供 Style DNA、场景融合 Agent、参数及 Benchmark 的自定义列表框与声明式向上菜单，在 pointerdown 固定目标焦点后以 click 提交选择，并显式支持 Enter/Space 键盘确认
 custom-select.css: Raycast 向 Light Command Center 半透明银灰自定义下拉视觉，提供配置区、参数区及 Benchmark 的原生控件隐藏、38px 对齐触发器、底部参数向上展开、先完整利用真实剩余宽度且仅在不足时截断的文案、选中态、焦点与低动效结构，并由最终颜色层统一纯黑白字选中反馈
-product-navigation.css: 生图工作台与模型评测共享的三段式顶栏视觉真源，提供纯文字 Canvas Lab 品牌、内嵌 Inter Variable、Raycast ss03 字形与 0.5px 光学基线修正、银灰玻璃表面、低圆角分段控件、供 GSAP 驱动的半宽激活视窗/双宽文字轨道与窄屏收敛，最终选中层级由 raycast-accent.css 加深
-product-navigation.js: 跨工作台导航状态层，通过 sessionStorage 传递来源索引与点击时间并复制完整激活态，以 GSAP Core 同步驱动视窗 xPercent 与文字轨道反向补偿，按已消耗时间续播 180ms power3.inOut、overwrite auto 和 matchMedia reduced-motion 合同，绝不补间颜色、字重或内容面板
+product-navigation.css: 生图工作台、Beta跑图与模型评测共享的三段式顶栏视觉与动效真源，提供纯文字 Canvas Lab 品牌、内嵌 Inter Variable、Raycast ss03 字形与 0.5px 光学基线修正、滚动条存在时仍按物理视口居中的银灰玻璃顶栏、静态首帧激活层、仅双层 transform 的 140ms 导航前激活视窗位移与 reduced-motion 瞬时降级，最终选中层级由 raycast-accent.css 加深
+product-navigation.js: 三工作台导航反馈层，点击同源目标时只更新 data-active-index 触发 140ms CSS transform，可用后续点击重定向到最后目标，完成后原生导航；reduced-motion、修饰键与当前页始终保留原生链接行为
 raycast-accent.css: 跨工作台最终颜色层，以冷白银灰顶栏、`#000` 纯黑白字反色选中面、浅色普通键、淡灰细边与近距阴影统一全部状态，并以唯一的 `#f37021` 标志性盒橙统一关键执行动作与小面积状态回声；提供 pointer-down 即时反馈和减少动态/透明度、增强对比度系统偏好降级，普通禁用仍回到中性灰
 prompt-agent-version-select.js: 场景融合 Agent 版本选择控制器，只渲染服务端脱敏已上架目录、默认最高版本并在当前标签页记忆选择
 refined-prompt-version-select.js: 精模预设 Prompt 版本控制器，消费脱敏目录、标记内部测试草稿、说明用户要求前置规则并在当前标签页记忆选择
 style-dna-chat.css: Style DNA 反推预览视觉，提供图片/PDF 附件卡、等高对话面板、独立滚动消息流与未发布 JSON 草稿卡片
 index.html: 精简工作台语义骨架，以独立配置滚动区和底部动作栏避免 START 遮挡内容，并提供纯文字品牌顶栏、效果图美化当前上架 Prompt 状态及天气/时段、精模预设与自定义要求、白模/空房/自由生图/风格反推、双参考图上传、智能默认/平台风格、独立 Agent、Flux 负向 Prompt、最多四模型与单模型 1–4 张生成、多结果画廊和飞书记录入口
+beta.html: 独立第三工作台语义骨架，移除重复标题 Hero 与 01–04 步骤编号，以工作台同构的直接分区标题默认选择飞书样本集、按需一次创建复用，并承载标题行飞书同步回执、同选项键帽近距阴影的中性保存键、五功能共享配置、最多四模型且结果数不设上限、紧凑同步进度与标题行飞书入口，不在站内展示结果画廊
+beta.css: Beta跑图 Light Command Center 视觉层，以桌面视口内配置/监控双栏对齐共享顶栏，提供配置区独立滚动、无页面空白滚动、18px 分区内边距、13px/600 标题、样本集选择/创建、38px 中性保存动作、54px START 与生成/飞书同步双进度，960px 以下转自然单栏页面滚动
+beta-app.js: Beta跑图配置与任务监控编排器，读取工作台同源模型/Prompt 目录，消费 beta-sample-library 的当前样本集与飞书同步状态，按样本×模型展开不限数量的结果并协调模型、START、资产去重、任务恢复、已生成/已同步双阶段状态和独立 `/api/beta` 链路，不维护结果副本
+beta-sample-library.js: Beta跑图可复用样本库控制器，管理按功能筛选的飞书样本集、自动载入附件/提示词、不设样本数量上限的新集一次上传保存、经服务端回读确认的同步成功/失败回执、预览删除与稳定样本 ID 投影
+beta-upload.js: Beta跑图上传呈现层，复用工作台图片预览/删除/拖放语法，为新样本集提供累加拖入，为单张风格/自由参考图提供原位替换，读取校验由调用方管理
 smiley-sans-v2.0.1.woff2: 得意黑 Smiley Sans v2.0.1 官方未修改网页字体资产，仅用于生图主动作的窄斜展示字形
 smiley-sans-OFL-1.1.txt: 得意黑 Smiley Sans 随附的 SIL Open Font License 1.1 与保留字体名声明
 benchmark.html: 继承 Canvas Lab 工作台语义与纯文字品牌顶栏的独立评测页，以横向五步流程串联左侧紧凑管理录入/右侧列表的样本工作区、可分次累加的已有分类/AI 分类双路径样本治理、带功能强调语义的实验计划/正式运行/AI 评分动作、停止/继续出图与失败重试、seven_evaluate_v3.1 单次/断点继续 1–5 小数 AI 评分和数据分析

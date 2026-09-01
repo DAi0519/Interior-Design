@@ -23,7 +23,6 @@
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",
     "@larksuite/cli": "1.0.77",
-    "gsap": "3.15.0",
     "sharp": "0.35.3"
   },
   "engines": {

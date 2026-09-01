@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 GSAP 浏览器包、内嵌 Inter 变量字体、本机设置、飞书 Setup 与生成记录 Schema、图片下载、模型/Prompt/空房房间类型及详情长度目录、双 Provider、效果图美化天气时段正向 Prompt及当前上架版本、精模预设 Prompt 与用户补充、可恢复生成任务、白模/空房双模式设计应用服务及 Benchmark 工作流
- * [OUTPUT]: 对外提供本地生图与评测工作台、同源 Raycast 字体资产、含生成记录功能选项准入的连接中心、按功能恢复的后台生成任务、效果图美化当前上架 Prompt 脱敏状态及基础→时段→天气拼接、空房必填房间类型/其他详情策略、白模/空房智能默认与平台融合独立 Prompt 路由、精模用户要求前置与预设 Prompt 后置、单模型多张/多模型生成、样本治理、可取消批量横评/AI 评分及任务查询
- * [POS]: 项目根入口，隔离浏览器、本机凭据、公司 OneAPI、远程 ComfyUI 与飞书 Base，并统一日常生成和模型评测的服务契约
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 浏览器资产、本机设置、飞书 Setup、图片下载、模型/Prompt/空房目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及连接、配置、生成、下载、批量新 Base 归档、Benchmark 执行与评分入口
+ * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI、新旧飞书 Base 与三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -20,11 +20,14 @@ import {
   EMPTY_ROOM_TYPES,
   EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
 } from "./src/empty-room-type.mjs";
-import { publicEffectEnhancementPromptConfig } from "./src/effect-render-enhancement-prompt.mjs";
+import { createBetaBaseStore } from "./src/beta-base.mjs";
 import {
-  createGenerationJobRegistry,
-  runGenerationJobBatch,
-} from "./src/generation-jobs.mjs";
+  createBetaApiHandler,
+  createBetaRunnerService,
+} from "./src/beta-runner.mjs";
+import { publicEffectEnhancementPromptConfig } from "./src/effect-render-enhancement-prompt.mjs";
+import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
+import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
 import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import { imageProviderForModel, publicModelCatalog } from "./src/model-config.mjs";
@@ -67,13 +70,6 @@ const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(
   ROOT_DIR,
   "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
-);
-const GSAP_BROWSER_BUNDLE = join(
-  ROOT_DIR,
-  "node_modules",
-  "gsap",
-  "dist",
-  "gsap.min.js",
 );
 const BENCHMARK_STATE_FILE = join(
   fileURLToPath(new URL(".", import.meta.url)),
@@ -307,10 +303,27 @@ const generationService = createGenerationService({
   requireApiKey,
   scheduleGenerationSync,
 });
+const betaGenerationService = createGenerationService({
+  getSessionModelCatalog,
+  imageClientForModel,
+  promptResultCache: whiteModelPromptResultCache,
+  requireApiKey,
+  scheduleGenerationSync: () => ({ generationId: null, status: "skipped" }),
+});
+const betaRunner = createBetaRunnerService({
+  baseStore: createBetaBaseStore(),
+  generationService: betaGenerationService,
+});
+const handleBetaApi = createBetaApiHandler({ readJson, sendJson, service: betaRunner });
+const handleGenerationJobApi = createGenerationJobApiHandler({
+  generationJobs,
+  generationService,
+  readJson,
+  sendJson,
+});
 
 function safeStaticPath(pathname) {
   if (pathname === "/vendor/inter-variable-latin.woff2") return INTER_VARIABLE_LATIN_FONT;
-  if (pathname === "/vendor/gsap.min.js") return GSAP_BROWSER_BUNDLE;
   const requestedPath = pathname === "/" ? "index.html" : pathname.slice(1);
   const resolvedPath = normalize(join(PUBLIC_DIR, requestedPath));
   return resolvedPath.startsWith(PUBLIC_DIR) ? resolvedPath : null;
@@ -330,66 +343,8 @@ function serveStatic(response, pathname) {
 }
 
 async function handleApi(request, response, pathname) {
-  if (request.method === "GET" && pathname.startsWith("/api/generation-jobs/")) {
-    const jobId = decodeURIComponent(pathname.slice("/api/generation-jobs/".length));
-    const job = generationJobs.get(jobId);
-    return job
-      ? sendJson(response, 200, { job })
-      : sendJson(response, 404, { error: "生成任务不存在或已过期" });
-  }
-
-  if (request.method === "POST" && pathname === "/api/generation-jobs") {
-    const body = await readJson(request);
-    const featureMode = String(body.featureMode || "");
-    const jobId = String(body.jobId || "");
-    const items = Array.isArray(body.items) ? body.items : [];
-    if (!/^generation-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
-      return sendJson(response, 400, { error: "生成任务 ID 无效" });
-    }
-    if (![
-      "effectEnhancement",
-      "emptyRoom",
-      "free",
-      "refinedModel",
-      "whiteModel",
-    ].includes(featureMode)) {
-      return sendJson(response, 400, { error: "不支持的生成功能" });
-    }
-    if (items.length < 1 || items.length > 4) {
-      return sendJson(response, 400, { error: "生成任务需要 1–4 个生成项" });
-    }
-    const sharedInput = body.sharedInput && typeof body.sharedInput === "object"
-      ? body.sharedInput
-      : {};
-    const job = generationJobs.enqueue(
-      jobId,
-      { featureMode, total: items.length },
-      async (update) => ({
-        outcomes: await runGenerationJobBatch({
-          concurrency: body.forcePromptRegeneration ? 1 : 2,
-          items,
-          onProgress({ completed, total }) {
-            update({
-              completed,
-              message: `已完成 ${completed} / ${total} 张图`,
-            });
-          },
-          execute(item, index) {
-            return generationService.executeForMode(featureMode, {
-              ...sharedInput,
-              ...(item.input || {}),
-              batchCount: items.length,
-              batchId: body.batchId || null,
-              batchIndex: index + 1,
-              forcePromptRegeneration:
-                Boolean(body.forcePromptRegeneration) && index === 0,
-            });
-          },
-        }),
-      }),
-    );
-    return sendJson(response, 202, { job });
-  }
+  if (await handleGenerationJobApi(request, response, pathname)) return;
+  if (await handleBetaApi(request, response, pathname)) return;
 
   const benchmarkCancelMatch = pathname.match(/^\/api\/benchmark\/jobs\/([^/]+)\/cancel$/);
   if (request.method === "POST" && benchmarkCancelMatch) {
