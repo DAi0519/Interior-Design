@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供三个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、全模型 2:1 自动适配、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供四个 OneAPI 模型（含独立 Seedream 5.0 Pro）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、全模型 2:1 自动适配、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,7 +24,7 @@ import {
   sizeSummary,
 } from "../public/model-capabilities.js";
 
-test("目录暴露三个 OneAPI 模型和一个 ComfyUI 工作流", () => {
+test("目录暴露四个 OneAPI 模型和一个 ComfyUI 工作流", () => {
   assert.deepEqual(
     publicModelCatalog().map(({ id, key }) => ({ id, key })),
     [
@@ -32,6 +32,7 @@ test("目录暴露三个 OneAPI 模型和一个 ComfyUI 工作流", () => {
       { id: "gpt-image-2", key: "gptImage2" },
       { id: "comfyui:ai-texture-enhancement", key: "aiTextureEnhancement" },
       { id: "doubao-seedream-5.0", key: "seedream5" },
+      { id: "doubao-seedream-5.0-pro", key: "seedream5Pro" },
     ],
   );
 });
@@ -50,8 +51,9 @@ test("出图模型统一可选且不向使用者暴露内部目录状态", () =>
       { available: false },
       { available: true },
       { available: true },
+      { available: true },
     ]),
-    "4 个模型可选",
+    "5 个模型可选",
   );
 });
 
@@ -458,6 +460,46 @@ test("Seedream 5.0 支持 2:1 画幅并按原图自动命中", () => {
   assert.equal(generation.preview.ratio, "2:1");
   assert.equal(generation.preview.size, "2880x1440");
   assert.equal(generation.request.size, "2880x1440");
+});
+
+test("Seedream 5.0 Pro 使用独立 ID 与 1K/2K 像素合同", () => {
+  assert.equal(MODEL_CONFIGS.seedream5Pro.id, "doubao-seedream-5.0-pro");
+  assert.deepEqual(Object.keys(MODEL_CONFIGS.seedream5Pro.sizes["1:1"]), [
+    "1K",
+    "2K",
+  ]);
+  assert.deepEqual(MODEL_CONFIGS.seedream5Pro.sizes["2:1"], {
+    "1K": "1440x720",
+    "2K": "2880x1440",
+  });
+
+  for (const sizes of Object.values(MODEL_CONFIGS.seedream5Pro.sizes)) {
+    for (const size of Object.values(sizes)) {
+      const [width, height] = size.split("x").map(Number);
+      assert.ok(width * height >= 921_600);
+      assert.ok(width * height <= 4_624_220);
+    }
+  }
+
+  const generation = createGenerationRequest(
+    {
+      modelKey: "seedream5Pro",
+      outputFormat: "png",
+      prompt: "保持室内效果图构图并提升真实感",
+      ratio: "4:3",
+      resolution: "1K",
+    },
+    {
+      preferSourceAspect: true,
+      sourceDimensions: { height: 1000, width: 2000 },
+    },
+  );
+
+  assert.equal(generation.preview.model, "doubao-seedream-5.0-pro");
+  assert.equal(generation.preview.ratio, "2:1");
+  assert.equal(generation.preview.size, "1440x720");
+  assert.equal(generation.request.model, "doubao-seedream-5.0-pro");
+  assert.equal(generation.request.size, "1440x720");
 });
 
 test("Banana 2 与 GPT Image 2 公开网关实测可用的 2:1 尺寸", () => {

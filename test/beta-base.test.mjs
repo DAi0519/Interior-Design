@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖 node:test/assert、Beta Base 配置与字段映射纯函数
- * [OUTPUT]: 对外提供新 Base 隔离、五功能映射、场景/配置快照、版本/费用回填与结果附件回读门槛的回归保障
+ * [INPUT]: 依赖 node:test/assert、sharp 真实编码夹具、Beta Base 配置与字段映射纯函数
+ * [OUTPUT]: 对外提供新 Base 隔离、测试时间分组视图链接、五功能映射、场景/配置快照、版本/费用回填、结果附件 token/字节数回读门槛与轻量预览的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import sharp from "sharp";
 
 import {
   BETA_BASE_CONFIG,
@@ -20,12 +21,19 @@ import {
 } from "../src/beta-base.mjs";
 import { LARK_SYNC_CONFIG } from "../src/lark-sync.mjs";
 
+const onePixelPngBytes = await sharp({
+  create: { background: "#f37021", channels: 3, height: 8, width: 8 },
+}).png().toBuffer();
+const onePixelPng = `data:image/png;base64,${onePixelPngBytes.toString("base64")}`;
+
 test("Beta跑图只指向新 Base 的样本集、样本和跑图明细三表", () => {
   assert.equal(BETA_BASE_CONFIG.baseToken, "ORwJbt5EYauNORsrhqJcpetLnEb");
   assert.equal(BETA_BASE_CONFIG.sampleSetTableId, "tblQmKbAHOCPcct7");
   assert.equal(BETA_BASE_CONFIG.sampleTableId, "tblZHiPlolFYcG1t");
   assert.equal(BETA_BASE_CONFIG.sampleImageFieldId, "flda615mNm");
   assert.equal(BETA_BASE_CONFIG.tableId, "tblrue5KUj7VNDD2");
+  assert.equal(BETA_BASE_CONFIG.testTimeFieldId, "fld71lZlMH");
+  assert.equal(BETA_BASE_CONFIG.viewId, "vewGYQGQ1U");
   assert.match(BETA_BASE_CONFIG.baseUrl, /ORwJbt5EYauNORsrhqJcpetLnEb/);
   assert.notEqual(BETA_BASE_CONFIG.baseToken, LARK_SYNC_CONFIG.baseToken);
   assert.notEqual(BETA_BASE_CONFIG.tableId, LARK_SYNC_CONFIG.tableId);
@@ -59,6 +67,7 @@ test("一行一 Run 冻结可追溯的输入与配置", () => {
   const fields = buildBetaRunFields({
     batchId: "BETA-12345678",
     featureMode: "effectEnhancement",
+    testTime: "2026-09-02 14:03:21",
     item: {
       attempt: 2,
       caseId: "CASE-001",
@@ -74,6 +83,7 @@ test("一行一 Run 冻结可追溯的输入与配置", () => {
   assert.deepEqual(JSON.parse(fields["场景参数"]), betaSceneParameters(input));
   assert.deepEqual(JSON.parse(fields["配置快照"]), betaConfigSnapshot(input));
   assert.equal(fields["输入文本"], "保持空间结构");
+  assert.equal(fields["测试时间"], "2026-09-02 14:03:21");
 });
 
 test("完成结果提取 Prompt 版本与非负费用", () => {
@@ -94,12 +104,17 @@ test("完成结果提取 Prompt 版本与非负费用", () => {
 test("完成 Run 必须回读到飞书成功状态与结果附件", async () => {
   const commands = [];
   const config = { ...BETA_BASE_CONFIG };
+  const resultSize = Buffer.from(onePixelPng.split(",", 2)[1], "base64").length;
   const run = async (_config, args) => {
     commands.push(args);
     if (args.includes("+record-get")) {
       return {
         data: {
-          data: [["成功", [{ file_token: "file-result", name: "result.png" }]]],
+          data: [["成功", [{
+            file_token: "file-result",
+            name: "result.png",
+            size: resultSize,
+          }]]],
           fields: ["状态", "结果图"],
           record_id_list: ["rec-result"],
         },
@@ -109,13 +124,20 @@ test("完成 Run 必须回读到飞书成功状态与结果附件", async () => 
     return { data: {}, ok: true };
   };
   const store = createBetaBaseStore({ config, run });
+  assert.match(store.config.baseUrl, /[?&]table=tblrue5KUj7VNDD2(?:&|$)/);
+  assert.match(store.config.baseUrl, /[?&]view=vewGYQGQ1U(?:&|$)/);
   const archived = await store.completeRun("rec-result", {
     durationMs: 1200,
-    images: [{ url: "data:image/png;base64,iVBORw0KGgo=" }],
+    images: [{ url: onePixelPng }],
     request: { outputFormat: "png" },
   });
 
   assert.equal(archived.recordId, "rec-result");
+  assert.equal(archived.attachment.fileToken, "file-result");
+  assert.equal(archived.attachment.size, resultSize);
+  assert.match(archived.previewUrl, /^data:image\/webp;base64,/);
+  assert.match(archived.recordUrl, /[?&]view=vewGYQGQ1U(?:&|$)/);
+  assert.match(archived.recordUrl, /[?&]record=rec-result(?:&|$)/);
   assert.ok(commands.some((args) => args.includes("+record-upload-attachment")));
   assert.ok(commands.some((args) => args.includes("+record-upsert")));
   assert.ok(commands.some((args) => args.includes("+record-get")));
@@ -140,7 +162,35 @@ test("飞书回读缺少结果附件时拒绝把 Run 判为成功", async () => 
   });
 
   await assert.rejects(store.completeRun("rec-missing", {
-    images: [{ url: "data:image/png;base64,iVBORw0KGgo=" }],
+    images: [{ url: onePixelPng }],
+    request: { outputFormat: "png" },
+  }), /结果附件校验失败/);
+});
+
+test("飞书回读附件字节数不一致时拒绝把 Run 判为成功", async () => {
+  const store = createBetaBaseStore({
+    config: { ...BETA_BASE_CONFIG },
+    async run(_config, args) {
+      if (args.includes("+record-get")) {
+        return {
+          data: {
+            data: [["成功", [{
+              file_token: "file-truncated",
+              name: "result.png",
+              size: 1,
+            }]]],
+            fields: ["状态", "结果图"],
+            record_id_list: ["rec-truncated"],
+          },
+          ok: true,
+        };
+      }
+      return { data: {}, ok: true };
+    },
+  });
+
+  await assert.rejects(store.completeRun("rec-truncated", {
+    images: [{ url: onePixelPng }],
     request: { outputFormat: "png" },
   }), /结果附件校验失败/);
 });

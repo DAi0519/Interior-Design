@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 接收已通过容量校验的 PNG/JPEG/WebP 图片字节与 MIME 类型
+ * [INPUT]: 接收已通过容量校验的 PNG/JPEG/WebP 图片字节与可选 MIME 类型
  * [OUTPUT]: 对外提供 readImageDimensions，从真实图片头读取宽高或返回 null
- * [POS]: src 的无解码尺寸探测器，被参考图安全边界消费，避免信任浏览器声明的画幅
+ * [POS]: src 的无解码尺寸探测器，被参考图安全边界与生成结果归档消费，避免信任声明尺寸
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -107,14 +107,15 @@ function webpDimensions(bytes) {
 }
 
 export function readImageDimensions(bytes, mimeType) {
-  const dimensions =
-    mimeType === "image/png"
+  const dimensions = mimeType
+    ? mimeType === "image/png"
       ? pngDimensions(bytes)
       : mimeType === "image/jpeg"
         ? jpegDimensions(bytes)
         : mimeType === "image/webp"
           ? webpDimensions(bytes)
-          : null;
+          : null
+    : pngDimensions(bytes) || jpegDimensions(bytes) || webpDimensions(bytes);
   if (
     !dimensions ||
     !Number.isInteger(dimensions.width) ||

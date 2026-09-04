@@ -11,17 +11,19 @@ product-navigation.test.mjs: 共享顶栏字体与全局动效回归测试，验
 raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、含 Beta 全宽 START 的唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、三页最终加载顺序和中性焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 三个 OneAPI 模型与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、Flux 不限长正向 Prompt、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵及请求白名单测试，不发送真实请求
+model-config.test.mjs: 四个 OneAPI 模型（含独立 Seedream 5.0 Pro）与一个默认 9B FP8/7 steps ComfyUI 工作流统一可选、Provider、白模/空房/精模/效果图美化单图、Pro 1K/2K 像素合同、Flux 不限长正向 Prompt、原图比例约 1MP/4MP 且不超面积的 1K-2K 契约、16 像素对齐、全模型 2:1 合法矩阵及请求白名单测试，不发送真实请求
 generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型尺寸/质量适配、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
-generation-jobs.test.mjs: 日常生图任务即时入队、查询恢复、领域阶段快照透传、最多两路并发、保序与部分失败测试，不调用真实生图服务
-beta-base.test.mjs: Beta跑图新 Base 三表隔离/字段 ID、五功能映射、场景/配置快照、版本/费用回填与结果附件回读门槛测试，使用 CLI 替身且不读写真实 Base
-beta-runner.test.mjs: Beta跑图五功能样本集准入、不设结果数量上限、图片资产去重恢复、两路并发、已生成/已同步双阶段快照、三次 Attempt 自动重跑和全量飞书归档门槛内存集成测试
-beta-ui.test.mjs: Beta跑图独立第三工作台、飞书样本集选择/创建及服务端回读同步状态、不设结果数量上限、同选项键帽近距阴影的 38px 中性保存动作、五功能无反推、多模型、桌面配置/监控双栏、无页面空白滚动、生成/飞书同步双进度、无站内结果画廊与原 Benchmark 保留的静态合同测试
+generation-jobs.test.mjs: 日常生图付费执行前飞书同步合同阻断、任务即时入队、查询恢复、领域阶段快照透传、最多两路并发、保序与部分失败测试，不调用真实生图服务
+beta-base.test.mjs: Beta跑图新 Base 三表隔离/测试时间字段与分组视图 ID、飞书记录链接、五功能映射、场景/配置快照、版本/费用回填、结果附件 token/字节数回读门槛及轻量预览测试，使用 CLI 替身且不读写真实 Base
+beta-page-state.test.mjs: Beta跑图本机持久配置状态纯函数测试，覆盖首次默认 Flux、功能/样本集引用/最多四模型/表单参数往返、非法存储降级与不复制图片边界
+beta-run-id.test.mjs: Beta跑图人工分组时间、技术 Run ID 本地日期时间主体、批内唯一序号、模型定位与非法输入拒绝纯函数测试
+beta-runner.test.mjs: Beta跑图五功能样本集准入、测试时间归一化、不设结果数量上限、图片资产去重恢复、两路并发、逐 Run 单图参数隔离、已生成/已同步双阶段快照、飞书回读后渐进公开轻量结果、含 ComfyUI 产物下载 404 在内的瞬时故障三次 Attempt、参数错误单次失败和全量飞书归档门槛内存集成测试
+beta-ui.test.mjs: Beta跑图独立第三工作台、默认 Flux 与当前标签页配置恢复接线、飞书样本集选择/创建及服务端回读同步状态、不设结果数量上限、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、左侧重复入口移除、五功能无反推、多模型、桌面根滚动锁定的配置/监控双栏、无页面空白滚动、START/失败后 RETRY、生成/飞书同步双进度、飞书回读结果缩略图与原 Benchmark 保留的静态合同测试
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数的生成中进度、结果与过期错误纯状态测试，不访问真实浏览器存储
-generation-task-request.test.mjs: 日常生图固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
+generation-task-request.test.mjs: 日常生图前台飞书实时 Schema 就绪阻断、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
 effect-render-enhancement.test.mjs: 效果图美化专项测试，覆盖当前已上架 Prompt 版本回显、天气/时段 UI、固定 JSON Schema 的完整性/类型/顺序及旧标题渲染、默认时段天气与夜景外景深暗/曝光证据强锁、任一环境覆盖即退出默认模块、基础→契约→时段→天气拼接、非法枚举、单图、原图比例、脱敏响应与归档元数据内存集成测试
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
-comfyui-client.test.mjs: ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、默认负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、多实例输出 404 恢复、排队轮询、输出 data URL 归一化与参考图边界测试，不提交真实任务
+comfyui-client.test.mjs: ComfyUI 健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/空输入、默认负向 Prompt、Base64 单图原子提交、网关 502 只读恢复与明确报错、节点错误详情透传、请求级唯一产物命名、旧实例同名图身份拒绝、多实例输出 404 恢复、排队轮询、输出 data URL/SHA-256 归一化与参考图边界测试，不提交真实任务
 flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
@@ -29,10 +31,10 @@ generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合�
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
 agent-model-config.test.mjs: 十个 Prompt Agent 候选 ID、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求
-lark-sync.test.mjs: 飞书附件分列、含效果图美化的功能/空房空间类型/其他空间类型/设计方式/Agent/风格、原始/最终 Prompt、生图模型/Prompt融合、天气时段元数据与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
+lark-sync.test.mjs: 飞书全部可写字段类型/单选值/附件 ID、真实产物尺寸替代请求尺寸、含 Seedream 5.0 Pro 的前后台模型目录同步、附件分列、含效果图美化的功能/空房空间类型/其他空间类型/设计方式/Agent/风格、原始/最终 Prompt、生图模型/Prompt融合、天气时段元数据与生成记录字段映射回归测试，不调用 CLI 或写入真实 Base
 oneapi-client.test.mjs: OneAPI 主动取消、Prompt Agent 白模/风格参考双图顺序、Responses 单图分析/非 Claude 双图评审、Claude Chat Completions 评审、请求侧压缩、图生图、Style DNA 多轮附件、费用归一化与错误脱敏测试
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
-image-artifact.test.mjs: 生成图片扩展名、data URL 解码、空响应与下载体积上限测试
+image-artifact.test.mjs: 生成图片扩展名、data URL 解码、任务快照 WebP 预览、空响应与下载体积上限测试
 image-download.test.mjs: 生成结果下载文件名、MIME、字节透传、附件响应头与非法输入测试，不访问网络
 benchmark-base.test.mjs: Benchmark 五表环境配置、全部普通回填的实时字段存在性/可写类型/单选选项阻断、稳定编码配置映射、系统字段隔离、样本录入、三类实验筛选、快照、Prompt/Run/三维评分/费用/横评关联与附件测试，不读写真实 Base
 benchmark-runner.test.mjs: 横评计划规模、提示/出图阶段 Prompt 共享边界与飞书实验类型映射、Case/配置筛选、Provider 路由、主动取消、费用传递、逐 Run 真源进度、失败重试、横评同步与计划阶段零调用的内存集成测试

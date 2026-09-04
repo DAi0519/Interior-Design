@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 图片交互、同源 /api/beta/sample-sets 接口，以及外部图片校验/容量/状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary，统一已有样本集选择、飞书样本下载、不设样本数量上限的新集创建上传、服务端回读后的同步成功/失败回执、预览删除与当前 Case 投影
+ * [OUTPUT]: 对外提供 createBetaSampleLibrary，统一可恢复的已有样本集选择、飞书样本下载、不设样本数量上限的新集创建上传、服务端回读后的同步成功/失败回执、预览删除与当前 Case 投影
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,6 +44,7 @@ export function createBetaSampleLibrary({
   elements,
   onChange,
   onError,
+  onSelectionChange = () => {},
   readImage,
 }) {
   const state = {
@@ -154,6 +155,7 @@ export function createBetaSampleLibrary({
       .filter((sample) => sample.image)
       .map((sample) => ({ ...sample.image, sampleId: sample.sampleId }));
     state.mode = "library";
+    onSelectionChange(state.featureMode, state.activeSampleSetId);
   }
 
   async function loadSampleSet(sampleSetId) {
@@ -245,7 +247,7 @@ export function createBetaSampleLibrary({
     }
   }
 
-  async function setFeatureMode(featureMode) {
+  async function setFeatureMode(featureMode, preferredSampleSetId = "") {
     state.featureMode = featureMode;
     const current = activeSet();
     if (current?.featureMode === featureMode) {
@@ -253,8 +255,11 @@ export function createBetaSampleLibrary({
       return;
     }
     clearSamples();
-    const first = setsForFeature()[0];
-    if (first) await loadSampleSet(first.sampleSetId);
+    const sampleSets = setsForFeature();
+    const preferred = sampleSets.find((sampleSet) =>
+      sampleSet.sampleSetId === preferredSampleSetId);
+    const next = preferred || sampleSets[0];
+    if (next) await loadSampleSet(next.sampleSetId);
     else beginCreate();
   }
 
@@ -279,11 +284,11 @@ export function createBetaSampleLibrary({
     });
   }
 
-  async function load(featureMode) {
+  async function load(featureMode, preferredSampleSetId = "") {
     try {
       const { sampleSets } = await api("/api/beta/sample-sets");
       state.sampleSets = sampleSets || [];
-      await setFeatureMode(featureMode);
+      await setFeatureMode(featureMode, preferredSampleSetId);
     } catch (error) {
       setSyncStatus("读取失败", "error", error.message);
       render();

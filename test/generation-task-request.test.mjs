@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
- * [OUTPUT]: 对外提供固定 PNG 且无格式选择 UI、单模型 1–4 张展开、分功能加载文案与批任务只传一份图片载荷的回归保障
+ * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
+ * [OUTPUT]: 对外提供前台飞书同步合同阻断、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、分功能加载文案与批任务只传一份图片载荷的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,28 @@ import {
   generationLoadingCopy,
 } from "../public/generation-task-request.js";
 import { publicModelCatalog } from "../src/model-config.mjs";
+
+test("工作台默认使用空白提示词与 Flux2 Klein", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /<textarea\s+id="promptInput"[\s\S]*?>\s*<\/textarea>/);
+  assert.doesNotMatch(html, /描述空间、材质、光线和镜头|现代住宅客厅/);
+  assert.match(app, /modelKeys:\s*\["aiTextureEnhancement"\]/);
+  assert.doesNotMatch(app, /modelKeys:\s*\["seedream5"\]/);
+});
+
+test("前台只有飞书实时 Schema 就绪后才允许提交生成", async () => {
+  const [app, connectionCenter] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/connection-center.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(app, /larkReady:\s*false/);
+  assert.match(app, /if \(!state\.larkReady\)[\s\S]*飞书同步合同未通过，已阻止生成/);
+  assert.match(app, /onLarkStateChange\(setup\)[\s\S]*state\.larkReady = Boolean\(setup\?\.ready\)/);
+  assert.match(connectionCenter, /onLarkStateChange\(setup\)/);
+});
 
 test("日常生图移除输出格式 UI 并固定提交 PNG", async () => {
   const [html, app, generationInput] = await Promise.all([

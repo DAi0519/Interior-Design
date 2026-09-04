@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sharp 与全局 fetch/AbortController，接收生成结果的 data URL 或远程 URL
- * [OUTPUT]: 对外提供图片格式扩展名、data URL 解码、受限图片字节下载与模型请求侧体积收敛
+ * [OUTPUT]: 对外提供图片格式扩展名、data URL 解码、受限图片字节下载、轻量 WebP 预览与模型请求侧体积收敛
  * [POS]: src 的图片产物基础设施，被普通飞书同步、Benchmark 结果归档与 OneAPI 图片请求共同复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,32 @@ export function decodeImageDataUrl(dataUrl) {
   );
   if (!match) throw new Error("图片数据格式不正确");
   return Buffer.from(match[2].replace(/\s/g, ""), "base64");
+}
+
+export async function createImagePreviewDataUrl(
+  bytes,
+  { maxDimension = 360, quality = 72 } = {},
+) {
+  if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+    throw new TypeError("预览图片字节不能为空");
+  }
+  if (!Number.isInteger(maxDimension) || maxDimension < 32 || maxDimension > 1024) {
+    throw new TypeError("预览图片尺寸需要在 32–1024 之间");
+  }
+  if (!Number.isInteger(quality) || quality < 20 || quality > 95) {
+    throw new TypeError("预览图片质量需要在 20–95 之间");
+  }
+  const preview = await sharp(Buffer.from(bytes), { failOn: "error" })
+    .rotate()
+    .resize({
+      fit: "inside",
+      height: maxDimension,
+      width: maxDimension,
+      withoutEnlargement: true,
+    })
+    .webp({ quality })
+    .toBuffer();
+  return `data:image/webp;base64,${preview.toString("base64")}`;
 }
 
 export async function fitImageDataUrlForRequest(

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、飞书授权中文解释器、`?connect=api` 深链、工作台连接状态与配置刷新回调
- * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、评测页直达 API 管理、中文飞书授权状态、Device Flow 与无障碍弹层生命周期控制
+ * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、飞书授权中文解释器、`?connect=api` 深链、工作台 API/飞书同步合同状态与配置刷新回调
+ * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、评测页直达 API 管理、中文飞书授权及同步合同状态、Device Flow 与无障碍弹层生命周期控制
  * [POS]: public 的运营首次运行控制器，统一连接状态与焦点秩序并与 app.js 生成状态分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,6 +32,7 @@ export function bindConnectionCenter({
   onApiDisconnected,
   onApiStateChange,
   onLarkReady,
+  onLarkStateChange = () => {},
   showToast,
 }) {
   const elements = {
@@ -151,6 +152,7 @@ export function bindConnectionCenter({
 
   function renderSetup(nextSetup) {
     setup = nextSetup || emptySetup("飞书状态不可用");
+    onLarkStateChange(setup);
     const { base, cli, user } = setup;
     elements.larkStatus.textContent = setup.ready ? "已就绪" : "待完善";
     elements.larkStatus.classList.toggle("ready", setup.ready);

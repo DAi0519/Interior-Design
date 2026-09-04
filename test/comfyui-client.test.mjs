@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP 响应由内存 fetch 替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/默认负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、多实例输出读取恢复、排队轮询、输出归一化和参考图边界回归保障
+ * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/默认负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、请求级产物命名/旧实例同名图拒绝、多实例输出读取恢复、排队轮询、输出归一化/指纹和参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ const onePixelPng =
 
 test("工作流工厂原样写入正向 Prompt、保留默认负向 Prompt 与稳定节点", () => {
   const workflow = createAiTextureWorkflow({
+    artifactKey: "request-123",
     height: 576,
     imageBase64: "example-base64",
     prompt: "保持奶油白配色",
@@ -45,6 +46,10 @@ test("工作流工厂原样写入正向 Prompt、保留默认负向 Prompt 与�
   );
   assert.equal(workflow[AI_TEXTURE_WORKFLOW.outputNodeId].class_type, "SaveImage");
   assert.equal(
+    workflow[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.filename_prefix,
+    "CanvasLab_Flux2Klein_request-123",
+  );
+  assert.equal(
     workflow["UNETLoader-268b01374c2e0d44c2854c95c42a0a6e"].inputs.unet_name,
     AI_TEXTURE_DEFAULTS.model,
   );
@@ -64,6 +69,7 @@ test("工作流工厂原样写入正向 Prompt、保留默认负向 Prompt 与�
 
 test("工作流固定使用 9B FP8、7 steps 并接受 2K 目标尺寸", () => {
   const workflow = createAiTextureWorkflow({
+    artifactKey: "request-456",
     height: 1152,
     imageBase64: "example-base64",
     prompt: "保持空间结构",
@@ -92,6 +98,7 @@ test("工作流固定使用 9B FP8、7 steps 并接受 2K 目标尺寸", () => {
 
 test("空输入不会回填工作流内置正向 Prompt", () => {
   const workflow = createAiTextureWorkflow({
+    artifactKey: "request-789",
     imageBase64: "example-base64",
     prompt: "   ",
     seed: 42,
@@ -130,7 +137,11 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
         "prompt-1": {
           outputs: {
             "72": {
-              images: [{ filename: "result.png", subfolder: "", type: "output" }],
+              images: [{
+                filename: "CanvasLab_Flux2Klein_request-abc_00001_.png",
+                subfolder: "",
+                type: "output",
+              }],
             },
           },
           status: {
@@ -146,7 +157,10 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
     }
     if (parsed.pathname === "/view") {
       outputRequests += 1;
-      assert.equal(parsed.searchParams.get("filename"), "result.png");
+      assert.equal(
+        parsed.searchParams.get("filename"),
+        "CanvasLab_Flux2Klein_request-abc_00001_.png",
+      );
       if (outputRequests === 1) return new Response("missing", { status: 404 });
       return new Response(new Uint8Array([137, 80, 78, 71]), {
         headers: { "Content-Type": "image/png" },
@@ -158,6 +172,7 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
     baseUrl: "http://comfy.example/",
     fetchImpl,
     pollIntervalMs: 0,
+    randomId: () => "request-abc",
     randomSeed: () => 123,
     waitImpl: async () => {},
   });
@@ -188,9 +203,19 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
     queuedWorkflow["CLIPTextEncode-acd7e32aef39aafe3f6c0abb0498e47a"].inputs.text,
     /保持空间结构/,
   );
+  assert.equal(
+    queuedWorkflow[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.filename_prefix,
+    "CanvasLab_Flux2Klein_request-abc",
+  );
   assert.match(result.images[0].url, /^data:image\/png;base64,/);
   assert.equal(result.transport, "comfyui-workflow");
   assert.equal(result.metadata.promptId, "prompt-1");
+  assert.equal(result.metadata.artifactKey, "request-abc");
+  assert.equal(
+    result.metadata.outputFilename,
+    "CanvasLab_Flux2Klein_request-abc_00001_.png",
+  );
+  assert.match(result.metadata.outputSha256, /^[a-f0-9]{64}$/);
   assert.equal(result.metadata.seed, 123);
   assert.equal(result.metadata.executionDurationMs, 1_500);
   assert.equal(result.metadata.workflowVersion, AI_TEXTURE_WORKFLOW.version);
@@ -203,6 +228,53 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
   assert.equal(result.metadata.inferenceHeight, 576);
   assert.equal(historyRequests, 2);
   assert.equal(outputRequests, 2);
+});
+
+test("ComfyUI History 返回旧请求文件名时拒绝下载和假成功", async () => {
+  let outputRequests = 0;
+  const client = createComfyUiClient({
+    baseUrl: "http://comfy.example/",
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/prompt") {
+        return Response.json({ prompt_id: "prompt-current", node_errors: {} });
+      }
+      if (pathname === "/history/prompt-current") {
+        return Response.json({
+          "prompt-current": {
+            outputs: {
+              "72": {
+                images: [{
+                  filename: "CanvasLab_Flux2Klein_request-old_00001_.png",
+                  subfolder: "",
+                  type: "output",
+                }],
+              },
+            },
+            status: { completed: true, messages: [], status_str: "success" },
+          },
+        });
+      }
+      if (pathname === "/view") outputRequests += 1;
+      throw new Error(`unexpected request: ${pathname}`);
+    },
+    pollIntervalMs: 0,
+    randomId: () => "request-current",
+    waitImpl: async () => {},
+  });
+
+  await assert.rejects(
+    client.generateImage({
+      images: [{ fileName: "source.png", image_url: onePixelPng }],
+      prompt: "保持空间结构",
+    }),
+    (error) => {
+      assert.equal(error.code, "output_identity");
+      assert.match(error.message, /输出与本次请求身份不一致/);
+      return true;
+    },
+  );
+  assert.equal(outputRequests, 0);
 });
 
 test("持续网关 502 返回明确服务不可用且健康检查只重试安全读取", async () => {

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 generation-jobs.mjs 的可注入异步任务、进度及并发批处理
- * [OUTPUT]: 对外提供日常生图任务即时入队、查询恢复、领域阶段快照透传、有界并发、保序与部分失败回归保障
+ * [INPUT]: 依赖 node:test/assert、generation-job-api.mjs 的飞书同步合同预检与 generation-jobs.mjs 的可注入异步任务、进度及并发批处理
+ * [OUTPUT]: 对外提供付费生成前飞书合同阻断、日常生图任务即时入队、查询恢复、领域阶段快照透传、有界并发、保序与部分失败回归保障
  * [POS]: test 的可恢复生成任务测试，不调用真实生图服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,10 +12,43 @@ import {
   createGenerationJobRegistry,
   runGenerationJobBatch,
 } from "../src/generation-jobs.mjs";
+import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
 
 async function nextTurn() {
   await new Promise((resolve) => setImmediate(resolve));
 }
+
+test("飞书同步合同未通过时不创建付费生成任务", async () => {
+  let enqueued = false;
+  let response = null;
+  const handler = createGenerationJobApiHandler({
+    generationJobs: {
+      enqueue() {
+        enqueued = true;
+      },
+    },
+    generationService: {},
+    readJson: async () => ({
+      featureMode: "free",
+      items: [{ input: {}, key: "seedream5Pro" }],
+      jobId: "generation-123456789012",
+    }),
+    sendJson(_rawResponse, statusCode, body) {
+      response = { body, statusCode };
+    },
+    verifySyncContract: async () => {
+      throw new Error("“生图模型”字段缺少选项：Seedream 5.0 Pro");
+    },
+  });
+
+  assert.equal(
+    await handler({ method: "POST" }, {}, "/api/generation-jobs"),
+    true,
+  );
+  assert.equal(enqueued, false);
+  assert.equal(response.statusCode, 409);
+  assert.match(response.body.error, /已阻止生成.*Seedream 5\.0 Pro/);
+});
 
 test("生成任务入队后可查询进度与完整结果", async () => {
   const registry = createGenerationJobRegistry();

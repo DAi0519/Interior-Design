@@ -1,14 +1,15 @@
 /**
- * [INPUT]: 依赖 Node fetch、支持 1K/2K 目标宽高且默认使用 9B FP8/7 steps 的 Flux2 Klein 工作流工厂、外部正向/负向 Prompt、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
- * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 参考图与可选负向 Prompt 覆盖的默认参数工作流原子提交、可取消排队/轮询、网关抖动安全恢复、节点错误诊断、多实例输出读取恢复与统一 generateImage 结果
+ * [INPUT]: 依赖 Node fetch/crypto、支持 1K/2K 目标宽高且默认使用 9B FP8/7 steps 的 Flux2 Klein 工作流工厂、外部正向/负向 Prompt、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
+ * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 参考图与可选负向 Prompt 覆盖的默认参数工作流原子提交、请求级唯一产物命名、可取消排队/轮询、网关抖动安全恢复、节点错误诊断、多实例旧图隔离/输出读取恢复与含 SHA-256 身份的统一 generateImage 结果
  * [POS]: src 的第二图像生成服务边界，与 oneapi-client.mjs 并列并隐藏 ComfyUI 异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { randomInt, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 
 import {
   AI_TEXTURE_WORKFLOW,
+  aiTextureArtifactPrefix,
   aiTextureWorkflowMetadata,
   createAiTextureWorkflow,
 } from "./ai-texture-workflow.mjs";
@@ -157,6 +158,7 @@ export function createComfyUiClient({
   baseUrl = process.env.COMFYUI_BASE_URL || DEFAULT_COMFYUI_BASE_URL,
   fetchImpl = globalThis.fetch,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+  randomId = randomUUID,
   randomSeed = () => randomInt(0, 2 ** 32),
   requestTimeoutMs = DEFAULT_TIMEOUT_MS,
   waitImpl = wait,
@@ -267,7 +269,17 @@ export function createComfyUiClient({
     throw new ComfyUiError("ComfyUI 工作流执行超时", 504, "execution_timeout");
   }
 
-  async function downloadOutput(image, signal = null) {
+  async function downloadOutput(image, artifactKey, signal = null) {
+    const expectedPrefix = aiTextureArtifactPrefix(artifactKey);
+    const outputFilename = String(image?.filename || "");
+    if (!outputFilename.startsWith(`${expectedPrefix}_`)) {
+      throw new ComfyUiError(
+        "ComfyUI 输出与本次请求身份不一致",
+        502,
+        "output_identity",
+        { expectedPrefix, outputFilename },
+      );
+    }
     let response;
     for (let attempt = 0; attempt < MAX_OUTPUT_DOWNLOAD_ATTEMPTS; attempt += 1) {
       response = await fetchWithTimeout("view", { signal }, {
@@ -304,6 +316,8 @@ export function createComfyUiClient({
     }
     return {
       outputFormat: contentType === "image/jpeg" ? "jpeg" : contentType.split("/")[1],
+      outputFilename,
+      outputSha256: createHash("sha256").update(bytes).digest("hex"),
       url: `data:${contentType};base64,${bytes.toString("base64")}`,
     };
   }
@@ -339,8 +353,10 @@ export function createComfyUiClient({
       const height = Number(generationRequest.height || 2048);
       const resolution = String(generationRequest.resolution || "2K");
       const seed = randomSeed();
+      const artifactKey = randomId();
       const queuedAt = Date.now();
       const prompt = workflowFactory({
+        artifactKey,
         imageBase64: reference.bytes.toString("base64"),
         height,
         negativePrompt: generationRequest.negative_prompt,
@@ -349,7 +365,7 @@ export function createComfyUiClient({
         width,
       });
       const queued = await requestJson("prompt", {
-        body: JSON.stringify({ client_id: randomUUID(), prompt }),
+        body: JSON.stringify({ client_id: artifactKey, prompt }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
         signal,
@@ -366,17 +382,20 @@ export function createComfyUiClient({
 
       const history = await waitForHistory(queued.prompt_id, queuedAt, signal);
       const output = outputImage(history);
-      const downloaded = await downloadOutput(output, signal);
+      const downloaded = await downloadOutput(output, artifactKey, signal);
       const times = executionTimes(history, queuedAt);
       return {
         created: times.created,
         images: [{ url: downloaded.url }],
         metadata: aiTextureWorkflowMetadata({
+          artifactKey,
           executionDurationMs: times.executionDurationMs,
           height,
           negativePromptMode: String(
             generationRequest.negative_prompt_mode || "default",
           ),
+          outputFilename: downloaded.outputFilename,
+          outputSha256: downloaded.outputSha256,
           promptId: queued.prompt_id,
           queueDurationMs: times.queueDurationMs,
           resolution,

@@ -1,13 +1,20 @@
 /**
- * [INPUT]: 依赖 beta.html DOM、带飞书同步回执的 beta-sample-library、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供五功能配置、飞书样本集驱动及同步状态呈现的不设结果数量上限批量展开、全宽 START、任务恢复，以及生成/飞书同步双阶段监控
- * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，结果统一在飞书查看，不在页面维护第二份画廊
+ * [INPUT]: 依赖 beta.html DOM、beta-configuration/beta-page-state 本机持久配置状态、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/beta 配置与任务接口
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的五功能/样本集/模型/参数配置、飞书样本集驱动及同步状态呈现的不设结果数量上限批量展开、独立测试时间与 Run ID、全宽 START、任务恢复，以及仅展示飞书已归档缩略图和唯一底部飞书入口的生成/同步双阶段监控
+ * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import "./custom-select.js?v=7";
+import {
+  DEFAULT_BETA_MODEL_KEY,
+  readBetaPageState,
+} from "./beta-page-state.js?v=1";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=1";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
-import { createBetaSampleLibrary } from "./beta-sample-library.js?v=3";
+import { createBetaSampleLibrary } from "./beta-sample-library.js?v=4";
+import { renderBetaResults } from "./beta-results.js?v=1";
+import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 import { readImageDimensions } from "./image-ratio.js";
 import { api, readFileAsInput } from "./workbench-utils.js";
@@ -15,6 +22,7 @@ import { api, readFileAsInput } from "./workbench-utils.js";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_BATCH_IMAGE_BYTES = 20 * 1024 * 1024;
 const JOB_STORAGE_KEY = "canvas-lab:beta-run-job";
+const restoredPageState = readBetaPageState(localStorage);
 const FEATURE_COPY = Object.freeze({
   effectEnhancement: { prompt: "", source: "待美化效果图" },
   emptyRoom: { prompt: "补充要求（可选）", source: "空房图" },
@@ -24,7 +32,7 @@ const FEATURE_COPY = Object.freeze({
 });
 
 const elements = Object.fromEntries([
-  "betaBaseLink", "betaConnectionStatus", "betaFeatureOptions", "betaForm",
+  "betaConnectionStatus", "betaFeatureOptions", "betaForm",
   "betaGenerationActions",
   "commonPromptField", "commonPromptInput", "commonPromptLabel",
   "configStatus", "designFields", "effectFields", "effectTimeSelect",
@@ -34,6 +42,7 @@ const elements = Object.fromEntries([
   "generationProgressCount", "generationProgressTrack", "jobProgress",
   "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
   "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
+  "monitorResults", "monitorResultsCount",
   "negativePromptField", "negativePromptInput", "promptAgentModelSelect",
   "promptAgentVersionField", "promptAgentVersionSelect", "qualityField",
   "qualitySelect", "ratioSelect", "refinedPromptField", "refinedPromptSelect",
@@ -53,12 +62,13 @@ const state = {
   betaConfig: null,
   catalog: { agentModels: [], emptyRoomTypes: [], models: [] },
   connected: false,
-  featureMode: "whiteModel",
+  featureMode: restoredPageState.featureMode,
   freeReference: null,
   job: null,
   modelAccess: new Map(),
   modelAccessChecked: false,
-  selectedModelKeys: [],
+  sampleSetIds: { ...restoredPageState.sampleSetIds },
+  selectedModelKeys: [...restoredPageState.selectedModelKeys],
   styleReference: null,
   stylesConfig: null,
 };
@@ -69,8 +79,31 @@ const sampleLibrary = createBetaSampleLibrary({
   elements,
   onChange: renderRunSummary,
   onError: reportUploadError,
+  onSelectionChange(featureMode, sampleSetId) {
+    state.sampleSetIds[featureMode] = sampleSetId;
+    saveConfiguration();
+  },
   readImage,
 });
+
+const configuration = createBetaConfigurationPersistence({
+  currentState: () => ({
+    featureMode: state.featureMode,
+    sampleSetIds: state.sampleSetIds,
+    selectedModelKeys: state.selectedModelKeys,
+    stylesReady: Boolean(state.stylesConfig),
+  }),
+  elements,
+  renderFeature,
+  renderOutputControls,
+  renderRunSummary,
+  restoredPageState,
+  storage: localStorage,
+});
+
+function saveConfiguration() {
+  configuration.save();
+}
 
 function fillSelect(select, options, current = "") {
   select.replaceChildren(...options.map(({ label, value }) => {
@@ -151,7 +184,8 @@ function renderRunSummary() {
   elements.runSummary.textContent = samples && models
     ? `${samples} 个样本 × ${models} 个模型 = ${total} 张结果`
     : samples ? "请选择出图模型" : "请选择样本集";
-  elements.runHint.textContent = "结果自动同步飞书";
+  const failed = state.job?.status === "failed";
+  elements.runHint.textContent = failed ? "重新运行当前批次" : "结果自动同步飞书";
   const monitoredTotal = Number(state.job?.total) || total;
   elements.monitorBatchSummary.textContent = state.job
     ? `${monitoredTotal} 张结果`
@@ -165,9 +199,9 @@ function renderRunSummary() {
     || !sampleLibrary.isReady()
     || total < 1
     || running;
-  elements.runButtonLabel.textContent = running ? "RUNNING…" : "START";
+  elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
   elements.runButton.setAttribute("aria-busy", String(running));
-  elements.runButton.setAttribute("aria-label", running ? "批量运行中" : "开始批量运行");
+  elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "重新运行当前批次" : "开始批量运行");
   elements.betaGenerationActions.classList.toggle("is-busy", running);
 }
 
@@ -181,7 +215,11 @@ function renderModels() {
   const runnable = state.catalog.models.filter((model) => modelAvailable(model));
   state.selectedModelKeys = state.selectedModelKeys.filter((key) =>
     runnable.some((model) => model.key === key));
-  if (!state.selectedModelKeys.length && runnable[0]) state.selectedModelKeys = [runnable[0].key];
+  if (!state.selectedModelKeys.length && runnable[0]) {
+    const defaultModel = runnable.find((model) => model.key === DEFAULT_BETA_MODEL_KEY)
+      || runnable[0];
+    state.selectedModelKeys = [defaultModel.key];
+  }
   elements.modelOptions.replaceChildren(...runnable.map((model) => {
     const button = document.createElement("button");
     const label = document.createElement("span");
@@ -367,7 +405,7 @@ function assertFeatureConfig() {
   }
 }
 
-function buildItems(batchId) {
+function buildItems(startedAt = new Date()) {
   assertFeatureConfig();
   const cases = currentCases();
   const models = selectedModels();
@@ -380,7 +418,7 @@ function buildItems(batchId) {
   }
   assertCurrentAssetSize();
   const ratioAuto = elements.ratioSelect.value === "auto";
-  return cases.flatMap((currentCase, caseIndex) => models.map((model) => {
+  return cases.flatMap((currentCase, caseIndex) => models.map((model, modelIndex) => {
     const input = {
       modelKey: model.key,
       negativePrompt: elements.negativePromptInput.value.trim(),
@@ -416,7 +454,11 @@ function buildItems(batchId) {
       input: adapted,
       label: `${currentCase.label} · ${model.label}`,
       modelLabel: model.label,
-      runId: `RUN-${batchId.slice(5, 17)}-${caseIndex + 1}-${model.key}`,
+      runId: createBetaRunId({
+        modelKey: model.key,
+        sequence: (caseIndex * models.length) + modelIndex + 1,
+        startedAt,
+      }),
     };
   }));
 }
@@ -460,6 +502,11 @@ function renderProgress(track, bar, count, value, total) {
 
 function renderJob(job) {
   state.job = job;
+  renderBetaResults({
+    container: elements.monitorResults,
+    count: elements.monitorResultsCount,
+    results: job?.result?.results,
+  });
   const running = job?.status === "running";
   elements.jobStatus.textContent = running
     ? "运行中"
@@ -506,15 +553,18 @@ async function followJob(jobId) {
 }
 
 async function startBatch() {
+  saveConfiguration();
+  const startedAt = new Date();
   const batchId = `BETA-${crypto.randomUUID().replaceAll("-", "")}`;
   const jobId = `beta-${crypto.randomUUID()}`;
-  const packed = packBatchAssets(buildItems(batchId));
+  const packed = packBatchAssets(buildItems(startedAt));
   const { job } = await api("/api/beta/jobs", {
     body: JSON.stringify({
       ...packed,
       batchId,
       featureMode: state.featureMode,
       jobId,
+      testTime: formatBetaTestTime(startedAt),
     }),
     method: "POST",
   });
@@ -537,6 +587,10 @@ async function restoreJob() {
 
 function reportUploadError(error) {
   state.job = null;
+  renderBetaResults({
+    container: elements.monitorResults,
+    count: elements.monitorResultsCount,
+  });
   elements.jobStatus.textContent = error.message;
   elements.jobStatus.dataset.state = "error";
   elements.jobProgressLabel.textContent = `配置未就绪：${error.message}`;
@@ -562,12 +616,16 @@ async function setSingleReference(fileList, key) {
 
 function bindEvents() {
   sampleLibrary.bind();
+  configuration.bindLifecycle();
   elements.betaFeatureOptions.addEventListener("click", (event) => {
     const button = event.target.closest("[data-feature-mode]");
     if (!button) return;
     state.featureMode = button.dataset.featureMode;
     renderFeature();
-    sampleLibrary.setFeatureMode(state.featureMode).catch(reportUploadError);
+    sampleLibrary.setFeatureMode(
+      state.featureMode,
+      state.sampleSetIds[state.featureMode],
+    ).then(saveConfiguration).catch(reportUploadError);
   });
   for (const [input, key, list, dropZone] of [
     [elements.styleReferenceInput, "styleReference", elements.styleReferenceList, elements.styleReferenceDropZone],
@@ -593,12 +651,35 @@ function bindEvents() {
       state.selectedModelKeys.push(key);
     }
     renderModels();
+    saveConfiguration();
   });
-  elements.renderModeSelect.addEventListener("change", renderDesignConfig);
+  elements.renderModeSelect.addEventListener("change", () => {
+    renderDesignConfig();
+    saveConfiguration();
+  });
   elements.roomTypeSelect.addEventListener("change", () => {
     elements.roomTypeDetailField.classList.toggle("hidden", elements.roomTypeSelect.value !== "其他");
+    saveConfiguration();
   });
-  elements.ratioSelect.addEventListener("change", renderOutputControls);
+  elements.ratioSelect.addEventListener("change", () => {
+    renderOutputControls();
+    saveConfiguration();
+  });
+  for (const input of [
+    elements.commonPromptInput,
+    elements.negativePromptInput,
+    elements.roomTypeDetailInput,
+  ]) input.addEventListener("input", saveConfiguration);
+  for (const select of [
+    elements.effectTimeSelect,
+    elements.effectWeatherSelect,
+    elements.promptAgentModelSelect,
+    elements.promptAgentVersionSelect,
+    elements.qualitySelect,
+    elements.refinedPromptSelect,
+    elements.resolutionSelect,
+    elements.styleSelect,
+  ]) select.addEventListener("change", saveConfiguration);
   elements.betaForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (state.job?.status === "running") return;
@@ -628,7 +709,6 @@ async function load() {
     state.catalog = catalog;
     state.connected = session.connected === true;
     state.betaConfig = betaConfig;
-    elements.betaBaseLink.href = betaConfig.baseUrl;
     elements.monitorBaseLink.href = betaConfig.baseUrl;
     fillSelect(elements.roomTypeSelect, [
       { label: "请选择", value: "" },
@@ -644,7 +724,13 @@ async function load() {
     });
     renderModels();
     renderFeature();
-    await sampleLibrary.load(state.featureMode);
+    configuration.restore();
+    configuration.markReady();
+    await sampleLibrary.load(
+      state.featureMode,
+      state.sampleSetIds[state.featureMode],
+    );
+    saveConfiguration();
 
     const stylesRequest = api("/api/styles");
     const [stylesResult, accessResult] = await Promise.allSettled([
@@ -668,6 +754,8 @@ async function load() {
     } else if (state.connected) {
       showStatus("模型检测失败，可稍后刷新", { error: true });
     }
+    configuration.restore();
+    saveConfiguration();
     await restoreJob();
   } catch (error) {
     showStatus(error.message, { error: true });

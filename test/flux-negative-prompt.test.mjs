@@ -101,6 +101,7 @@ test("Flux 空输入继续使用原默认，自定义值整段覆盖并归档", 
   });
 
   const workflow = createAiTextureWorkflow({
+    artifactKey: "negative-prompt-test",
     imageBase64: "example-base64",
     negativePrompt: custom.request.negative_prompt,
     prompt: "保持空间结构",

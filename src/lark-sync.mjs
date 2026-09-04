@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、空房房间类型/其他详情真源、image-artifact.mjs、lark-cli.mjs、效果图美化/白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、含效果图美化的产品链路/空间类型/其他空间类型/设计方式/Agent/风格字段投影、生成记录 Schema 准入、模型字段映射、记录 ID 解析、三类附件及完整工作流元数据同步
+ * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent 模型目录、空房房间类型/其他详情真源、image-artifact.mjs、image-dimensions.mjs、lark-cli.mjs、效果图美化/白模/精模参考图与可选风格参考图，以及已创建的飞书 Base
+ * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、含效果图美化的产品链路/空间类型/其他空间类型/设计方式/Agent/风格字段投影、覆盖全部可写字段类型/单选值/附件 ID 的生成记录 Schema 准入、模型字段映射、记录 ID 解析、三类附件及完整工作流元数据同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,11 +14,15 @@ import {
   extensionForImageFormat,
   loadImageBytes,
 } from "./image-artifact.mjs";
+import { readImageDimensions } from "./image-dimensions.mjs";
 import {
+  EMPTY_ROOM_TYPES,
   normalizeEmptyRoomType,
   normalizeEmptyRoomTypeDetail,
 } from "./empty-room-type.mjs";
+import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
+import { publicModelCatalog } from "./model-config.mjs";
 
 export const LARK_SYNC_CONFIG = Object.freeze({
   baseToken:
@@ -43,11 +47,25 @@ const FEATURE_LABELS = Object.freeze({
   "white-model-rendering": "白模渲染",
 });
 const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS));
+const REQUIRED_MODEL_LABELS = Object.freeze(
+  publicModelCatalog().map((model) => model.label),
+);
+const REQUIRED_AGENT_MODEL_LABELS = Object.freeze(
+  publicAgentModelCatalog()
+    .filter((model) => model.imageInput)
+    .map((model) => model.label),
+);
 
 const RENDER_MODE_LABELS = Object.freeze({
   "smart-default": "智能默认",
   "style-dna": "平台风格",
 });
+
+export function actualImageSize(bytes) {
+  const dimensions = readImageDimensions(bytes);
+  if (!dimensions) throw new Error("无法读取生成结果的真实尺寸");
+  return `${dimensions.width}x${dimensions.height}`;
+}
 
 function titleFromPrompt(prompt) {
   const compact = String(prompt).replace(/\s+/g, " ").trim();
@@ -85,6 +103,7 @@ function workflowRecordFields(workflow) {
 }
 
 export function buildRecordFields({
+  actualSize,
   durationMs,
   finalPrompt,
   modelLabel,
@@ -112,7 +131,7 @@ export function buildRecordFields({
       : {}),
     "原始 Prompt": String(sourcePrompt || "").trim(),
     "最终 Prompt": finalPrompt,
-    "尺寸": preview.size,
+    "尺寸": actualSize,
     "生成参数": JSON.stringify(parameters),
     "耗时（秒）": Number((durationMs / 1000).toFixed(2)),
   };
@@ -131,17 +150,90 @@ export function recordIdFrom(body) {
   );
 }
 
-export function assertLarkSyncSchema(body) {
+const REQUIRED_FIELD_TYPES = Object.freeze({
+  "Agent 编码": "text",
+  "Agent 版本": "number",
+  "Prompt融合": "select",
+  "功能": "select",
+  "其他空间类型": "text",
+  "原始 Prompt": "text",
+  "尺寸": "text",
+  "标题": "text",
+  "状态": "select",
+  "生成参数": "text",
+  "生图模型": "select",
+  "空间类型": "select",
+  "最终 Prompt": "text",
+  "耗时（秒）": "number",
+  "设计方式": "select",
+  "错误信息": "text",
+  "风格选择": "text",
+});
+
+function optionNames(field) {
+  return new Set((field?.options || []).map((option) => option.name));
+}
+
+export function assertLarkSyncSchema(
+  body,
+  {
+    config = LARK_SYNC_CONFIG,
+    requiredAgentModelLabels = REQUIRED_AGENT_MODEL_LABELS,
+    requiredModelLabels = REQUIRED_MODEL_LABELS,
+  } = {},
+) {
   const fields = body?.data?.fields || body?.fields || [];
-  const featureField = fields.find((field) => field.name === "功能");
-  const options = featureField?.type === "select"
-    ? new Set((featureField.options || []).map((option) => option.name))
-    : new Set();
-  const missing = REQUIRED_FEATURE_LABELS.filter((label) => !options.has(label));
-  if (!featureField || featureField.type !== "select" || missing.length > 0) {
-    throw new Error(`飞书生成记录“功能”字段缺少选项：${missing.join("、") || "字段类型应为单选"}`);
+  const fieldsByName = new Map(fields.map((field) => [field.name, field]));
+  const issues = [];
+
+  for (const [name, type] of Object.entries(REQUIRED_FIELD_TYPES)) {
+    const field = fieldsByName.get(name);
+    if (!field) issues.push(`缺少“${name}”字段`);
+    else if (field.type !== type) {
+      issues.push(`“${name}”字段应为 ${type}，当前为 ${field.type || "未知"}`);
+    }
   }
-  return { featureOptions: [...options] };
+
+  const requiredOptions = new Map([
+    ["Prompt融合", requiredAgentModelLabels],
+    ["功能", REQUIRED_FEATURE_LABELS],
+    ["状态", ["成功", "同步失败"]],
+    ["生图模型", requiredModelLabels],
+    ["空间类型", EMPTY_ROOM_TYPES],
+    ["设计方式", Object.values(RENDER_MODE_LABELS)],
+  ]);
+  for (const [name, required] of requiredOptions) {
+    const field = fieldsByName.get(name);
+    if (field?.type !== "select") continue;
+    const options = optionNames(field);
+    const missing = required.filter((label) => !options.has(label));
+    if (missing.length > 0) {
+      issues.push(`“${name}”字段缺少选项：${missing.join("、")}`);
+    }
+  }
+
+  for (const [name, fieldId] of [
+    ["参考图", config.referenceFieldId],
+    ["结果图", config.resultFieldId],
+    ["风格参考图", config.styleReferenceFieldId],
+  ]) {
+    const field = fields.find((entry) => entry.id === fieldId);
+    if (!field) issues.push(`“${name}”附件字段 ID ${fieldId} 不存在`);
+    else if (field.type !== "attachment") {
+      issues.push(`“${name}”字段应为 attachment，当前为 ${field.type || "未知"}`);
+    } else if (field.name !== name) {
+      issues.push(`“${name}”附件字段 ID ${fieldId} 实际指向“${field.name || "未命名"}”`);
+    }
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`飞书生成记录 Schema 不兼容：${issues.join("；")}`);
+  }
+
+  return {
+    featureOptions: [...optionNames(fieldsByName.get("功能"))],
+    modelOptions: [...optionNames(fieldsByName.get("生图模型"))],
+  };
 }
 
 export async function verifyLarkSyncSchema(config = LARK_SYNC_CONFIG) {
@@ -259,7 +351,11 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
   let temporaryDirectory = null;
 
   try {
-    const fields = buildRecordFields(input);
+    const resultBytes = await loadImageBytes(input.resultImage.url);
+    const fields = buildRecordFields({
+      ...input,
+      actualSize: actualImageSize(resultBytes),
+    });
     const created = await createRecord(config, fields);
     recordId = recordIdFrom(created);
     if (!recordId) throw new Error("飞书已响应，但没有返回记录 ID");
@@ -269,7 +365,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
     const resultFileName =
       `result.${extensionForImageFormat(input.preview.outputFormat)}`;
     const resultPath = join(temporaryDirectory, resultFileName);
-    await writeFile(resultPath, await loadImageBytes(input.resultImage.url));
+    await writeFile(resultPath, resultBytes);
     await uploadAttachments(
       config,
       recordId,

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps/不限长正向 Prompt/可选负向 Prompt 契约与 reference-image.mjs 的参考图安全校验
- * [OUTPUT]: 对外提供含生成 Provider/参考图/分辨率/全 OneAPI 2:1 画幅/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、Flux 正向 Prompt 不设本地字符上限的请求构造器与 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 最终出图模型参数矩阵、OneAPI 实测可用的 Seedream 5.0 Pro 文生图/参考图与 1K-2K 像素合同、Flux2 Klein ComfyUI 原图比例/1K-2K 像素面积档位/默认 9B FP8/7 steps/不限长正向 Prompt/可选负向 Prompt 契约与 reference-image.mjs 的参考图安全校验
+ * [OUTPUT]: 对外提供含独立 Seedream 5.0 Pro、生成 Provider/参考图/分辨率/全 OneAPI 2:1 画幅/默认工作流能力的 publicModelCatalog、模型 Provider 查询、原图比例像素面积适配器、Flux 正向 Prompt 不设本地字符上限的请求构造器与 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -50,6 +50,18 @@ const SEEDREAM_5_SIZES = {
   "3:2": { "2K": "2496x1664", "3K": "3744x2496", "4K": "4992x3328" },
   "2:3": { "2K": "1664x2496", "3K": "2496x3744", "4K": "3328x4992" },
   "21:9": { "2K": "3136x1344", "3K": "4704x2016", "4K": "6240x2656" },
+};
+
+const SEEDREAM_5_PRO_SIZES = {
+  "1:1": { "1K": "1024x1024", "2K": "2048x2048" },
+  "2:1": { "1K": "1440x720", "2K": "2880x1440" },
+  "3:4": { "1K": "864x1152", "2K": "1728x2304" },
+  "4:3": { "1K": "1152x864", "2K": "2304x1728" },
+  "16:9": { "1K": "1424x800", "2K": "2848x1600" },
+  "9:16": { "1K": "800x1424", "2K": "1600x2848" },
+  "3:2": { "1K": "1248x832", "2K": "2496x1664" },
+  "2:3": { "1K": "832x1248", "2K": "1664x2496" },
+  "21:9": { "1K": "1568x672", "2K": "3136x1344" },
 };
 
 const FLUX_SOURCE_SIZES = {
@@ -109,6 +121,18 @@ export const MODEL_CONFIGS = Object.freeze({
     label: "Seedream 5.0",
     qualityOptions: [],
     sizes: SEEDREAM_5_SIZES,
+  },
+  seedream5Pro: {
+    accent: "orange",
+    defaultFormat: "png",
+    defaultRatio: "4:3",
+    defaultResolution: "2K",
+    description: "结构与文字遵循更稳，支持 1K/2K 自定义画幅",
+    formats: ["png", "jpeg"],
+    id: "doubao-seedream-5.0-pro",
+    label: "Seedream 5.0 Pro",
+    qualityOptions: [],
+    sizes: SEEDREAM_5_PRO_SIZES,
   },
 });
 

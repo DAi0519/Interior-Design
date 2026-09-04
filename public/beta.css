@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 beta.html 的样本集/批量配置/双阶段任务监控语义、DESIGN.md 的 Raycast Light Command Center 令牌、generation-actions/custom-select 共享控件与 raycast-accent 最终颜色层
- * [OUTPUT]: 对外提供与共享顶栏等宽、桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存动作、独立配置滚动区、全宽 START，以及生成/飞书同步双进度
- * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动和窄屏自然单栏为边界，不维护站内结果画廊
+ * [INPUT]: 依赖 beta.html 的样本集/批量配置/双阶段任务监控与已归档结果预览语义、DESIGN.md 的 Raycast Light Command Center 令牌、generation-actions/custom-select 共享控件与 raycast-accent 最终颜色层
+ * [OUTPUT]: 对外提供与共享顶栏等宽、锁定根滚动容器的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动双列结果缩略图
+ * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、飞书确认后结果预览和窄屏自然单栏为边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -33,6 +33,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
+html { overflow: hidden; }
 body {
   background: linear-gradient(180deg, #fbfbfc 0, var(--bg) 46%, #f2f2f4 100%);
   color: var(--ink);
@@ -167,19 +168,6 @@ button { cursor: pointer; }
 .section-heading-meta .sample-set-sync-status { color: var(--muted); font-weight: 500; }
 .section-heading-meta .sample-set-sync-status[data-state="success"] { color: var(--ink); }
 .section-heading-meta .sample-set-sync-status[data-state="error"] { color: var(--danger); }
-.section-link {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.section-link:hover { color: var(--ink); }
-.section-link:focus-visible {
-  border-radius: 4px;
-  box-shadow: 0 0 0 3px rgb(32 32 36 / 8%);
-  outline: 0;
-}
-
 .feature-options, .model-options {
   display: grid;
   gap: var(--choice-control-gap);
@@ -405,8 +393,8 @@ button { cursor: pointer; }
 .beta-monitor-card {
   align-content: start;
   display: grid;
-  gap: 24px;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 20px;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   min-height: 0;
   overflow: hidden;
   padding: 20px;
@@ -486,26 +474,96 @@ button { cursor: pointer; }
   margin: 0;
   overflow-wrap: anywhere;
 }
-.monitor-base-link {
-  align-items: center;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
+.monitor-results {
+  display: grid;
+  gap: 9px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+.monitor-results-heading {
+  align-items: baseline;
   display: flex;
-  font-size: 11px;
-  font-weight: 600;
   justify-content: space-between;
-  padding-top: 16px;
+}
+.monitor-results-heading span {
+  color: var(--quiet);
+  font-size: 10px;
+  font-weight: 600;
+}
+.monitor-results-heading small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.monitor-results-grid {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+.monitor-results-empty {
+  color: var(--quiet);
+  font-size: 11px;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.monitor-result-card {
+  background: #f4f4f5;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: inherit;
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
   text-decoration: none;
 }
-.monitor-base-link:hover { color: var(--ink); }
-.monitor-base-link:focus-visible { border-radius: 4px; box-shadow: 0 0 0 3px rgb(32 32 36 / 8%); outline: 0; }
+.monitor-result-card:hover { border-color: var(--line-strong); }
+.monitor-result-card:focus-visible {
+  outline: 2px solid #77777e;
+  outline-offset: 2px;
+}
+.monitor-result-card > img,
+.monitor-result-unavailable {
+  aspect-ratio: 4 / 3;
+  background: #e8e8ea;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+.monitor-result-unavailable {
+  align-items: center;
+  color: var(--quiet);
+  display: flex;
+  font-size: 10px;
+  justify-content: center;
+}
+.monitor-result-copy { display: grid; gap: 2px; padding: 7px 8px 8px; }
+.monitor-result-copy strong,
+.monitor-result-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.monitor-result-copy strong { font-size: 10px; font-weight: 600; }
+.monitor-result-copy small { color: var(--quiet); font-size: 8px; }
+.monitor-base-button {
+  min-height: 38px;
+  font-weight: 600;
+  text-decoration: none;
+  width: 100%;
+}
 @media (max-width: 960px) {
-  body { overflow: auto; }
+  html, body { overflow: auto; }
   .app-shell { display: block; height: auto; min-height: 100dvh; }
   .beta-grid { grid-template-columns: minmax(0, 1fr); height: auto; }
   .beta-config-card { height: auto; max-height: none; }
   .beta-config-scroll { overflow: visible; }
   .beta-monitor-card { min-height: 320px; }
+  .monitor-results-grid { max-height: 420px; }
 }
 @media (max-width: 700px) {
   .app-shell { padding: 10px; }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供五功能样本集准入、不设结果数量上限的两路并发、生成/飞书同步双阶段快照、逐 Run 失败自动重跑、飞书全量归档门槛与任务恢复保障
+ * [OUTPUT]: 对外提供五功能样本集准入、测试时间归一化、不设结果数量上限的两路并发、单 Run 单图隔离、生成/飞书同步双阶段快照、附件回读后轻量结果公开、瞬时错误自动重跑/参数错误快速失败、飞书全量归档门槛与任务恢复保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,10 @@ import {
   BETA_FEATURE_MODES,
   BETA_MAX_ATTEMPTS,
   createBetaRunnerService,
+  isRetryableBetaError,
 } from "../src/beta-runner.mjs";
+
+const TEST_TIME = "2026-09-02 14:03:21";
 
 function waitForJob(service, jobId) {
   return new Promise((resolve, reject) => {
@@ -35,6 +38,23 @@ test("Beta跑图公开五个场景且不发布结果数量上限", () => {
     "free",
   ]);
   assert.equal(BETA_MAX_ATTEMPTS, 3);
+});
+
+test("ComfyUI 产物下载 404 作为瞬时故障重试，显式永久错误仍立即停止", () => {
+  const pendingOutput = Object.assign(new Error("读取 ComfyUI 输出失败（404）"), {
+    code: "output_download",
+    statusCode: 404,
+  });
+  const missingRoute = Object.assign(new Error("接口不存在"), { statusCode: 404 });
+  const permanentOutput = Object.assign(new Error("输出永久不可用"), {
+    code: "output_download",
+    retryable: false,
+    statusCode: 404,
+  });
+
+  assert.equal(isRetryableBetaError(pendingOutput), true);
+  assert.equal(isRetryableBetaError(missingRoute), false);
+  assert.equal(isRetryableBetaError(permanentOutput), false);
 });
 
 test("Beta 样本集按功能保存且样本数量不设上限", async () => {
@@ -85,7 +105,10 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
       async failRun() {},
     },
     generationService: {
-      async executeForMode() {
+      async executeForMode(_featureMode, input) {
+        assert.equal("batchCount" in input, false);
+        assert.equal("batchId" in input, false);
+        assert.equal("batchIndex" in input, false);
         active += 1;
         maxActive = Math.max(maxActive, active);
         await new Promise((resolve) => setTimeout(resolve, 1));
@@ -96,7 +119,12 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
   });
   const items = Array.from({ length: 24 }, (_, index) => ({
     caseId: `CASE-${index + 1}`,
-    input: { prompt: `样本 ${index + 1}` },
+    input: {
+      batchCount: 24,
+      batchId: "legacy-batch-metadata",
+      batchIndex: index + 1,
+      prompt: `样本 ${index + 1}`,
+    },
     runId: `RUN-unlimited-${String(index + 1).padStart(2, "0")}`,
   }));
   const jobId = "beta-unlimited123";
@@ -105,6 +133,7 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
     featureMode: "free",
     items,
     jobId,
+    testTime: TEST_TIME,
   });
   const job = await waitForJob(service, jobId);
   assert.equal(job.status, "success");
@@ -121,14 +150,19 @@ test("单项失败会新建 Attempt 自动重跑，整批只在全部同步后�
   let failedOnce = false;
   const baseStore = {
     config: { baseUrl: "https://example.test/base/new", tableId: "tbl-new" },
-    async beginRun({ item }) {
+    async beginRun({ item, testTime }) {
       events.push(`begin:${item.runId}`);
       attempts.push(item.attempt);
+      assert.equal(testTime, TEST_TIME);
       return { recordId: `rec-${item.runId}` };
     },
     async completeRun(recordId) {
       events.push(`complete:${recordId}`);
-      return { recordId, recordUrl: `https://example.test/${recordId}` };
+      return {
+        previewUrl: "data:image/webp;base64,UklGRg==",
+        recordId,
+        recordUrl: `https://example.test/${recordId}`,
+      };
     },
     async failRun(recordId) {
       events.push(`fail:${recordId}`);
@@ -161,6 +195,7 @@ test("单项失败会新建 Attempt 自动重跑，整批只在全部同步后�
       { caseId: "CASE-A", input: { prompt: "成功" }, runId: "RUN-12345678-A" },
       { caseId: "CASE-B", input: { prompt: "重试" }, runId: "RUN-12345678-B" },
     ],
+    testTime: TEST_TIME,
   });
   const job = await waitForJob(service, jobId);
 
@@ -170,6 +205,8 @@ test("单项失败会新建 Attempt 自动重跑，整批只在全部同步后�
   assert.deepEqual(job.result.outcomes.map((outcome) => outcome.status), ["fulfilled", "fulfilled"]);
   assert.equal(job.result.outcomes[1].value.attempt, 2);
   assert.equal("result" in job.result.outcomes[0].value, false);
+  assert.deepEqual(job.result.results.map((result) => result.caseId), ["CASE-A", "CASE-B"]);
+  assert.ok(job.result.results.every((result) => result.previewUrl.startsWith("data:image/webp")));
   assert.ok(maxActive <= 2);
   assert.equal(events.length, 6);
   assert.deepEqual(attempts.sort(), [1, 1, 2]);
@@ -212,6 +249,7 @@ test("飞书归档失败同样触发重跑，耗尽后整批不能假完成", as
     featureMode: "free",
     items: [{ caseId: "CASE-A", input: { prompt: "客厅" }, runId: "RUN-retry123-A" }],
     jobId,
+    testTime: TEST_TIME,
   });
 
   await assert.rejects(waitForJob(service, jobId), /仍未同步飞书/);
@@ -220,6 +258,39 @@ test("飞书归档失败同样触发重跑，耗尽后整批不能假完成", as
   assert.equal(service.getJob(jobId).status, "failed");
   assert.equal(service.getJob(jobId).completed, 0);
   assert.deepEqual(service.getJob(jobId).stages, { generated: 1, synced: 0 });
+});
+
+test("参数错误立即失败并公开原始原因，不做无意义重试", async () => {
+  let attempts = 0;
+  const service = createBetaRunnerService({
+    baseStore: {
+      config: { baseUrl: "https://example.test/base/new", tableId: "tbl-new" },
+      async beginRun({ item }) { return { recordId: item.runId }; },
+      async completeRun(recordId) { return { recordId }; },
+      async failRun() {},
+    },
+    generationService: {
+      async executeForMode() {
+        attempts += 1;
+        const error = new Error("一次最多生成 4 张图");
+        error.statusCode = 400;
+        throw error;
+      },
+    },
+    sleep: async () => {},
+  });
+  const jobId = "beta-validation123";
+  service.start({
+    batchId: "BETA-validation1",
+    featureMode: "free",
+    items: [{ caseId: "CASE-A", input: { prompt: "客厅" }, runId: "RUN-validation1-A" }],
+    jobId,
+    testTime: TEST_TIME,
+  });
+
+  await assert.rejects(waitForJob(service, jobId), /一次最多生成 4 张图.*不可重试错误，已停止/);
+  assert.equal(attempts, 1);
+  assert.match(service.getJob(jobId).error, /一次最多生成 4 张图/);
 });
 
 test("生成完成后、飞书归档完成前可分别观察两段进度", async () => {
@@ -247,12 +318,14 @@ test("生成完成后、飞书归档完成前可分别观察两段进度", async
     featureMode: "free",
     items: [{ caseId: "CASE-A", input: { prompt: "客厅" }, runId: "RUN-stages1234-A" }],
     jobId,
+    testTime: TEST_TIME,
   });
   await new Promise((resolve) => setTimeout(resolve, 5));
   assert.deepEqual(service.getJob(jobId).stages, { generated: 1, synced: 0 });
   releaseSync();
   const job = await waitForJob(service, jobId);
   assert.deepEqual(job.stages, { generated: 1, synced: 1 });
+  assert.equal(job.result.results.length, 1);
 });
 
 test("无效功能与重复 Run 在入队前阻断", () => {
@@ -264,6 +337,7 @@ test("无效功能与重复 Run 在入队前阻断", () => {
     batchId: "BETA-12345678",
     featureMode: "free",
     jobId: "beta-123456789abc",
+    testTime: TEST_TIME,
   };
   assert.throws(() => service.start({
     ...base,
@@ -277,6 +351,11 @@ test("无效功能与重复 Run 在入队前阻断", () => {
       { caseId: "B", input: {}, runId: "RUN-12345678-A" },
     ],
   }), /重复/);
+  assert.throws(() => service.start({
+    ...base,
+    items: [{ caseId: "A", input: {}, runId: "RUN-12345678-A" }],
+    testTime: "不是时间",
+  }), /测试时间无效/);
 });
 
 test("批量图片资产只传一次并在执行前恢复到每个 Run", async () => {
@@ -314,6 +393,7 @@ test("批量图片资产只传一次并在执行前恢复到每个 Run", async (
       },
     ],
     jobId,
+    testTime: TEST_TIME,
   });
   await waitForJob(service, jobId);
   assert.deepEqual(seen, ["a.png", "a.png"]);

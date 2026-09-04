@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、默认 9B FP8/7 steps 参数、1K/2K 目标宽高、外部正向 Prompt、可选自定义负向 Prompt 与系统默认回退、参考图 Base64 与运行时随机种子
- * [OUTPUT]: 对外提供分辨率受控且使用默认模型参数的版本化 Flux2 Klein 工作流工厂、稳定输入输出节点与可归档工作流元数据
+ * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、默认 9B FP8/7 steps 参数、1K/2K 目标宽高、外部正向 Prompt、可选自定义负向 Prompt 与系统默认回退、参考图 Base64、运行时随机种子与单次请求产物键
+ * [OUTPUT]: 对外提供分辨率受控且使用默认模型参数的版本化 Flux2 Klein 工作流工厂、请求级唯一产物前缀、稳定输入输出节点与可归档工作流/产物指纹元数据
  * [POS]: src 的 ComfyUI 工作流定义，仅描述机器执行图，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,7 @@ export const AI_TEXTURE_WORKFLOW = Object.freeze({
   label: "Flux2 Klein",
   model: "flux-2-klein-9b-fp8.safetensors",
   outputNodeId: "72",
-  version: "2026-08-28.1",
+  version: "2026-09-02.1",
 });
 
 export const AI_TEXTURE_DEFAULTS = Object.freeze({
@@ -38,7 +38,16 @@ function positivePrompt(userPrompt) {
   return String(userPrompt || "").trim();
 }
 
+export function aiTextureArtifactPrefix(artifactKey) {
+  const key = String(artifactKey || "").trim();
+  if (!/^[A-Za-z0-9_-]{8,80}$/.test(key)) {
+    throw new TypeError("Flux2 Klein 产物键格式不正确");
+  }
+  return `CanvasLab_Flux2Klein_${key}`;
+}
+
 export function createAiTextureWorkflow({
+  artifactKey,
   height = 2048,
   imageBase64,
   negativePrompt,
@@ -50,19 +59,20 @@ export function createAiTextureWorkflow({
     throw new TypeError("Flux2 Klein 工作流尺寸不正确");
   }
   const resolvedNegativePrompt = resolveAiTextureNegativePrompt(negativePrompt);
+  const artifactPrefix = aiTextureArtifactPrefix(artifactKey);
   return {
     "71": {
       class_type: "easy loadImageBase64",
       inputs: {
         base64_data: imageBase64,
         image_output: "Hide",
-        save_prefix: "CanvasLab_Input",
+        save_prefix: `CanvasLab_Input_${artifactKey}`,
       },
     },
     "72": {
       class_type: "SaveImage",
       inputs: {
-        filename_prefix: "CanvasLab_Flux2Klein",
+        filename_prefix: artifactPrefix,
         images: ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0],
       },
     },
@@ -202,9 +212,12 @@ export function createAiTextureWorkflow({
 }
 
 export function aiTextureWorkflowMetadata({
+  artifactKey,
   executionDurationMs,
   height,
   negativePromptMode,
+  outputFilename,
+  outputSha256,
   promptId,
   queueDurationMs,
   resolution,
@@ -212,12 +225,15 @@ export function aiTextureWorkflowMetadata({
   width,
 }) {
   return {
+    artifactKey,
     engine: "comfyui",
     executionDurationMs,
     inferenceHeight: height,
     inferenceWidth: width,
     model: AI_TEXTURE_DEFAULTS.model,
     negativePromptMode,
+    outputFilename,
+    outputSha256,
     promptId,
     queueDurationMs,
     resolution,

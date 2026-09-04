@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 浏览器资产、本机设置、飞书 Setup、图片下载、模型/Prompt/空房目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及连接、配置、生成、下载、批量新 Base 归档、Benchmark 执行与评分入口
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同前置准入、生成、下载、批量新 Base 归档、Benchmark 执行与评分入口
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI、新旧飞书 Base 与三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -320,6 +320,7 @@ const handleGenerationJobApi = createGenerationJobApiHandler({
   generationService,
   readJson,
   sendJson,
+  verifySyncContract: verifyLarkSyncSchema,
 });
 
 function safeStaticPath(pathname) {

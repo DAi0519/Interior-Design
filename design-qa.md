@@ -33,6 +33,32 @@ final result: passed; the functional accent is now a more iconic box orange whil
 
 ---
 
+# Beta Retry Classification And Single-Run Isolation QA
+
+## Evidence
+
+- 真实页面一启动即在 `0 / 10` 显示“自动重试 3/3”；同批飞书“跑图明细”的最新失败记录均为“一次最多生成 4 张图”。
+- 服务端把 10 个队列项的总数误传为正式生成服务的单次 `batchCount`，命中正式工作台 1–4 张合同后，又把确定性的 HTTP 400 当成可重试故障。
+
+## Findings
+
+- Beta Runner 继续支持无上限队列与两路并发，但逐 Run 调用前剥离 `batchCount / batchId / batchIndex`，正式生成服务每次只接收一张结果。
+- 400 等参数、权限和合同错误保留原始原因并在第一次失败后停止；只有限流、请求超时和服务端故障等瞬时问题才进入最多三次 Attempt，监控同时显示原因和重试序号。
+
+## Verification
+
+- 内存集成测试使用 24 个 Run 主动注入遗留批次元数据，确认正式生成服务收到的每份输入均不含整批队列字段；400“一次最多生成 4 张图”只调用一次并回显原始原因。
+- 完整自动化测试通过 `332 / 332`，并通过 `node --check src/beta-runner.mjs` 与专项 Beta/生成任务回归。
+- 本轮验证不触发真实模型生成，不产生模型费用；真实 Provider 与飞书附件端到端同步仍需下一次用户发起的批次确认。
+
+## Final Result
+
+final result: passed; Beta队列总量与正式生图单次批次语义已隔离，确定性错误不再上来就重试
+
+[PROTOCOL]: 变更时更新此文档，然后检查 CLAUDE.md
+
+---
+
 # Beta Run Monitor And Scroll Boundary Design QA
 
 ## Evidence

@@ -4,26 +4,26 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
-model-config.mjs: 模型参数真源，维护三个可运行 OneAPI 模型与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、Flux 不限长正向 Prompt、默认/自定义负向 Prompt、含全 OneAPI 2:1 的合法尺寸及 Flux 原图比例约 1MP/4MP 且不超面积的 1K/2K 请求契约
+model-config.mjs: 模型参数真源，维护四个可运行 OneAPI 模型（含独立 Seedream 5.0 Pro 及其 1K/2K 像素合同）与默认使用 9B FP8/7 steps 的 Flux2 Klein ComfyUI 工作流、Provider、参考图能力、Flux 不限长正向 Prompt、默认/自定义负向 Prompt、含全 OneAPI 2:1 的合法尺寸及 Flux 原图比例约 1MP/4MP 且不超面积的 1K/2K 请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留
-generation-job-api.mjs: 日常生图后台任务 HTTP 适配层，保留原 `/api/generation-jobs` 入队与查询合同，并让根服务入口维持单文件规模约束
+generation-job-api.mjs: 日常生图后台任务 HTTP 适配层，保留原 `/api/generation-jobs` 入队与查询合同，在任何付费执行前校验飞书同步合同，并让根服务入口维持单文件规模约束
 generation-service.mjs: 日常生图应用服务，统一自由生图、效果图美化、精模、白模/空房的 Provider/工作流路由、Flux 负向 Prompt 归档、记录同步与脱离 HTTP 的单模型执行
-beta-base.mjs: Beta跑图独立飞书持久化边界，以 `批量跑图 Benchmark` 的样本集→样本→跑图明细三表管理复用资产和一行一结果归档，分列上传样本/输入/风格/结果附件、回写版本/费用/时延/错误，并回读成功状态与非空结果附件裁决完成
-beta-runner.mjs: Beta跑图应用服务，提供样本集目录/读取/创建 API，复用正式生成服务执行五功能，接收去重图片资产、不设样本与结果数量上限并保持两路并发排队，分别上报已生成与已同步进度，对失败最多执行三次新 Attempt，且整批仅在全部结果已同步时成功
+beta-base.mjs: Beta跑图独立飞书持久化边界，以 `批量跑图 Benchmark` 的样本集→样本→跑图明细三表管理复用资产和一行一结果归档，记录链接固定打开按测试时间降序分组的明细视图，分列上传样本/输入/风格/结果附件、回写版本/费用/时延/错误，并以成功状态、附件 token 与一致字节数回读裁决完成后返回轻量预览
+beta-runner.mjs: Beta跑图应用服务，提供样本集目录/读取/创建 API，归一化同批人类可读测试时间，复用正式生成服务执行五功能，接收去重图片资产、不设样本与结果数量上限并保持两路并发排队；逐 Run 剥离整批队列元数据并按单图调用，分别上报已生成与已同步进度，只在飞书附件回读成功后公开轻量结果预览，对含 ComfyUI 产物暂时不可读 404 在内的瞬时故障最多执行三次新 Attempt，参数类错误携原始原因立即失败，且整批仅在全部结果已同步时成功
 effect-render-enhancement-prompt.mjs: 效果图美化 Prompt 资产边界，读取独立飞书表中当前已上架 JSON 源文、向浏览器公开脱敏名称/版本状态，严格校验 `BASE/DEFAULT/CONTRACT/TIME/WEATHER` 固定 Schema 并渲染可读旧标题；默认拼接基础→默认，任一环境选择改为基础→契约→时段→天气
 effect-render-enhancement-workflow.mjs: 效果图美化应用服务，以单张效果图和天气/时段枚举编排双 Provider 出图、批次元数据与飞书归档
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
-image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取可信宽高
+image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十个候选 ID（含 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-client.mjs: 可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Prompt Agent 支持白模单图或白模+风格参考双图 Responses；Claude 双图 AI 评审按规则源走 Chat Completions，其余分析、Style DNA 多轮反推与图生图走 Responses，统一归一化请求、费用与脱敏错误
-ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用原版 9B FP8/7 steps、原图比例 1K/2K 推理及输出尺寸、Base64 参考图、正向 Prompt 原样注入、空值回退默认/非空值整段覆盖的负向 Prompt、运行时 Seed 及版本元数据
-comfyui-client.mjs: 支持外部取消信号的 ComfyUI HTTP 客户端，将 Base64 参考图、正向/负向 Prompt、1K/2K 目标宽高与所选档位工作流原子提交、只对网关读取抖动做安全重试、明确区分服务不可用、保留节点校验详情、轮询 History、恢复多实例间暂不可见的输出并归一为 data URL 与排队/执行/负向模式元数据
+ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用原版 9B FP8/7 steps、原图比例 1K/2K 推理及输出尺寸、Base64 参考图、正向 Prompt 原样注入、空值回退默认/非空值整段覆盖的负向 Prompt、请求级唯一产物前缀、运行时 Seed 及版本/产物指纹元数据
+comfyui-client.mjs: 支持外部取消信号的 ComfyUI HTTP 客户端，将 Base64 参考图、正向/负向 Prompt、1K/2K 目标宽高与所选档位工作流原子提交，以请求级唯一产物键隔离多实例同名旧图，只对网关读取抖动做安全重试、明确区分服务不可用、保留节点校验详情、轮询 History、恢复暂不可见输出并归一为含 SHA-256 身份的 data URL 与排队/执行/负向模式元数据
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 飞书生成记录同步边界，按实时 Schema 准入全部功能选项，投影含效果图美化的功能、空房空间类型/其他空间类型、设计方式、Agent 编码/版本、风格选择、最终出图模型、融合基模与 Prompt，同时保留完整天气/时段工作流 JSON，并将主参考图、结果图与可选风格参考图分列上传
-image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名与不修改原件的模型请求 JPEG 降质/缩放压缩
+lark-sync.mjs: 飞书生成记录同步边界，从结果图真实字节读取宽高而非写入请求尺寸，按最终出图/Prompt Agent 模型真源与实时 Schema 准入全部可写字段类型、附件字段 ID 及功能/模型/空间/设计/状态单选值，投影含效果图美化的功能、空房空间类型/其他空间类型、设计方式、Agent 编码/版本、风格选择、最终出图模型、融合基模与 Prompt，同时保留完整天气/时段工作流 JSON，并将主参考图、结果图与可选风格参考图分列上传
+image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
 benchmark-base-config.mjs: Benchmark Base 连接/响应协议层，解析五表环境配置、必填项、分页 envelope 与单选字段值

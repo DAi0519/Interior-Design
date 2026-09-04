@@ -1,18 +1,24 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与 image-artifact.mjs 的 data URL 解码、远程下载限制
- * [OUTPUT]: 对外提供图片产物格式、空响应、体积上限与 data URL 回归保障
+ * [INPUT]: 依赖 node:test/assert、sharp 真实编码夹具与 image-artifact.mjs 的 data URL 解码、远程下载限制
+ * [OUTPUT]: 对外提供图片产物格式、轻量 WebP 预览、空响应、体积上限与 data URL 回归保障
  * [POS]: test 的共享图片产物基础设施测试，不访问真实网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import sharp from "sharp";
 
 import {
+  createImagePreviewDataUrl,
   decodeImageDataUrl,
   extensionForImageFormat,
   loadImageBytes,
 } from "../src/image-artifact.mjs";
+
+const onePixelPng = await sharp({
+  create: { background: "#f37021", channels: 3, height: 8, width: 8 },
+}).png().toBuffer();
 
 test("图片格式与 data URL 解码保持确定", async () => {
   assert.equal(extensionForImageFormat("jpeg"), "jpg");
@@ -24,6 +30,16 @@ test("图片格式与 data URL 解码保持确定", async () => {
   assert.deepEqual(
     await loadImageBytes("data:image/webp;base64,aGk="),
     Buffer.from("hi"),
+  );
+});
+
+test("面板预览压缩为轻量 WebP data URL", async () => {
+  const preview = await createImagePreviewDataUrl(onePixelPng);
+  assert.match(preview, /^data:image\/webp;base64,/);
+  assert.ok(preview.length < 1_000);
+  await assert.rejects(
+    () => createImagePreviewDataUrl(Buffer.alloc(0)),
+    /不能为空/,
   );
 });
 

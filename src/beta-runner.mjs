@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖日常生成任务批处理、工作台同源 generation-service 与含样本集/样本/跑图明细的 Beta Base Store，接收五功能可复用样本集和批量 Case Run
- * [OUTPUT]: 对外提供 Beta跑图配置、样本集目录/读取/创建、不设 Run 数量上限的两路有界并发执行、生成/飞书同步双阶段快照、失败自动重跑与飞书全量归档门槛
- * [POS]: src 的 Beta跑图应用服务，分别记录模型生成和飞书结果附件回读进度，并只以后者为完成条件，独立于 Benchmark 实验/评分
+ * [OUTPUT]: 对外提供 Beta跑图配置、样本集目录/读取/创建、测试时间归一化、不设 Run 数量上限的两路有界并发执行、单 Run 单图隔离、生成/飞书同步双阶段快照、仅在附件回读成功后公开的轻量结果列表、含 ComfyUI 产物暂时不可读在内的瞬时错误自动重跑与飞书全量归档门槛
+ * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -18,9 +18,31 @@ export const BETA_FEATURE_MODES = Object.freeze([
   "free",
 ]);
 export const BETA_MAX_ATTEMPTS = 3;
+const RETRYABLE_STATUS_CODES = new Set([408, 409, 425, 429]);
+const RETRYABLE_ERROR_CODES = new Set(["output_download"]);
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function betaErrorMessage(error) {
+  return String(error?.message || "未知错误").slice(0, 500);
+}
+
+export function isRetryableBetaError(error) {
+  if (error?.retryable === false) return false;
+  if (RETRYABLE_ERROR_CODES.has(String(error?.code || ""))) return true;
+  const statusCode = Number(error?.statusCode ?? error?.status);
+  if (!Number.isInteger(statusCode)) return true;
+  return statusCode >= 500 || RETRYABLE_STATUS_CODES.has(statusCode);
+}
+
+function singleRunGenerationInput(input = {}) {
+  const next = { ...input };
+  delete next.batchCount;
+  delete next.batchId;
+  delete next.batchIndex;
+  return next;
 }
 
 function attemptItem(item, attempt) {
@@ -98,6 +120,16 @@ function normalizeBatch(body = {}) {
     throw inputError("Beta跑图功能不受支持");
   }
   if (items.length < 1) throw inputError("Beta跑图至少需要 1 个 Run");
+  const fallbackTime = String(items[0]?.runId || "").match(
+    /^RUN-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/,
+  );
+  const testTime = String(body.testTime || (fallbackTime
+    ? `${fallbackTime[1]}-${fallbackTime[2]}-${fallbackTime[3]} ${fallbackTime[4]}:${fallbackTime[5]}:${fallbackTime[6]}`
+    : "")).trim();
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(testTime)
+    || Number.isNaN(Date.parse(`${testTime.replace(" ", "T")}+08:00`))) {
+    throw inputError("Beta跑图测试时间无效");
+  }
   const runIds = new Set();
   const normalizedItems = items.map((item, index) => {
     const runId = String(item?.runId || "").trim();
@@ -133,7 +165,7 @@ function normalizeBatch(body = {}) {
       runId,
     };
   });
-  return { batchId, featureMode, items: normalizedItems, jobId };
+  return { batchId, featureMode, items: normalizedItems, jobId, testTime };
 }
 
 export function createBetaRunnerService({
@@ -179,9 +211,16 @@ export function createBetaRunnerService({
         async (update) => {
           const generatedItems = new Set();
           const syncedItems = new Set();
+          const syncedResults = [];
+          const publicResults = () => [...syncedResults]
+            .sort((left, right) => left.index - right.index);
           const updateStages = (message) => update({
             completed: syncedItems.size,
             message,
+            result: {
+              batchId: batch.batchId,
+              results: publicResults(),
+            },
             stages: {
               generated: generatedItems.size,
               synced: syncedItems.size,
@@ -196,22 +235,15 @@ export function createBetaRunnerService({
                 const currentItem = attemptItem(item, attempt);
                 let archive = null;
                 try {
-                  if (attempt > 1) {
-                    update({ message: `${item.label} · 自动重试 ${attempt}/${maxAttempts}` });
-                  }
                   archive = await baseStore.beginRun({
                     batchId: batch.batchId,
                     featureMode: batch.featureMode,
                     item: currentItem,
+                    testTime: batch.testTime,
                   });
                   const result = await generationService.executeForMode(
                     batch.featureMode,
-                    {
-                      ...currentItem.input,
-                      batchCount: batch.items.length,
-                      batchId: batch.batchId,
-                      batchIndex: index + 1,
-                    },
+                    singleRunGenerationInput(currentItem.input),
                   );
                   generatedItems.add(item.key);
                   updateStages(`已生成 ${generatedItems.size} / ${batch.items.length} · 正在同步飞书`);
@@ -219,6 +251,16 @@ export function createBetaRunnerService({
                     archive.recordId,
                     result,
                   );
+                  syncedResults.push({
+                    attempt: currentItem.attempt,
+                    caseId: item.caseId,
+                    index,
+                    label: item.label,
+                    modelLabel: item.modelLabel,
+                    previewUrl: completedArchive.previewUrl || null,
+                    recordUrl: completedArchive.recordUrl,
+                    runId: currentItem.runId,
+                  });
                   syncedItems.add(item.key);
                   updateStages(`已同步 ${syncedItems.size} / ${batch.items.length}`);
                   return { archive: completedArchive, attempt };
@@ -231,23 +273,35 @@ export function createBetaRunnerService({
                       // 保留生成或首次归档错误，不用二次回写失败覆盖根因。
                     }
                   }
-                  if (attempt < maxAttempts) {
-                    await sleep(500 * (2 ** (attempt - 1)));
+                  const reason = betaErrorMessage(error);
+                  const retryable = isRetryableBetaError(error);
+                  if (!retryable) {
+                    throw new Error(`${item.label} · ${reason}（不可重试错误，已停止）`);
                   }
+                  if (attempt >= maxAttempts) break;
+                  update({
+                    message: `${item.label} · ${reason} · 自动重试 ${attempt + 1}/${maxAttempts}`,
+                  });
+                  await sleep(500 * (2 ** (attempt - 1)));
                 }
               }
               throw new Error(
-                `${item.label} 共尝试 ${maxAttempts} 次后仍未同步飞书：${lastError?.message || "未知错误"}`,
+                `${item.label} 共尝试 ${maxAttempts} 次后仍未同步飞书：${betaErrorMessage(lastError)}`,
               );
             },
           });
           const failed = outcomes.filter((outcome) => outcome.status === "rejected");
           if (failed.length) {
+            const firstFailure = failed[0]?.reason?.message || "未知错误";
             throw new Error(
-              `${failed.length} 张结果自动重试后仍未同步飞书；任务未标记完成`,
+              `${failed.length} 张结果失败；${firstFailure}`,
             );
           }
-          return { batchId: batch.batchId, outcomes };
+          return {
+            batchId: batch.batchId,
+            outcomes,
+            results: publicResults(),
+          };
         },
       );
     },

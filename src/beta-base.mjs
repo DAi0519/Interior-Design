@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 Beta跑图 Base 的样本集/样本/跑图明细三表、lark-cli.mjs 与图片产物基础设施，接收可复用样本集、已冻结批次 Run、输入附件和正式生成结果
- * [OUTPUT]: 对外提供样本集目录/明细读取与创建，以及一行一 Run 的建档、附件上传、成功/失败回写、结果附件回读校验和可读记录链接
- * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，并以飞书成功状态和结果附件回读共同裁决完成态
+ * [OUTPUT]: 对外提供样本集目录/明细读取与创建，以及带测试时间的一行一 Run 建档、附件上传、成功/失败回写、结果附件 token/字节数回读校验、轻量结果预览和最新测试优先视图链接
+ * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 
 import {
+  createImagePreviewDataUrl,
   extensionForImageFormat,
   loadImageBytes,
 } from "./image-artifact.mjs";
@@ -29,6 +30,8 @@ export const BETA_BASE_CONFIG = Object.freeze({
   sampleTableId: process.env.BETA_SAMPLE_TABLE_ID || "tblZHiPlolFYcG1t",
   styleReferenceFieldId: process.env.BETA_STYLE_REFERENCE_FIELD_ID || "fldqe5gRKY",
   tableId: process.env.BETA_TABLE_ID || "tblrue5KUj7VNDD2",
+  testTimeFieldId: process.env.BETA_TEST_TIME_FIELD_ID || "fld71lZlMH",
+  viewId: process.env.BETA_VIEW_ID || "vewGYQGQ1U",
 });
 
 const FEATURE_LABELS = Object.freeze({
@@ -122,11 +125,12 @@ export function betaResultCostUsd(result = {}) {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-export function buildBetaRunFields({ batchId, featureMode, item }) {
+export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
   const attempt = Number(item.attempt || 1);
   return {
     "Run ID": String(item.runId || ""),
     "批次 ID": String(batchId || ""),
+    "测试时间": String(testTime || ""),
     "功能": betaFeatureLabel(featureMode),
     "样本 ID": String(item.caseId || ""),
     "状态": "运行中",
@@ -143,6 +147,7 @@ export function buildBetaRunFields({ batchId, featureMode, item }) {
 function recordUrl(config, recordId) {
   const url = new URL(config.baseUrl);
   url.searchParams.set("table", config.tableId);
+  if (config.viewId) url.searchParams.set("view", config.viewId);
   if (recordId) url.searchParams.set("record", recordId);
   return url.toString();
 }
@@ -293,10 +298,11 @@ export function createBetaBaseStore({
 } = {}) {
   return {
     config: {
-      baseUrl: config.baseUrl,
+      baseUrl: recordUrl(config),
       sampleSetTableId: config.sampleSetTableId,
       sampleTableId: config.sampleTableId,
       tableId: config.tableId,
+      viewId: config.viewId,
     },
     async listSampleSets() {
       const rows = await listRecords(run, config, config.sampleSetTableId, [
@@ -376,11 +382,11 @@ export function createBetaBaseStore({
       }
       return this.getSampleSet(sampleSetId);
     },
-    async beginRun({ batchId, featureMode, item }) {
+    async beginRun({ batchId, featureMode, item, testTime }) {
       const recordId = await createRecord(
         run,
         config,
-        buildBetaRunFields({ batchId, featureMode, item }),
+        buildBetaRunFields({ batchId, featureMode, item, testTime }),
       );
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-"));
       try {
@@ -417,12 +423,16 @@ export function createBetaBaseStore({
     },
     async completeRun(recordId, result) {
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-result-"));
+      let previewUrl;
+      let resultBytes;
       try {
         const image = result.images?.[0];
         if (!image?.url) throw new Error("Beta跑图没有可归档的结果图");
         const format = result.request?.outputFormat || result.upstream?.outputFormat || "png";
         const file = `result.${extensionForImageFormat(format) || "png"}`;
-        await writeFile(join(directory, file), await loadImageBytes(image.url));
+        resultBytes = await loadImageBytes(image.url);
+        previewUrl = await createImagePreviewDataUrl(resultBytes);
+        await writeFile(join(directory, file), resultBytes);
         await uploadAttachments(
           run,
           config,
@@ -449,12 +459,22 @@ export function createBetaBaseStore({
         recordId,
         ["状态", "结果图"],
       );
+      const resultAttachment = archived?.fields?.["结果图"]?.[0];
       if (selectValue(archived?.fields?.["状态"]) !== "成功"
-        || !Array.isArray(archived?.fields?.["结果图"])
-        || archived.fields["结果图"].length < 1) {
+        || !resultAttachment?.file_token
+        || Number(resultAttachment.size) !== resultBytes.length) {
         throw new Error("飞书结果附件校验失败");
       }
-      return { recordId, recordUrl: recordUrl(config, recordId) };
+      return {
+        attachment: {
+          fileToken: resultAttachment.file_token,
+          name: resultAttachment.name,
+          size: Number(resultAttachment.size),
+        },
+        previewUrl,
+        recordId,
+        recordUrl: recordUrl(config, recordId),
+      };
     },
     async failRun(recordId, error) {
       await updateRecord(run, config, recordId, {
