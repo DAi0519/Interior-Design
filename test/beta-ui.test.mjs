@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供默认 Flux 且跨工作台/刷新恢复本机配置的独立配置页、飞书样本集选择/创建及回读确认状态、不设结果数量上限的批量执行、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、同工作台下拉/上传/START/RETRY、桌面根滚动锁定且无页面空滚动的配置/监控双栏、生成/飞书同步双进度与已归档结果缩略图的静态回归保障
+ * [OUTPUT]: 对外提供默认 Flux 且跨工作台/刷新恢复本机配置的独立配置页、飞书样本集选择/创建及回读确认状态、不设结果数量上限的批量执行、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、同工作台下拉/上传/START/RETRY、桌面根容器禁止焦点滚动、配置区约束绝对定位控件且无页面空滚动的配置/监控双栏、生成/飞书同步双进度与已归档结果缩略图的静态回归保障
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,7 +44,7 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=9/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=17/);
+  assert.match(html, /beta-app\.js\?v=19/);
   assert.match(configuration, /configurationState = "saved"/);
   assert.match(html, /class="beta-config-scroll"/);
   assert.match(html, /id="sourceFilesDropZone" class="reference-drop-zone"/);
@@ -67,7 +67,7 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(source, /function packBatchAssets\(items\)/);
   assert.match(source, /referenceAssetKey/);
   assert.match(source, /import "\.\/custom-select\.js\?v=7"/);
-  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=4"/);
+  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=5"/);
   assert.match(source, /import \{ renderBetaResults \} from "\.\/beta-results\.js\?v=1"/);
   assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=2"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
@@ -107,7 +107,7 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(uploadSource, /dropZone\.addEventListener\("drop"/);
   assert.doesNotMatch(source, /\/api\/benchmark/);
   assert.match(server, /createBetaBaseStore/);
-  assert.match(server, /scheduleGenerationSync: \(\) => \(\{ generationId: null, status: "skipped" \}\)/);
+  assert.match(server, /scheduleGenerationSync: captureBetaGenerationArchive/);
   assert.doesNotMatch(css, /transition\s*:\s*all\b/);
   assert.match(css, /--choice-control-height:\s*38px/);
   assert.match(css, /\.sample-set-actions\s*\{[^}]*gap:\s*6px;/s);
@@ -124,8 +124,9 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.doesNotMatch(css, /\.section-heading > div > span/);
   assert.match(css, /\.beta-shell\s*\{[^}]*margin:\s*14px 0 0;[^}]*max-width:\s*none;[^}]*width:\s*100%;/s);
   assert.doesNotMatch(css, /\.beta-shell\s*\{[^}]*760px/s);
-  assert.match(css, /html\s*\{\s*overflow:\s*hidden;/s);
-  assert.match(css, /body\s*\{[^}]*overflow:\s*hidden;/s);
+  assert.match(css, /\.beta-config-scroll\s*\{[^}]*position:\s*relative;/s);
+  assert.match(css, /html\s*\{\s*overflow:\s*clip;/s);
+  assert.match(css, /body\s*\{[^}]*overflow:\s*clip;/s);
   assert.match(css, /\.app-shell\s*\{[^}]*height:\s*100dvh;/s);
   assert.match(css, /\.beta-config-card\s*\{[^}]*height:\s*100%;/s);
   assert.doesNotMatch(css, /\.beta-hero|\.beta-intro-copy|\.base-link/);

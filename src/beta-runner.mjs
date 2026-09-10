@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖日常生成任务批处理、工作台同源 generation-service 与含样本集/样本/跑图明细的 Beta Base Store，接收五功能可复用样本集和批量 Case Run
- * [OUTPUT]: 对外提供 Beta跑图配置、样本集目录/读取/创建、测试时间归一化、不设 Run 数量上限的两路有界并发执行、单 Run 单图隔离、生成/飞书同步双阶段快照、仅在附件回读成功后公开的轻量结果列表、含 ComfyUI 产物暂时不可读在内的瞬时错误自动重跑与飞书全量归档门槛
+ * [INPUT]: 依赖日常生成任务批处理、工作台同源 generation-service 与含样本集/样本/跑图明细的 Beta Base Store，依赖 empty-room-type 房型校验，接收五功能可复用样本集和批量 Case Run
+ * [OUTPUT]: 对外提供 Beta跑图配置、样本集目录/读取/创建、测试时间归一化、不设 Run 数量上限的两路有界并发执行、单 Run 单图隔离与批次功能注入、生成/飞书同步双阶段快照、仅在附件回读成功后公开的轻量结果列表、含 ComfyUI 产物暂时不可读在内的瞬时错误自动重跑与飞书全量归档门槛
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { normalizeEmptyRoomType, normalizeEmptyRoomTypeDetail, EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH } from "./empty-room-type.mjs";
 
 import {
   createGenerationJobRegistry,
@@ -91,7 +93,14 @@ function normalizeSampleSet(body = {}) {
       if (!image?.dataUrl || !["image/png", "image/jpeg", "image/webp"].includes(image.type)) {
         throw inputError(`第 ${index + 1} 个样本缺少有效图片`);
       }
+      const roomType = normalizeEmptyRoomType(sample.roomType);
+      const roomTypeDetail = roomType === "其他" ? normalizeEmptyRoomTypeDetail(sample.roomTypeDetail) : "";
+      if (featureMode === "emptyRoom" && (!roomType || (roomType === "其他"
+        && (!roomTypeDetail || roomTypeDetail.length > EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH)))) {
+        throw inputError(`第 ${index + 1} 个样本需要有效房间类型；其他类型需填写 1–40 字详情`);
+      }
       return {
+        ...(featureMode === "emptyRoom" ? { roomType, roomTypeDetail } : {}),
         image: {
           dataUrl: String(image.dataUrl),
           name: String(image.name || `sample-${index + 1}`).slice(0, 160),
@@ -156,6 +165,7 @@ function normalizeBatch(body = {}) {
       caseId,
       input: {
         ...item.input,
+        featureMode,
         ...(referenceImages ? { referenceImages } : {}),
         ...(styleReferenceImages ? { styleReferenceImages } : {}),
       },

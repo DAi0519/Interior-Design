@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 beta.html 的样本集/批量配置/双阶段任务监控与已归档结果预览语义、DESIGN.md 的 Raycast Light Command Center 令牌、generation-actions/custom-select 共享控件与 raycast-accent 最终颜色层
- * [OUTPUT]: 对外提供与共享顶栏等宽、锁定根滚动容器的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动双列结果缩略图
+ * [OUTPUT]: 对外提供逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动双列结果缩略图
  * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、飞书确认后结果预览和窄屏自然单栏为边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,13 +33,13 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
-html { overflow: hidden; }
+html { overflow: clip; }
 body {
   background: linear-gradient(180deg, #fbfbfc 0, var(--bg) 46%, #f2f2f4 100%);
   color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
-  overflow: hidden;
+  overflow: clip;
   -webkit-font-smoothing: antialiased;
   caret-color: var(--ink);
 }
@@ -138,6 +138,8 @@ button { cursor: pointer; }
   overflow: hidden;
 }
 .beta-config-scroll {
+  /* 隐藏的原生下拉以配置区定位，避免越过裁剪边界撑大 body。 */
+  position: relative;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
@@ -580,3 +582,8 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
+
+/* 样本房型跟随对应图片，窄屏保持完整行 */
+.beta-sample-room { grid-column: 1 / -1; width: 100%; margin-top: 8px; }
+
+.sample-list .reference-item { align-content: start; }

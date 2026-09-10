@@ -68,3 +68,22 @@ test("任务快照稳定推导加载、结果与过期状态", () => {
   }), { outcomes, stage: "results" });
   assert.equal(generationTaskView(task, { status: "missing" }).stage, "error");
 });
+
+test("图片超分优先显示 ComfyUI 排队与执行阶段", () => {
+  const task = createGenerationTask({
+    createId: () => "upscale-12345678",
+    featureMode: "imageUpscale",
+    loadingLabel: "正在用 SeedVR2 超分到 8K…",
+    models: [{ key: "seedvr2_1mp", label: "SeedVR2 · 8K" }],
+  });
+  assert.equal(generationTaskView(task, {
+    message: "8K 超分已提交 ComfyUI，正在排队",
+    stages: { comfyUi: "queued" },
+    status: "running",
+  }).message, "8K 超分已提交 ComfyUI，正在排队");
+  assert.equal(generationTaskView(task, {
+    message: "ComfyUI 正在执行 8K 超分",
+    stages: { comfyUi: "executing" },
+    status: "running",
+  }).message, "ComfyUI 正在执行 8K 超分");
+});

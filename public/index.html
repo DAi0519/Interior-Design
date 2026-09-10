@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图美化/精模/空房/白模/Flux/Style DNA 控件、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
-  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、精模预设 Prompt 版本与自定义要求、白模/空房设计/自由生图/风格反推入口、按功能保留的生成中/结果区、空房房间类型必填、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换的独立 Agent 配置、Flux 双档位与多结果画廊
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图美化/精模/空房家具/白模/Flux/Style DNA/SeedVR2 图片超分控件、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
+  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/自由生图/风格反推入口、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="/connection-center.css?v=5" />
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=4" />
-    <link rel="stylesheet" href="/empty-room-type.css?v=1" />
+    <link rel="stylesheet" href="/empty-room-type.css?v=2" />
     <link rel="stylesheet" href="/raycast-accent.css?v=42" />
   </head>
   <body>
@@ -76,6 +76,9 @@
               </button>
               <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">
                 效果图美化
+              </button>
+              <button class="feature-mode-option" data-feature-mode="imageUpscale" type="button" role="radio" aria-checked="false">
+                图片超分
               </button>
               <button class="feature-mode-option" data-feature-mode="styleDna" type="button" role="radio" aria-checked="false">
                 风格反推
@@ -146,6 +149,18 @@
               aria-required="true"
             ></div>
           </section>
+
+          <section id="emptyRoomFurnitureSection" class="panel-section generation-control hidden" aria-labelledby="emptyRoomFurnitureTitle">
+            <div class="section-heading"><h2 id="emptyRoomFurnitureTitle">确认家具</h2><span class="optional">可多选</span></div>
+            <div class="room-type-list" data-furniture-list role="group" aria-label="空房家具选择"></div>
+            <label class="room-type-detail room-type-detail-label hidden">其他家具
+              <input class="room-type-detail-input" data-furniture-other maxlength="200" placeholder="例如：双人办公桌、钢琴" />
+            </label>
+            <p class="compact-config-note" data-furniture-note></p>
+          </section>
+          <details id="emptyRoomAdvanced" class="panel-section generation-control hidden">
+            <summary>高级设置</summary>
+          </details>
 
           <section id="refinedPromptSection" class="panel-section generation-control hidden" aria-labelledby="refinedPromptTitle">
             <div class="section-heading">
@@ -304,7 +319,16 @@
             <p id="promptAgentNote" class="compact-config-note">用于理解白模并整合最终提示词。</p>
           </section>
 
-          <section class="panel-section generation-control" aria-labelledby="modelTitle">
+          <section id="imageUpscaleSection" class="panel-section generation-control hidden" aria-labelledby="imageUpscaleTitle">
+            <div class="section-heading">
+              <h2 id="imageUpscaleTitle">超分工作流</h2>
+              <span id="imageUpscaleAvailability" class="micro-status">检测中</span>
+            </div>
+            <div id="imageUpscaleWorkflowList" class="model-option-list" role="radiogroup" aria-describedby="imageUpscaleNote"></div>
+            <p id="imageUpscaleNote" class="compact-config-note">默认攸行 3B 使用原图直入；两套 7B 保留 1MP / 0.75MP 预处理，输出均保持原图比例。</p>
+          </section>
+
+          <section id="modelSection" class="panel-section generation-control" aria-labelledby="modelTitle">
             <div class="section-heading">
               <h2 id="modelTitle">出图模型</h2>
               <span id="modelAvailability" class="micro-status">等待连接</span>
@@ -393,18 +417,18 @@
             </p>
           </section>
 
-          <section class="panel-section generation-control" aria-labelledby="parameterTitle">
+          <section id="parameterSection" class="panel-section generation-control" aria-labelledby="parameterTitle">
             <div class="section-heading">
               <h2 id="parameterTitle">参数</h2>
               <span id="exactSize" class="size-badge">—</span>
             </div>
 
             <div class="field-grid">
-              <label class="field">
+              <label id="ratioField" class="field">
                 <span>画幅比例</span>
                 <select id="ratioSelect"></select>
               </label>
-              <label class="field">
+              <label id="resolutionField" class="field">
                 <span>分辨率</span>
                 <select id="resolutionSelect"></select>
               </label>
@@ -721,6 +745,6 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script type="module" src="/product-navigation.js?v=9"></script>
-    <script type="module" src="/app.js?v=43"></script>
+    <script type="module" src="/app.js?v=45"></script>
   </body>
 </html>

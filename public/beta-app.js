@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 beta.html DOM、beta-configuration/beta-page-state 本机持久配置状态、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的五功能/样本集/模型/参数配置、飞书样本集驱动及同步状态呈现的不设结果数量上限批量展开、独立测试时间与 Run ID、全宽 START、任务恢复，以及仅展示飞书已归档缩略图和唯一底部飞书入口的生成/同步双阶段监控
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的五功能/样本集/模型/参数配置、逐样本房型驱动的飞书样本集及同步状态呈现的不设结果数量上限批量展开、独立测试时间与 Run ID、全宽 START、任务恢复，以及仅展示飞书已归档缩略图和唯一底部飞书入口的生成/同步双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,7 @@ import {
 } from "./beta-page-state.js?v=1";
 import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=1";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
-import { createBetaSampleLibrary } from "./beta-sample-library.js?v=4";
+import { createBetaSampleLibrary } from "./beta-sample-library.js?v=5";
 import { renderBetaResults } from "./beta-results.js?v=1";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
@@ -329,7 +329,7 @@ function renderFeature() {
   elements.commonPromptField.classList.toggle("hidden", free || effect);
   elements.designFields.classList.toggle("hidden", !design);
   elements.styleReferenceField.classList.toggle("hidden", !design);
-  elements.emptyRoomFields.classList.toggle("hidden", !emptyRoom);
+  elements.emptyRoomFields.classList.add("hidden");
   elements.effectFields.classList.toggle("hidden", !effect);
   elements.refinedPromptField.classList.toggle("hidden", !refined);
   elements.freeReferenceField.classList.toggle("hidden", !free);
@@ -390,12 +390,7 @@ function designSettings() {
 }
 
 function assertFeatureConfig() {
-  if (state.featureMode === "emptyRoom") {
-    if (!elements.roomTypeSelect.value) throw new Error("请选择空房房间类型");
-    if (elements.roomTypeSelect.value === "其他" && !elements.roomTypeDetailInput.value.trim()) {
-      throw new Error("请填写具体空间类型");
-    }
-  }
+  sampleLibrary.assertRoomTypes();
   if (state.featureMode === "refinedModel" && !elements.refinedPromptSelect.value) {
     throw new Error("精模 Prompt 版本不可用");
   }
@@ -420,6 +415,7 @@ function buildItems(startedAt = new Date()) {
   const ratioAuto = elements.ratioSelect.value === "auto";
   return cases.flatMap((currentCase, caseIndex) => models.map((model, modelIndex) => {
     const input = {
+      featureMode: state.featureMode,
       modelKey: model.key,
       negativePrompt: elements.negativePromptInput.value.trim(),
       outputFormat: "png",
@@ -438,9 +434,9 @@ function buildItems(startedAt = new Date()) {
       } : {}),
       ...(["whiteModel", "emptyRoom"].includes(state.featureMode) ? designSettings() : {}),
       ...(state.featureMode === "emptyRoom" ? {
-        roomType: elements.roomTypeSelect.value,
-        ...(elements.roomTypeSelect.value === "其他"
-          ? { roomTypeDetail: elements.roomTypeDetailInput.value.trim() }
+        roomType: currentCase.roomType,
+        ...(currentCase.roomType === "其他"
+          ? { roomTypeDetail: currentCase.roomTypeDetail.trim() }
           : {}),
       } : {}),
     };

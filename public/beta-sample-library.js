@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 图片交互、同源 /api/beta/sample-sets 接口，以及外部图片校验/容量/状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary，统一可恢复的已有样本集选择、飞书样本下载、不设样本数量上限的新集创建上传、服务端回读后的同步成功/失败回执、预览删除与当前 Case 投影
+ * [OUTPUT]: 对外提供 createBetaSampleLibrary，统一可恢复的已有样本集选择、飞书样本下载、逐样本房型配置与校验、不设样本数量上限的新集创建上传、服务端回读后的同步成功/失败回执、预览删除与当前 Case 投影
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -108,6 +108,40 @@ export function createBetaSampleLibrary({
         render();
       },
     });
+    if (state.featureMode === "emptyRoom") {
+      [...elements.sampleList.children].forEach((item, index) => {
+        const image = state.sourceImages[index];
+        const field = document.createElement("label");
+        field.className = "field beta-sample-room";
+        const label = document.createElement("span");
+        label.textContent = state.mode === "create" ? "房间类型" : "房间类型（本次可调整）";
+        const select = document.createElement("select");
+        select.append(...[...elements.roomTypeSelect.options].map((option) => option.cloneNode(true)));
+        select.value = image.roomType || "";
+        select.disabled = state.busy;
+        select.setAttribute("aria-label", `${image.name} 房间类型`);
+        const detail = document.createElement("input");
+        detail.placeholder = "具体空间类型，例如：衣帽间";
+        detail.maxLength = 40;
+        detail.value = image.roomTypeDetail || "";
+        detail.disabled = state.busy;
+        detail.setAttribute("aria-label", `${image.name} 具体空间类型`);
+        detail.classList.toggle("hidden", select.value !== "其他");
+        select.addEventListener("change", () => {
+          image.roomType = select.value;
+          image.roomTypeDetail = "";
+          detail.value = "";
+          detail.classList.toggle("hidden", select.value !== "其他");
+          onChange();
+        });
+        detail.addEventListener("input", () => {
+          image.roomTypeDetail = detail.value;
+          onChange();
+        });
+        field.append(label, select, detail);
+        item.append(field);
+      });
+    }
     elements.freePromptList.replaceChildren(...state.prompts.map((sample, index) =>
       promptChip(sample, index, () => {
         state.prompts.splice(index, 1);
@@ -153,31 +187,40 @@ export function createBetaSampleLibrary({
       .map((sample) => ({ prompt: sample.prompt, sampleId: sample.sampleId }));
     state.sourceImages = sampleSet.samples
       .filter((sample) => sample.image)
-      .map((sample) => ({ ...sample.image, sampleId: sample.sampleId }));
+      .map((sample) => ({ ...sample.image, sampleId: sample.sampleId, roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail }));
     state.mode = "library";
     onSelectionChange(state.featureMode, state.activeSampleSetId);
   }
 
+  let loadRevision = 0;
+
   async function loadSampleSet(sampleSetId) {
     if (!sampleSetId) return;
+    const revision = ++loadRevision;
     state.busy = true;
     setSyncStatus("读取飞书中", "syncing");
     render();
     try {
       const { sampleSet } = await api(`/api/beta/sample-sets/${encodeURIComponent(sampleSetId)}`);
+      if (revision !== loadRevision || sampleSet.featureMode !== state.featureMode) return;
       applySampleSet(sampleSet);
       setSyncStatus("已同步飞书", "success");
     } catch (error) {
+      if (revision !== loadRevision) return;
       clearSamples();
       setSyncStatus("读取失败", "error", error.message);
       onError(error);
     } finally {
-      state.busy = false;
-      render();
+      if (revision === loadRevision) {
+        state.busy = false;
+        render();
+      }
     }
   }
 
   function beginCreate() {
+    loadRevision += 1;
+    state.busy = false;
     clearSamples();
     state.mode = "create";
     setSyncStatus("尚未同步", "idle");
@@ -221,13 +264,14 @@ export function createBetaSampleLibrary({
       throw new Error("请填写样本集名称");
     }
     if (!sampleCount()) throw new Error("请先添加样本");
+    assertRoomTypes();
     state.busy = true;
     setSyncStatus("同步飞书中", "syncing");
     render();
     try {
       const samples = state.featureMode === "free"
         ? state.prompts.map(({ prompt }) => ({ prompt }))
-        : state.sourceImages.map((image) => ({ image }));
+        : state.sourceImages.map((image) => ({ image, roomType: image.roomType, roomTypeDetail: image.roomTypeDetail }));
       const { sampleSet } = await api("/api/beta/sample-sets", {
         body: JSON.stringify({ featureMode: state.featureMode, name, samples }),
         method: "POST",
@@ -248,6 +292,8 @@ export function createBetaSampleLibrary({
   }
 
   async function setFeatureMode(featureMode, preferredSampleSetId = "") {
+    loadRevision += 1;
+    state.busy = false;
     state.featureMode = featureMode;
     const current = activeSet();
     if (current?.featureMode === featureMode) {
@@ -296,7 +342,18 @@ export function createBetaSampleLibrary({
     }
   }
 
+  function assertRoomTypes() {
+    if (state.featureMode !== "emptyRoom") return;
+    state.sourceImages.forEach((image, index) => {
+      if (!image.roomType) throw new Error(`请为第 ${index + 1} 张样本选择房间类型`);
+      if (image.roomType === "其他" && !image.roomTypeDetail?.trim()) {
+        throw new Error(`请为第 ${index + 1} 张样本填写具体空间类型`);
+      }
+    });
+  }
+
   return {
+    assertRoomTypes,
     activeSampleSetId: () => state.activeSampleSetId,
     assertAssetSize(extraImages = []) {
       assertBatchImageSize([...state.sourceImages, ...extraImages].filter(Boolean));
@@ -315,6 +372,8 @@ export function createBetaSampleLibrary({
       return state.sourceImages.map((image) => ({
         caseId: image.sampleId,
         label: image.name,
+        roomType: image.roomType,
+        roomTypeDetail: image.roomTypeDetail,
         prompt: commonPrompt,
         referenceImages: [image],
       }));

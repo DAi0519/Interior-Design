@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP 响应由内存 fetch 替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/默认负向 Prompt、Base64 图片原子提交、网关抖动恢复、节点错误诊断、请求级产物命名/旧实例同名图拒绝、多实例输出读取恢复、排队轮询、输出归一化/指纹和参考图边界回归保障
+ * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP/WebSocket 响应由内存替身提供
+ * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/默认负向 Prompt、Base64 图片原子提交、带 Prompt ID 的排队/执行阶段、WebSocket 丢事件时的实时队列兜底、独立超时与 completed=false OOM 即时失败、网关抖动恢复、节点错误诊断、请求级产物命名/旧实例同名图拒绝、多实例输出读取恢复、输出归一化/指纹和参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,21 @@ import { createComfyUiClient } from "../src/comfyui-client.mjs";
 
 const onePixelPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
+
+function fakeWebSocket() {
+  const listeners = new Map();
+  return {
+    addEventListener(type, handler) {
+      const handlers = listeners.get(type) || [];
+      handlers.push(handler);
+      listeners.set(type, handlers);
+    },
+    close() {},
+    emit(type, event) {
+      for (const handler of listeners.get(type) || []) handler(event);
+    },
+  };
+}
 
 test("工作流工厂原样写入正向 Prompt、保留默认负向 Prompt 与稳定节点", () => {
   const workflow = createAiTextureWorkflow({
@@ -230,6 +245,209 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
   assert.equal(outputRequests, 2);
 });
 
+test("ComfyUI WebSocket 准确回传排队与执行阶段", async () => {
+  const progress = [];
+  const socket = fakeWebSocket();
+  let historyRequests = 0;
+  let webSocketUrl = null;
+  const client = createComfyUiClient({
+    baseUrl: "http://comfy.example/",
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/prompt") {
+        return Response.json({ prompt_id: "prompt-progress", node_errors: {} });
+      }
+      if (pathname === "/history/prompt-progress") {
+        historyRequests += 1;
+        if (historyRequests === 1) {
+          socket.emit("message", {
+            data: JSON.stringify({
+              data: { node: "71", prompt_id: "prompt-progress" },
+              type: "executing",
+            }),
+          });
+          return Response.json({});
+        }
+        return Response.json({
+          "prompt-progress": {
+            outputs: {
+              "72": {
+                images: [{
+                  filename: "CanvasLab_Flux2Klein_progress-id_00001_.png",
+                  subfolder: "",
+                  type: "output",
+                }],
+              },
+            },
+            status: { completed: true, messages: [], status_str: "success" },
+          },
+        });
+      }
+      if (pathname === "/view") {
+        return new Response(new Uint8Array([137, 80, 78, 71]), {
+          headers: { "Content-Type": "image/png" },
+        });
+      }
+      throw new Error(`unexpected request: ${pathname}`);
+    },
+    pollIntervalMs: 0,
+    randomId: () => "progress-id",
+    waitImpl: async () => {},
+    webSocketFactory(url) {
+      webSocketUrl = String(url);
+      queueMicrotask(() => socket.emit("open", {}));
+      return socket;
+    },
+  });
+
+  await client.generateImage({
+    images: [{ fileName: "source.png", image_url: onePixelPng }],
+    prompt: "保持空间结构",
+  }, {
+    executionTimeoutMs: 15 * 60 * 1000,
+    onProgress: (event) => progress.push(event),
+  });
+
+  assert.match(webSocketUrl, /^ws:\/\/comfy\.example\/ws\?clientId=progress-id$/);
+  assert.deepEqual(progress, [
+    { phase: "queued", promptId: "prompt-progress" },
+    { phase: "executing", promptId: "prompt-progress" },
+  ]);
+});
+
+test("ComfyUI 排队超时与节点执行超时分开报错并保留 Prompt ID", async () => {
+  const clientFor = (promptId, history) => createComfyUiClient({
+    baseUrl: "http://comfy.example/",
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/prompt") {
+        return Response.json({ prompt_id: promptId, node_errors: {} });
+      }
+      if (pathname === `/history/${promptId}`) return Response.json(history);
+      if (pathname === "/queue") {
+        return Response.json({
+          queue_pending: [[1, promptId]],
+          queue_running: [],
+        });
+      }
+      throw new Error(`unexpected request: ${pathname}`);
+    },
+    pollIntervalMs: 0,
+    waitImpl: async () => {},
+  });
+
+  await assert.rejects(
+    clientFor("prompt-queued", {}).generateImage({
+      images: [{ image_url: onePixelPng }],
+      prompt: "",
+    }, { queueTimeoutMs: -1 }),
+    (error) => {
+      assert.equal(error.code, "queue_timeout");
+      assert.deepEqual(error.details, { promptId: "prompt-queued" });
+      assert.match(error.message, /排队超时.*prompt-queued/);
+      return true;
+    },
+  );
+
+  const executionStarted = Date.now() - 1_000;
+  await assert.rejects(
+    clientFor("prompt-executing", {
+      "prompt-executing": {
+        outputs: {},
+        status: {
+          completed: false,
+          messages: [["execution_start", {
+            prompt_id: "prompt-executing",
+            timestamp: executionStarted,
+          }]],
+          status_str: "running",
+        },
+      },
+    }).generateImage({
+      images: [{ image_url: onePixelPng }],
+      prompt: "",
+    }, {
+      executionTimeoutMs: 0,
+      queueTimeoutMs: 60_000,
+    }),
+    (error) => {
+      assert.equal(error.code, "execution_timeout");
+      assert.deepEqual(error.details, { promptId: "prompt-executing" });
+      assert.match(error.message, /节点执行超时.*prompt-executing/);
+      return true;
+    },
+  );
+});
+
+test("ComfyUI WebSocket 丢失执行事件时由实时队列恢复执行阶段", async () => {
+  const progress = [];
+  const socket = fakeWebSocket();
+  const pngBytes = Buffer.from(onePixelPng.split(",")[1], "base64");
+  let historyRequests = 0;
+  const client = createComfyUiClient({
+    baseUrl: "http://comfy.example/",
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/prompt") {
+        return Response.json({ prompt_id: "prompt-queue-fallback", node_errors: {} });
+      }
+      if (pathname === "/history/prompt-queue-fallback") {
+        historyRequests += 1;
+        if (historyRequests === 1) return Response.json({});
+        return Response.json({
+          "prompt-queue-fallback": {
+            outputs: {
+              "72": { images: [{
+                filename: "CanvasLab_Flux2Klein_queue-fallback_00001_.png",
+                subfolder: "",
+                type: "output",
+              }] },
+            },
+            status: {
+              completed: true,
+              messages: [["execution_start", {
+                prompt_id: "prompt-queue-fallback",
+                timestamp: Date.now(),
+              }]],
+              status_str: "success",
+            },
+          },
+        });
+      }
+      if (pathname === "/queue") {
+        return Response.json({
+          queue_pending: [],
+          queue_running: [[1, "prompt-queue-fallback"]],
+        });
+      }
+      if (pathname === "/view") {
+        return new Response(pngBytes, { headers: { "Content-Type": "image/png" } });
+      }
+      throw new Error(`unexpected request: ${pathname}`);
+    },
+    pollIntervalMs: 0,
+    randomId: () => "queue-fallback",
+    waitImpl: async () => {},
+    webSocketFactory() {
+      queueMicrotask(() => socket.emit("open", {}));
+      return socket;
+    },
+  });
+
+  await client.generateImage({
+    images: [{ image_url: onePixelPng }],
+    prompt: "",
+  }, {
+    onProgress: (event) => progress.push(event),
+    queueTimeoutMs: 60_000,
+  });
+
+  assert.deepEqual(progress, [
+    { phase: "queued", promptId: "prompt-queue-fallback" },
+    { phase: "executing", promptId: "prompt-queue-fallback" },
+  ]);
+});
+
 test("ComfyUI History 返回旧请求文件名时拒绝下载和假成功", async () => {
   let outputRequests = 0;
   const client = createComfyUiClient({
@@ -420,6 +638,51 @@ test("ComfyUI 客户端响应批量任务的主动取消信号", async () => {
   controller.abort(reason);
 
   await assert.rejects(request, (error) => error === reason);
+});
+
+test("ComfyUI completed=false 的节点 OOM 立即失败而不误报执行超时", async () => {
+  const client = createComfyUiClient({
+    baseUrl: "http://comfy.example/",
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/prompt") {
+        return Response.json({ prompt_id: "prompt-oom", node_errors: {} });
+      }
+      if (pathname === "/history/prompt-oom") {
+        return Response.json({
+          "prompt-oom": {
+            outputs: {},
+            status: {
+              completed: false,
+              messages: [["execution_error", {
+                exception_message: "This error means you ran out of memory on your GPU.",
+                exception_type: "torch.OutOfMemoryError",
+                node_id: "75",
+                node_type: "SeedVR2VideoUpscaler",
+                prompt_id: "prompt-oom",
+              }]],
+              status_str: "error",
+            },
+          },
+        });
+      }
+      throw new Error(`unexpected request: ${pathname}`);
+    },
+  });
+
+  await assert.rejects(
+    client.generateImage({
+      images: [{ image_url: onePixelPng }],
+      prompt: "",
+    }),
+    (error) => {
+      assert.equal(error.code, "execution_failed");
+      assert.deepEqual(error.details, { promptId: "prompt-oom" });
+      assert.match(error.message, /SeedVR2VideoUpscaler GPU 显存不足/);
+      assert.match(error.message, /prompt-oom/);
+      return true;
+    },
+  );
 });
 
 test("ComfyUI 已完成但没有输出图片时立即失败", async () => {

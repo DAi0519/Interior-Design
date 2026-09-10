@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、效果图美化/精模/白模/空房工作流、Flux 可选负向 Prompt，以及调用方注入的密钥、模型目录、图片客户端、Prompt 缓存与同步调度
- * [OUTPUT]: 对外提供自由生图、效果图美化、精模、白模/空房单模型执行及按功能统一路由
+ * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、效果图美化/精模/白模/空房工作流、带阶段回调的图片超分服务、Flux 可选负向 Prompt，以及调用方注入的双类 ComfyUI 图片客户端、密钥、模型目录、Prompt 缓存与同步调度
+ * [OUTPUT]: 对外提供自由生图、效果图美化、精模、白模/空房与纯 ComfyUI 图片超分单项执行及以显式功能为真源的统一路由，并为超分透传可选进度回调
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "./effect-render-enhancement-workflow.mjs";
+import { executeImageUpscale } from "./image-upscale-service.mjs";
 import {
   createGenerationRequest,
   imageProviderForModel,
@@ -19,6 +20,7 @@ import { executeWhiteModelWorkflow } from "./white-model-workflow.mjs";
 export function createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
+  imageUpscaleClient,
   promptResultCache,
   requireApiKey,
   scheduleGenerationSync,
@@ -113,12 +115,18 @@ export function createGenerationService({
     });
   }
 
-  function executeForMode(featureMode, input) {
+  function executeForMode(featureMode, input, options = {}) {
     if (["emptyRoom", "whiteModel"].includes(featureMode)) {
-      return executeDesign(input);
+      return executeDesign({ ...input, featureMode });
     }
     if (featureMode === "effectEnhancement") {
       return executeEffectEnhancement(input);
+    }
+    if (featureMode === "imageUpscale") {
+      return executeImageUpscale(input, {
+        imageClient: imageUpscaleClient,
+        onProgress: options.onProgress,
+      });
     }
     if (featureMode === "refinedModel") return executeRefined(input);
     if (featureMode === "free") return executeFree(input);
@@ -130,6 +138,9 @@ export function createGenerationService({
     executeEffectEnhancement,
     executeForMode,
     executeFree,
+    executeImageUpscale: (input) => executeImageUpscale(input, {
+      imageClient: imageUpscaleClient,
+    }),
     executeRefined,
   };
 }

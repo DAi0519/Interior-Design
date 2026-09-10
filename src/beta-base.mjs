@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta跑图 Base 的样本集/样本/跑图明细三表、lark-cli.mjs 与图片产物基础设施，接收可复用样本集、已冻结批次 Run、输入附件和正式生成结果
- * [OUTPUT]: 对外提供样本集目录/明细读取与创建，以及带测试时间的一行一 Run 建档、附件上传、成功/失败回写、结果附件 token/字节数回读校验、轻量结果预览和最新测试优先视图链接
+ * [OUTPUT]: 对外提供正式生成信息捕获、最终 Prompt/多选场景 Tag/真实尺寸归档与回读，以及样本集目录/含逐图房型的明细读取与创建，以及带测试时间、实际请求功能与家具条件的一行一 Run 建档、附件上传、成功/失败回写、结果附件 token/字节数回读校验、轻量结果预览和最新测试优先视图链接
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,7 +16,7 @@ import {
   loadImageBytes,
 } from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
-import { recordIdFrom } from "./lark-sync.mjs";
+import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
 
 export const BETA_BASE_CONFIG = Object.freeze({
   baseToken: process.env.BETA_BASE_TOKEN || "ORwJbt5EYauNORsrhqJcpetLnEb",
@@ -78,6 +78,8 @@ export function betaFeatureLabel(featureMode) {
 
 export function betaSceneParameters(input = {}) {
   return compactObject({
+    featureMode: input.featureMode,
+    furnitureSelection: input.furnitureSelection,
     effectTime: input.effectTime,
     effectWeather: input.effectWeather,
     renderMode: input.renderMode,
@@ -123,6 +125,26 @@ export function betaResultCostUsd(result = {}) {
       ?? result.upstream?.metadata?.usageCost?.costUsd,
   );
   return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+// 仅供 Beta 服务端归档消费，不写旧表，也不进入浏览器任务快照。
+export function captureBetaGenerationArchive(input) {
+  const fields = buildRecordFields(input);
+  return {
+    generationId: null,
+    status: "skipped",
+    archiveFields: compactObject({
+      "场景标签": [fields["空间类型"], fields["其他空间类型"]].filter(Boolean),
+      "最终 Prompt": fields["最终 Prompt"],
+      "设计方式": fields["设计方式"],
+      "风格选择": fields["风格选择"],
+      "家具选择": fields["家具选择"],
+      "Prompt融合": fields["Prompt融合"],
+      "Agent 编码": fields["Agent 编码"],
+      "Agent 版本": fields["Agent 版本"],
+      "生成参数": fields["生成参数"],
+    }),
+  };
 }
 
 export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
@@ -323,7 +345,7 @@ export function createBetaBaseStore({
       const sampleSet = sets.find((entry) => entry.sampleSetId === sampleSetId);
       if (!sampleSet) return null;
       const rows = await listRecords(run, config, config.sampleTableId, [
-        "样本 ID", "样本集", "样本图", "提示词", "文件名", "状态",
+        "样本 ID", "样本集", "样本图", "提示词", "文件名", "状态", "空间类型", "其他空间类型",
       ]);
       const matching = rows.filter(({ fields }) =>
         selectValue(fields["状态"]) === "可用"
@@ -335,6 +357,8 @@ export function createBetaBaseStore({
           image: attachments[0]
             ? await downloadAttachment(run, config, { attachment: attachments[0], recordId })
             : null,
+          roomType: selectValue(fields["空间类型"]) || "",
+          roomTypeDetail: String(fields["其他空间类型"] || "").trim(),
           prompt: String(fields["提示词"] || "").trim(),
           recordId,
           sampleId: String(fields["样本 ID"] || "").trim(),
@@ -356,6 +380,7 @@ export function createBetaBaseStore({
         const recordId = await createRecord(run, config, {
           "样本 ID": sampleId,
           "样本集": [sampleSetRecordId],
+          ...(featureMode === "emptyRoom" ? { "空间类型": sample.roomType, "其他空间类型": sample.roomTypeDetail || "" } : {}),
           "提示词": sample.prompt || "",
           "文件名": sample.image?.name || "",
           "状态": "可用",
@@ -431,6 +456,10 @@ export function createBetaBaseStore({
         const format = result.request?.outputFormat || result.upstream?.outputFormat || "png";
         const file = `result.${extensionForImageFormat(format) || "png"}`;
         resultBytes = await loadImageBytes(image.url);
+        await updateRecord(run, config, recordId, {
+          ...(result.sync?.archiveFields || {}),
+          "尺寸": actualImageSize(resultBytes),
+        });
         previewUrl = await createImagePreviewDataUrl(resultBytes);
         await writeFile(join(directory, file), resultBytes);
         await uploadAttachments(
@@ -457,8 +486,13 @@ export function createBetaBaseStore({
         config,
         config.tableId,
         recordId,
-        ["状态", "结果图"],
+        ["状态", "结果图", ...Object.keys(result.sync?.archiveFields || {})],
       );
+      for (const [field, value] of Object.entries(result.sync?.archiveFields || {})) {
+        if (String(archived?.fields?.[field] ?? "") !== String(value)) {
+          throw new Error(`飞书生成信息回读不一致：${field}`);
+        }
+      }
       const resultAttachment = archived?.fields?.["结果图"]?.[0];
       if (selectValue(archived?.fields?.["状态"]) !== "成功"
         || !resultAttachment?.file_token

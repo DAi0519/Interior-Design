@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖白模与空房双模式的独立 Prompt Agent 配置、空房必填房间类型及“其他”详情、Style DNA、必填主图与仅智能默认可用的风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供白模/空房按智能默认或平台融合 Agent 分流、空房房间类型/其他详情校验与注入、严格解析/缓存隔离、最终模型仅接收主图及带 Provider 元数据的非阻塞归档
+ * [INPUT]: 依赖白模与空房双模式的独立 Prompt Agent 配置、空房必填房间类型、“其他”详情及最终家具选择、Style DNA、必填主图与仅智能默认可用的风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供白模/空房按智能默认或平台融合 Agent 分流、空房类型/家具选择校验及非空已选需求注入、含家具的缓存隔离和响应/归档、最终模型仅接收主图
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { createHash } from "node:crypto";
 
 import { agentModelOrThrow } from "./agent-model-config.mjs";
+import { furniturePromptInput, normalizeFurnitureSelection } from "./empty-room-furniture.mjs";
 import {
   EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
   normalizeEmptyRoomType,
@@ -136,6 +137,7 @@ export function buildSmartDefaultPromptAgentInput({
 }
 
 export function buildEmptyRoomSmartDefaultPromptAgentInput({
+  furnitureSelection,
   hasStyleReference = false,
   roomType,
   roomTypeDetail,
@@ -149,6 +151,7 @@ export function buildEmptyRoomSmartDefaultPromptAgentInput({
     "",
     "room_type_detail:",
     String(roomTypeDetail || "").trim() || "不适用",
+    ...furniturePromptInput(furnitureSelection),
     "",
     "style_reference_present:",
     hasStyleReference ? "true" : "false",
@@ -159,6 +162,7 @@ export function buildEmptyRoomSmartDefaultPromptAgentInput({
 }
 
 export function buildEmptyRoomFusionPromptAgentInput({
+  furnitureSelection,
   roomType,
   roomTypeDetail,
   styleDna,
@@ -172,6 +176,7 @@ export function buildEmptyRoomFusionPromptAgentInput({
     "",
     "room_type_detail:",
     String(roomTypeDetail || "").trim() || "不适用",
+    ...furniturePromptInput(furnitureSelection),
     "",
     "style_dna:",
     JSON.stringify(styleDna),
@@ -201,6 +206,7 @@ function normalizeRenderMode(input) {
 function promptResultCacheKey({
   agent,
   featureMode,
+  furnitureSelection,
   promptModel,
   renderMode,
   roomType,
@@ -216,6 +222,7 @@ function promptResultCacheKey({
     agent.version,
     agent.systemPrompt,
     featureMode,
+    JSON.stringify(furnitureSelection || null),
     promptModel.id,
     renderMode,
     roomType,
@@ -286,6 +293,8 @@ export async function executeWhiteModelWorkflow(
   const roomTypeDetail = emptyRoom && roomType === "其他"
     ? normalizedRoomTypeDetail
     : null;
+  const furnitureSelection = emptyRoom
+    ? normalizeFurnitureSelection(input.furnitureSelection, roomType) : null;
   const sourceImages = normalizeReferenceImages(input.referenceImages);
   if (sourceImages.length !== 1) {
     throw workflowError(
@@ -366,12 +375,14 @@ export async function executeWhiteModelWorkflow(
       userPrompt: emptyRoom
         ? smartDefault
           ? buildEmptyRoomSmartDefaultPromptAgentInput({
+              furnitureSelection,
               hasStyleReference: styleReferences.length > 0,
               roomType,
               roomTypeDetail,
               userRequirements,
             })
           : buildEmptyRoomFusionPromptAgentInput({
+              furnitureSelection,
               roomType,
               roomTypeDetail,
               styleDna: style.styleDna,
@@ -401,6 +412,7 @@ export async function executeWhiteModelWorkflow(
         promptResultCacheKey({
           agent,
           featureMode,
+          furnitureSelection,
           promptModel,
           renderMode,
           roomType,
@@ -466,6 +478,7 @@ export async function executeWhiteModelWorkflow(
     renderMode,
     ...(roomType ? { roomType } : {}),
     ...(roomTypeDetail ? { roomTypeDetail } : {}),
+    ...(emptyRoom ? { furnitureSelection } : {}),
     selectionName: smartDefault ? "智能默认" : style.name,
     styleReferenceUsed: styleReferences.length > 0,
     ...(generation.workflowMetadata || {}),
@@ -508,6 +521,7 @@ export async function executeWhiteModelWorkflow(
     renderMode,
     roomType,
     roomTypeDetail,
+    ...(emptyRoom ? { furnitureSelection } : {}),
     request: preview,
     style: style
       ? { code: style.code, name: style.name, version: style.version }

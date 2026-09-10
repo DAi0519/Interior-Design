@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert 与白模/空房智能默认及固定风格渲染编排器的可注入服务边界
+ * [INPUT]: 依赖 node:test/assert、generation-service 显式路由与白模/空房智能默认及固定风格渲染编排器的可注入服务边界
  * [OUTPUT]: 对外提供白模/空房双模式独立 Prompt 路由、空房必填房间类型/其他详情、仅智能默认接收主图+风格参考双图、提示词复用/重算、最终出图单图隔离、独立 Provider、版本化 Style DNA、比例及同步调度回归保障
  * [POS]: test 的设计模型工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -15,6 +15,7 @@ import {
   executeWhiteModelWorkflow,
   parsePromptAgentOutput,
 } from "../src/white-model-workflow.mjs";
+import { createGenerationService } from "../src/generation-service.mjs";
 import { createAsyncTtlCache } from "../src/runtime-cache.mjs";
 
 const agentJson = {
@@ -778,4 +779,16 @@ test("出图失败重试复用提示词，并支持显式重算与条件变化�
   assert.equal(retried.promptAgent.reused, true);
   assert.equal(forced.promptAgent.reused, false);
   assert.equal(changed.promptAgent.reused, false);
+});
+
+
+test("生成服务显式路由覆盖缺失或冲突的输入功能，不将空房降级为白模", async () => {
+  const service = createGenerationService({
+    requireApiKey: () => "test-only", getSessionModelCatalog: async () => [],
+    imageClientForModel: () => ({}),
+  });
+  for (const featureMode of [undefined, "whiteModel"]) {
+    await assert.rejects(service.executeForMode("emptyRoom", { featureMode }), /空房设计必须选择房间类型/);
+  }
+  await assert.rejects(service.executeForMode("whiteModel", { featureMode: "emptyRoom" }), /白模渲染需要且只允许 1 张白模图/);
 });

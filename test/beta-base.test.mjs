@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、sharp 真实编码夹具、Beta Base 配置与字段映射纯函数
+ * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置与字段映射纯函数
  * [OUTPUT]: 对外提供新 Base 隔离、测试时间分组视图链接、五功能映射、场景/配置快照、版本/费用回填、结果附件 token/字节数回读门槛与轻量预览的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -11,6 +11,7 @@ import sharp from "sharp";
 
 import {
   BETA_BASE_CONFIG,
+  captureBetaGenerationArchive,
   betaConfigSnapshot,
   betaFeatureLabel,
   betaResultCostUsd,
@@ -193,4 +194,43 @@ test("飞书回读附件字节数不一致时拒绝把 Run 判为成功", async 
     images: [{ url: onePixelPng }],
     request: { outputFormat: "png" },
   }), /结果附件校验失败/);
+});
+
+
+test("Beta 接住正式工作流原文与场景元数据，不保留附件副本", () => {
+  const receipt = captureBetaGenerationArchive({
+    finalPrompt: "Actual final prompt\nwith exact whitespace.", sourcePrompt: "需求",
+    durationMs: 1000, modelLabel: "Flux2 Klein", preview: { outputFormat: "png", resolution: "2K" },
+    referenceImages: [{ imageUrl: "private-image" }], resultImage: { url: "private-result" },
+    workflow: { feature: "empty-room-design", roomType: "其他", roomTypeDetail: "衣帽间",
+      renderMode: "smart-default", selectionName: "智能默认", agentCode: "empty-room-smart-default",
+      agentVersion: 30, agentModelLabel: "Gemini 3.1 Pro", furnitureSelection: { items: [], other: "" } },
+  });
+  assert.equal(receipt.archiveFields["最终 Prompt"], "Actual final prompt\nwith exact whitespace.");
+  assert.deepEqual(receipt.archiveFields["场景标签"], ["其他", "衣帽间"]);
+  assert.equal(receipt.archiveFields["设计方式"], "智能默认");
+  assert.equal(receipt.archiveFields["Agent 版本"], 30);
+  assert.equal(receipt.archiveFields["Prompt融合"], "Gemini 3.1 Pro");
+  assert.doesNotMatch(JSON.stringify(receipt), /private-image|private-result/);
+});
+
+test("最终 Prompt 原文必须写入且回读一致，差异不能误报完成", async () => {
+  for (const returnedPrompt of ["exact\nfinal prompt", "different prompt"]) {
+    const patches = [];
+    const store = createBetaBaseStore({ run: async (_config, args) => {
+      if (args.includes("+record-upsert")) patches.push(JSON.parse(args[args.indexOf("--json") + 1]));
+      if (args.includes("+record-get")) return { ok: true, data: {
+        fields: ["状态", "结果图", "最终 Prompt"], record_id_list: ["rec-meta"],
+        data: [["成功", [{ file_token: "token", size: onePixelPngBytes.length }], returnedPrompt]],
+      } };
+      return { ok: true, data: {} };
+    } });
+    const result = { images: [{ url: onePixelPng }], request: { outputFormat: "png" },
+      sync: { archiveFields: { "最终 Prompt": "exact\nfinal prompt" } } };
+    if (returnedPrompt === "different prompt") {
+      await assert.rejects(store.completeRun("rec-meta", result), /生成信息回读不一致：最终 Prompt/);
+    } else await store.completeRun("rec-meta", result);
+    assert.equal(patches[0]["最终 Prompt"], "exact\nfinal prompt");
+    assert.equal(patches[0]["尺寸"], "8x8");
+  }
 });

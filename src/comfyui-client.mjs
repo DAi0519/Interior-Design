@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 Node fetch/crypto、支持 1K/2K 目标宽高且默认使用 9B FP8/7 steps 的 Flux2 Klein 工作流工厂、外部正向/负向 Prompt、单张已校验参考图、可覆盖的 ComfyUI 服务地址与可选取消信号
- * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 参考图与可选负向 Prompt 覆盖的默认参数工作流原子提交、请求级唯一产物命名、可取消排队/轮询、网关抖动安全恢复、节点错误诊断、多实例旧图隔离/输出读取恢复与含 SHA-256 身份的统一 generateImage 结果
- * [POS]: src 的第二图像生成服务边界，与 oneapi-client.mjs 并列并隐藏 ComfyUI 异步协议
+ * [INPUT]: 依赖 Node fetch/WebSocket/crypto、可注入的 ComfyUI 工作流/输出节点/产物命名/元数据适配器、单张已校验图片、可覆盖服务地址/排队时限/执行时限与可选取消信号，默认适配 Flux2 Klein 1K/2K 工作流
+ * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 单图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、节点错误诊断、输出读取恢复与含真实输出尺寸/SHA-256 身份的统一 generateImage 结果
+ * [POS]: src 的通用 ComfyUI 传输边界，与 oneapi-client.mjs 并列并让 Flux 生图、SeedVR2 超分复用同一异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash, randomInt, randomUUID } from "node:crypto";
+import { readImageDimensions } from "./image-dimensions.mjs";
 
 import {
   AI_TEXTURE_WORKFLOW,
@@ -22,6 +23,7 @@ const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_OUTPUT_BYTES = 60 * 1024 * 1024;
 const MAX_OUTPUT_DOWNLOAD_ATTEMPTS = 20;
 const MAX_GATEWAY_READ_ATTEMPTS = 3;
+const WEB_SOCKET_READY_TIMEOUT_MS = 2_000;
 const TRANSIENT_GATEWAY_STATUSES = new Set([502, 503, 504]);
 
 export class ComfyUiError extends Error {
@@ -96,6 +98,94 @@ function endpoint(baseUrl, pathname, search = null) {
   return url;
 }
 
+function websocketEndpoint(baseUrl, clientId) {
+  const url = endpoint(baseUrl, "ws", { clientId });
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url;
+}
+
+function executionProgressObserver({
+  artifactKey,
+  onProgress,
+  serviceUrl,
+  webSocketFactory,
+}) {
+  if (typeof onProgress !== "function" || typeof webSocketFactory !== "function") {
+    return {
+      close() {},
+      markExecuting() {},
+      phase() { return null; },
+      ready: null,
+      setPromptId() {},
+    };
+  }
+  let activePromptId = null;
+  let lastPhase = null;
+  let promptId = null;
+  let ready = Promise.resolve();
+  let socket = null;
+  const notify = (phase) => {
+    if (phase === lastPhase) return;
+    lastPhase = phase;
+    try {
+      onProgress({ phase, promptId });
+    } catch {
+      // 进度展示失败不能中断图片生成。
+    }
+  };
+  try {
+    socket = webSocketFactory(websocketEndpoint(serviceUrl, artifactKey));
+    ready = new Promise((resolve) => {
+      const timer = setTimeout(resolve, WEB_SOCKET_READY_TIMEOUT_MS);
+      const settle = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      socket.addEventListener("close", settle);
+      socket.addEventListener("error", settle);
+      socket.addEventListener("open", settle);
+    });
+    socket.addEventListener("message", (event) => {
+      if (typeof event.data !== "string") return;
+      let message;
+      try {
+        message = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      const eventPromptId = String(message?.data?.prompt_id || "");
+      const started = message?.type === "execution_start"
+        || (message?.type === "executing" && message?.data?.node != null);
+      if (!started || !eventPromptId) return;
+      activePromptId = eventPromptId;
+      if (promptId === eventPromptId) notify("executing");
+    });
+  } catch {
+    socket = null;
+  }
+  return {
+    close() {
+      try {
+        socket?.close();
+      } catch {
+        // WebSocket 关闭失败不影响已经完成的结果。
+      }
+    },
+    ready,
+    phase() {
+      return lastPhase;
+    },
+    markExecuting() {
+      notify("executing");
+    },
+    setPromptId(value) {
+      promptId = String(value || "");
+      notify("queued");
+      if (activePromptId === promptId) notify("executing");
+    },
+  };
+}
+
 function dataImage(value) {
   const match = String(value || "").match(
     /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\r\n]+)$/,
@@ -113,8 +203,8 @@ function dataImage(value) {
   };
 }
 
-function outputImage(history) {
-  const preferred = history?.outputs?.[AI_TEXTURE_WORKFLOW.outputNodeId]?.images;
+function outputImage(history, outputNodeId) {
+  const preferred = history?.outputs?.[outputNodeId]?.images;
   if (Array.isArray(preferred) && preferred[0]?.filename) return preferred[0];
   for (const output of Object.values(history?.outputs || {})) {
     if (Array.isArray(output?.images) && output.images[0]?.filename) {
@@ -122,6 +212,13 @@ function outputImage(history) {
     }
   }
   return null;
+}
+
+function queueContainsPrompt(items, promptId) {
+  return Array.isArray(items) && items.some((item) => {
+    if (Array.isArray(item)) return String(item[1] || "") === promptId;
+    return String(item?.prompt_id || "") === promptId;
+  });
 }
 
 function executionTimes(history, queuedAt) {
@@ -146,7 +243,13 @@ function executionFailure(history) {
     : [];
   const failure = messages.find(([name]) =>
     ["execution_error", "execution_interrupted"].includes(name));
+  if (!failure) return null;
   const detail = failure?.[1]?.exception_message || failure?.[1]?.node_type;
+  const exceptionType = String(failure?.[1]?.exception_type || "");
+  const nodeType = String(failure?.[1]?.node_type || "ComfyUI 节点");
+  if (/OutOfMemory/i.test(exceptionType) || /out of memory/i.test(String(detail || ""))) {
+    return `${nodeType} GPU 显存不足（${exceptionType || "OutOfMemory"}）`;
+  }
   return String(detail || "ComfyUI 工作流执行失败").slice(0, 1000);
 }
 
@@ -155,6 +258,7 @@ function wait(milliseconds) {
 }
 
 export function createComfyUiClient({
+  artifactPrefix = aiTextureArtifactPrefix,
   baseUrl = process.env.COMFYUI_BASE_URL || DEFAULT_COMFYUI_BASE_URL,
   fetchImpl = globalThis.fetch,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
@@ -162,7 +266,10 @@ export function createComfyUiClient({
   randomSeed = () => randomInt(0, 2 ** 32),
   requestTimeoutMs = DEFAULT_TIMEOUT_MS,
   waitImpl = wait,
+  webSocketFactory = (url) => new WebSocket(url),
   workflowFactory = createAiTextureWorkflow,
+  workflowMetadataFactory = aiTextureWorkflowMetadata,
+  outputNodeId = AI_TEXTURE_WORKFLOW.outputNodeId,
 } = {}) {
   if (typeof fetchImpl !== "function") {
     throw new TypeError("ComfyUI client requires fetch");
@@ -242,20 +349,58 @@ export function createComfyUiClient({
     );
   }
 
-  async function waitForHistory(promptId, queuedAt, signal = null) {
-    const deadline = Date.now() + requestTimeoutMs;
-    while (Date.now() <= deadline) {
+  async function waitForHistory(
+    promptId,
+    queuedAt,
+    signal = null,
+    executionTimeoutMs = requestTimeoutMs,
+    queueTimeoutMs = null,
+    progressObserver = null,
+  ) {
+    const hasSeparateQueueTimeout = Number.isFinite(queueTimeoutMs);
+    const queueDeadline = queuedAt + (
+      hasSeparateQueueTimeout ? queueTimeoutMs : executionTimeoutMs
+    );
+    let executionDeadline = null;
+    const observeExecutionStart = () => {
+      if (progressObserver?.phase?.() === "executing" && executionDeadline === null) {
+        executionDeadline = Date.now() + executionTimeoutMs;
+      }
+    };
+    while (true) {
       signal?.throwIfAborted();
+      observeExecutionStart();
       const body = await requestJson(`history/${encodeURIComponent(promptId)}`, {
         retryGateway: true,
         signal,
       });
       const history = body?.[promptId];
       if (history) {
-        if (history.status?.completed && history.status?.status_str !== "success") {
-          throw new ComfyUiError(executionFailure(history), 502, "execution_failed");
+        const executionStarted = history.status?.messages?.find?.(
+          ([name]) => name === "execution_start",
+        )?.[1]?.timestamp;
+        if (Number.isFinite(executionStarted) && executionDeadline === null) {
+          executionDeadline = executionStarted + executionTimeoutMs;
         }
-        if (outputImage(history)) return history;
+        if (Number.isFinite(executionStarted)) progressObserver?.markExecuting?.();
+        const failure = executionFailure(history);
+        if (failure) {
+          throw new ComfyUiError(
+            `${failure}（Prompt ID：${promptId}）`,
+            502,
+            "execution_failed",
+            { promptId },
+          );
+        }
+        if (history.status?.completed && history.status?.status_str !== "success") {
+          throw new ComfyUiError(
+            `ComfyUI 工作流执行失败（Prompt ID：${promptId}）`,
+            502,
+            "execution_failed",
+            { promptId },
+          );
+        }
+        if (outputImage(history, outputNodeId)) return history;
         if (history.status?.completed) {
           throw new ComfyUiError(
             "ComfyUI 工作流已完成，但没有返回图片",
@@ -264,13 +409,47 @@ export function createComfyUiClient({
           );
         }
       }
+      if (hasSeparateQueueTimeout && executionDeadline === null) {
+        const queue = await requestJson("queue", {
+          retryGateway: true,
+          signal,
+        });
+        if (queueContainsPrompt(queue?.queue_running, promptId)) {
+          progressObserver?.markExecuting?.();
+          observeExecutionStart();
+        }
+      }
+      observeExecutionStart();
+      const now = Date.now();
+      if (executionDeadline !== null && now > executionDeadline) {
+        throw new ComfyUiError(
+          `ComfyUI 节点执行超时（Prompt ID：${promptId}）`,
+          504,
+          "execution_timeout",
+          { promptId },
+        );
+      }
+      if (executionDeadline === null && now > queueDeadline) {
+        if (!hasSeparateQueueTimeout) {
+          throw new ComfyUiError(
+            "ComfyUI 工作流执行超时",
+            504,
+            "execution_timeout",
+          );
+        }
+        throw new ComfyUiError(
+          `ComfyUI 排队超时，任务未开始执行（Prompt ID：${promptId}）`,
+          504,
+          "queue_timeout",
+          { promptId },
+        );
+      }
       await waitImpl(pollIntervalMs);
     }
-    throw new ComfyUiError("ComfyUI 工作流执行超时", 504, "execution_timeout");
   }
 
   async function downloadOutput(image, artifactKey, signal = null) {
-    const expectedPrefix = aiTextureArtifactPrefix(artifactKey);
+    const expectedPrefix = artifactPrefix(artifactKey);
     const outputFilename = String(image?.filename || "");
     if (!outputFilename.startsWith(`${expectedPrefix}_`)) {
       throw new ComfyUiError(
@@ -315,6 +494,7 @@ export function createComfyUiClient({
       throw new ComfyUiError("ComfyUI 输出图片超过 60MB", 502, "output_too_large");
     }
     return {
+      ...(readImageDimensions(bytes, contentType) || {}),
       outputFormat: contentType === "image/jpeg" ? "jpeg" : contentType.split("/")[1],
       outputFilename,
       outputSha256: createHash("sha256").update(bytes).digest("hex"),
@@ -335,7 +515,15 @@ export function createComfyUiClient({
       };
     },
 
-    async generateImage(generationRequest, { signal = null } = {}) {
+    async generateImage(
+      generationRequest,
+      {
+        executionTimeoutMs = requestTimeoutMs,
+        onProgress = null,
+        queueTimeoutMs = null,
+        signal = null,
+      } = {},
+    ) {
       signal?.throwIfAborted();
       const images = Array.isArray(generationRequest.images)
         ? generationRequest.images
@@ -354,58 +542,82 @@ export function createComfyUiClient({
       const resolution = String(generationRequest.resolution || "2K");
       const seed = randomSeed();
       const artifactKey = randomId();
-      const queuedAt = Date.now();
-      const prompt = workflowFactory({
+      const progressObserver = executionProgressObserver({
         artifactKey,
-        imageBase64: reference.bytes.toString("base64"),
-        height,
-        negativePrompt: generationRequest.negative_prompt,
-        prompt: generationRequest.prompt,
-        seed,
-        width,
+        onProgress,
+        serviceUrl,
+        webSocketFactory,
       });
-      const queued = await requestJson("prompt", {
-        body: JSON.stringify({ client_id: artifactKey, prompt }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-        signal,
-      });
-      if (!queued?.prompt_id) {
-        const validationError = promptValidationError(queued);
-        if (validationError) throw validationError;
-        throw new ComfyUiError(
-          "ComfyUI 没有返回 prompt_id",
-          502,
-          "empty_prompt_id",
-        );
-      }
-
-      const history = await waitForHistory(queued.prompt_id, queuedAt, signal);
-      const output = outputImage(history);
-      const downloaded = await downloadOutput(output, artifactKey, signal);
-      const times = executionTimes(history, queuedAt);
-      return {
-        created: times.created,
-        images: [{ url: downloaded.url }],
-        metadata: aiTextureWorkflowMetadata({
+      const queuedAt = Date.now();
+      try {
+        if (progressObserver.ready) await progressObserver.ready;
+        signal?.throwIfAborted();
+        const prompt = workflowFactory({
           artifactKey,
-          executionDurationMs: times.executionDurationMs,
+          generationRequest,
+          imageBase64: reference.bytes.toString("base64"),
           height,
-          negativePromptMode: String(
-            generationRequest.negative_prompt_mode || "default",
-          ),
-          outputFilename: downloaded.outputFilename,
-          outputSha256: downloaded.outputSha256,
-          promptId: queued.prompt_id,
-          queueDurationMs: times.queueDurationMs,
-          resolution,
+          negativePrompt: generationRequest.negative_prompt,
+          prompt: generationRequest.prompt,
           seed,
           width,
-        }),
-        outputFormat: downloaded.outputFormat,
-        quality: null,
-        transport: "comfyui-workflow",
-      };
+        });
+        const queued = await requestJson("prompt", {
+          body: JSON.stringify({ client_id: artifactKey, prompt }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+          signal,
+        });
+        if (!queued?.prompt_id) {
+          const validationError = promptValidationError(queued);
+          if (validationError) throw validationError;
+          throw new ComfyUiError(
+            "ComfyUI 没有返回 prompt_id",
+            502,
+            "empty_prompt_id",
+          );
+        }
+        progressObserver.setPromptId(queued.prompt_id);
+
+        const history = await waitForHistory(
+          queued.prompt_id,
+          queuedAt,
+          signal,
+          executionTimeoutMs,
+          queueTimeoutMs,
+          progressObserver,
+        );
+        const output = outputImage(history, outputNodeId);
+        const downloaded = await downloadOutput(output, artifactKey, signal);
+        const times = executionTimes(history, queuedAt);
+        return {
+          created: times.created,
+          images: [{ url: downloaded.url }],
+          metadata: workflowMetadataFactory({
+            actualOutputHeight: downloaded.height,
+            actualOutputWidth: downloaded.width,
+            artifactKey,
+            executionDurationMs: times.executionDurationMs,
+            generationRequest,
+            height,
+            negativePromptMode: String(
+              generationRequest.negative_prompt_mode || "default",
+            ),
+            outputFilename: downloaded.outputFilename,
+            outputSha256: downloaded.outputSha256,
+            promptId: queued.prompt_id,
+            queueDurationMs: times.queueDurationMs,
+            resolution,
+            seed,
+            width,
+          }),
+          outputFormat: downloaded.outputFormat,
+          quality: null,
+          transport: "comfyui-workflow",
+        };
+      } finally {
+        progressObserver.close();
+      }
     },
   };
 }

@@ -231,7 +231,7 @@ export async function publicEmptyRoomConfig(options = {}) {
   const smartDefault = await publicSingleAgentConfig({
     code: "empty-room-smart-default",
     config: EMPTY_ROOM_PROMPT_CONFIG,
-    description: "AI 根据空房空间自动完成布局、家具、材质与光线",
+    description: "AI 根据空间自主确定整体风格，统筹墙地顶、材质与灯光，并满足家具需求；有参考图时遵循参考风格",
     fallbackName: "空房智能默认 Agent",
     options,
   });

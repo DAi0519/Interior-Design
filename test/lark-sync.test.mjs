@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部可写字段类型/单选值/附件 ID、真实产物尺寸替代请求尺寸、含 Seedream 5.0 Pro 的前后台模型目录同步、产品链路 Schema/空间类型/其他空间类型/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
+ * [OUTPUT]: 对外提供全部可写字段类型/单选值/附件 ID、真实产物尺寸替代请求尺寸、含 Seedream 5.0 Pro 的前后台模型目录同步、产品链路 Schema/空间类型/其他空间类型/家具选择/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -43,6 +43,7 @@ function validSyncSchemaFields() {
     ...[
       "Agent 编码",
       "其他空间类型",
+      "家具选择",
       "原始 Prompt",
       "尺寸",
       "标题",

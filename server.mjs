@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同前置准入、生成、下载、批量新 Base 归档、Benchmark 执行与评分入口
- * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI、新旧飞书 Base 与三套工作台边界
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分）、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
+ * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -16,11 +16,12 @@ import {
   publicAgentModelCatalog,
 } from "./src/agent-model-config.mjs";
 import { createComfyUiClient } from "./src/comfyui-client.mjs";
+import { EMPTY_ROOM_FURNITURE, OTHER_FURNITURE_MAX_LENGTH } from "./src/empty-room-furniture.mjs";
 import {
   EMPTY_ROOM_TYPES,
   EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
 } from "./src/empty-room-type.mjs";
-import { createBetaBaseStore } from "./src/beta-base.mjs";
+import { captureBetaGenerationArchive, createBetaBaseStore } from "./src/beta-base.mjs";
 import {
   createBetaApiHandler,
   createBetaRunnerService,
@@ -29,6 +30,13 @@ import { publicEffectEnhancementPromptConfig } from "./src/effect-render-enhance
 import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
+import {
+  IMAGE_UPSCALE_OUTPUT_NODE_ID,
+  createImageUpscaleWorkflow,
+  imageUpscaleArtifactPrefix,
+  imageUpscaleWorkflowMetadata,
+  publicImageUpscaleConfig,
+} from "./src/image-upscale-workflow.mjs";
 import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import { imageProviderForModel, publicModelCatalog } from "./src/model-config.mjs";
 import {
@@ -101,6 +109,12 @@ const generationJobs = createGenerationJobRegistry();
 const benchmarkJobs = createBenchmarkJobRegistry();
 const larkSetup = createLarkSetupService();
 const comfyUiClient = createComfyUiClient();
+const imageUpscaleClient = createComfyUiClient({
+  artifactPrefix: imageUpscaleArtifactPrefix,
+  outputNodeId: IMAGE_UPSCALE_OUTPUT_NODE_ID,
+  workflowFactory: createImageUpscaleWorkflow,
+  workflowMetadataFactory: imageUpscaleWorkflowMetadata,
+});
 const whiteModelPromptResultCache = createAsyncTtlCache({
   maxEntries: WHITE_MODEL_PROMPT_CACHE_MAX_ENTRIES,
   ttlMs: WHITE_MODEL_PROMPT_CACHE_TTL_MS,
@@ -299,6 +313,7 @@ function scheduleGenerationSync(input) {
 const generationService = createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
+  imageUpscaleClient,
   promptResultCache: whiteModelPromptResultCache,
   requireApiKey,
   scheduleGenerationSync,
@@ -306,9 +321,10 @@ const generationService = createGenerationService({
 const betaGenerationService = createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
+  imageUpscaleClient,
   promptResultCache: whiteModelPromptResultCache,
   requireApiKey,
-  scheduleGenerationSync: () => ({ generationId: null, status: "skipped" }),
+  scheduleGenerationSync: captureBetaGenerationArchive,
 });
 const betaRunner = createBetaRunnerService({
   baseStore: createBetaBaseStore(),
@@ -346,6 +362,15 @@ function serveStatic(response, pathname) {
 async function handleApi(request, response, pathname) {
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;
+
+  if (request.method === "GET" && pathname === "/api/image-upscale/config") {
+    const comfyUi = await imageUpscaleClient.checkHealth().catch((error) => ({
+      available: false,
+      error: error.message,
+      version: null,
+    }));
+    return sendJson(response, 200, { ...publicImageUpscaleConfig(), comfyUi });
+  }
 
   const benchmarkCancelMatch = pathname.match(/^\/api\/benchmark\/jobs\/([^/]+)\/cancel$/);
   if (request.method === "POST" && benchmarkCancelMatch) {
@@ -494,6 +519,8 @@ async function handleApi(request, response, pathname) {
       agentModels: publicAgentModelCatalog(),
       emptyRoomTypeDetailMaxLength: EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
       emptyRoomTypes: EMPTY_ROOM_TYPES,
+      emptyRoomFurniture: EMPTY_ROOM_FURNITURE,
+      otherFurnitureMaxLength: OTHER_FURNITURE_MAX_LENGTH,
       models: publicModelCatalog(),
       referenceImage: REFERENCE_IMAGE_POLICY,
     });

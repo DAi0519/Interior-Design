@@ -1,11 +1,17 @@
 /**
- * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、同源图片下载接口、结果区 DOM 与 Toast 回调
- * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、总耗时/ComfyUI 分段耗时、逐图下载和独立飞书同步轮询
- * [POS]: public 的生成结果呈现层，承接单模型最多四张或最多四模型的成功与部分失败结果
+ * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、浏览器 Blob 与同源远程图片下载接口、结果区 DOM 与 Toast 回调
+ * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
+ * [POS]: public 的生成结果呈现层，承接单模型最多四张或最多四模型的成功与部分失败结果并隔离下载传输策略
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { resultMetadata, secureImageUrl } from "./workbench-utils.js";
+
+const DOWNLOAD_EXTENSIONS = Object.freeze({
+  jpeg: "jpg",
+  png: "png",
+  webp: "webp",
+});
 
 function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -19,6 +25,86 @@ export function downloadFileNameFromHeader(value) {
   } catch {
     return "生成结果.png";
   }
+}
+
+export function generatedClientImageFileName(
+  modelLabel,
+  outputFormat,
+  now = new Date(),
+) {
+  const format = String(outputFormat || "").toLowerCase();
+  if (!DOWNLOAD_EXTENSIONS[format]) throw new Error("不支持下载这个图片格式");
+  const model = String(modelLabel || "生成结果")
+    .trim()
+    .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60) || "生成结果";
+  const timestamp = now.toISOString().replace(/\.\d{3}Z$/, "Z").replace(/[:]/g, "-");
+  return `${model}-${timestamp}.${DOWNLOAD_EXTENSIONS[format]}`;
+}
+
+export function isInlineImageUrl(value) {
+  return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(value || ""));
+}
+
+export function inlineImageBlob(
+  value,
+  {
+    BlobType = Blob,
+    decodeBase64 = (chunk) => atob(chunk),
+  } = {},
+) {
+  const match = String(value || "").match(
+    /^data:(image\/(?:png|jpe?g|webp));base64,([a-z0-9+/=\s]+)$/i,
+  );
+  if (!match) throw new Error("浏览器中的图片数据无效");
+  const base64 = match[2].replace(/\s/g, "");
+  const chunks = [];
+  const base64ChunkSize = 4 * 1024 * 1024;
+  for (let offset = 0; offset < base64.length; offset += base64ChunkSize) {
+    const decoded = decodeBase64(base64.slice(offset, offset + base64ChunkSize));
+    const bytes = new Uint8Array(decoded.length);
+    for (let index = 0; index < decoded.length; index += 1) {
+      bytes[index] = decoded.charCodeAt(index);
+    }
+    chunks.push(bytes);
+  }
+  return new BlobType(chunks, { type: match[1].toLowerCase() });
+}
+
+export async function prepareBrowserImageDownload(
+  { imageUrl, modelLabel, outputFormat },
+  {
+    createObjectUrl = (blob) => URL.createObjectURL(blob),
+    createInlineBlob = (value) => inlineImageBlob(value),
+    fetchImpl = (...args) => fetch(...args),
+    now = new Date(),
+  } = {},
+) {
+  if (isInlineImageUrl(imageUrl)) {
+    return {
+      fileName: generatedClientImageFileName(modelLabel, outputFormat, now),
+      objectUrl: createObjectUrl(createInlineBlob(imageUrl)),
+      transport: "inline",
+    };
+  }
+
+  const response = await fetchImpl("/api/image-download", {
+    body: JSON.stringify({ imageUrl, modelLabel, outputFormat }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `下载失败（${response.status}）`);
+  }
+  return {
+    fileName: downloadFileNameFromHeader(response.headers.get("Content-Disposition")),
+    objectUrl: createObjectUrl(await response.blob()),
+    transport: "proxy",
+  };
 }
 
 export function bindGenerationResults({ api, showToast }) {
@@ -77,27 +163,16 @@ export function bindGenerationResults({ api, showToast }) {
     button.disabled = true;
     button.textContent = "准备中";
     try {
-      const response = await fetch("/api/image-download", {
-        body: JSON.stringify({
-          imageUrl: result.images[0].url,
-          modelLabel,
-          outputFormat: result.request.outputFormat,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
+      const download = await prepareBrowserImageDownload({
+        imageUrl: result.images[0].url,
+        modelLabel,
+        outputFormat: result.request.outputFormat,
       });
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `下载失败（${response.status}）`);
-      }
-      const objectUrl = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
-      link.download = downloadFileNameFromHeader(
-        response.headers.get("Content-Disposition"),
-      );
-      link.href = objectUrl;
+      link.download = download.fileName;
+      link.href = download.objectUrl;
       link.click();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      window.setTimeout(() => URL.revokeObjectURL(download.objectUrl), 1000);
       showToast("图片已开始下载");
     } catch (error) {
       showToast(`下载失败：${error.message}`);

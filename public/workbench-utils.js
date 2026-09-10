@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
- * [OUTPUT]: 对外提供同源 JSON API、HTML/比例格式化、图片地址/文件读取、字节、含 Flux 负向 Prompt 模式的结果摘要与 ComfyUI 分段耗时格式化及原生下拉填充工具
+ * [OUTPUT]: 对外提供同源 JSON API、HTML/比例格式化、图片地址/文件读取、字节、含图片超分本机结果/Flux 负向 Prompt 模式的结果摘要与 ComfyUI 分段耗时格式化及原生下拉填充工具
  * [POS]: public 的无状态浏览器基础设施，被生成、Benchmark 与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -68,7 +68,9 @@ export async function readFileAsInput(file) {
 
 export function resultMetadata(result, sync = result.sync) {
   const syncLabel =
-    sync?.status === "success"
+    result.request?.syncMode === "local-only"
+      ? "仅 ComfyUI 本机结果"
+      : sync?.status === "success"
       ? "已同步飞书"
       : sync?.status === "failed"
         ? "飞书同步失败"

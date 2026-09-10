@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖日常生成任务注册表、统一 generation-service、飞书同步合同预检、JSON 读写函数与浏览器生成任务请求
- * [OUTPUT]: 对外提供原 `/api/generation-jobs` 入队和查询处理器，在任何付费生成前阻断飞书 Schema 漂移，并保持 1–4 项、有界并发与 Prompt 强制刷新语义
+ * [OUTPUT]: 对外提供 `/api/generation-jobs` 入队和查询处理器，在需归档的付费生图前阻断飞书 Schema 漂移，同时允许不归档的纯 ComfyUI 图片超分、阶段进度与 Prompt ID，并保持 1–4 项、有界并发与 Prompt 强制刷新语义
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ const FEATURE_MODES = new Set([
   "effectEnhancement",
   "emptyRoom",
   "free",
+  "imageUpscale",
   "refinedModel",
   "whiteModel",
 ]);
@@ -53,20 +54,26 @@ export function createGenerationJobApiHandler({
       sendJson(response, 400, { error: "生成任务需要 1–4 个生成项" });
       return true;
     }
-    try {
-      await verifySyncContract();
-    } catch (error) {
-      sendJson(response, 409, {
-        error: `飞书同步合同未通过，已阻止生成：${String(error?.message || "Schema 不兼容")}`,
-      });
-      return true;
+    if (featureMode !== "imageUpscale") {
+      try {
+        await verifySyncContract();
+      } catch (error) {
+        sendJson(response, 409, {
+          error: `飞书同步合同未通过，已阻止生成：${String(error?.message || "Schema 不兼容")}`,
+        });
+        return true;
+      }
     }
     const sharedInput = body.sharedInput && typeof body.sharedInput === "object"
       ? body.sharedInput
       : {};
     const job = generationJobs.enqueue(
       jobId,
-      { featureMode, total: items.length },
+      {
+        featureMode,
+        stages: featureMode === "imageUpscale" ? { comfyUi: "submitting" } : null,
+        total: items.length,
+      },
       async (update) => ({
         outcomes: await runGenerationJobBatch({
           concurrency: body.forcePromptRegeneration ? 1 : 2,
@@ -83,6 +90,17 @@ export function createGenerationJobApiHandler({
               batchIndex: index + 1,
               forcePromptRegeneration:
                 Boolean(body.forcePromptRegeneration) && index === 0,
+            }, {
+              onProgress(progress) {
+                if (featureMode !== "imageUpscale") return;
+                update({
+                  message: progress.message,
+                  stages: {
+                    comfyUi: progress.phase,
+                    promptId: progress.promptId || null,
+                  },
+                });
+              },
             });
           },
         }),

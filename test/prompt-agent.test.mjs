@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/空房双模式/反推展示名派生、脱敏已上架目录、独立空房双配置、版本选择、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/空房双模式/反推展示名派生、脱敏已上架目录、独立空房双配置与自主风格说明、版本选择、System Prompt 与分页边界回归保障
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -177,7 +177,7 @@ test("空房设计独立表向前端公开智能默认与融合版本目录", as
     },
     smartDefault: {
       available: true,
-      description: "AI 根据空房空间自动完成布局、家具、材质与光线",
+      description: "AI 根据空间自主确定整体风格，统筹墙地顶、材质与灯光，并满足家具需求；有参考图时遵循参考风格",
       name: "空房智能默认 Agent",
       version: 1,
     },

@@ -398,3 +398,22 @@ test("批量图片资产只传一次并在执行前恢复到每个 Run", async (
   await waitForJob(service, jobId);
   assert.deepEqual(seen, ["a.png", "a.png"]);
 });
+
+
+test("空房混合房型逐图保存，缺失或非法详情在建档前拒绝", async () => {
+  const service = createBetaRunnerService({
+    baseStore: { config: {}, createSampleSet: async (input) => input }, generationService: {},
+  });
+  const image = { dataUrl: "data:image/png;base64,YQ==", type: "image/png" };
+  const body = { featureMode: "emptyRoom", name: "混合空间", samples: [
+    { image, roomType: "客厅" }, { image, roomType: "卧室" },
+    { image, roomType: "其他", roomTypeDetail: "  衣帽间  " },
+  ] };
+  const result = await service.createSampleSet(body);
+  assert.deepEqual(result.samples.map(({ roomType, roomTypeDetail }) => [roomType, roomTypeDetail]),
+    [["客厅", ""], ["卧室", ""], ["其他", "衣帽间"]]);
+  for (const sample of [{ image }, { image, roomType: "未知" },
+    { image, roomType: "其他" }, { image, roomType: "其他", roomTypeDetail: "长".repeat(41) }]) {
+    assert.throws(() => service.createSampleSet({ ...body, samples: [sample] }), /第 1 个样本需要有效房间类型/);
+  }
+});
