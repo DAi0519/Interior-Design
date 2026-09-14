@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP/WebSocket 响应由内存替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 推理与输出尺寸、正向 Prompt 原样注入/默认负向 Prompt、Base64 图片原子提交、带 Prompt ID 的排队/执行阶段、WebSocket 丢事件时的实时队列兜底、独立超时与 completed=false OOM 即时失败、网关抖动恢复、节点错误诊断、请求级产物命名/旧实例同名图拒绝、多实例输出读取恢复、输出归一化/指纹和参考图边界回归保障
+ * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 原生输出与同图 2K→4K/6K 攸行超分、Prompt 注入、原子提交、阶段/超时/OOM 诊断、产物身份及参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -108,6 +108,44 @@ test("工作流固定使用 9B FP8、7 steps 并接受 2K 目标尺寸", () => {
   assert.equal(
     workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.height,
     1152,
+  );
+});
+
+test("Flux 4K/6K 把 2K 生成结果直接接入同一 Prompt 图的攸行 SeedVR2", () => {
+  const workflow = createAiTextureWorkflow({
+    artifactKey: "flux-upscale-4k",
+    generationRequest: {
+      upscale_height: 2304,
+      upscale_resolution: "4K",
+      upscale_width: 4096,
+      upscale_workflow_key: "youxing_seedvr2_3b",
+    },
+    height: 1536,
+    imageBase64: "example-base64",
+    prompt: "保持空间结构",
+    resolution: "4K",
+    seed: 42,
+    width: 2720,
+  });
+
+  assert.equal(
+    workflow["ImageResize+-6348ae83bed7de73d2de60a62eb38a93"].inputs.width,
+    2720,
+  );
+  assert.deepEqual(
+    workflow["SeedVR2-Upscaler"].inputs.image,
+    ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0],
+  );
+  assert.equal(workflow["SeedVR2-DiT"].inputs.model,
+    "seedvr2_ema_3b_fp8_e4m3fn.safetensors");
+  assert.equal(workflow["SeedVR2-DiT"].inputs.cache_model, true);
+  assert.equal(workflow["SeedVR2-DiT"].inputs.offload_device, "cuda:0");
+  assert.equal(workflow["SeedVR2-VAE"].inputs.cache_model, true);
+  assert.equal(workflow["SeedVR2-Upscaler"].inputs.resolution, 2304);
+  assert.equal(workflow["SeedVR2-Upscaler"].inputs.max_resolution, 4096);
+  assert.deepEqual(
+    workflow[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.images,
+    ["SeedVR2-Upscaler", 0],
   );
 });
 

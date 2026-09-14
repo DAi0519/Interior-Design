@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert/fs、Flux 负向 Prompt 前端控制器/输入映射、模型请求构造器、ComfyUI 工作流工厂与结果摘要
- * [OUTPUT]: 对外提供默认负向不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记回归保障
+ * [OUTPUT]: 对外提供默认负向不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、同图攸行超分与追溯元数据结果标记回归保障
  * [POS]: test 的 Flux 负向 Prompt 端到端静态/纯函数合同测试，不提交真实生图任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -140,6 +140,18 @@ test("OneAPI 不接收 Flux 负向字段，结果摘要标记生效模式", () =
     upstream: { metadata: { engine: "comfyui", negativePromptMode: "custom" } },
   }, { status: "pending" });
   assert.match(summary, /自定义负向/);
+
+  const upscaleSummary = resultMetadata({
+    request: { outputFormat: "png", referenceImageCount: 1, size: "4096x2304" },
+    upstream: {
+      metadata: {
+        engine: "comfyui",
+        negativePromptMode: "default",
+        upscaleResolution: "4K",
+      },
+    },
+  }, { status: "pending" });
+  assert.match(upscaleSummary, /2K→攸行 4K/);
 });
 
 test("工作台与 ComfyUI 客户端完成负向字段接线", async () => {

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图美化 Prompt 模块解析器与可注入的工作流边界
- * [OUTPUT]: 对外提供当前上架版本回显、天气/时段 UI、受控枚举及请求字段、固定 JSON Schema、默认时段天气与夜景外景深暗强锁、任一环境覆盖即退出默认模块的正向 Prompt 顺序、单图、原图比例、脱敏响应与归档元数据回归保障
- * [POS]: test 的效果图美化专项测试，所有外部 API 与飞书同步均使用内存替身
+ * [OUTPUT]: 对外提供当前上架版本回显、效果图天气/时段 UI、全景图入口及默认 Prompt 后置连续性约束、受控请求字段、单图、原图比例、脱敏响应与归档元数据回归保障
+ * [POS]: test 的效果图/全景图美化专项测试，所有外部 API 与飞书同步均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -13,6 +13,8 @@ import { effectEnhancementPromptStatus } from "../public/config-refresh.js";
 import { buildGenerationInput } from "../public/generation-input.js";
 import {
   composeEffectEnhancementPrompt,
+  composePanoramaEnhancementPrompt,
+  PANORAMA_CONTINUITY_PROMPT,
   parseEffectEnhancementPrompt,
   publicEffectEnhancementPromptConfig,
 } from "../src/effect-render-enhancement-prompt.mjs";
@@ -61,6 +63,16 @@ test("工作台提供效果图美化与完整天气时段选项", async () => {
   assert.match(html, /id="effectWeatherSelect"[\s\S]*?value="preserve"[\s\S]*?value="clear"[\s\S]*?value="overcast"[\s\S]*?value="rainy"[\s\S]*?value="foggy"/);
   assert.match(app, /effectTime:\s*elements\.effectTimeSelect\.value/);
   assert.match(app, /effectWeather:\s*elements\.effectWeatherSelect\.value/);
+});
+
+test("工作台提供独立全景图美化入口且不暴露环境覆盖控件", async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /data-feature-mode="panoramaEnhancement"[^>]*>[\s\S]*?全景图美化/);
+  assert.match(app, /isPanoramaEnhancement = featureMode === "panoramaEnhancement"/);
+  assert.match(app, /effectEnhancementSection\.classList\.toggle\("hidden", !isEffectEnhancement\)/);
 });
 
 test("效果图美化只回显实际生效的最高已上架版本且不泄露正文", async () => {
@@ -134,6 +146,34 @@ test("效果图美化输入只提交受控选项与单图，不提交页面 Prom
   assert.equal("styleReferenceImages" in input, false);
 });
 
+test("全景图美化只提交单图与固定功能模式，不提交页面或环境 Prompt", () => {
+  const image = { dataUrl: onePixelPng, name: "panorama.png", size: 68, type: "image/png" };
+  const input = buildGenerationInput({
+    effectTime: "night",
+    effectWeather: "rainy",
+    emptyRoomFields: {},
+    featureMode: "panoramaEnhancement",
+    model: { key: "gptImage2", qualityOptions: [] },
+    prompt: { free: "页面自由 Prompt", refined: "精模要求" },
+    promptAgentModelKey: "gemini3pro",
+    promptAgentVersion: 2,
+    promptVersion: 3,
+    quality: "",
+    ratio: "2:1",
+    ratioMode: "auto",
+    referenceImages: [image],
+    renderMode: { mode: "smart-default" },
+    resolution: "2K",
+    styleReferenceImages: [],
+  });
+
+  assert.equal(input.featureMode, "panoramaEnhancement");
+  assert.equal(input.prompt, "");
+  assert.equal("effectTime" in input, false);
+  assert.equal("effectWeather" in input, false);
+  assert.deepEqual(input.referenceImages, [image]);
+});
+
 test("JSON 模块中默认光照与环境契约互斥，时段始终在天气之前", () => {
   const modules = parseEffectEnhancementPrompt(sourcePrompt);
   assert.equal(Object.keys(modules).length, 10);
@@ -189,6 +229,19 @@ test("Prompt 只接受固定 JSON Schema 并保留基础模块旧标题", () => 
     })),
     /JSON 结构错误/,
   );
+});
+
+test("全景图美化严格复用效果图默认 Prompt 并在末尾追加连续性约束", () => {
+  const defaultPrompt = composeEffectEnhancementPrompt(sourcePrompt);
+  const panoramaPrompt = composePanoramaEnhancementPrompt(sourcePrompt);
+  assert.equal(
+    panoramaPrompt,
+    `${defaultPrompt}\n\n${PANORAMA_CONTINUITY_PROMPT}`,
+  );
+  assert.match(panoramaPrompt, /same-condition restoration/);
+  assert.match(panoramaPrompt, /left and right edges as physically adjacent/);
+  assert.match(panoramaPrompt, /seamless horizontal wrap-around/);
+  assert.doesNotMatch(panoramaPrompt, /\[CONTRACT\]|\[TIME:|\[WEATHER:/);
 });
 
 test("JSON 模块缺失、错型或乱序时拒绝生成", () => {
@@ -294,4 +347,52 @@ test("美化工作流拒绝缺图和多图", async () => {
     ),
     /需要且只允许 1 张/,
   );
+});
+
+test("全景图美化工作流追加连续性 Prompt 并独立归档功能", async () => {
+  let generatedRequest;
+  let syncedInput;
+  await executeEffectRenderEnhancementWorkflow({
+    featureMode: "panoramaEnhancement",
+    modelKey: "gptImage2",
+    outputFormat: "png",
+    ratio: "2:1",
+    ratioMode: "auto",
+    referenceImages: [{
+      dataUrl: onePixelPng,
+      name: "panorama.png",
+      size: Buffer.from(onePixelPng.split(",")[1], "base64").length,
+      type: "image/png",
+    }],
+    resolution: "2K",
+  }, {
+    imageClient: {
+      async generateImage(request) {
+        generatedRequest = request;
+        return {
+          created: 1,
+          images: [{ url: "data:image/png;base64,aQ==" }],
+          outputFormat: "png",
+          transport: "responses",
+        };
+      },
+    },
+    loadPrompt: async () => ({
+      code: "effect-render-enhancement",
+      name: "效果图美化完整模块 Prompt",
+      prompt: sourcePrompt,
+      published: true,
+      version: 1,
+    }),
+    scheduleSync(value) {
+      syncedInput = value;
+      return { generationId: "generation-panorama-1", status: "pending" };
+    },
+  });
+
+  assert.match(generatedRequest.prompt, /same-condition restoration/);
+  assert.match(generatedRequest.prompt, /seamless horizontal wrap-around/);
+  assert.equal(syncedInput.workflow.effectTime, "preserve");
+  assert.equal(syncedInput.workflow.effectWeather, "preserve");
+  assert.equal(syncedInput.workflow.feature, "panorama-render-enhancement");
 });

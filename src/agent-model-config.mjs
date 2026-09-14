@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖公司 Model Link 当前模型目录、2026-07-28 图片输入探针与 2026-08-04 Seed 2.0 路由别名
+ * [INPUT]: 依赖公司 Model Link 当前模型目录、2026-07-28 图片输入探针、2026-08-04 Seed 2.0 路由别名与 2026-09-11 DeepSeek Flash 图片输入探针
  * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器
  * [POS]: src 的 Prompt Agent 模型白名单，区分“接口存在”与“可读取白模图片”
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -13,6 +13,14 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     label: "DeepSeek 4 Pro",
     note: "当前公司路由仅接受文本输入",
     shortLabel: "DeepSeek 4 Pro",
+  },
+  deepseekFlash: {
+    accent: "purple",
+    id: "deepseek-flash",
+    imageInput: true,
+    label: "DeepSeek V4.1 Flash",
+    note: "已通过 Responses 图片输入探针",
+    shortLabel: "DeepSeek V4.1 Flash",
   },
   gemini3pro: {
     accent: "blue",

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖房型/家具输入控制器、生图页面区块与当前功能
- * [OUTPUT]: 对外提供空房类型及家具请求合同、必填校验与空房专属输入顺序和高级设置折叠
+ * [OUTPUT]: 对外提供空房类型及家具请求合同、必填校验与空房专属输入顺序和直接显示的 Agent 配置
  * [POS]: public 的设计输入组合层，保持主 app 编排器精简并隔离其他功能布局
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,7 +15,6 @@ export function bindDesignInputs({ root, onChange }) {
   const parent = root.closest(".control-panel-scroll");
   const originalOrder = [...parent.children];
   const agent = byId("promptAgentSection");
-  const advanced = byId("emptyRoomAdvanced");
   const prompt = byId("promptInput");
   const label = document.querySelector('label[for="promptInput"]');
   const emptyOrder = [byId("referenceInput").closest("section"), byId("emptyRoomTypeSection"),
@@ -35,9 +34,8 @@ export function bindDesignInputs({ root, onChange }) {
       if (empty) {
         let previous = originalOrder[0];
         for (const section of emptyOrder) { previous.after(section); previous = section; }
-        advanced.append(agent);
+        previous.after(agent);
       }
-      advanced.classList.toggle("hidden", !empty);
       if (empty) furniture.setRoomType(type.value());
       else byId("emptyRoomFurnitureSection").classList.add("hidden");
       byId("promptTitle").textContent = empty ? "补充要求（可选）" : "提示词";

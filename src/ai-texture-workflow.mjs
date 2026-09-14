@@ -1,16 +1,21 @@
 /**
- * [INPUT]: 依赖 Flux2 Klein ComfyUI API 工作流的 Flux2 节点、默认 9B FP8/7 steps 参数、1K/2K 目标宽高、外部正向 Prompt、可选自定义负向 Prompt 与系统默认回退、参考图 Base64、运行时随机种子与单次请求产物键
- * [OUTPUT]: 对外提供分辨率受控且使用默认模型参数的版本化 Flux2 Klein 工作流工厂、请求级唯一产物前缀、稳定输入输出节点与可归档工作流/产物指纹元数据
- * [POS]: src 的 ComfyUI 工作流定义，仅描述机器执行图，不负责网络提交、轮询或图片下载
+ * [INPUT]: 依赖 Flux2 Klein 节点、默认 9B FP8/7 steps 与 1K/2K 推理尺寸、攸行 SeedVR2 3B 可嵌入超分阶段、外部正负 Prompt、参考图 Base64、运行时种子与请求产物键
+ * [OUTPUT]: 对外提供 1K/2K 原生输出及同一 Prompt 图内 2K→4K/6K 攸行超分的 Flux2 Klein 工作流工厂、唯一产物前缀和可归档双阶段元数据
+ * [POS]: src 的 Flux ComfyUI 工作流定义，组合生成与可选超分机器执行图，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import {
+  IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+  createSeedVrUpscaleStage,
+} from "./image-upscale-workflow.mjs";
 
 export const AI_TEXTURE_WORKFLOW = Object.freeze({
   id: "ai-texture-enhancement",
   label: "Flux2 Klein",
   model: "flux-2-klein-9b-fp8.safetensors",
   outputNodeId: "72",
-  version: "2026-09-02.1",
+  version: "2026-09-14.1",
 });
 
 export const AI_TEXTURE_DEFAULTS = Object.freeze({
@@ -48,6 +53,7 @@ export function aiTextureArtifactPrefix(artifactKey) {
 
 export function createAiTextureWorkflow({
   artifactKey,
+  generationRequest,
   height = 2048,
   imageBase64,
   negativePrompt,
@@ -60,7 +66,7 @@ export function createAiTextureWorkflow({
   }
   const resolvedNegativePrompt = resolveAiTextureNegativePrompt(negativePrompt);
   const artifactPrefix = aiTextureArtifactPrefix(artifactKey);
-  return {
+  const nodes = {
     "71": {
       class_type: "easy loadImageBase64",
       inputs: {
@@ -209,11 +215,36 @@ export function createAiTextureWorkflow({
       inputs: { image: ["ImageResize+-a38908ad3622430bf340597ca425274c", 0] },
     },
   };
+  const upscaleResolution = String(generationRequest?.upscale_resolution || "");
+  if (upscaleResolution) {
+    const stage = createSeedVrUpscaleStage({
+      generationRequest: {
+        upscaleWorkflowKey: generationRequest.upscale_workflow_key
+          || IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+      },
+      height: Number(generationRequest.upscale_height),
+      image: ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0],
+      nodeIds: {
+        dit: "SeedVR2-DiT",
+        preprocess: "SeedVR2-Preprocess",
+        upscaler: "SeedVR2-Upscaler",
+        vae: "SeedVR2-VAE",
+      },
+      seed,
+      width: Number(generationRequest.upscale_width),
+    });
+    Object.assign(nodes, stage.nodes);
+    nodes[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.images = stage.output;
+  }
+  return nodes;
 }
 
 export function aiTextureWorkflowMetadata({
+  actualOutputHeight,
+  actualOutputWidth,
   artifactKey,
   executionDurationMs,
+  generationRequest,
   height,
   negativePromptMode,
   outputFilename,
@@ -224,6 +255,7 @@ export function aiTextureWorkflowMetadata({
   seed,
   width,
 }) {
+  const upscaleResolution = String(generationRequest?.upscale_resolution || "") || null;
   return {
     artifactKey,
     engine: "comfyui",
@@ -233,12 +265,18 @@ export function aiTextureWorkflowMetadata({
     model: AI_TEXTURE_DEFAULTS.model,
     negativePromptMode,
     outputFilename,
+    outputHeight: actualOutputHeight || Number(generationRequest?.upscale_height) || height,
     outputSha256,
+    outputWidth: actualOutputWidth || Number(generationRequest?.upscale_width) || width,
     promptId,
     queueDurationMs,
     resolution,
     seed,
     steps: AI_TEXTURE_DEFAULTS.steps,
+    upscaleResolution,
+    upscaleWorkflowKey: upscaleResolution
+      ? generationRequest?.upscale_workflow_key || IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY
+      : null,
     workflowId: AI_TEXTURE_WORKFLOW.id,
     workflowVersion: AI_TEXTURE_WORKFLOW.version,
   };

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
- * [OUTPUT]: 对外提供需归档生图的前台飞书同步合同阻断及图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、分功能加载文案与批任务只传一份图片载荷的回归保障
+ * [OUTPUT]: 对外提供需归档生图的前台飞书同步合同阻断及图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、含全景图美化的分功能加载文案与批任务只传一份图片载荷的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -143,4 +143,20 @@ test("效果图美化显示天气时段专用加载文案", () => {
     renderMode: "smart-default",
     styleReferenceCount: 0,
   }), /时段与天气规则/);
+});
+
+test("全景图美化显示连续性专用加载文案", () => {
+  assert.match(generationLoadingCopy({
+    designPromptRequest: false,
+    effectEnhancementRequest: false,
+    panoramaEnhancementRequest: true,
+    emptyRoomRequest: false,
+    forcePromptRegeneration: false,
+    generationCount: 1,
+    models: [{ label: "Seedream 5.0" }],
+    refinedModelRequest: false,
+    refinedPrompt: "",
+    renderMode: "smart-default",
+    styleReferenceCount: 0,
+  }), /全景连续性规则/);
 });

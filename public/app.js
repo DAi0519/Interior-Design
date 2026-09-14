@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、效果图美化天气/时段受控选项、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、无需 OneAPI/飞书的纯 ComfyUI 图片超分、按功能恢复的生成中/结果状态、效果图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、效果图美化天气/时段及全景图美化固定默认选项、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、无需 OneAPI/飞书的纯 ComfyUI 图片超分、按功能恢复的生成中/结果状态、效果图/全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -178,6 +178,7 @@ function selectFeatureMode(featureMode) {
     "emptyRoom",
     "free",
     "imageUpscale",
+    "panoramaEnhancement",
     "refinedModel",
     "styleDna",
     "whiteModel",
@@ -188,6 +189,7 @@ function selectFeatureMode(featureMode) {
   const isEmptyRoom = featureMode === "emptyRoom";
   const isDesignModel = isWhiteModel || isEmptyRoom;
   const isEffectEnhancement = featureMode === "effectEnhancement";
+  const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
   const isImageUpscale = featureMode === "imageUpscale";
@@ -234,7 +236,7 @@ function selectFeatureMode(featureMode) {
     isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle(
-    "hidden", isRefinedModel || isEffectEnhancement || isImageUpscale,
+    "hidden", isRefinedModel || isEffectEnhancement || isPanoramaEnhancement || isImageUpscale,
   );
   elements.ratioField.classList.toggle("hidden", isImageUpscale);
   elements.generationCountField.classList.toggle("hidden", isImageUpscale);
@@ -469,6 +471,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const designPromptRequest = whiteModelRequest || emptyRoomRequest;
   const refinedModelRequest = featureMode === "refinedModel";
   const effectEnhancementRequest = featureMode === "effectEnhancement";
+  const panoramaEnhancementRequest = featureMode === "panoramaEnhancement";
   const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
   if (roomTypeValidation?.message) {
     emptyRoomType.focusInvalid();
@@ -530,8 +533,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
-  if (effectEnhancementRequest && referenceImages().length !== 1) {
-    showToast("效果图美化需要且只允许 1 张待美化效果图");
+  if ((effectEnhancementRequest || panoramaEnhancementRequest)
+    && referenceImages().length !== 1) {
+    showToast(panoramaEnhancementRequest
+      ? "全景图美化需要且只允许 1 张待美化全景图"
+      : "效果图美化需要且只允许 1 张待美化效果图");
     return;
   }
   if (
@@ -560,6 +566,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     designPromptRequest,
     emptyRoomRequest,
     effectEnhancementRequest,
+    panoramaEnhancementRequest,
     forcePromptRegeneration,
     generationCount: generationCount.value(),
     models,
@@ -742,7 +749,9 @@ referenceUpload = bindReferenceUpload({
         ? "精模图"
         : state.featureMode === "effectEnhancement"
           ? "待美化效果图"
-          : state.featureMode === "imageUpscale" ? "待超分图片" : "参考图",
+          : state.featureMode === "panoramaEnhancement"
+            ? "待美化全景图"
+            : state.featureMode === "imageUpscale" ? "待超分图片" : "参考图",
   input: elements.referenceInput,
   list: elements.referenceList,
   onChange({ images, previousImages }) {

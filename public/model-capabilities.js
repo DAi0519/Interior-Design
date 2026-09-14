@@ -1,26 +1,36 @@
 /**
- * [INPUT]: 依赖 image-ratio.js 的最近比例与原图比例文案，接收公开模型能力、功能模式、参考图、Flux 1K/2K 像素面积档位及当前尺寸选择
- * [OUTPUT]: 对外提供白模/空房/精模/效果图美化参考图数量文案、比例分辨率选项和含 Flux 原图比例且不超目标像素面积的结果尺寸摘要
+ * [INPUT]: 依赖 image-ratio.js，接收公开模型能力、功能模式、参考图、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
+ * [OUTPUT]: 对外提供参考图数量文案、比例分辨率选项，以及区分 Flux 原生推理和同工作流超分最终尺寸的摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { nearestSupportedRatio, sourceAspectLabel } from "./image-ratio.js";
 
+function modelResolutionKeys(model, ratio) {
+  return [
+    ...Object.keys(model.sizes[ratio] || {}),
+    ...(ratio === "source" ? Object.keys(model.postUpscale || {}) : []),
+  ];
+}
+
 export function referenceCapability({ featureMode, model, policy }) {
   const isWhiteModel = featureMode === "whiteModel";
   const isEmptyRoom = featureMode === "emptyRoom";
   const isRefinedModel = featureMode === "refinedModel";
   const isEffectEnhancement = featureMode === "effectEnhancement";
+  const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const fixedSingleImage = isWhiteModel || isEmptyRoom || isRefinedModel
-    || isEffectEnhancement;
+    || isEffectEnhancement || isPanoramaEnhancement;
   const subject = isWhiteModel
     ? "白模图"
     : isEmptyRoom
       ? "空房图"
       : isRefinedModel
-        ? "精模图"
-        : "待美化效果图";
+      ? "精模图"
+        : isPanoramaEnhancement
+          ? "待美化全景图"
+          : "待美化效果图";
   const requiresSingleImage =
     fixedSingleImage || model?.requiresReferenceImage === true;
   return {
@@ -53,7 +63,7 @@ export function sizeControlState({
   sourceImage,
 }) {
   const sourceAspect = model.sizingMode === "source";
-  const defaultResolutions = Object.keys(model.sizes[model.defaultRatio]);
+  const defaultResolutions = modelResolutionKeys(model, model.defaultRatio);
   const preservedResolution =
     preserveResolution && defaultResolutions.includes(currentResolution)
       ? currentResolution
@@ -65,7 +75,7 @@ export function sizeControlState({
     ratioMode === "manual" && Object.hasOwn(model.sizes, currentRatio)
       ? currentRatio
       : automaticRatio;
-  const resolutions = Object.keys(model.sizes[ratio]);
+  const resolutions = modelResolutionKeys(model, ratio);
   const resolution = resolutions.includes(preservedResolution)
     ? preservedResolution
     : resolutions.includes(model.defaultResolution)
@@ -81,7 +91,11 @@ export function sizeControlState({
     resolution,
     resolutionDisabled: resolutions.length <= 1,
     resolutionOptions: resolutions.map((value) => ({
-      label: value === "source" ? "原图尺寸" : value,
+      label: value === "source"
+        ? "原图尺寸"
+        : model.postUpscale?.[value]
+          ? `${value} · 2K→攸行超分`
+          : value,
       value,
     })),
   };
@@ -89,11 +103,13 @@ export function sizeControlState({
 
 export function sizeSummary({ model, ratio, ratioMode, resolution, sourceImage }) {
   if (model.sizingMode === "source") {
-    const resolutions = Object.keys(model.sizes.source || {});
+    const resolutions = modelResolutionKeys(model, "source");
     const resolvedResolution = resolutions.includes(resolution)
       ? resolution
       : model.defaultResolution;
-    const pixelArea = Number(model.sizes.source?.[resolvedResolution]);
+    const postUpscale = model.postUpscale?.[resolvedResolution] || null;
+    const inferenceResolution = postUpscale?.sourceResolution || resolvedResolution;
+    const pixelArea = Number(model.sizes.source?.[inferenceResolution]);
     let dimensions = null;
     if (sourceImage && Number.isInteger(pixelArea)) {
       const aspectRatio = sourceImage.width / sourceImage.height;
@@ -101,6 +117,13 @@ export function sizeSummary({ model, ratio, ratioMode, resolution, sourceImage }
       let width = Math.max(16, Math.round(height * aspectRatio / 16) * 16);
       while (width * height > pixelArea && width > 16) width -= 16;
       dimensions = { height, width };
+      if (postUpscale) {
+        const scale = Number(postUpscale.longEdge) / Math.max(width, height);
+        const even = (value) => Math.max(2, Math.round(value / 2) * 2);
+        dimensions = width >= height
+          ? { height: even(height * scale), width: Number(postUpscale.longEdge) }
+          : { height: Number(postUpscale.longEdge), width: even(width * scale) };
+      }
     }
     const value = dimensions
       ? `${dimensions.width} × ${dimensions.height}`

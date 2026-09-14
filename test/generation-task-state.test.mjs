@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、内存 sessionStorage 替身与 generation-task-state.js 的任务引用/视图推导
- * [OUTPUT]: 对外提供按功能保留任务、按图片计数的生成中进度、完成结果与过期错误的纯状态回归保障
+ * [OUTPUT]: 对外提供含全景图美化的按功能任务保留、按图片计数的生成中进度、完成结果与过期错误的纯状态回归保障
  * [POS]: test 的生成页恢复状态测试，不访问真实浏览器存储
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -45,6 +45,18 @@ test("白模与自由生图任务按功能独立保留", () => {
     "free",
     "whiteModel",
   ]);
+});
+
+test("全景图美化任务可独立恢复", () => {
+  const storage = memoryStorage();
+  const task = createGenerationTask({
+    createId: () => "panorama-123456",
+    featureMode: "panoramaEnhancement",
+    loadingLabel: "正在美化全景图",
+    models: [{ key: "gptImage2", label: "GPT Image 2" }],
+  });
+  saveGenerationTask(storage, task);
+  assert.equal(readGenerationTasks(storage).panoramaEnhancement.jobId, task.jobId);
 });
 
 test("任务快照稳定推导加载、结果与过期状态", () => {

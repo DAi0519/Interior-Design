@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部可写字段类型/单选值/附件 ID、真实产物尺寸替代请求尺寸、含 Seedream 5.0 Pro 的前后台模型目录同步、产品链路 Schema/空间类型/其他空间类型/家具选择/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
+ * [OUTPUT]: 对外提供全部可写字段类型/单选值/附件 ID、真实产物尺寸替代请求尺寸、含 Seedream 5.0 Pro 的前后台模型目录同步、含全景图美化的产品链路 Schema/空间类型/其他空间类型/家具选择/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,7 +35,7 @@ function validSyncSchemaFields() {
     selectField("Prompt融合", publicAgentModelCatalog()
       .filter((model) => model.imageInput)
       .map((model) => model.label)),
-    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图美化"]),
+    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图美化", "全景图美化"]),
     selectField("状态", ["成功", "生成失败", "同步失败"]),
     selectField("生图模型", publicModelCatalog().map((model) => model.label)),
     selectField("空间类型", EMPTY_ROOM_TYPES),
@@ -80,13 +80,16 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
   const fields = validSyncSchemaFields();
   const schema = assertLarkSyncSchema({ data: { fields } });
   assert.ok(schema.featureOptions.includes("效果图美化"));
+  assert.ok(schema.featureOptions.includes("全景图美化"));
   assert.ok(schema.modelOptions.includes("Seedream 5.0 Pro"));
 
   const featureField = fields.find((field) => field.name === "功能");
-  featureField.options.pop();
+  featureField.options = featureField.options.filter(
+    (option) => option.name !== "全景图美化",
+  );
   assert.throws(
     () => assertLarkSyncSchema({ data: { fields } }),
-    /“功能”字段缺少选项：效果图美化/,
+    /“功能”字段缺少选项：全景图美化/,
   );
 });
 
@@ -231,6 +234,15 @@ test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
       promptVersion: 1,
     },
   });
+  const panoramaEnhancement = buildRecordFields({
+    ...base,
+    workflow: {
+      effectTime: "preserve",
+      effectWeather: "preserve",
+      feature: "panorama-render-enhancement",
+      promptVersion: 1,
+    },
+  });
 
   assert.deepEqual(
     [smart["功能"], smart["空间类型"], smart["其他空间类型"], smart["设计方式"], smart["Agent 编码"], smart["Agent 版本"], smart["风格选择"]],
@@ -242,6 +254,7 @@ test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
   );
   assert.equal(refined["功能"], "精模渲染");
   assert.equal(enhancement["功能"], "效果图美化");
+  assert.equal(panoramaEnhancement["功能"], "全景图美化");
   assert.deepEqual(
     JSON.parse(enhancement["生成参数"]).workflow,
     {

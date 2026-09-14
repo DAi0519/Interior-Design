@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、图片超分前后端目录/尺寸/工作流/服务、ComfyUI 客户端适配器与内存图片客户端
- * [OUTPUT]: 对外提供三份源工作流映射与攸行 3B 默认项、4K/6K/8K 保持比例、SeedVR2 短边/长边节点参数、独立排队/执行时限、Prompt ID、真实输出尺寸、本机结果及无 OneAPI/飞书依赖的回归保障
+ * [OUTPUT]: 对外提供三份源工作流映射与攸行 3B 默认项、可独立或嵌入 Flux 的 SeedVR2 阶段、4K/6K/8K 保持比例、时限、Prompt ID、真实输出尺寸及无 OneAPI/飞书依赖的回归保障
  * [POS]: test 的图片超分专项测试，不提交真实 ComfyUI 任务、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

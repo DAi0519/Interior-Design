@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖版本化 Prompt 读取边界与飞书“效果图美化 Prompt”表的 JSON 模块源文
- * [OUTPUT]: 对外提供当前已上架版本的脱敏状态、固定 JSON Schema 校验、可读模块渲染、受控枚举归一化与默认保持/环境契约互斥拼接
+ * [OUTPUT]: 对外提供当前已上架版本的脱敏状态、固定 JSON Schema 校验、可读模块渲染、受控枚举归一化、默认保持/环境契约互斥拼接及全景连续性追加 Prompt
  * [POS]: src 的效果图美化 Prompt 资产边界，飞书是正文真源且浏览器不接触正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,12 @@
 import { getRefinedModelPrompt } from "./refined-model-prompt.mjs";
 
 export const DEFAULT_EFFECT_ENHANCEMENT_PROMPT_CODE = "effect-render-enhancement";
+export const PANORAMA_CONTINUITY_PROMPT = [
+  "[PANORAMA CONTINUITY]",
+  "The input is a 360-degree 2:1 equirectangular panorama. Treat the left and right edges as physically adjacent and produce a seamless horizontal wrap-around with perfect continuity between them.",
+  "Preserve the original camera position, projection, horizon, spatial geometry, room layout, walls, doors, windows, furniture positions, materials, lighting, and shadows across the seam.",
+  "Do not duplicate, remove, stretch, bend, or shift objects near either edge. No broken lines, mismatched structures, lighting discontinuities, perspective shifts, visible seams, or edge artifacts.",
+].join("\n");
 export const EFFECT_ENHANCEMENT_PROMPT_CONFIG = Object.freeze({
   baseToken:
     process.env.LARK_EFFECT_ENHANCEMENT_PROMPT_BASE_TOKEN
@@ -124,6 +130,13 @@ export function composeEffectEnhancementPrompt(source, {
     normalizedTime === "preserve" ? null : modules[normalizedTime],
     normalizedWeather === "preserve" ? null : modules[normalizedWeather],
   ].filter(Boolean).join("\n\n");
+}
+
+export function composePanoramaEnhancementPrompt(source) {
+  return [
+    composeEffectEnhancementPrompt(source),
+    PANORAMA_CONTINUITY_PROMPT,
+  ].join("\n\n");
 }
 
 export async function getEffectEnhancementPrompt(options = {}) {

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖房型/家具控制器写入的 selected 状态与空房高级设置 DOM
- * [OUTPUT]: 对外提供空房类型/家具三列按钮、其他输入、高级设置、必填标识与交互样式
+ * [INPUT]: 依赖房型/家具控制器写入的 selected 状态与空房输入 DOM
+ * [OUTPUT]: 对外提供空房类型/家具三列按钮、其他输入、必填标识与交互样式
  * [POS]: public 的空房房间类型增量视觉层，遵循生图工作台中性按钮与深色选中规则
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,17 +12,6 @@
   font-size: 9px;
   font-weight: 600;
   padding: 4px 7px;
-}
-
-#emptyRoomAdvanced > summary {
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-#emptyRoomAdvanced > .panel-section {
-  border: 0;
-  padding: 18px 0 0;
 }
 
 .room-type-list {

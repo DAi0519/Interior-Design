@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖飞书效果图美化 Prompt 源文、天气/时段受控枚举、可选 Flux 负向 Prompt、单张待美化效果图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
- * [OUTPUT]: 对外提供基础→可选时段→可选天气的正向 Prompt 美化执行、实际参数摘要与独立飞书同步任务
- * [POS]: src 的效果图美化应用服务，与精模及白模 Agent 链路隔离并复用出图基础设施
+ * [INPUT]: 依赖飞书效果图美化 Prompt 源文、天气/时段受控枚举、固定全景连续性 Prompt、单张待美化效果图或全景图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
+ * [OUTPUT]: 对外提供效果图基础→可选环境模块及全景基础→默认→连续性模块的正向 Prompt 美化执行、实际参数摘要与独立飞书同步任务
+ * [POS]: src 的效果图/全景图美化应用服务，与精模及白模 Agent 链路隔离并复用出图基础设施
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import {
   composeEffectEnhancementPrompt,
+  composePanoramaEnhancementPrompt,
   getEffectEnhancementPrompt,
 } from "./effect-render-enhancement-prompt.mjs";
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
@@ -30,16 +31,21 @@ export async function executeEffectRenderEnhancementWorkflow(
   if (!imageClient) {
     throw new TypeError("effect render enhancement workflow requires image client");
   }
+  const panorama = input.featureMode === "panoramaEnhancement";
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   if (referenceImages.length !== 1) {
-    throw workflowError("效果图美化需要且只允许 1 张待美化效果图");
+    throw workflowError(panorama
+      ? "全景图美化需要且只允许 1 张待美化全景图"
+      : "效果图美化需要且只允许 1 张待美化效果图");
   }
 
   const promptAsset = await loadPrompt();
-  const finalPrompt = composeEffectEnhancementPrompt(promptAsset.prompt, {
-    time: input.effectTime,
-    weather: input.effectWeather,
-  });
+  const finalPrompt = panorama
+    ? composePanoramaEnhancementPrompt(promptAsset.prompt)
+    : composeEffectEnhancementPrompt(promptAsset.prompt, {
+        time: input.effectTime,
+        weather: input.effectWeather,
+      });
   const batch = normalizeGenerationBatch(input);
   const generation = createGenerationRequest(
     { ...input, prompt: finalPrompt },
@@ -75,9 +81,11 @@ export async function executeEffectRenderEnhancementWorkflow(
   }));
   const workflow = {
     ...batch,
-    effectTime: String(input.effectTime || "preserve"),
-    effectWeather: String(input.effectWeather || "preserve"),
-    feature: "effect-render-enhancement",
+    effectTime: panorama ? "preserve" : String(input.effectTime || "preserve"),
+    effectWeather: panorama ? "preserve" : String(input.effectWeather || "preserve"),
+    feature: panorama
+      ? "panorama-render-enhancement"
+      : "effect-render-enhancement",
     promptCode: promptAsset.code,
     promptPublished: promptAsset.published,
     promptVersion: promptAsset.version,

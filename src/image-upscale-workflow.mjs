@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖三个 SeedVR2 编辑器工作流的核心节点参数、单张图片 Base64、4K/6K/8K 目标宽高、运行时随机种子与请求级产物键
- * [OUTPUT]: 对外提供默认工作流键、图片超分公开目录、保持原图比例的目标尺寸计算、以短边 resolution/长边 max_resolution 驱动的三套 SeedVR2 ComfyUI API 工作流工厂及可追溯元数据
- * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可直接提交 /prompt 的最小执行图
+ * [OUTPUT]: 对外提供默认工作流键、图片超分公开目录、保持原图比例的目标尺寸计算、可嵌入其他执行图的 SeedVR2 阶段、三套 ComfyUI API 工作流工厂及可追溯元数据
+ * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -108,11 +108,11 @@ export function publicImageUpscaleConfig() {
   };
 }
 
-export function createImageUpscaleWorkflow({
-  artifactKey,
+export function createSeedVrUpscaleStage({
   generationRequest,
   height,
-  imageBase64,
+  image,
+  nodeIds = {},
   seed,
   width,
 }) {
@@ -122,16 +122,14 @@ export function createImageUpscaleWorkflow({
   if (!Object.values(IMAGE_UPSCALE_RESOLUTIONS).includes(targetLongEdge)) {
     throw validationError("图片超分目标长边必须是 4K、6K 或 8K");
   }
+  const ids = {
+    dit: nodeIds.dit || "73",
+    preprocess: nodeIds.preprocess || "72",
+    upscaler: nodeIds.upscaler || "75",
+    vae: nodeIds.vae || "74",
+  };
   const nodes = {
-    "71": {
-      class_type: "easy loadImageBase64",
-      inputs: {
-        base64_data: imageBase64,
-        image_output: "Hide",
-        save_prefix: `CanvasLab_Upscale_Input_${artifactKey}`,
-      },
-    },
-    "73": {
+    [ids.dit]: {
       class_type: "SeedVR2LoadDiTModel",
       inputs: {
         attention_mode: "sdpa",
@@ -143,7 +141,7 @@ export function createImageUpscaleWorkflow({
         swap_io_components: false,
       },
     },
-    "74": {
+    [ids.vae]: {
       class_type: "SeedVR2LoadVAEModel",
       inputs: {
         cache_model: workflow.cacheModel,
@@ -159,14 +157,14 @@ export function createImageUpscaleWorkflow({
         tile_debug: "false",
       },
     },
-    "75": {
+    [ids.upscaler]: {
       class_type: "SeedVR2VideoUpscaler",
       inputs: {
         batch_size: 1,
         color_correction: "lab",
-        dit: ["73", 0],
+        dit: [ids.dit, 0],
         enable_debug: false,
-        image: [workflow.inputMegapixels === null ? "71" : "72", 0],
+        image: workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
         input_noise_scale: 0,
         latent_noise_scale: 0,
         max_resolution: targetLongEdge,
@@ -176,28 +174,58 @@ export function createImageUpscaleWorkflow({
         seed,
         temporal_overlap: 0,
         uniform_batch_size: false,
-        vae: ["74", 0],
-      },
-    },
-    [IMAGE_UPSCALE_OUTPUT_NODE_ID]: {
-      class_type: "SaveImage",
-      inputs: {
-        filename_prefix: imageUpscaleArtifactPrefix(artifactKey),
-        images: ["75", 0],
+        vae: [ids.vae, 0],
       },
     },
   };
   if (workflow.inputMegapixels !== null) {
-    nodes["72"] = {
+    nodes[ids.preprocess] = {
       class_type: "ImageScaleToTotalPixels",
       inputs: {
-        image: ["71", 0],
+        image,
         megapixels: workflow.inputMegapixels,
         resolution_steps: 1,
         upscale_method: "lanczos",
       },
     };
   }
+  return { nodes, output: [ids.upscaler, 0], workflow };
+}
+
+export function createImageUpscaleWorkflow({
+  artifactKey,
+  generationRequest,
+  height,
+  imageBase64,
+  seed,
+  width,
+}) {
+  const nodes = {
+    "71": {
+      class_type: "easy loadImageBase64",
+      inputs: {
+        base64_data: imageBase64,
+        image_output: "Hide",
+        save_prefix: `CanvasLab_Upscale_Input_${artifactKey}`,
+      },
+    },
+  };
+  const stage = createSeedVrUpscaleStage({
+    generationRequest,
+    height,
+    image: ["71", 0],
+    seed,
+    width,
+  });
+  Object.assign(nodes, stage.nodes, {
+    [IMAGE_UPSCALE_OUTPUT_NODE_ID]: {
+      class_type: "SaveImage",
+      inputs: {
+        filename_prefix: imageUpscaleArtifactPrefix(artifactKey),
+        images: stage.output,
+      },
+    },
+  });
   return nodes;
 }
 

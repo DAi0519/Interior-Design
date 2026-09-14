@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
- * [OUTPUT]: 对外提供同源 JSON API、HTML/比例格式化、图片地址/文件读取、字节、含图片超分本机结果/Flux 负向 Prompt 模式的结果摘要与 ComfyUI 分段耗时格式化及原生下拉填充工具
+ * [OUTPUT]: 对外提供同源 JSON API、HTML/比例格式化、图片地址/文件读取、字节、含图片超分/Flux 同图攸行超分与负向 Prompt 模式的结果摘要、ComfyUI 分段耗时及原生下拉填充工具
  * [POS]: public 的无状态浏览器基础设施，被生成、Benchmark 与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -90,6 +90,9 @@ export function resultMetadata(result, sync = result.sync) {
       ? result.upstream.metadata.negativePromptMode === "custom"
         ? "自定义负向"
         : "默认负向"
+      : null,
+    result.upstream?.metadata?.upscaleResolution
+      ? `2K→攸行 ${result.upstream.metadata.upscaleResolution}`
       : null,
     result.upstream?.metadata?.engine === "comfyui" &&
     Number.isFinite(result.promptAgent?.durationMs)

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖日常生成任务注册表、统一 generation-service、飞书同步合同预检、JSON 读写函数与浏览器生成任务请求
+ * [INPUT]: 依赖日常生成任务注册表、含全景图美化的统一 generation-service、飞书同步合同预检、JSON 读写函数与浏览器生成任务请求
  * [OUTPUT]: 对外提供 `/api/generation-jobs` 入队和查询处理器，在需归档的付费生图前阻断飞书 Schema 漂移，同时允许不归档的纯 ComfyUI 图片超分、阶段进度与 Prompt ID，并保持 1–4 项、有界并发与 Prompt 强制刷新语义
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -12,6 +12,7 @@ const FEATURE_MODES = new Set([
   "emptyRoom",
   "free",
   "imageUpscale",
+  "panoramaEnhancement",
   "refinedModel",
   "whiteModel",
 ]);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供四个 OneAPI 模型（含独立 Seedream 5.0 Pro）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/单图/原图比例约 1MP/4MP 的 1K-2K 契约、全模型 2:1 自动适配、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供四个 OneAPI 模型（含独立 Seedream 5.0 Pro）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含全景图美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全模型 2:1 自动适配、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -78,7 +78,7 @@ test("白模在模型合法集合中选择最接近原图的比例", () => {
   assert.equal(generation.preview.sizeMode, "source-nearest");
 });
 
-test("精模、效果图美化、白模与空房设计都强制单张业务输入", () => {
+test("精模、效果图/全景图美化、白模与空房设计都强制单张业务输入", () => {
   const model = publicModelCatalog().find((entry) => entry.key === "seedream5");
   assert.deepEqual(
     referenceCapability({ featureMode: "effectEnhancement", model, policy: { maxCount: 4 } }),
@@ -89,6 +89,17 @@ test("精模、效果图美化、白模与空房设计都强制单张业务输�
       multiple: false,
       optionalLabel: "必填 · 1张",
       title: "待美化效果图",
+    },
+  );
+  assert.deepEqual(
+    referenceCapability({ featureMode: "panoramaEnhancement", model, policy: { maxCount: 4 } }),
+    {
+      ariaLabel: "添加待美化全景图",
+      dropLabel: "添加或拖入待美化全景图",
+      limit: 1,
+      multiple: false,
+      optionalLabel: "必填 · 1张",
+      title: "待美化全景图",
     },
   );
   assert.deepEqual(
@@ -343,6 +354,46 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K
   assert.equal(longPromptGeneration.request.prompt, longPrompt);
 });
 
+test("Flux2 Klein 4K/6K 固定先做 2K 推理再在同一工作流接攸行超分", () => {
+  const pngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
+  const input = {
+    modelKey: "aiTextureEnhancement",
+    outputFormat: "png",
+    prompt: "保持空间结构",
+    ratio: "source",
+    referenceImages: [{
+      dataUrl: pngDataUrl,
+      name: "source.png",
+      size: Buffer.from(pngDataUrl.split(",")[1], "base64").length,
+      type: "image/png",
+    }],
+  };
+  const fourK = createGenerationRequest(
+    { ...input, resolution: "4K" },
+    { sourceDimensions: { height: 900, width: 1600 } },
+  );
+  const sixK = createGenerationRequest(
+    { ...input, resolution: "6K" },
+    { sourceDimensions: { height: 900, width: 1600 } },
+  );
+
+  assert.equal(fourK.request.width, 2720);
+  assert.equal(fourK.request.height, 1536);
+  assert.equal(fourK.request.upscale_width, 4096);
+  assert.equal(fourK.request.upscale_height, 2314);
+  assert.equal(fourK.request.upscale_resolution, "4K");
+  assert.equal(fourK.request.upscale_workflow_key, "youxing_seedvr2_3b");
+  assert.equal(fourK.preview.inferenceResolution, "2K");
+  assert.equal(fourK.preview.inferenceSize, "2720x1536");
+  assert.equal(fourK.preview.size, "4096x2314");
+  assert.equal(fourK.preview.sizeMode, "source-tier-upscale");
+  assert.equal(sixK.request.width, 2720);
+  assert.equal(sixK.request.height, 1536);
+  assert.equal(sixK.request.upscale_width, 6144);
+  assert.equal(sixK.request.upscale_height, 3470);
+});
+
 test("Flux2 Klein 分辨率按约 1MP/4MP 像素面积计算并对齐 16 像素网格", () => {
   assert.deepEqual(
     fitSourceDimensionsToPixelArea({ height: 1600, width: 900 }, 1024 ** 2),
@@ -385,7 +436,7 @@ test("Flux2 Klein 拒绝缺图和多图", () => {
   );
 });
 
-test("Flux2 Klein 前端能力锁定原图比例并开放 1K/2K", () => {
+test("Flux2 Klein 前端能力锁定原图比例并开放原生 1K/2K 与同图超分 4K/6K", () => {
   const model = publicModelCatalog().find(
     (entry) => entry.key === "aiTextureEnhancement",
   );
@@ -420,10 +471,21 @@ test("Flux2 Klein 前端能力锁定原图比例并开放 1K/2K", () => {
   assert.deepEqual(controls.resolutionOptions, [
     { label: "1K", value: "1K" },
     { label: "2K", value: "2K" },
+    { label: "4K · 2K→攸行超分", value: "4K" },
+    { label: "6K · 2K→攸行超分", value: "6K" },
   ]);
   assert.equal("workflowProfiles" in model, false);
   assert.equal("defaultWorkflowProfile" in model, false);
   assert.equal(summary.exactSize, "2720 × 1536");
+
+  const upscaleSummary = sizeSummary({
+    model,
+    ratio: controls.ratio,
+    ratioMode: "auto",
+    resolution: "6K",
+    sourceImage: { height: 900, width: 1600 },
+  });
+  assert.equal(upscaleSummary.exactSize, "6144 × 3470");
 });
 
 test("Seedream 5.0 不暴露 1K，并保持横竖比例一致", () => {
