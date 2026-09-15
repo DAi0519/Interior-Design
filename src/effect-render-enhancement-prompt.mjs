@@ -1,19 +1,15 @@
 /**
- * [INPUT]: 依赖版本化 Prompt 读取边界与飞书“效果图美化 Prompt”表的 JSON 模块源文
- * [OUTPUT]: 对外提供当前已上架版本的脱敏状态、固定 JSON Schema 校验、可读模块渲染、受控枚举归一化、默认保持/环境契约互斥拼接及全景连续性追加 Prompt
- * [POS]: src 的效果图美化 Prompt 资产边界，飞书是正文真源且浏览器不接触正文
+ * [INPUT]: 依赖版本化 Prompt 读取边界，以及飞书“效果图美化 Prompt”与“全景图美化 Prompt”两张独立版本表
+ * [OUTPUT]: 对外提供效果图模块 Schema、全景主生成/接缝修复 Schema、受控环境拼接及两类当前上架 Prompt 读取
+ * [POS]: src 的效果图/全景图美化 Prompt 资产边界，两张飞书表分别是真源且浏览器不接触正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { getRefinedModelPrompt } from "./refined-model-prompt.mjs";
 
 export const DEFAULT_EFFECT_ENHANCEMENT_PROMPT_CODE = "effect-render-enhancement";
-export const PANORAMA_CONTINUITY_PROMPT = [
-  "[PANORAMA CONTINUITY]",
-  "The input is a 360-degree 2:1 equirectangular panorama. Treat the left and right edges as physically adjacent and produce a seamless horizontal wrap-around with perfect continuity between them.",
-  "Preserve the original camera position, projection, horizon, spatial geometry, room layout, walls, doors, windows, furniture positions, materials, lighting, and shadows across the seam.",
-  "Do not duplicate, remove, stretch, bend, or shift objects near either edge. No broken lines, mismatched structures, lighting discontinuities, perspective shifts, visible seams, or edge artifacts.",
-].join("\n");
+export const DEFAULT_PANORAMA_ENHANCEMENT_PROMPT_CODE =
+  "panorama-render-enhancement";
 export const EFFECT_ENHANCEMENT_PROMPT_CONFIG = Object.freeze({
   baseToken:
     process.env.LARK_EFFECT_ENHANCEMENT_PROMPT_BASE_TOKEN
@@ -22,6 +18,15 @@ export const EFFECT_ENHANCEMENT_PROMPT_CONFIG = Object.freeze({
   tableId:
     process.env.LARK_EFFECT_ENHANCEMENT_PROMPT_TABLE_ID
     || "tblmNIPcFFaq2qcd",
+});
+export const PANORAMA_ENHANCEMENT_PROMPT_CONFIG = Object.freeze({
+  baseToken:
+    process.env.LARK_PANORAMA_ENHANCEMENT_PROMPT_BASE_TOKEN
+    || "SALobKnnra17iSsGT2ccC52PnHd",
+  cliPath: process.env.LARK_CLI_PATH || "lark-cli",
+  tableId:
+    process.env.LARK_PANORAMA_ENHANCEMENT_PROMPT_TABLE_ID
+    || "tblNVM20GiWeVEiT",
 });
 
 export const EFFECT_TIME_VALUES = Object.freeze([
@@ -46,6 +51,7 @@ const BASE_KEYS = Object.freeze([
 ]);
 const TIME_KEYS = Object.freeze(["DAYTIME", "DUSK", "NIGHT"]);
 const WEATHER_KEYS = Object.freeze(["CLEAR", "OVERCAST", "RAINY", "FOGGY"]);
+const PANORAMA_ROOT_KEYS = Object.freeze(["MAIN", "SEAM_REPAIR"]);
 
 function promptError(message) {
   const error = new Error(message);
@@ -63,7 +69,7 @@ function normalizeSelection(value, allowed, label) {
   return normalized;
 }
 
-function assertExactObject(value, keys) {
+function assertExactObject(value, keys, label = "效果图美化") {
   if (
     !value
     || typeof value !== "object"
@@ -71,13 +77,13 @@ function assertExactObject(value, keys) {
     || Object.keys(value).length !== keys.length
     || Object.keys(value).some((key, index) => key !== keys[index])
   ) {
-    throw promptError("飞书效果图美化 Prompt JSON 结构错误");
+    throw promptError(`飞书${label} Prompt JSON 结构错误`);
   }
 }
 
-function requireText(value) {
+function requireText(value, label = "效果图美化") {
   if (typeof value !== "string" || !value.trim() || value !== value.trim()) {
-    throw promptError("飞书效果图美化 Prompt JSON 结构错误");
+    throw promptError(`飞书${label} Prompt JSON 结构错误`);
   }
   return value;
 }
@@ -132,11 +138,26 @@ export function composeEffectEnhancementPrompt(source, {
   ].filter(Boolean).join("\n\n");
 }
 
+export function parsePanoramaEnhancementPrompt(source) {
+  let prompt;
+  try {
+    prompt = JSON.parse(String(source || ""));
+  } catch {
+    throw promptError("飞书全景图美化 Prompt JSON 结构错误");
+  }
+  assertExactObject(prompt, PANORAMA_ROOT_KEYS, "全景图美化");
+  return {
+    main: requireText(prompt.MAIN, "全景图美化"),
+    seamRepair: requireText(prompt.SEAM_REPAIR, "全景图美化"),
+  };
+}
+
 export function composePanoramaEnhancementPrompt(source) {
-  return [
-    composeEffectEnhancementPrompt(source),
-    PANORAMA_CONTINUITY_PROMPT,
-  ].join("\n\n");
+  return parsePanoramaEnhancementPrompt(source).main;
+}
+
+export function composePanoramaSeamRepairPrompt(source) {
+  return parsePanoramaEnhancementPrompt(source).seamRepair;
 }
 
 export async function getEffectEnhancementPrompt(options = {}) {
@@ -147,6 +168,18 @@ export async function getEffectEnhancementPrompt(options = {}) {
       allowDraft: false,
       config: options.config || EFFECT_ENHANCEMENT_PROMPT_CONFIG,
       label: "效果图美化",
+    },
+  );
+}
+
+export async function getPanoramaEnhancementPrompt(options = {}) {
+  return getRefinedModelPrompt(
+    DEFAULT_PANORAMA_ENHANCEMENT_PROMPT_CODE,
+    {
+      ...options,
+      allowDraft: false,
+      config: options.config || PANORAMA_ENHANCEMENT_PROMPT_CONFIG,
+      label: "全景图美化",
     },
   );
 }

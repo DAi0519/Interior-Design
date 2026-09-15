@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
-  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、复用默认 Prompt 并追加球面连续性约束的全景图美化入口、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/自由生图/风格反推入口、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、本地 Pannellum 360°预览资产、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
+  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt 与球面连续性约束的全景图美化入口与专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/自由生图/风格反推入口、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -19,6 +19,8 @@
     <title>Canvas Lab · 图像模型工作台</title>
     <link rel="stylesheet" href="/styles.css?v=12" />
     <link rel="stylesheet" href="/result.css?v=10" />
+    <link rel="stylesheet" href="/vendor/pannellum.css" />
+    <link rel="stylesheet" href="/panorama-viewer.css?v=2" />
     <link rel="stylesheet" href="/theme.css?v=27" />
     <link rel="stylesheet" href="/generation-actions.css?v=15" />
     <link rel="stylesheet" href="/custom-select.css?v=9" />
@@ -742,8 +744,23 @@
       </section>
     </div>
 
+    <dialog id="panoramaViewerDialog" class="panorama-viewer-dialog" aria-labelledby="panoramaViewerTitle">
+      <div class="panorama-viewer-shell">
+        <header class="panorama-viewer-header">
+          <h2 id="panoramaViewerTitle" class="panorama-viewer-title">360°预览</h2>
+          <div class="panorama-viewer-actions">
+            <button id="panoramaViewerReset" class="panorama-viewer-action" type="button">复位视角</button>
+            <button id="panoramaViewerClose" class="panorama-viewer-action" type="button">关闭</button>
+          </div>
+        </header>
+        <div id="panoramaViewerCanvas" class="panorama-viewer-canvas" aria-label="360°全景图预览"></div>
+        <footer class="panorama-viewer-footer">拖拽环视 · 滚轮或双指缩放 · 左上角可进入全屏</footer>
+      </div>
+    </dialog>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
+    <script src="/vendor/pannellum.js"></script>
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app.js?v=45"></script>
   </body>

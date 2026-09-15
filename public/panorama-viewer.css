@@ -1,0 +1,235 @@
+/**
+ * [INPUT]: 依赖 result.css 的结果按钮语义、theme.css/raycast-accent.css 的 Light Command Center 令牌与 Pannellum 内部容器
+ * [OUTPUT]: 对外提供全景结果预览入口、银灰命令栏、沉浸式暗色画布、品牌键帽操作与窄屏适配
+ * [POS]: public 的全景预览视觉层，仅在 panoramaEnhancement 结果主动打开时显示
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.panorama-preview-button {
+  min-width: 76px;
+}
+
+.panorama-viewer-dialog {
+  background: var(--panel, #fcfcfd);
+  border: 1px solid var(--line-strong, #d1d1d5);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 92%),
+    0 28px 100px rgb(25 26 28 / 24%);
+  color: var(--text, #202024);
+  height: min(820px, calc(100dvh - 48px));
+  margin: auto;
+  max-height: none;
+  max-width: none;
+  overflow: hidden;
+  padding: 0;
+  width: min(1280px, calc(100vw - 48px));
+}
+
+.panorama-viewer-dialog::backdrop {
+  background: rgb(25 26 28 / 38%);
+  backdrop-filter: blur(12px);
+}
+
+.panorama-viewer-shell {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr) 32px;
+  height: 100%;
+}
+
+.panorama-viewer-header,
+.panorama-viewer-footer {
+  align-items: center;
+  background: rgb(252 252 253 / 94%);
+  color: var(--text, #202024);
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.panorama-viewer-header {
+  border-bottom: 1px solid var(--line, #e2e2e5);
+  gap: 12px;
+  justify-content: space-between;
+  padding: 6px 10px 6px 12px;
+}
+
+.panorama-viewer-title {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  letter-spacing: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.panorama-viewer-title::before {
+  background: var(--functional-action-bg, #f37021);
+  border-radius: 50%;
+  content: "";
+  flex: 0 0 auto;
+  height: 6px;
+  width: 6px;
+}
+
+.panorama-viewer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.panorama-viewer-action {
+  background: var(--brand-key-bg, #fff);
+  border: 1px solid var(--brand-key-border, #e3e3e6);
+  border-radius: var(--brand-control-radius, 6px);
+  box-shadow: var(--brand-key-shadow, 0 1px 2px rgb(20 20 24 / 5%));
+  color: var(--brand-key-ink, #5b5b61);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  height: 30px;
+  padding: 0 11px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 140ms var(--ease-out, ease-out);
+}
+
+.panorama-viewer-action:active {
+  background: var(--brand-key-active-bg, #dedfe3);
+  border-color: var(--brand-key-active-border, #bbbcc2);
+  box-shadow: inset 0 1px 2px rgb(20 20 24 / 10%);
+  transform: scale(0.985);
+}
+
+.panorama-viewer-action:focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75);
+  outline-offset: 2px;
+}
+
+.panorama-viewer-canvas {
+  background: #0b0b0d;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.panorama-viewer-footer {
+  border-top: 1px solid var(--line, #e2e2e5);
+  color: var(--muted, #67676d);
+  font-size: 10px;
+  justify-content: center;
+  letter-spacing: 0.01em;
+  padding: 0 12px;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------------------- */
+/* PANNELLUM CONTROLS                                                         */
+/* -------------------------------------------------------------------------- */
+
+.panorama-viewer-canvas .pnlm-controls-container {
+  left: 8px;
+  top: 4px;
+}
+
+.panorama-viewer-canvas .pnlm-controls {
+  background-color: rgb(255 255 255 / 94%);
+  border: 1px solid var(--brand-key-border, #e3e3e6);
+  border-radius: var(--brand-control-radius, 6px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 95%),
+    0 2px 6px rgb(20 20 24 / 12%);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.panorama-viewer-canvas .pnlm-control:hover {
+  background-color: var(--brand-key-hover-bg, #fafafa);
+}
+
+.panorama-viewer-canvas .pnlm-zoom-in {
+  border-radius: 5px 5px 0 0;
+}
+
+.panorama-viewer-canvas .pnlm-zoom-out {
+  border-radius: 0 0 5px 5px;
+  border-top-color: var(--line, #e2e2e5);
+}
+
+.panorama-viewer-canvas .pnlm-load-box,
+.panorama-viewer-canvas .pnlm-info-box {
+  background: rgb(252 252 253 / 94%);
+  border: 1px solid var(--line-strong, #d1d1d5);
+  border-radius: 6px;
+  box-shadow: 0 12px 30px rgb(20 20 24 / 18%);
+  color: var(--text, #202024);
+}
+
+.panorama-viewer-canvas .pnlm-loading,
+.panorama-viewer-canvas .pnlm-lbar-fill {
+  background: var(--functional-action-bg, #f37021);
+}
+
+.panorama-viewer-canvas .pnlm-lbar {
+  border-color: var(--line-strong, #d1d1d5);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panorama-viewer-action:hover {
+    background: var(--brand-key-hover-bg, #fafafa);
+    border-color: var(--brand-key-hover-border, #d7d8dc);
+    box-shadow: var(--brand-key-hover-shadow, 0 3px 8px rgb(25 26 28 / 11%));
+    color: var(--brand-key-strong-ink, #202024);
+    transform: translateY(-1px);
+  }
+}
+
+@media (max-width: 700px) {
+  .panorama-viewer-dialog {
+    border: 0;
+    border-radius: 0;
+    height: 100dvh;
+    width: 100vw;
+  }
+
+  .panorama-viewer-shell {
+    grid-template-rows: 44px minmax(0, 1fr) 32px;
+  }
+
+  .panorama-viewer-title {
+    max-width: 48vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .panorama-viewer-dialog::backdrop {
+    backdrop-filter: none;
+  }
+
+  .panorama-viewer-header,
+  .panorama-viewer-footer,
+  .panorama-viewer-canvas .pnlm-load-box,
+  .panorama-viewer-canvas .pnlm-info-box {
+    background: var(--panel, #fcfcfd);
+  }
+
+  .panorama-viewer-canvas .pnlm-controls {
+    background-color: var(--panel, #fcfcfd);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .panorama-viewer-dialog,
+  .panorama-viewer-action,
+  .panorama-viewer-canvas .pnlm-controls {
+    border-color: #73747a;
+  }
+}

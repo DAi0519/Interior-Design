@@ -1,20 +1,20 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
-Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + sharp 0.35.3 + lark-cli 1.0.77
+Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.3 + lark-cli 1.0.77
 
 <directory>
 .impeccable/ - Impeccable 项目级设计工作流配置（1 个子目录：live）
-public/ - 浏览器工作台界面（66 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、时间追溯 Run ID 与飞书回读结果预览的五功能 Beta跑图、效果图美化当前上架 Prompt 版本及天气/时段选项、复用默认 Prompt 的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
-src/ - 本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图/全景图美化飞书 Prompt 模块/工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（48 个模块）
-test/ - Node 原生测试（58 个测试文件，覆盖共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
+public/ - 浏览器工作台界面（68 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、时间追溯 Run ID 与飞书回读结果预览的五功能 Beta跑图、效果图美化当前上架 Prompt 版本及天气/时段选项、独立 Prompt 且含按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
+src/ - 本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图/全景图美化飞书 Prompt/单图三阶段工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（48 个模块）
+test/ - Node 原生测试（59 个测试文件，覆盖共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>
 
 <config>
-package.json - 固定 Node 版本、Inter Variable 字体、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
-package-lock.json - 固定运营安装依赖树与 lark-cli 平台安装版本
+package.json - 固定 Node 版本、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
+package-lock.json - 固定运营安装依赖树与 lark-cli/Pannellum 版本
 launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
-server.mjs - 本地 HTTP 服务、固定版本 Inter Variable 浏览器资产、可选持久化密钥会话、飞书 Setup、生成结果下载、双 Provider 单模型多张/多模型生成、纯 ComfyUI 图片超分、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
+server.mjs - 本地 HTTP 服务、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、生成结果下载、双 Provider 单模型多张/多模型生成、纯 ComfyUI 图片超分、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
 start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总多候选 Agent/Style/融合模型且仅在显式 --execute 后调用模型并写回 Base
@@ -36,7 +36,7 @@ ComfyUI产物法则：每次提交必须使用请求级唯一产物前缀，并�
 
 Beta结果可见性法则：飞书“跑图明细”仍是结果业务真源；右侧面板只展示在飞书回读到成功状态、结果附件 token 与一致字节数之后生成的轻量 WebP 预览，每张预览必须链接到对应明细记录，禁止把模型原始结果副本保存在浏览器任务状态中。
 
-架构法则：运营依赖由 npm 固定安装，服务优先使用项目内固定版 lark-cli 并在执行前阻断旧版本；飞书登录凭据只由 lark-cli 管理，连接中心检测字段读取、记录读写与附件上传最小 Scope，并按生成记录实时 Schema 准入全部可写字段类型、附件字段 ID 与功能/最终出图模型/Prompt融合等单选值；任何后端模型目录、接口枚举、请求字段或工作流路由的新增、删除、重命名，都必须在同一变更中完成浏览器公开目录/交互映射、飞书实时 Schema/单选选项、同步字段投影和自动化合同测试四方核验，并在新进程上通过页面实机检查与 Base 字段读回，缺任一项即阻断付费生成和发布；效果图美化界面必须回显当前实际生效的已上架 Prompt 名称与版本但不得下发正文，全景图美化固定复用其基础→默认 Prompt 并在服务端追加球面连续性约束；OneAPI Key 默认仅在内存，API Key、ComfyUI 地址/工作流正文、完整 Style DNA 与 Prompt 正文只存在服务端；生图、Beta跑图与 Benchmark 复用同一模型和 Prompt 真源，但三套业务链路隔离；Beta跑图必须跳过旧生成记录同步并只写独立新 Base，禁止故障时回退双写旧表。
+架构法则：运营依赖由 npm 固定安装，服务优先使用项目内固定版 lark-cli 并在执行前阻断旧版本；飞书登录凭据只由 lark-cli 管理，连接中心检测字段读取、记录读写与附件上传最小 Scope，并按生成记录实时 Schema 准入全部可写字段类型、附件字段 ID 与功能/最终出图模型/Prompt融合等单选值；任何后端模型目录、接口枚举、请求字段或工作流路由的新增、删除、重命名，都必须在同一变更中完成浏览器公开目录/交互映射、飞书实时 Schema/单选选项、同步字段投影和自动化合同测试四方核验，并在新进程上通过页面实机检查与 Base 字段读回，缺任一项即阻断付费生成和发布；效果图美化与全景图美化必须分别读取各自飞书 Prompt 表，禁止跨表回退共用，浏览器不得接收正文；Flux 全景必须在单一 ComfyUI Prompt 图内串联整图增强、接缝修复与最终一次超分，只保存和下载最终产物；OneAPI 全景保持单轮 Prompt 约束，不伪装成可执行本机工作流；OneAPI Key 默认仅在内存，API Key、ComfyUI 地址/工作流正文、完整 Style DNA 与 Prompt 正文只存在服务端；生图、Beta跑图与 Benchmark 复用同一模型和 Prompt 真源，但三套业务链路隔离；Beta跑图必须跳过旧生成记录同步并只写独立新 Base，禁止故障时回退双写旧表。
 
 Beta跑图法则：作为与生图工作台、模型评测并列的独立第三工作台，仅覆盖白模、空房、精模、效果图美化与自由生图，不承载 Style DNA 反推或 AI 评分；页面左侧配置样本集与生成设置，右侧分别监控模型生成和飞书同步进度，并只展示飞书附件回读确认后的轻量结果预览；默认从独立 `批量跑图 Benchmark` 的“样本集→样本”选择可复用资产，仅在新建样本集时上传一次；空房房间类型与其他详情绑定每张样本，在创建时逐图必填，保存并从飞书样本表回读，批量运行按各样本传参；旧样本缺失时逐图补选，不使用整批默认。样本集与样本保持一对多数据关系，运营在“样本明细”中按样本集原生分组展开，避免把集合元数据复制到每条样本；按样本×模型展开结果且不设数量上限，以两路并发复用正式 generation-service 持续排队，浏览器对共享图片资产去重传输，服务端逐结果恢复完整输入并先建档、后生成、再上传结果；整批队列总量不得传入正式生成服务的单次 `batchCount`，每个 Run 必须按一张结果独立调用，批次 featureMode 必须写入逐项输入且生成服务显式路由覆盖输入功能，禁止空房落入白模默认 Agent；独立“测试时间”以本地启动时间写入同批全部 Run 并作为人工分组键，最新测试置顶；技术 Run ID 保留批内序号和模型键，重试继续追加 Attempt，但不承担人工定位；模型返回只递增生成进度，只有回读到“成功”状态、结果附件 token 与一致字节数才递增同步进度、公开预览并计入完成；参数、权限与合同类错误保留原始原因并立即失败，含 ComfyUI 已出图但产物暂时读取 404 在内的瞬时故障最多自动执行三次 Attempt，任一结果仍未归档则整批不得假完成；Beta 默认明细视图只展示评测所需图片、彩色多选场景 Tag、模型、风格、输入与最终 Prompt 等信息；参数与配置快照、Agent 技术字段继续存储但隐藏。正式工作流通过 Beta 专用归档回执传递最终 Prompt、场景标签、设计方式、风格、家具、融合模型、Agent 与生成参数，仅留服务端并逐字段回读，不向浏览器快照暴露正文。状态、输入/风格/结果附件、冻结配置、Prompt/工作流版本、费用、时延与错误只写“跑图明细”，该表的工作台入口固定打开按测试时间降序分组的明细视图，现有 Benchmark 页面、API 与五表不做业务改造。
 

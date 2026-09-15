@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图美化 Prompt 模块解析器与可注入的工作流边界
- * [OUTPUT]: 对外提供当前上架版本回显、效果图天气/时段 UI、全景图入口及默认 Prompt 后置连续性约束、受控请求字段、单图、原图比例、脱敏响应与归档元数据回归保障
- * [POS]: test 的效果图/全景图美化专项测试，所有外部 API 与飞书同步均使用内存替身
+ * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图/全景图两套独立 Prompt 解析器与可注入工作流边界
+ * [OUTPUT]: 对外提供效果图环境模块、全景独立表 Schema/路由、Flux 三阶段 Prompt 注入、受控请求字段、单图、原图比例、脱敏响应与归档元数据回归保障
+ * [POS]: test 的效果图/全景图美化独立资产与工作流专项测试，所有外部 API 与飞书同步均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,8 +14,11 @@ import { buildGenerationInput } from "../public/generation-input.js";
 import {
   composeEffectEnhancementPrompt,
   composePanoramaEnhancementPrompt,
-  PANORAMA_CONTINUITY_PROMPT,
+  composePanoramaSeamRepairPrompt,
+  EFFECT_ENHANCEMENT_PROMPT_CONFIG,
+  PANORAMA_ENHANCEMENT_PROMPT_CONFIG,
   parseEffectEnhancementPrompt,
+  parsePanoramaEnhancementPrompt,
   publicEffectEnhancementPromptConfig,
 } from "../src/effect-render-enhancement-prompt.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "../src/effect-render-enhancement-workflow.mjs";
@@ -49,6 +52,27 @@ const sourcePromptObject = {
   },
 };
 const sourcePrompt = JSON.stringify(sourcePromptObject, null, 2);
+const panoramaSourcePromptObject = {
+  MAIN: [
+    "[BASE]",
+    "This is same-condition restoration from the independently maintained panorama prompt.",
+    "[PANORAMA CONTINUITY]",
+    "Treat the left and right edges as physically adjacent and produce a seamless horizontal wrap-around.",
+  ].join("\n"),
+  SEAM_REPAIR: [
+    "[PANORAMA SEAM REPAIR]",
+    "Use the shifted source panorama as geometry truth and repair only the centered seam.",
+  ].join("\n"),
+};
+const panoramaSourcePrompt = JSON.stringify(panoramaSourcePromptObject, null, 2);
+
+test("全景图美化默认配置指向独立飞书表", () => {
+  assert.notEqual(
+    PANORAMA_ENHANCEMENT_PROMPT_CONFIG.tableId,
+    EFFECT_ENHANCEMENT_PROMPT_CONFIG.tableId,
+  );
+  assert.equal(PANORAMA_ENHANCEMENT_PROMPT_CONFIG.tableId, "tblNVM20GiWeVEiT");
+});
 
 test("工作台提供效果图美化与完整天气时段选项", async () => {
   const [html, app] = await Promise.all([
@@ -231,17 +255,29 @@ test("Prompt 只接受固定 JSON Schema 并保留基础模块旧标题", () => 
   );
 });
 
-test("全景图美化严格复用效果图默认 Prompt 并在末尾追加连续性约束", () => {
-  const defaultPrompt = composeEffectEnhancementPrompt(sourcePrompt);
-  const panoramaPrompt = composePanoramaEnhancementPrompt(sourcePrompt);
+test("全景图美化只接受独立 MAIN/SEAM_REPAIR Schema，不解析效果图模块", () => {
+  const modules = parsePanoramaEnhancementPrompt(panoramaSourcePrompt);
+  const panoramaPrompt = composePanoramaEnhancementPrompt(panoramaSourcePrompt);
+  assert.equal(panoramaPrompt, panoramaSourcePromptObject.MAIN);
   assert.equal(
-    panoramaPrompt,
-    `${defaultPrompt}\n\n${PANORAMA_CONTINUITY_PROMPT}`,
+    composePanoramaSeamRepairPrompt(panoramaSourcePrompt),
+    panoramaSourcePromptObject.SEAM_REPAIR,
   );
   assert.match(panoramaPrompt, /same-condition restoration/);
   assert.match(panoramaPrompt, /left and right edges as physically adjacent/);
   assert.match(panoramaPrompt, /seamless horizontal wrap-around/);
-  assert.doesNotMatch(panoramaPrompt, /\[CONTRACT\]|\[TIME:|\[WEATHER:/);
+  assert.deepEqual(Object.keys(modules), ["main", "seamRepair"]);
+  assert.throws(
+    () => composePanoramaEnhancementPrompt(sourcePrompt),
+    /全景图美化 Prompt JSON 结构错误/,
+  );
+  assert.throws(
+    () => parsePanoramaEnhancementPrompt(JSON.stringify({
+      SEAM_REPAIR: panoramaSourcePromptObject.SEAM_REPAIR,
+      MAIN: panoramaSourcePromptObject.MAIN,
+    })),
+    /全景图美化 Prompt JSON 结构错误/,
+  );
 });
 
 test("JSON 模块缺失、错型或乱序时拒绝生成", () => {
@@ -303,7 +339,7 @@ test("美化工作流使用单图、最新上架 Prompt 与天气时段元数据
         };
       },
     },
-    loadPrompt: async () => ({
+    loadEffectPrompt: async () => ({
       code: "effect-render-enhancement",
       name: "效果图美化完整模块 Prompt",
       prompt: sourcePrompt,
@@ -349,12 +385,13 @@ test("美化工作流拒绝缺图和多图", async () => {
   );
 });
 
-test("全景图美化工作流追加连续性 Prompt 并独立归档功能", async () => {
-  let generatedRequest;
+test("Flux 全景图美化把整图增强、接缝修复与最终超分交给单一工作流", async () => {
+  const generatedRequests = [];
+  const generationOptions = [];
   let syncedInput;
   await executeEffectRenderEnhancementWorkflow({
     featureMode: "panoramaEnhancement",
-    modelKey: "gptImage2",
+    modelKey: "aiTextureEnhancement",
     outputFormat: "png",
     ratio: "2:1",
     ratioMode: "auto",
@@ -367,20 +404,30 @@ test("全景图美化工作流追加连续性 Prompt 并独立归档功能", asy
     resolution: "2K",
   }, {
     imageClient: {
-      async generateImage(request) {
-        generatedRequest = request;
+      async generateImage(request, options) {
+        generatedRequests.push(request);
+        generationOptions.push(options);
         return {
           created: 1,
-          images: [{ url: "data:image/png;base64,aQ==" }],
+          images: [{ url: onePixelPng }],
+          metadata: {
+            panoramaSeamRepair: {
+              bandRatio: 0.08,
+              mode: "single-prompt-three-stage",
+            },
+          },
           outputFormat: "png",
           transport: "responses",
         };
       },
     },
-    loadPrompt: async () => ({
-      code: "effect-render-enhancement",
-      name: "效果图美化完整模块 Prompt",
-      prompt: sourcePrompt,
+    loadEffectPrompt: async () => {
+      throw new Error("全景链路不应读取效果图 Prompt");
+    },
+    loadPanoramaPrompt: async () => ({
+      code: "panorama-render-enhancement",
+      name: "全景图美化完整 Prompt",
+      prompt: panoramaSourcePrompt,
       published: true,
       version: 1,
     }),
@@ -390,9 +437,27 @@ test("全景图美化工作流追加连续性 Prompt 并独立归档功能", asy
     },
   });
 
-  assert.match(generatedRequest.prompt, /same-condition restoration/);
-  assert.match(generatedRequest.prompt, /seamless horizontal wrap-around/);
+  assert.equal(generatedRequests.length, 1);
+  assert.deepEqual(generationOptions, [{
+    executionTimeoutMs: 10 * 60 * 1000,
+    queueTimeoutMs: 5 * 60 * 1000,
+  }]);
+  assert.match(generatedRequests[0].prompt, /same-condition restoration/);
+  assert.match(generatedRequests[0].prompt, /seamless horizontal wrap-around/);
+  assert.equal(generatedRequests[0].panorama_seam_repair, true);
+  assert.equal(
+    generatedRequests[0].panorama_seam_prompt,
+    panoramaSourcePromptObject.SEAM_REPAIR,
+  );
   assert.equal(syncedInput.workflow.effectTime, "preserve");
   assert.equal(syncedInput.workflow.effectWeather, "preserve");
   assert.equal(syncedInput.workflow.feature, "panorama-render-enhancement");
+  assert.equal(syncedInput.workflow.promptCode, "panorama-render-enhancement");
+  assert.deepEqual(
+    syncedInput.workflow.panoramaSeamRepair,
+    {
+      bandRatio: 0.08,
+      mode: "single-prompt-three-stage",
+    },
+  );
 });

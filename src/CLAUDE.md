@@ -13,15 +13,15 @@ image-upscale-service.mjs: 图片超分应用服务，校验单图并按源图�
 image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固定三份 SeedVR2 JSON，默认攸行 3B 原图直入并保留两套 7B 预处理差异，提供 4K/6K/8K 长边合同、可独立提交或嵌入 Flux 的 SeedVR2 阶段、最小 ComfyUI 图、唯一产物前缀与元数据
 beta-base.mjs: 场景标签以多选 Tag 写入， 复用正式记录映射捕获最终 Prompt、场景/风格/家具/Agent 与真实尺寸，逐字段回读， Beta跑图独立飞书持久化边界，以 `批量跑图 Benchmark` 的样本集→样本→跑图明细三表管理复用资产和一行一结果归档，记录链接固定打开按测试时间降序分组的明细视图，分列上传样本/输入/风格/结果附件、回写版本/费用/时延/错误，并以成功状态、附件 token 与一致字节数回读裁决完成后返回轻量预览
 beta-runner.mjs: 空房逐样本房型保存、回读与校验， Beta跑图应用服务，提供样本集目录/读取/创建 API，归一化同批人类可读测试时间，复用正式生成服务执行五功能，接收去重图片资产、不设样本与结果数量上限并保持两路并发排队；逐 Run 剥离整批队列元数据并按单图调用，分别上报已生成与已同步进度，只在飞书附件回读成功后公开轻量结果预览，对含 ComfyUI 产物暂时不可读 404 在内的瞬时故障最多执行三次新 Attempt，参数类错误携原始原因立即失败，且整批仅在全部结果已同步时成功
-effect-render-enhancement-prompt.mjs: 效果图/全景图美化 Prompt 资产边界，读取独立飞书表中当前已上架 JSON 源文、向浏览器公开脱敏名称/版本状态，严格校验 `BASE/DEFAULT/CONTRACT/TIME/WEATHER` 固定 Schema 并渲染可读旧标题；效果图默认拼接基础→默认，任一环境选择改为基础→契约→时段→天气，全景图固定在基础→默认后追加球面连续性约束
-effect-render-enhancement-workflow.mjs: 效果图/全景图美化应用服务，以单张输入图编排双 Provider 出图、批次元数据与飞书归档；全景图模式固定保持原环境并独立标记产品功能
+effect-render-enhancement-prompt.mjs: 效果图/全景图美化 Prompt 资产边界，分别读取“效果图美化 Prompt”与“全景图美化 Prompt”独立飞书表；效果图严格校验 `BASE/DEFAULT/CONTRACT/TIME/WEATHER` Schema 并按环境拼接，全景图严格校验 `MAIN/SEAM_REPAIR` Schema，禁止跨表回退共用
+effect-render-enhancement-workflow.mjs: 效果图/全景图美化应用服务，按功能读取各自上架 Prompt，以单张输入图编排双 Provider 出图、批次元数据与飞书归档；Flux 全景把同一全景资产中的接缝修复 Prompt 注入单个 ComfyUI 工作流
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十一个候选 ID（含 DeepSeek V4.1 Flash 与 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-client.mjs: 可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Prompt Agent 支持白模单图或白模+风格参考双图 Responses；Claude 双图 AI 评审按规则源走 Chat Completions，其余分析、Style DNA 多轮反推与图生图走 Responses，统一归一化请求、费用与脱敏错误
-ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用 9B FP8/7 steps 与原图比例 1K/2K 推理；4K/6K 在同一 Prompt 图内把 2K 生成节点直连攸行 SeedVR2 3B 并保留 GPU 缓存，以最终 SaveImage、唯一产物键、Seed、版本和双阶段尺寸元数据追溯
-comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行时限与工作流适配器的 ComfyUI HTTP/WebSocket 客户端，将 Base64 单图与工作流原子提交，以请求级唯一产物键隔离多实例同名旧图，通过同 client ID 的事件流区分排队/执行并保留 Prompt ID，WebSocket 丢失执行事件时以实时队列和 History 恢复阶段，即使 `completed=false` 也立即透传节点 OOM/中断，只对网关读取抖动做安全重试、保留节点校验详情、恢复暂不可见输出并归一为含真实尺寸/SHA-256 身份的 data URL 与耗时元数据
+ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，默认使用 9B FP8/7 steps 与原图比例 1K/2K 推理；Flux 全景先整图增强再将增强图与原图循环平移 50%，以增强图 Latent、中央 4% 羽化噪声 Mask 与 0.65 强度的局部原图参考执行生成式接缝修复，解码后合成只保护 Mask 外像素，复位全景后执行一次不带 Prompt 的攸行 SeedVR2 3B，最后将连续修复带拆分重铺左右边缘，以最终唯一 SaveImage 和阶段元数据追溯
+comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行时限与工作流适配器的 ComfyUI HTTP/WebSocket 客户端，将 Base64 单图与工作流原子提交，以请求级唯一产物键隔离多实例同名旧图，通过同 client ID 的事件流区分排队/执行并保留 Prompt ID，WebSocket 丢失执行事件时以实时队列和 History 恢复阶段，即使 `completed=false` 也立即透传节点 OOM/中断，只对网关读取抖动做安全重试、保留节点校验详情、为最终输出提供最长约一分钟的暂不可见恢复，并归一为含真实尺寸/SHA-256 身份的 data URL 与耗时元数据
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
@@ -43,7 +43,7 @@ benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与空房智能默认/平台融合、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取
-refined-model-prompt.mjs: 同构版本化 Prompt 读取边界，为精模与效果图美化独立飞书表解析脱敏目录并按版本仅在服务端提供正文
+refined-model-prompt.mjs: 同构版本化 Prompt 读取边界，为精模、效果图美化与全景图美化独立飞书表解析脱敏目录并按版本仅在服务端提供正文
 refined-model-workflow.mjs: 精模渲染应用服务，以单张带材质模型图、可选用户要求前置且飞书预设 Prompt 后置的顺序编排双 Provider 出图、批次元数据与原始/最终 Prompt 独立归档
 white-model-workflow.mjs: 设计模型渲染应用服务，白模和空房均按智能默认/平台融合稳定编码选 Agent，空房在 Agent 前校验房间类型、详情与最终家具清单并仅将非空已选需求注入两种 Prompt，仅智能默认允许主图加单张风格参考，平台融合只接收主图与 Style DNA 并拒绝混合风格来源；按含功能/房间类型/详情/家具选择/Prompt/风格图的完整指纹复用提示词，最终模型仍只接收主图并统一编排双 Provider 出图与归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入

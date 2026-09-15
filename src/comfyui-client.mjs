@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Node fetch/WebSocket/crypto、可注入的 ComfyUI 工作流/输出节点/产物命名/元数据适配器、单张已校验图片、可覆盖服务地址/排队时限/执行时限与可选取消信号，默认适配 Flux2 Klein 1K/2K 工作流
- * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 单图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、节点错误诊断、输出读取恢复与含真实输出尺寸/SHA-256 身份的统一 generateImage 结果
+ * [OUTPUT]: 对外提供 ComfyUI 健康检查、Base64 单图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、最长约一分钟的最终输出读取恢复与含真实尺寸/SHA-256 身份的统一 generateImage 结果
  * [POS]: src 的通用 ComfyUI 传输边界，与 oneapi-client.mjs 并列并让 Flux 生图、SeedVR2 超分复用同一异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,7 +21,8 @@ export const DEFAULT_COMFYUI_BASE_URL =
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_OUTPUT_BYTES = 60 * 1024 * 1024;
-const MAX_OUTPUT_DOWNLOAD_ATTEMPTS = 20;
+const MAX_OUTPUT_DOWNLOAD_ATTEMPTS = 60;
+const OUTPUT_DOWNLOAD_RETRY_INTERVAL_MS = 1_000;
 const MAX_GATEWAY_READ_ATTEMPTS = 3;
 const WEB_SOCKET_READY_TIMEOUT_MS = 2_000;
 const TRANSIENT_GATEWAY_STATUSES = new Set([502, 503, 504]);
@@ -471,7 +472,7 @@ export function createComfyUiClient({
         (response.status !== 404 && !TRANSIENT_GATEWAY_STATUSES.has(response.status))
       ) break;
       if (attempt < MAX_OUTPUT_DOWNLOAD_ATTEMPTS - 1) {
-        await waitImpl(Math.min(pollIntervalMs, 250));
+        await waitImpl(Math.min(pollIntervalMs, OUTPUT_DOWNLOAD_RETRY_INTERVAL_MS));
       }
     }
     if (!response?.ok) {

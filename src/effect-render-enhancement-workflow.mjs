@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖飞书效果图美化 Prompt 源文、天气/时段受控枚举、固定全景连续性 Prompt、单张待美化效果图或全景图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
- * [OUTPUT]: 对外提供效果图基础→可选环境模块及全景基础→默认→连续性模块的正向 Prompt 美化执行、实际参数摘要与独立飞书同步任务
+ * [INPUT]: 依赖飞书效果图/全景图两张独立 Prompt 表、天气/时段受控枚举、单张待美化图、出图模型矩阵、Flux 单 Prompt 三阶段开关、批次元数据、图像客户端与非阻塞归档
+ * [OUTPUT]: 对外提供效果图单轮美化、独立 Prompt 驱动的 Flux 全景三阶段生成、其他模型全景生成、实际参数摘要与飞书同步任务
  * [POS]: src 的效果图/全景图美化应用服务，与精模及白模 Agent 链路隔离并复用出图基础设施
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,11 +8,16 @@
 import {
   composeEffectEnhancementPrompt,
   composePanoramaEnhancementPrompt,
+  composePanoramaSeamRepairPrompt,
   getEffectEnhancementPrompt,
+  getPanoramaEnhancementPrompt,
 } from "./effect-render-enhancement-prompt.mjs";
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
+
+const PANORAMA_QUEUE_TIMEOUT_MS = 5 * 60 * 1000;
+const PANORAMA_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000;
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -24,7 +29,8 @@ export async function executeEffectRenderEnhancementWorkflow(
   input,
   {
     imageClient,
-    loadPrompt = getEffectEnhancementPrompt,
+    loadEffectPrompt = getEffectEnhancementPrompt,
+    loadPanoramaPrompt = getPanoramaEnhancementPrompt,
     scheduleSync = null,
   },
 ) {
@@ -39,7 +45,7 @@ export async function executeEffectRenderEnhancementWorkflow(
       : "效果图美化需要且只允许 1 张待美化效果图");
   }
 
-  const promptAsset = await loadPrompt();
+  const promptAsset = await (panorama ? loadPanoramaPrompt() : loadEffectPrompt());
   const finalPrompt = panorama
     ? composePanoramaEnhancementPrompt(promptAsset.prompt)
     : composeEffectEnhancementPrompt(promptAsset.prompt, {
@@ -57,13 +63,27 @@ export async function executeEffectRenderEnhancementWorkflow(
       },
     },
   );
+  if (panorama && generation.provider === "comfyui") {
+    generation.request.panorama_seam_prompt = composePanoramaSeamRepairPrompt(
+      promptAsset.prompt,
+    );
+    generation.request.panorama_seam_repair = true;
+  }
   const startedAt = Date.now();
-  const result = await imageClient.generateImage(generation.request);
-  const durationMs = Date.now() - startedAt;
+  const result = await imageClient.generateImage(
+    generation.request,
+    panorama && generation.provider === "comfyui"
+      ? {
+          executionTimeoutMs: PANORAMA_EXECUTION_TIMEOUT_MS,
+          queueTimeoutMs: PANORAMA_QUEUE_TIMEOUT_MS,
+        }
+      : undefined,
+  );
   const resultImage = result.images?.[0];
   if (!resultImage?.url) {
     throw workflowError("出图模型没有返回图片", 502);
   }
+  const durationMs = Date.now() - startedAt;
 
   const preview = {
     ...generation.preview,

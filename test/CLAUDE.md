@@ -22,9 +22,9 @@ beta-ui.test.mjs: 根容器 clip 与配置区定位边界回归， Beta跑图独
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数及 ComfyUI 排队/执行消息推导生成中状态、结果与过期错误纯状态测试，不访问真实浏览器存储
 generation-task-request.test.mjs: 日常生图前台飞书实时 Schema 就绪阻断与图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图/全景图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
 image-upscale.test.mjs: 图片超分专项测试，覆盖三份 SeedVR2 映射与哈希、默认攸行 3B 原图直入/GPU 缓存、可独立或嵌入 Flux 的阶段、两套 7B 预处理、4K/6K/8K 比例参数、时限、Prompt ID、真实像素、本机结果及 OneAPI/飞书豁免，不提交真实 GPU 任务
-effect-render-enhancement.test.mjs: 效果图/全景图美化专项测试，覆盖当前已上架 Prompt 版本回显、天气/时段 UI、全景入口与默认 Prompt 后置球面连续性约束、固定 JSON Schema、非法枚举、单图、原图比例、脱敏响应与独立归档元数据内存集成测试
+effect-render-enhancement.test.mjs: 效果图/全景图美化专项测试，覆盖效果图环境模块与全景图 `MAIN/SEAM_REPAIR` 独立表 Schema、独立加载路由、Flux 单工作流三阶段配置注入、单图、原图比例、脱敏响应与归档元数据内存集成测试
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
-comfyui-client.test.mjs: ComfyUI 健康、取消、Flux 1K/2K 与同图 2K→4K/6K 攸行超分、Prompt/Base64 原子提交、WebSocket 阶段、队列兜底、超时、`completed=false` OOM 即时报错、网关恢复、节点详情、唯一产物、旧图拒绝、404 恢复、输出指纹与参考图边界测试，不提交真实任务
+comfyui-client.test.mjs: ComfyUI 健康、取消、Flux 1K/2K、全景先增强再平移、增强 Latent 中央 4% 羽化噪声 Mask 与 0.65 局部原图参考的生成式修复、复位后无 Prompt 的 4K/6K 攸行超分与最终连续接缝带重铺、Prompt/Base64 原子提交、WebSocket 阶段、队列兜底、超时、`completed=false` OOM 即时报错、网关恢复、节点详情、唯一产物、旧图拒绝、404 恢复、输出指纹与参考图边界测试，不提交真实任务
 flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
@@ -38,6 +38,7 @@ oneapi-client.test.mjs: OneAPI 主动取消、Prompt Agent 白模/风格参考�
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
 image-artifact.test.mjs: 生成图片扩展名、data URL 解码、任务快照 WebP 预览、空响应与下载体积上限测试
 image-download.test.mjs: 内嵌大图浏览器本地 Blob、远程图片同源代理、文件名一致性、MIME、字节透传、附件响应头与非法输入测试，不访问网络
+panorama-viewer.test.mjs: 全景图美化专属 360° 预览边界、功能上下文传递、dialog 结构、本地 Pannellum 资产及 Light Command Center 视觉令牌接入回归测试，不加载真实图片或启动 WebGL
 benchmark-base.test.mjs: Benchmark 五表环境配置、全部普通回填的实时字段存在性/可写类型/单选选项阻断、稳定编码配置映射、系统字段隔离、样本录入、三类实验筛选、快照、Prompt/Run/三维评分/费用/横评关联与附件测试，不读写真实 Base
 benchmark-runner.test.mjs: 横评计划规模、提示/出图阶段 Prompt 共享边界与飞书实验类型映射、Case/配置筛选、Provider 路由、主动取消、费用传递、逐 Run 真源进度、失败重试、横评同步与计划阶段零调用的内存集成测试
 benchmark-experiment-config.test.mjs: 八类质量配置单变量草稿冻结、阶段推导、稳定配置 ID、双 Provider 智能分辨率与合法参数测试

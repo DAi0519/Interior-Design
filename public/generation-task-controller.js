@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖生成任务存储/阶段推导、服务端任务查询、结果呈现器、当前功能与忙碌状态回调
- * [OUTPUT]: 对外提供按功能的任务启动、跟随、恢复、查询与结果区渲染控制器
+ * [INPUT]: 依赖生成任务存储/阶段推导、服务端任务查询、可消费功能上下文的结果呈现器、当前功能与忙碌状态回调
+ * [OUTPUT]: 对外提供按功能的任务启动、跟随、恢复、查询与带功能边界的结果区渲染控制器
  * [POS]: public 的生成任务交互层，连接纯状态契约与页面 DOM，不组装生图业务请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,7 +44,9 @@ export function bindGenerationTaskController({
     if (current.stage === "empty") generationResults.showEmpty();
     if (current.stage === "loading") generationResults.showLoading(current.message);
     if (current.stage === "error") generationResults.showError(current.message);
-    if (current.stage === "results") generationResults.showResults(current.outcomes);
+    if (current.stage === "results") {
+      generationResults.showResults(current.outcomes, { featureMode: getFeatureMode() });
+    }
   }
 
   async function load(jobId) {

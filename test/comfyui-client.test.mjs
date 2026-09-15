@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP/WebSocket 响应由内存替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 原生输出与同图 2K→4K/6K 攸行超分、Prompt 注入、原子提交、阶段/超时/OOM 诊断、产物身份及参考图边界回归保障
+ * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 原生输出、全景先增强再平移并以弱原图参考执行 Mask 生成式修复、复位后无 Prompt 超分与接缝带重铺、Prompt 注入、原子提交、阶段/超时/OOM 诊断、长延迟产物读取恢复、产物身份及参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import test from "node:test";
 import {
   AI_TEXTURE_DEFAULTS,
   AI_TEXTURE_WORKFLOW,
+  PANORAMA_SEAM_REFERENCE_STRENGTH,
   createAiTextureWorkflow,
 } from "../src/ai-texture-workflow.mjs";
 import { createComfyUiClient } from "../src/comfyui-client.mjs";
@@ -149,6 +150,130 @@ test("Flux 4K/6K 把 2K 生成结果直接接入同一 Prompt 图的攸行 SeedV
   );
 });
 
+test("Flux 全景工作流在一次提交内串联整图增强、接缝修复与单次超分", () => {
+  const workflow = createAiTextureWorkflow({
+    artifactKey: "panorama-three-stage",
+    generationRequest: {
+      panorama_seam_prompt: "只修复画面中央的原全景接缝",
+      panorama_seam_repair: true,
+      upscale_height: 2048,
+      upscale_resolution: "4K",
+      upscale_width: 4096,
+      upscale_workflow_key: "youxing_seedvr2_3b",
+    },
+    height: 1440,
+    imageBase64: "example-base64",
+    prompt: "整图质感增强并保持全景连续",
+    resolution: "4K",
+    seed: 42,
+    width: 2880,
+  });
+
+  assert.deepEqual(
+    workflow["VAEEncode-0f3be78d5b363beeed86c2ebc4015cab"].inputs.pixels,
+    ["ImageResize+-a38908ad3622430bf340597ca425274c", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Enhanced-Shifted-Right-Crop"].inputs.image,
+    ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0],
+  );
+  assert.equal(workflow["Panorama-Enhanced-Shifted-Right-Crop"].inputs.x, 1440);
+  assert.deepEqual(
+    workflow["Panorama-Original-Shifted-Right-Crop"].inputs.image,
+    ["ImageResize+-a38908ad3622430bf340597ca425274c", 0],
+  );
+  assert.match(workflow["Panorama-Repair-Prompt"].inputs.text,
+    /^只修复画面中央的原全景接缝\n\nThe masked center strip/);
+  assert.match(workflow["Panorama-Repair-Prompt"].inputs.text,
+    /one continuous 360-degree interior space/);
+  assert.deepEqual(
+    workflow["Panorama-Repair-Positive-Original"].inputs.conditioning,
+    ["Panorama-Repair-Prompt", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Repair-Positive-Original"].inputs.latent,
+    ["Panorama-Repair-Original-VAEEncode", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Repair-Original-VAEEncode"].inputs.pixels,
+    ["Panorama-Original-Shifted", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Repair-Negative-Original"].inputs.conditioning,
+    ["CLIPTextEncode-a5eb6fed8b48761592bb34a3f51a1e24", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Repair-Enhanced-VAEEncode"].inputs.pixels,
+    ["Panorama-Enhanced-Shifted", 0],
+  );
+  assert.equal(workflow["Panorama-Repair-Positive-Enhanced"], undefined);
+  assert.equal(workflow["Panorama-Repair-Negative-Enhanced"], undefined);
+  assert.equal(
+    workflow["Panorama-Repair-Positive-Area"].inputs.strength,
+    PANORAMA_SEAM_REFERENCE_STRENGTH,
+  );
+  assert.equal(workflow["Panorama-Repair-Positive-Area"].inputs.width, 0.04);
+  assert.deepEqual(
+    workflow["Panorama-Repair-Guider"].inputs.positive,
+    ["Panorama-Repair-Positive-Area", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Repair-Composite"].inputs.destination,
+    ["Panorama-Enhanced-Shifted", 0],
+  );
+  assert.equal(workflow["Panorama-Repair-Band"].inputs.width, 115);
+  assert.equal(workflow["Panorama-Repair-Feather"].inputs.left, 43);
+  assert.deepEqual(
+    workflow["Panorama-Repair-Sampler"].inputs.latent_image,
+    ["Panorama-Repair-Latent", 0],
+  );
+  assert.equal(workflow["Panorama-Repair-Latent"].class_type,
+    "SetLatentNoiseMask");
+  assert.deepEqual(
+    workflow["Panorama-Repair-Latent"].inputs.samples,
+    ["Panorama-Repair-Enhanced-VAEEncode", 0],
+  );
+  assert.deepEqual(
+    workflow["Panorama-Repair-Latent"].inputs.mask,
+    ["Panorama-Repair-Noise-Mask", 0],
+  );
+  assert.equal(workflow["Panorama-Repair-Mask-Canvas"].inputs.value, 0);
+  assert.equal(workflow["Panorama-Repair-Mask-Band"].inputs.width, 115);
+  assert.equal(workflow["Panorama-Repair-Mask-Feather"].inputs.left, 43);
+  assert.equal(workflow["Panorama-Repair-Noise-Mask"].inputs.x, 1382);
+  assert.deepEqual(
+    workflow["Panorama-Repair-Composite"].inputs.mask,
+    ["Panorama-Repair-Feather", 0],
+  );
+  assert.deepEqual(
+    workflow["SeedVR2-Upscaler"].inputs.image,
+    ["Panorama-Restored", 0],
+  );
+  assert.equal("prompt" in workflow["SeedVR2-Upscaler"].inputs, false);
+  assert.equal("text" in workflow["SeedVR2-Upscaler"].inputs, false);
+  assert.equal("positive" in workflow["SeedVR2-Upscaler"].inputs, false);
+  assert.equal("negative" in workflow["SeedVR2-Upscaler"].inputs, false);
+  assert.deepEqual(
+    workflow["Panorama-Restore-Right-Crop"].inputs.image,
+    ["Panorama-Repair-Composite", 0],
+  );
+  assert.equal(workflow["Panorama-Restore-Right-Crop"].inputs.x, 1440);
+  assert.deepEqual(
+    workflow["Panorama-Final-Seam-Source"].inputs.image,
+    ["Panorama-Repair-Composite", 0],
+  );
+  assert.equal(workflow["Panorama-Final-Seam-Source"].inputs.width, 115);
+  assert.equal(workflow["Panorama-Final-Seam-Upscaled"].inputs.width, 164);
+  assert.equal(workflow["Panorama-Final-Seam-Upscaled"].inputs.height, 2048);
+  assert.equal(workflow["Panorama-Final-Left-Edge"].inputs.x, 82);
+  assert.equal(workflow["Panorama-Final-Left-Feather"].inputs.right, 61);
+  assert.equal(workflow["Panorama-Final-Seam-Composite"].inputs.x, 4014);
+  assert.deepEqual(
+    workflow[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.images,
+    ["Panorama-Final-Seam-Composite", 0],
+  );
+});
+
 test("空输入不会回填工作流内置正向 Prompt", () => {
   const workflow = createAiTextureWorkflow({
     artifactKey: "request-789",
@@ -214,7 +339,7 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
         parsed.searchParams.get("filename"),
         "CanvasLab_Flux2Klein_request-abc_00001_.png",
       );
-      if (outputRequests === 1) return new Response("missing", { status: 404 });
+      if (outputRequests <= 25) return new Response("missing", { status: 404 });
       return new Response(new Uint8Array([137, 80, 78, 71]), {
         headers: { "Content-Type": "image/png" },
       });
@@ -280,7 +405,7 @@ test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统�
   assert.equal(result.metadata.inferenceWidth, 1024);
   assert.equal(result.metadata.inferenceHeight, 576);
   assert.equal(historyRequests, 2);
-  assert.equal(outputRequests, 2);
+  assert.equal(outputRequests, 26);
 });
 
 test("ComfyUI WebSocket 准确回传排队与执行阶段", async () => {

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与具有同构字段的精模/效果图美化 Prompt 表
+ * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与具有同构字段的精模/效果图/全景图美化 Prompt 表
  * [OUTPUT]: 对外提供可定制来源标签的固定 Prompt 版本解析、脱敏目录、草稿测试选择与指定版本正文读取
- * [POS]: src 的精模固定 Prompt 资产边界，正文只在服务端进入出图链路
+ * [POS]: src 的同构版本化 Prompt 读取基础设施，正文只在服务端进入各自出图链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

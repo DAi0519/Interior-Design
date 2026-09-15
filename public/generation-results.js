@@ -1,11 +1,15 @@
 /**
- * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、浏览器 Blob 与同源远程图片下载接口、结果区 DOM 与 Toast 回调
- * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
- * [POS]: public 的生成结果呈现层，承接单模型最多四张或最多四模型的成功与部分失败结果并隔离下载传输策略
+ * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、浏览器 Blob 与同源远程图片下载接口、全景预览器、结果区 DOM 与 Toast 回调
+ * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
+ * [POS]: public 的生成结果呈现层，承接单模型最多四张或最多四模型的成功与部分失败结果，隔离下载传输并按功能限定沉浸式预览
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { resultMetadata, secureImageUrl } from "./workbench-utils.js";
+import {
+  bindPanoramaViewer,
+  isPanoramaPreviewFeature,
+} from "./panorama-viewer.js";
 
 const DOWNLOAD_EXTENSIONS = Object.freeze({
   jpeg: "jpg",
@@ -116,6 +120,10 @@ export function bindGenerationResults({ api, showToast }) {
     loading: document.querySelector("#loadingState"),
     loadingLabel: document.querySelector("#loadingLabel"),
   };
+  const panorama = bindPanoramaViewer({
+    prepareImage: (input) => prepareBrowserImageDownload(input),
+    showToast,
+  });
   let renderId = 0;
 
   function setStage(stage) {
@@ -182,7 +190,7 @@ export function bindGenerationResults({ api, showToast }) {
     }
   }
 
-  function resultCard(outcome) {
+  function resultCard(outcome, featureMode) {
     const card = document.createElement("article");
     card.className = "result-card";
     if (outcome.status === "rejected") {
@@ -229,7 +237,23 @@ export function bindGenerationResults({ api, showToast }) {
     record.rel = "noreferrer";
     record.textContent = "飞书记录";
     copy.append(model, meta);
-    actions.append(duration, download, record);
+    actions.append(duration);
+    if (isPanoramaPreviewFeature(featureMode)) {
+      const preview = document.createElement("button");
+      preview.type = "button";
+      preview.className = "result-download-button panorama-preview-button";
+      preview.textContent = "360°预览";
+      preview.ariaLabel = `360°预览 ${outcome.item.label} 生成结果`;
+      preview.addEventListener("click", () => {
+        void panorama.open({
+          imageUrl: result.images[0].url,
+          modelLabel: outcome.item.label,
+          outputFormat: result.request.outputFormat,
+        });
+      });
+      actions.append(preview);
+    }
+    actions.append(download, record);
     caption.append(copy, actions);
     card.append(image, caption);
     updateCardSummary(card, result);
@@ -251,10 +275,10 @@ export function bindGenerationResults({ api, showToast }) {
       elements.loadingLabel.textContent = message;
       setStage("loading");
     },
-    showResults(outcomes) {
+    showResults(outcomes, { featureMode } = {}) {
       renderId += 1;
       const currentRenderId = renderId;
-      const cards = outcomes.map(resultCard);
+      const cards = outcomes.map((outcome) => resultCard(outcome, featureMode));
       elements.gallery.replaceChildren(...cards);
       elements.gallery.classList.toggle("multiple", outcomes.length > 1);
       setStage("gallery");

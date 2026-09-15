@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分）、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
+ * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -79,6 +79,10 @@ const INTER_VARIABLE_LATIN_FONT = join(
   ROOT_DIR,
   "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
 );
+const PANNELLUM_ASSETS = Object.freeze({
+  "/vendor/pannellum.css": join(ROOT_DIR, "node_modules/pannellum/build/pannellum.css"),
+  "/vendor/pannellum.js": join(ROOT_DIR, "node_modules/pannellum/build/pannellum.js"),
+});
 const BENCHMARK_STATE_FILE = join(
   fileURLToPath(new URL(".", import.meta.url)),
   ".benchmark-workbench",
@@ -134,7 +138,7 @@ const MIME_TYPES = {
 const SECURITY_HEADERS = {
   "Cache-Control": "no-store",
   "Content-Security-Policy":
-    "default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self'; script-src 'self'; connect-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -341,6 +345,7 @@ const handleGenerationJobApi = createGenerationJobApiHandler({
 
 function safeStaticPath(pathname) {
   if (pathname === "/vendor/inter-variable-latin.woff2") return INTER_VARIABLE_LATIN_FONT;
+  if (PANNELLUM_ASSETS[pathname]) return PANNELLUM_ASSETS[pathname];
   const requestedPath = pathname === "/" ? "index.html" : pathname.slice(1);
   const resolvedPath = normalize(join(PUBLIC_DIR, requestedPath));
   return resolvedPath.startsWith(PUBLIC_DIR) ? resolvedPath : null;
