@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 styles.css 的设计令牌与 index.html 的结果区状态节点
- * [OUTPUT]: 对外提供结果工具栏、空态/加载态/错误态、单图/四图画廊及逐图下载动作视觉
+ * [INPUT]: 依赖 styles.css 的设计令牌、index.html 的结果区状态节点与 generation-results.js 的原图/结果图叠层状态
+ * [OUTPUT]: 对外提供结果工具栏、空态/加载态/错误态、单图与完整图片高度的可滚动四图画廊、无聚焦外圈的轻量原图/结果图滑动分割线及逐图下载动作视觉
  * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -200,7 +200,17 @@
 }
 
 .result-gallery.multiple {
+  align-content: start;
+  grid-auto-rows: max-content;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.result-gallery.multiple .result-card {
+  justify-content: flex-start;
+}
+
+.result-gallery.multiple .result-media {
+  flex-shrink: 0;
 }
 
 .result-card {
@@ -223,6 +233,146 @@
   min-height: 0;
   object-fit: contain;
   width: 100%;
+}
+
+.result-media {
+  --comparison-split: 50%;
+  --comparison-divider: rgb(255 255 255 / 90%);
+  --comparison-handle-bg: rgb(252 252 253 / 78%);
+  --comparison-handle-size: 30px;
+  border-radius: 8px;
+  isolation: isolate;
+  line-height: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.result-media .result-output-image {
+  border-radius: 0;
+}
+
+.result-media .result-before-image {
+  border-radius: 0;
+  clip-path: inset(0 calc(100% - var(--comparison-split)) 0 0);
+  height: 100%;
+  inset: 0;
+  max-height: none;
+  object-fit: contain;
+  pointer-events: none;
+  position: absolute;
+  user-select: none;
+}
+
+.result-comparison-divider {
+  background: var(--comparison-divider);
+  bottom: 0;
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 16%);
+  left: var(--comparison-split);
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: 1px;
+  z-index: 2;
+}
+
+.result-comparison-divider span {
+  align-items: center;
+  backdrop-filter: blur(12px) saturate(120%);
+  background: var(--comparison-handle-bg);
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 15%),
+    0 3px 10px rgb(0 0 0 / 14%);
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms var(--ease-out);
+  width: var(--comparison-handle-size);
+}
+
+.result-comparison-divider span::before,
+.result-comparison-divider span::after {
+  background: rgb(32 32 36 / 54%);
+  border-radius: 999px;
+  content: "";
+  height: 10px;
+  width: 1px;
+}
+
+.result-comparison-divider span::before {
+  margin-right: 4px;
+}
+
+.result-media:hover .result-comparison-divider span,
+.result-media.comparison-dragging .result-comparison-divider span {
+  background: rgb(252 252 253 / 92%);
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 18%),
+    0 4px 14px rgb(0 0 0 / 18%);
+}
+
+.result-comparison-label {
+  background: rgb(252 252 253 / 92%);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1;
+  padding: 6px 8px;
+  pointer-events: none;
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+}
+
+.result-before-label {
+  left: 10px;
+}
+
+.result-after-label {
+  right: 10px;
+}
+
+.result-comparison-range {
+  cursor: col-resize;
+  height: 100%;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  touch-action: pan-y;
+  width: 100%;
+  z-index: 3;
+}
+
+.result-comparison-range:focus-visible {
+  outline: none;
+}
+
+.result-media:focus-within .result-comparison-divider span {
+  background: rgb(252 252 253 / 92%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-comparison-divider span {
+    transition: none;
+  }
+}
+
+.result-media:not(.comparison-active) .result-before-image,
+.result-media:not(.comparison-active) .result-comparison-divider,
+.result-media:not(.comparison-active) .result-comparison-label,
+.result-media:not(.comparison-active) .result-comparison-range {
+  display: none;
 }
 
 .result-card footer {

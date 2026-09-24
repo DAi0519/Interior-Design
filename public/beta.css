@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 beta.html 的样本集/批量配置/双阶段任务监控与已归档结果预览语义、DESIGN.md 的 Raycast Light Command Center 令牌、generation-actions/custom-select 共享控件与 raycast-accent 最终颜色层
- * [OUTPUT]: 对外提供逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动双列结果缩略图
+ * [OUTPUT]: 对外提供逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动双列结果缩略图
  * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、飞书确认后结果预览和窄屏自然单栏为边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -215,6 +215,12 @@ button { cursor: pointer; }
   font-weight: 600;
   margin-left: 2px;
 }
+.field > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  margin-left: 2px;
+}
 .field input, .field select, .field textarea {
   background: rgb(244 244 246 / 94%);
   border: 1px solid var(--line);
@@ -235,6 +241,7 @@ button { cursor: pointer; }
   gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+#designFields { align-items: start; }
 
 .sample-set-panel { display: grid; gap: 10px; }
 .sample-set-toolbar {

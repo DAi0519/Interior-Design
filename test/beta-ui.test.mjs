@@ -44,7 +44,7 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=9/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=19/);
+  assert.match(html, /beta-app\.js\?v=20/);
   assert.match(configuration, /configurationState = "saved"/);
   assert.match(html, /class="beta-config-scroll"/);
   assert.match(html, /id="sourceFilesDropZone" class="reference-drop-zone"/);

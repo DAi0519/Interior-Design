@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 image-ratio.js，接收公开模型能力、功能模式、参考图、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
- * [OUTPUT]: 对外提供参考图数量文案、比例分辨率选项，以及区分 Flux 原生推理和同工作流超分最终尺寸的摘要
+ * [INPUT]: 依赖 image-ratio.js，接收公开模型能力、功能模式、参考图、Seedream 5.0 Pro 全景 4K 实验档、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
+ * [OUTPUT]: 对外提供参考图数量文案、按功能合并的比例分辨率选项，以及区分 Flux 原生推理和同工作流超分最终尺寸的摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,16 @@ function modelResolutionKeys(model, ratio) {
     ...Object.keys(model.sizes[ratio] || {}),
     ...(ratio === "source" ? Object.keys(model.postUpscale || {}) : []),
   ];
+}
+
+function sizesForFeature(model, featureMode) {
+  const overrides = model.featureSizeOverrides?.[featureMode] || {};
+  return Object.fromEntries(
+    Object.entries(model.sizes).map(([ratio, sizes]) => [
+      ratio,
+      { ...sizes, ...(overrides[ratio] || {}) },
+    ]),
+  );
 }
 
 export function referenceCapability({ featureMode, model, policy }) {
@@ -57,17 +67,14 @@ export function referenceCapability({ featureMode, model, policy }) {
 export function sizeControlState({
   currentRatio,
   currentResolution,
+  featureMode,
   model,
   preserveResolution,
   ratioMode,
   sourceImage,
 }) {
+  model = { ...model, sizes: sizesForFeature(model, featureMode) };
   const sourceAspect = model.sizingMode === "source";
-  const defaultResolutions = modelResolutionKeys(model, model.defaultRatio);
-  const preservedResolution =
-    preserveResolution && defaultResolutions.includes(currentResolution)
-      ? currentResolution
-      : model.defaultResolution;
   const automaticRatio = sourceAspect
     ? model.defaultRatio
     : nearestSupportedRatio(model, sourceImage);
@@ -76,6 +83,10 @@ export function sizeControlState({
       ? currentRatio
       : automaticRatio;
   const resolutions = modelResolutionKeys(model, ratio);
+  const preservedResolution =
+    preserveResolution && resolutions.includes(currentResolution)
+      ? currentResolution
+      : model.defaultResolution;
   const resolution = resolutions.includes(preservedResolution)
     ? preservedResolution
     : resolutions.includes(model.defaultResolution)
@@ -101,7 +112,8 @@ export function sizeControlState({
   };
 }
 
-export function sizeSummary({ model, ratio, ratioMode, resolution, sourceImage }) {
+export function sizeSummary({ featureMode, model, ratio, ratioMode, resolution, sourceImage }) {
+  model = { ...model, sizes: sizesForFeature(model, featureMode) };
   if (model.sizingMode === "source") {
     const resolutions = modelResolutionKeys(model, "source");
     const resolvedResolution = resolutions.includes(resolution)

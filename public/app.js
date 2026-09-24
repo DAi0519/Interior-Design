@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、效果图美化天气/时段及全景图美化固定默认选项、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、无需 OneAPI/飞书的纯 ComfyUI 图片超分、按功能恢复的生成中/结果状态、效果图/全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、效果图美化天气/时段、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、无需 OneAPI/飞书的纯 ComfyUI 图片超分、按功能恢复的生成中/结果状态与当前页面任务原图对比、效果图/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,7 @@
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js";
-import { bindDesignInputs } from "./design-inputs.js";
+import { bindDesignInputs } from "./design-inputs.js?v=2";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
 import { buildGenerationInput } from "./generation-input.js";
@@ -185,6 +185,12 @@ function selectFeatureMode(featureMode) {
   ];
   if (!supported.includes(featureMode)) return;
   state.featureMode = featureMode;
+  if (featureMode === "panoramaEnhancement" && state.catalog.length) {
+    state.modelKeys = state.modelKeys.filter((key) =>
+      state.catalog.some((model) => model.key === key
+        && (model.sizingMode === "source" || model.sizes["2:1"])));
+    if (!state.modelKeys.length) state.modelKeys = ["aiTextureEnhancement"];
+  }
   const isWhiteModel = featureMode === "whiteModel";
   const isEmptyRoom = featureMode === "emptyRoom";
   const isDesignModel = isWhiteModel || isEmptyRoom;
@@ -193,7 +199,6 @@ function selectFeatureMode(featureMode) {
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
   const isImageUpscale = featureMode === "imageUpscale";
-
   for (const button of elements.featureModeButtons) {
     const selected = button.dataset.featureMode === featureMode;
     button.classList.toggle("selected", selected);
@@ -281,7 +286,11 @@ function configurePrimaryModel() {
               ? "低"
               : quality === "medium"
                 ? "中"
-                : "高",
+                : quality === "high"
+                  ? "高"
+                  : quality === "xhigh"
+                    ? "极高"
+                    : "最高",
         value: quality,
       })),
       model.defaultQuality || "auto",
@@ -300,15 +309,19 @@ function selectModels(modelKeys) {
   configurePrimaryModel();
 }
 
-function configureSizeControls({ preserveResolution = false } = {}) {
+function configureSizeControls({
+  preserveResolution = false,
+  ratioMode = state.ratioMode,
+} = {}) {
   const model = selectedModel();
   const sourceImage = selectedSourceImage();
   const controls = sizeControlState({
     currentRatio: elements.ratioSelect.value,
     currentResolution: elements.resolutionSelect.value,
+    featureMode: state.featureMode,
     model,
     preserveResolution,
-    ratioMode: state.ratioMode,
+    ratioMode,
     sourceImage,
   });
   fillSelect(elements.ratioSelect, controls.ratioOptions, controls.ratio);
@@ -326,6 +339,7 @@ function updateComputedSize() {
   const ratio = elements.ratioSelect.value;
   const sourceImage = selectedSourceImage();
   const summary = sizeSummary({
+    featureMode: state.featureMode,
     model,
     ratio,
     ratioMode: state.ratioMode,
@@ -415,7 +429,10 @@ const modelMultiSelect = bindModelMultiSelect({
   max: 4,
   onChange: selectModels,
   onMessage: showToast,
-  presentOption: describeFinalModelOption,
+  presentOption: (model) => state.featureMode === "panoramaEnhancement"
+    && model.sizingMode !== "source" && !model.sizes["2:1"]
+    ? { label: `${model.label} · 不支持 2:1`, selectable: false }
+    : describeFinalModelOption(model),
 });
 
 async function checkAvailableModels() {
@@ -578,16 +595,16 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const generationItems = imageUpscaleRequest
     ? models
     : generationItemsForSelection(models, generationCount.value());
+  const sourceImage = selectedSourceImage();
   const task = createGenerationTask({
     featureMode,
     loadingLabel: loadingCopy,
     models: generationItems,
   });
-  generationTasks.start(task);
+  generationTasks.start(task, { comparisonImage: sourceImage });
 
   try {
     const baseInput = imageUpscaleRequest ? null : generationInput();
-    const sourceImage = selectedSourceImage();
     const batchId = generationItems.length > 1
       ? crypto.randomUUID().replaceAll("-", "")
       : null;
@@ -797,6 +814,7 @@ elements.effectTimeSelect.addEventListener("change", generationActions.refresh);
 elements.effectWeatherSelect.addEventListener("change", generationActions.refresh);
 elements.ratioSelect.addEventListener("change", () => {
   if (selectedSourceImage()) state.ratioMode = "manual";
+  configureSizeControls({ preserveResolution: true, ratioMode: "manual" });
   updateComputedSize();
 });
 elements.resolutionSelect.addEventListener("change", () => {

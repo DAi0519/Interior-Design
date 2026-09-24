@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖版本化 Prompt 读取边界，以及飞书“效果图美化 Prompt”与“全景图美化 Prompt”两张独立版本表
- * [OUTPUT]: 对外提供效果图模块 Schema、全景主生成/接缝修复 Schema、受控环境拼接及两类当前上架 Prompt 读取
+ * [OUTPUT]: 对外提供效果图模块 Schema、允许纯文本或开放 JSON 容器的单一全景 Prompt、受控环境拼接及两类当前上架 Prompt 读取
  * [POS]: src 的效果图/全景图美化 Prompt 资产边界，两张飞书表分别是真源且浏览器不接触正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -51,8 +51,6 @@ const BASE_KEYS = Object.freeze([
 ]);
 const TIME_KEYS = Object.freeze(["DAYTIME", "DUSK", "NIGHT"]);
 const WEATHER_KEYS = Object.freeze(["CLEAR", "OVERCAST", "RAINY", "FOGGY"]);
-const PANORAMA_ROOT_KEYS = Object.freeze(["MAIN", "SEAM_REPAIR"]);
-
 function promptError(message) {
   const error = new Error(message);
   error.statusCode = 409;
@@ -139,25 +137,34 @@ export function composeEffectEnhancementPrompt(source, {
 }
 
 export function parsePanoramaEnhancementPrompt(source) {
+  const normalized = String(source || "").trim();
+  if (!normalized) {
+    throw promptError("飞书全景图美化 Prompt 正文为空");
+  }
+  if (!normalized.startsWith("{")) {
+    return { main: normalized };
+  }
+
   let prompt;
   try {
-    prompt = JSON.parse(String(source || ""));
+    prompt = JSON.parse(normalized);
   } catch {
+    try {
+      prompt = JSON.parse(normalized.replace(/,\s*}$/, "\n}"));
+    } catch {
+      throw promptError("飞书全景图美化 Prompt JSON 语法错误");
+    }
+  }
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) {
     throw promptError("飞书全景图美化 Prompt JSON 结构错误");
   }
-  assertExactObject(prompt, PANORAMA_ROOT_KEYS, "全景图美化");
   return {
     main: requireText(prompt.MAIN, "全景图美化"),
-    seamRepair: requireText(prompt.SEAM_REPAIR, "全景图美化"),
   };
 }
 
 export function composePanoramaEnhancementPrompt(source) {
   return parsePanoramaEnhancementPrompt(source).main;
-}
-
-export function composePanoramaSeamRepairPrompt(source) {
-  return parsePanoramaEnhancementPrompt(source).seamRepair;
 }
 
 export async function getEffectEnhancementPrompt(options = {}) {

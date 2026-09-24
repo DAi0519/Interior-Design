@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP/WebSocket 响应由内存替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 原生输出、全景先增强再平移并以弱原图参考执行 Mask 生成式修复、复位后无 Prompt 超分与接缝带重铺、Prompt 注入、原子提交、阶段/超时/OOM 诊断、长延迟产物读取恢复、产物身份及参考图边界回归保障
+ * [OUTPUT]: 对外提供健康检查、主动取消、默认 9B FP8/7 steps、1K/2K 原生输出、全景复用普通 Flux 链路、无 Prompt 超分、Prompt 注入、原子提交、阶段/超时/OOM 诊断、长延迟产物读取恢复、产物身份及参考图边界回归保障
  * [POS]: test 的 ComfyUI Provider 契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,8 +11,8 @@ import test from "node:test";
 import {
   AI_TEXTURE_DEFAULTS,
   AI_TEXTURE_WORKFLOW,
-  PANORAMA_SEAM_REFERENCE_STRENGTH,
   createAiTextureWorkflow,
+  aiTextureWorkflowMetadata,
 } from "../src/ai-texture-workflow.mjs";
 import { createComfyUiClient } from "../src/comfyui-client.mjs";
 
@@ -72,6 +72,10 @@ test("工作流工厂原样写入正向 Prompt、保留默认负向 Prompt 与�
   assert.equal(
     workflow["Flux2Scheduler-fd38d320ac98d809795611b9d91d1f52"].inputs.steps,
     7,
+  );
+  assert.equal(
+    workflow["KSamplerSelect-ea15f99cba5b444c6edd8a1509542292"].inputs.sampler_name,
+    "euler",
   );
   assert.equal(
     workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.width,
@@ -148,14 +152,24 @@ test("Flux 4K/6K 把 2K 生成结果直接接入同一 Prompt 图的攸行 SeedV
     workflow[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.images,
     ["SeedVR2-Upscaler", 0],
   );
+  assert.equal(
+    "panoramaCircularSampling" in aiTextureWorkflowMetadata({
+      artifactKey: "panorama-standard-workflow",
+      height: 1440,
+      negativePromptMode: "default",
+      resolution: "4K",
+      seed: 42,
+      width: 2880,
+    }),
+    false,
+  );
 });
 
-test("Flux 全景工作流在一次提交内串联整图增强、接缝修复与单次超分", () => {
+test("Flux 忽略废弃全景字段并保持普通工作流与无 Prompt 超分", () => {
   const workflow = createAiTextureWorkflow({
-    artifactKey: "panorama-three-stage",
+    artifactKey: "panorama-circular-sampling",
     generationRequest: {
-      panorama_seam_prompt: "只修复画面中央的原全景接缝",
-      panorama_seam_repair: true,
+      panorama_circular_sampling: true,
       upscale_height: 2048,
       upscale_resolution: "4K",
       upscale_width: 4096,
@@ -169,108 +183,77 @@ test("Flux 全景工作流在一次提交内串联整图增强、接缝修复与
     width: 2880,
   });
 
+  assert.equal(
+    workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.width,
+    2880,
+  );
+  assert.equal(
+    workflow["ImageResize+-a38908ad3622430bf340597ca425274c"].inputs.height,
+    1440,
+  );
   assert.deepEqual(
     workflow["VAEEncode-0f3be78d5b363beeed86c2ebc4015cab"].inputs.pixels,
     ["ImageResize+-a38908ad3622430bf340597ca425274c", 0],
   );
   assert.deepEqual(
-    workflow["Panorama-Enhanced-Shifted-Right-Crop"].inputs.image,
-    ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0],
+    workflow["ReferenceLatent-ce99eb243bffaf440eb25cb1f2430377"].inputs.latent,
+    ["VAEEncode-0f3be78d5b363beeed86c2ebc4015cab", 0],
   );
-  assert.equal(workflow["Panorama-Enhanced-Shifted-Right-Crop"].inputs.x, 1440);
   assert.deepEqual(
-    workflow["Panorama-Original-Shifted-Right-Crop"].inputs.image,
+    workflow["ReferenceLatent-95e27bbc3e3c05717782d7ef1003175d"].inputs.latent,
+    ["VAEEncode-0f3be78d5b363beeed86c2ebc4015cab", 0],
+  );
+  assert.deepEqual(
+    workflow["easy imageSize-913eae800a3359e3775764c823c3e7ea"].inputs.image,
     ["ImageResize+-a38908ad3622430bf340597ca425274c", 0],
   );
-  assert.match(workflow["Panorama-Repair-Prompt"].inputs.text,
-    /^只修复画面中央的原全景接缝\n\nThe masked center strip/);
-  assert.match(workflow["Panorama-Repair-Prompt"].inputs.text,
-    /one continuous 360-degree interior space/);
   assert.deepEqual(
-    workflow["Panorama-Repair-Positive-Original"].inputs.conditioning,
-    ["Panorama-Repair-Prompt", 0],
+    workflow["SamplerCustomAdvanced-2f28374236f5e23ae19921682535469c"].inputs.latent_image,
+    ["EmptyFlux2LatentImage-7830d5afa1453245de64ed5470dfe7d2", 0],
   );
   assert.deepEqual(
-    workflow["Panorama-Repair-Positive-Original"].inputs.latent,
-    ["Panorama-Repair-Original-VAEEncode", 0],
+    workflow["SamplerCustomAdvanced-2f28374236f5e23ae19921682535469c"].inputs.sigmas,
+    ["Flux2Scheduler-fd38d320ac98d809795611b9d91d1f52", 0],
   );
-  assert.deepEqual(
-    workflow["Panorama-Repair-Original-VAEEncode"].inputs.pixels,
-    ["Panorama-Original-Shifted", 0],
-  );
-  assert.deepEqual(
-    workflow["Panorama-Repair-Negative-Original"].inputs.conditioning,
-    ["CLIPTextEncode-a5eb6fed8b48761592bb34a3f51a1e24", 0],
-  );
-  assert.deepEqual(
-    workflow["Panorama-Repair-Enhanced-VAEEncode"].inputs.pixels,
-    ["Panorama-Enhanced-Shifted", 0],
-  );
-  assert.equal(workflow["Panorama-Repair-Positive-Enhanced"], undefined);
-  assert.equal(workflow["Panorama-Repair-Negative-Enhanced"], undefined);
   assert.equal(
-    workflow["Panorama-Repair-Positive-Area"].inputs.strength,
-    PANORAMA_SEAM_REFERENCE_STRENGTH,
+    workflow["KSamplerSelect-ea15f99cba5b444c6edd8a1509542292"].inputs.sampler_name,
+    "euler",
   );
-  assert.equal(workflow["Panorama-Repair-Positive-Area"].inputs.width, 0.04);
-  assert.deepEqual(
-    workflow["Panorama-Repair-Guider"].inputs.positive,
-    ["Panorama-Repair-Positive-Area", 0],
+  assert.equal(
+    workflow["ImageResize+-6348ae83bed7de73d2de60a62eb38a93"].inputs.width,
+    2880,
   );
-  assert.deepEqual(
-    workflow["Panorama-Repair-Composite"].inputs.destination,
-    ["Panorama-Enhanced-Shifted", 0],
+  assert.equal(
+    workflow["ImageResize+-6348ae83bed7de73d2de60a62eb38a93"].inputs.height,
+    1440,
   );
-  assert.equal(workflow["Panorama-Repair-Band"].inputs.width, 115);
-  assert.equal(workflow["Panorama-Repair-Feather"].inputs.left, 43);
-  assert.deepEqual(
-    workflow["Panorama-Repair-Sampler"].inputs.latent_image,
-    ["Panorama-Repair-Latent", 0],
+  assert.equal(
+    Object.keys(workflow).some((key) => key.startsWith("Panorama-Enhancement")),
+    false,
   );
-  assert.equal(workflow["Panorama-Repair-Latent"].class_type,
-    "SetLatentNoiseMask");
-  assert.deepEqual(
-    workflow["Panorama-Repair-Latent"].inputs.samples,
-    ["Panorama-Repair-Enhanced-VAEEncode", 0],
-  );
-  assert.deepEqual(
-    workflow["Panorama-Repair-Latent"].inputs.mask,
-    ["Panorama-Repair-Noise-Mask", 0],
-  );
-  assert.equal(workflow["Panorama-Repair-Mask-Canvas"].inputs.value, 0);
-  assert.equal(workflow["Panorama-Repair-Mask-Band"].inputs.width, 115);
-  assert.equal(workflow["Panorama-Repair-Mask-Feather"].inputs.left, 43);
-  assert.equal(workflow["Panorama-Repair-Noise-Mask"].inputs.x, 1382);
-  assert.deepEqual(
-    workflow["Panorama-Repair-Composite"].inputs.mask,
-    ["Panorama-Repair-Feather", 0],
+  assert.equal(
+    Object.keys(workflow).some((key) => key.startsWith("Panorama-Wrap")),
+    false,
   );
   assert.deepEqual(
     workflow["SeedVR2-Upscaler"].inputs.image,
-    ["Panorama-Restored", 0],
+    ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0],
   );
   assert.equal("prompt" in workflow["SeedVR2-Upscaler"].inputs, false);
   assert.equal("text" in workflow["SeedVR2-Upscaler"].inputs, false);
   assert.equal("positive" in workflow["SeedVR2-Upscaler"].inputs, false);
   assert.equal("negative" in workflow["SeedVR2-Upscaler"].inputs, false);
-  assert.deepEqual(
-    workflow["Panorama-Restore-Right-Crop"].inputs.image,
-    ["Panorama-Repair-Composite", 0],
+  assert.equal(
+    Object.keys(workflow).some((key) => key.startsWith("Panorama-Repair")),
+    false,
   );
-  assert.equal(workflow["Panorama-Restore-Right-Crop"].inputs.x, 1440);
-  assert.deepEqual(
-    workflow["Panorama-Final-Seam-Source"].inputs.image,
-    ["Panorama-Repair-Composite", 0],
+  assert.equal(
+    Object.keys(workflow).some((key) => key.startsWith("Panorama-Final")),
+    false,
   );
-  assert.equal(workflow["Panorama-Final-Seam-Source"].inputs.width, 115);
-  assert.equal(workflow["Panorama-Final-Seam-Upscaled"].inputs.width, 164);
-  assert.equal(workflow["Panorama-Final-Seam-Upscaled"].inputs.height, 2048);
-  assert.equal(workflow["Panorama-Final-Left-Edge"].inputs.x, 82);
-  assert.equal(workflow["Panorama-Final-Left-Feather"].inputs.right, 61);
-  assert.equal(workflow["Panorama-Final-Seam-Composite"].inputs.x, 4014);
   assert.deepEqual(
     workflow[AI_TEXTURE_WORKFLOW.outputNodeId].inputs.images,
-    ["Panorama-Final-Seam-Composite", 0],
+    ["SeedVR2-Upscaler", 0],
   );
 });
 

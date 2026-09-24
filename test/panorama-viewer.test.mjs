@@ -56,5 +56,6 @@ test("结果层按 featureMode 决定是否渲染 360°入口", async () => {
   ]);
   assert.match(results, /isPanoramaPreviewFeature\(featureMode\)/);
   assert.match(results, /panorama\.open/);
-  assert.match(controller, /showResults\(current\.outcomes, \{ featureMode: getFeatureMode\(\) \}\)/);
+  assert.match(controller, /comparisonImage: comparisonImages\.get\(featureMode\) \|\| null/);
+  assert.match(controller, /featureMode,/);
 });

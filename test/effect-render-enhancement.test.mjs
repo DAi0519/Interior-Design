@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图/全景图两套独立 Prompt 解析器与可注入工作流边界
- * [OUTPUT]: 对外提供效果图环境模块、全景独立表 Schema/路由、Flux 三阶段 Prompt 注入、受控请求字段、单图、原图比例、脱敏响应与归档元数据回归保障
+ * [OUTPUT]: 对外提供效果图环境模块、全景纯文本/开放 MAIN JSON 路由、Seedream 5.0 Pro 全景 4K 选项联动、Flux 普通工作流请求、受控请求字段、单图、原图比例、脱敏响应与归档元数据回归保障
  * [POS]: test 的效果图/全景图美化独立资产与工作流专项测试，所有外部 API 与飞书同步均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,7 +14,6 @@ import { buildGenerationInput } from "../public/generation-input.js";
 import {
   composeEffectEnhancementPrompt,
   composePanoramaEnhancementPrompt,
-  composePanoramaSeamRepairPrompt,
   EFFECT_ENHANCEMENT_PROMPT_CONFIG,
   PANORAMA_ENHANCEMENT_PROMPT_CONFIG,
   parseEffectEnhancementPrompt,
@@ -59,10 +58,6 @@ const panoramaSourcePromptObject = {
     "[PANORAMA CONTINUITY]",
     "Treat the left and right edges as physically adjacent and produce a seamless horizontal wrap-around.",
   ].join("\n"),
-  SEAM_REPAIR: [
-    "[PANORAMA SEAM REPAIR]",
-    "Use the shifted source panorama as geometry truth and repair only the centered seam.",
-  ].join("\n"),
 };
 const panoramaSourcePrompt = JSON.stringify(panoramaSourcePromptObject, null, 2);
 
@@ -97,6 +92,10 @@ test("工作台提供独立全景图美化入口且不暴露环境覆盖控件",
   assert.match(html, /data-feature-mode="panoramaEnhancement"[^>]*>[\s\S]*?全景图美化/);
   assert.match(app, /isPanoramaEnhancement = featureMode === "panoramaEnhancement"/);
   assert.match(app, /effectEnhancementSection\.classList\.toggle\("hidden", !isEffectEnhancement\)/);
+  assert.doesNotMatch(html, /panoramaTuningPanel|data-panorama-parameter|全景调试参数/);
+  assert.doesNotMatch(html, /euler_panorama/);
+  assert.doesNotMatch(app, /bindPanoramaTuning|panoramaTuning/);
+  assert.match(app, /configureSizeControls\(\{ preserveResolution: true, ratioMode: "manual" \}\)/);
 });
 
 test("效果图美化只回显实际生效的最高已上架版本且不泄露正文", async () => {
@@ -195,6 +194,7 @@ test("全景图美化只提交单图与固定功能模式，不提交页面或�
   assert.equal(input.prompt, "");
   assert.equal("effectTime" in input, false);
   assert.equal("effectWeather" in input, false);
+  assert.equal("panoramaTuning" in input, false);
   assert.deepEqual(input.referenceImages, [image]);
 });
 
@@ -255,28 +255,34 @@ test("Prompt 只接受固定 JSON Schema 并保留基础模块旧标题", () => 
   );
 });
 
-test("全景图美化只接受独立 MAIN/SEAM_REPAIR Schema，不解析效果图模块", () => {
+test("全景图美化只读取 MAIN 且不限制 JSON 字段与顺序", () => {
   const modules = parsePanoramaEnhancementPrompt(panoramaSourcePrompt);
   const panoramaPrompt = composePanoramaEnhancementPrompt(panoramaSourcePrompt);
   assert.equal(panoramaPrompt, panoramaSourcePromptObject.MAIN);
-  assert.equal(
-    composePanoramaSeamRepairPrompt(panoramaSourcePrompt),
-    panoramaSourcePromptObject.SEAM_REPAIR,
-  );
   assert.match(panoramaPrompt, /same-condition restoration/);
   assert.match(panoramaPrompt, /left and right edges as physically adjacent/);
   assert.match(panoramaPrompt, /seamless horizontal wrap-around/);
-  assert.deepEqual(Object.keys(modules), ["main", "seamRepair"]);
+  assert.deepEqual(Object.keys(modules), ["main"]);
   assert.throws(
     () => composePanoramaEnhancementPrompt(sourcePrompt),
     /全景图美化 Prompt JSON 结构错误/,
   );
-  assert.throws(
-    () => parsePanoramaEnhancementPrompt(JSON.stringify({
-      SEAM_REPAIR: panoramaSourcePromptObject.SEAM_REPAIR,
+  assert.equal(
+    parsePanoramaEnhancementPrompt(JSON.stringify({
+      EXTRA: "由飞书自由维护",
       MAIN: panoramaSourcePromptObject.MAIN,
-    })),
-    /全景图美化 Prompt JSON 结构错误/,
+    })).main,
+    panoramaSourcePromptObject.MAIN,
+  );
+  assert.equal(
+    parsePanoramaEnhancementPrompt(`{
+      "MAIN": ${JSON.stringify(panoramaSourcePromptObject.MAIN)},
+    }`).main,
+    panoramaSourcePromptObject.MAIN,
+  );
+  assert.equal(
+    parsePanoramaEnhancementPrompt("直接维护的全景主 Prompt").main,
+    "直接维护的全景主 Prompt",
   );
 });
 
@@ -385,7 +391,7 @@ test("美化工作流拒绝缺图和多图", async () => {
   );
 });
 
-test("Flux 全景图美化把整图增强、接缝修复与最终超分交给单一工作流", async () => {
+test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
   const generatedRequests = [];
   const generationOptions = [];
   let syncedInput;
@@ -410,12 +416,7 @@ test("Flux 全景图美化把整图增强、接缝修复与最终超分交给单
         return {
           created: 1,
           images: [{ url: onePixelPng }],
-          metadata: {
-            panoramaSeamRepair: {
-              bandRatio: 0.08,
-              mode: "single-prompt-three-stage",
-            },
-          },
+          metadata: { engine: "comfyui" },
           outputFormat: "png",
           transport: "responses",
         };
@@ -438,26 +439,17 @@ test("Flux 全景图美化把整图增强、接缝修复与最终超分交给单
   });
 
   assert.equal(generatedRequests.length, 1);
-  assert.deepEqual(generationOptions, [{
-    executionTimeoutMs: 10 * 60 * 1000,
-    queueTimeoutMs: 5 * 60 * 1000,
-  }]);
+  assert.deepEqual(generationOptions, [undefined]);
   assert.match(generatedRequests[0].prompt, /same-condition restoration/);
   assert.match(generatedRequests[0].prompt, /seamless horizontal wrap-around/);
-  assert.equal(generatedRequests[0].panorama_seam_repair, true);
-  assert.equal(
-    generatedRequests[0].panorama_seam_prompt,
-    panoramaSourcePromptObject.SEAM_REPAIR,
-  );
+  assert.equal("panorama_circular_sampling" in generatedRequests[0], false);
+  assert.equal("panorama_enhancement_denoise" in generatedRequests[0], false);
+  assert.equal("panorama_wrap_padding" in generatedRequests[0], false);
+  assert.equal("panorama_wrap_ratio" in generatedRequests[0], false);
+  assert.equal("panorama_seam_prompt" in generatedRequests[0], false);
   assert.equal(syncedInput.workflow.effectTime, "preserve");
   assert.equal(syncedInput.workflow.effectWeather, "preserve");
   assert.equal(syncedInput.workflow.feature, "panorama-render-enhancement");
   assert.equal(syncedInput.workflow.promptCode, "panorama-render-enhancement");
-  assert.deepEqual(
-    syncedInput.workflow.panoramaSeamRepair,
-    {
-      bandRatio: 0.08,
-      mode: "single-prompt-three-stage",
-    },
-  );
+  assert.equal("panoramaCircularSampling" in syncedInput.workflow, false);
 });

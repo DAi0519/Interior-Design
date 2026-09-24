@@ -29,7 +29,7 @@ test("三类选择按钮复用同一套紧凑控件尺寸与表面令牌", async
   assert.match(themeCss, /\.feature-mode-option,\s*\.model-option-toggle\s*{[^}]*min-height: var\(--choice-control-height\)[^}]*text-align: left/s);
   assert.match(themeCss, /\.feature-mode-option,\s*\.model-option-toggle\s*{[^}]*font-weight: 500[^}]*padding: 0 var\(--choice-control-padding\)/s);
   assert.match(styleCss, /\.style-choice-option\s*{[^}]*font-weight: 500[^}]*min-height: var\(--choice-control-height\)[^}]*padding: 0 var\(--choice-control-padding\)[^}]*text-align: left/s);
-  assert.match(html, /\/theme\.css\?v=27/);
+  assert.match(html, /\/theme\.css\?v=31/);
   assert.match(html, /\/white-model-render-mode\.css\?v=4/);
 });
 

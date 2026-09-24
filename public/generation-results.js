@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、浏览器 Blob 与同源远程图片下载接口、全景预览器、结果区 DOM 与 Toast 回调
- * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
- * [POS]: public 的生成结果呈现层，承接单模型最多四张或最多四模型的成功与部分失败结果，隔离下载传输并按功能限定沉浸式预览
+ * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、任务原图、浏览器 Blob 与同源远程图片下载接口、全景预览器、结果区 DOM 与 Toast 回调
+ * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、默认关闭且按需开启的原图/结果图 50% 轻量滑动对比、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
+ * [POS]: public 的生成结果呈现层，承接单模型最多四张或最多四模型的成功与部分失败结果，隔离下载传输并按功能限定滑动对比与沉浸式预览
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -16,6 +16,16 @@ const DOWNLOAD_EXTENSIONS = Object.freeze({
   png: "png",
   webp: "webp",
 });
+
+export function normalizeComparisonSplit(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 50;
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+export function comparisonValueText(value) {
+  return `原图显示 ${normalizeComparisonSplit(value)}%`;
+}
 
 function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -126,6 +136,65 @@ export function bindGenerationResults({ api, showToast }) {
   });
   let renderId = 0;
 
+  function comparisonMedia(resultImage, comparisonImage, modelLabel) {
+    const media = document.createElement("div");
+    media.className = "result-media";
+    resultImage.className = "result-output-image";
+    media.append(resultImage);
+    if (!comparisonImage?.dataUrl) return { media, toggle: null };
+
+    media.style.setProperty("--comparison-split", "50%");
+    const before = document.createElement("img");
+    before.className = "result-before-image";
+    before.src = secureImageUrl(comparisonImage.dataUrl);
+    before.alt = `${modelLabel} 原图`;
+    const divider = document.createElement("div");
+    divider.className = "result-comparison-divider";
+    divider.ariaHidden = "true";
+    const handle = document.createElement("span");
+    divider.append(handle);
+    const beforeLabel = document.createElement("span");
+    beforeLabel.className = "result-comparison-label result-before-label";
+    beforeLabel.textContent = "原图";
+    const afterLabel = document.createElement("span");
+    afterLabel.className = "result-comparison-label result-after-label";
+    afterLabel.textContent = "结果";
+    const range = document.createElement("input");
+    range.className = "result-comparison-range";
+    range.type = "range";
+    range.min = "0";
+    range.max = "100";
+    range.value = "50";
+    range.ariaLabel = `${modelLabel} 原图与生成结果对比分界`;
+    range.setAttribute("aria-valuetext", comparisonValueText(50));
+    range.addEventListener("input", () => {
+      const split = normalizeComparisonSplit(range.value);
+      media.style.setProperty("--comparison-split", `${split}%`);
+      range.setAttribute("aria-valuetext", comparisonValueText(split));
+    });
+    range.addEventListener("pointerdown", (event) => {
+      media.classList.add("comparison-dragging");
+      range.setPointerCapture?.(event.pointerId);
+    });
+    const stopDragging = () => media.classList.remove("comparison-dragging");
+    range.addEventListener("pointercancel", stopDragging);
+    range.addEventListener("pointerup", stopDragging);
+    media.append(before, divider, beforeLabel, afterLabel, range);
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "result-download-button result-compare-button";
+    toggle.textContent = "滑动对比";
+    toggle.ariaPressed = "false";
+    toggle.addEventListener("click", () => {
+      const active = media.classList.toggle("comparison-active");
+      toggle.ariaPressed = String(active);
+      toggle.textContent = active ? "只看结果" : "滑动对比";
+      if (active) range.focus();
+    });
+    return { media, toggle };
+  }
+
   function setStage(stage) {
     for (const [name, element] of Object.entries({
       empty: elements.empty,
@@ -190,7 +259,7 @@ export function bindGenerationResults({ api, showToast }) {
     }
   }
 
-  function resultCard(outcome, featureMode) {
+  function resultCard(outcome, { comparisonImage, featureMode }) {
     const card = document.createElement("article");
     card.className = "result-card";
     if (outcome.status === "rejected") {
@@ -212,6 +281,7 @@ export function bindGenerationResults({ api, showToast }) {
     const image = document.createElement("img");
     image.alt = `${outcome.item.label} 生成结果`;
     image.src = secureImageUrl(result.images[0].url);
+    const comparison = comparisonMedia(image, comparisonImage, outcome.item.label);
     const caption = document.createElement("footer");
     const copy = document.createElement("div");
     const model = document.createElement("strong");
@@ -238,6 +308,7 @@ export function bindGenerationResults({ api, showToast }) {
     record.textContent = "飞书记录";
     copy.append(model, meta);
     actions.append(duration);
+    if (comparison.toggle) actions.append(comparison.toggle);
     if (isPanoramaPreviewFeature(featureMode)) {
       const preview = document.createElement("button");
       preview.type = "button";
@@ -255,7 +326,7 @@ export function bindGenerationResults({ api, showToast }) {
     }
     actions.append(download, record);
     caption.append(copy, actions);
-    card.append(image, caption);
+    card.append(comparison.media, caption);
     updateCardSummary(card, result);
     return card;
   }
@@ -275,10 +346,13 @@ export function bindGenerationResults({ api, showToast }) {
       elements.loadingLabel.textContent = message;
       setStage("loading");
     },
-    showResults(outcomes, { featureMode } = {}) {
+    showResults(outcomes, { comparisonImage = null, featureMode } = {}) {
       renderId += 1;
       const currentRenderId = renderId;
-      const cards = outcomes.map((outcome) => resultCard(outcome, featureMode));
+      const cards = outcomes.map((outcome) => resultCard(outcome, {
+        comparisonImage,
+        featureMode,
+      }));
       elements.gallery.replaceChildren(...cards);
       elements.gallery.classList.toggle("multiple", outcomes.length > 1);
       setStage("gallery");

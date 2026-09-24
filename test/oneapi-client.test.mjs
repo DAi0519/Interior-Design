@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI Prompt 单/双图、分析/评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 Prompt Agent 白模/风格参考顺序、AI 单图分析、主动取消、请求侧压缩、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
+ * [OUTPUT]: 对外提供 Prompt Agent 白模/风格参考顺序、AI 单图分析、主动取消、评审/图生图请求侧压缩与脱敏诊断、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -52,7 +52,10 @@ test("OneAPI 客户端把外部取消信号传给正在运行的模型请求", a
     options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
   });
 
-  const request = createOneApiClient("test-key", { signal: controller.signal })
+  const request = createOneApiClient("test-key", {
+    diagnosticSink: () => {},
+    signal: controller.signal,
+  })
     .generateImage({ model: "test-model", output_format: "png", prompt: "test" });
   const reason = new Error("用户已停止任务");
   reason.name = "AbortError";
@@ -304,6 +307,65 @@ test("参考图生成构造 Responses input_image 与 image_generation 工具", 
     () => buildResponseImageRequest({ ...request, images: [{ image_url: "x" }], output_format: "webp" }),
     /仅支持 PNG 或 JPEG/,
   );
+});
+
+test("OneAPI 图生图发送前压缩超限参考图并记录脱敏诊断", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const diagnostics = [];
+  let requestBody;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return new Response(JSON.stringify({
+      id: "resp-generation",
+      output: [{ result: "cmVzdWx0", type: "image_generation_call" }],
+    }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  const width = 1200;
+  const height = 1200;
+  const png = await sharp(randomBytes(width * height * 3), {
+    raw: { channels: 3, height, width },
+  }).png({ compressionLevel: 0 }).toBuffer();
+  const oversized = png.toString("base64");
+  assert.ok(Buffer.byteLength(oversized, "ascii") > DEFAULT_MAX_IMAGE_BASE64_BYTES);
+
+  await createOneApiClient("test-key", {
+    diagnosticSink: (event) => diagnostics.push(event),
+  }).generateImage({
+    images: [{ image_url: `data:image/png;base64,${oversized}` }],
+    model: "doubao-seedream-5.0-pro",
+    n: 1,
+    output_format: "png",
+    prompt: "保持全景结构并提升材质",
+    response_format: "url",
+    size: "2880x1440",
+  });
+
+  const sent = requestBody.input[0].content[1].image_url;
+  assert.match(sent, /^data:image\/jpeg;base64,/);
+  assert.ok(Buffer.byteLength(sent.split(",")[1], "ascii") <= DEFAULT_MAX_IMAGE_BASE64_BYTES);
+  assert.equal(diagnostics.length, 1);
+  assert.deepEqual(
+    {
+      event: diagnostics[0].event,
+      imageCount: diagnostics[0].imageCount,
+      model: diagnostics[0].model,
+    },
+    {
+      event: "image_input_compressed",
+      imageCount: 1,
+      model: "doubao-seedream-5.0-pro",
+    },
+  );
+  assert.ok(diagnostics[0].sentBase64Bytes < diagnostics[0].originalBase64Bytes);
+  assert.equal(JSON.stringify(diagnostics).includes("保持全景结构"), false);
+  assert.equal(JSON.stringify(diagnostics).includes("data:image"), false);
 });
 
 test("Style DNA 反推仅在最后一条用户消息附加图片与 PDF", () => {

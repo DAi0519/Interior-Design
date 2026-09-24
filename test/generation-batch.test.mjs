@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与服务端/浏览器批量生成纯规则
- * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型参数适配、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
+ * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型及功能参数适配、Seedream 5.0 Pro 全景 4K 保留、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
  * [POS]: test 的多模型批量生成单元测试，不发送真实模型请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -72,6 +72,22 @@ test("不同模型自动收敛到各自合法参数而不篡改共同输入", ()
     { featureMode: "emptyRoom", sourceImage: { height: 900, width: 1600 } },
   );
   assert.notEqual(emptyRoom.outputFormat, "webp");
+});
+
+test("Seedream 5.0 Pro 全景 4K 在任务适配时保持 3040x1520 档位", () => {
+  const model = publicModelCatalog().find((entry) => entry.key === "seedream5Pro");
+  const input = adaptGenerationInputForModel({
+    outputFormat: "png",
+    ratio: "2:1",
+    ratioMode: "manual",
+    resolution: "4K",
+  }, model, {
+    featureMode: "panoramaEnhancement",
+    sourceImage: { height: 1000, width: 2000 },
+  });
+
+  assert.equal(input.ratio, "2:1");
+  assert.equal(input.resolution, "4K");
 });
 
 test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 index.html 的无图标 START 生成动作结构、smiley-sans-v2.0.1.woff2 的展示字形、generation-actions.js 的 has-reusable-prompt/is-busy/hidden/disabled 状态与全局主题令牌
- * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向标志性盒橙 START 精密键帽、保留功能色并以中性扫光表达进行中的 RUNNING 状态、提示词可复用后的 65/35 主次双按钮、桌面端与配置滚动区分离且不遮挡控件的底部动作栏、窄屏自然流布局，以及焦点、悬停和按压反馈
+ * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向标志性盒橙 START 精密键帽、保留功能色并以中性扫光表达进行中的 RUNNING 状态、提示词可复用后的 65/35 主次双按钮、761px 起与配置滚动区分离且不遮挡控件的底部动作栏、窄屏自然流布局，以及焦点、悬停和按压反馈
  * [POS]: public 的生成动作视觉层，与 styles.css/theme.css 的通用主按钮规则分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -168,7 +168,7 @@
   }
 }
 
-@media (min-width: 901px) {
+@media (min-width: 761px) {
   .action-section.generation-control {
     background: linear-gradient(180deg, rgb(252 252 253 / 90%), rgb(252 252 253 / 98%));
     box-shadow: 0 -12px 28px rgb(25 26 28 / 7%);
@@ -192,7 +192,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .action-section.generation-control {
     margin: 12px 12px;
   }

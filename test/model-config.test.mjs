@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供四个 OneAPI 模型（含独立 Seedream 5.0 Pro）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含全景图美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全模型 2:1 自动适配、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供六个 OneAPI 模型（含 GPT Image 2.5 双模型及独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含全景图美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,12 +24,14 @@ import {
   sizeSummary,
 } from "../public/model-capabilities.js";
 
-test("目录暴露四个 OneAPI 模型和一个 ComfyUI 工作流", () => {
+test("目录暴露六个 OneAPI 模型和一个 ComfyUI 工作流", () => {
   assert.deepEqual(
     publicModelCatalog().map(({ id, key }) => ({ id, key })),
     [
       { id: "gemini-3.1-flash-image-preview", key: "banana2" },
       { id: "gpt-image-2", key: "gptImage2" },
+      { id: "gpt-image-2.5-sunburst", key: "gptImage25Sunburst" },
+      { id: "gpt-image-2.5-flare", key: "gptImage25Flare" },
       { id: "comfyui:ai-texture-enhancement", key: "aiTextureEnhancement" },
       { id: "doubao-seedream-5.0", key: "seedream5" },
       { id: "doubao-seedream-5.0-pro", key: "seedream5Pro" },
@@ -52,8 +54,10 @@ test("出图模型统一可选且不向使用者暴露内部目录状态", () =>
       { available: true },
       { available: true },
       { available: true },
+      { available: true },
+      { available: true },
     ]),
-    "5 个模型可选",
+    "7 个模型可选",
   );
 });
 
@@ -249,6 +253,35 @@ test("GPT Image 2 未指定质量时默认使用中等质量", () => {
   assert.equal(MODEL_CONFIGS.gptImage2.defaultQuality, "medium");
   assert.equal(generation.request.quality, "medium");
   assert.equal(generation.preview.quality, "medium");
+});
+
+test("GPT Image 2.5 双模型按公司模板使用九种比例和新增质量档", () => {
+  for (const key of ["gptImage25Sunburst", "gptImage25Flare"]) {
+    const model = MODEL_CONFIGS[key];
+    assert.equal(Object.keys(model.sizes).length, 9);
+    assert.equal(model.sizes["2:1"], undefined);
+    assert.deepEqual(model.qualityOptions, ["low", "medium", "high", "xhigh", "max"]);
+    const generation = createGenerationRequest({
+      modelKey: key,
+      outputFormat: "webp",
+      prompt: "现代简约客厅，柔和自然光",
+      quality: "max",
+      ratio: "16:9",
+      resolution: "4K",
+    });
+    assert.equal(generation.request.model, model.id);
+    assert.equal(generation.request.size, "3840x2160");
+    assert.equal(generation.request.quality, "max");
+    assert.equal(generation.request.output_format, "webp");
+    assert.throws(() => createGenerationRequest({
+      featureMode: "panoramaEnhancement",
+      modelKey: key,
+      outputFormat: "png",
+      prompt: "保持全景空间结构",
+      ratio: "16:9",
+      resolution: "1K",
+    }), /不支持全景图所需的 2:1 画幅/);
+  }
 });
 
 test("多张参考图转换为公司接口的 images[].image_url", () => {
@@ -562,6 +595,55 @@ test("Seedream 5.0 Pro 使用独立 ID 与 1K/2K 像素合同", () => {
   assert.equal(generation.preview.size, "1440x720");
   assert.equal(generation.request.model, "doubao-seedream-5.0-pro");
   assert.equal(generation.request.size, "1440x720");
+});
+
+test("Seedream 5.0 Pro 仅在全景图美化开放 3040x1520 的 4K 实验档", () => {
+  const model = publicModelCatalog().find((entry) => entry.key === "seedream5Pro");
+  const controls = sizeControlState({
+    currentRatio: "2:1",
+    currentResolution: "2K",
+    featureMode: "panoramaEnhancement",
+    model,
+    preserveResolution: false,
+    ratioMode: "auto",
+    sourceImage: { height: 1000, width: 2000 },
+  });
+  assert.deepEqual(controls.resolutionOptions, [
+    { label: "1K", value: "1K" },
+    { label: "2K", value: "2K" },
+    { label: "4K", value: "4K" },
+  ]);
+  assert.equal(sizeSummary({
+    featureMode: "panoramaEnhancement",
+    model,
+    ratio: "2:1",
+    ratioMode: "auto",
+    resolution: "4K",
+    sourceImage: { height: 1000, width: 2000 },
+  }).exactSize, "2:1 → 2:1 · 3040x1520");
+
+  const generation = createGenerationRequest({
+    featureMode: "panoramaEnhancement",
+    modelKey: "seedream5Pro",
+    outputFormat: "png",
+    prompt: "保持全景构图并提升真实感",
+    ratio: "2:1",
+    resolution: "4K",
+  });
+  assert.equal(generation.preview.size, "3040x1520");
+  assert.equal(generation.request.size, "3040x1520");
+
+  assert.throws(
+    () => createGenerationRequest({
+      featureMode: "effectEnhancement",
+      modelKey: "seedream5Pro",
+      outputFormat: "png",
+      prompt: "保持效果图构图并提升真实感",
+      ratio: "2:1",
+      resolution: "4K",
+    }),
+    /不支持这个分辨率档位/,
+  );
 });
 
 test("Banana 2 与 GPT Image 2 公开网关实测可用的 2:1 尺寸", () => {

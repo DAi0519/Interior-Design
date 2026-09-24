@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供五功能样本集准入、测试时间归一化、不设结果数量上限的两路并发、单 Run 单图隔离、生成/飞书同步双阶段快照、附件回读后轻量结果公开、瞬时错误自动重跑/参数错误快速失败、飞书全量归档门槛与任务恢复保障
+ * [OUTPUT]: 对外提供五功能样本集准入、Prompt Agent 当前 Key 权限入队前阻断、409 配置错误不重试、测试时间归一化、不设结果数量上限的两路并发、单 Run 单图隔离、生成/飞书同步双阶段快照、附件回读后轻量结果公开、瞬时错误自动重跑/参数错误快速失败、飞书全量归档门槛与任务恢复保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,8 @@ import test from "node:test";
 import {
   BETA_FEATURE_MODES,
   BETA_MAX_ATTEMPTS,
+  assertBetaPromptAgentAccess,
+  createBetaApiHandler,
   createBetaRunnerService,
   isRetryableBetaError,
 } from "../src/beta-runner.mjs";
@@ -55,6 +57,33 @@ test("ComfyUI 产物下载 404 作为瞬时故障重试，显式永久错误仍�
   assert.equal(isRetryableBetaError(pendingOutput), true);
   assert.equal(isRetryableBetaError(missingRoute), false);
   assert.equal(isRetryableBetaError(permanentOutput), false);
+  assert.equal(isRetryableBetaError(Object.assign(new Error("模型未开放"), { statusCode: 409 })), false);
+});
+
+test("Beta 白模批次在入队前拒绝当前 Key 未开放的提示词模型", async () => {
+  const body = {
+    featureMode: "whiteModel",
+    items: [{ input: { promptAgentModelKey: "deepseekFlash" } }],
+  };
+  const agentModels = [
+    { key: "deepseekFlash", label: "DeepSeek V4.1 Flash", selectable: false },
+    { key: "gemini3pro", label: "Gemini 3.1 Pro", selectable: true },
+  ];
+  assert.throws(() => assertBetaPromptAgentAccess(body, agentModels),
+    /DeepSeek V4.1 Flash 当前未向这个 API Key 开放/);
+  let enqueued = false;
+  const handler = createBetaApiHandler({
+    getAgentModels: async () => agentModels,
+    readJson: async () => body,
+    sendJson: () => {},
+    service: { start: () => { enqueued = true; } },
+  });
+  await assert.rejects(handler({ method: "POST" }, {}, "/api/beta/jobs"), /当前未向这个 API Key 开放/);
+  assert.equal(enqueued, false);
+  assert.doesNotThrow(() => assertBetaPromptAgentAccess({
+    ...body,
+    items: [{ input: { promptAgentModelKey: "gemini3pro" } }],
+  }, agentModels));
 });
 
 test("Beta 样本集按功能保存且样本数量不设上限", async () => {

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖房型/家具输入控制器、生图页面区块与当前功能
- * [OUTPUT]: 对外提供空房类型及家具请求合同、必填校验与空房专属输入顺序和直接显示的 Agent 配置
- * [POS]: public 的设计输入组合层，保持主 app 编排器精简并隔离其他功能布局
+ * [OUTPUT]: 对外提供所有生成功能的图片上传置顶顺序，以及空房类型、家具请求合同、必填校验、专属输入顺序和直接显示的 Agent 配置
+ * [POS]: public 的生成输入布局与空房输入组合层，保持主 app 编排器精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -17,8 +17,10 @@ export function bindDesignInputs({ root, onChange }) {
   const agent = byId("promptAgentSection");
   const prompt = byId("promptInput");
   const label = document.querySelector('label[for="promptInput"]');
-  const emptyOrder = [byId("referenceInput").closest("section"), byId("emptyRoomTypeSection"),
-    byId("emptyRoomFurnitureSection"), byId("styleSection"), byId("styleReferenceSection"),
+  const reference = byId("referenceInput").closest("section");
+  const styleReference = byId("styleReferenceSection");
+  const emptyOrder = [reference, styleReference, byId("emptyRoomTypeSection"),
+    byId("emptyRoomFurnitureSection"), byId("styleSection"),
     byId("promptSection"), byId("modelSection")];
   return {
     ...type,
@@ -29,12 +31,15 @@ export function bindDesignInputs({ root, onChange }) {
     },
     setFeatureMode(featureMode) {
       const empty = featureMode === "emptyRoom";
-      // --- 恢复原顺序后仅重排空房输入，不改变其他功能 ---
+      // --- 每次先恢复稳定顺序，再统一把图片输入放到当前配置最前 ---
       parent.append(...originalOrder);
       if (empty) {
         let previous = originalOrder[0];
         for (const section of emptyOrder) { previous.after(section); previous = section; }
         previous.after(agent);
+      } else {
+        parent.prepend(reference);
+        reference.after(styleReference);
       }
       if (empty) furniture.setRoomType(type.value());
       else byId("emptyRoomFurnitureSection").classList.add("hidden");

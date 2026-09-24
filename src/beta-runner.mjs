@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖日常生成任务批处理、工作台同源 generation-service 与含样本集/样本/跑图明细的 Beta Base Store，依赖 empty-room-type 房型校验，接收五功能可复用样本集和批量 Case Run
- * [OUTPUT]: 对外提供 Beta跑图配置、样本集目录/读取/创建、测试时间归一化、不设 Run 数量上限的两路有界并发执行、单 Run 单图隔离与批次功能注入、生成/飞书同步双阶段快照、仅在附件回读成功后公开的轻量结果列表、含 ComfyUI 产物暂时不可读在内的瞬时错误自动重跑与飞书全量归档门槛
+ * [INPUT]: 依赖日常生成任务批处理、工作台同源 generation-service 与含样本集/样本/跑图明细的 Beta Base Store，依赖 empty-room-type 房型校验和当前 Key 的 Prompt Agent 可用性，接收五功能可复用样本集和批量 Case Run
+ * [OUTPUT]: 对外提供 Beta跑图配置、样本集目录/读取/创建、批次入队前 Prompt Agent 权限准入、测试时间归一化、不设 Run 数量上限的两路有界并发执行、单 Run 单图隔离与批次功能注入、生成/飞书同步双阶段快照、仅在附件回读成功后公开的轻量结果列表、含 ComfyUI 产物暂时不可读在内的瞬时错误自动重跑与飞书全量归档门槛
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,7 +20,7 @@ export const BETA_FEATURE_MODES = Object.freeze([
   "free",
 ]);
 export const BETA_MAX_ATTEMPTS = 3;
-const RETRYABLE_STATUS_CODES = new Set([408, 409, 425, 429]);
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429]);
 const RETRYABLE_ERROR_CODES = new Set(["output_download"]);
 
 function delay(milliseconds) {
@@ -62,6 +62,18 @@ function inputError(message) {
   const error = new Error(message);
   error.statusCode = 400;
   return error;
+}
+
+export function assertBetaPromptAgentAccess(batch, agentModels) {
+  if (!["whiteModel", "emptyRoom"].includes(batch?.featureMode)) return;
+  const available = new Map(agentModels.map((model) => [model.key, model]));
+  const keys = new Set((batch.items || []).map((item) => item?.input?.promptAgentModelKey));
+  for (const key of keys) {
+    const model = available.get(key);
+    if (!model?.selectable) {
+      throw inputError(`${model?.label || "所选提示词模型"} 当前未向这个 API Key 开放；请切换可用模型后重新运行`);
+    }
+  }
 }
 
 function assetImages(assets, key, fieldName) {
@@ -318,7 +330,7 @@ export function createBetaRunnerService({
   };
 }
 
-export function createBetaApiHandler({ readJson, sendJson, service }) {
+export function createBetaApiHandler({ getAgentModels, readJson, sendJson, service }) {
   return async function handleBetaApi(request, response, pathname) {
     if (request.method === "GET" && pathname === "/api/beta/config") {
       sendJson(response, 200, service.config());
@@ -355,6 +367,9 @@ export function createBetaApiHandler({ readJson, sendJson, service }) {
     }
     if (request.method === "POST" && pathname === "/api/beta/jobs") {
       const body = await readJson(request);
+      if (["whiteModel", "emptyRoom"].includes(body.featureMode)) {
+        assertBetaPromptAgentAccess(body, await getAgentModels());
+      }
       sendJson(response, 202, { job: service.start(body) });
       return true;
     }

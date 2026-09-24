@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 参数矩阵、Seedream 5.0 Pro 1K-2K 合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、负向 Prompt 及参考图安全校验
- * [OUTPUT]: 对外提供模型公开目录、Provider 查询、原图比例尺寸适配器，以及区分 Flux 推理尺寸与最终超分尺寸的请求构造器和 MODEL_CONFIGS
+ * [INPUT]: 依赖公司 Model Link 的 GPT Image 2/2.5 参数矩阵、Seedream 5.0 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、负向 Prompt 及参考图安全校验
+ * [OUTPUT]: 对外提供模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、原图比例尺寸适配器，以及区分 Flux 推理尺寸与最终超分尺寸的请求构造器和 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,11 @@ const GPT_IMAGE_SIZES = {
   "21:9": { "1K": "1024x439", "2K": "2048x878", "4K": "3840x1646" },
   "9:21": { "1K": "439x1024", "2K": "878x2048", "4K": "1646x3840" },
 };
+
+// GPT Image 2 的 2:1 为网关实测补充档；2.5 官方模板只列出其余九种比例。
+const GPT_IMAGE_25_SIZES = Object.fromEntries(
+  Object.entries(GPT_IMAGE_SIZES).filter(([ratio]) => ratio !== "2:1"),
+);
 
 const BANANA_2_SIZES = {
   "1:1": { "512": "512x512", "1K": "1024x1024", "2K": "2048x2048", "4K": "4096x4096" },
@@ -98,6 +103,32 @@ export const MODEL_CONFIGS = Object.freeze({
     qualityOptions: ["auto", "low", "medium", "high"],
     sizes: GPT_IMAGE_SIZES,
   },
+  gptImage25Sunburst: {
+    accent: "blue",
+    defaultFormat: "png",
+    defaultQuality: "medium",
+    defaultRatio: "4:3",
+    defaultResolution: "2K",
+    description: "GPT Image 2.5 · 编辑精度优先，支持 xhigh/max 质量档",
+    formats: ["png", "jpeg", "webp"],
+    id: "gpt-image-2.5-sunburst",
+    label: "GPT Image 2.5 Sunburst",
+    qualityOptions: ["low", "medium", "high", "xhigh", "max"],
+    sizes: GPT_IMAGE_25_SIZES,
+  },
+  gptImage25Flare: {
+    accent: "blue",
+    defaultFormat: "png",
+    defaultQuality: "medium",
+    defaultRatio: "4:3",
+    defaultResolution: "2K",
+    description: "GPT Image 2.5 · 快速日常生图，支持 xhigh/max 质量档",
+    formats: ["png", "jpeg", "webp"],
+    id: "gpt-image-2.5-flare",
+    label: "GPT Image 2.5 Flare",
+    qualityOptions: ["low", "medium", "high", "xhigh", "max"],
+    sizes: GPT_IMAGE_25_SIZES,
+  },
   aiTextureEnhancement: {
     accent: "lime",
     defaultFormat: "png",
@@ -135,7 +166,12 @@ export const MODEL_CONFIGS = Object.freeze({
     defaultFormat: "png",
     defaultRatio: "4:3",
     defaultResolution: "2K",
-    description: "结构与文字遵循更稳，支持 1K/2K 自定义画幅",
+    description: "结构与文字遵循更稳，通用 1K/2K，全景 4K 实验档",
+    featureSizeOverrides: {
+      panoramaEnhancement: {
+        "2:1": { "4K": "3040x1520" },
+      },
+    },
     formats: ["png", "jpeg"],
     id: "doubao-seedream-5.0-pro",
     label: "Seedream 5.0 Pro",
@@ -221,6 +257,7 @@ export function publicModelCatalog() {
     defaultRatio: model.defaultRatio,
     defaultResolution: model.defaultResolution,
     description: model.description,
+    featureSizeOverrides: model.featureSizeOverrides || null,
     formats: model.formats,
     id: model.id,
     key,
@@ -245,6 +282,19 @@ export function createGenerationRequest(
 ) {
   const modelKey = String(input.modelKey || "");
   const model = modelOrThrow(modelKey);
+  const featureSizeOverrides = model.featureSizeOverrides?.[input.featureMode] || {};
+  const sizes = Object.fromEntries(
+    Object.entries(model.sizes).map(([ratio, values]) => [
+      ratio,
+      { ...values, ...(featureSizeOverrides[ratio] || {}) },
+    ]),
+  );
+  if (input.featureMode === "panoramaEnhancement"
+    && model.sizingMode !== "source" && !sizes["2:1"]) {
+    const error = new Error(`${model.label} 不支持全景图所需的 2:1 画幅`);
+    error.statusCode = 400;
+    throw error;
+  }
   const prompt = String(input.prompt || "").trim();
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
@@ -349,14 +399,14 @@ export function createGenerationRequest(
     throw error;
   }
   const ratio = preferSourceAspect
-    ? nearestSupportedRatio(model, resolvedSourceDimensions)
+    ? nearestSupportedRatio({ ...model, sizes }, resolvedSourceDimensions)
     : optionOrThrow(
-        Object.keys(model.sizes),
+        Object.keys(sizes),
         String(input.ratio || ""),
         "该模型不支持这个画幅比例",
       );
   const resolution = optionOrThrow(
-    Object.keys(model.sizes[ratio]),
+    Object.keys(sizes[ratio]),
     String(input.resolution || ""),
     "该模型不支持这个分辨率档位",
   );
@@ -370,11 +420,11 @@ export function createGenerationRequest(
       ? optionOrThrow(
           model.qualityOptions,
           String(input.quality || model.defaultQuality || "auto"),
-          "GPT Image 2 不支持这个质量档位",
+          `${model.label} 不支持这个质量档位`,
         )
       : null;
 
-  const size = model.sizes[ratio][resolution];
+  const size = sizes[ratio][resolution];
   const request = {
     model: model.id,
     n: 1,

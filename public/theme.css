@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的精模自定义要求/Flux 负向提示词及其他语义类名与用户确认的 Raycast 向 Light Command Center 规则
- * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、360–420px 自适应配置栏与结果区桌面双栏、和底部动作栏分离且无边界回弹的配置滚动区、系统字体光学排版、精模自定义要求/Flux 负向 Prompt 覆盖、紧凑配置、单图替换反馈，以及功能/风格/出图模型共享的紧凑选择按钮视觉令牌
+ * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、440–490px 自适应配置栏与结果区桌面双栏、120px 宽且正文不低于 12px 的 AI设计/AI渲染/AI创作内嵌目录、和底部动作栏分离且无边界回弹的配置滚动区、系统字体光学排版、精模自定义要求/Flux 负向 Prompt 覆盖、紧凑配置、单图替换反馈，以及功能/风格/出图模型共享的紧凑选择按钮视觉令牌
  * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -122,7 +122,7 @@ a.connection-button {
 
 .workspace {
   gap: 16px;
-  grid-template-columns: minmax(360px, clamp(360px, 30vw, 420px)) minmax(0, 1fr);
+  grid-template-columns: minmax(440px, clamp(440px, 33vw, 490px)) minmax(0, 1fr);
   margin-top: 16px;
   max-width: none;
   min-height: calc(100vh - 120px);
@@ -223,12 +223,6 @@ a.connection-button {
   opacity: 0.45;
 }
 
-.feature-mode-list {
-  display: grid;
-  gap: var(--choice-control-gap);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .feature-mode-option,
 .model-option-toggle {
   align-items: center;
@@ -276,6 +270,59 @@ a.connection-button {
   font-size: 8px;
   margin-left: 4px;
   padding: 2px 5px;
+}
+
+.feature-directory {
+  background: rgb(247 247 248 / 72%);
+  border-right: 1px solid var(--line);
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 16px 10px;
+  scrollbar-gutter: stable;
+}
+
+.feature-directory-group + .feature-directory-group {
+  margin-top: 20px;
+}
+
+.feature-directory-group h2 {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin: 0 8px 7px;
+}
+
+.feature-directory .feature-mode-option {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  min-height: 34px;
+  padding: 0 8px;
+  width: 100%;
+}
+
+.feature-directory .feature-mode-option + .feature-mode-option {
+  margin-top: 2px;
+}
+
+.feature-directory .feature-mode-option.selected {
+  background: var(--brand-key-selected-bg, #000);
+  border-color: transparent;
+  box-shadow: var(--brand-selected-shadow, none);
+  color: var(--brand-key-selected-ink, #fff);
+  font-weight: 600;
+}
+
+.feature-directory .feature-mode-option:focus-visible {
+  outline: 2px solid rgb(23 24 26 / 24%);
+  outline-offset: 2px;
 }
 
 .model-option-list {
@@ -681,7 +728,7 @@ select {
   }
 }
 
-@media (min-width: 901px) {
+@media (min-width: 761px) {
   body {
     overflow: hidden;
   }
@@ -699,11 +746,19 @@ select {
 
   .control-panel {
     display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     overflow: hidden;
   }
 
+  .feature-directory {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+
   .control-panel-scroll {
+    grid-column: 2;
+    grid-row: 1;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
@@ -713,12 +768,17 @@ select {
     scrollbar-gutter: stable;
   }
 
+  .action-section {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
   .result-stage {
     min-height: 0;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .app-shell {
     padding: 12px;
   }
@@ -735,6 +795,20 @@ select {
   .control-panel {
     display: block;
     overflow: hidden;
+  }
+
+  .feature-directory {
+    border-bottom: 1px solid var(--line);
+    border-right: 0;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+    padding: 14px 16px;
+  }
+
+  .feature-directory-group + .feature-directory-group {
+    margin-top: 0;
   }
 
   .control-panel-scroll {

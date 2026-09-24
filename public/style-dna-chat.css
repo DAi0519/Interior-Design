@@ -1,11 +1,15 @@
 /**
  * [INPUT]: 依赖 index.html 的 Style DNA 模型/对话结构、styles.css 设计令牌与 style-dna-chat.js 状态类
- * [OUTPUT]: 对外提供反推模型、图片/PDF 附件卡、等高对话面板与独立滚动消息流视觉
+ * [OUTPUT]: 对外提供反推模型、图片/PDF 附件卡、兼容内嵌功能目录的等高对话面板与独立滚动消息流视觉
  * [POS]: public 的 Style DNA 反推预览样式，与生成结果样式并列且仅在风格反推模式展示
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 .control-panel:has(#styleDnaControls:not(.hidden)) {
+  min-height: 0;
+}
+
+.control-panel:has(#styleDnaControls:not(.hidden)) .control-panel-scroll {
   display: flex;
   flex-direction: column;
 }
@@ -21,7 +25,6 @@
   flex: 0 0 auto;
 }
 
-.control-panel:has(#styleDnaControls:not(.hidden)) > .first-section,
 .style-dna-chat-header {
   min-height: 112px;
 }
@@ -451,12 +454,11 @@
   width: 17px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .result-panel:has(.style-dna-chat:not(.hidden)) {
     height: clamp(600px, calc(100dvh - 120px), 760px);
   }
 
-  .control-panel:has(#styleDnaControls:not(.hidden)) > .first-section,
   .style-dna-chat-header {
     min-height: 0;
   }

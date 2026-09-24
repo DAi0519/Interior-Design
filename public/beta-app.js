@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 beta.html DOM、beta-configuration/beta-page-state 本机持久配置状态、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的五功能/样本集/模型/参数配置、逐样本房型驱动的飞书样本集及同步状态呈现的不设结果数量上限批量展开、独立测试时间与 Run ID、全宽 START、任务恢复，以及仅展示飞书已归档缩略图和唯一底部飞书入口的生成/同步双阶段监控
+ * [INPUT]: 依赖 beta.html DOM、beta-configuration/beta-page-state 本机持久配置状态、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的五功能/样本集/模型/含 GPT Image 2.5 质量档的参数配置、当前 Key 未开放的提示词模型禁选与自动回退、逐样本房型驱动的飞书样本集及同步状态呈现的不设结果数量上限批量展开、独立测试时间与 Run ID、全宽 START、任务恢复，以及仅展示飞书已归档缩略图和唯一底部飞书入口的生成/同步双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -43,7 +43,7 @@ const elements = Object.fromEntries([
   "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
   "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
   "monitorResults", "monitorResultsCount",
-  "negativePromptField", "negativePromptInput", "promptAgentModelSelect",
+  "negativePromptField", "negativePromptInput", "promptAgentAvailability", "promptAgentModelSelect",
   "promptAgentVersionField", "promptAgentVersionSelect", "qualityField",
   "qualitySelect", "ratioSelect", "refinedPromptField", "refinedPromptSelect",
   "renderModeSelect", "resolutionSelect", "roomTypeDetailField",
@@ -67,6 +67,8 @@ const state = {
   job: null,
   modelAccess: new Map(),
   modelAccessChecked: false,
+  agentAccess: new Map(),
+  agentAccessChecked: false,
   sampleSetIds: { ...restoredPageState.sampleSetIds },
   selectedModelKeys: [...restoredPageState.selectedModelKeys],
   styleReference: null,
@@ -106,13 +108,44 @@ function saveConfiguration() {
 }
 
 function fillSelect(select, options, current = "") {
-  select.replaceChildren(...options.map(({ label, value }) => {
+  const selected = options.find((option) => String(option.value) === String(current) && !option.disabled)
+    || options.find((option) => !option.disabled);
+  select.replaceChildren(...options.map((entry) => {
+    const { disabled = false, label, value } = entry;
     const option = document.createElement("option");
     option.value = String(value);
     option.textContent = label;
-    option.selected = String(value) === String(current);
+    option.disabled = disabled;
+    option.selected = entry === selected;
     return option;
   }));
+  if (!selected) select.value = "";
+}
+
+function renderPromptAgentModels() {
+  const models = state.catalog.agentModels.filter((model) => model.imageInput);
+  const previousKey = elements.promptAgentModelSelect.value;
+  const previous = models.find((model) => model.key === previousKey);
+  fillSelect(elements.promptAgentModelSelect, models.map((model) => {
+    const access = state.agentAccess.get(model.key);
+    const disabled = state.agentAccessChecked && !access?.selectable;
+    return {
+      disabled,
+      label: disabled ? `${model.label} · ${access?.reason || "当前不可用"}` : model.label,
+      value: model.key,
+    };
+  }), previousKey || "gemini3pro");
+  const selected = models.find((model) => model.key === elements.promptAgentModelSelect.value);
+  elements.promptAgentAvailability.textContent = !state.connected
+    ? "请先连接 OneAPI"
+    : !state.agentAccessChecked
+      ? "正在检测模型权限"
+      : previous && previous.key !== selected?.key
+        ? `${previous.label} 当前不可用，已切换为 ${selected?.label || "可用模型"}`
+        : selected
+          ? "当前 API Key 已开放此模型"
+          : "当前 API Key 没有可用的提示词模型";
+  renderRunSummary();
 }
 
 function selectedModels() {
@@ -195,9 +228,18 @@ function renderRunSummary() {
     renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, 0, total);
   }
   const running = state.job?.status === "running";
+  const needsPromptAgent = ["whiteModel", "emptyRoom"].includes(state.featureMode);
+  const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
+  const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
+  if (!agentReady && !running) {
+    elements.runHint.textContent = state.agentAccessChecked
+      ? "提示词模型不可用，请选择当前 Key 已开放的模型"
+      : "正在检测提示词模型权限";
+  }
   elements.runButton.disabled = !state.connected
     || !sampleLibrary.isReady()
     || total < 1
+    || !agentReady
     || running;
   elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
   elements.runButton.setAttribute("aria-busy", String(running));
@@ -279,10 +321,13 @@ function renderOutputControls() {
   );
   const hasQuality = models.some((model) => model.qualityOptions.length > 0);
   elements.qualityField.classList.toggle("hidden", !hasQuality);
-  fillSelect(elements.qualitySelect, ["auto", "low", "medium", "high"].map((value) => ({
-    label: value === "auto" ? "自动" : value,
+  const qualities = [...new Set(models.flatMap((model) => model.qualityOptions))];
+  fillSelect(elements.qualitySelect, qualities.map((value) => ({
+    label: { auto: "自动", low: "低", medium: "中", high: "高", xhigh: "极高", max: "最高" }[value] || value,
     value,
-  })), elements.qualitySelect.value || "auto");
+  })), qualities.includes(elements.qualitySelect.value)
+    ? elements.qualitySelect.value
+    : models[0]?.defaultQuality || qualities[0]);
   elements.negativePromptField.classList.toggle(
     "hidden",
     !models.some((model) => model.provider === "comfyui"),
@@ -370,6 +415,10 @@ function designSettings() {
   const config = state.stylesConfig || {};
   const smartConfig = emptyRoom ? config.emptyRoom?.smartDefault : config.smartDefault;
   const promptConfig = emptyRoom ? config.emptyRoom?.promptAgent : config.promptAgent;
+  const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
+  if (!state.agentAccessChecked || !selectedAgent?.selectable) {
+    throw new Error("提示词模型当前未向这个 API Key 开放，请选择可用模型");
+  }
   if (smartDefault && !smartConfig?.available) throw new Error("当前智能默认 Agent 不可用");
   if (!smartDefault && (!elements.styleSelect.value || !elements.promptAgentVersionSelect.value)) {
     throw new Error("平台风格或融合 Agent 版本不可用");
@@ -710,11 +759,7 @@ async function load() {
       { label: "请选择", value: "" },
       ...catalog.emptyRoomTypes.map((value) => ({ label: value, value })),
     ]);
-    const promptModels = catalog.agentModels.filter((model) => model.imageInput);
-    fillSelect(elements.promptAgentModelSelect, promptModels.map((model) => ({
-      label: model.label,
-      value: model.key,
-    })), promptModels.some((model) => model.key === "gemini3pro") ? "gemini3pro" : promptModels[0]?.key);
+    renderPromptAgentModels();
     showStatus(state.connected ? "检测模型中" : "请先连接 API", {
       error: !state.connected,
     });
@@ -745,8 +790,11 @@ async function load() {
       const access = accessResult.value;
       state.modelAccess = new Map(access.models.map((model) => [model.key, model]));
       state.modelAccessChecked = true;
+      state.agentAccess = new Map(access.agentModels.map((model) => [model.key, model]));
+      state.agentAccessChecked = true;
       showStatus("服务已连接", { ready: true });
       renderModels();
+      renderPromptAgentModels();
     } else if (state.connected) {
       showStatus("模型检测失败，可稍后刷新", { error: true });
     }

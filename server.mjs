@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
+ * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同与 Beta 提示词模型权限前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -334,7 +334,14 @@ const betaRunner = createBetaRunnerService({
   baseStore: createBetaBaseStore(),
   generationService: betaGenerationService,
 });
-const handleBetaApi = createBetaApiHandler({ readJson, sendJson, service: betaRunner });
+const handleBetaApi = createBetaApiHandler({
+  getAgentModels: async () => checkAgentModelAvailability(
+    await getSessionModelCatalog(createOneApiClient(requireApiKey())),
+  ),
+  readJson,
+  sendJson,
+  service: betaRunner,
+});
 const handleGenerationJobApi = createGenerationJobApiHandler({
   generationJobs,
   generationService,
