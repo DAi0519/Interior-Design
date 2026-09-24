@@ -18,13 +18,14 @@ beta-base.test.mjs: 多选场景 Tag 数组合同， 最终 Prompt 原文与场�
 beta-page-state.test.mjs: Beta跑图本机持久配置状态纯函数测试，覆盖首次默认 Flux、功能/样本集引用/最多四模型/表单参数往返、非法存储降级与不复制图片边界
 beta-run-id.test.mjs: Beta跑图人工分组时间、技术 Run ID 本地日期时间主体、批内唯一序号、模型定位与非法输入拒绝纯函数测试
 beta-runner.test.mjs: 空房逐样本房型保存、回读与校验，当前 Key 提示词模型权限入队前阻断及 409 不重试，Beta跑图五功能样本集准入、测试时间归一化、不设结果数量上限、图片资产去重恢复、两路并发、逐 Run 单图参数隔离、已生成/已同步双阶段快照、飞书回读后渐进公开轻量结果、含 ComfyUI 产物下载 404 在内的瞬时故障三次 Attempt、参数错误单次失败和全量飞书归档门槛内存集成测试
-beta-ui.test.mjs: 根容器 clip 与配置区定位边界回归， Beta跑图独立第三工作台、默认 Flux 与当前标签页配置恢复接线、飞书样本集选择/创建及服务端回读同步状态、不设结果数量上限、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、左侧重复入口移除、五功能无反推、多模型、桌面根滚动锁定的配置/监控双栏、无页面空白滚动、START/失败后 RETRY、生成/飞书同步双进度、飞书回读结果缩略图与原 Benchmark 保留的静态合同测试
+beta-ui.test.mjs: 根容器 clip 与配置区定位边界回归， Beta跑图独立第三工作台、默认 Flux 与当前标签页配置恢复接线、飞书样本集选择/创建及服务端回读同步状态、不设结果数量上限、批次图片资产去重、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、左侧重复入口移除、五功能无反推、多模型、桌面根滚动锁定的配置/监控双栏、无页面空白滚动、START/失败后 RETRY、生成/飞书同步双进度、飞书回读结果缩略图与原 Benchmark 保留的静态合同测试
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数及 ComfyUI 排队/执行消息推导生成中状态、结果与过期错误纯状态测试，不访问真实浏览器存储
 generation-task-request.test.mjs: 日常生图前台飞书实时 Schema 就绪阻断与图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张展开、效果图/全景图美化等分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
 image-upscale.test.mjs: 图片超分专项测试，覆盖三份 SeedVR2 映射与哈希、默认攸行 3B 原图直入/GPU 缓存、可独立或嵌入 Flux 的阶段、两套 7B 预处理、4K/6K/8K 比例参数、时限、Prompt ID、真实像素、本机结果及 OneAPI/飞书豁免，不提交真实 GPU 任务
 effect-render-enhancement.test.mjs: 效果图/全景图美化专项测试，覆盖效果图环境模块与全景图纯文本/开放 `MAIN` JSON 容器、Seedream 5.0 Pro 全景 4K 画幅联动、无临时参数面板、Flux 普通工作流请求、单图、原图比例、脱敏响应与归档元数据内存集成测试
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
-comfyui-client.test.mjs: ComfyUI 健康、取消、Flux 1K/2K、全景复用普通 `euler` 与空 Latent 工作流、废弃全景采样字段隔离、无 Prompt 的 4K/6K 攸行超分、Prompt/Base64 原子提交、WebSocket 阶段、队列兜底、超时、`completed=false` OOM 即时报错、网关恢复、节点详情、唯一产物、旧图拒绝、404 恢复、输出指纹与参考图边界测试，不提交真实任务
+comfyui-client.test.mjs: ComfyUI 健康、取消、Base64 原子提交、WebSocket 阶段、队列兜底、超时、`completed=false` OOM 即时报错、网关恢复、节点详情、唯一产物、旧图拒绝、404 恢复、输出指纹与参考图边界测试，不提交真实任务
+comfyui-workflow.test.mjs: Flux 9B FP8/7 steps、1K/2K、4K/6K 同图无 Prompt 攸行超分、全景复用普通 `euler` 与空 Latent 工作流、废弃全景采样字段隔离和 Prompt 注入的工作流图合同测试
 flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段覆盖、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试

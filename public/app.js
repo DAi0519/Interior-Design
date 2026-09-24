@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、可查询后台生成任务、效果图美化天气/时段、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图美化天气/时段、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
  * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、无需 OneAPI/飞书的纯 ComfyUI 图片超分、按功能恢复的生成中/结果状态与当前页面任务原图对比、效果图/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -8,6 +8,7 @@
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js";
+import { renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=1";
 import { bindDesignInputs } from "./design-inputs.js?v=2";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
@@ -97,24 +98,7 @@ function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
 function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
   (model) => model.key === state.promptAgentModelKey); }
 function renderPromptAgentModels() {
-  const options = state.promptAgentCatalog.map((model) => {
-    const live = state.availablePromptAgents.get(model.id);
-    const selectable = live ? live.selectable : model.imageInput;
-    const reason = live?.reason || (!model.imageInput ? "不支持图片输入" : null);
-    const option = document.createElement("option");
-    option.value = model.key;
-    option.disabled = !selectable;
-    option.selected = model.key === state.promptAgentModelKey;
-    option.textContent = `${model.shortLabel}${reason ? ` · ${reason}` : ""}`;
-    return option;
-  });
-  elements.promptAgentModelSelect.replaceChildren(...options);
-  const selected = selectedPromptAgentModel();
-  elements.promptAgentNote.textContent = state.featureMode === "emptyRoom"
-    ? selected?.note
-      ? `${selected.note}；用于理解空房并生成完整设计提示词。`
-      : "用于理解空房并生成完整设计提示词。"
-    : selected?.note || "用于理解白模并整合最终提示词。";
+  renderAgentControls(elements, state);
 }
 
 function selectPromptAgent(modelKey) {
@@ -152,24 +136,11 @@ function referenceLimit() {
 }
 
 function updateReferenceRequirements() {
-  if (state.featureMode === "imageUpscale") {
-    elements.referenceTitleCopy.textContent = "待超分图片";
-    elements.referenceOptional.textContent = "必填 · 1张";
-    elements.referenceDropLabel.textContent = "添加或拖入待超分图片";
-    elements.referenceInput.multiple = false;
-    elements.referenceInput.ariaLabel = "添加待超分图片";
-    return;
-  }
-  const capability = referenceCapability({
+  renderReferenceControls(elements, {
     featureMode: state.featureMode,
     model: selectedModel(),
     policy: state.referencePolicy,
   });
-  elements.referenceTitleCopy.textContent = capability.title;
-  elements.referenceOptional.textContent = capability.optionalLabel;
-  elements.referenceDropLabel.textContent = capability.dropLabel;
-  elements.referenceInput.multiple = capability.multiple;
-  elements.referenceInput.ariaLabel = capability.ariaLabel;
 }
 
 function selectFeatureMode(featureMode) {

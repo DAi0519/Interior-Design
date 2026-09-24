@@ -767,7 +767,6 @@ async function handleApi(request, response, pathname) {
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${HOST}:${PORT}`);
-
   try {
     if (url.pathname.startsWith("/api/")) {
       await handleApi(request, response, url.pathname);
@@ -791,7 +790,6 @@ const server = createServer(async (request, response) => {
     });
   }
 });
-
 server.listen(PORT, HOST, () => {
   console.log(`Canvas Lab 已启动：http://${HOST}:${PORT}`);
   console.log(

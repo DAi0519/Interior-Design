@@ -16,7 +16,7 @@
 ## 一次发布
 
 1. 在独立 worktree/功能分支完成修改和验收。
-2. 更新版本号并提交全部改动：
+2. 更新版本号，并核对 `package.json` 的 `releaseNotes` 只描述本次版本，再提交全部改动：
 
    ```bash
    npm version patch --no-git-tag-version

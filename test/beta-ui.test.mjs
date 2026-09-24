@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、飞书 Base 存储和 server 路由源码
+ * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
  * [OUTPUT]: 对外提供默认 Flux 且跨工作台/刷新恢复本机配置的独立配置页、飞书样本集选择/创建及回读确认状态、不设结果数量上限的批量执行、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、同工作台下拉/上传/START/RETRY、桌面根容器禁止焦点滚动、配置区约束绝对定位控件且无页面空滚动的配置/监控双栏、生成/飞书同步双进度与已归档结果缩略图的静态回归保障
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -8,11 +8,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { packBatchAssets } from "../public/beta-assets.js";
 
 test("Beta跑图是独立第三工作台且只提供五个出图功能", async () => {
-  const [html, source, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
+  const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta-assets.js", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-configuration.js", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-sample-library.js", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-results.js", import.meta.url), "utf8"),
@@ -44,7 +46,7 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=9/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=20/);
+  assert.match(html, /beta-app\.js\?v=21/);
   assert.match(configuration, /configurationState = "saved"/);
   assert.match(html, /class="beta-config-scroll"/);
   assert.match(html, /id="sourceFilesDropZone" class="reference-drop-zone"/);
@@ -64,8 +66,9 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.doesNotMatch(html, /id="betaBaseLink"|class="section-link"|>打开飞书<\/a>/);
   assert.match(source, /\/api\/beta\/jobs/);
   assert.match(source, /adaptGenerationInputForModel/);
-  assert.match(source, /function packBatchAssets\(items\)/);
-  assert.match(source, /referenceAssetKey/);
+  assert.match(source, /packBatchAssets\(buildItems\(startedAt\), state\.featureMode\)/);
+  assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
+  assert.match(assetSource, /referenceAssetKey/);
   assert.match(source, /import "\.\/custom-select\.js\?v=7"/);
   assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=5"/);
   assert.match(source, /import \{ renderBetaResults \} from "\.\/beta-results\.js\?v=1"/);
@@ -149,4 +152,19 @@ test("原 Benchmark 保留独立页面和原评测编排器", async () => {
   assert.match(benchmarkHtml, /benchmark-app\.js/);
   assert.match(benchmarkHtml, /id="reviewButton"/);
   assert.doesNotMatch(benchmarkHtml, /beta-app\.js/);
+});
+
+test("同一样本跨模型复用图片资产且不重复携带图片正文", () => {
+  const image = { dataUrl: "data:image/png;base64,example" };
+  const items = ["flux", "seedream"].map((modelKey) => ({
+    caseId: "sample-1",
+    input: { referenceImages: [image], styleReferenceImages: [image] },
+    modelKey,
+  }));
+  const packed = packBatchAssets(items, "whiteModel");
+  assert.deepEqual(Object.keys(packed.assets), ["source-sample-1", "shared-style"]);
+  assert.equal(packed.items[0].referenceAssetKey, packed.items[1].referenceAssetKey);
+  assert.equal(packed.items[0].styleReferenceAssetKey, packed.items[1].styleReferenceAssetKey);
+  assert.equal(packed.items[0].input.referenceImages, undefined);
+  assert.equal(packed.items[1].input.styleReferenceImages, undefined);
 });

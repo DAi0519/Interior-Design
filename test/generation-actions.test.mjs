@@ -84,7 +84,7 @@ test("主动作使用项目内嵌展示字体且不包含装饰图标", async ()
   assert.match(css, /font-family: "Canvas Action Display"/);
   assert.match(css, /src: url\("\/smiley-sans-v2\.0\.1\.woff2"\) format\("woff2"\)/);
   assert.match(css, /\.generation-actions \.generate-button \.button-label\s*{[^}]*font-size: 21px[^}]*letter-spacing: 0\.18em[^}]*text-indent: 0\.18em/s);
-  assert.match(html, /\/theme\.css\?v=31/);
+  assert.match(html, /\/theme\.css\?v=32/);
   assert.match(html, /\/generation-actions\.css\?v=16/);
   assert.match(css, /\.generation-actions \.generate-button \.button-label\s*{[^}]*transform: translateY\(-0\.5px\)/s);
   assert.match(actionsJs, /generateButton\.setAttribute\("aria-busy", String\(busy\)\)/);

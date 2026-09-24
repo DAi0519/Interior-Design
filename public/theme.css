@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 styles.css/result.css 的结构与单图拖放替换状态、index.html 的精模自定义要求/Flux 负向提示词及其他语义类名与用户确认的 Raycast 向 Light Command Center 规则
- * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、440–490px 自适应配置栏与结果区桌面双栏、120px 宽且正文不低于 12px 的 AI设计/AI渲染/AI创作内嵌目录、和底部动作栏分离且无边界回弹的配置滚动区、系统字体光学排版、精模自定义要求/Flux 负向 Prompt 覆盖、紧凑配置、单图替换反馈，以及功能/风格/出图模型共享的紧凑选择按钮视觉令牌
- * [POS]: public 的生图工作台最终主题层，仅覆盖业务区域视觉；跨工作台顶栏由 product-navigation.css 收口
+ * [OUTPUT]: 对外提供 Canvas Lab 近白银灰画布、半透明命令面板令牌、440–490px 自适应配置栏与结果区桌面双栏、120px 宽且正文不低于 12px 的 AI设计/AI渲染/AI创作内嵌目录、和底部动作栏分离且无边界回弹的配置滚动区、系统字体光学排版、精模自定义要求/Flux 负向 Prompt 覆盖、紧凑配置、单图替换反馈及共享选择按钮视觉令牌；桌面 hover 与窄屏收口由 theme-interactions.css 提供
+ * [POS]: public 的生图工作台主题基础层，交互/窄屏补充由 theme-interactions.css 承接；跨工作台顶栏由 product-navigation.css 收口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -695,39 +695,6 @@ select {
   color: var(--iron);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .connection-button:hover:not(.connected),
-  .ghost-button:hover,
-  .icon-button:hover {
-    background: #fff;
-    border-color: #aaa69e;
-    color: var(--text);
-  }
-
-  .config-refresh-button:hover:not(:disabled) {
-    background: var(--panel-soft);
-    color: var(--text);
-  }
-
-  .feature-mode-option:hover:not(.selected):not(:disabled),
-  .model-option-toggle:hover:not(.selected):not(:disabled) {
-    background: #fff;
-    border-color: var(--line-strong);
-    color: var(--text);
-  }
-
-  .generate-button:hover:not(:disabled),
-  .primary-button:hover:not(:disabled) {
-    background: #2b2c2f;
-    border-color: #2b2c2f;
-  }
-
-  .reference-remove:hover {
-    background: var(--graphite);
-    color: var(--mist);
-  }
-}
-
 @media (min-width: 761px) {
   body {
     overflow: hidden;
@@ -813,37 +780,5 @@ select {
 
   .control-panel-scroll {
     overflow: visible;
-  }
-}
-
-@media (max-width: 560px) {
-  .app-shell {
-    padding: 0;
-  }
-
-  .topbar {
-    border-left: 0;
-    border-radius: 0;
-    border-right: 0;
-    top: 0;
-  }
-
-  .workspace {
-    gap: 0;
-    margin-top: 0;
-  }
-
-  .control-panel,
-  .result-panel {
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .control-panel {
-    border-bottom: 1px solid var(--line);
-  }
-
-  .result-stage {
-    min-height: 520px;
   }
 }

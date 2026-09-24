@@ -1,0 +1,71 @@
+/**
+ * [INPUT]: 依赖 theme.css 的颜色令牌和生图工作台元素结构
+ * [OUTPUT]: 对外提供精细指针 hover 反馈与 560px 以下的边到边布局收口
+ * [POS]: public 的主题交互与窄屏补充层，紧随 theme.css 加载并先于业务动作和最终强调色层
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+@media (hover: hover) and (pointer: fine) {
+  .connection-button:hover:not(.connected),
+  .ghost-button:hover,
+  .icon-button:hover {
+    background: #fff;
+    border-color: #aaa69e;
+    color: var(--text);
+  }
+
+  .config-refresh-button:hover:not(:disabled) {
+    background: var(--panel-soft);
+    color: var(--text);
+  }
+
+  .feature-mode-option:hover:not(.selected):not(:disabled),
+  .model-option-toggle:hover:not(.selected):not(:disabled) {
+    background: #fff;
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
+
+  .generate-button:hover:not(:disabled),
+  .primary-button:hover:not(:disabled) {
+    background: #2b2c2f;
+    border-color: #2b2c2f;
+  }
+
+  .reference-remove:hover {
+    background: var(--graphite);
+    color: var(--mist);
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    padding: 0;
+  }
+
+  .topbar {
+    border-left: 0;
+    border-radius: 0;
+    border-right: 0;
+    top: 0;
+  }
+
+  .workspace {
+    gap: 0;
+    margin-top: 0;
+  }
+
+  .control-panel,
+  .result-panel {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .control-panel {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .result-stage {
+    min-height: 520px;
+  }
+}

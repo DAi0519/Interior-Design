@@ -1,11 +1,11 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
-Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.3 + lark-cli 1.0.77
+Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.4 + lark-cli 1.0.77
 
 <directory>
 .impeccable/ - Impeccable 项目级设计工作流配置（1 个子目录：live）
 public/ - 浏览器工作台界面（70 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、时间追溯 Run ID 与飞书回读结果预览的五功能 Beta跑图、效果图美化当前上架 Prompt 版本及天气/时段选项、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
 src/ - 本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（49 个模块）
-test/ - Node 原生测试（59 个测试文件，覆盖共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
+test/ - Node 原生测试（61 个测试文件，覆盖共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>

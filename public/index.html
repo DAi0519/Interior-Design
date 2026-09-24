@@ -1,5 +1,5 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、本地 Pannellum 360°预览资产、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、内嵌 Smiley Sans 及 app.js 浏览器控制器
   [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI创作分组且不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/自由生图/风格反推入口、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -21,7 +21,8 @@
     <link rel="stylesheet" href="/result.css?v=14" />
     <link rel="stylesheet" href="/vendor/pannellum.css" />
     <link rel="stylesheet" href="/panorama-viewer.css?v=2" />
-    <link rel="stylesheet" href="/theme.css?v=31" />
+    <link rel="stylesheet" href="/theme.css?v=32" />
+    <link rel="stylesheet" href="/theme-interactions.css?v=1" />
     <link rel="stylesheet" href="/generation-actions.css?v=16" />
     <link rel="stylesheet" href="/custom-select.css?v=9" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=10" />
@@ -752,6 +753,6 @@
 
     <script src="/vendor/pannellum.js"></script>
     <script type="module" src="/product-navigation.js?v=9"></script>
-    <script type="module" src="/app.js?v=54"></script>
+    <script type="module" src="/app.js?v=55"></script>
   </body>
 </html>
