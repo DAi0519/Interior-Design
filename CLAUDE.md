@@ -21,7 +21,7 @@ benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总
 benchmark-backfill.mjs - 历史横评数据迁移入口，不调用模型，将宽表附件补齐为一图一行的模型结果真源
 .codex/environments/environment.toml - Codex 通过 npm start 一键后台启动并打开本地工作台的 macOS 动作
 .env.example - 可复制为 .env.local 的 OneAPI、ComfyUI 地址与飞书资源配置模板
-README.md - Windows/macOS 运营首次运行、连接中心、安全边界与模型参数说明
+README.md - 工作台功能简介、Windows/macOS 快速启动、连接配置与 Issue/PR 协作入口
 RELEASE.md - 维护者版本更新、发布准入、白名单 ZIP、SHA-256、manifest 与 GitHub Release 操作协议
 PRODUCT.md - Canvas Lab 内部能力工厂的用户、目的、定位、运行环境、能力约束与产品原则真源
 DESIGN.md - Raycast 向近白银灰 Light Command Center 在高频生图工作台中的视觉、导航前双层 transform 切换与交互契约
