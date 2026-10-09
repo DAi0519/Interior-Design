@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及连接、配置、飞书同步合同与 Beta 提示词模型权限前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
+ * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及版本更新检测、连接、配置、飞书同步合同与 Beta 提示词模型权限前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,8 @@ import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-
+import packageInfo from "./package.json" with { type: "json" };
+import { createAppUpdateService } from "./src/app-update.mjs";
 import {
   checkAgentModelAvailability,
   publicAgentModelCatalog,
@@ -73,6 +74,7 @@ import {
 } from "./src/style-dna-reverse.mjs";
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
+const appUpdates = createAppUpdateService({ currentVersion: packageInfo.version });
 const ROOT_DIR = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(
@@ -91,7 +93,6 @@ const BENCHMARK_STATE_FILE = join(
 const MAX_JSON_BYTES = 30 * 1024 * 1024;
 const WHITE_MODEL_PROMPT_CACHE_MAX_ENTRIES = 50;
 const WHITE_MODEL_PROMPT_CACHE_TTL_MS = 60 * 60 * 1000;
-
 async function persistedOneApiKey() {
   try {
     return await hasPersistedOneApiKey();
@@ -99,7 +100,6 @@ async function persistedOneApiKey() {
     return false;
   }
 }
-
 let sessionApiKey = normalizeApiKey(process.env.ONEAPI_API_KEY || "");
 let sessionApiKeySource = sessionApiKey
   ? (await persistedOneApiKey())
@@ -124,7 +124,6 @@ const whiteModelPromptResultCache = createAsyncTtlCache({
   ttlMs: WHITE_MODEL_PROMPT_CACHE_TTL_MS,
 });
 let benchmarkWorkbench = null;
-
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -134,7 +133,6 @@ const MIME_TYPES = {
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
 };
-
 const SECURITY_HEADERS = {
   "Cache-Control": "no-store",
   "Content-Security-Policy":
@@ -143,12 +141,10 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
 };
-
 function normalizeApiKey(value) {
   const key = String(value || "").trim();
   return key.replace(/^Bearer\s+/i, "");
 }
-
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     ...SECURITY_HEADERS,
@@ -372,6 +368,10 @@ function serveStatic(response, pathname) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (request.method === "GET" && pathname === "/api/app-update") {
+    const force = new URL(request.url, `http://${HOST}`).searchParams.get("force") === "1";
+    return sendJson(response, 200, await appUpdates.check({ force }));
+  }
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;
 

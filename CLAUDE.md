@@ -3,9 +3,9 @@ Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable
 
 <directory>
 .impeccable/ - Impeccable 项目级设计工作流配置（1 个子目录：live）
-public/ - 浏览器工作台界面（70 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、时间追溯 Run ID 与飞书回读结果预览的五功能 Beta跑图、效果图美化当前上架 Prompt 版本及天气/时段选项、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
-src/ - 本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（49 个模块）
-test/ - Node 原生测试（61 个测试文件，覆盖共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
+public/ - 浏览器工作台界面（72 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、三页共享版本与更新提示、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、时间追溯 Run ID 与飞书回读结果预览的五功能 Beta跑图、效果图美化当前上架 Prompt 版本及天气/时段选项、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
+src/ - GitHub 正式 Release 更新检测、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（49 个模块）
+test/ - Node 原生测试（63 个测试文件，覆盖版本检查/失败降级/更新提示、共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
 scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>
@@ -14,14 +14,14 @@ PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 package.json - 固定 Node 版本、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli/Pannellum 版本
 launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
-server.mjs - 本地 HTTP 服务、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、Beta 提示词模型当前 Key 权限前置准入、生成结果下载、双 Provider 单模型多张/多模型生成、纯 ComfyUI 图片超分、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
+server.mjs - 本地 HTTP 服务、版本更新检测 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、Beta 提示词模型当前 Key 权限前置准入、生成结果下载、双 Provider 单模型多张/多模型生成、纯 ComfyUI 图片超分、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
 start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总多候选 Agent/Style/融合模型且仅在显式 --execute 后调用模型并写回 Base
 benchmark-backfill.mjs - 历史横评数据迁移入口，不调用模型，将宽表附件补齐为一图一行的模型结果真源
 .codex/environments/environment.toml - Codex 通过 npm start 一键后台启动并打开本地工作台的 macOS 动作
 .env.example - 可复制为 .env.local 的 OneAPI、ComfyUI 地址与飞书资源配置模板
-README.md - 工作台功能简介、Windows/macOS 快速启动、连接配置与 Issue/PR 协作入口
+README.md - 工作台功能简介、Windows/macOS 快速启动、连接配置、检查与下载更新及 Issue/PR 协作入口
 RELEASE.md - 维护者版本更新、发布准入、白名单 ZIP、SHA-256、manifest 与 GitHub Release 操作协议
 PRODUCT.md - Canvas Lab 内部能力工厂的用户、目的、定位、运行环境、能力约束与产品原则真源
 DESIGN.md - Raycast 向近白银灰 Light Command Center 在高频生图工作台中的视觉、导航前双层 transform 切换与交互契约
@@ -53,3 +53,5 @@ Benchmark 法则：浏览器评测以样本集、可编辑实验计划、执行�
 归档法则：生成记录的“尺寸”必须从结果图真实字节读取，禁止用请求尺寸冒充实际产物。
 
 发布法则：对外发布先创建 GitHub 草稿 Release 并校验提交及全部制品摘要，转正式后才清理本地制品；已存在 Release 或远端 Tag 的版本禁止覆盖。
+
+更新法则：以 package.json 的当前版本与 GitHub 正式 Release 的标准运行 ZIP 为准；自动检测仅提示下载，不覆盖源码、本机配置或运行中任务。公开仓库以匿名接口查询，不读取 GitHub 凭据；访问受限、网络失败或无合格发布物必须显示无法检查，不得误报已是最新。

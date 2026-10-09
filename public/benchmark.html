@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、三工作台共享 product-navigation.css/js/raycast-accent.css、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
+  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
+  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="./benchmark-review.css?v=4" />
     <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
     <link rel="stylesheet" href="./product-navigation.css?v=14" />
+    <link rel="stylesheet" href="./app-update.css?v=1" />
     <link rel="stylesheet" href="./raycast-accent.css?v=42" />
   </head>
   <body>
@@ -42,6 +43,7 @@
           <a class="product-switch-option" href="/benchmark.html" aria-current="page">模型评测</a>
         </nav>
         <div class="topbar-actions">
+          <button class="app-update-trigger" data-app-update type="button">检查更新</button>
           <span id="connectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>
         </div>
       </header>
@@ -294,6 +296,7 @@
       </main>
     </div>
     <script type="module" src="./product-navigation.js?v=9"></script>
+    <script type="module" src="./app-update.js?v=1"></script>
     <script type="module" src="./custom-select.js?v=7"></script>
     <script type="module" src="./benchmark-app.js?v=34"></script>
   </body>

@@ -4,6 +4,8 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护浏览器界面成员清单
+app-update.js: 三工作台共享版本与更新交互，自动检测/手动重试、状态直接作为可聚焦标题、精简版本、仅新版呈现真实说明及受信下载、同排关闭/检查/下载和点击外部关闭，不执行安装或文件覆盖
+app-update.css: 共享更新入口与紧凑对话框视觉层，360px 状态标题布局、精简版本、中性键面、盒橙状态点、按需说明、同排32px等尺寸动作及窄屏可访问入口
 config-refresh.js: 飞书配置刷新交互控制器，让效果图美化当前上架 Prompt 状态、白模与空房双模式 Agent、Style DNA 与精模 Prompt 入口共享互斥状态并分发脱敏配置
 connection-center.js: 运营首次运行控制器，管理 OneAPI 本机记忆、评测页 `?connect=api` 直达、CLI/用户/中文授权能力/Base 实时同步合同状态、飞书 Device Flow 与焦点圈闭/归还，并把准入状态回传生成编排器
 connection-center.css: 连接中心视觉层，提供 OneAPI/飞书无套框双分区、中性浅色 32px 动作按钮的结构与交互基底、状态行、本机记忆控件、授权二维码和窄屏布局，最终颜色由 raycast-accent.css 统一

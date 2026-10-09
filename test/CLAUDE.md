@@ -4,6 +4,8 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护自动化测试成员清单
+app-update.test.mjs: GitHub 正式 Release 与 SemVer/标准 ZIP 准入、匿名查询、失败降级、超时、缓存与并发去重测试，不访问外部网络
+app-update-ui.test.mjs: 更新视图状态、受信链接、检测失败与手动/自动检测交互行为测试，不下载或安装新版
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点、声明式向上菜单、Enter/Space 确认，并阻止内容宽度百分比导致的无效省略
 choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影、纯黑白字选中态与完整交互状态
 generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
