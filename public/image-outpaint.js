@@ -138,6 +138,7 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
   const outputSize = byId("OutputSize");
   const error = byId("Error");
   const canvas = byId("Canvas");
+  const canvasHint = byId("CanvasHint");
   const sourceImage = byId("SourceImage");
   const previewEmpty = byId("PreviewEmpty");
   const inputs = Object.fromEntries(SIDES.map((side) => [side, root.querySelector(`[data-outpaint-expansion="${side}"]`)]));
@@ -192,6 +193,7 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
     const unchanged = dimensions && result.field === "expansion" && SIDES.every((side) => Number(inputs[side].value) === 0);
     const canPreview = Boolean(dimensions && source?.dataUrl && (!result.message || unchanged));
     canvas.classList.toggle("hidden", !canPreview);
+    if (canvasHint) canvasHint.classList.toggle("hidden", !canPreview);
     previewEmpty.classList.toggle("hidden", canPreview);
     previewEmpty.textContent = source ? "请输入有效的扩展尺寸" : "上传图片后预览扩展范围";
     if (canPreview) {
@@ -204,11 +206,152 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
       sourceImage.style.top = `${Number(values.top) / dimensions.height * 100}%`;
       sourceImage.style.width = `${prepared.width / dimensions.width * 100}%`;
       sourceImage.style.height = `${prepared.height / dimensions.height * 100}%`;
+      renderCanvasGrid(dimensions, prepared);
     } else {
       sourceImage.removeAttribute("src");
     }
     renderRatios();
   }
+
+  function renderCanvasGrid(dimensions, prepared) {
+    // Only render grid in browser environment with full DOM support
+    if (typeof document === "undefined" || !canvas.querySelector) return;
+
+    let grid = canvas.querySelector(".image-outpaint-canvas-grid");
+    if (!grid) {
+      grid = document.createElement("div");
+      grid.className = "image-outpaint-canvas-grid";
+      canvas.appendChild(grid);
+    }
+    grid.innerHTML = "";
+    const gridLines = 2;
+    for (let i = 1; i <= gridLines; i++) {
+      const vertical = document.createElement("div");
+      vertical.className = "image-outpaint-canvas-grid-line vertical";
+      vertical.style.left = `${(i / (gridLines + 1)) * 100}%`;
+      grid.appendChild(vertical);
+      const horizontal = document.createElement("div");
+      horizontal.className = "image-outpaint-canvas-grid-line horizontal";
+      horizontal.style.top = `${(i / (gridLines + 1)) * 100}%`;
+      grid.appendChild(horizontal);
+    }
+  }
+
+  let dragState = null;
+
+  function setupDragInteraction() {
+    // Only setup drag interaction in browser environment
+    if (typeof document === "undefined") return;
+
+    const startDrag = (clientX, clientY) => {
+      const source = getSourceImage();
+      const prepared = imageOutpaintPreparedDimensions(source, config);
+      const dimensions = outpaintTargetDimensions(source, expansion(), config);
+      if (!prepared || !dimensions) return;
+
+      const canvasRect = canvas.getBoundingClientRect();
+      const values = expansion();
+      const currentLeft = Number(values.left);
+      const currentTop = Number(values.top);
+
+      dragState = {
+        startX: clientX,
+        startY: clientY,
+        startLeft: currentLeft,
+        startTop: currentTop,
+        canvasWidth: canvasRect.width,
+        canvasHeight: canvasRect.height,
+        targetWidth: dimensions.width,
+        targetHeight: dimensions.height,
+        preparedWidth: prepared.width,
+        preparedHeight: prepared.height,
+      };
+
+      canvas.classList.add("dragging");
+      sourceImage.classList.add("dragging");
+      selectedRatio = "";
+      ratioError = "";
+    };
+
+    const moveDrag = (clientX, clientY) => {
+      if (!dragState) return;
+
+      const deltaX = clientX - dragState.startX;
+      const deltaY = clientY - dragState.startY;
+
+      const pixelDeltaX = Math.round((deltaX / dragState.canvasWidth) * dragState.targetWidth);
+      const pixelDeltaY = Math.round((deltaY / dragState.canvasHeight) * dragState.targetHeight);
+
+      const newLeft = Math.max(0, Math.min(
+        dragState.targetWidth - dragState.preparedWidth,
+        dragState.startLeft + pixelDeltaX
+      ));
+      const newTop = Math.max(0, Math.min(
+        dragState.targetHeight - dragState.preparedHeight,
+        dragState.startTop + pixelDeltaY
+      ));
+
+      const newRight = dragState.targetWidth - dragState.preparedWidth - newLeft;
+      const newBottom = dragState.targetHeight - dragState.preparedHeight - newTop;
+
+      inputs.left.value = String(newLeft);
+      inputs.top.value = String(newTop);
+      inputs.right.value = String(newRight);
+      inputs.bottom.value = String(newBottom);
+
+      renderSummary();
+    };
+
+    const endDrag = () => {
+      if (!dragState) return;
+      dragState = null;
+      canvas.classList.remove("dragging");
+      sourceImage.classList.remove("dragging");
+      onChange();
+    };
+
+    // Mouse events
+    canvas.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      startDrag(e.clientX, e.clientY);
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!dragState) return;
+      e.preventDefault();
+      moveDrag(e.clientX, e.clientY);
+    });
+
+    document.addEventListener("mouseup", () => {
+      endDrag();
+    });
+
+    // Touch events
+    canvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      startDrag(touch.clientX, touch.clientY);
+    });
+
+    document.addEventListener("touchmove", (e) => {
+      if (!dragState || e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      moveDrag(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    document.addEventListener("touchend", () => {
+      endDrag();
+    });
+
+    document.addEventListener("touchcancel", () => {
+      endDrag();
+    });
+  }
+
+  setupDragInteraction();
 
   SIDES.forEach((side) => {
     inputs[side].addEventListener("input", () => {

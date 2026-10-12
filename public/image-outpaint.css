@@ -25,6 +25,14 @@
   text-align: center;
 }
 
+.image-outpaint-canvas-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+  margin: -8px 0 14px;
+  text-align: center;
+}
+
 #imageOutpaintAvailability {
   color: var(--muted);
 }
@@ -36,16 +44,53 @@
 .image-outpaint-canvas {
   aspect-ratio: var(--outpaint-ratio, 1);
   background: #dfe0e4;
+  cursor: grab;
   outline: 1px dashed #919198;
   position: relative;
+  touch-action: none;
+  user-select: none;
   width: min(100%, calc(176px * var(--outpaint-ratio, 1)));
 }
 
+.image-outpaint-canvas.dragging {
+  cursor: grabbing;
+}
+
+.image-outpaint-canvas-grid {
+  bottom: 0;
+  left: 0;
+  opacity: 0.15;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.image-outpaint-canvas-grid-line {
+  background: #919198;
+  position: absolute;
+}
+
+.image-outpaint-canvas-grid-line.vertical {
+  height: 100%;
+  width: 1px;
+}
+
+.image-outpaint-canvas-grid-line.horizontal {
+  height: 1px;
+  width: 100%;
+}
+
 .image-outpaint-source-image {
+  cursor: grab;
   display: block;
   max-width: none;
   object-fit: fill;
   position: absolute;
+}
+
+.image-outpaint-source-image.dragging {
+  cursor: grabbing;
 }
 
 .image-outpaint-ratios {

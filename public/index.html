@@ -336,10 +336,11 @@
             </div>
             <figure class="image-outpaint-preview" aria-label="原图在所选引擎扩展画布中的位置预览">
               <p id="imageOutpaintPreviewEmpty" class="image-outpaint-preview-empty">上传图片后预览扩展范围</p>
-              <div id="imageOutpaintCanvas" class="image-outpaint-canvas hidden">
+              <div id="imageOutpaintCanvas" class="image-outpaint-canvas hidden" title="拖动原图调整在画布中的位置">
                 <img id="imageOutpaintSourceImage" class="image-outpaint-source-image" alt="扩图原图的位置预览" />
               </div>
             </figure>
+            <p id="imageOutpaintCanvasHint" class="image-outpaint-canvas-hint hidden">💡 拖动画布中的原图可调整留白位置，或在下方精确输入像素值</p>
             <div class="image-outpaint-ratios" role="group" aria-label="居中扩展到目标比例">
               <button class="image-outpaint-ratio" data-outpaint-ratio="original" type="button" aria-pressed="false" disabled>不扩展</button>
               <button class="image-outpaint-ratio" data-outpaint-ratio="1:1" type="button" aria-pressed="false" disabled>1:1</button>

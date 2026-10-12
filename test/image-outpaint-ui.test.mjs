@@ -133,7 +133,7 @@ function control(values = {}) {
 }
 
 function fixture() {
-  const nodes = new Map(["Availability", "Note", "OutputSize", "Error", "Canvas", "SourceImage", "PreviewEmpty"].map((id) => [`#imageOutpaint${id}`, control()]));
+  const nodes = new Map(["Availability", "Note", "OutputSize", "Error", "Canvas", "CanvasHint", "SourceImage", "PreviewEmpty"].map((id) => [`#imageOutpaint${id}`, control()]));
   const sides = Object.fromEntries(["left", "top", "right", "bottom"].map((side) => [side, control()]));
   const ratios = ["original", "1:1", "4:3", "16:9", "3:4", "9:16"].map((ratio) => control({ dataset: { outpaintRatio: ratio } }));
   const engines = ["comfyui", "gptImage25Sunburst"].map((key) => control({ dataset: { outpaintEngine: key } }));
