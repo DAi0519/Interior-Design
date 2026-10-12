@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图美化天气/时段、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分两工作流与 4K/6K/8K 配置、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、无需 OneAPI/飞书的纯 ComfyUI 图片超分、按功能恢复的生成中/结果状态与当前页面任务原图对比、效果图/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图美化天气/时段、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分三工作流与 4K/6K/8K 配置、ComfyUI/Sunburst 扩图引擎及各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、不写飞书的独立图片工具及默认 ComfyUI/可选 Sunburst 扩图入口、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,7 +16,7 @@ import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
-import { bindImageUpscale } from "./image-upscale.js";
+import { bindImageTools } from "./image-tools.js";
 import {
   buildGenerationJobRequest,
   generationItemsForSelection,
@@ -71,16 +71,9 @@ const refinedPromptVersionSelect = bindRefinedPromptVersionSelect({
   note: elements.refinedPromptNote,
   select: elements.refinedPromptVersionSelect,
 });
-const imageUpscale = bindImageUpscale({
-  availability: elements.imageUpscaleAvailability,
-  emptyModel: elements.emptyModel,
-  emptySize: elements.emptySize,
-  exactSize: elements.exactSize,
-  getSourceImage: () => selectedSourceImage(),
-  onChange: () => generationActions.refresh(),
-  resolutionSelect: elements.resolutionSelect,
-  workflowList: elements.imageUpscaleWorkflowList,
-});
+const imageTools = bindImageTools({ api, elements, getSourceImage: () => selectedSourceImage(),
+  onChange: () => generationActions.refresh() });
+const { upscale: imageUpscale, outpaint: imageOutpaint } = imageTools;
 function selectedModels() { return state.modelKeys.map((key) =>
   state.catalog.find((model) => model.key === key)).filter(Boolean); }
 function selectedModel() { return selectedModels()[0]; }
@@ -125,16 +118,14 @@ function renderPromptAgentContext(smartDefault) {
     : smartDefault ? "智能默认 Agent 基模" : "融合基模");
   renderPromptAgentModels();
 }
-
 function referenceLimit() {
-  if (state.featureMode === "imageUpscale") return 1;
+  if (imageTools.forMode(state.featureMode)) return 1;
   return referenceCapability({
     featureMode: state.featureMode,
     model: selectedModel(),
     policy: state.referencePolicy,
   }).limit;
 }
-
 function updateReferenceRequirements() {
   renderReferenceControls(elements, {
     featureMode: state.featureMode,
@@ -142,13 +133,12 @@ function updateReferenceRequirements() {
     policy: state.referencePolicy,
   });
 }
-
 function selectFeatureMode(featureMode) {
   const supported = [
     "effectEnhancement",
     "emptyRoom",
     "free",
-    "imageUpscale",
+    "imageUpscale", "imageOutpaint",
     "panoramaEnhancement",
     "refinedModel",
     "styleDna",
@@ -169,6 +159,7 @@ function selectFeatureMode(featureMode) {
   const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
+  const imageTool = imageTools.forMode(featureMode);
   const isImageUpscale = featureMode === "imageUpscale";
   for (const button of elements.featureModeButtons) {
     const selected = button.dataset.featureMode === featureMode;
@@ -202,7 +193,10 @@ function selectFeatureMode(featureMode) {
   }
   elements.styleSection.classList.toggle("hidden", !isDesignModel);
   elements.imageUpscaleSection.classList.toggle("hidden", !isImageUpscale);
-  elements.modelSection.classList.toggle("hidden", isImageUpscale);
+  elements.imageOutpaintSection.classList.toggle("hidden", featureMode !== "imageOutpaint");
+  elements.parameterSection.classList.toggle("hidden", featureMode === "imageOutpaint");
+  elements.resolutionField.classList.toggle("hidden", featureMode === "imageOutpaint");
+  elements.modelSection.classList.toggle("hidden", Boolean(imageTool));
   elements.effectEnhancementSection.classList.toggle("hidden", !isEffectEnhancement);
   elements.emptyRoomTypeSection.classList.toggle("hidden", !isEmptyRoom);
   emptyRoomType.setFeatureMode(featureMode);
@@ -212,14 +206,14 @@ function selectFeatureMode(featureMode) {
     isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle(
-    "hidden", isRefinedModel || isEffectEnhancement || isPanoramaEnhancement || isImageUpscale,
+    "hidden", isRefinedModel || isEffectEnhancement || isPanoramaEnhancement || Boolean(imageTool),
   );
-  elements.ratioField.classList.toggle("hidden", isImageUpscale);
-  elements.generationCountField.classList.toggle("hidden", isImageUpscale);
-  elements.qualityField.classList.toggle("hidden", isImageUpscale);
-  if (isImageUpscale) {
+  elements.ratioField.classList.toggle("hidden", Boolean(imageTool));
+  elements.generationCountField.classList.toggle("hidden", Boolean(imageTool));
+  elements.qualityField.classList.toggle("hidden", Boolean(imageTool));
+  if (imageTool) {
     fluxNegativePrompt.render([]);
-    imageUpscale.activate();
+    imageTool.activate();
   } else configurePrimaryModel();
   updateReferenceRequirements();
   referenceUpload.render();
@@ -446,14 +440,15 @@ function resetModelAvailability() {
 
 async function generate({ forcePromptRegeneration = false } = {}) {
   const featureMode = state.featureMode;
-  const imageUpscaleRequest = featureMode === "imageUpscale";
+  const imageTool = imageTools.forMode(featureMode);
+  const localImageRequest = Boolean(imageTool);
   if (generationTasks.view(featureMode).stage === "loading") return;
-  if (!state.larkReady && !imageUpscaleRequest) {
+  if (!state.larkReady && !localImageRequest) {
     connectionCenter.open();
     showToast("飞书同步合同未通过，已阻止生成");
     return;
   }
-  const models = imageUpscaleRequest ? [imageUpscale.currentItem()] : selectedModels();
+  const models = localImageRequest ? [imageTool.currentItem()] : selectedModels();
   const whiteModelRequest = featureMode === "whiteModel";
   const emptyRoomRequest = featureMode === "emptyRoom";
   const designPromptRequest = whiteModelRequest || emptyRoomRequest;
@@ -476,15 +471,18 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     showToast("请选择 1–4 个出图模型");
     return;
   }
-  if (imageUpscaleRequest) {
-    if (!imageUpscale.isAvailable()) {
-      showToast("ComfyUI 当前不可用，请检查工作流服务");
+  if (localImageRequest) {
+    if (!imageTool.isAvailable()) {
+      showToast(imageTool.availabilityReason?.() || "ComfyUI 当前不可用，请检查工作流服务");
       return;
     }
     if (referenceImages().length !== 1) {
-      showToast("图片超分需要且只允许 1 张待处理图片");
+      showToast("图片处理需要且只允许 1 张待处理图片");
       return;
     }
+  }
+  if (featureMode === "imageOutpaint" && imageOutpaint.validate()?.message) {
+    showToast(imageOutpaint.validate().message); return;
   }
   if (designPromptRequest) {
     const renderMode = whiteModelRenderMode.current();
@@ -550,7 +548,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const promptIdentity = designPromptRequest
     ? generationActions.currentIdentity()
     : null;
-  const loadingCopy = imageUpscaleRequest ? imageUpscale.loadingCopy() : generationLoadingCopy({
+  const loadingCopy = localImageRequest ? imageTool.loadingCopy() : generationLoadingCopy({
     designPromptRequest,
     emptyRoomRequest,
     effectEnhancementRequest,
@@ -563,7 +561,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     renderMode: whiteModelRenderMode.current().mode,
     styleReferenceCount: styleReferenceImages().length,
   });
-  const generationItems = imageUpscaleRequest
+  const generationItems = localImageRequest
     ? models
     : generationItemsForSelection(models, generationCount.value());
   const sourceImage = selectedSourceImage();
@@ -572,16 +570,16 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     loadingLabel: loadingCopy,
     models: generationItems,
   });
-  generationTasks.start(task, { comparisonImage: sourceImage });
+  generationTasks.start(task, { comparisonImage: featureMode === "imageOutpaint" ? null : sourceImage });
 
   try {
-    const baseInput = imageUpscaleRequest ? null : generationInput();
+    const baseInput = localImageRequest ? null : generationInput();
     const batchId = generationItems.length > 1
       ? crypto.randomUUID().replaceAll("-", "")
       : null;
     const body = await api("/api/generation-jobs", {
-      body: JSON.stringify(imageUpscaleRequest
-        ? imageUpscale.jobRequest({ image: sourceImage, jobId: task.jobId })
+      body: JSON.stringify(localImageRequest
+        ? imageTool.jobRequest({ image: sourceImage, jobId: task.jobId })
         : buildGenerationJobRequest({
           baseInput, batchId, featureMode,
           forcePromptRegeneration: designPromptRequest && forcePromptRegeneration,
@@ -600,8 +598,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       generationActions.markReusable(promptIdentity);
     }
     showToast(completed === generationItems.length
-      ? imageUpscaleRequest
-        ? `${completed} 张图片超分已完成`
+      ? localImageRequest
+        ? `${completed} 张图片${featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成`
         : `${completed} 张图已完成，正在分别同步飞书`
       : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
@@ -649,8 +647,8 @@ const styleDnaChat = bindStyleDnaChat({
 });
 const connectionCenter = bindConnectionCenter({
   api,
-  onApiConnected: checkAvailableModels,
-  onApiDisconnected: resetModelAvailability,
+  onApiConnected: async () => { await Promise.all([checkAvailableModels(), imageTools.refreshOutpaint()]); },
+  onApiDisconnected: () => { resetModelAvailability(); void imageTools.refreshOutpaint(); },
   onApiStateChange(session) {
     setApiConnectionState(session.connected);
   },
@@ -664,15 +662,17 @@ const connectionCenter = bindConnectionCenter({
 });
 
 async function initialize() {
-  const [catalogBody, sessionBody, imageUpscaleConfig] = await Promise.all([
+  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig] = await Promise.all([
     api("/api/catalog"),
     connectionCenter.load(),
     api("/api/image-upscale/config"),
+    api("/api/image-outpaint/config"),
   ]);
   state.catalog = catalogBody.models;
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
   imageUpscale.configure(imageUpscaleConfig);
+  imageOutpaint.configure(imageOutpaintConfig);
   emptyRoomType.setOptions(catalogBody.emptyRoomTypes, catalogBody.emptyRoomTypeDetailMaxLength, catalogBody.emptyRoomFurniture, catalogBody.otherFurnitureMaxLength);
   styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
@@ -739,13 +739,14 @@ referenceUpload = bindReferenceUpload({
           ? "待美化效果图"
           : state.featureMode === "panoramaEnhancement"
             ? "待美化全景图"
-            : state.featureMode === "imageUpscale" ? "待超分图片" : "参考图",
+            : state.featureMode === "imageOutpaint" ? "待扩图图片"
+              : state.featureMode === "imageUpscale" ? "待超分图片" : "参考图",
   input: elements.referenceInput,
   list: elements.referenceList,
   onChange({ images, previousImages }) {
     if (images[0]?.id !== previousImages[0]?.id) state.ratioMode = "auto";
     generationActions.refresh();
-    if (state.featureMode === "imageUpscale") imageUpscale.renderSummary();
+    if (imageTools.forMode(state.featureMode)) imageTools.forMode(state.featureMode).renderSummary();
     else {
       configureSizeControls({ preserveResolution: true });
       updateComputedSize();
@@ -789,7 +790,7 @@ elements.ratioSelect.addEventListener("change", () => {
   updateComputedSize();
 });
 elements.resolutionSelect.addEventListener("change", () => {
-  if (state.featureMode === "imageUpscale") imageUpscale.renderSummary();
+  if (imageTools.forMode(state.featureMode)) imageTools.forMode(state.featureMode).renderSummary();
   else updateComputedSize();
   generationActions.refresh();
 });

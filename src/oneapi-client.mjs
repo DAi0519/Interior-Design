@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供固定 180 秒超时/主动取消的 OneAPI 客户端、Prompt Agent 单/双图输入、请求侧图片压缩、图生图、4K-token 多图评审与多轮图片/PDF 请求构造、脱敏诊断、请求 ID/响应/真实费用归一化与错误脱敏
- * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图走 Images API，并集中记录不含 Key/Prompt/图片正文的失败诊断
+ * [OUTPUT]: 对外提供固定 180 秒超时/主动取消的 OneAPI 客户端、Prompt Agent 单/双图输入、请求侧图片压缩、图生图、透明 PNG/遮罩原样编辑、4K-token 多图评审与多轮图片/PDF 请求构造、脱敏诊断、请求 ID/响应/真实费用归一化与错误脱敏
+ * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图与遮罩编辑分别走 Images generations/edits，并集中记录不含 Key/Prompt/图片正文的失败诊断
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -147,6 +147,22 @@ export function extractUsageCost(body) {
 function responseUsage(body) {
   const usageCost = extractUsageCost(body);
   return usageCost ? { usageCost, ...usageCost } : {};
+}
+
+function imageGenerationResult(body, generationRequest, transport) {
+  const images = normalizeImages(body, generationRequest.output_format);
+  if (images.length === 0) {
+    throw new OneApiError("API 已响应，但没有返回可展示的图片", 502, "empty_image");
+  }
+  return {
+    ...responseUsage(body),
+    created: body.created_at || body.created || null,
+    images,
+    outputFormat: body.output_format || generationRequest.output_format,
+    quality: generationRequest.quality || null,
+    requestId: body.id || null,
+    transport,
+  };
 }
 
 export function buildResponseImageRequest(generationRequest) {
@@ -590,21 +606,17 @@ export function createOneApiClient(
         },
         { model: generationRequest.model || null },
       );
-      const images = normalizeImages(body, generationRequest.output_format);
+      return imageGenerationResult(body, generationRequest,
+        useResponses ? "responses" : "images-generations");
+    },
 
-      if (images.length === 0) {
-        throw new OneApiError("API 已响应，但没有返回可展示的图片", 502, "empty_image");
-      }
-
-      return {
-        ...responseUsage(body),
-        created: body.created_at || body.created || null,
-        images,
-        outputFormat: body.output_format || generationRequest.output_format,
-        quality: generationRequest.quality || null,
-        requestId: body.id || null,
-        transport: useResponses ? "responses" : "images-generations",
-      };
+    async editImage(generationRequest) {
+      // 编辑画布与遮罩保留原始字节及透明度，不复用图生图 JPEG 压缩。
+      const body = await request("/images/edits", {
+        body: JSON.stringify(generationRequest),
+        method: "POST",
+      }, { model: generationRequest.model || null });
+      return imageGenerationResult(body, generationRequest, "images-edits");
     },
 
     async listModels() {

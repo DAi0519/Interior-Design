@@ -3,13 +3,18 @@
 
 成员清单
 
+image-outpaint-service.mjs: AI 扩图双引擎应用边界，默认 ComfyUI 的 32–2048px/ceil32/8px 合同与 Sunburst 原尺寸/27档位合同、共用 EXIF 方向归一化、节点能力或当前 OneAPI Key 目录准入、按引擎独立执行与真实尺寸校验
+image-outpaint-workflow.mjs: AI 扩图真实执行图真源，适配 MaaS prod_test 参数 1082 的 18 节点图，固定 Janus-Pro-1B/Flux Fill OneReward/20步/guidance30/feathering30，保留 LayerStyle 比例截断后 ceil32 预处理、8px 目标、唯一产物与尺寸/来源 SHA-256；643 仅截图线索
+image-outpaint-oneapi.mjs: GPT Image 2.5 Sunburst 编辑扩图适配器，原图不缩放裁切、四边定位的透明 PNG/原图不透明外围透明 mask、27目标档位与固定 medium/n1/png、实际尺寸/结果/画布/遮罩 SHA-256、placement 与真实费用身份
+image-tools-api.mjs: 独立图片工具只读配置 API，保留超分健康与目录，公开 ComfyUI/Sunburst 两引擎各自合同、动态可用性与准入原因
+
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
 app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
 model-config.mjs: 模型参数真源，维护六个 OneAPI 模型（含 GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt、原有四模型 2:1 与 2.5 九比例/五质量档、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留
-generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，保留 `/api/generation-jobs` 入队与查询合同，在需归档生图前校验飞书同步合同，让纯 ComfyUI 图片超分绕过飞书准入并持续公开排队/执行阶段与 Prompt ID
-generation-service.mjs: 显式功能路由穿透生成输入，阻止空房默认走白模，日常生成应用服务，统一自由生图、效果图/全景图美化、精模、白模/空房与图片超分的 Provider/工作流路由、Flux 负向 Prompt 归档、超分进度透传及脱离 HTTP 的单项执行
+generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，需归档生图先校验飞书同步合同，独立图片工具绕过飞书且按所选扩图引擎准入，ComfyUI 能力或当前 Key 模型权限未通过不入队，分别公开 comfyUi/imageEdit 阶段与可用上游身份
+generation-service.mjs: 显式功能路由穿透生成输入，阻止空房默认走白模，统一各生图与独立图片工具路由，扩图按所选引擎严格取 ComfyUI 或 OneAPI 编辑客户端，不写飞书并透传各自阶段，保留 Flux 负向 Prompt 归档与脱离 HTTP 单项执行
 image-upscale-service.mjs: 图片超分应用服务，校验单图并按源图比例计算 4K/6K/8K 目标，分开 5 分钟排队时限与仅 8K 使用的 15 分钟执行时限，映射带 Prompt ID 的 ComfyUI 阶段并返回真实输出尺寸的本机结果
 image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固定三份 SeedVR2 JSON，默认攸行 3B 原图直入并保留两套 7B 预处理差异，提供 4K/6K/8K 长边合同、可独立提交或嵌入 Flux 的 SeedVR2 阶段、最小 ComfyUI 图、唯一产物前缀与元数据
 beta-base.mjs: 场景标签以多选 Tag 写入， 复用正式记录映射捕获最终 Prompt、场景/风格/家具/Agent 与真实尺寸，逐字段回读， Beta跑图独立飞书持久化边界，以 `批量跑图 Benchmark` 的样本集→样本→跑图明细三表管理复用资产和一行一结果归档，记录链接固定打开按测试时间降序分组的明细视图，分列上传样本/输入/风格/结果附件、回写版本/费用/时延/错误，并以成功状态、附件 token 与一致字节数回读裁决完成后返回轻量预览
@@ -20,7 +25,7 @@ empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十一个候选 ID（含 DeepSeek V4.1 Flash 与 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
-oneapi-client.mjs: 固定 180 秒上限且可由外部 AbortSignal 主动取消的 OneAPI HTTP 客户端，Prompt Agent 支持白模单图或白模+风格参考双图 Responses；Claude 双图 AI 评审按规则源走 Chat Completions，其余分析、Style DNA 多轮反推与图生图走 Responses；图生图请求侧统一压缩超限图片，并集中输出不含 Key/Prompt/图片正文的模型、端点、请求字节、耗时与状态脱敏诊断
+oneapi-client.mjs: 固定 180 秒/外部 AbortSignal 的 OneAPI HTTP 客户端，Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留请求身份/费用与脱敏诊断
 ai-texture-workflow-config.mjs: Flux 工作流身份与参数合同真源，集中维护 9B FP8、7-step、节点标识、默认负向 Prompt 与归档元数据
 ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，统一使用 9B FP8/7 steps、`euler`、空 Latent 与原图 ReferenceLatent，按原图比例执行 1K/2K 推理；可选直连无 Prompt 攸行 SeedVR2 3B，并以唯一 SaveImage 收口
 comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行时限与工作流适配器的 ComfyUI HTTP/WebSocket 客户端，将 Base64 单图与工作流原子提交，以请求级唯一产物键隔离多实例同名旧图，通过同 client ID 的事件流区分排队/执行并保留 Prompt ID，WebSocket 丢失执行事件时以实时队列和 History 恢复阶段，即使 `completed=false` 也立即透传节点 OOM/中断，只对网关读取抖动做安全重试、保留节点校验详情、为最终输出提供最长约一分钟的暂不可见恢复，并归一为含真实尺寸/SHA-256 身份的 data URL 与耗时元数据

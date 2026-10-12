@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮实现
- * [OUTPUT]: 对外提供冷白银灰顶栏、由导航前 transform 位移的纯黑白字激活视窗、中性浅色普通按钮、含 Beta 全宽 START 的单一 #f37021 标志性盒橙关键动作及系统偏好、三页最终加载顺序和中性焦点回归保障
+ * [OUTPUT]: 对外提供冷白银灰顶栏、由导航前 transform 位移的纯黑白字激活视窗、中性浅色普通按钮、同源近距阴影的弹层动作、含 Beta 全宽 START 的单一 #f37021 标志性盒橙关键动作及系统偏好、三页最终加载顺序和中性焦点回归保障
  * [POS]: test 的跨工作台 Raycast 重点色护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -150,7 +150,7 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /\.feature-mode-option\.selected:active:not\(:disabled\),[^{]*\.room-type-option\.selected:active:not\(:disabled\)\s*\{[^}]*var\(--brand-key-selected-active-bg\)[^}]*var\(--brand-key-selected-active-border\)[^}]*var\(--brand-key-selected-ink\)/s);
   assert.match(css, /\.step\.active,[^{]*\.step\.active:hover\s*\{[^}]*var\(--brand-key-selected-bg\)[^}]*border-color: var\(--brand-key-selected-border\)[^}]*var\(--brand-selected-shadow\)[^}]*var\(--brand-key-selected-ink\)/s);
   assert.match(css, /\.ghost-button,[^{]*\.job-progress-actions \.job-cancel-button\s*\{[^}]*var\(--brand-key-bg\)[^}]*border-color: var\(--brand-key-border\)[^}]*var\(--brand-key-shadow\)[^}]*var\(--brand-key-ink\)/s);
-  assert.match(css, /\.connection-action-button,[^{]*\.job-progress-actions \.job-resume-button\s*\{[^}]*var\(--brand-key-primary-bg\)[^}]*border-color: var\(--brand-key-primary-border\)[^}]*var\(--brand-primary-shadow\)[^}]*var\(--brand-key-strong-ink\)/s);
+  assert.match(css, /\.job-progress-actions \.job-resume-button\s*\{[^}]*var\(--brand-key-primary-bg\)[^}]*border-color: var\(--brand-key-primary-border\)[^}]*var\(--brand-primary-shadow\)[^}]*var\(--brand-key-strong-ink\)/s);
   assert.match(css, /\.connection-action-button:active,[^{]*\.job-progress-actions \.job-resume-button:active:not\(:disabled\)\s*\{[^}]*var\(--brand-key-active-bg\)[^}]*border-color: var\(--brand-key-active-border\)/s);
   assert.match(css, /\.regenerate-prompt-button:active:not\(:disabled\),[^{]*\.job-progress-actions \.job-cancel-button:active:not\(:disabled\)\s*\{[^}]*var\(--brand-key-active-bg\)[^}]*border-color: var\(--brand-key-active-border\)/s);
   assert.doesNotMatch(css, /#ded5da|#cbbfc5/);
@@ -203,12 +203,12 @@ test("连接中心矩形动作由最终颜色层统一为中性浅色", async ()
   assert.match(baseButtonBlock, /background: var\(--brand-key-primary-bg, #f8f8f9\)/);
   assert.match(baseButtonBlock, /border: 1px solid var\(--brand-key-primary-border, #c5c6cb\)/);
   assert.doesNotMatch(baseCss, /#ff6363|#c9364d|#ffe9ec|255 99 99|201 54 77|brand-surface/);
-  const finalButtonBlock = accentCss.match(/\.connection-action-button,[^{]*\.job-progress-actions \.job-resume-button\s*\{([^}]*)\}/)?.[1] || "";
+  const finalButtonBlock = accentCss.match(/\.connection-action-button,[^{]*\.app-update-download\s*\{([^}]*)\}/)?.[1] || "";
   assert.match(finalButtonBlock, /background: var\(--brand-key-primary-bg\)/);
   assert.match(finalButtonBlock, /border-color: var\(--brand-key-primary-border\)/);
-  assert.match(finalButtonBlock, /box-shadow: var\(--brand-primary-shadow\)/);
+  assert.match(finalButtonBlock, /box-shadow: var\(--brand-key-shadow\)/);
   assert.match(finalButtonBlock, /color: var\(--brand-key-strong-ink\)/);
   assert.doesNotMatch(finalButtonBlock, /radial-gradient|brand-surface|brand-accent/);
-  assert.match(accentCss, /\.connection-action-button:hover:not\(:disabled\),[^{]*\.job-progress-actions \.job-resume-button:hover:not\(:disabled\)\s*\{[^}]*var\(--brand-key-hover-bg\)[^}]*var\(--brand-key-hover-border\)[^}]*var\(--brand-key-strong-ink\)/s);
+  assert.match(accentCss, /\.connection-action-button:hover:not\(:disabled\):not\(:active\),[^{]*\.app-update-download:hover:not\(:active\)\s*\{[^}]*var\(--brand-key-hover-bg\)[^}]*var\(--brand-key-hover-border\)[^}]*var\(--brand-key-strong-ink\)/s);
   assert.match(accentCss, /\.connection-action-button:disabled,[^{]*\.job-progress-actions \.job-cancel-button:disabled\s*\{[^}]*var\(--brand-key-disabled-bg\)[^}]*var\(--brand-key-disabled-border\)[^}]*var\(--brand-key-muted-ink\)/s);
 });

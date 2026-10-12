@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片超分目录、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及版本更新检测、连接、配置、飞书同步合同与 Beta 提示词模型权限前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
+ * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片工具目录、ComfyUI/Sunburst 扩图客户端与共享引擎准入、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分、默认 ComfyUI/可选 Sunburst 双引擎扩图与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及版本更新检测、连接、配置、飞书同步合同/Beta 提示词模型权限/扩图所选引擎前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,12 +31,14 @@ import { publicEffectEnhancementPromptConfig } from "./src/effect-render-enhance
 import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
+import { createImageToolsApiHandler } from "./src/image-tools-api.mjs";
+import { IMAGE_OUTPAINT_CLIENT_OPTIONS } from "./src/image-outpaint-workflow.mjs";
+import { createImageOutpaintConfigReader } from "./src/image-outpaint-service.mjs";
 import {
   IMAGE_UPSCALE_OUTPUT_NODE_ID,
   createImageUpscaleWorkflow,
   imageUpscaleArtifactPrefix,
   imageUpscaleWorkflowMetadata,
-  publicImageUpscaleConfig,
 } from "./src/image-upscale-workflow.mjs";
 import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import { imageProviderForModel, publicModelCatalog } from "./src/model-config.mjs";
@@ -113,6 +115,9 @@ const generationJobs = createGenerationJobRegistry();
 const benchmarkJobs = createBenchmarkJobRegistry();
 const larkSetup = createLarkSetupService();
 const comfyUiClient = createComfyUiClient();
+const imageOutpaintClient = createComfyUiClient(IMAGE_OUTPAINT_CLIENT_OPTIONS);
+const getImageOutpaintConfig = createImageOutpaintConfigReader(imageOutpaintClient,
+  { getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey())) });
 const imageUpscaleClient = createComfyUiClient({
   artifactPrefix: imageUpscaleArtifactPrefix,
   outputNodeId: IMAGE_UPSCALE_OUTPUT_NODE_ID,
@@ -313,7 +318,7 @@ function scheduleGenerationSync(input) {
 const generationService = createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
-  imageUpscaleClient,
+  imageUpscaleClient, imageOutpaintClient,
   promptResultCache: whiteModelPromptResultCache,
   requireApiKey,
   scheduleGenerationSync,
@@ -341,11 +346,13 @@ const handleBetaApi = createBetaApiHandler({
 const handleGenerationJobApi = createGenerationJobApiHandler({
   generationJobs,
   generationService,
+  getImageOutpaintConfig,
   readJson,
   sendJson,
   verifySyncContract: verifyLarkSyncSchema,
 });
 
+const handleImageToolsApi = createImageToolsApiHandler({ imageUpscaleClient, getImageOutpaintConfig, sendJson });
 function safeStaticPath(pathname) {
   if (pathname === "/vendor/inter-variable-latin.woff2") return INTER_VARIABLE_LATIN_FONT;
   if (PANNELLUM_ASSETS[pathname]) return PANNELLUM_ASSETS[pathname];
@@ -375,14 +382,7 @@ async function handleApi(request, response, pathname) {
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;
 
-  if (request.method === "GET" && pathname === "/api/image-upscale/config") {
-    const comfyUi = await imageUpscaleClient.checkHealth().catch((error) => ({
-      available: false,
-      error: error.message,
-      version: null,
-    }));
-    return sendJson(response, 200, { ...publicImageUpscaleConfig(), comfyUi });
-  }
+  if (await handleImageToolsApi(request, response, pathname)) return;
 
   const benchmarkCancelMatch = pathname.match(/^\/api\/benchmark\/jobs\/([^/]+)\/cancel$/);
   if (request.method === "POST" && benchmarkCancelMatch) {

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 index.html 连接中心语义结构、styles.css 弹层基础、raycast-accent.css 的中性主动作边界令牌与 connection-center.js 状态类
- * [OUTPUT]: 对外提供 OneAPI/飞书无套框双分区、与工作台一致的中性浅色动作按钮、状态行、授权二维码和窄屏连接中心布局
+ * [INPUT]: 依赖 index.html 连接中心语义结构、styles.css 弹层基础、raycast-accent.css 的共享弹层与中性键帽令牌及 connection-center.js 状态类
+ * [OUTPUT]: 对外提供 OneAPI/飞书无套框双分区、与工作台一致的中性浅色动作按钮和灰阶就绪标签、状态行、授权二维码和窄屏连接中心布局
  * [POS]: public 的首次运行视觉层，在单一弹层表面内组织模型访问与配置同步
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -76,7 +76,7 @@
 }
 
 .connection-status {
-  background: #e9e9e5;
+  background: var(--panel-soft);
   border-radius: 999px;
   color: var(--muted);
   font-size: 10px;
@@ -85,8 +85,7 @@
 }
 
 .connection-status.ready {
-  background: #e1eddd;
-  color: #2f6134;
+  color: var(--text);
 }
 
 .api-key-field input {
@@ -133,9 +132,7 @@
   background: var(--brand-key-primary-bg, #f8f8f9);
   border: 1px solid var(--brand-key-primary-border, #c5c6cb);
   border-radius: 6px;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 2px 6px rgb(25 26 28 / 12%);
+  box-shadow: var(--brand-key-shadow);
   color: var(--brand-key-strong-ink, #202024);
   font-size: 11px;
   font-weight: 600;
@@ -274,17 +271,6 @@
 
 .connection-button.partial .status-dot {
   background: #c58b22;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .connection-action-button:hover:not(:disabled) {
-    background: var(--brand-key-hover-bg, #fafafa);
-    border-color: var(--brand-key-hover-border, #d7d8dc);
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 3px 8px rgb(25 26 28 / 11%);
-    color: var(--brand-key-strong-ink, #202024);
-  }
 }
 
 @media (max-width: 700px) {

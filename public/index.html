@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、内嵌 Smiley Sans 及 app.js 浏览器控制器
-  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI创作分组且不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/自由生图/风格反推入口、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
+  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、image-outpaint.js/css 的 ComfyUI/Sunburst 双引擎扩图画布与边界控件、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、内嵌 Smiley Sans 及 app.js 浏览器控制器
+  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI创作分组且不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/AI扩图/自由生图/风格反推入口、四边像素与居中比例扩展画布预览、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=4" />
     <link rel="stylesheet" href="/empty-room-type.css?v=2" />
+    <link rel="stylesheet" href="/image-outpaint.css?v=3" />
     <link rel="stylesheet" href="/app-update.css?v=1" />
     <link rel="stylesheet" href="/raycast-accent.css?v=42" />
   </head>
@@ -77,6 +78,7 @@
               <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图美化</button>
               <button class="feature-mode-option" data-feature-mode="panoramaEnhancement" type="button" role="radio" aria-checked="false">全景图美化</button>
               <button class="feature-mode-option" data-feature-mode="imageUpscale" type="button" role="radio" aria-checked="false">图片超分</button>
+              <button class="feature-mode-option" data-feature-mode="imageOutpaint" type="button" role="radio" aria-checked="false">AI扩图</button>
             </section>
 
             <section class="feature-directory-group" aria-labelledby="aiCreationTitle">
@@ -321,6 +323,52 @@
             </div>
             <div id="imageUpscaleWorkflowList" class="model-option-list" role="radiogroup" aria-describedby="imageUpscaleNote"></div>
             <p id="imageUpscaleNote" class="compact-config-note">默认攸行 3B 使用原图直入；两套 7B 保留 1MP / 0.75MP 预处理，输出均保持原图比例。</p>
+          </section>
+
+          <section id="imageOutpaintSection" class="panel-section generation-control hidden" aria-labelledby="imageOutpaintTitle">
+            <div class="section-heading">
+              <h2 id="imageOutpaintTitle">扩展画布</h2>
+              <span id="imageOutpaintAvailability" class="micro-status" aria-live="polite">读取中</span>
+            </div>
+            <div class="image-outpaint-engines" role="radiogroup" aria-label="扩图引擎" aria-describedby="imageOutpaintNote">
+              <button class="image-outpaint-engine selected" data-outpaint-engine="comfyui" type="button" role="radio" aria-checked="true" disabled>ComfyUI · Flux Fill</button>
+              <button class="image-outpaint-engine" data-outpaint-engine="gptImage25Sunburst" type="button" role="radio" aria-checked="false" disabled>GPT Image 2.5 Sunburst</button>
+            </div>
+            <figure class="image-outpaint-preview" aria-label="原图在所选引擎扩展画布中的位置预览">
+              <p id="imageOutpaintPreviewEmpty" class="image-outpaint-preview-empty">上传图片后预览扩展范围</p>
+              <div id="imageOutpaintCanvas" class="image-outpaint-canvas hidden">
+                <img id="imageOutpaintSourceImage" class="image-outpaint-source-image" alt="扩图原图的位置预览" />
+              </div>
+            </figure>
+            <div class="image-outpaint-ratios" role="group" aria-label="居中扩展到目标比例">
+              <button class="image-outpaint-ratio" data-outpaint-ratio="original" type="button" aria-pressed="false" disabled>不扩展</button>
+              <button class="image-outpaint-ratio" data-outpaint-ratio="1:1" type="button" aria-pressed="false" disabled>1:1</button>
+              <button class="image-outpaint-ratio" data-outpaint-ratio="4:3" type="button" aria-pressed="false" disabled>4:3</button>
+              <button class="image-outpaint-ratio" data-outpaint-ratio="16:9" type="button" aria-pressed="false" disabled>16:9</button>
+              <button class="image-outpaint-ratio" data-outpaint-ratio="3:4" type="button" aria-pressed="false" disabled>3:4</button>
+              <button class="image-outpaint-ratio" data-outpaint-ratio="9:16" type="button" aria-pressed="false" disabled>9:16</button>
+            </div>
+            <div class="image-outpaint-expansion" role="group" aria-label="四边扩展像素">
+              <label class="image-outpaint-field" for="imageOutpaintLeft">
+                <span>左边扩展</span>
+                <span class="image-outpaint-input-wrap"><input id="imageOutpaintLeft" data-outpaint-expansion="left" type="number" inputmode="numeric" min="0" step="1" value="0" aria-describedby="imageOutpaintError" /><span class="image-outpaint-unit" aria-hidden="true">px</span></span>
+              </label>
+              <label class="image-outpaint-field" for="imageOutpaintTop">
+                <span>上边扩展</span>
+                <span class="image-outpaint-input-wrap"><input id="imageOutpaintTop" data-outpaint-expansion="top" type="number" inputmode="numeric" min="0" step="1" value="0" aria-describedby="imageOutpaintError" /><span class="image-outpaint-unit" aria-hidden="true">px</span></span>
+              </label>
+              <label class="image-outpaint-field" for="imageOutpaintRight">
+                <span>右边扩展</span>
+                <span class="image-outpaint-input-wrap"><input id="imageOutpaintRight" data-outpaint-expansion="right" type="number" inputmode="numeric" min="0" step="1" value="0" aria-describedby="imageOutpaintError" /><span class="image-outpaint-unit" aria-hidden="true">px</span></span>
+              </label>
+              <label class="image-outpaint-field" for="imageOutpaintBottom">
+                <span>下边扩展</span>
+                <span class="image-outpaint-input-wrap"><input id="imageOutpaintBottom" data-outpaint-expansion="bottom" type="number" inputmode="numeric" min="0" step="1" value="0" aria-describedby="imageOutpaintError" /><span class="image-outpaint-unit" aria-hidden="true">px</span></span>
+              </label>
+            </div>
+            <div class="image-outpaint-output"><span>输出尺寸</span><output id="imageOutpaintOutputSize" aria-live="polite">上传图片后计算</output></div>
+            <p id="imageOutpaintError" class="image-outpaint-error hidden" role="alert"></p>
+            <p id="imageOutpaintNote" class="compact-config-note">正在读取扩图引擎配置；输入范围与输出画布按所选引擎校验。</p>
           </section>
 
           <section id="modelSection" class="panel-section generation-control" aria-labelledby="modelTitle">

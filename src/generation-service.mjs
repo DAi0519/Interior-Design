@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、效果图/全景图美化、精模、白模/空房工作流、带阶段回调的图片超分服务、Flux 可选负向 Prompt，以及调用方注入的双类 ComfyUI 图片客户端、密钥、模型目录、Prompt 缓存与同步调度
- * [OUTPUT]: 对外提供自由生图、效果图/全景图美化、精模、白模/空房与纯 ComfyUI 图片超分单项执行及以显式功能为真源的统一路由，并为超分透传可选进度回调
+ * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、各生图工作流、带阶段回调的独立图片工具及双引擎扩图服务，以及注入的模型/超分/扩图客户端、密钥、模型目录、Prompt 缓存与同步调度
+ * [OUTPUT]: 对外提供统一生图路由、无需飞书归档的超分与双引擎扩图，按所选引擎严格调用 ComfyUI 或 OneAPI 编辑并透传阶段回调
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "./effect-render-enhancement-workflow.mjs";
 import { executeImageUpscale } from "./image-upscale-service.mjs";
+import { executeImageOutpaint, imageOutpaintEngineKey } from "./image-outpaint-service.mjs";
 import {
   createGenerationRequest,
   imageProviderForModel,
@@ -21,6 +22,7 @@ export function createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
   imageUpscaleClient,
+  imageOutpaintClient = null,
   promptResultCache,
   requireApiKey,
   scheduleGenerationSync,
@@ -116,6 +118,12 @@ export function createGenerationService({
   }
 
   function executeForMode(featureMode, input, options = {}) {
+    if (featureMode === "imageOutpaint") {
+      const engine = imageOutpaintEngineKey(input);
+      return executeImageOutpaint(input, {
+        imageClient: engine === "comfyui" ? imageOutpaintClient : imageClientForModel(engine), onProgress: options.onProgress,
+      });
+    }
     if (["emptyRoom", "whiteModel"].includes(featureMode)) {
       return executeDesign({ ...input, featureMode });
     }

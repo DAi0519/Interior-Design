@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 theme.css/beta.css/benchmark.css 的中性令牌、product-navigation.css 的当前页语义，以及三页控件写入的 selected/active/loading/focus 状态
- * [OUTPUT]: 对外提供跨工作台共享的中性按钮与反色选择系统，以冷白银灰顶栏、导航前 transform 位移的纯黑白字激活视窗、浅色普通键与淡灰细边统一全部选择状态，让唯一的 #f37021 标志性盒橙统一标记关键执行及小面积选择指示，并提供减少动态/透明度与增强对比度的系统偏好降级
+ * [OUTPUT]: 对外提供跨工作台共享的中性按钮、反色选择与弹层配色系统，统一连接/更新/全景的银灰表面、遮罩、阴影与近距动作键，让唯一的 #f37021 标志性盒橙标记关键执行及小面积选择指示，并提供减少动态/透明度与增强对比度的系统偏好降级
  * [POS]: public 的跨工作台最终颜色层，最后加载以统一生图与评测界面的颜色氛围而不改变中性表面、业务布局和控件语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -78,6 +78,11 @@
   --brand-primary-shadow:
     inset 0 1px 0 #fff,
     0 8px 18px rgb(25 26 28 / 14%);
+  --brand-modal-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 92%),
+    0 28px 100px rgb(25 26 28 / 24%);
+  --brand-modal-backdrop: rgb(25 26 28 / 38%);
+  --brand-modal-blur: blur(12px);
 }
 
 body {
@@ -215,7 +220,6 @@ body {
   color: var(--brand-key-ink);
 }
 
-.connection-action-button,
 .job-progress-actions .job-resume-button {
   background: var(--brand-key-primary-bg);
   border-color: var(--brand-key-primary-border);
@@ -398,7 +402,6 @@ body {
     color: var(--brand-key-strong-ink);
   }
 
-  .connection-action-button:hover:not(:disabled),
   .job-progress-actions .job-resume-button:hover:not(:disabled) {
     background: var(--brand-key-hover-bg);
     border-color: var(--brand-key-hover-border);
@@ -557,6 +560,61 @@ body {
 }
 
 /* -------------------------------------------------------------------------- */
+/* 共享弹层配色                                                               */
+/* -------------------------------------------------------------------------- */
+
+.dialog,
+.app-update-dialog,
+.panorama-viewer-dialog {
+  background: var(--panel, #fcfcfd);
+  border-color: var(--line-strong, #d1d1d5);
+  box-shadow: var(--brand-modal-shadow);
+  color: var(--text, var(--ink, #202024));
+}
+
+.dialog-backdrop,
+.app-update-dialog::backdrop,
+.panorama-viewer-dialog::backdrop {
+  background: var(--brand-modal-backdrop);
+  -webkit-backdrop-filter: var(--brand-modal-blur);
+  backdrop-filter: var(--brand-modal-blur);
+}
+
+.connection-action-button,
+.connection-dialog .primary-button,
+.app-update-download {
+  background: var(--brand-key-primary-bg);
+  border-color: var(--brand-key-primary-border);
+  box-shadow: var(--brand-key-shadow);
+  color: var(--brand-key-strong-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .connection-action-button:hover:not(:disabled):not(:active),
+  .connection-dialog .primary-button:hover:not(:disabled):not(:active),
+  .app-update-download:hover:not(:active) {
+    background: var(--brand-key-hover-bg);
+    border-color: var(--brand-key-hover-border);
+    box-shadow: var(--brand-key-hover-shadow);
+    color: var(--brand-key-strong-ink);
+  }
+}
+
+.connection-dialog .primary-button:active:not(:disabled) {
+  background: var(--brand-key-active-bg);
+  border-color: var(--brand-key-active-border);
+  box-shadow: inset 0 2px 4px rgb(25 26 28 / 12%);
+}
+
+.connection-action-button:disabled,
+.connection-dialog .primary-button:disabled {
+  background: var(--brand-key-disabled-bg);
+  border-color: var(--brand-key-disabled-border);
+  box-shadow: none;
+  color: var(--brand-key-muted-ink);
+}
+
+/* -------------------------------------------------------------------------- */
 /* FOCUS + INPUT                                                              */
 /* -------------------------------------------------------------------------- */
 
@@ -632,6 +690,8 @@ progress {
     .generate-button,
     .primary-button,
     .danger-button,
+    .connection-action-button,
+    .panorama-viewer-action,
     .connection-button,
     .product-switch-option
   ) {
@@ -649,13 +709,23 @@ progress {
     .generate-button,
     .primary-button,
     .danger-button,
+    .connection-action-button,
+    .panorama-viewer-action,
     .connection-button
   ):active {
     transform: none !important;
   }
+
+  .panorama-viewer-action:hover:not(:active) {
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  :root {
+    --brand-modal-blur: none;
+  }
+
   .topbar,
   .control-panel,
   .result-panel,
@@ -669,7 +739,10 @@ progress {
 @media (prefers-contrast: more) {
   .topbar,
   .control-panel,
-  .result-panel {
+  .result-panel,
+  .dialog,
+  .app-update-dialog,
+  .panorama-viewer-dialog {
     background: #fff;
     border-color: #8f9097;
   }

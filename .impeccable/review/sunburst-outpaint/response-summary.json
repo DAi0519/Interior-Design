@@ -1,0 +1,17 @@
+{
+  "actualSize": {
+    "height": 1024,
+    "width": 1536
+  },
+  "bytes": 2128414,
+  "outputSha256": "cc6d79e8f95ddff225cb5124b288c691f3256d00d98b72c641136590b788d777",
+  "requestId": null,
+  "transport": "images-edits",
+  "usageCost": {
+    "cost": null,
+    "costUsd": 0.018680000000000002,
+    "currency": "USD",
+    "exchangeRate": 1,
+    "nativeAmount": 0.018680000000000002
+  }
+}

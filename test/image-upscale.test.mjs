@@ -248,8 +248,8 @@ test("生图页公开图片超分入口且不把它绑定到 OneAPI 或飞书准
   ]);
   assert.match(html, /data-feature-mode="imageUpscale"[\s\S]*图片超分/);
   assert.match(html, /id="imageUpscaleWorkflowList"/);
-  assert.match(app, /!state\.larkReady && !imageUpscaleRequest/);
-  assert.match(jobApi, /featureMode !== "imageUpscale"/);
+  assert.match(app, /!state\.larkReady && !localImageRequest/);
+  assert.match(jobApi, /const localImageRequest = \["imageUpscale", "imageOutpaint"\]\.includes\(featureMode\)/);
   assert.doesNotMatch(html, /图片超分[\s\S]{0,160}OneAPI/);
 });
 

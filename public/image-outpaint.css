@@ -1,0 +1,206 @@
+/**
+ * [INPUT]: 依赖 image-outpaint.js 的引擎选择/画布尺寸/原图位置、index.html 扩图语义结构与共享命令控件令牌
+ * [OUTPUT]: 对外提供 AI扩图双引擎按钮、原图画布预览、四边像素输入、比例快捷按钮与完整可读的尺寸/重绘提示
+ * [POS]: public 的 AI扩图增量视觉层，沿用工作台银灰画布与纯黑选中按钮
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.image-outpaint-preview {
+  align-items: center;
+  background: var(--panel-soft);
+  border-radius: 6px;
+  display: grid;
+  justify-items: center;
+  margin: 0 0 14px;
+  min-height: 208px;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.image-outpaint-preview-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  text-align: center;
+}
+
+#imageOutpaintAvailability {
+  color: var(--muted);
+}
+
+#imageOutpaintAvailability.ready {
+  color: var(--text);
+}
+
+.image-outpaint-canvas {
+  aspect-ratio: var(--outpaint-ratio, 1);
+  background: #dfe0e4;
+  outline: 1px dashed #919198;
+  position: relative;
+  width: min(100%, calc(176px * var(--outpaint-ratio, 1)));
+}
+
+.image-outpaint-source-image {
+  display: block;
+  max-width: none;
+  object-fit: fill;
+  position: absolute;
+}
+
+.image-outpaint-ratios {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.image-outpaint-engines {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.image-outpaint-ratio,
+.image-outpaint-engine {
+  background: var(--brand-key-bg, #fff);
+  border: 1px solid var(--brand-key-border, var(--line));
+  border-radius: var(--choice-control-radius);
+  box-shadow: var(--brand-key-shadow, var(--choice-control-shadow));
+  color: var(--brand-key-ink, var(--muted));
+  font-size: 12px;
+  min-height: var(--choice-control-height);
+  padding: 0 5px;
+  transition: background-color 140ms ease, color 140ms ease, transform 120ms var(--ease-out);
+}
+
+.image-outpaint-ratio.selected,
+.image-outpaint-engine.selected {
+  background: var(--brand-key-selected-bg, #000);
+  border-color: var(--brand-key-selected-border, #000);
+  box-shadow: var(--brand-selected-shadow, var(--choice-control-selected-shadow));
+  color: var(--brand-key-selected-ink, #fff);
+  font-weight: 600;
+}
+
+.image-outpaint-ratio:not(:disabled):active,
+.image-outpaint-engine:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.image-outpaint-ratio:focus-visible,
+.image-outpaint-engine:focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75);
+  outline-offset: 2px;
+}
+
+.image-outpaint-ratio:disabled,
+.image-outpaint-engine:disabled {
+  background: var(--brand-key-disabled-bg, var(--panel-soft));
+  box-shadow: none;
+  color: var(--muted);
+  cursor: default;
+}
+
+.image-outpaint-expansion {
+  display: grid;
+  gap: 12px 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.image-outpaint-field {
+  color: var(--text);
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.image-outpaint-input-wrap {
+  align-items: center;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  min-width: 0;
+}
+
+.image-outpaint-input-wrap:focus-within {
+  border-color: var(--brand-key-focus, #6d6e75);
+  outline: 2px solid var(--brand-key-focus-ring, rgb(109 110 117 / 14%));
+  outline-offset: 0;
+}
+
+.image-outpaint-input-wrap input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  height: 36px;
+  min-width: 0;
+  padding: 0 9px;
+  width: 100%;
+}
+
+.image-outpaint-input-wrap input:focus {
+  outline: none;
+}
+
+.image-outpaint-input-wrap input[aria-invalid="true"] {
+  color: var(--danger);
+}
+
+.image-outpaint-unit {
+  color: var(--muted);
+  font-size: 11px;
+  padding-right: 9px;
+}
+
+.image-outpaint-output {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 6px;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.image-outpaint-output output {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+#imageOutpaintSection .compact-config-note {
+  -webkit-line-clamp: unset;
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  line-height: 1.65;
+  overflow: visible;
+}
+
+.image-outpaint-error {
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 9px 0 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .image-outpaint-ratio:not(:disabled):not(.selected):hover,
+  .image-outpaint-engine:not(:disabled):not(.selected):hover {
+    background: var(--brand-key-hover-bg, #fafafa);
+    border-color: var(--brand-key-hover-border, var(--line-strong));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-outpaint-ratio,
+  .image-outpaint-engine {
+    transition: none;
+  }
+}

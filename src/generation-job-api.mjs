@@ -1,17 +1,19 @@
 /**
- * [INPUT]: 依赖日常生成任务注册表、含全景图美化的统一 generation-service、飞书同步合同预检、JSON 读写函数与浏览器生成任务请求
- * [OUTPUT]: 对外提供 `/api/generation-jobs` 入队和查询处理器，在需归档的付费生图前阻断飞书 Schema 漂移，同时允许不归档的纯 ComfyUI 图片超分、阶段进度与 Prompt ID，并保持 1–4 项、有界并发与 Prompt 强制刷新语义
+ * [INPUT]: 依赖日常生成任务注册表、统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
+ * [OUTPUT]: 对外提供任务入队和查询，在需归档生图前阻断 Schema 漂移，独立图片工具按所选引擎准入并跳过归档，区分 ComfyUI 与 API 编辑阶段
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { runGenerationJobBatch } from "./generation-jobs.mjs";
+import { imageOutpaintEngineKey, publicImageOutpaintConfig } from "./image-outpaint-service.mjs";
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
   "emptyRoom",
   "free",
   "imageUpscale",
+  "imageOutpaint",
   "panoramaEnhancement",
   "refinedModel",
   "whiteModel",
@@ -20,6 +22,7 @@ const FEATURE_MODES = new Set([
 export function createGenerationJobApiHandler({
   generationJobs,
   generationService,
+  getImageOutpaintConfig = async () => publicImageOutpaintConfig(),
   readJson,
   sendJson,
   verifySyncContract = async () => {},
@@ -41,6 +44,9 @@ export function createGenerationJobApiHandler({
 
     const body = await readJson(request);
     const featureMode = String(body.featureMode || "");
+    const localImageRequest = ["imageUpscale", "imageOutpaint"].includes(featureMode);
+    const sharedInput = body.sharedInput && typeof body.sharedInput === "object" ? body.sharedInput : {};
+    let imageStage = "comfyUi";
     const jobId = String(body.jobId || "");
     const items = Array.isArray(body.items) ? body.items : [];
     if (!/^generation-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
@@ -55,7 +61,27 @@ export function createGenerationJobApiHandler({
       sendJson(response, 400, { error: "生成任务需要 1–4 个生成项" });
       return true;
     }
-    if (featureMode !== "imageUpscale") {
+    if (featureMode === "imageOutpaint") {
+      if (items.length !== 1) {
+        sendJson(response, 400, { error: "AI 扩图每次只允许 1 个生成项" });
+        return true;
+      }
+      let engineKey;
+      try {
+        engineKey = imageOutpaintEngineKey({ ...sharedInput, ...items[0].input });
+      } catch (error) {
+        sendJson(response, 400, { error: error.message });
+        return true;
+      }
+      const config = await getImageOutpaintConfig();
+      const engine = config.engines?.find((entry) => entry.key === engineKey) || (engineKey === "comfyui" ? config : null);
+      if (!engine?.available) {
+        sendJson(response, 409, { error: engine?.reason || "扩图引擎未配置" });
+        return true;
+      }
+      if (engineKey !== "comfyui") imageStage = "imageEdit";
+    }
+    if (!localImageRequest) {
       try {
         await verifySyncContract();
       } catch (error) {
@@ -65,14 +91,11 @@ export function createGenerationJobApiHandler({
         return true;
       }
     }
-    const sharedInput = body.sharedInput && typeof body.sharedInput === "object"
-      ? body.sharedInput
-      : {};
     const job = generationJobs.enqueue(
       jobId,
       {
         featureMode,
-        stages: featureMode === "imageUpscale" ? { comfyUi: "submitting" } : null,
+        stages: localImageRequest ? { [imageStage]: "submitting" } : null,
         total: items.length,
       },
       async (update) => ({
@@ -93,11 +116,11 @@ export function createGenerationJobApiHandler({
                 Boolean(body.forcePromptRegeneration) && index === 0,
             }, {
               onProgress(progress) {
-                if (featureMode !== "imageUpscale") return;
+                if (!localImageRequest) return;
                 update({
                   message: progress.message,
                   stages: {
-                    comfyUi: progress.phase,
+                    [imageStage]: progress.phase,
                     promptId: progress.promptId || null,
                   },
                 });

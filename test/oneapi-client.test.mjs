@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI Prompt 单/双图、分析/评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 Prompt Agent 白模/风格参考顺序、AI 单图分析、主动取消、评审/图生图请求侧压缩与脱敏诊断、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
+ * [OUTPUT]: 对外提供 Prompt Agent 白模/风格参考顺序、AI 单图分析、主动取消、评审/图生图请求侧压缩与脱敏诊断、透明 PNG/遮罩原样编辑、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -366,6 +366,112 @@ test("OneAPI 图生图发送前压缩超限参考图并记录脱敏诊断", asyn
   assert.ok(diagnostics[0].sentBase64Bytes < diagnostics[0].originalBase64Bytes);
   assert.equal(JSON.stringify(diagnostics).includes("保持全景结构"), false);
   assert.equal(JSON.stringify(diagnostics).includes("data:image"), false);
+});
+
+test("OneAPI 遮罩编辑使用 Images edits 并原样保留超限透明 PNG 与遮罩", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const diagnostics = [];
+  let requestUrl;
+  let requestOptions;
+  context.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, options) => {
+    requestUrl = url;
+    requestOptions = options;
+    return Response.json({
+      created: 1720000000,
+      data: [{ b64_json: "cmVzdWx0" }],
+      id: "edit-result",
+      usage: { price: { currency: "CNY", exchange_rate: 7, payable_amount: 0.7 } },
+    });
+  };
+  const width = 1200;
+  const height = 1200;
+  const canvas = await sharp(randomBytes(width * height * 4), {
+    raw: { channels: 4, height, width },
+  }).png({ compressionLevel: 0 }).toBuffer();
+  const mask = await sharp({ create: {
+    background: { r: 0, g: 0, b: 0, alpha: 0 }, channels: 4, height, width,
+  } }).png().toBuffer();
+  const imageUrl = `data:image/png;base64,${canvas.toString("base64")}`;
+  const maskUrl = `data:image/png;base64,${mask.toString("base64")}`;
+  assert.ok(Buffer.byteLength(canvas.toString("base64"), "ascii") > DEFAULT_MAX_IMAGE_BASE64_BYTES);
+  const generationRequest = {
+    images: [{ image_url: imageUrl }],
+    mask: { image_url: maskUrl },
+    model: "gpt-image-2.5-sunburst",
+    n: 1,
+    output_format: "png",
+    prompt: "只延展外围画布并保持原图结构",
+    quality: "medium",
+    response_format: "b64_json",
+    size: "1200x1200",
+  };
+  const result = await createOneApiClient("test-key", {
+    diagnosticSink: (event) => diagnostics.push(event),
+  }).editImage(generationRequest);
+  assert.equal(requestUrl, "https://oneapi.qunhequnhe.com/v1/images/edits");
+  assert.equal(requestOptions.method, "POST");
+  assert.equal(requestOptions.headers["Content-Type"], "application/json");
+  assert.equal(requestOptions.headers.Authorization, "Bearer test-key");
+  const sent = JSON.parse(requestOptions.body);
+  assert.deepEqual(sent, generationRequest);
+  assert.deepEqual(Buffer.from(sent.images[0].image_url.split(",")[1], "base64"), canvas);
+  assert.deepEqual(Buffer.from(sent.mask.image_url.split(",")[1], "base64"), mask);
+  assert.equal((await sharp(canvas).metadata()).hasAlpha, true);
+  assert.equal(diagnostics.length, 0);
+  assert.deepEqual(result, {
+    cost: 0.7,
+    costUsd: 0.7 / 7,
+    created: 1720000000,
+    currency: "CNY",
+    exchangeRate: 7,
+    images: [{ url: "data:image/png;base64,cmVzdWx0" }],
+    nativeAmount: 0.7,
+    outputFormat: "png",
+    quality: "medium",
+    requestId: "edit-result",
+    transport: "images-edits",
+    usageCost: { cost: 0.7, costUsd: 0.7 / 7, currency: "CNY", exchangeRate: 7, nativeAmount: 0.7 },
+  });
+});
+
+test("OneAPI 遮罩编辑保留远程结果 URL 并拦截空图片响应", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const request = { model: "gpt-image-2.5-sunburst", output_format: "png", quality: "medium" };
+  context.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async () => Response.json({
+    data: [{ url: "https://example.com/edit.png" }], id: "edit-url", output_format: "png",
+  });
+  const client = createOneApiClient("test-key", { diagnosticSink: () => {} });
+  const result = await client.editImage(request);
+  assert.deepEqual(result.images, [{ url: "https://example.com/edit.png" }]);
+  assert.equal(result.requestId, "edit-url");
+  assert.equal(result.transport, "images-edits");
+  globalThis.fetch = async () => Response.json({ data: [] });
+  await assert.rejects(client.editImage(request), (error) =>
+    error.statusCode === 502 && error.code === "empty_image");
+});
+
+test("OneAPI 遮罩编辑保留上游状态与错误且不重试付费 POST", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const diagnostics = [];
+  let calls = 0;
+  context.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async () => {
+    calls += 1;
+    return Response.json({ error: { code: "unsupported_mask", message: "当前路由不支持 mask" } }, {
+      status: 422,
+    });
+  };
+  await assert.rejects(createOneApiClient("test-key", {
+    diagnosticSink: (event) => diagnostics.push(event),
+  }).editImage({ model: "gpt-image-2.5-sunburst", output_format: "png" }), (error) =>
+    error.message === "当前路由不支持 mask" && error.statusCode === 422 && error.code === "unsupported_mask");
+  assert.equal(calls, 1);
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].pathname, "/images/edits");
+  assert.equal(diagnostics[0].model, "gpt-image-2.5-sunburst");
+  assert.equal(JSON.stringify(diagnostics).includes("test-key"), false);
 });
 
 test("Style DNA 反推仅在最后一条用户消息附加图片与 PDF", () => {

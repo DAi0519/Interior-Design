@@ -1,0 +1,61 @@
+{
+  "startedAt": "2026-10-12T03:06:37.441Z",
+  "finishedAt": "2026-10-12T03:07:11.637Z",
+  "status": "passed",
+  "durationMs": 34120,
+  "request": {
+    "expansion": {
+      "left": 256,
+      "top": 128,
+      "right": 256,
+      "bottom": 128
+    },
+    "model": "gpt-image-2.5-sunburst",
+    "outputFormat": "png",
+    "quality": "medium",
+    "referenceImageCount": 1,
+    "size": "1536x1024",
+    "syncMode": "local-only"
+  },
+  "metadata": {
+    "canvasSha256": "fd0c28a6183b56d03cf8500c601b1a535bbbc9d8e0e3487488487bb420207c37",
+    "expansion": {
+      "left": 256,
+      "top": 128,
+      "right": 256,
+      "bottom": 128
+    },
+    "maskSha256": "857eca542a343fe924c1d7437887a610366188fe5abb4b1e54e5dd242be8aeaa",
+    "model": "gpt-image-2.5-sunburst",
+    "outputHeight": 1024,
+    "outputSha256": "cc6d79e8f95ddff225cb5124b288c691f3256d00d98b72c641136590b788d777",
+    "outputWidth": 1536,
+    "placement": {
+      "left": 256,
+      "top": 128,
+      "width": 1024,
+      "height": 768
+    },
+    "provider": "oneapi",
+    "quality": "medium",
+    "requestId": null,
+    "sourceHeight": 768,
+    "sourceWidth": 1024,
+    "targetHeight": 1024,
+    "targetWidth": 1536,
+    "workflowId": "image-outpaint-sunburst",
+    "workflowVersion": "2026-10-12.1"
+  },
+  "usageCost": {
+    "cost": null,
+    "costUsd": 0.018680000000000002,
+    "currency": "USD",
+    "exchangeRate": 1,
+    "nativeAmount": 0.018680000000000002
+  },
+  "originalRegion": {
+    "meanAbsoluteChannelDifference": 26.824276818169487,
+    "maxChannelDifference": 214,
+    "pixelIdentical": false
+  }
+}

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、内存 sessionStorage 替身与 generation-task-state.js 的任务引用/视图推导
- * [OUTPUT]: 对外提供含全景图美化的按功能任务保留、按图片计数的生成中进度、完成结果与过期错误的纯状态回归保障
+ * [OUTPUT]: 对外提供含全景图美化的按功能任务保留、图片计数与双引擎工具阶段进度、完成结果与过期错误的纯状态回归保障
  * [POS]: test 的生成页恢复状态测试，不访问真实浏览器存储
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -98,4 +98,23 @@ test("图片超分优先显示 ComfyUI 排队与执行阶段", () => {
     stages: { comfyUi: "executing" },
     status: "running",
   }).message, "ComfyUI 正在执行 8K 超分");
+});
+
+test("Sunburst 扩图恢复 API 编辑阶段与原始错误", () => {
+  const task = createGenerationTask({
+    createId: () => "outpaint-12345678",
+    featureMode: "imageOutpaint",
+    loadingLabel: "正在扩图…",
+    models: [{ key: "gptImage25Sunburst", label: "GPT Image 2.5 Sunburst" }],
+  });
+  assert.deepEqual(generationTaskView(task, {
+    message: "Sunburst 正在执行扩图",
+    stages: { imageEdit: "executing" },
+    status: "running",
+  }), { message: "Sunburst 正在执行扩图", stage: "loading" });
+  assert.deepEqual(generationTaskView(task, {
+    error: "输出尺寸不符合扩图画布",
+    stages: { imageEdit: "failed" },
+    status: "failed",
+  }), { message: "输出尺寸不符合扩图画布", stage: "error" });
 });

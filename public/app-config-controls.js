@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖模型参考图能力合同、页面配置元素与当前 Agent/功能状态
+ * [INPUT]: 依赖模型参考图能力合同、页面配置元素、独立图片工具上传要求与当前 Agent/功能状态
  * [OUTPUT]: 对外提供 renderPromptAgentModels 与 updateReferenceRequirements 两个配置控件渲染函数
  * [POS]: public 的生图配置展示层，由 app.js 在状态变化后调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -30,12 +30,13 @@ export function renderPromptAgentModels(elements, state) {
 }
 
 export function updateReferenceRequirements(elements, { featureMode, model, policy }) {
-  if (featureMode === "imageUpscale") {
-    elements.referenceTitleCopy.textContent = "待超分图片";
+  if (["imageUpscale", "imageOutpaint"].includes(featureMode)) {
+    const subject = featureMode === "imageOutpaint" ? "待扩图图片" : "待超分图片";
+    elements.referenceTitleCopy.textContent = subject;
     elements.referenceOptional.textContent = "必填 · 1张";
-    elements.referenceDropLabel.textContent = "添加或拖入待超分图片";
+    elements.referenceDropLabel.textContent = `添加或拖入${subject}`;
     elements.referenceInput.multiple = false;
-    elements.referenceInput.ariaLabel = "添加待超分图片";
+    elements.referenceInput.ariaLabel = `添加${subject}`;
     return;
   }
   const capability = referenceCapability({ featureMode, model, policy });
