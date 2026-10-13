@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测、固定版本浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/独立效果图美化 Prompt/空房家具/图片工具目录、扩图客户端与引擎准入、双 Provider、日常生成及 Beta/Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新检测、连接、配置、飞书合同与模型权限准入、生成和下载；Beta 逐张上传样本、按样本 ID 入队并提供轻量预览，JSON 单次请求保留 30MB 保护
+ * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测/安装 HTTP 边界、固定版本浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/独立效果图美化 Prompt/空房家具/图片工具目录、扩图客户端与引擎准入、双 Provider、日常生成及 Beta/Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新检测/受信安装进度、连接、配置、飞书合同与模型权限准入、生成和下载；Beta 逐张上传样本、按样本 ID 入队并提供轻量预览，JSON 单次请求保留 30MB 保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import packageInfo from "./package.json" with { type: "json" };
 import { createAppUpdateService } from "./src/app-update.mjs";
 import { createAppInstaller } from "./src/app-installer.mjs";
+import { createAppUpdateApiHandler } from "./src/app-update-api.mjs";
 import {
   checkAgentModelAvailability,
   publicAgentModelCatalog,
@@ -73,8 +74,14 @@ import {
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const appUpdates = createAppUpdateService({ currentVersion: packageInfo.version });
-const appInstaller = createAppInstaller({ installBaseDir: process.env.INSTALL_BASE_DIR || null });
 const ROOT_DIR = fileURLToPath(new URL(".", import.meta.url));
+const appInstaller = createAppInstaller({ installBaseDir: process.env.INSTALL_BASE_DIR || null, currentRootDir: ROOT_DIR });
+let activeApiMutations = 0;
+const handleAppUpdateApi = createAppUpdateApiHandler({
+  appUpdates, appInstaller, readJson, sendJson,
+  hasActiveJobs: () => activeApiMutations > 0 || generationJobs.hasActiveJobs()
+    || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs(),
+});
 const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(
   ROOT_DIR,
@@ -374,56 +381,14 @@ function serveStatic(response, pathname) {
     "Cache-Control": "no-cache",
     "Content-Type": MIME_TYPES[extname(filePath)] || "application/octet-stream",
   });
-  createReadStream(filePath).pipe(response);
+  const stream = createReadStream(filePath);
+  stream.once("error", () => response.destroy());
+  stream.pipe(response);
   return true;
 }
 
 async function handleApi(request, response, pathname) {
-  if (request.method === "GET" && pathname === "/api/app-update") {
-    const force = new URL(request.url, `http://${HOST}`).searchParams.get("force") === "1";
-    return sendJson(response, 200, await appUpdates.check({ force }));
-  }
-
-  if (request.method === "POST" && pathname === "/api/app-install") {
-    const body = await readJson(request);
-    const { downloadUrl, version } = body;
-
-    if (!downloadUrl || typeof downloadUrl !== "string") {
-      return sendJson(response, 400, { error: "缺少下载地址" });
-    }
-
-    if (appInstaller.isInstalling()) {
-      return sendJson(response, 409, { error: "已有安装任务正在进行中" });
-    }
-
-    response.writeHead(200, {
-      "Content-Type": "application/json; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "Cache-Control": "no-cache",
-    });
-
-    try {
-      const result = await appInstaller.install({
-        downloadUrl,
-        version,
-        onProgress: (progress) => {
-          response.write(JSON.stringify(progress) + "\n");
-        },
-      });
-
-      response.write(JSON.stringify({ stage: "complete", ...result }) + "\n");
-      response.end();
-    } catch (error) {
-      const errorData = {
-        stage: "error",
-        error: error.message,
-        code: error.code || "UNKNOWN_ERROR",
-      };
-      response.write(JSON.stringify(errorData) + "\n");
-      response.end();
-    }
-    return true;
-  }
+  if (await handleAppUpdateApi(request, response, pathname)) return;
 
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;
@@ -768,7 +733,15 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${HOST}:${PORT}`);
   try {
     if (url.pathname.startsWith("/api/")) {
-      await handleApi(request, response, url.pathname);
+      const mutation = url.pathname === "/api/benchmark/overview"
+        || (!["GET", "HEAD"].includes(request.method) && url.pathname !== "/api/app-install");
+      if (mutation && (appInstaller.isInstalling() || appInstaller.isRestartRequired() || appInstaller.isRecoveryRequired())
+        && (await appInstaller.getPolicy()).installMode === "in-place") {
+        return sendJson(response, 409, { error: "正在更新程序，请安装完成并重启后再操作。", code: "APP_UPDATING" });
+      }
+      if (mutation) activeApiMutations += 1;
+      try { await handleApi(request, response, url.pathname); }
+      finally { if (mutation) activeApiMutations -= 1; }
       return;
     }
 

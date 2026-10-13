@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、generation-job-api.mjs 的飞书同步合同预检与 generation-jobs.mjs 的可注入异步任务、进度及并发批处理
- * [OUTPUT]: 对外提供付费生成前飞书合同阻断、日常生图任务即时入队、查询恢复、领域阶段快照透传、有界并发、保序与部分失败回归保障
+ * [OUTPUT]: 对外提供付费生成前飞书合同阻断、日常生图任务即时入队/终态忙碌检查、查询恢复、领域阶段快照透传、有界并发、保序与部分失败回归保障
  * [POS]: test 的可恢复生成任务测试，不调用真实生图服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,30 @@ import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
 async function nextTurn() {
   await new Promise((resolve) => setImmediate(resolve));
 }
+
+test("生成任务入队即忙碌，成功或失败完成后释放更新守卫", async () => {
+  const registry = createGenerationJobRegistry();
+  const success = Promise.withResolvers();
+  const failure = Promise.withResolvers();
+  assert.equal(registry.hasActiveJobs(), false);
+
+  registry.enqueue("generation-success", { featureMode: "free", total: 1 }, () => success.promise);
+  assert.equal(registry.hasActiveJobs(), true);
+  await nextTurn();
+  assert.equal(registry.hasActiveJobs(), true);
+  success.resolve({ images: [] });
+  await nextTurn();
+  assert.equal(registry.get("generation-success").status, "success");
+  assert.equal(registry.hasActiveJobs(), false);
+
+  registry.enqueue("generation-failure", { featureMode: "free", total: 1 }, () => failure.promise);
+  assert.equal(registry.hasActiveJobs(), true);
+  await nextTurn();
+  failure.reject(new Error("生成失败"));
+  await nextTurn();
+  assert.equal(registry.get("generation-failure").status, "failed");
+  assert.equal(registry.hasActiveJobs(), false);
+});
 
 test("飞书同步合同未通过时不创建付费生成任务", async () => {
   let enqueued = false;

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖任务 ID、类型、异步执行函数、AbortController、阶段更新与可选时钟
- * [OUTPUT]: 对外提供带进度/阶段/落库状态/具体错误的评测后台任务入队、取消和状态查询
+ * [OUTPUT]: 对外提供带进度/阶段/落库状态/具体错误的评测后台任务入队、取消、状态查询与只读忙碌检查
  * [POS]: src 的评测工作台进程内调度层，隔离长耗时生图与 AI 评分请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -45,7 +45,9 @@ export function createBenchmarkJobRegistry({ maxJobs = 50, now = Date.now } = {}
   function enqueue(jobId, kind, task) {
     if (jobs.has(jobId)) return publicJob(jobs.get(jobId));
     while (jobs.size >= maxJobs) {
-      const finished = [...jobs.entries()].find(([, job]) => job.status !== "running");
+      const finished = [...jobs.entries()].find(
+        ([, job]) => !["running", "cancelling"].includes(job.status),
+      );
       if (!finished) break;
       jobs.delete(finished[0]);
     }
@@ -112,6 +114,9 @@ export function createBenchmarkJobRegistry({ maxJobs = 50, now = Date.now } = {}
       return publicJob(job);
     },
     enqueue,
+    hasActiveJobs() {
+      return [...jobs.values()].some((job) => ["running", "cancelling"].includes(job.status));
+    },
     get(jobId) {
       const job = jobs.get(String(jobId || ""));
       return job ? publicJob(job) : null;

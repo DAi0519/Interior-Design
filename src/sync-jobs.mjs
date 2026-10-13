@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 generationId、飞书同步异步任务、保留时间与可选时钟
- * [OUTPUT]: 对外提供幂等入队、非阻塞执行和同步状态查询的进程内任务注册表
+ * [OUTPUT]: 对外提供幂等入队、非阻塞执行、同步状态查询与只读忙碌检查的进程内任务注册表
  * [POS]: src 的后台同步调度基础设施，隔离图片生成响应与飞书归档耗时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,6 +73,9 @@ export function createSyncJobRegistry({
 
   return {
     enqueue,
+    hasActiveJobs() {
+      return [...jobs.values()].some((job) => job.status === "pending");
+    },
     get(generationId) {
       const job = jobs.get(String(generationId || "").trim());
       return job ? publicJob(job) : null;

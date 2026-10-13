@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成任务 ID、功能/模型摘要、可选领域阶段快照、异步批处理执行函数、进度回调与可选时钟
- * [OUTPUT]: 对外提供进程内生成任务入队/查询、透传领域阶段进度的可恢复结果快照，以及有界并发批执行
+ * [OUTPUT]: 对外提供进程内生成任务入队/查询/只读忙碌检查、透传领域阶段进度的可恢复结果快照，以及有界并发批执行
  * [POS]: src 的日常生图后台任务层，让页面切换不再中断生成状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -127,6 +127,9 @@ export function createGenerationJobRegistry({
 
   return {
     enqueue,
+    hasActiveJobs() {
+      return [...jobs.values()].some((job) => job.status === "running");
+    },
     get(jobId) {
       cleanup();
       const job = jobs.get(String(jobId || ""));

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供含效果图氛围转换/美化/全景美化的七功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、两路并发单图隔离、生成/飞书同步阶段、回读后预览、瞬时重跑和全量归档回归保障
+ * [OUTPUT]: 对外提供含效果图氛围转换/美化/全景美化的七功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、两路并发单图隔离、生成/飞书同步阶段、回读后预览、瞬时重跑、全量归档与终态前忙碌守卫回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,10 @@ import {
 
 const TEST_TIME = "2026-09-02 14:03:21";
 
+function nextTurn() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 function waitForJob(service, jobId) {
   return new Promise((resolve, reject) => {
     const timer = setInterval(() => {
@@ -30,6 +34,54 @@ function waitForJob(service, jobId) {
     }, 5);
   });
 }
+
+test("Beta 批次入队及飞书同步期间保持忙碌，成功或失败终态后释放守卫", async () => {
+  const generated = Promise.withResolvers();
+  const synced = Promise.withResolvers();
+  const failed = Promise.withResolvers();
+  const service = createBetaRunnerService({
+    baseStore: {
+      async beginRun({ item }) { return { recordId: item.runId }; },
+      completeRun() { return synced.promise; },
+      async failRun() {},
+    },
+    generationService: {
+      executeForMode(_mode, input) {
+        return input.prompt === "失败样本" ? failed.promise : generated.promise;
+      },
+    },
+    maxAttempts: 1,
+  });
+  const batch = {
+    batchId: "BETA-busyguard01",
+    featureMode: "free",
+    items: [{ caseId: "CASE-1", input: { prompt: "成功样本" }, runId: "RUN-busyguard01" }],
+    jobId: "beta-busyguard-success",
+    testTime: TEST_TIME,
+  };
+  assert.equal(service.hasActiveJobs(), false);
+  assert.equal(service.start(batch).status, "running");
+  assert.equal(service.hasActiveJobs(), true);
+  await nextTurn();
+  generated.resolve({ images: [] });
+  await nextTurn();
+  assert.deepEqual(service.getJob(batch.jobId).stages, { generated: 1, synced: 0 });
+  assert.equal(service.hasActiveJobs(), true);
+  synced.resolve({ recordId: "rec-success" });
+  await nextTurn();
+  assert.equal(service.getJob(batch.jobId).status, "success");
+  assert.equal(service.hasActiveJobs(), false);
+
+  const failedJobId = "beta-busyguard-failure";
+  service.start({ ...batch, jobId: failedJobId,
+    items: [{ caseId: "CASE-2", input: { prompt: "失败样本" }, runId: "RUN-busyguard02" }] });
+  assert.equal(service.hasActiveJobs(), true);
+  await nextTurn();
+  failed.reject(new Error("生成失败"));
+  await nextTurn();
+  assert.equal(service.getJob(failedJobId).status, "failed");
+  assert.equal(service.hasActiveJobs(), false);
+});
 
 test("Beta跑图公开七个场景且不发布结果数量上限", () => {
   assert.deepEqual(BETA_FEATURE_MODES, [

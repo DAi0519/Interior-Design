@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-jobs.mjs 的可注入异步任务和取消信号
- * [OUTPUT]: 对外提供评测任务即时入队、主动取消、阶段/Base 落库状态、进度更新、完成与可诊断失败状态回归保障
+ * [OUTPUT]: 对外提供评测任务即时入队、取消结算前忙碌保护、阶段/Base 落库状态、进度更新、完成与可诊断失败状态回归保障
  * [POS]: test 的 Benchmark 后台任务测试，不调用真实生图或评分服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,50 @@ import { createBenchmarkJobRegistry } from "../src/benchmark-jobs.mjs";
 async function nextTurn() {
   await new Promise((resolve) => setImmediate(resolve));
 }
+
+test("评测任务入队即忙碌，成功或失败终态后释放更新守卫", async () => {
+  const registry = createBenchmarkJobRegistry();
+  const success = Promise.withResolvers();
+  const failure = Promise.withResolvers();
+  assert.equal(registry.hasActiveJobs(), false);
+
+  registry.enqueue("job-success", "review", () => success.promise);
+  assert.equal(registry.hasActiveJobs(), true);
+  await nextTurn();
+  assert.equal(registry.hasActiveJobs(), true);
+  success.resolve({ reviewed: 1 });
+  await nextTurn();
+  assert.equal(registry.get("job-success").status, "success");
+  assert.equal(registry.hasActiveJobs(), false);
+
+  registry.enqueue("job-failure", "review", () => failure.promise);
+  assert.equal(registry.hasActiveJobs(), true);
+  await nextTurn();
+  failure.reject(new Error("评分失败"));
+  await nextTurn();
+  assert.equal(registry.get("job-failure").status, "failed");
+  assert.equal(registry.hasActiveJobs(), false);
+});
+
+test("评测取消清理尚未完成时保持忙碌且不被容量清理删除", async () => {
+  const settling = Promise.withResolvers();
+  const registry = createBenchmarkJobRegistry({ maxJobs: 1 });
+  registry.enqueue("job-cancelling", "generation", () => settling.promise);
+  assert.equal(registry.hasActiveJobs(), true);
+  await nextTurn();
+  assert.equal(registry.cancel("job-cancelling").status, "cancelling");
+  assert.equal(registry.hasActiveJobs(), true);
+
+  registry.enqueue("job-next", "review", async () => ({ reviewed: 1 }));
+  await nextTurn();
+  assert.equal(registry.get("job-next").status, "success");
+  assert.equal(registry.get("job-cancelling").status, "cancelling");
+  assert.equal(registry.hasActiveJobs(), true);
+  settling.resolve({ images: [] });
+  await nextTurn();
+  assert.equal(registry.get("job-cancelling").status, "cancelled");
+  assert.equal(registry.hasActiveJobs(), false);
+});
 
 test("评测任务入队后公开进度并保留结果", async () => {
   const registry = createBenchmarkJobRegistry();

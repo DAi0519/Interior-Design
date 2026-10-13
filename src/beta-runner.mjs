@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖任务批处理、generation-service、模型2:1矩阵、实时三表 Schema/逐张资产 Store、参考图/全景比例/房型校验和当前 Key 的 Prompt Agent 可用性
- * [OUTPUT]: 对外提供草稿/逐张保存/完成回读与 ID 批次 Schema/Agent/全景模型准入、按执行项读取原图、七功能两路并发单图执行、冻结全景版本、生成/同步双阶段快照、回读后预览、瞬时重跑及合同错误不重试
+ * [OUTPUT]: 对外提供草稿/逐张保存/完成回读与 ID 批次 Schema/Agent/全景模型准入、按执行项读取原图、七功能两路并发单图执行、冻结全景版本、生成/同步双阶段快照、回读后预览、瞬时重跑及合同错误不重试、只读批次忙碌检查
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -314,6 +314,9 @@ export function createBetaRunnerService({
     },
     getJob(jobId) {
       return jobs.get(jobId);
+    },
+    hasActiveJobs() {
+      return jobs.hasActiveJobs();
     },
     listSampleSets() {
       return baseStore.listSampleSets();

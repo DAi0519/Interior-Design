@@ -10,9 +10,11 @@ image-tools-api.mjs: 独立图片工具只读配置 API，保留超分健康与�
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
 app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
+app-update-api.mjs: 共享版本检查与安装 HTTP 边界，按服务端最新正式版回执、安装政策及运行任务状态准入，流式返回安装进度/错误并保护待重启与恢复失败状态
+app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 与受信重定向/容量/ZIP 路径准入，无 shell 解压；含 .git 的源码工作区仅安装到持久新目录，无 .git 的 Release 目录原地事务替换发布运行根项、保留配置/依赖/数据并失败回滚；公开 getPolicy/isRestartRequired/isRecoveryRequired，成功后要求重启，恢复失败保留备份与操作指引并阻断再次安装，不自动重启
 model-config.mjs: 模型参数真源，维护六个 OneAPI 模型（含 GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt、原有四模型 2:1 与 2.5 九比例/五质量档、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
-generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留
+generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留；只读 hasActiveJobs 持续守护 running 任务，供原地更新准入使用
 generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，需归档生图先校验飞书同步合同，独立图片工具绕过飞书且按所选扩图引擎准入，ComfyUI 能力或当前 Key 模型权限未通过不入队，分别公开 comfyUi/imageEdit 阶段与可用上游身份
 generation-service.mjs: 显式功能路由穿透生成输入，含效果图氛围转换与独立效果图美化，阻止空房默认走白模，统一生图与独立图片工具路由，扩图按所选引擎严格取 ComfyUI 或 OneAPI 编辑客户端，不写飞书并透传各自阶段，保留 Flux 负向 Prompt 归档与脱离 HTTP 单项执行
 image-upscale-service.mjs: 图片超分应用服务，校验单图并按源图比例计算 4K/6K/8K 目标，分开 5 分钟排队时限与仅 8K 使用的 15 分钟执行时限，映射带 Prompt ID 的 ComfyUI 阶段并返回真实输出尺寸的本机结果
@@ -20,7 +22,7 @@ image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固�
 beta-base.mjs: 三表实时 Schema verifier 与含全景美化的七功能映射，组合逐张样本 Store；强度色调/专属美化和全景版本保存到场景/配置 JSON，复用正式投影归档 Prompt/风格/家具/Agent/真实尺寸，回读全部实际写入普通字段及附件 token/字节数，合同错误归一为不可重试 409，确认后返回轻量预览
 beta-sample-store.mjs: 草稿样本集显式清空默认可用状态并回读，样本按{id}对象数组写飞书关联并归一化双向回读，单图真实8MB/MIME/尺寸及全景2:1验证、稳定样本ID/内容幂等与附件回读，上传完成才发布；列表只含元数据，原图在执行项读取并再次核验全景比例，预览按需转轻量WebP，不设整集图片容量上限
 beta-base-schema.mjs: Beta 三表字段合同真源，实时分页读取并校验全部普通字段类型、功能/状态/房型选项、单多选、附件 ID/名称/类型与关联表目标，不读取旧生成记录或 Benchmark 表
-beta-runner.mjs: 七功能草稿创建/逐张上传/完成回读与 ID 批次实时三表 Schema 准入，成员/功能绑定、当前 Key 提示词模型权限与全景模型2:1/明确Prompt版本前置检查；原图只在执行项读取并实际校验8MB/全景2:1，两路并发且重试复用单源图后释放，保留逐样本房型与冻结版本、生成/同步双阶段、完整归档回读、最多三次新Attempt及409不重试
+beta-runner.mjs: 七功能草稿创建/逐张上传/完成回读与 ID 批次实时三表 Schema 准入，成员/功能绑定、当前 Key 提示词模型权限与全景模型2:1/明确Prompt版本前置检查；原图只在执行项读取并实际校验8MB/全景2:1，两路并发且重试复用单源图后释放，保留逐样本房型与冻结版本、生成/同步双阶段、完整归档回读、最多三次新Attempt及409不重试；代理 hasActiveJobs，批量生成与飞书同步全部结束后才允许原地更新
 effect-render-enhancement-prompt.mjs: 效果图氛围转换/全景图美化 Prompt 资产边界，原效果图表 ID 与 effect-render-enhancement 编码保持兼容，分别公开脱敏可用性/当前上架版本；氛围严格校验 BASE/DEFAULT/CONTRACT/TIME/WEATHER 并按环境拼接，全景接受纯文本/开放 MAIN JSON 与根级尾逗号，禁止跨表回退
 effect-render-enhancement-workflow.mjs: 效果图氛围转换/六预设美化/全景图美化共享双 Provider 单图服务，各自独立上架 Prompt；美化按专属版本原样注入且只归档强度色调，全景按panoramaPromptVersion读取冻结资产，氛围继续天气时段，Flux 全景只替换独立 Prompt，其余复用普通工作流与现有负向机制
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项
@@ -49,7 +51,7 @@ benchmark-review.mjs: Benchmark AI 评审领域层，维护 `white-model-review@
 benchmark-labeling.mjs: Benchmark 样本 AI 标注领域层，维护 `sample-labeling@v2`、受控空间与空间结构/镜头/软装/材质复杂度/输入质量五个独立低中高维度、人工准入隔离、单图视觉模型协议、严格 JSON 解析、理由和置信度
 benchmark-workbench-store.mjs: Benchmark 当前 worktree 本地状态边界，原子持久化样本集、实验、样本分类元数据、评审批次和版本化 AI 评分，并兼容旧状态迁移
 benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、五维 AI 待审标注、八类单变量零写入计划、确认后配置落库/可取消运行、停止实验 Base 进度重建、v3.1 单次评分与按 Run 断点继续/写回/分析及飞书跳转，并持久化任务阶段、评分失败批次、结构化评分事实与拦截协议漂移
-benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息
+benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息；只读 hasActiveJobs 同时保护 running/cancelling，容量清理不得移除未结算取消任务
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与空房智能默认/平台融合、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取
 refined-model-prompt.mjs: 同构版本化 Prompt 读取边界，为精模、效果图氛围转换、效果图美化与全景图美化独立飞书表解析脱敏目录并按版本仅在服务端提供正文
@@ -59,7 +61,7 @@ style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏�
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件
 reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高
 runtime-cache.mjs: 运行时缓存基础设施，提供异步加载并发去重、五分钟 TTL 与主动失效
-sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询
+sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询；只读 hasActiveJobs 在 pending 同步结束前阻断原地更新
 
 generation-config.mjs: 生图与 Beta 共用的脱敏配置聚合器，统一 /api/styles 与 /api/config/refresh 的风格/Agent/精模/氛围转换/独立美化/独立全景真源及主动刷新，隔离各表正文
 effect-beautification-prompt.mjs: 独立效果图美化固定 Prompt 真源，读取 effect-render-beautification 上架版本，严格校验 LOW/HIGH × NATURAL/WARM/COOL 六预设，默认 low/natural、拒绝未知值、逐字选择正向正文，公开脱敏目录且禁止跨表回退

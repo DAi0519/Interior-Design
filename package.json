@@ -1,15 +1,15 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "新增独立 Beta 跑图工作台，复用飞书样本集，按样本与模型批量生成并回读归档结果。",
-    "新增全景图美化与 360° 结果预览；效果图和全景图分别读取独立的飞书 Prompt。",
-    "新增 SeedVR2 图片超分 4K/6K/8K 档位，Flux2 Klein 支持 4K/6K 连续出图与超分。",
-    "日常生成任务支持后台运行与跨页恢复，空房设计增加按房型选择家具和其他家具输入。",
-    "更新 sharp 到 0.35.4，修复图片处理依赖的已知安全问题。"
+    "三个工作台新增 GitHub 正式版本检测和用户确认后的自动安装；Release 运行包支持原地更新与失败回滚，源码工作区安装到新目录，保留配置与本地数据。",
+    "新增 ComfyUI 与 GPT Image 2.5 Sunburst 双引擎 AI 扩图，支持拖动画布调整原图位置与四边留白。",
+    "效果图美化提供独立 Prompt、低/高强度和自然/暖/冷色调六种组合，与效果图氛围转换分别配置。",
+    "Beta 跑图按飞书样本 ID 按需取图，支持全景图美化、逐样本空房类型与提示词模型权限准入。",
+    "自动安装校验官方 SHA-256，原地更新前检查任务空闲、更新后提示重启；完善错误与完成反馈，升级 sharp 至 0.35.5。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",
@@ -26,7 +26,7 @@
     "@fontsource-variable/inter": "5.3.0",
     "@larksuite/cli": "1.0.77",
     "pannellum": "2.5.7",
-    "sharp": "0.35.4"
+    "sharp": "0.35.5"
   },
   "engines": {
     "node": ">=24"
