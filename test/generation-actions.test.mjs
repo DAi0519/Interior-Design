@@ -103,7 +103,7 @@ test("主动作使用项目内嵌展示字体且不包含装饰图标", async ()
   assert.doesNotMatch(css, /(?:^|\n)\.generation-control\s*{/);
   assert.match(css, /@media \(max-width: 560px\)\s*{[^}]*\.action-section\.generation-control\s*{[^}]*margin: 12px 10px 10px[^}]*width: calc\(100% - 20px\)/s);
   assert.match(themeCss, /grid-template-columns: minmax\(440px, clamp\(440px, 33vw, 490px\)\) minmax\(0, 1fr\)/);
-  assert.match(themeCss, /\.control-panel\s*{[^}]*display: grid[^}]*grid-template-columns: 120px minmax\(0, 1fr\)[^}]*grid-template-rows: minmax\(0, 1fr\) auto[^}]*overflow: hidden/s);
+  assert.match(themeCss, /\.control-panel\s*{[^}]*display: grid[^}]*grid-template-columns: 144px minmax\(0, 1fr\)[^}]*grid-template-rows: minmax\(0, 1fr\) auto[^}]*overflow: hidden/s);
   assert.match(themeCss, /\.control-panel-scroll\s*{[^}]*min-height: 0[^}]*overflow-y: auto[^}]*overscroll-behavior-x: none[^}]*overscroll-behavior-y: none/s);
   assert.doesNotMatch(themeCss, /overscroll-behavior: contain/);
   assert.ok(font.size > 1_000_000);

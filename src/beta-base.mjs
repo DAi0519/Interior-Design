@@ -1,14 +1,13 @@
 /**
- * [INPUT]: 依赖 Beta跑图 Base 的样本集/样本/跑图明细三表、lark-cli.mjs 与图片产物基础设施，接收可复用样本集、已冻结批次 Run、输入附件和正式生成结果
- * [OUTPUT]: 对外提供正式生成信息捕获、最终 Prompt/多选场景 Tag/真实尺寸归档与回读，以及样本集目录/含逐图房型的明细读取与创建，以及带测试时间、实际请求功能与家具条件的一行一 Run 建档、附件上传、成功/失败回写、结果附件 token/字节数回读校验、轻量结果预览和最新测试优先视图链接
+ * [INPUT]: 依赖 Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
+ * [OUTPUT]: 对外提供三表 Schema 准入、七功能映射与强度色调/独立全景版本快照、全部实际写入字段及结果附件归档回读、样本草稿/单图保存/元数据/按需图片读取、Run 建档与轻量预览；合同错误不可重试
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 
 import {
   createImagePreviewDataUrl,
@@ -16,6 +15,8 @@ import {
   loadImageBytes,
 } from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
+import { createBetaSampleStore } from "./beta-sample-store.mjs";
+import { betaBaseContractError, normalizeBetaBaseError, verifyBetaBaseSchema } from "./beta-base-schema.mjs";
 import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
 
 export const BETA_BASE_CONFIG = Object.freeze({
@@ -35,7 +36,9 @@ export const BETA_BASE_CONFIG = Object.freeze({
 });
 
 const FEATURE_LABELS = Object.freeze({
-  effectEnhancement: "效果图美化",
+  effectEnhancement: "效果图氛围转换",
+  effectBeautification: "效果图美化",
+  panoramaEnhancement: "全景图美化",
   emptyRoom: "空房设计",
   free: "自由生图",
   refinedModel: "精模渲染",
@@ -49,13 +52,6 @@ function compactObject(value) {
 
 function selectValue(value) {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
-}
-
-function linkRecordIds(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => typeof entry === "string"
-    ? entry
-    : entry?.record_id || entry?.recordId || entry?.id).filter(Boolean);
 }
 
 function parseRecordPage(body) {
@@ -82,6 +78,7 @@ export function betaSceneParameters(input = {}) {
     furnitureSelection: input.furnitureSelection,
     effectTime: input.effectTime,
     effectWeather: input.effectWeather,
+    effectBeautification: input.effectBeautification,
     renderMode: input.renderMode,
     roomType: input.roomType,
     roomTypeDetail: input.roomTypeDetail,
@@ -98,6 +95,8 @@ export function betaConfigSnapshot(input = {}) {
     promptAgentModelKey: input.promptAgentModelKey,
     promptAgentVersion: input.promptAgentVersion,
     promptVersion: input.promptVersion,
+    effectBeautificationPromptVersion: input.effectBeautificationPromptVersion,
+    panoramaPromptVersion: input.panoramaPromptVersion,
     quality: input.quality,
     ratio: input.ratio,
     ratioMode: input.ratioMode,
@@ -273,52 +272,19 @@ async function materializeImages(images, directory, prefix) {
   return files;
 }
 
-function mimeTypeFromFileName(fileName) {
-  const extension = extname(String(fileName || "")).toLowerCase();
-  const types = {
-    ".jpeg": "image/jpeg",
-    ".jpg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-  };
-  const type = types[extension];
-  if (!type) throw new Error(`不支持的样本附件格式：${extension || "未知"}`);
-  return type;
-}
-
-async function downloadAttachment(run, config, { attachment, recordId }) {
-  const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-sample-"));
-  const extension = extname(attachment.name || "").toLowerCase() || ".png";
-  const fileName = `sample${extension}`;
-  try {
-    await run(config, [
-      "base", "+record-download-attachment", "--as", "user",
-      "--base-token", config.baseToken,
-      "--table-id", config.sampleTableId,
-      "--record-id", recordId,
-      "--file-token", attachment.file_token,
-      "--output", fileName,
-      "--overwrite",
-      "--format", "json",
-    ], { cwd: directory });
-    const bytes = await readFile(join(directory, fileName));
-    const type = mimeTypeFromFileName(attachment.name);
-    return {
-      dataUrl: `data:${type};base64,${bytes.toString("base64")}`,
-      name: attachment.name,
-      size: bytes.length,
-      type,
-    };
-  } finally {
-    await rm(directory, { force: true, recursive: true });
-  }
-}
-
 export function createBetaBaseStore({
   config = BETA_BASE_CONFIG,
-  run = runLarkCli,
+  run: executeCli = runLarkCli,
 } = {}) {
+  const runFields = new Map();
+  const run = async (...args) => {
+    try { return await executeCli(...args); }
+    catch (error) { throw normalizeBetaBaseError(error); }
+  };
   return {
+    verifySchema() {
+      return verifyBetaBaseSchema({ config, featureLabels: Object.values(FEATURE_LABELS), run });
+    },
     config: {
       baseUrl: recordUrl(config),
       sampleSetTableId: config.sampleSetTableId,
@@ -326,92 +292,14 @@ export function createBetaBaseStore({
       tableId: config.tableId,
       viewId: config.viewId,
     },
-    async listSampleSets() {
-      const rows = await listRecords(run, config, config.sampleSetTableId, [
-        "样本集 ID", "名称", "功能", "状态", "样本数量", "说明",
-      ]);
-      return rows.map(({ fields, recordId }) => ({
-        featureMode: Object.entries(FEATURE_LABELS)
-          .find(([, label]) => label === selectValue(fields["功能"]))?.[0] || null,
-        name: String(fields["名称"] || "").trim(),
-        recordId,
-        sampleCount: Number(fields["样本数量"]) || 0,
-        sampleSetId: String(fields["样本集 ID"] || "").trim(),
-        status: selectValue(fields["状态"]),
-      })).filter((entry) => entry.sampleSetId && entry.status === "可用");
-    },
-    async getSampleSet(sampleSetId) {
-      const sets = await this.listSampleSets();
-      const sampleSet = sets.find((entry) => entry.sampleSetId === sampleSetId);
-      if (!sampleSet) return null;
-      const rows = await listRecords(run, config, config.sampleTableId, [
-        "样本 ID", "样本集", "样本图", "提示词", "文件名", "状态", "空间类型", "其他空间类型",
-      ]);
-      const matching = rows.filter(({ fields }) =>
-        selectValue(fields["状态"]) === "可用"
-        && linkRecordIds(fields["样本集"]).includes(sampleSet.recordId));
-      const samples = [];
-      for (const { fields, recordId } of matching) {
-        const attachments = Array.isArray(fields["样本图"]) ? fields["样本图"] : [];
-        samples.push({
-          image: attachments[0]
-            ? await downloadAttachment(run, config, { attachment: attachments[0], recordId })
-            : null,
-          roomType: selectValue(fields["空间类型"]) || "",
-          roomTypeDetail: String(fields["其他空间类型"] || "").trim(),
-          prompt: String(fields["提示词"] || "").trim(),
-          recordId,
-          sampleId: String(fields["样本 ID"] || "").trim(),
-        });
-      }
-      return { ...sampleSet, samples };
-    },
-    async createSampleSet({ featureMode, name, samples }) {
-      const sampleSetId = `SET-${randomUUID().slice(0, 12).toUpperCase()}`;
-      const sampleSetRecordId = await createRecord(run, config, {
-        "样本集 ID": sampleSetId,
-        "名称": name,
-        "功能": betaFeatureLabel(featureMode),
-        "状态": "可用",
-        "样本数量": samples.length,
-      }, config.sampleSetTableId);
-      for (const [index, sample] of samples.entries()) {
-        const sampleId = `${sampleSetId}-${String(index + 1).padStart(3, "0")}`;
-        const recordId = await createRecord(run, config, {
-          "样本 ID": sampleId,
-          "样本集": [sampleSetRecordId],
-          ...(featureMode === "emptyRoom" ? { "空间类型": sample.roomType, "其他空间类型": sample.roomTypeDetail || "" } : {}),
-          "提示词": sample.prompt || "",
-          "文件名": sample.image?.name || "",
-          "状态": "可用",
-        }, config.sampleTableId);
-        if (!sample.image) continue;
-        const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-library-"));
-        try {
-          const extension = sample.image.type === "image/jpeg"
-            ? "jpg" : sample.image.type.split("/")[1] || "png";
-          const fileName = `${sampleId}.${extension}`;
-          await writeFile(join(directory, fileName), await loadImageBytes(sample.image.dataUrl));
-          await uploadAttachments(
-            run,
-            config,
-            recordId,
-            config.sampleImageFieldId,
-            [fileName],
-            directory,
-            config.sampleTableId,
-          );
-        } finally {
-          await rm(directory, { force: true, recursive: true });
-        }
-      }
-      return this.getSampleSet(sampleSetId);
-    },
+    ...createBetaSampleStore({ config, run, featureLabels: FEATURE_LABELS, createRecord, updateRecord,
+      listRecords, getRecord, uploadAttachments }),
     async beginRun({ batchId, featureMode, item, testTime }) {
+      const fields = buildBetaRunFields({ batchId, featureMode, item, testTime });
       const recordId = await createRecord(
         run,
         config,
-        buildBetaRunFields({ batchId, featureMode, item, testTime }),
+        fields,
       );
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-"));
       try {
@@ -444,22 +332,25 @@ export function createBetaBaseStore({
       } finally {
         await rm(directory, { force: true, recursive: true });
       }
+      runFields.set(recordId, fields);
       return { recordId, recordUrl: recordUrl(config, recordId) };
     },
     async completeRun(recordId, result) {
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-result-"));
       let previewUrl;
       let resultBytes;
+      let generatedFields;
       try {
         const image = result.images?.[0];
         if (!image?.url) throw new Error("Beta跑图没有可归档的结果图");
         const format = result.request?.outputFormat || result.upstream?.outputFormat || "png";
         const file = `result.${extensionForImageFormat(format) || "png"}`;
         resultBytes = await loadImageBytes(image.url);
-        await updateRecord(run, config, recordId, {
+        generatedFields = {
           ...(result.sync?.archiveFields || {}),
           "尺寸": actualImageSize(resultBytes),
-        });
+        };
+        await updateRecord(run, config, recordId, generatedFields);
         previewUrl = await createImagePreviewDataUrl(resultBytes);
         await writeFile(join(directory, file), resultBytes);
         await uploadAttachments(
@@ -474,31 +365,34 @@ export function createBetaBaseStore({
         await rm(directory, { force: true, recursive: true });
       }
       const costUsd = betaResultCostUsd(result);
-      await updateRecord(run, config, recordId, {
+      const completionFields = {
         "状态": "成功",
         "Prompt / 工作流版本": betaResultVersion(result),
         "时延（ms）": Math.round(Number(result.durationMs) || 0),
         ...(costUsd == null ? {} : { "费用（USD）": costUsd }),
         "错误信息": "",
-      });
+      };
+      await updateRecord(run, config, recordId, completionFields);
+      const expectedFields = { ...(runFields.get(recordId) || {}), ...generatedFields, ...completionFields };
       const archived = await getRecord(
         run,
         config,
         config.tableId,
         recordId,
-        ["状态", "结果图", ...Object.keys(result.sync?.archiveFields || {})],
+        ["结果图", ...Object.keys(expectedFields)],
       );
-      for (const [field, value] of Object.entries(result.sync?.archiveFields || {})) {
+      for (const [field, value] of Object.entries(expectedFields)) {
         if (String(archived?.fields?.[field] ?? "") !== String(value)) {
-          throw new Error(`飞书生成信息回读不一致：${field}`);
+          throw betaBaseContractError(`飞书生成信息回读不一致：${field}`);
         }
       }
       const resultAttachment = archived?.fields?.["结果图"]?.[0];
       if (selectValue(archived?.fields?.["状态"]) !== "成功"
         || !resultAttachment?.file_token
         || Number(resultAttachment.size) !== resultBytes.length) {
-        throw new Error("飞书结果附件校验失败");
+        throw betaBaseContractError("飞书结果附件校验失败");
       }
+      runFields.delete(recordId);
       return {
         attachment: {
           fileToken: resultAttachment.file_token,
@@ -511,6 +405,7 @@ export function createBetaBaseStore({
       };
     },
     async failRun(recordId, error) {
+      runFields.delete(recordId);
       await updateRecord(run, config, recordId, {
         "状态": "失败",
         "错误信息": String(error?.message || "跑图失败").slice(0, 1000),

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与服务端/浏览器批量生成纯规则
- * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型及功能参数适配、Seedream 5.0 Pro 全景 4K 保留、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
+ * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型及功能参数适配、效果图氛围转换/美化固定格式、Seedream 5.0 Pro 全景 4K 保留、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
  * [POS]: test 的多模型批量生成单元测试，不发送真实模型请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -88,6 +88,22 @@ test("Seedream 5.0 Pro 全景 4K 在任务适配时保持 3040x1520 档位", () 
 
   assert.equal(input.ratio, "2:1");
   assert.equal(input.resolution, "4K");
+});
+
+test("效果图氛围转换和美化剥离 WebP 且保留美化输入", () => {
+  const model = publicModelCatalog().find((entry) => entry.key === "gptImage2");
+  const effectBeautification = { intensity: "high", tone: "cool" };
+  for (const featureMode of ["effectEnhancement", "effectBeautification"]) {
+    const input = adaptGenerationInputForModel({
+      effectBeautification,
+      outputFormat: "webp",
+      ratio: "4:3",
+      ratioMode: "manual",
+      resolution: "2K",
+    }, model, { featureMode });
+    assert.notEqual(input.outputFormat, "webp");
+    assert.deepEqual(input.effectBeautification, effectBeautification);
+  }
 });
 
 test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {

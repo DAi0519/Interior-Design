@@ -122,6 +122,58 @@
   margin-top: 20px;
 }
 
+.app-update-progress {
+  background: var(--line, #e2e2e5);
+  border-radius: 4px;
+  height: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.app-update-progress-fill {
+  background: var(--functional-action-bg, #f37021);
+  height: 100%;
+  transform: translateX(-100%);
+  transform-origin: left;
+  transition: transform 200ms ease;
+}
+
+.app-update-progress-text {
+  color: var(--muted, #67676d);
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.app-update-install {
+  background: var(--functional-action-bg, #f37021);
+  border-color: var(--functional-action-border, #d35f18);
+  color: white;
+  font-weight: 600;
+}
+
+.app-update-install:disabled {
+  background: var(--brand-key-disabled-bg, #f3f3f4);
+  border-color: var(--brand-key-disabled-border, #e6e6e8);
+  color: var(--brand-key-muted-ink, #9a9aa0);
+}
+
+.app-update-install:active:not(:disabled) {
+  background: #d35f18;
+  border-color: #b54f12;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-update-install:hover:not(:disabled):not(:active) {
+    background: #ff7d2e;
+    border-color: #d35f18;
+    box-shadow: 0 3px 8px rgb(243 112 33 / 25%);
+  }
+}
+
 .app-update-actions {
   align-items: center;
   display: flex;

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供五功能样本集准入、Prompt Agent 当前 Key 权限入队前阻断、409 配置错误不重试、测试时间归一化、不设结果数量上限的两路并发、单 Run 单图隔离、生成/飞书同步双阶段快照、附件回读后轻量结果公开、瞬时错误自动重跑/参数错误快速失败、飞书全量归档门槛与任务恢复保障
+ * [OUTPUT]: 对外提供含效果图氛围转换/美化/全景美化的七功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、两路并发单图隔离、生成/飞书同步阶段、回读后预览、瞬时重跑和全量归档回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,12 +31,14 @@ function waitForJob(service, jobId) {
   });
 }
 
-test("Beta跑图公开五个场景且不发布结果数量上限", () => {
+test("Beta跑图公开七个场景且不发布结果数量上限", () => {
   assert.deepEqual(BETA_FEATURE_MODES, [
     "whiteModel",
     "emptyRoom",
     "refinedModel",
     "effectEnhancement",
+    "effectBeautification",
+    "panoramaEnhancement",
     "free",
   ]);
   assert.equal(BETA_MAX_ATTEMPTS, 3);

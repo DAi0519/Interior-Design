@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供六个 OneAPI 模型（含 GPT Image 2.5 双模型及独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含全景图美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供六个 OneAPI 模型（含 GPT Image 2.5 双模型及独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -82,10 +82,10 @@ test("白模在模型合法集合中选择最接近原图的比例", () => {
   assert.equal(generation.preview.sizeMode, "source-nearest");
 });
 
-test("精模、效果图/全景图美化、白模与空房设计都强制单张业务输入", () => {
+test("精模、效果图美化/氛围转换/全景美化、白模与空房设计都强制单张业务输入", () => {
   const model = publicModelCatalog().find((entry) => entry.key === "seedream5");
   assert.deepEqual(
-    referenceCapability({ featureMode: "effectEnhancement", model, policy: { maxCount: 4 } }),
+    referenceCapability({ featureMode: "effectBeautification", model, policy: { maxCount: 4 } }),
     {
       ariaLabel: "添加待美化效果图",
       dropLabel: "添加或拖入待美化效果图",

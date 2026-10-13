@@ -14,13 +14,15 @@ model-config.mjs: 模型参数真源，维护六个 OneAPI 模型（含 GPT Imag
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留
 generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，需归档生图先校验飞书同步合同，独立图片工具绕过飞书且按所选扩图引擎准入，ComfyUI 能力或当前 Key 模型权限未通过不入队，分别公开 comfyUi/imageEdit 阶段与可用上游身份
-generation-service.mjs: 显式功能路由穿透生成输入，阻止空房默认走白模，统一各生图与独立图片工具路由，扩图按所选引擎严格取 ComfyUI 或 OneAPI 编辑客户端，不写飞书并透传各自阶段，保留 Flux 负向 Prompt 归档与脱离 HTTP 单项执行
+generation-service.mjs: 显式功能路由穿透生成输入，含效果图氛围转换与独立效果图美化，阻止空房默认走白模，统一生图与独立图片工具路由，扩图按所选引擎严格取 ComfyUI 或 OneAPI 编辑客户端，不写飞书并透传各自阶段，保留 Flux 负向 Prompt 归档与脱离 HTTP 单项执行
 image-upscale-service.mjs: 图片超分应用服务，校验单图并按源图比例计算 4K/6K/8K 目标，分开 5 分钟排队时限与仅 8K 使用的 15 分钟执行时限，映射带 Prompt ID 的 ComfyUI 阶段并返回真实输出尺寸的本机结果
 image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固定三份 SeedVR2 JSON，默认攸行 3B 原图直入并保留两套 7B 预处理差异，提供 4K/6K/8K 长边合同、可独立提交或嵌入 Flux 的 SeedVR2 阶段、最小 ComfyUI 图、唯一产物前缀与元数据
-beta-base.mjs: 场景标签以多选 Tag 写入， 复用正式记录映射捕获最终 Prompt、场景/风格/家具/Agent 与真实尺寸，逐字段回读， Beta跑图独立飞书持久化边界，以 `批量跑图 Benchmark` 的样本集→样本→跑图明细三表管理复用资产和一行一结果归档，记录链接固定打开按测试时间降序分组的明细视图，分列上传样本/输入/风格/结果附件、回写版本/费用/时延/错误，并以成功状态、附件 token 与一致字节数回读裁决完成后返回轻量预览
-beta-runner.mjs: 空房逐样本房型保存、回读与校验，当前 Key 提示词模型权限入队前准入及 409 配置错误不重试，Beta跑图应用服务，提供样本集目录/读取/创建 API，归一化同批人类可读测试时间，复用正式生成服务执行五功能，接收去重图片资产、不设样本与结果数量上限并保持两路并发排队；逐 Run 剥离整批队列元数据并按单图调用，分别上报已生成与已同步进度，只在飞书附件回读成功后公开轻量结果预览，对含 ComfyUI 产物暂时不可读 404 在内的瞬时故障最多执行三次新 Attempt，参数类错误携原始原因立即失败，且整批仅在全部结果已同步时成功
-effect-render-enhancement-prompt.mjs: 效果图/全景图美化 Prompt 资产边界，分别读取“效果图美化 Prompt”与“全景图美化 Prompt”独立飞书表；效果图严格校验 `BASE/DEFAULT/CONTRACT/TIME/WEATHER` Schema 并按环境拼接，全景图接受纯文本或含 `MAIN` 的开放 JSON 容器且容忍额外字段、字段顺序与删字段后的根级尾逗号，禁止跨表回退共用
-effect-render-enhancement-workflow.mjs: 效果图/全景图美化应用服务，按功能读取各自上架 Prompt，以单张输入图编排双 Provider 出图、批次元数据与飞书归档；Flux 全景仅替换独立 Prompt，其余请求复用普通 Flux 工作流
+beta-base.mjs: 三表实时 Schema verifier 与含全景美化的七功能映射，组合逐张样本 Store；强度色调/专属美化和全景版本保存到场景/配置 JSON，复用正式投影归档 Prompt/风格/家具/Agent/真实尺寸，回读全部实际写入普通字段及附件 token/字节数，合同错误归一为不可重试 409，确认后返回轻量预览
+beta-sample-store.mjs: 草稿样本集显式清空默认可用状态并回读，样本按{id}对象数组写飞书关联并归一化双向回读，单图真实8MB/MIME/尺寸及全景2:1验证、稳定样本ID/内容幂等与附件回读，上传完成才发布；列表只含元数据，原图在执行项读取并再次核验全景比例，预览按需转轻量WebP，不设整集图片容量上限
+beta-base-schema.mjs: Beta 三表字段合同真源，实时分页读取并校验全部普通字段类型、功能/状态/房型选项、单多选、附件 ID/名称/类型与关联表目标，不读取旧生成记录或 Benchmark 表
+beta-runner.mjs: 七功能草稿创建/逐张上传/完成回读与 ID 批次实时三表 Schema 准入，成员/功能绑定、当前 Key 提示词模型权限与全景模型2:1/明确Prompt版本前置检查；原图只在执行项读取并实际校验8MB/全景2:1，两路并发且重试复用单源图后释放，保留逐样本房型与冻结版本、生成/同步双阶段、完整归档回读、最多三次新Attempt及409不重试
+effect-render-enhancement-prompt.mjs: 效果图氛围转换/全景图美化 Prompt 资产边界，原效果图表 ID 与 effect-render-enhancement 编码保持兼容，分别公开脱敏可用性/当前上架版本；氛围严格校验 BASE/DEFAULT/CONTRACT/TIME/WEATHER 并按环境拼接，全景接受纯文本/开放 MAIN JSON 与根级尾逗号，禁止跨表回退
+effect-render-enhancement-workflow.mjs: 效果图氛围转换/六预设美化/全景图美化共享双 Provider 单图服务，各自独立上架 Prompt；美化按专属版本原样注入且只归档强度色调，全景按panoramaPromptVersion读取冻结资产，氛围继续天气时段，Flux 全景只替换独立 Prompt，其余复用普通工作流与现有负向机制
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
@@ -32,7 +34,7 @@ comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行�
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 飞书生成记录同步边界，从结果图真实字节读取宽高而非写入请求尺寸，按最终出图/Prompt Agent 模型真源与实时 Schema 准入全部可写字段类型、附件字段 ID 及功能/模型/空间/设计/状态单选值，投影含效果图/全景图美化的功能、空房空间类型/其他空间类型/家具选择、设计方式、Agent 编码/版本、风格选择、最终出图模型、融合基模与 Prompt，同时保留完整天气/时段工作流 JSON，并将主参考图、结果图与可选风格参考图分列上传
+lark-sync.mjs: 飞书生成记录同步边界，真实结果尺寸、模型/Agent 真源与实时 Schema 409 准入全部字段类型/附件 ID/单选值，区分效果图氛围转换与美化功能，投影房型/家具/设计/Agent/风格/模型/Prompt，完整天气时段或强度色调保留在工作流 JSON，参考/结果/风格图片分列上传
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
@@ -50,7 +52,7 @@ benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模与空房智能默认/平台融合、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取
-refined-model-prompt.mjs: 同构版本化 Prompt 读取边界，为精模、效果图美化与全景图美化独立飞书表解析脱敏目录并按版本仅在服务端提供正文
+refined-model-prompt.mjs: 同构版本化 Prompt 读取边界，为精模、效果图氛围转换、效果图美化与全景图美化独立飞书表解析脱敏目录并按版本仅在服务端提供正文
 refined-model-workflow.mjs: 精模渲染应用服务，以单张带材质模型图、可选用户要求前置且飞书预设 Prompt 后置的顺序编排双 Provider 出图、批次元数据与原始/最终 Prompt 独立归档
 white-model-workflow.mjs: 设计模型渲染应用服务，白模和空房均按智能默认/平台融合稳定编码选 Agent，空房在 Agent 前校验房间类型、详情与最终家具清单并仅将非空已选需求注入两种 Prompt，仅智能默认允许主图加单张风格参考，平台融合只接收主图与 Style DNA 并拒绝混合风格来源；按含功能/房间类型/详情/家具选择/Prompt/风格图的完整指纹复用提示词，最终模型仍只接收主图并统一编排双 Provider 出图与归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
@@ -58,5 +60,8 @@ reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图�
 reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高
 runtime-cache.mjs: 运行时缓存基础设施，提供异步加载并发去重、五分钟 TTL 与主动失效
 sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询
+
+generation-config.mjs: 生图与 Beta 共用的脱敏配置聚合器，统一 /api/styles 与 /api/config/refresh 的风格/Agent/精模/氛围转换/独立美化/独立全景真源及主动刷新，隔离各表正文
+effect-beautification-prompt.mjs: 独立效果图美化固定 Prompt 真源，读取 effect-render-beautification 上架版本，严格校验 LOW/HIGH × NATURAL/WARM/COOL 六预设，默认 low/natural、拒绝未知值、逐字选择正向正文，公开脱敏目录且禁止跨表回退
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

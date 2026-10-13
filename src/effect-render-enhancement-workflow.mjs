@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖飞书效果图/全景图两张独立 Prompt 表、天气/时段受控枚举、单张待美化图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
- * [OUTPUT]: 对外提供效果图单轮美化、复用普通 Flux 工作流的全景图美化、其他模型全景生成、实际参数摘要与飞书同步任务
- * [POS]: src 的效果图/全景图美化应用服务，与精模及白模 Agent 链路隔离并复用出图基础设施
+ * [INPUT]: 依赖效果图氛围转换/六预设美化/可指定冻结版本全景图三张独立飞书 Prompt 表、受控天气/时段或强度/色调、单图、模型矩阵、批次与图像客户端及非阻塞归档
+ * [OUTPUT]: 对外提供单轮效果图氛围转换/美化和全景图美化、原样固定 Prompt、共享双 Provider 工作流、实际预设/参数摘要与飞书同步任务
+ * [POS]: src 的效果图与全景图应用服务，各自隔离 Prompt 真源并复用普通出图基础设施，不经过 Prompt Agent
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -12,6 +12,11 @@ import {
   getPanoramaEnhancementPrompt,
 } from "./effect-render-enhancement-prompt.mjs";
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
+import {
+  composeEffectBeautificationPrompt,
+  getEffectBeautificationPrompt,
+  normalizeEffectBeautification,
+} from "./effect-beautification-prompt.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 
@@ -26,6 +31,7 @@ export async function executeEffectRenderEnhancementWorkflow(
   {
     imageClient,
     loadEffectPrompt = getEffectEnhancementPrompt,
+    loadBeautificationPrompt = getEffectBeautificationPrompt,
     loadPanoramaPrompt = getPanoramaEnhancementPrompt,
     scheduleSync = null,
   },
@@ -34,17 +40,21 @@ export async function executeEffectRenderEnhancementWorkflow(
     throw new TypeError("effect render enhancement workflow requires image client");
   }
   const panorama = input.featureMode === "panoramaEnhancement";
+  const beautification = input.featureMode === "effectBeautification";
+  const featureLabel = panorama ? "全景图美化" : beautification ? "效果图美化" : "效果图氛围转换";
+  const selection = beautification ? normalizeEffectBeautification(input.effectBeautification) : null;
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   if (referenceImages.length !== 1) {
-    throw workflowError(panorama
-      ? "全景图美化需要且只允许 1 张待美化全景图"
-      : "效果图美化需要且只允许 1 张待美化效果图");
+    throw workflowError(`${featureLabel}需要且只允许 1 张${panorama ? "待美化全景图" : "待处理效果图"}`);
   }
 
-  const promptAsset = await (panorama ? loadPanoramaPrompt() : loadEffectPrompt());
+  const promptAsset = await (beautification
+    ? loadBeautificationPrompt({ version: input.effectBeautificationPromptVersion })
+    : panorama ? loadPanoramaPrompt({ version: input.panoramaPromptVersion }) : loadEffectPrompt());
   const finalPrompt = panorama
     ? composePanoramaEnhancementPrompt(promptAsset.prompt)
-    : composeEffectEnhancementPrompt(promptAsset.prompt, {
+    : beautification ? composeEffectBeautificationPrompt(promptAsset.prompt, selection)
+      : composeEffectEnhancementPrompt(promptAsset.prompt, {
         time: input.effectTime,
         weather: input.effectWeather,
       });
@@ -72,6 +82,7 @@ export async function executeEffectRenderEnhancementWorkflow(
     provider: generation.provider,
     quality: result.quality ?? generation.preview.quality,
     transport: result.transport || "responses",
+    ...(selection ? { effectBeautification: selection } : {}),
   };
   const imageModel = publicModelCatalog().find(
     (entry) => entry.key === String(input.modelKey || ""),
@@ -83,11 +94,13 @@ export async function executeEffectRenderEnhancementWorkflow(
   }));
   const workflow = {
     ...batch,
-    effectTime: panorama ? "preserve" : String(input.effectTime || "preserve"),
-    effectWeather: panorama ? "preserve" : String(input.effectWeather || "preserve"),
+    ...(selection ? { effectBeautification: selection } : {
+      effectTime: panorama ? "preserve" : String(input.effectTime || "preserve"),
+      effectWeather: panorama ? "preserve" : String(input.effectWeather || "preserve"),
+    }),
     feature: panorama
       ? "panorama-render-enhancement"
-      : "effect-render-enhancement",
+      : beautification ? "effect-render-beautification" : "effect-render-enhancement",
     promptCode: promptAsset.code,
     promptPublished: promptAsset.published,
     promptVersion: promptAsset.version,

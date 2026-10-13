@@ -1,15 +1,19 @@
 /**
- * [INPUT]: 依赖工作台已归一化的功能、模型、正向 Prompt、可选 Flux 负向 Prompt、图片、尺寸、效果图美化时段天气、全景图美化默认模式与设计模式状态
+ * [INPUT]: 依赖工作台已归一化的功能、模型、正向 Prompt、可选 Flux 负向 Prompt、图片、尺寸、效果图氛围转换时段天气、效果图美化强度色调、全景图美化默认模式与设计模式状态
  * [OUTPUT]: 对外提供 buildGenerationInput，将页面状态投影为统一生成请求输入且不携带 DOM
  * [POS]: public 的生成输入领域映射层，隔离页面编排与服务端请求字段契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
 
 function compactImages(images = []) {
   return images.map(({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type }));
 }
 
 export function buildGenerationInput({
+  effectBeautification,
+  effectBeautificationPromptVersion,
   effectTime,
   effectWeather,
   emptyRoomFields,
@@ -30,6 +34,7 @@ export function buildGenerationInput({
 }) {
   const emptyRoom = featureMode === "emptyRoom";
   const effectEnhancement = featureMode === "effectEnhancement";
+  const effectBeautificationRequest = featureMode === "effectBeautification";
   const panoramaEnhancement = featureMode === "panoramaEnhancement";
   const whiteModel = featureMode === "whiteModel";
   const designPromptFlow = emptyRoom || whiteModel;
@@ -40,7 +45,7 @@ export function buildGenerationInput({
     outputFormat: "png",
     prompt: featureMode === "refinedModel"
       ? prompt.refined
-      : effectEnhancement || panoramaEnhancement ? "" : prompt.free,
+      : effectEnhancement || effectBeautificationRequest || panoramaEnhancement ? "" : prompt.free,
     quality: model?.qualityOptions.length ? quality || undefined : undefined,
     ratio,
     ratioMode,
@@ -48,6 +53,10 @@ export function buildGenerationInput({
     ...(designPromptFlow ? { styleReferenceImages: compactImages(styleReferenceImages) } : {}),
     resolution,
     ...(effectEnhancement ? { effectTime, effectWeather } : {}),
+    ...(effectBeautificationRequest ? {
+      effectBeautification: normalizeEffectBeautification(effectBeautification),
+      effectBeautificationPromptVersion,
+    } : {}),
     renderMode: renderMode.mode,
     ...(emptyRoom ? emptyRoomFields : {}),
     emptyRoomSmartDefaultVersion: emptyRoom && renderMode.mode === "smart-default"

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、效果图/全景图美化、风格、参考图状态与后台任务批次元数据
- * [OUTPUT]: 对外提供单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含效果图/全景图美化的分功能加载文案
+ * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、效果图氛围转换/美化及全景图美化、风格、参考图状态与后台任务批次元数据
+ * [OUTPUT]: 对外提供单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含效果图氛围转换/美化及全景图美化的分功能加载文案
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,6 +27,7 @@ export function generationItemsForSelection(models, generationCount = 1) {
 export function generationLoadingCopy({
   designPromptRequest,
   emptyRoomRequest,
+  effectBeautificationRequest,
   effectEnhancementRequest,
   forcePromptRegeneration,
   generationCount = 1,
@@ -38,7 +39,10 @@ export function generationLoadingCopy({
   styleReferenceCount,
 }) {
   if (effectEnhancementRequest) {
-    return "正在按时段与天气规则美化效果图…";
+    return "正在按时段与天气规则转换效果图氛围…";
+  }
+  if (effectBeautificationRequest) {
+    return "正在按所选强度与色调美化效果图…";
   }
   if (panoramaEnhancementRequest) {
     return "正在按全景连续性规则美化全景图…";

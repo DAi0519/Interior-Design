@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生图工作台 document 与稳定 DOM id/data 属性
- * [OUTPUT]: 对外提供 createAppElements，集中解析主编排器所需的功能、超分/扩图、模型、图片、Prompt、参数与结果元素
+ * [OUTPUT]: 对外提供 createAppElements，集中解析主编排器所需的功能、美化强度/色调、超分/扩图、模型、图片、Prompt、参数与结果元素
  * [POS]: public 的生图页 DOM 查询边界，避免业务编排器重复持有选择器细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ export function createAppElements(root = document) {
     emptyRoomTypeSection: byId("emptyRoomTypeSection"),
     emptySize: byId("emptySize"),
     effectEnhancementSection: byId("effectEnhancementSection"),
+    effectBeautificationSection: byId("effectBeautificationSection"),
     effectTimeSelect: byId("effectTimeSelect"),
     effectWeatherSelect: byId("effectWeatherSelect"),
     exactSize: byId("exactSize"),

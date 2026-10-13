@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图/全景图两套独立 Prompt 解析器与可注入工作流边界
- * [OUTPUT]: 对外提供效果图环境模块、全景纯文本/开放 MAIN JSON 路由、Seedream 5.0 Pro 全景 4K 选项联动、Flux 普通工作流请求、受控请求字段、单图、原图比例、脱敏响应与归档元数据回归保障
- * [POS]: test 的效果图/全景图美化独立资产与工作流专项测试，所有外部 API 与飞书同步均使用内存替身
+ * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图氛围转换/全景图两套独立 Prompt 解析器与可注入工作流边界
+ * [OUTPUT]: 对外提供氛围转换展示名与旧编码兼容、环境模块、全景开放 MAIN JSON/指定冻结版本、Seedream 全景 4K、普通 Flux 工作流、受控单图请求和脱敏归档回归保障
+ * [POS]: test 的效果图氛围转换/全景图美化独立资产与工作流专项测试，所有外部 API 与飞书同步均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -19,6 +19,7 @@ import {
   parseEffectEnhancementPrompt,
   parsePanoramaEnhancementPrompt,
   publicEffectEnhancementPromptConfig,
+  publicPanoramaEnhancementPromptConfig,
 } from "../src/effect-render-enhancement-prompt.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "../src/effect-render-enhancement-workflow.mjs";
 
@@ -69,14 +70,14 @@ test("全景图美化默认配置指向独立飞书表", () => {
   assert.equal(PANORAMA_ENHANCEMENT_PROMPT_CONFIG.tableId, "tblNVM20GiWeVEiT");
 });
 
-test("工作台提供效果图美化与完整天气时段选项", async () => {
+test("工作台提供效果图氛围转换与完整天气时段选项", async () => {
   const [html, app] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
   ]);
-  assert.match(html, /data-feature-mode="effectEnhancement"[^>]*>[\s\S]*?效果图美化/);
+  assert.match(html, /data-feature-mode="effectEnhancement"[^>]*>[\s\S]*?效果图氛围转换/);
   assert.match(html, /id="effectPromptAvailability"[^>]*>读取中/);
-  assert.match(html, /id="refreshEffectPromptButton"[\s\S]*?刷新效果图美化 Prompt 版本/);
+  assert.match(html, /id="refreshEffectPromptButton"[\s\S]*?刷新效果图氛围转换 Prompt 版本/);
   assert.match(html, /id="effectPromptNote"/);
   assert.match(html, /id="effectTimeSelect"[\s\S]*?value="preserve"[\s\S]*?value="daytime"[\s\S]*?value="dusk"[\s\S]*?value="night"/);
   assert.match(html, /id="effectWeatherSelect"[\s\S]*?value="preserve"[\s\S]*?value="clear"[\s\S]*?value="overcast"[\s\S]*?value="rainy"[\s\S]*?value="foggy"/);
@@ -98,7 +99,7 @@ test("工作台提供独立全景图美化入口且不暴露环境覆盖控件",
   assert.match(app, /configureSizeControls\(\{ preserveResolution: true, ratioMode: "manual" \}\)/);
 });
 
-test("效果图美化只回显实际生效的最高已上架版本且不泄露正文", async () => {
+test("效果图氛围转换只回显最高已上架版本并投影新名称，旧表记录不需改写", async () => {
   const fields = ["Prompt 名称", "Prompt 编码", "版本", "上架状态", "Prompt 正文", "变更说明"];
   const config = await publicEffectEnhancementPromptConfig({
     config: { baseToken: "base", cliPath: "lark-cli", tableId: "table" },
@@ -117,19 +118,19 @@ test("效果图美化只回显实际生效的最高已上架版本且不泄露�
   assert.deepEqual(config, {
     available: true,
     code: "effect-render-enhancement",
-    name: "效果图美化完整模块 Prompt",
+    name: "效果图氛围转换 Prompt",
     published: true,
     version: 1,
   });
   assert.equal(JSON.stringify(config).includes("BASE BODY"), false);
   assert.deepEqual(effectEnhancementPromptStatus(config), {
     availability: "Prompt v1 · 已上架",
-    note: "当前使用「效果图美化完整模块 Prompt」v1（已上架）；环境效果可单选或组合，组合时时段优先。",
+    note: "当前使用「效果图氛围转换 Prompt」v1（已上架）；环境效果可单选或组合，组合时时段优先。",
     ready: true,
   });
 });
 
-test("效果图美化 Prompt 不可用时给出明确恢复信息", async () => {
+test("效果图氛围转换 Prompt 不可用时给出明确恢复信息", async () => {
   const config = await publicEffectEnhancementPromptConfig({
     config: { baseToken: "base", cliPath: "lark-cli", tableId: "table" },
     run: async () => ({ data: { data: [], fields: [], has_more: false }, ok: true }),
@@ -141,7 +142,36 @@ test("效果图美化 Prompt 不可用时给出明确恢复信息", async () => 
   assert.equal(status.ready, false);
 });
 
-test("效果图美化输入只提交受控选项与单图，不提交页面 Prompt", () => {
+test("全景可用性目录只读取独立表并返回脱敏的最高上架版本", async () => {
+  const fields = ["Prompt 名称", "Prompt 编码", "版本", "上架状态", "Prompt 正文", "变更说明"];
+  const config = await publicPanoramaEnhancementPromptConfig({
+    run: async (_config, args) => {
+      assert.equal(args[args.indexOf("--table-id") + 1], PANORAMA_ENHANCEMENT_PROMPT_CONFIG.tableId);
+      return { ok: true, data: { fields, data: [
+        ["独立全景 Prompt", "panorama-render-enhancement", 4, ["下架"], panoramaSourcePrompt, "草稿"],
+        ["独立全景 Prompt", "panorama-render-enhancement", 3, ["上架"], panoramaSourcePrompt, "已发布"],
+        ["其他功能", "effect-render-enhancement", 9, ["上架"], sourcePrompt, "其他功能"],
+      ], has_more: false } };
+    },
+  });
+  assert.deepEqual(config, { available: true, code: "panorama-render-enhancement",
+    name: "独立全景 Prompt", published: true, version: 3 });
+  assert.doesNotMatch(JSON.stringify(config), /same-condition|MAIN|Prompt 正文/);
+  let reads = 0;
+  const unavailable = await publicPanoramaEnhancementPromptConfig({ run: async () => {
+    reads += 1;
+    return { ok: true, data: { fields, data: [
+      ["氛围转换", "effect-render-enhancement", 9, ["上架"], sourcePrompt, "不许回退"],
+    ], has_more: false } };
+  } });
+  assert.equal(reads, 1);
+  assert.equal(unavailable.available, false);
+  assert.equal(unavailable.version, null);
+  assert.equal(unavailable.code, "panorama-render-enhancement");
+  assert.match(unavailable.reason, /全景图美化.*没有 panorama-render-enhancement/);
+});
+
+test("效果图氛围转换输入只提交受控选项与单图，不提交页面 Prompt", () => {
   const image = { dataUrl: onePixelPng, name: "render.png", size: 68, type: "image/png" };
   const input = buildGenerationInput({
     effectTime: "night",
@@ -313,7 +343,7 @@ test("JSON 模块缺失、错型或乱序时拒绝生成", () => {
   );
 });
 
-test("美化工作流使用单图、最新上架 Prompt 与天气时段元数据", async () => {
+test("氛围转换工作流使用单图、最新上架 Prompt 与天气时段元数据", async () => {
   let generatedRequest;
   let syncedInput;
   const result = await executeEffectRenderEnhancementWorkflow({
@@ -347,7 +377,7 @@ test("美化工作流使用单图、最新上架 Prompt 与天气时段元数据
     },
     loadEffectPrompt: async () => ({
       code: "effect-render-enhancement",
-      name: "效果图美化完整模块 Prompt",
+      name: "效果图氛围转换 Prompt",
       prompt: sourcePrompt,
       published: true,
       version: 1,
@@ -368,7 +398,7 @@ test("美化工作流使用单图、最新上架 Prompt 与天气时段元数据
   assert.equal(syncedInput.workflow.promptVersion, 1);
   assert.deepEqual(result.prompt, {
     code: "effect-render-enhancement",
-    name: "效果图美化完整模块 Prompt",
+    name: "效果图氛围转换 Prompt",
     published: true,
     version: 1,
   });
@@ -397,6 +427,7 @@ test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
   let syncedInput;
   await executeEffectRenderEnhancementWorkflow({
     featureMode: "panoramaEnhancement",
+    panoramaPromptVersion: 7,
     modelKey: "aiTextureEnhancement",
     outputFormat: "png",
     ratio: "2:1",
@@ -425,13 +456,11 @@ test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
     loadEffectPrompt: async () => {
       throw new Error("全景链路不应读取效果图 Prompt");
     },
-    loadPanoramaPrompt: async () => ({
-      code: "panorama-render-enhancement",
-      name: "全景图美化完整 Prompt",
-      prompt: panoramaSourcePrompt,
-      published: true,
-      version: 1,
-    }),
+    loadPanoramaPrompt: async (options) => {
+      assert.deepEqual(options, { version: 7 });
+      return { code: "panorama-render-enhancement", name: "全景图美化完整 Prompt",
+        prompt: panoramaSourcePrompt, published: true, version: 7 };
+    },
     scheduleSync(value) {
       syncedInput = value;
       return { generationId: "generation-panorama-1", status: "pending" };
@@ -451,5 +480,6 @@ test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
   assert.equal(syncedInput.workflow.effectWeather, "preserve");
   assert.equal(syncedInput.workflow.feature, "panorama-render-enhancement");
   assert.equal(syncedInput.workflow.promptCode, "panorama-render-enhancement");
+  assert.equal(syncedInput.workflow.promptVersion, 7);
   assert.equal("panoramaCircularSampling" in syncedInput.workflow, false);
 });

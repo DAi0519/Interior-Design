@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部可写字段类型/单选值/附件 ID、真实产物尺寸替代请求尺寸、含 Seedream 5.0 Pro 的前后台模型目录同步、含全景图美化的产品链路 Schema/空间类型/其他空间类型/家具选择/设计方式/Agent/风格、模型与 Prompt融合字段映射和 CLI 返回体兼容性回归保障
+ * [OUTPUT]: 对外提供全部字段类型/单选值/附件 ID 的 409 阻断、真实尺寸、模型目录、美化/氛围功能 Schema、设计字段及完整工作流回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,7 +35,7 @@ function validSyncSchemaFields() {
     selectField("Prompt融合", publicAgentModelCatalog()
       .filter((model) => model.imageInput)
       .map((model) => model.label)),
-    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图美化", "全景图美化"]),
+    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化"]),
     selectField("状态", ["成功", "生成失败", "同步失败"]),
     selectField("生图模型", publicModelCatalog().map((model) => model.label)),
     selectField("空间类型", EMPTY_ROOM_TYPES),
@@ -80,6 +80,7 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
   const fields = validSyncSchemaFields();
   const schema = assertLarkSyncSchema({ data: { fields } });
   assert.ok(schema.featureOptions.includes("效果图美化"));
+  assert.ok(schema.featureOptions.includes("效果图氛围转换"));
   assert.ok(schema.featureOptions.includes("全景图美化"));
   assert.ok(schema.modelOptions.includes("Seedream 5.0 Pro"));
 
@@ -89,7 +90,7 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
   );
   assert.throws(
     () => assertLarkSyncSchema({ data: { fields } }),
-    /“功能”字段缺少选项：全景图美化/,
+    (error) => error.statusCode === 409 && /“功能”字段缺少选项：全景图美化/.test(error.message),
   );
 });
 
@@ -101,7 +102,7 @@ test("后台新增模型但飞书单选未同步时在生成前阻断", () => {
   );
   assert.throws(
     () => assertLarkSyncSchema({ data: { fields } }),
-    /“生图模型”字段缺少选项：Seedream 5\.0 Pro/,
+    (error) => error.statusCode === 409 && /“生图模型”字段缺少选项：Seedream 5\.0 Pro/.test(error.message),
   );
 });
 
@@ -111,7 +112,7 @@ test("生成记录字段类型或附件 ID 漂移时一次汇总阻断", () => {
   fields.splice(fields.findIndex((field) => field.name === "结果图"), 1);
   assert.throws(
     () => assertLarkSyncSchema({ data: { fields } }),
-    /“耗时（秒）”字段应为 number[\s\S]*“结果图”附件字段 ID .* 不存在/,
+    (error) => error.statusCode === 409 && /“耗时（秒）”字段应为 number[\s\S]*“结果图”附件字段 ID .* 不存在/.test(error.message),
   );
 });
 
@@ -253,7 +254,7 @@ test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
     ["空房设计", "儿童房", "平台风格", "empty-room-fusion", 1, "现代简约 · v3"],
   );
   assert.equal(refined["功能"], "精模渲染");
-  assert.equal(enhancement["功能"], "效果图美化");
+  assert.equal(enhancement["功能"], "效果图氛围转换");
   assert.equal(panoramaEnhancement["功能"], "全景图美化");
   assert.deepEqual(
     JSON.parse(enhancement["生成参数"]).workflow,

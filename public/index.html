@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、image-outpaint.js/css 的 ComfyUI/Sunburst 双引擎扩图画布与边界控件、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、内嵌 Smiley Sans 及 app.js 浏览器控制器
-  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI创作分组且不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/AI扩图/自由生图/风格反推入口、四边像素与居中比例扩展画布预览、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
+  [INPUT]: 依赖 effect-beautification-controls.js/css 的美化语义骨架/单选/说明与氛围状态换行，依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、image-outpaint.js/css 的 ComfyUI/Sunburst 双引擎扩图画布与边界控件、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、内嵌 Smiley Sans 及 app.js 浏览器控制器
+  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI创作分组且不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化低/高强度与自然/暖/冷调单选控件、效果图氛围转换当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/图片超分/AI扩图/自由生图/风格反推入口、四边像素与居中比例扩展画布预览、默认攸行 3B 的图片超分三工作流与 4K/6K/8K 保持比例选项、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同构紧凑按钮承载的智能默认/平台风格及最多四个出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="/vendor/pannellum.css" />
     <link rel="stylesheet" href="/panorama-viewer.css?v=2" />
     <link rel="stylesheet" href="/theme.css?v=32" />
+    <link rel="stylesheet" href="/effect-beautification.css?v=1" />
     <link rel="stylesheet" href="/theme-interactions.css?v=1" />
     <link rel="stylesheet" href="/generation-actions.css?v=16" />
     <link rel="stylesheet" href="/custom-select.css?v=9" />
@@ -75,7 +76,8 @@
 
             <section class="feature-directory-group" aria-labelledby="aiRenderTitle">
               <h2 id="aiRenderTitle">AI渲染</h2>
-              <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图美化</button>
+              <button class="feature-mode-option" data-feature-mode="effectBeautification" type="button" role="radio" aria-checked="false">效果图美化</button>
+              <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图氛围转换</button>
               <button class="feature-mode-option" data-feature-mode="panoramaEnhancement" type="button" role="radio" aria-checked="false">全景图美化</button>
               <button class="feature-mode-option" data-feature-mode="imageUpscale" type="button" role="radio" aria-checked="false">图片超分</button>
               <button class="feature-mode-option" data-feature-mode="imageOutpaint" type="button" role="radio" aria-checked="false">AI扩图</button>
@@ -89,19 +91,13 @@
           </nav>
 
           <div class="control-panel-scroll">
+          <section id="effectBeautificationSection" class="panel-section generation-control hidden" aria-labelledby="effectBeautificationTitle"></section>
           <section id="effectEnhancementSection" class="panel-section generation-control hidden" aria-labelledby="effectEnhancementTitle">
             <div class="section-heading">
               <h2 id="effectEnhancementTitle">环境效果 <span class="optional">可选</span></h2>
               <div class="section-heading-actions">
                 <span id="effectPromptAvailability" class="micro-status" aria-live="polite">读取中</span>
-                <button
-                  id="refreshEffectPromptButton"
-                  class="config-refresh-button"
-                  data-config-refresh
-                  type="button"
-                  aria-label="刷新效果图美化 Prompt 版本"
-                  title="立即读取飞书中当前上架的效果图美化 Prompt 版本"
-                >
+                <button id="refreshEffectPromptButton" class="config-refresh-button" data-config-refresh type="button" aria-label="刷新效果图氛围转换 Prompt 版本" title="立即读取飞书中当前上架的效果图氛围转换 Prompt 版本" >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 7v5h-5" />
                     <path d="M4 17v-5h5" />
@@ -115,7 +111,7 @@
             <div class="field-grid">
               <label class="field">
                 <span>时段</span>
-                <select id="effectTimeSelect" aria-label="效果图美化时段">
+                <select id="effectTimeSelect" aria-label="效果图氛围转换时段">
                   <option value="preserve">保持原时段</option>
                   <option value="daytime">白天</option>
                   <option value="dusk">黄昏</option>
@@ -124,7 +120,7 @@
               </label>
               <label class="field">
                 <span>天气</span>
-                <select id="effectWeatherSelect" aria-label="效果图美化天气">
+                <select id="effectWeatherSelect" aria-label="效果图氛围转换天气">
                   <option value="preserve">保持原天气</option>
                   <option value="clear">晴天</option>
                   <option value="overcast">阴天</option>
@@ -249,14 +245,7 @@
               <h2 id="styleTitle">风格选择</h2>
               <div class="section-heading-actions">
                 <span id="styleAvailability" class="micro-status">读取中</span>
-                <button
-                  id="refreshStyleButton"
-                  class="config-refresh-button"
-                  data-config-refresh
-                  type="button"
-                  aria-label="刷新白模渲染配置"
-                  title="立即读取最新平台风格与融合 Agent"
-                >
+                <button id="refreshStyleButton" class="config-refresh-button" data-config-refresh type="button" aria-label="刷新白模渲染配置" title="立即读取最新平台风格与融合 Agent" >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 7v5h-5" />
                     <path d="M4 17v-5h5" />

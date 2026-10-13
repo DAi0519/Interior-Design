@@ -1,20 +1,17 @@
 /**
- * [INPUT]: 依赖 localStorage 兼容存储与 Beta跑图五功能、模型和轻量表单配置
+ * [INPUT]: 依赖 localStorage 兼容存储、beta-model-rules 七功能目录、effect-beautification-controls 的强度色调归一化与模型和轻量表单配置
  * [OUTPUT]: 对外提供默认 Flux2 Klein 的 Beta 页面配置归一化、安全读取与持久化
  * [POS]: public 的 Beta跑图持久配置边界，只保存可重建配置与样本集引用，不保存图片、生成结果或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
+import { BETA_FEATURE_COPY } from "./beta-model-rules.js";
+
 export const BETA_PAGE_STATE_STORAGE_KEY = "canvas-lab:beta-page-state:v1";
 export const DEFAULT_BETA_MODEL_KEY = "aiTextureEnhancement";
 
-const FEATURE_MODES = new Set([
-  "effectEnhancement",
-  "emptyRoom",
-  "free",
-  "refinedModel",
-  "whiteModel",
-]);
+const FEATURE_MODES = new Set(Object.keys(BETA_FEATURE_COPY));
 
 const CONTROL_KEYS = Object.freeze([
   "commonPrompt",
@@ -52,6 +49,12 @@ export function normalizeBetaPageState(input = {}) {
     key,
     cleanString(input.controls?.[key]),
   ]));
+  const beautification = normalizeEffectBeautification({
+    intensity: input.controls?.effectBeautificationIntensity,
+    tone: input.controls?.effectBeautificationTone,
+  });
+  controls.effectBeautificationIntensity = beautification.intensity;
+  controls.effectBeautificationTone = beautification.tone;
   return {
     controls,
     featureMode,

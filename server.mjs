@@ -1,10 +1,9 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测、固定版本 Inter 与 Pannellum 浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/Prompt/空房家具/图片工具目录、ComfyUI/Sunburst 扩图客户端与共享引擎准入、双 Provider、日常生成、独立 Beta跑图与 Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台（含纯 ComfyUI 图片超分、默认 ComfyUI/可选 Sunburst 双引擎扩图与全景结果 360°预览）、独立 Beta跑图和模型评测页面/API，以及版本更新检测、连接、配置、飞书同步合同/Beta 提示词模型权限/扩图所选引擎前置准入、生成、下载、批量新 Base 最终 Prompt 与完整生成信息归档、Benchmark 执行与评分入口
+ * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测、固定版本浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/独立效果图美化 Prompt/空房家具/图片工具目录、扩图客户端与引擎准入、双 Provider、日常生成及 Beta/Benchmark 工作流
+ * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新检测、连接、配置、飞书合同与模型权限准入、生成和下载；Beta 逐张上传样本、按样本 ID 入队并提供轻量预览，JSON 单次请求保留 30MB 保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-
 import { createReadStream, existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
@@ -12,6 +11,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import packageInfo from "./package.json" with { type: "json" };
 import { createAppUpdateService } from "./src/app-update.mjs";
+import { createAppInstaller } from "./src/app-installer.mjs";
 import {
   checkAgentModelAvailability,
   publicAgentModelCatalog,
@@ -27,7 +27,7 @@ import {
   createBetaApiHandler,
   createBetaRunnerService,
 } from "./src/beta-runner.mjs";
-import { publicEffectEnhancementPromptConfig } from "./src/effect-render-enhancement-prompt.mjs";
+import { readGenerationConfig } from "./src/generation-config.mjs";
 import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
@@ -61,10 +61,6 @@ import {
   EMPTY_ROOM_PROMPT_CONFIG,
   STYLE_DNA_REVERSE_PROMPT_CONFIG,
   getPublishedPromptAgent,
-  listPublishedPromptAgentVersions,
-  publicEmptyRoomConfig,
-  publicPromptAgentCatalog,
-  publicSmartDefaultConfig,
 } from "./src/prompt-agent.mjs";
 import { publicRefinedModelPromptConfig } from "./src/refined-model-prompt.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
@@ -77,6 +73,7 @@ import {
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const appUpdates = createAppUpdateService({ currentVersion: packageInfo.version });
+const appInstaller = createAppInstaller({ installBaseDir: process.env.INSTALL_BASE_DIR || null });
 const ROOT_DIR = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(
@@ -154,10 +151,10 @@ function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     ...SECURITY_HEADERS,
     "Content-Type": "application/json; charset=utf-8",
+    ...(statusCode === 413 ? { Connection: "close" } : {}),
   });
   response.end(JSON.stringify(payload));
 }
-
 function sendDownload(response, download) {
   response.writeHead(200, {
     ...SECURITY_HEADERS,
@@ -166,6 +163,15 @@ function sendDownload(response, download) {
     "Content-Type": download.contentType,
   });
   response.end(download.bytes);
+}
+function sendImage(response, { bytes, contentType }) {
+  response.writeHead(200, {
+    ...SECURITY_HEADERS,
+    "Cache-Control": "no-store",
+    "Content-Length": bytes.length,
+    "Content-Type": contentType,
+  });
+  response.end(bytes);
 }
 
 async function readJson(request) {
@@ -192,7 +198,6 @@ async function readJson(request) {
     throw error;
   }
 }
-
 function requireApiKey() {
   if (!sessionApiKey) {
     const error = new Error("请先连接 API Key");
@@ -201,13 +206,11 @@ function requireApiKey() {
   }
   return sessionApiKey;
 }
-
 function imageClientForModel(modelKey, { oneApiClient = null } = {}) {
   return imageProviderForModel(modelKey) === "comfyui"
     ? comfyUiClient
     : oneApiClient || createOneApiClient(requireApiKey());
 }
-
 function clearSessionModelCatalog() {
   sessionModelCatalog = null;
   sessionModelCatalogRequest = null;
@@ -340,6 +343,7 @@ const handleBetaApi = createBetaApiHandler({
     await getSessionModelCatalog(createOneApiClient(requireApiKey())),
   ),
   readJson,
+  sendImage,
   sendJson,
   service: betaRunner,
 });
@@ -379,6 +383,48 @@ async function handleApi(request, response, pathname) {
     const force = new URL(request.url, `http://${HOST}`).searchParams.get("force") === "1";
     return sendJson(response, 200, await appUpdates.check({ force }));
   }
+
+  if (request.method === "POST" && pathname === "/api/app-install") {
+    const body = await readJson(request);
+    const { downloadUrl, version } = body;
+
+    if (!downloadUrl || typeof downloadUrl !== "string") {
+      return sendJson(response, 400, { error: "缺少下载地址" });
+    }
+
+    if (appInstaller.isInstalling()) {
+      return sendJson(response, 409, { error: "已有安装任务正在进行中" });
+    }
+
+    response.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "Cache-Control": "no-cache",
+    });
+
+    try {
+      const result = await appInstaller.install({
+        downloadUrl,
+        version,
+        onProgress: (progress) => {
+          response.write(JSON.stringify(progress) + "\n");
+        },
+      });
+
+      response.write(JSON.stringify({ stage: "complete", ...result }) + "\n");
+      response.end();
+    } catch (error) {
+      const errorData = {
+        stage: "error",
+        error: error.message,
+        code: error.code || "UNKNOWN_ERROR",
+      };
+      response.write(JSON.stringify(errorData) + "\n");
+      response.end();
+    }
+    return true;
+  }
+
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;
 
@@ -572,61 +618,11 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/styles") {
-    const [
-      styles,
-      promptAgents,
-      refinedPrompt,
-      effectEnhancementPrompt,
-      smartDefault,
-      emptyRoom,
-    ] = await Promise.all([
-      listPublicStyles(),
-      listPublishedPromptAgentVersions("white-model-fusion"),
-      publicRefinedModelPromptConfig(),
-      publicEffectEnhancementPromptConfig(),
-      publicSmartDefaultConfig(),
-      publicEmptyRoomConfig(),
-    ]);
-    return sendJson(response, 200, {
-      emptyRoom,
-      effectEnhancementPrompt,
-      promptAgent: publicPromptAgentCatalog(promptAgents),
-      refinedPrompt,
-      smartDefault,
-      styles,
-    });
+    return sendJson(response, 200, await readGenerationConfig());
   }
 
   if (request.method === "POST" && pathname === "/api/config/refresh") {
-    const [
-      styles,
-      promptAgents,
-      refinedPrompt,
-      effectEnhancementPrompt,
-      smartDefault,
-      emptyRoom,
-    ] = await Promise.all([
-      listPublicStyles({ forceRefresh: true }),
-      listPublishedPromptAgentVersions("white-model-fusion", {
-        forceRefresh: true,
-      }),
-      publicRefinedModelPromptConfig({ forceRefresh: true }),
-      publicEffectEnhancementPromptConfig({ forceRefresh: true }),
-      publicSmartDefaultConfig({ forceRefresh: true }),
-      publicEmptyRoomConfig({ forceRefresh: true }),
-      getPublishedPromptAgent("style-dna-reverse", {
-        config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
-        forceRefresh: true,
-      }),
-    ]);
-    return sendJson(response, 200, {
-      emptyRoom,
-      effectEnhancementPrompt,
-      promptAgent: publicPromptAgentCatalog(promptAgents),
-      refinedPrompt,
-      smartDefault,
-      styles,
-    });
+    return sendJson(response, 200, await readGenerationConfig({ forceRefresh: true }));
   }
 
   if (request.method === "GET" && pathname.startsWith("/api/sync-jobs/")) {
@@ -728,6 +724,7 @@ async function handleApi(request, response, pathname) {
 
   if (request.method === "POST" && pathname === "/api/generate") {
     const input = await readJson(request);
+    await verifyLarkSyncSchema();
     return sendJson(response, 200, await generationService.executeFree(input));
   }
 
@@ -736,6 +733,7 @@ async function handleApi(request, response, pathname) {
     pathname === "/api/refined-model-render"
   ) {
     const input = await readJson(request);
+    await verifyLarkSyncSchema();
     return sendJson(response, 200, await generationService.executeRefined(input));
   }
 
@@ -744,6 +742,7 @@ async function handleApi(request, response, pathname) {
     pathname === "/api/white-model-render"
   ) {
     const input = await readJson(request);
+    await verifyLarkSyncSchema();
     return sendJson(response, 200, await generationService.executeDesign(input));
   }
 

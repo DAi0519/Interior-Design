@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖版本化 Prompt 读取边界，以及飞书“效果图美化 Prompt”与“全景图美化 Prompt”两张独立版本表
- * [OUTPUT]: 对外提供效果图模块 Schema、允许纯文本或开放 JSON 容器的单一全景 Prompt、受控环境拼接及两类当前上架 Prompt 读取
- * [POS]: src 的效果图/全景图美化 Prompt 资产边界，两张飞书表分别是真源且浏览器不接触正文
+ * [INPUT]: 依赖版本化 Prompt 读取边界，以及飞书“效果图氛围转换 Prompt”与“全景图美化 Prompt”两张独立版本表，保留原效果图表 ID 和编码
+ * [OUTPUT]: 对外提供氛围转换模块 Schema、允许纯文本或开放 JSON 容器的全景 Prompt、受控环境拼接、指定/当前上架 Prompt 读取及两功能脱敏可用性目录
+ * [POS]: src 的效果图氛围转换/全景图美化 Prompt 资产边界，两张飞书表分别是真源且浏览器不接触正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -60,14 +60,14 @@ function promptError(message) {
 function normalizeSelection(value, allowed, label) {
   const normalized = String(value || "preserve").trim();
   if (!allowed.includes(normalized)) {
-    const error = new Error(`效果图美化${label}选项不合法`);
+    const error = new Error(`效果图氛围转换${label}选项不合法`);
     error.statusCode = 400;
     throw error;
   }
   return normalized;
 }
 
-function assertExactObject(value, keys, label = "效果图美化") {
+function assertExactObject(value, keys, label = "效果图氛围转换") {
   if (
     !value
     || typeof value !== "object"
@@ -79,7 +79,7 @@ function assertExactObject(value, keys, label = "效果图美化") {
   }
 }
 
-function requireText(value, label = "效果图美化") {
+function requireText(value, label = "效果图氛围转换") {
   if (typeof value !== "string" || !value.trim() || value !== value.trim()) {
     throw promptError(`飞书${label} Prompt JSON 结构错误`);
   }
@@ -91,7 +91,7 @@ export function parseEffectEnhancementPrompt(source) {
   try {
     prompt = JSON.parse(String(source || ""));
   } catch {
-    throw promptError("飞书效果图美化 Prompt JSON 结构错误");
+    throw promptError("飞书效果图氛围转换 Prompt JSON 结构错误");
   }
   assertExactObject(prompt, ROOT_KEYS);
   assertExactObject(prompt.BASE, BASE_KEYS);
@@ -168,15 +168,16 @@ export function composePanoramaEnhancementPrompt(source) {
 }
 
 export async function getEffectEnhancementPrompt(options = {}) {
-  return getRefinedModelPrompt(
+  const prompt = await getRefinedModelPrompt(
     DEFAULT_EFFECT_ENHANCEMENT_PROMPT_CODE,
     {
       ...options,
       allowDraft: false,
       config: options.config || EFFECT_ENHANCEMENT_PROMPT_CONFIG,
-      label: "效果图美化",
+      label: "效果图氛围转换",
     },
   );
+  return { ...prompt, name: "效果图氛围转换 Prompt" };
 }
 
 export async function getPanoramaEnhancementPrompt(options = {}) {
@@ -191,9 +192,9 @@ export async function getPanoramaEnhancementPrompt(options = {}) {
   );
 }
 
-export async function publicEffectEnhancementPromptConfig(options = {}) {
+async function publicEnhancementPromptConfig(loadPrompt, { code, name }, options) {
   try {
-    const prompt = await getEffectEnhancementPrompt(options);
+    const prompt = await loadPrompt(options);
     return {
       available: true,
       code: prompt.code,
@@ -204,11 +205,23 @@ export async function publicEffectEnhancementPromptConfig(options = {}) {
   } catch (error) {
     return {
       available: false,
-      code: DEFAULT_EFFECT_ENHANCEMENT_PROMPT_CODE,
-      name: "效果图美化 Prompt",
+      code,
+      name,
       published: false,
       reason: error.message,
       version: null,
     };
   }
+}
+
+export function publicEffectEnhancementPromptConfig(options = {}) {
+  return publicEnhancementPromptConfig(getEffectEnhancementPrompt, {
+    code: DEFAULT_EFFECT_ENHANCEMENT_PROMPT_CODE, name: "效果图氛围转换 Prompt",
+  }, options);
+}
+
+export function publicPanoramaEnhancementPromptConfig(options = {}) {
+  return publicEnhancementPromptConfig(getPanoramaEnhancementPrompt, {
+    code: DEFAULT_PANORAMA_ENHANCEMENT_PROMPT_CODE, name: "全景图美化 Prompt",
+  }, options);
 }

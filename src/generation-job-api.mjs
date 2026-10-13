@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖日常生成任务注册表、统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
+ * [INPUT]: 依赖日常生成任务注册表、含效果图氛围转换/美化的统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
  * [OUTPUT]: 对外提供任务入队和查询，在需归档生图前阻断 Schema 漂移，独立图片工具按所选引擎准入并跳过归档，区分 ComfyUI 与 API 编辑阶段
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -10,6 +10,7 @@ import { imageOutpaintEngineKey, publicImageOutpaintConfig } from "./image-outpa
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
+  "effectBeautification",
   "emptyRoom",
   "free",
   "imageUpscale",

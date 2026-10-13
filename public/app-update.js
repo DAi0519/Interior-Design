@@ -149,7 +149,12 @@ export function createAppUpdateController({
   const notesSection = makeElement("section", "app-update-notes");
   const notes = makeElement("p", "app-update-release-notes");
   notesSection.append(makeElement("h3", "", "更新说明"), notes);
-  const instructions = makeElement("p", "app-update-instructions", "下载后解压到新目录，保留原目录中的 .env.local；等待任务完成后再切换。");
+  const instructions = makeElement("p", "app-update-instructions", "点击「自动安装」将下载并解压到新目录，保留原目录中的 .env.local；等待任务完成后再切换。");
+  const progressBar = makeElement("div", "app-update-progress");
+  const progressFill = makeElement("div", "app-update-progress-fill");
+  const progressText = makeElement("p", "app-update-progress-text");
+  progressBar.append(progressFill);
+  progressBar.hidden = true;
   const actions = makeElement("footer", "app-update-actions");
   const closeButton = makeElement("button", "app-update-action", "关闭");
   closeButton.type = "button";
@@ -158,17 +163,123 @@ export function createAppUpdateController({
   const downloadLink = makeElement("a", "app-update-action app-update-download", "下载更新");
   downloadLink.target = "_blank";
   downloadLink.rel = "noopener noreferrer";
-  actions.append(closeButton, checkButton, downloadLink);
-  dialog.append(status, versionLine, message, notesSection, instructions, actions);
+  const installButton = makeElement("button", "app-update-action app-update-install", "自动安装");
+  installButton.type = "button";
+  actions.append(closeButton, checkButton, downloadLink, installButton);
+  dialog.append(status, versionLine, message, notesSection, instructions, progressBar, progressText, actions);
   pageDocument.body.append(dialog);
   let restoreFocus = trigger;
   let lastAutomaticCheck = 0;
   let destroyed = false;
   let backdropPress = false;
+  let isInstalling = false;
+  let currentUpdateState = null;
+
+  async function startInstallation() {
+    if (!currentUpdateState || currentUpdateState.status !== "available" || isInstalling) return;
+
+    const confirmed = pageWindow.confirm(
+      `即将自动下载并安装 Canvas Lab v${currentUpdateState.latestVersion}。\n\n` +
+      "安装将在新目录完成，不会影响当前运行的版本。\n" +
+      "完成后请手动迁移 .env.local 配置文件。\n\n" +
+      "是否继续？"
+    );
+
+    if (!confirmed) return;
+
+    isInstalling = true;
+    installButton.disabled = true;
+    downloadLink.hidden = true;
+    checkButton.disabled = true;
+    closeButton.disabled = true;
+    progressBar.hidden = false;
+    progressText.hidden = false;
+    progressFill.style.transform = "translateX(-100%)";
+    progressText.textContent = "正在准备下载...";
+
+    try {
+      const response = await fetch("/api/app-install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          downloadUrl: currentUpdateState.downloadUrl,
+          version: currentUpdateState.latestVersion,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "安装请求失败");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const progress = JSON.parse(line);
+
+          if (progress.stage === "downloading") {
+            const percent = Math.round(progress.percent || 0);
+            const translateX = percent - 100;
+            progressFill.style.transform = `translateX(${translateX}%)`;
+            progressText.textContent = `正在下载... ${percent}%`;
+          } else if (progress.stage === "verifying") {
+            progressFill.style.transform = "translateX(0%)";
+            progressText.textContent = "正在验证文件完整性...";
+          } else if (progress.stage === "extracting") {
+            progressText.textContent = "正在解压安装包...";
+          } else if (progress.stage === "validating") {
+            progressText.textContent = "正在验证安装包...";
+          } else if (progress.stage === "installing") {
+            progressText.textContent = "正在完成安装...";
+          } else if (progress.stage === "complete") {
+            progressFill.style.transform = "translateX(0%)";
+            progressText.textContent = `安装完成！新版本已安装到：\n${progress.path}`;
+            status.textContent = "安装成功";
+            status.dataset.status = "success";
+            instructions.textContent = `请复制原目录的 .env.local 到新目录，完成当前任务后切换到新版本。`;
+            instructions.hidden = false;
+            pageWindow.alert(
+              `安装成功！\n\n` +
+              `新版本路径：${progress.path}\n\n` +
+              `请手动复制 .env.local 配置文件到新目录，\n` +
+              `完成当前任务后切换到新版本。`
+            );
+          } else if (progress.stage === "error") {
+            throw new Error(progress.error || "安装失败");
+          }
+        }
+      }
+    } catch (error) {
+      status.textContent = "安装失败";
+      status.dataset.status = "error";
+      progressText.textContent = `错误：${error.message}`;
+      message.textContent = error.message;
+      message.hidden = false;
+      pageWindow.alert(`安装失败：${error.message}`);
+    } finally {
+      isInstalling = false;
+      installButton.disabled = false;
+      checkButton.disabled = false;
+      closeButton.disabled = false;
+    }
+  }
+
   const checker = createAppUpdateChecker({
     request,
     onStateChange(state, options) {
       if (destroyed) return;
+      currentUpdateState = state;
       const view = getAppUpdateView(state, options);
       trigger.textContent = view.buttonLabel;
       trigger.title = view.buttonTitle;
@@ -187,6 +298,7 @@ export function createAppUpdateController({
       if (view.downloadUrl) downloadLink.href = view.downloadUrl;
       else downloadLink.removeAttribute("href");
       downloadLink.hidden = !view.downloadUrl;
+      installButton.hidden = !view.downloadUrl;
       checkButton.disabled = view.isChecking;
       checkButton.textContent = view.isChecking ? "检查中…" : "重新检查";
       dialog.setAttribute("aria-busy", String(view.isChecking));
@@ -222,6 +334,7 @@ export function createAppUpdateController({
   trigger.addEventListener("click", open);
   closeButton.addEventListener("click", close);
   checkButton.addEventListener("click", manualCheck);
+  installButton.addEventListener("click", startInstallation);
   dialog.addEventListener("close", restore);
   dialog.addEventListener("pointerdown", (event) => {
     backdropPress = event.isPrimary && event.button === 0 && isBackdrop(event);

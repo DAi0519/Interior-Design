@@ -1,13 +1,13 @@
 /**
  * [INPUT]: 依赖 workbench-utils 的字节格式化、Beta跑图上传槽 DOM 与调用方提供的图片状态/校验回调
- * [OUTPUT]: 对外提供同生图工作台语法的图片预览、删除、点击选择、多图拖放与单图原位替换交互
+ * [OUTPUT]: 对外提供本地 Blob/飞书轻量图片懒加载预览、可选删除、点击选择、多图拖放与单图原位替换交互
  * [POS]: public 的 Beta跑图上传呈现层，保持批量状态归 beta-app.js 管理，不复制图片读取和业务限制
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { formatBytes } from "./workbench-utils.js";
 
-function createImagePreview(image, onRemove, { replaceEnabled = false } = {}) {
+function createImagePreview(image, onRemove, { replaceEnabled = false, canRemove = () => true } = {}) {
   const item = document.createElement("article");
   const preview = document.createElement("img");
   const copy = document.createElement("div");
@@ -15,7 +15,8 @@ function createImagePreview(image, onRemove, { replaceEnabled = false } = {}) {
   const size = document.createElement("span");
   const remove = document.createElement("button");
   item.className = "reference-item";
-  preview.src = image.dataUrl;
+  preview.src = image.previewUrl || image.dataUrl;
+  preview.loading = "lazy";
   preview.alt = "";
   name.textContent = image.name;
   size.textContent = [
@@ -33,16 +34,17 @@ function createImagePreview(image, onRemove, { replaceEnabled = false } = {}) {
   remove.className = "reference-remove";
   remove.ariaLabel = `移除 ${image.name}`;
   remove.textContent = "×";
+  remove.disabled = !canRemove(image);
   remove.addEventListener("click", onRemove);
   item.append(preview, copy, remove);
   return item;
 }
 
-export function renderImagePreviews(list, images, { onRemove, replaceEnabled = false } = {}) {
+export function renderImagePreviews(list, images, { onRemove, replaceEnabled = false, canRemove } = {}) {
   list.classList.toggle("replace-enabled", replaceEnabled);
   if (!replaceEnabled) list.classList.remove("dragging");
   list.replaceChildren(...images.map((image, index) =>
-    createImagePreview(image, () => onRemove(index), { replaceEnabled })));
+    createImagePreview(image, () => onRemove(index), { replaceEnabled, canRemove })));
 }
 
 export function bindImageDrop({ canReplace = () => false, dropZone, input, list, onFiles }) {

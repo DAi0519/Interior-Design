@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供默认 Flux 且跨工作台/刷新恢复本机配置的独立配置页、飞书样本集选择/创建及回读确认状态、不设结果数量上限的批量执行、独立测试时间、同选项键帽近距阴影的 38px 中性保存与右侧飞书结果按钮、同工作台下拉/上传/START/RETRY、桌面根容器禁止焦点滚动、配置区约束绝对定位控件且无页面空滚动的配置/监控双栏、生成/飞书同步双进度与已归档结果缩略图的静态回归保障
+ * [OUTPUT]: 对外提供七功能可恢复配置、全景独立版本与 2:1 准入、飞书样本 ID 批次及共享参考资产传输行为、单图上传文案与同步进度、START/RETRY、双阶段监控及可访问布局的静态回归保障
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { packBatchAssets } from "../public/beta-assets.js";
 
-test("Beta跑图是独立第三工作台且只提供五个出图功能", async () => {
+test("Beta跑图是独立第三工作台且提供七个出图功能", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -29,7 +29,10 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(html, /data-feature-mode="whiteModel"/);
   assert.match(html, /data-feature-mode="emptyRoom"/);
   assert.match(html, /data-feature-mode="refinedModel"/);
-  assert.match(html, /data-feature-mode="effectEnhancement"/);
+  assert.match(html, /data-feature-mode="effectEnhancement"[^>]*>效果图氛围转换/);
+  assert.match(html, /data-feature-mode="effectBeautification"[^>]*>效果图美化/);
+  assert.match(html, /data-feature-mode="panoramaEnhancement"[^>]*>全景图美化/);
+  assert.equal((html.match(/data-feature-mode="/g) || []).length, 7);
   assert.match(html, /data-feature-mode="free"/);
   assert.doesNotMatch(html, /styleDnaReverse|风格反推/);
   assert.match(html, /id="sourceFilesInput"[^>]*multiple/);
@@ -46,7 +49,9 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=9/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=21/);
+  assert.match(html, /beta-app\.js\?v=24/);
+  assert.match(html, /单张 8MB · 逐张上传/);
+  assert.doesNotMatch(html, /合计 20MB/);
   assert.match(configuration, /configurationState = "saved"/);
   assert.match(html, /class="beta-config-scroll"/);
   assert.match(html, /id="sourceFilesDropZone" class="reference-drop-zone"/);
@@ -70,7 +75,10 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
   assert.match(assetSource, /referenceAssetKey/);
   assert.match(source, /import "\.\/custom-select\.js\?v=7"/);
-  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=5"/);
+  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=7"/);
+  assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
+  assert.match(source, /sampleId: currentCase\.caseId/);
+  assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
   assert.match(source, /import \{ renderBetaResults \} from "\.\/beta-results\.js\?v=1"/);
   assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=2"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
@@ -82,7 +90,7 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(configuration, /window\.addEventListener\("pagehide", save\)/);
   assert.match(configuration, /document\.visibilityState === "hidden"/);
   assert.match(source, /state\.sampleSetIds\[state\.featureMode\]/);
-  assert.match(source, /runnable\.find\(\(model\) => model\.key === DEFAULT_BETA_MODEL_KEY\)/);
+  assert.match(source, /selectable\.find\(\(model\) => model\.key === DEFAULT_BETA_MODEL_KEY\)/);
   assert.match(source, /bindImageDrop/);
   assert.match(source, /createBetaSampleLibrary/);
   assert.match(source, /runButtonLabel\.textContent = running \? "RUNNING…" : failed \? "RETRY" : "START"/);
@@ -101,10 +109,10 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(sampleLibrary, /onSelectionChange\(state\.featureMode, state\.activeSampleSetId\)/);
   assert.match(sampleLibrary, /setSyncStatus\("同步飞书中", "syncing"\)/);
   assert.match(sampleLibrary, /setSyncStatus\("已同步飞书", "success"\)/);
-  assert.match(sampleLibrary, /setSyncStatus\("同步失败", "error", error\.message\)/);
+  assert.match(sampleLibrary, /setSyncStatus\(`同步失败 · \$\{completed\} \/ \$\{samples.length\}`, "error", error\.message\)/);
   assert.doesNotMatch(source, /MAX_RUNS|20 张上限|单批最多运行/);
   assert.doesNotMatch(sampleLibrary, /maxRuns|\.slice\(0, maxRuns\)/);
-  assert.match(betaBase, /return this\.getSampleSet\(sampleSetId\);/);
+  assert.match(betaBase, /createBetaSampleStore/);
   assert.match(uploadSource, /renderImagePreviews/);
   assert.match(uploadSource, /拖入新图可直接替换/);
   assert.match(uploadSource, /dropZone\.addEventListener\("drop"/);
@@ -143,6 +151,31 @@ test("Beta跑图是独立第三工作台且只提供五个出图功能", async (
   assert.match(css, /\.run-bar \.generation-actions \.generate-button\s*\{[^}]*min-height:\s*54px/s);
 });
 
+test("Beta效果图美化与氛围转换分别准入和传参，强度色调复用主工作台控件并恢复", async () => {
+  const [html, source, configuration, css, featureRules] = await Promise.all([
+    readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta-configuration.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta-model-rules.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /effect-beautification\.css\?v=1/);
+  assert.match(html, /id="effectBeautificationIntensityOptions"[^>]*role="radiogroup"/);
+  assert.match(html, /id="effectBeautificationToneOptions"[^>]*role="radiogroup"[^>]*data-effect-tones/);
+  assert.deepEqual([...html.matchAll(/data-effect-intensity="([^"]+)"/g)].map((match) => match[1]), ["low", "high"]);
+  assert.deepEqual([...html.matchAll(/data-effect-tone="([^"]+)"/g)].map((match) => match[1]), ["natural", "warm", "cool"]);
+  assert.match(featureRules, /promptConfig: "effectBeautificationPrompt"/);
+  assert.match(featureRules, /promptConfig: "effectEnhancementPrompt"/);
+  assert.match(source, /effectBeautification: effectBeautificationControls\.value\(\)/);
+  assert.match(source, /effectBeautificationPromptVersion: state\.stylesConfig\?\.effectBeautificationPrompt\?\.version/);
+  assert.match(source, /\|\| !effectReady/);
+  assert.match(source, /prompt: FEATURE_COPY\[state\.featureMode\]\.promptConfig \? "" : currentCase\.prompt/);
+  assert.match(configuration, /effectBeautificationControls\.restore\(/);
+  assert.match(configuration, /effectBeautificationIntensity: beautification\.intensity/);
+  assert.match(configuration, /effectBeautificationTone: beautification\.tone/);
+  assert.doesNotMatch(css, /\.feature-options \.feature-mode-option:last-child/);
+});
+
 test("原 Benchmark 保留独立页面和原评测编排器", async () => {
   const benchmarkHtml = await readFile(
     new URL("../public/benchmark.html", import.meta.url),
@@ -154,17 +187,31 @@ test("原 Benchmark 保留独立页面和原评测编排器", async () => {
   assert.doesNotMatch(benchmarkHtml, /beta-app\.js/);
 });
 
-test("同一样本跨模型复用图片资产且不重复携带图片正文", () => {
+test("已有样本跨模型只发送稳定 ID 且风格图仅携带一份", () => {
   const image = { dataUrl: "data:image/png;base64,example" };
   const items = ["flux", "seedream"].map((modelKey) => ({
     caseId: "sample-1",
+    sampleId: "sample-1",
     input: { referenceImages: [image], styleReferenceImages: [image] },
     modelKey,
   }));
   const packed = packBatchAssets(items, "whiteModel");
-  assert.deepEqual(Object.keys(packed.assets), ["source-sample-1", "shared-style"]);
-  assert.equal(packed.items[0].referenceAssetKey, packed.items[1].referenceAssetKey);
+  assert.deepEqual(Object.keys(packed.assets), ["shared-style"]);
+  assert.equal(packed.items[0].referenceAssetKey, undefined);
+  assert.equal(packed.items[0].sampleId, "sample-1");
   assert.equal(packed.items[0].styleReferenceAssetKey, packed.items[1].styleReferenceAssetKey);
   assert.equal(packed.items[0].input.referenceImages, undefined);
   assert.equal(packed.items[1].input.styleReferenceImages, undefined);
+});
+
+test("自由生图的共享主图和风格图各传一份", () => {
+  const source = { dataUrl: "data:image/png;base64,source" };
+  const style = { dataUrl: "data:image/png;base64,style" };
+  const items = ["one", "two", "three"].map((caseId) => ({
+    caseId, sampleId: caseId, input: { referenceImages: [source], styleReferenceImages: [style] },
+  }));
+  const packed = packBatchAssets(items, "free");
+  assert.deepEqual(packed.assets, { "shared-source": [source], "shared-style": [style] });
+  assert.ok(packed.items.every((item) => item.referenceAssetKey === "shared-source"));
+  assert.ok(packed.items.every((item) => !item.input.referenceImages && !item.input.styleReferenceImages));
 });

@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖 beta.css/beta-app.js/beta-results/beta-configuration/beta-page-state/beta-sample-library、工作台公开模型/Prompt 配置、独立 /api/beta 样本集与任务接口，以及共享导航、更新检查 app-update.css/js、下拉、上传、动作控件系统
-  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、名为“Beta跑图”的无步骤编号四分区可恢复配置、默认 Flux2 Klein、顶部对齐的设计配置与提示词模型实时权限说明、飞书样本集选择/逐图房型创建复用、经服务端回读确认的飞书同步状态、不设结果数量上限的五场景批量配置、同选项键帽近距阴影的 38px 中性保存动作、START，以及同步后实时缩略图与底部飞书结果按钮的生成/同步右侧任务监控
+  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、名为“Beta跑图”的无步骤编号四分区可恢复配置、默认 Flux2 Klein、顶部对齐的设计配置与提示词模型实时权限说明、按飞书样本 ID 复用与单张上传保存的不限整批容量样本库、单图 8MB 说明、七场景及独立全景 Prompt/2:1 模型门槛/效果图美化强度色调配置、38px 中性保存动作、START，以及归档回读后的缩略图与生成/同步双进度监控
   [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和已归档结果预览可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,7 +12,8 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · Beta跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=20" />
+    <link rel="stylesheet" href="/beta.css?v=21" />
+    <link rel="stylesheet" href="/effect-beautification.css?v=1" />
     <link rel="stylesheet" href="/generation-actions.css?v=15" />
     <link rel="stylesheet" href="/custom-select.css?v=9" />
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
@@ -56,7 +57,9 @@
                 <button class="feature-mode-option selected" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="true">白模渲染</button>
                 <button class="feature-mode-option" data-feature-mode="emptyRoom" type="button" role="radio" aria-checked="false">空房设计</button>
                 <button class="feature-mode-option" data-feature-mode="refinedModel" type="button" role="radio" aria-checked="false">精模渲染</button>
-                <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图美化</button>
+                <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图氛围转换</button>
+                <button class="feature-mode-option" data-feature-mode="effectBeautification" type="button" role="radio" aria-checked="false">效果图美化</button>
+                <button class="feature-mode-option" data-feature-mode="panoramaEnhancement" type="button" role="radio" aria-checked="false">全景图美化</button>
                 <button class="feature-mode-option" data-feature-mode="free" type="button" role="radio" aria-checked="false">自由生图</button>
               </div>
             </section>
@@ -94,7 +97,7 @@
                       <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
                     </svg>
                     <span id="sourceFilesDropLabel">添加或拖入白模图</span>
-                    <small>PNG / JPEG / WebP · 单张 8MB · 合计 20MB</small>
+                    <small id="sourceFilesHint">PNG / JPEG / WebP · 单张 8MB · 逐张上传</small>
                   </div>
                 </div>
                 <label id="freePromptsField" class="field hidden">
@@ -148,6 +151,24 @@
                 <label class="field"><span>时段</span><select id="effectTimeSelect"><option value="preserve">保持原时段</option><option value="daytime">日间</option><option value="dusk">黄昏</option><option value="night">夜间</option></select></label>
                 <label class="field"><span>天气</span><select id="effectWeatherSelect"><option value="preserve">保持原天气</option><option value="clear">晴天</option><option value="overcast">阴天</option><option value="rainy">雨天</option><option value="foggy">雾天</option></select></label>
               </div>
+              <div id="effectBeautificationFields" class="effect-beautification-fields hidden">
+                <div class="field effect-beautification-field">
+                  <span id="effectBeautificationIntensityLabel">美化强度</span>
+                  <div id="effectBeautificationIntensityOptions" class="effect-beautification-options" role="radiogroup" aria-labelledby="effectBeautificationIntensityLabel">
+                    <button class="feature-choice-option selected" type="button" role="radio" aria-checked="true" data-effect-intensity="low">低强度</button>
+                    <button class="feature-choice-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-effect-intensity="high">高强度</button>
+                  </div>
+                </div>
+                <div class="field effect-beautification-field">
+                  <span id="effectBeautificationToneLabel" class="effect-beautification-label">画面色调</span>
+                  <div id="effectBeautificationToneOptions" class="effect-beautification-options" role="radiogroup" aria-labelledby="effectBeautificationToneLabel" data-effect-tones>
+                    <button class="feature-choice-option selected" type="button" role="radio" aria-checked="true" data-effect-tone="natural">自然调</button>
+                    <button class="feature-choice-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-effect-tone="warm">暖调</button>
+                    <button class="feature-choice-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-effect-tone="cool">冷调</button>
+                  </div>
+                </div>
+              </div>
+              <div id="panoramaFields" class="field hidden"><small>保持全景构图与 2:1 画幅，增强材质、光照与细节。</small></div>
               <label id="refinedPromptField" class="field hidden"><span>精模 Prompt 版本</span><select id="refinedPromptSelect"></select></label>
               <div id="freeReferenceField" class="upload-field compact-upload hidden">
                 <div class="upload-field-copy">
@@ -252,6 +273,6 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=21"></script>
+    <script type="module" src="/beta-app.js?v=24"></script>
   </body>
 </html>

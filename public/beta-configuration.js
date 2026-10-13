@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 beta-page-state 持久化函数、Beta 表单 DOM、当前页面状态读取器与配置重渲染回调
+ * [INPUT]: 依赖 beta-page-state 持久化函数、Beta 表单 DOM、效果图美化强度色调控制器、当前页面状态读取器与配置重渲染回调
  * [OUTPUT]: 对外提供 createBetaConfigurationPersistence，统一配置采集、跳过已禁用模型选项的分阶段恢复、快速切页落盘与可见保存状态
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { saveBetaPageState } from "./beta-page-state.js?v=1";
+import { saveBetaPageState } from "./beta-page-state.js?v=3";
 
 function restoreTextValue(input, value) {
   if (typeof value === "string") input.value = value;
@@ -19,6 +19,7 @@ function restoreSelectValue(select, value) {
 
 export function createBetaConfigurationPersistence({
   currentState,
+  effectBeautificationControls,
   elements,
   renderFeature,
   renderOutputControls,
@@ -31,8 +32,11 @@ export function createBetaConfigurationPersistence({
   function controls() {
     const restoredControls = restoredPageState.controls;
     const stylesReady = currentState().stylesReady;
+    const beautification = effectBeautificationControls.value();
     return {
       commonPrompt: elements.commonPromptInput.value,
+      effectBeautificationIntensity: beautification.intensity,
+      effectBeautificationTone: beautification.tone,
       effectTime: elements.effectTimeSelect.value,
       effectWeather: elements.effectWeatherSelect.value,
       negativePrompt: elements.negativePromptInput.value,
@@ -70,6 +74,10 @@ export function createBetaConfigurationPersistence({
 
   function restore() {
     const controlsToRestore = restoredPageState.controls;
+    effectBeautificationControls.restore({
+      intensity: controlsToRestore.effectBeautificationIntensity,
+      tone: controlsToRestore.effectBeautificationTone,
+    });
     restoreTextValue(elements.commonPromptInput, controlsToRestore.commonPrompt);
     restoreTextValue(elements.negativePromptInput, controlsToRestore.negativePrompt);
     restoreTextValue(elements.roomTypeDetailInput, controlsToRestore.roomTypeDetail);

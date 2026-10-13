@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、各生图工作流、带阶段回调的独立图片工具及双引擎扩图服务，以及注入的模型/超分/扩图客户端、密钥、模型目录、Prompt 缓存与同步调度
- * [OUTPUT]: 对外提供统一生图路由、无需飞书归档的超分与双引擎扩图，按所选引擎严格调用 ComfyUI 或 OneAPI 编辑并透传阶段回调
+ * [OUTPUT]: 对外提供含独立六预设效果图美化与原效果图氛围转换的统一生图路由、无需飞书归档的超分与双引擎扩图，按所选引擎严格调用 ComfyUI 或 OneAPI 编辑并透传阶段回调
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -127,7 +127,7 @@ export function createGenerationService({
     if (["emptyRoom", "whiteModel"].includes(featureMode)) {
       return executeDesign({ ...input, featureMode });
     }
-    if (["effectEnhancement", "panoramaEnhancement"].includes(featureMode)) {
+    if (["effectEnhancement", "effectBeautification", "panoramaEnhancement"].includes(featureMode)) {
       return executeEffectEnhancement({ ...input, featureMode });
     }
     if (featureMode === "imageUpscale") {

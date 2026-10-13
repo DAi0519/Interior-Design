@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 图片交互、同源 /api/beta/sample-sets 接口，以及外部图片校验/容量/状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary，统一可恢复的已有样本集选择、飞书样本下载、逐样本房型配置与校验、不设样本数量上限的新集创建上传、服务端回读后的同步成功/失败回执、预览删除与当前 Case 投影
+ * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
+ * [OUTPUT]: 对外提供 createBetaSampleLibrary，管理已有飞书样本 ID 与轻量预览、不限整批容量的 File 草稿、逐张上传与稳定 ID 断点重试、房型配置及服务端完成回读后的同步回执
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,7 +18,7 @@ function promptLines(value) {
     .filter(Boolean);
 }
 
-function promptChip(sample, index, onRemove) {
+function promptChip(sample, index, onRemove, disabled = false) {
   const chip = document.createElement("div");
   const copy = document.createElement("div");
   const label = document.createElement("strong");
@@ -32,6 +32,7 @@ function promptChip(sample, index, onRemove) {
   remove.className = "sample-remove";
   remove.setAttribute("aria-label", `移除第 ${index + 1} 条提示词`);
   remove.textContent = "×";
+  remove.disabled = disabled;
   remove.addEventListener("click", onRemove);
   copy.append(label, meta);
   chip.append(copy, remove);
@@ -40,16 +41,17 @@ function promptChip(sample, index, onRemove) {
 
 export function createBetaSampleLibrary({
   api,
-  assertBatchImageSize,
   elements,
   onChange,
   onError,
   onSelectionChange = () => {},
   readImage,
+  validateSourceImage = () => {},
 }) {
   const state = {
     activeSampleSetId: "",
     busy: false,
+    draftSampleSetId: "",
     featureMode: "whiteModel",
     mode: "library",
     prompts: [],
@@ -103,8 +105,10 @@ export function createBetaSampleLibrary({
     elements.sampleList.classList.toggle("hidden", free || state.sourceImages.length === 0);
     elements.freePromptList.classList.toggle("hidden", !free || state.prompts.length === 0);
     renderImagePreviews(elements.sampleList, state.sourceImages, {
+      canRemove: () => !state.busy && !state.draftSampleSetId,
       onRemove: (index) => {
-        state.sourceImages.splice(index, 1);
+        const [removed] = state.sourceImages.splice(index, 1);
+        releasePreview(removed);
         render();
       },
     });
@@ -118,13 +122,13 @@ export function createBetaSampleLibrary({
         const select = document.createElement("select");
         select.append(...[...elements.roomTypeSelect.options].map((option) => option.cloneNode(true)));
         select.value = image.roomType || "";
-        select.disabled = state.busy;
+        select.disabled = state.busy || Boolean(state.draftSampleSetId);
         select.setAttribute("aria-label", `${image.name} 房间类型`);
         const detail = document.createElement("input");
         detail.placeholder = "具体空间类型，例如：衣帽间";
         detail.maxLength = 40;
         detail.value = image.roomTypeDetail || "";
-        detail.disabled = state.busy;
+        detail.disabled = state.busy || Boolean(state.draftSampleSetId);
         detail.setAttribute("aria-label", `${image.name} 具体空间类型`);
         detail.classList.toggle("hidden", select.value !== "其他");
         select.addEventListener("change", () => {
@@ -147,10 +151,10 @@ export function createBetaSampleLibrary({
         state.prompts.splice(index, 1);
         elements.freePromptsInput.value = state.prompts.map((entry) => entry.prompt).join("\n");
         render();
-      })));
+      }, state.busy || Boolean(state.draftSampleSetId))));
   }
 
-  function render() {
+  function render({ samplesChanged = true } = {}) {
     const creating = state.mode === "create";
     const free = state.featureMode === "free";
     elements.sampleSetLibraryPanel.classList.toggle("hidden", creating);
@@ -159,29 +163,43 @@ export function createBetaSampleLibrary({
     elements.freePromptsField.classList.toggle("hidden", !creating || !free);
     elements.saveSampleSetButton.disabled = state.busy || !sampleCount();
     elements.saveSampleSetButton.textContent =
-      state.busy && state.syncState === "syncing" ? "同步中" : "保存样本集";
+      state.busy && state.syncState === "syncing" ? "同步中"
+        : state.draftSampleSetId ? "继续保存" : "保存样本集";
     elements.cancelSampleSetButton.disabled = state.busy;
     elements.newSampleSetButton.disabled = state.busy;
+    elements.sampleSetNameInput.disabled = state.busy || Boolean(state.draftSampleSetId);
+    elements.freePromptsInput.disabled = state.busy || Boolean(state.draftSampleSetId);
+    elements.sourceFilesInput.disabled = state.busy || Boolean(state.draftSampleSetId);
     elements.sourceFilesDropZone.classList.toggle(
       "hidden",
       !creating || free,
     );
     elements.sampleSetSyncStatus.textContent = state.syncMessage;
     elements.sampleSetSyncStatus.dataset.state = state.syncState;
-    renderCatalog();
-    renderSamples();
+    if (samplesChanged) {
+      renderCatalog();
+      renderSamples();
+    }
     onChange();
   }
 
+  function releasePreview(image) {
+    if (image?.file && image.previewUrl) URL.revokeObjectURL(image.previewUrl);
+  }
+
   function clearSamples() {
+    state.sourceImages.forEach(releasePreview);
     state.activeSampleSetId = "";
+    state.draftSampleSetId = "";
     state.prompts = [];
     state.sourceImages = [];
     elements.freePromptsInput.value = "";
   }
 
   function applySampleSet(sampleSet) {
+    state.sourceImages.forEach(releasePreview);
     state.activeSampleSetId = sampleSet.sampleSetId;
+    state.draftSampleSetId = "";
     state.prompts = sampleSet.samples
       .filter((sample) => sample.prompt)
       .map((sample) => ({ prompt: sample.prompt, sampleId: sample.sampleId }));
@@ -236,28 +254,40 @@ export function createBetaSampleLibrary({
   }
 
   async function addSourceFiles(fileList) {
+    if (state.busy || state.draftSampleSetId) return;
+    state.busy = true;
+    render();
     try {
       const files = Array.from(fileList);
-      assertBatchImageSize([...state.sourceImages, ...files]);
-      const incoming = await Promise.all(files.map(readImage));
       const known = new Set(state.sourceImages.map(imageIdentity));
-      const unique = incoming.filter((image) => !known.has(imageIdentity(image)));
-      const next = [...state.sourceImages, ...unique];
-      assertBatchImageSize(next);
-      state.sourceImages = next;
-      render();
+      for (const file of files) {
+        if (known.has(imageIdentity(file))) continue;
+        const image = await readImage(file, { previewOnly: true });
+        try {
+          validateSourceImage(state.featureMode, image);
+        } catch (error) {
+          releasePreview(image);
+          throw error;
+        }
+        state.sourceImages.push({ ...image, sampleId: `SAMPLE-${crypto.randomUUID()}` });
+        known.add(imageIdentity(file));
+      }
     } catch (error) {
       onError(error);
+    } finally {
+      state.busy = false;
+      render();
     }
   }
 
   function syncPromptDraft() {
     state.prompts = promptLines(elements.freePromptsInput.value)
-      .map((prompt, index) => ({ prompt, sampleId: `DRAFT-${index + 1}` }));
+      .map((prompt) => ({ prompt, sampleId: `SAMPLE-${crypto.randomUUID()}` }));
     render();
   }
 
   async function saveSampleSet() {
+    if (state.busy) return;
     const name = elements.sampleSetNameInput.value.trim();
     if (!name) {
       elements.sampleSetNameInput.focus();
@@ -265,15 +295,38 @@ export function createBetaSampleLibrary({
     }
     if (!sampleCount()) throw new Error("请先添加样本");
     assertRoomTypes();
+    const featureMode = state.featureMode;
+    const samples = featureMode === "free" ? state.prompts : state.sourceImages;
     state.busy = true;
     setSyncStatus("同步飞书中", "syncing");
     render();
     try {
-      const samples = state.featureMode === "free"
-        ? state.prompts.map(({ prompt }) => ({ prompt }))
-        : state.sourceImages.map((image) => ({ image, roomType: image.roomType, roomTypeDetail: image.roomTypeDetail }));
-      const { sampleSet } = await api("/api/beta/sample-sets", {
-        body: JSON.stringify({ featureMode: state.featureMode, name, samples }),
+      if (!state.draftSampleSetId) {
+        const { sampleSet } = await api("/api/beta/sample-sets", {
+          body: JSON.stringify({ featureMode, name }),
+          method: "POST",
+        });
+        state.draftSampleSetId = sampleSet.sampleSetId;
+      }
+      const sampleSetId = state.draftSampleSetId;
+      for (const sample of samples) {
+        if (sample.uploaded) continue;
+        const completed = samples.filter((entry) => entry.uploaded).length;
+        setSyncStatus(`上传飞书 ${completed} / ${samples.length}`, "syncing");
+        render({ samplesChanged: false });
+        const image = sample.file ? await readImage(sample.file) : undefined;
+        if (image) validateSourceImage(featureMode, image);
+        await api(`/api/beta/sample-sets/${encodeURIComponent(sampleSetId)}/samples`, {
+          body: JSON.stringify({ sampleId: sample.sampleId, image, prompt: sample.prompt,
+            roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail }),
+          method: "POST",
+        });
+        sample.uploaded = true;
+        setSyncStatus(`上传飞书 ${completed + 1} / ${samples.length}`, "syncing");
+        render({ samplesChanged: false });
+      }
+      const { sampleSet } = await api(`/api/beta/sample-sets/${encodeURIComponent(sampleSetId)}/complete`, {
+        body: JSON.stringify({ sampleIds: samples.map((sample) => sample.sampleId) }),
         method: "POST",
       });
       state.sampleSets = [
@@ -283,7 +336,8 @@ export function createBetaSampleLibrary({
       applySampleSet(sampleSet);
       setSyncStatus("已同步飞书", "success");
     } catch (error) {
-      setSyncStatus("同步失败", "error", error.message);
+      const completed = samples.filter((sample) => sample.uploaded).length;
+      setSyncStatus(`同步失败 · ${completed} / ${samples.length}`, "error", error.message);
       throw error;
     } finally {
       state.busy = false;
@@ -292,6 +346,7 @@ export function createBetaSampleLibrary({
   }
 
   async function setFeatureMode(featureMode, preferredSampleSetId = "") {
+    if (state.busy) return;
     loadRevision += 1;
     state.busy = false;
     state.featureMode = featureMode;
@@ -355,10 +410,8 @@ export function createBetaSampleLibrary({
   return {
     assertRoomTypes,
     activeSampleSetId: () => state.activeSampleSetId,
-    assertAssetSize(extraImages = []) {
-      assertBatchImageSize([...state.sourceImages, ...extraImages].filter(Boolean));
-    },
     bind,
+    isBusy: () => state.busy,
     currentCases({ commonPrompt = "", freeReference = null } = {}) {
       if (state.featureMode === "free") {
         const referenceImages = freeReference ? [freeReference] : [];
@@ -375,10 +428,10 @@ export function createBetaSampleLibrary({
         roomType: image.roomType,
         roomTypeDetail: image.roomTypeDetail,
         prompt: commonPrompt,
-        referenceImages: [image],
+        referenceImages: [],
       }));
     },
-    isReady: () => Boolean(state.activeSampleSetId && sampleCount()),
+    isReady: () => Boolean(!state.busy && state.activeSampleSetId && sampleCount()),
     load,
     sampleCount,
     setFeatureMode,

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent 模型目录、空房房间类型/其他详情真源、image-artifact.mjs、image-dimensions.mjs、lark-cli.mjs、效果图/全景图美化、白模、精模参考图与可选风格参考图，以及已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、含效果图/全景图美化的产品链路/空间类型/其他空间类型/家具选择及未指定搭配说明/设计方式/Agent/风格字段投影、覆盖全部可写字段类型/单选值/附件 ID 的生成记录 Schema 准入、模型字段映射、记录 ID 解析、三类附件及完整工作流元数据同步
+ * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent 模型目录、空房房间类型/其他详情真源、图片产物/尺寸/飞书 CLI、效果图氛围转换/美化和全景图美化、白模与精模图片及可选风格参考图，以及已创建的飞书 Base
+ * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、含独立效果图氛围转换/美化的产品链路与设计字段投影、全部可写字段类型/单选值/附件 ID 的 409 准入、模型映射、记录 ID、三类附件及含天气时段或强度色调的完整工作流 JSON 同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,7 +40,8 @@ export const LARK_SYNC_CONFIG = Object.freeze({
 });
 
 const FEATURE_LABELS = Object.freeze({
-  "effect-render-enhancement": "效果图美化",
+  "effect-render-enhancement": "效果图氛围转换",
+  "effect-render-beautification": "效果图美化",
   "empty-room-design": "空房设计",
   "free-image-generation": "自由生图",
   "panorama-render-enhancement": "全景图美化",
@@ -236,7 +237,9 @@ export function assertLarkSyncSchema(
   }
 
   if (issues.length > 0) {
-    throw new Error(`飞书生成记录 Schema 不兼容：${issues.join("；")}`);
+    const error = new Error(`飞书生成记录 Schema 不兼容：${issues.join("；")}`);
+    error.statusCode = 409;
+    throw error;
   }
 
   return {

@@ -1,0 +1,37 @@
+/**
+ * [INPUT]: 依赖美化强度/色调单选组与主题共享选择控件、品牌键面令牌
+ * [OUTPUT]: 对外提供两列强度、三列色调的 38px 同构单选按钮、可读说明与氛围转换版本/刷新完整换行及焦点/按压反馈
+ * [POS]: public 的效果图美化增量视觉层，由生图工作台与 Beta 共用
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.effect-beautification-field + .effect-beautification-field { margin-top: 16px; }
+.effect-beautification-fields { display: grid; gap: 16px; margin-top: 12px; }
+.effect-beautification-fields > .effect-beautification-field { margin-top: 0; }
+#effectBeautificationSection .compact-config-note { color: var(--muted); }
+#effectEnhancementSection .section-heading { flex-wrap: wrap; gap: 8px; }
+#effectEnhancementSection .section-heading h2 { white-space: nowrap; }
+#effectEnhancementSection .section-heading-actions { flex-shrink: 0; margin-left: auto; white-space: nowrap; }
+.effect-beautification-label { color: var(--brand-key-strong-ink); font-size: 11px; font-weight: 500; margin: 0 0 8px; }
+.effect-beautification-options { display: grid; gap: var(--choice-control-gap, 8px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.effect-beautification-options[data-effect-tones] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.feature-choice-option {
+  background: var(--brand-key-bg);
+  border: 1px solid var(--brand-key-border);
+  border-radius: var(--choice-control-radius, 6px);
+  box-shadow: var(--brand-key-shadow);
+  color: var(--brand-key-ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  min-height: var(--choice-control-height, 38px);
+  min-width: 0;
+  padding: 0 var(--choice-control-padding, 12px);
+  text-align: left;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms var(--ease-out);
+}
+.feature-choice-option.selected { background: var(--brand-key-selected-bg); border-color: var(--brand-key-selected-border); box-shadow: var(--brand-selected-shadow); color: var(--brand-key-selected-ink); font-weight: 600; }
+.feature-choice-option:hover:not(.selected) { background: var(--brand-key-hover-bg); border-color: var(--brand-key-hover-border); }
+.feature-choice-option:active { transform: scale(.98); }
+.feature-choice-option:focus-visible { outline: 2px solid var(--brand-key-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .feature-choice-option { transition: none; } }

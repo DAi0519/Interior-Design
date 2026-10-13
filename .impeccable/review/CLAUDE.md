@@ -3,6 +3,8 @@
 
 成员清单
 
+effect-beautification/: 2026-10-12 效果图美化六预设控件、氛围转换更名与 Beta 共用配置的真实浏览器截图与静态设计检测，详见 effect-beautification/CLAUDE.md
+
 desktop.png: 2026-10-10 扩图参数与预览桌面截图
 mobile.png: 2026-10-10 扩图参数与预览窄屏截图
 outpaint-connected.jpg: 2026-10-10 真实 ComfyUI 工作流只读准入后的页面截图

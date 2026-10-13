@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图美化天气/时段、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分三工作流与 4K/6K/8K 配置、ComfyUI/Sunburst 扩图引擎及各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、不写飞书的独立图片工具及默认 ComfyUI/可选 Sunburst 扩图入口、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分三工作流与 4K/6K/8K 配置、ComfyUI/Sunburst 扩图引擎及各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、不写飞书的独立图片工具及默认 ComfyUI/可选 Sunburst 扩图入口、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js";
 import { renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=1";
 import { bindDesignInputs } from "./design-inputs.js?v=2";
+import { bindEffectBeautificationControls } from "./effect-beautification-controls.js";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
 import { buildGenerationInput } from "./generation-input.js";
@@ -30,13 +31,14 @@ import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
-import { referenceCapability, sizeControlState, sizeSummary } from "./model-capabilities.js";
+import { referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
 import "./custom-select.js?v=7";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
   connected: false,
+  effectBeautificationPrompt: { available: false, version: null },
   emptyRoomConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
   featureMode: "whiteModel",
   modelKeys: ["aiTextureEnhancement"],
@@ -51,6 +53,10 @@ const state = {
 let referenceUpload;
 let styleReferenceUpload;
 const elements = createAppElements();
+const effectBeautification = bindEffectBeautificationControls({
+  root: elements.effectBeautificationSection,
+  onChange: () => generationActions.refresh(),
+});
 const emptyRoomType = bindDesignInputs({ root: document.querySelector("#emptyRoomTypeList"),
   onChange: () => generationActions.clearReusable() });
 const generationCount = bindGenerationCount({
@@ -135,14 +141,8 @@ function updateReferenceRequirements() {
 }
 function selectFeatureMode(featureMode) {
   const supported = [
-    "effectEnhancement",
-    "emptyRoom",
-    "free",
-    "imageUpscale", "imageOutpaint",
-    "panoramaEnhancement",
-    "refinedModel",
-    "styleDna",
-    "whiteModel",
+    "effectEnhancement", "effectBeautification", "emptyRoom", "free",
+    "imageUpscale", "imageOutpaint", "panoramaEnhancement", "refinedModel", "styleDna", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
   state.featureMode = featureMode;
@@ -156,6 +156,7 @@ function selectFeatureMode(featureMode) {
   const isEmptyRoom = featureMode === "emptyRoom";
   const isDesignModel = isWhiteModel || isEmptyRoom;
   const isEffectEnhancement = featureMode === "effectEnhancement";
+  const isEffectBeautification = featureMode === "effectBeautification";
   const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
@@ -198,6 +199,7 @@ function selectFeatureMode(featureMode) {
   elements.resolutionField.classList.toggle("hidden", featureMode === "imageOutpaint");
   elements.modelSection.classList.toggle("hidden", Boolean(imageTool));
   elements.effectEnhancementSection.classList.toggle("hidden", !isEffectEnhancement);
+  elements.effectBeautificationSection.classList.toggle("hidden", !isEffectBeautification);
   elements.emptyRoomTypeSection.classList.toggle("hidden", !isEmptyRoom);
   emptyRoomType.setFeatureMode(featureMode);
   elements.styleReferenceSection.classList.toggle("hidden", !isDesignModel);
@@ -206,7 +208,7 @@ function selectFeatureMode(featureMode) {
     isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle(
-    "hidden", isRefinedModel || isEffectEnhancement || isPanoramaEnhancement || Boolean(imageTool),
+    "hidden", isRefinedModel || isEffectEnhancement || isEffectBeautification || isPanoramaEnhancement || Boolean(imageTool),
   );
   elements.ratioField.classList.toggle("hidden", Boolean(imageTool));
   elements.generationCountField.classList.toggle("hidden", Boolean(imageTool));
@@ -326,6 +328,8 @@ function updateComputedSize() {
 function generationInput() {
   const renderMode = whiteModelRenderMode.current();
   return buildGenerationInput({
+    effectBeautification: effectBeautification.value(),
+    effectBeautificationPromptVersion: state.effectBeautificationPrompt.version,
     effectTime: elements.effectTimeSelect.value,
     effectWeather: elements.effectWeatherSelect.value,
     emptyRoomFields: emptyRoomType.requestFields(),
@@ -454,7 +458,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const designPromptRequest = whiteModelRequest || emptyRoomRequest;
   const refinedModelRequest = featureMode === "refinedModel";
   const effectEnhancementRequest = featureMode === "effectEnhancement";
+  const effectBeautificationRequest = featureMode === "effectBeautification";
   const panoramaEnhancementRequest = featureMode === "panoramaEnhancement";
+  if (effectBeautificationRequest && !state.effectBeautificationPrompt.available) {
+    showToast(state.effectBeautificationPrompt.reason || "效果图美化 Prompt 不可用，请刷新飞书配置"); return;
+  }
   const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
   if (roomTypeValidation?.message) {
     emptyRoomType.focusInvalid();
@@ -519,11 +527,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
-  if ((effectEnhancementRequest || panoramaEnhancementRequest)
+  if ((effectEnhancementRequest || effectBeautificationRequest || panoramaEnhancementRequest)
     && referenceImages().length !== 1) {
     showToast(panoramaEnhancementRequest
       ? "全景图美化需要且只允许 1 张待美化全景图"
-      : "效果图美化需要且只允许 1 张待美化效果图");
+      : `${effectEnhancementRequest ? "效果图氛围转换" : "效果图美化"}需要且只允许 1 张效果图`);
     return;
   }
   if (
@@ -552,6 +560,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     designPromptRequest,
     emptyRoomRequest,
     effectEnhancementRequest,
+    effectBeautificationRequest,
     panoramaEnhancementRequest,
     forcePromptRegeneration,
     generationCount: generationCount.value(),
@@ -694,6 +703,7 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
 });
 const loadConfiguration = bindConfigRefresh({
   api,
+  onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
   onEmptyRoom(config) {
     state.emptyRoomConfig = config;
     if (state.featureMode === "emptyRoom") {
@@ -729,18 +739,7 @@ referenceUpload = bindReferenceUpload({
   dropZone: elements.referenceDropZone,
   getLimit: referenceLimit,
   getPolicy: () => state.referencePolicy,
-  getSubject: () => state.featureMode === "whiteModel"
-    ? "白模图"
-    : state.featureMode === "emptyRoom"
-      ? "空房图"
-      : state.featureMode === "refinedModel"
-        ? "精模图"
-        : state.featureMode === "effectEnhancement"
-          ? "待美化效果图"
-          : state.featureMode === "panoramaEnhancement"
-            ? "待美化全景图"
-            : state.featureMode === "imageOutpaint" ? "待扩图图片"
-              : state.featureMode === "imageUpscale" ? "待超分图片" : "参考图",
+  getSubject: () => referenceSubject(state.featureMode),
   input: elements.referenceInput,
   list: elements.referenceList,
   onChange({ images, previousImages }) {

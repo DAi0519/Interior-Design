@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置与字段映射纯函数
- * [OUTPUT]: 对外提供新 Base 隔离、测试时间分组视图链接、五功能映射、场景/配置快照、版本/费用回填、结果附件 token/字节数回读门槛与轻量预览的回归保障
+ * [OUTPUT]: 对外提供新 Base 隔离、默认可用状态在创建后清空/草稿回读与对象关联、七功能映射、场景/配置快照、全部实际写入元数据漂移与附件身份回读拒绝成功的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,6 +27,67 @@ const onePixelPngBytes = await sharp({
 }).png().toBuffer();
 const onePixelPng = `data:image/png;base64,${onePixelPngBytes.toString("base64")}`;
 
+function recordEnvelope(recordId, fields) {
+  return { ok: true, data: { fields: Object.keys(fields), data: [Object.values(fields)], record_id_list: [recordId] } };
+}
+
+test("飞书创建 null 被默认可用填充时，草稿与新样本创建后必须更新清空再继续", async () => {
+  const records = new Map();
+  const commands = [];
+  const store = createBetaBaseStore({ async run(_config, args) {
+    const tableId = args[args.indexOf("--table-id") + 1];
+    const recordId = args[args.indexOf("--record-id") + 1];
+    if (args.includes("+record-batch-create")) {
+      const body = JSON.parse(args[args.indexOf("--json") + 1]);
+      const fields = Object.fromEntries(body.fields.map((field, index) => [field, body.rows[0][index]]));
+      const createdId = `rec-default-${records.size + 1}`;
+      fields["状态"] ||= ["可用"];
+      records.set(createdId, { fields, tableId });
+      commands.push(["create", createdId]);
+      if (tableId === BETA_BASE_CONFIG.sampleTableId && (!Array.isArray(fields["样本集"])
+        || fields["样本集"].some((link) => !link || typeof link !== "object" || typeof link.id !== "string"))) {
+        // 真实 CLI 会先创建子记录，再因错误关联返回 not_found，留下无关联/默认可用的孤儿。
+        fields["样本集"] = [];
+        throw Object.assign(new Error("not_found"), { statusCode: 404 });
+      }
+      return { ok: true, data: { record_id_list: [createdId] } };
+    }
+    if (args.includes("+record-upsert")) {
+      const fields = JSON.parse(args[args.indexOf("--json") + 1]);
+      Object.assign(records.get(recordId).fields, fields);
+      commands.push(["update", recordId, fields]);
+      return { ok: true, data: {} };
+    }
+    if (args.includes("+record-get")) {
+      commands.push(["read", recordId]);
+      return recordEnvelope(recordId, records.get(recordId).fields);
+    }
+    if (args.includes("+record-list")) {
+      const rows = [...records].filter(([, record]) => record.tableId === tableId);
+      const fields = [...new Set(rows.flatMap(([, record]) => Object.keys(record.fields)))];
+      return { ok: true, data: { fields, data: rows.map(([, record]) => fields.map((field) => record.fields[field])),
+        record_id_list: rows.map(([id]) => id), has_more: false } };
+    }
+    throw new Error(`未建模的测试命令：${args[1]}`);
+  } });
+  const draft = await store.createSampleSet({ featureMode: "free", name: "默认状态夹具" });
+  assert.equal(draft.status, null);
+  assert.deepEqual(await store.listSampleSets(), []);
+  const sample = await store.addSample(draft.sampleSetId, { sampleId: "SAMPLE-DEFAULT", prompt: "现代客厅" });
+  assert.equal(sample.status, "可用");
+  assert.deepEqual(records.get(sample.recordId).fields["样本集"], [{ id: draft.recordId }]);
+  for (const [action, recordId] of commands.filter(([action]) => action === "create")) {
+    assert.equal(action, "create");
+    const index = commands.findIndex((command) => command[0] === "create" && command[1] === recordId);
+    assert.deepEqual(commands[index + 1], ["update", recordId, { "状态": null }]);
+  }
+  assert.equal(records.get(draft.recordId).fields["状态"], null);
+  const completed = await store.completeSampleSet(draft.sampleSetId, [sample.sampleId]);
+  assert.equal(completed.status, "可用");
+  assert.equal(completed.sampleCount, 1);
+  assert.equal(records.size, 2);
+});
+
 test("Beta跑图只指向新 Base 的样本集、样本和跑图明细三表", () => {
   assert.equal(BETA_BASE_CONFIG.baseToken, "ORwJbt5EYauNORsrhqJcpetLnEb");
   assert.equal(BETA_BASE_CONFIG.sampleSetTableId, "tblQmKbAHOCPcct7");
@@ -40,15 +101,38 @@ test("Beta跑图只指向新 Base 的样本集、样本和跑图明细三表", (
   assert.notEqual(BETA_BASE_CONFIG.tableId, LARK_SYNC_CONFIG.tableId);
 });
 
-test("Beta跑图仅接受五个工作台出图功能", () => {
+test("Beta跑图接受七个工作台出图功能，新旧美化和全景独立映射", () => {
   assert.deepEqual([
     betaFeatureLabel("whiteModel"),
     betaFeatureLabel("emptyRoom"),
     betaFeatureLabel("refinedModel"),
     betaFeatureLabel("effectEnhancement"),
+    betaFeatureLabel("effectBeautification"),
+    betaFeatureLabel("panoramaEnhancement"),
     betaFeatureLabel("free"),
-  ], ["白模渲染", "空房设计", "精模渲染", "效果图美化", "自由生图"]);
+  ], ["白模渲染", "空房设计", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "自由生图"]);
   assert.throws(() => betaFeatureLabel("styleDnaReverse"), /不受支持/);
+});
+
+test("Beta 样本集按飞书功能名称正确区分氛围转换与新美化", async () => {
+  const store = createBetaBaseStore({
+    async run() {
+      return {
+        ok: true,
+        data: {
+          fields: ["样本集 ID", "名称", "功能", "状态", "样本数量"],
+          data: [["SET-ATMOSPHERE", "旧氛围样本", ["效果图氛围转换"], ["可用"], 2],
+            ["SET-BEAUTIFICATION", "新美化样本", ["效果图美化"], ["可用"], 3]],
+          record_id_list: ["rec-atmosphere", "rec-beautification"],
+          has_more: false,
+        },
+      };
+    },
+  });
+  const sets = await store.listSampleSets();
+  assert.deepEqual(sets.map((set) => [set.sampleSetId, set.featureMode]), [
+    ["SET-ATMOSPHERE", "effectEnhancement"], ["SET-BEAUTIFICATION", "effectBeautification"],
+  ]);
 });
 
 test("一行一 Run 冻结可追溯的输入与配置", () => {
@@ -79,7 +163,7 @@ test("一行一 Run 冻结可追溯的输入与配置", () => {
   });
 
   assert.equal(fields["状态"], "运行中");
-  assert.equal(fields["功能"], "效果图美化");
+  assert.equal(fields["功能"], "效果图氛围转换");
   assert.equal(fields["Attempt"], 2);
   assert.deepEqual(JSON.parse(fields["场景参数"]), betaSceneParameters(input));
   assert.deepEqual(JSON.parse(fields["配置快照"]), betaConfigSnapshot(input));
@@ -106,21 +190,18 @@ test("完成 Run 必须回读到飞书成功状态与结果附件", async () => 
   const commands = [];
   const config = { ...BETA_BASE_CONFIG };
   const resultSize = Buffer.from(onePixelPng.split(",", 2)[1], "base64").length;
+  const written = {};
   const run = async (_config, args) => {
     commands.push(args);
+    if (args.includes("+record-upsert")) Object.assign(written, JSON.parse(args[args.indexOf("--json") + 1]));
     if (args.includes("+record-get")) {
-      return {
-        data: {
-          data: [["成功", [{
+      return recordEnvelope("rec-result", {
+          ...written, "结果图": [{
             file_token: "file-result",
             name: "result.png",
             size: resultSize,
-          }]]],
-          fields: ["状态", "结果图"],
-          record_id_list: ["rec-result"],
-        },
-        ok: true,
-      };
+          }],
+      });
     }
     return { data: {}, ok: true };
   };
@@ -145,18 +226,13 @@ test("完成 Run 必须回读到飞书成功状态与结果附件", async () => 
 });
 
 test("飞书回读缺少结果附件时拒绝把 Run 判为成功", async () => {
+  const written = {};
   const store = createBetaBaseStore({
     config: { ...BETA_BASE_CONFIG },
     async run(_config, args) {
+      if (args.includes("+record-upsert")) Object.assign(written, JSON.parse(args[args.indexOf("--json") + 1]));
       if (args.includes("+record-get")) {
-        return {
-          data: {
-            data: [["成功", []]],
-            fields: ["状态", "结果图"],
-            record_id_list: ["rec-missing"],
-          },
-          ok: true,
-        };
+        return recordEnvelope("rec-missing", { ...written, "结果图": [] });
       }
       return { data: {}, ok: true };
     },
@@ -169,22 +245,19 @@ test("飞书回读缺少结果附件时拒绝把 Run 判为成功", async () => 
 });
 
 test("飞书回读附件字节数不一致时拒绝把 Run 判为成功", async () => {
+  const written = {};
   const store = createBetaBaseStore({
     config: { ...BETA_BASE_CONFIG },
     async run(_config, args) {
+      if (args.includes("+record-upsert")) Object.assign(written, JSON.parse(args[args.indexOf("--json") + 1]));
       if (args.includes("+record-get")) {
-        return {
-          data: {
-            data: [["成功", [{
+        return recordEnvelope("rec-truncated", {
+          ...written, "结果图": [{
               file_token: "file-truncated",
               name: "result.png",
               size: 1,
-            }]]],
-            fields: ["状态", "结果图"],
-            record_id_list: ["rec-truncated"],
-          },
-          ok: true,
-        };
+          }],
+        });
       }
       return { data: {}, ok: true };
     },
@@ -219,10 +292,10 @@ test("最终 Prompt 原文必须写入且回读一致，差异不能误报完成
     const patches = [];
     const store = createBetaBaseStore({ run: async (_config, args) => {
       if (args.includes("+record-upsert")) patches.push(JSON.parse(args[args.indexOf("--json") + 1]));
-      if (args.includes("+record-get")) return { ok: true, data: {
-        fields: ["状态", "结果图", "最终 Prompt"], record_id_list: ["rec-meta"],
-        data: [["成功", [{ file_token: "token", size: onePixelPngBytes.length }], returnedPrompt]],
-      } };
+      if (args.includes("+record-get")) return recordEnvelope("rec-meta", {
+        ...Object.assign({}, ...patches), "最终 Prompt": returnedPrompt,
+        "结果图": [{ file_token: "token", size: onePixelPngBytes.length }],
+      });
       return { ok: true, data: {} };
     } });
     const result = { images: [{ url: onePixelPng }], request: { outputFormat: "png" },
@@ -232,5 +305,32 @@ test("最终 Prompt 原文必须写入且回读一致，差异不能误报完成
     } else await store.completeRun("rec-meta", result);
     assert.equal(patches[0]["最终 Prompt"], "exact\nfinal prompt");
     assert.equal(patches[0]["尺寸"], "8x8");
+  }
+});
+
+test("场景/配置快照、版本、真实尺寸、时延与费用必须逐字段回读一致", async () => {
+  for (const driftedField of [null, "场景参数", "配置快照", "Prompt / 工作流版本", "尺寸", "时延（ms）", "费用（USD）"]) {
+    const written = {};
+    const store = createBetaBaseStore({ run: async (_config, args) => {
+      if (args.includes("+record-batch-create")) {
+        const body = JSON.parse(args[args.indexOf("--json") + 1]);
+        Object.assign(written, Object.fromEntries(body.fields.map((name, index) => [name, body.rows[0][index]])));
+        return { ok: true, data: { record_id_list: ["rec-full"] } };
+      }
+      if (args.includes("+record-upsert")) Object.assign(written, JSON.parse(args[args.indexOf("--json") + 1]));
+      if (args.includes("+record-get")) {
+        const fields = { ...written, "结果图": [{ file_token: "token", size: onePixelPngBytes.length }] };
+        if (driftedField) fields[driftedField] = "drifted";
+        return recordEnvelope("rec-full", fields);
+      }
+      return { ok: true, data: {} };
+    } });
+    await store.beginRun({ batchId: "BETA-fullmeta", featureMode: "effectBeautification", testTime: "2026-10-12 12:00:00",
+      item: { runId: "RUN-fullmeta-001", caseId: "CASE-1", input: { effectBeautification: { intensity: "high", tone: "cool" }, effectBeautificationPromptVersion: 2 } } });
+    const result = { durationMs: 123, images: [{ url: onePixelPng }], request: { outputFormat: "png" },
+      prompt: { code: "effect-render-beautification", version: 2 }, upstream: { metadata: { costUsd: 0.031 } } };
+    if (!driftedField) await store.completeRun("rec-full", result);
+    else await assert.rejects(store.completeRun("rec-full", result), (error) =>
+      error.statusCode === 409 && error.retryable === false && error.message.endsWith(driftedField));
   }
 });
