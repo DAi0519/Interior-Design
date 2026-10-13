@@ -1,11 +1,11 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "精简效果图美化参数区，移除强度解释和重复 Prompt 版本说明小字；保留强度、色调、标题行版本状态与刷新入口，配置失败时继续显示原因。"
+    "更新弹层合并为单一「下载安装」动作，统一银灰按钮和对齐方式；更新说明只展示本次改动，安装进度、结果与失败原因在同一弹层内呈现。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

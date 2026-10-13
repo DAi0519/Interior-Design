@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖三个工作台的更新入口、app-update.js 原生弹层与状态类，以及 raycast-accent.css 共享弹层配色、中性键帽与盒橙令牌
- * [OUTPUT]: 对外提供小型版本入口、被动新版圆点、状态标题的紧凑银灰弹层、精简版本与按需说明、同排等尺寸关闭/检查/下载动作
+ * [INPUT]: 依赖三个工作台的更新入口、app-update.js 单一下载安装动作与状态类，以及 raycast-accent.css 共享弹层配色和中性键帽令牌
+ * [OUTPUT]: 对外提供小型版本入口、被动新版圆点、紧凑银灰弹层、版本亮点与恢复链接、统一对齐的关闭/按需检查/下载安装动作
  * [POS]: public 的跨工作台更新视觉层，在最终颜色层前加载，复用 Light Command Center 令牌
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -122,6 +122,15 @@
   margin-top: 20px;
 }
 
+.app-update-release-link {
+  color: var(--brand-key-strong-ink, #202024);
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 8px;
+  text-underline-offset: 3px;
+}
+
 .app-update-progress {
   background: var(--line, #e2e2e5);
   border-radius: 4px;
@@ -132,7 +141,7 @@
 }
 
 .app-update-progress-fill {
-  background: var(--functional-action-bg, #f37021);
+  background: var(--brand-key-strong-ink, #202024);
   height: 100%;
   transform: translateX(-100%);
   transform-origin: left;
@@ -149,29 +158,7 @@
 }
 
 .app-update-install {
-  background: var(--functional-action-bg, #f37021);
-  border-color: var(--functional-action-border, #d35f18);
-  color: white;
   font-weight: 600;
-}
-
-.app-update-install:disabled {
-  background: var(--brand-key-disabled-bg, #f3f3f4);
-  border-color: var(--brand-key-disabled-border, #e6e6e8);
-  color: var(--brand-key-muted-ink, #9a9aa0);
-}
-
-.app-update-install:active:not(:disabled) {
-  background: #d35f18;
-  border-color: #b54f12;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .app-update-install:hover:not(:disabled):not(:active) {
-    background: #ff7d2e;
-    border-color: #d35f18;
-    box-shadow: 0 3px 8px rgb(243 112 33 / 25%);
-  }
 }
 
 .app-update-actions {
@@ -184,10 +171,12 @@
 }
 
 .app-update-actions .app-update-action {
+  appearance: none;
   box-sizing: border-box;
   flex: 0 1 88px;
   font-size: 12px;
   height: 32px;
+  margin: 0;
   min-height: 32px;
   min-width: 0;
   padding: 0 10px;

@@ -203,12 +203,12 @@ test("连接中心矩形动作由最终颜色层统一为中性浅色", async ()
   assert.match(baseButtonBlock, /background: var\(--brand-key-primary-bg, #f8f8f9\)/);
   assert.match(baseButtonBlock, /border: 1px solid var\(--brand-key-primary-border, #c5c6cb\)/);
   assert.doesNotMatch(baseCss, /#ff6363|#c9364d|#ffe9ec|255 99 99|201 54 77|brand-surface/);
-  const finalButtonBlock = accentCss.match(/\.connection-action-button,[^{]*\.app-update-download\s*\{([^}]*)\}/)?.[1] || "";
+  const finalButtonBlock = accentCss.match(/\.connection-action-button,[^{]*\.app-update-install\s*\{([^}]*)\}/)?.[1] || "";
   assert.match(finalButtonBlock, /background: var\(--brand-key-primary-bg\)/);
   assert.match(finalButtonBlock, /border-color: var\(--brand-key-primary-border\)/);
   assert.match(finalButtonBlock, /box-shadow: var\(--brand-key-shadow\)/);
   assert.match(finalButtonBlock, /color: var\(--brand-key-strong-ink\)/);
   assert.doesNotMatch(finalButtonBlock, /radial-gradient|brand-surface|brand-accent/);
-  assert.match(accentCss, /\.connection-action-button:hover:not\(:disabled\):not\(:active\),[^{]*\.app-update-download:hover:not\(:active\)\s*\{[^}]*var\(--brand-key-hover-bg\)[^}]*var\(--brand-key-hover-border\)[^}]*var\(--brand-key-strong-ink\)/s);
+  assert.match(accentCss, /\.connection-action-button:hover:not\(:disabled\):not\(:active\),[^{]*\.app-update-install:hover:not\(:disabled\):not\(:active\)\s*\{[^}]*var\(--brand-key-hover-bg\)[^}]*var\(--brand-key-hover-border\)[^}]*var\(--brand-key-strong-ink\)/s);
   assert.match(accentCss, /\.connection-action-button:disabled,[^{]*\.job-progress-actions \.job-cancel-button:disabled\s*\{[^}]*var\(--brand-key-disabled-bg\)[^}]*var\(--brand-key-disabled-border\)[^}]*var\(--brand-key-muted-ink\)/s);
 });

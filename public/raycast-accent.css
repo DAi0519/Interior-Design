@@ -582,7 +582,7 @@ body {
 
 .connection-action-button,
 .connection-dialog .primary-button,
-.app-update-download {
+.app-update-install {
   background: var(--brand-key-primary-bg);
   border-color: var(--brand-key-primary-border);
   box-shadow: var(--brand-key-shadow);
@@ -592,7 +592,7 @@ body {
 @media (hover: hover) and (pointer: fine) {
   .connection-action-button:hover:not(:disabled):not(:active),
   .connection-dialog .primary-button:hover:not(:disabled):not(:active),
-  .app-update-download:hover:not(:active) {
+  .app-update-install:hover:not(:disabled):not(:active) {
     background: var(--brand-key-hover-bg);
     border-color: var(--brand-key-hover-border);
     box-shadow: var(--brand-key-hover-shadow);
@@ -600,14 +600,16 @@ body {
   }
 }
 
-.connection-dialog .primary-button:active:not(:disabled) {
+.connection-dialog .primary-button:active:not(:disabled),
+.app-update-install:active:not(:disabled) {
   background: var(--brand-key-active-bg);
   border-color: var(--brand-key-active-border);
   box-shadow: inset 0 2px 4px rgb(25 26 28 / 12%);
 }
 
 .connection-action-button:disabled,
-.connection-dialog .primary-button:disabled {
+.connection-dialog .primary-button:disabled,
+.app-update-install:disabled {
   background: var(--brand-key-disabled-bg);
   border-color: var(--brand-key-disabled-border);
   box-shadow: none;

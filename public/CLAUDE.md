@@ -12,8 +12,8 @@ image-tools.js: 图片超分与双引擎扩图控制器组合层，按功能选�
 
 CLAUDE.md: 本模块地图，维护浏览器界面成员清单
 
-app-update.js: 三工作台共享版本与更新交互，自动检测/手动重试、状态标题/精简版本/真实说明及受信下载；按 installMode 区分源码新目录及运行包原目录替换/保留配置和数据，确认与成功指导匹配迁移或重启；原地 complete/restartRequired 锁存待重启且隐藏重复安装下载，recoveryRequired 优先展示恢复失败与备份指引；消费 NDJSON/错误 code/有效 complete，安装期间禁止检查/关闭
-app-update.css: 共享更新入口与紧凑对话框视觉层，360px 状态标题布局、精简版本、中性键面、盒橙状态点、按需说明、同排32px等尺寸动作及窄屏可访问入口；弹层表面/遮罩与中性下载键由 raycast-accent.css 统一
+app-update.js: 三工作台共享版本与更新交互，正常新版仅关闭/下载安装、失败按需检查及受信发布页恢复；发布模板只呈现版本亮点、单弹层显示进度/错误/结果；按 installMode 区分源码新目录和运行包原地更新，保留确认、NDJSON 终态、待重启/恢复失败及安装互斥
+app-update.css: 共享更新入口与紧凑银灰弹层视觉层，360px 状态标题/精简版本/亮点及恢复链接、同排32px等高动作，下载安装使用统一中性键帽和中性进度条；外壳/遮罩/提交键面由 raycast-accent.css 统一
 config-refresh.js: 飞书配置刷新交互控制器，效果图美化就绪只显示标题行版本状态、失败才显示原因；让美化/氛围转换各自当前上架 Prompt 状态、白模与空房双模式 Agent、Style DNA 与精模 Prompt 入口共享互斥状态并分发脱敏配置
 connection-center.js: 运营首次运行控制器，管理 OneAPI 本机记忆、评测页 `?connect=api` 直达、CLI/用户/中文授权能力/Base 实时同步合同状态、飞书 Device Flow 与焦点圈闭/归还，并把准入状态回传生成编排器
 connection-center.css: 连接中心视觉层，提供 OneAPI/飞书无套框双分区、中性浅色 32px 动作按钮的结构与交互基底、灰阶就绪标签、状态行、本机记忆控件、授权二维码和窄屏布局，最终颜色由 raycast-accent.css 统一
@@ -44,7 +44,7 @@ custom-select.js: 原生 select 渐进增强层，提供 Style DNA、场景融�
 custom-select.css: Raycast 向 Light Command Center 半透明银灰自定义下拉视觉，提供配置区、参数区及 Benchmark 的原生控件隐藏、38px 对齐触发器、底部参数向上展开、先完整利用真实剩余宽度且仅在不足时截断的文案、选中态、焦点与低动效结构，并由最终颜色层统一纯黑白字选中反馈
 product-navigation.css: 生图工作台、Beta跑图与模型评测共享的三段式顶栏视觉与动效真源，提供纯文字 Canvas Lab 品牌、内嵌 Inter Variable、Raycast ss03 字形与 0.5px 光学基线修正、滚动条存在时仍按物理视口居中的银灰玻璃顶栏、静态首帧激活层、仅双层 transform 的 140ms 导航前激活视窗位移与 reduced-motion 瞬时降级，最终选中层级由 raycast-accent.css 加深
 product-navigation.js: 三工作台导航反馈层，点击同源目标时只更新 data-active-index 触发 140ms CSS transform，可用后续点击重定向到最后目标，完成后原生导航；reduced-motion、修饰键与当前页始终保留原生链接行为
-raycast-accent.css: 跨工作台最终颜色层，以冷白银灰顶栏、`#000` 纯黑白字反色选中面、浅色普通键、淡灰细边与近距阴影统一全部状态，集中连接/更新/全景弹层的银灰表面、边界、文字、38%/12px 遮罩与统一阴影，弹层常规动作复用近距键帽阴影，并以唯一的 `#f37021` 标志性盒橙统一关键执行动作与小面积状态回声；提供 pointer-down 即时反馈和减少动态/透明度、增强对比度系统偏好降级，普通禁用仍回到中性灰
+raycast-accent.css: 跨工作台最终颜色层，以冷白银灰顶栏、`#000` 纯黑白字反色选中面、浅色普通键、淡灰细边与近距阴影统一全部状态，集中连接/更新/全景弹层的银灰表面、边界、文字、38%/12px 遮罩与统一阴影，弹层常规动作及单一下载安装按钮复用中性近距键帽与完整状态反馈，并以唯一的 `#f37021` 标志性盒橙统一关键执行动作与小面积状态回声；提供 pointer-down 即时反馈和减少动态/透明度、增强对比度系统偏好降级，普通禁用仍回到中性灰
 prompt-agent-version-select.js: 场景融合 Agent 版本选择控制器，只渲染服务端脱敏已上架目录、默认最高版本并在当前标签页记忆选择
 refined-prompt-version-select.js: 精模预设 Prompt 版本控制器，消费脱敏目录、标记内部测试草稿、说明用户要求前置规则并在当前标签页记忆选择
 style-dna-chat.css: Style DNA 反推预览视觉，提供图片/PDF 附件卡、兼容内嵌功能目录的等高对话面板、独立滚动消息流与未发布 JSON 草稿卡片

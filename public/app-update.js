@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 workbench-utils.js 的同源 JSON API、更新检查 installMode 与安装 NDJSON 合同、三个工作台的更新入口及原生 dialog/页面可见性能力
- * [OUTPUT]: 对外提供受信发布链接验证、版本/安装模式/待重启/恢复失败映射、可注入检查/安装请求的控制器，以及两模式确认安装、完成/恢复指导与安装互斥弹层
+ * [OUTPUT]: 对外提供受信发布链接验证、版本亮点/安装模式/待重启/恢复失败映射、可注入检查/安装请求的控制器，以及单一下载安装动作、完成/恢复指导与安装互斥弹层
  * [POS]: public 的跨工作台更新交互层，用户确认后才请求安装，仅收到有效 complete 回执才呈现安装成功
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,14 +47,25 @@ function getInstallMode(value) {
 
 function getInstallationCopy(installMode) {
   return installMode === "in-place" ? {
-    instructions: "点击「自动安装」将在当前目录替换程序，保留 .env.local 和本地数据；完成当前任务并重启启动脚本后生效。",
+    instructions: "在当前目录更新，保留配置和本地数据。安装后重启生效。",
     confirmation: "安装将在当前目录替换程序，保留 .env.local 和本地数据。\n请先完成当前任务；安装后需重启启动脚本以生效。",
-    completed: "程序已在当前目录更新，.env.local 和本地数据已保留，无需迁移配置。完成当前任务后，关闭当前服务并双击原启动脚本，使新版本生效。",
+    completed: "配置和本地数据已保留。完成当前任务后，关闭当前服务并双击原启动脚本。",
   } : {
-    instructions: "点击「自动安装」将下载并安装到新目录，保留当前源码工作区；完成后需手动迁移 .env.local，等待任务完成后再切换。",
+    instructions: "安装到新目录，保留当前源码。完成后需迁移配置并启动新版本。",
     confirmation: "安装将在新目录完成，当前源码工作区保持不变。\n完成后请手动迁移 .env.local 配置文件。",
-    completed: "请手动复制原目录的 .env.local 到新目录，完成当前任务后切换到新版本并运行启动脚本。",
+    completed: "复制原目录的 .env.local 到新目录，完成当前任务后运行新目录的启动脚本。",
   };
+}
+
+function getReleaseHighlights(value) {
+  const notes = plainText(value).trim();
+  if (!notes || notes === "更新说明请在版本页面查看。") return "";
+  const packageHeader = new RegExp(`^Canvas Lab ${VERSION_PATTERN} 运行包。(?:\\r?\\n|$)`);
+  if (!packageHeader.test(notes)) return notes;
+  const distributionStart = notes.indexOf("\n使用者只需下载 ");
+  if (distributionStart < 0) return notes;
+  const highlights = notes.slice(0, distributionStart).match(/(?:^|\n)本次更新：\r?\n([\s\S]*)$/);
+  return highlights ? highlights[1].trim() : "";
 }
 
 export function getAppUpdateView(state = {}, { isChecking = false } = {}) {
@@ -76,7 +87,7 @@ export function getAppUpdateView(state = {}, { isChecking = false } = {}) {
   const releaseUrl = getTrustedUpdateUrl(state.releaseUrl) || RELEASES_URL;
   const versionLabel = currentVersion ? `v${currentVersion.replace(/^v/, "")}` : "检查更新";
   const latestVersionLabel = latestVersion ? `v${latestVersion.replace(/^v/, "")}` : "";
-  const releaseNotes = plainText(state.releaseNotes).trim();
+  const releaseNotes = getReleaseHighlights(state.releaseNotes);
   return {
     status,
     installMode: getInstallMode(state.installMode),
@@ -100,8 +111,7 @@ export function getAppUpdateView(state = {}, { isChecking = false } = {}) {
         ? (plainText(state.message, 600) || "检查未完成，请稍后重试。") : "",
     releaseUrl,
     downloadUrl: status === "available" ? getTrustedUpdateUrl(state.downloadUrl, "download") : null,
-    releaseNotes: status === "available" && releaseNotes !== "更新说明请在版本页面查看。"
-      ? releaseNotes : "",
+    releaseNotes: status === "available" ? releaseNotes : "",
     checkedAt: plainText(state.checkedAt, 80),
     isChecking,
   };
@@ -177,6 +187,10 @@ export function createAppUpdateController({
   status.setAttribute("aria-live", "polite");
   const versionLine = makeElement("p", "app-update-version-line");
   const message = makeElement("p", "app-update-message");
+  const releaseLink = makeElement("a", "app-update-release-link", "查看发布页");
+  releaseLink.target = "_blank";
+  releaseLink.rel = "noopener noreferrer";
+  releaseLink.hidden = true;
   const notesSection = makeElement("section", "app-update-notes");
   const notes = makeElement("p", "app-update-release-notes");
   notesSection.append(makeElement("h3", "", "更新说明"), notes);
@@ -189,15 +203,12 @@ export function createAppUpdateController({
   const actions = makeElement("footer", "app-update-actions");
   const closeButton = makeElement("button", "app-update-action", "关闭");
   closeButton.type = "button";
-  const checkButton = makeElement("button", "app-update-action", "重新检查");
+  const checkButton = makeElement("button", "app-update-action app-update-check", "重新检查");
   checkButton.type = "button";
-  const downloadLink = makeElement("a", "app-update-action app-update-download", "下载更新");
-  downloadLink.target = "_blank";
-  downloadLink.rel = "noopener noreferrer";
-  const installButton = makeElement("button", "app-update-action app-update-install", "自动安装");
+  const installButton = makeElement("button", "app-update-action app-update-install", "下载安装");
   installButton.type = "button";
-  actions.append(closeButton, checkButton, downloadLink, installButton);
-  dialog.append(status, versionLine, message, notesSection, instructions, progressBar, progressText, actions);
+  actions.append(closeButton, checkButton, installButton);
+  dialog.append(status, versionLine, message, releaseLink, notesSection, instructions, progressBar, progressText, actions);
   pageDocument.body.append(dialog);
   let restoreFocus = trigger;
   let lastAutomaticCheck = 0;
@@ -214,9 +225,20 @@ export function createAppUpdateController({
     trigger.classList.toggle("has-update", view.status === "available" || view.restartRequired || view.recoveryRequired);
     trigger.dataset.updateStatus = view.status;
   };
+  const renderActions = (view) => {
+    const needsRecovery = view.restartRequired || view.recoveryRequired;
+    installButton.hidden = !view.downloadUrl || installationOutcome === "success";
+    installButton.disabled = isInstalling || needsRecovery || installationOutcome === "success";
+    checkButton.hidden = isInstalling || needsRecovery || installationOutcome === "success"
+      || (view.status === "available" && Boolean(view.downloadUrl) && installationOutcome !== "error");
+    checkButton.disabled = isInstalling || view.isChecking;
+    checkButton.textContent = view.isChecking ? "检查中…" : "重新检查";
+    closeButton.disabled = isInstalling;
+  };
 
   async function startInstallation() {
-    if (!currentUpdateState || currentUpdateState.status !== "available" || isInstalling || installationOutcome === "success" || restartPending || currentUpdateState.recoveryRequired === true) return;
+    if (!currentUpdateState || currentUpdateState.status !== "available" || isInstalling || installationOutcome === "success" || restartPending || currentUpdateState.recoveryRequired === true
+      || !getTrustedUpdateUrl(currentUpdateState.downloadUrl, "download")) return;
 
     const update = { ...currentUpdateState };
     const installMode = getInstallMode(update.installMode);
@@ -234,11 +256,9 @@ export function createAppUpdateController({
     status.textContent = "正在安装更新…";
     status.dataset.status = "installing";
     message.hidden = true;
+    releaseLink.hidden = true;
     dialog.setAttribute("aria-busy", "true");
-    installButton.disabled = true;
-    downloadLink.hidden = true;
-    checkButton.disabled = true;
-    closeButton.disabled = true;
+    renderActions(getAppUpdateView(currentUpdateState));
     progressBar.hidden = false;
     progressText.hidden = false;
     progressFill.style.transform = "translateX(-100%)";
@@ -320,8 +340,8 @@ export function createAppUpdateController({
       const completedCopy = getInstallationCopy(completedMode);
       progressFill.style.transform = "translateX(0%)";
       progressText.textContent = completedMode === "in-place"
-        ? `安装完成！当前目录已更新：\n${installedPath}`
-        : `安装完成！新版本已安装到：\n${installedPath}`;
+        ? "当前目录已更新。"
+        : `新版本目录：\n${installedPath}`;
       status.textContent = "安装成功";
       status.dataset.status = "success";
       if (completedMode === "in-place") {
@@ -335,29 +355,23 @@ export function createAppUpdateController({
       }
       instructions.textContent = completedCopy.completed;
       instructions.hidden = false;
-      pageWindow.alert(
-        `安装成功！\n\n新版本路径：${installedPath}\n\n` +
-        completedCopy.completed
-      );
     } catch (error) {
       installationOutcome = "error";
       const code = plainText(error?.code, 80);
       const detail = `${code ? `[${code}] ` : ""}${plainText(error?.message, 600) || "安装失败"}`;
       status.textContent = "安装失败";
       status.dataset.status = "error";
-      progressText.textContent = `错误：${detail}`;
+      progressBar.hidden = true;
+      progressText.hidden = true;
       message.textContent = detail;
       message.hidden = false;
-      downloadLink.hidden = !getTrustedUpdateUrl(update.downloadUrl, "download");
-      pageWindow.alert(`安装失败：${detail}`);
+      releaseLink.href = getTrustedUpdateUrl(update.releaseUrl) || RELEASES_URL;
+      releaseLink.hidden = false;
     } finally {
       reader?.releaseLock?.();
       isInstalling = false;
       dialog.setAttribute("aria-busy", "false");
-      installButton.disabled = installationOutcome === "success";
-      checkButton.disabled = false;
-      checkButton.textContent = "重新检查";
-      closeButton.disabled = false;
+      renderActions(getAppUpdateView(currentUpdateState));
     }
   }
 
@@ -376,17 +390,17 @@ export function createAppUpdateController({
       versionLine.hidden = !view.versionLine;
       message.textContent = view.message;
       message.hidden = !view.message;
+      releaseLink.href = view.releaseUrl;
+      releaseLink.hidden = view.status !== "available" || (Boolean(view.releaseNotes) && Boolean(view.downloadUrl));
+      if (!releaseLink.hidden) {
+        message.textContent = view.downloadUrl ? "更新详情请在发布页查看。" : "安装包暂不可用，请在发布页查看。";
+        message.hidden = false;
+      }
       notes.textContent = view.releaseNotes;
       notesSection.hidden = !view.releaseNotes;
       instructions.textContent = view.instructions;
       instructions.hidden = view.recoveryRequired || (view.status !== "available" && !view.restartRequired);
-      if (view.downloadUrl) downloadLink.href = view.downloadUrl;
-      else downloadLink.removeAttribute("href");
-      downloadLink.hidden = !view.downloadUrl;
-      installButton.hidden = !view.downloadUrl;
-      installButton.disabled = view.restartRequired || view.recoveryRequired;
-      checkButton.disabled = view.isChecking;
-      checkButton.textContent = view.isChecking ? "检查中…" : "重新检查";
+      renderActions(view);
       dialog.setAttribute("aria-busy", String(view.isChecking));
     },
   });
