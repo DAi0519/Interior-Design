@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖页面飞书配置刷新按钮、调用方 API、美化/氛围转换独立上架 Prompt 状态、白模与空房 Agent/Style DNA/精模目录与 Toast 回调
- * [OUTPUT]: 对外提供美化/氛围转换 Prompt 脱敏状态映射与 bindConfigRefresh，管理共享单次刷新、互斥状态与双模式脱敏配置反馈
+ * [OUTPUT]: 对外提供美化/氛围转换 Prompt 脱敏状态映射与 bindConfigRefresh，美化就绪仅显示标题行状态、异常才显示原因，管理共享单次刷新、互斥状态与双模式脱敏配置反馈
  * [POS]: public 的配置刷新交互控制器，与 app.js 的生图状态和上传流程隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,7 +22,7 @@ export function effectEnhancementPromptStatus(config = {}) {
 
 export function effectBeautificationPromptStatus(config = {}) {
   const status = effectEnhancementPromptStatus(config);
-  if (status.ready) status.note = `当前使用「${config.name || "效果图美化 Prompt"}」v${config.version}（已上架）；按美化强度与画面色调组合使用预设。`;
+  if (status.ready) status.note = "";
   return status;
 }
 
@@ -79,6 +79,7 @@ export function bindConfigRefresh({
     beautificationAvailability.textContent = status.availability;
     beautificationAvailability.classList.toggle("ready", status.ready);
     beautificationNote.textContent = status.note;
+    beautificationNote.hidden = !status.note;
   }
 
   async function load() {

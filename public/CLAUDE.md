@@ -3,8 +3,8 @@
 
 成员清单
 
-effect-beautification-controls.js: 美化强度/色调共享输入层，主工作台固定语义骨架挂载、低/高强度与自然/暖/冷调缺省归一化、value/restore、单选焦点与方向键/Home/End 支持，由主工作台与 Beta 共用且不接收 Prompt 正文
-effect-beautification.css: 美化强度两列/色调三列视觉层，复用 38px 共享选择控件及品牌键面/黑白选中/键盘焦点/低动效令牌，局部提升说明对比并让氛围版本/刷新整体换行
+effect-beautification-controls.js: 美化强度/色调共享输入层，主工作台无常驻说明的语义骨架及异常提示位、低/高强度与自然/暖/冷调缺省归一化、value/restore、单选焦点与方向键/Home/End 支持，由主工作台与 Beta 共用且不接收 Prompt 正文
+effect-beautification.css: 美化强度两列/色调三列视觉层，复用 38px 共享选择控件及品牌键面/黑白选中/键盘焦点/低动效令牌，保留错误提示对比并让氛围版本/刷新整体换行
 
 image-outpaint.js: AI 扩图双引擎控制器，默认 ComfyUI 预处理/8px 对齐，Sunburst 原尺寸/27目标档位与最小正扩展比例快捷选择，不舍入手输四边、位置预览、各引擎动态可用性与独立单图请求
 image-outpaint.css: AI 扩图画布/四边输入/比例快捷按钮/尺寸与错误增量样式，尺寸及原图重绘提示完整换行，复用主题令牌并支持窄屏与键盘焦点
@@ -14,7 +14,7 @@ CLAUDE.md: 本模块地图，维护浏览器界面成员清单
 
 app-update.js: 三工作台共享版本与更新交互，自动检测/手动重试、状态标题/精简版本/真实说明及受信下载；按 installMode 区分源码新目录及运行包原目录替换/保留配置和数据，确认与成功指导匹配迁移或重启；原地 complete/restartRequired 锁存待重启且隐藏重复安装下载，recoveryRequired 优先展示恢复失败与备份指引；消费 NDJSON/错误 code/有效 complete，安装期间禁止检查/关闭
 app-update.css: 共享更新入口与紧凑对话框视觉层，360px 状态标题布局、精简版本、中性键面、盒橙状态点、按需说明、同排32px等尺寸动作及窄屏可访问入口；弹层表面/遮罩与中性下载键由 raycast-accent.css 统一
-config-refresh.js: 飞书配置刷新交互控制器，让效果图美化/氛围转换各自当前上架 Prompt 状态、白模与空房双模式 Agent、Style DNA 与精模 Prompt 入口共享互斥状态并分发脱敏配置
+config-refresh.js: 飞书配置刷新交互控制器，效果图美化就绪只显示标题行版本状态、失败才显示原因；让美化/氛围转换各自当前上架 Prompt 状态、白模与空房双模式 Agent、Style DNA 与精模 Prompt 入口共享互斥状态并分发脱敏配置
 connection-center.js: 运营首次运行控制器，管理 OneAPI 本机记忆、评测页 `?connect=api` 直达、CLI/用户/中文授权能力/Base 实时同步合同状态、飞书 Device Flow 与焦点圈闭/归还，并把准入状态回传生成编排器
 connection-center.css: 连接中心视觉层，提供 OneAPI/飞书无套框双分区、中性浅色 32px 动作按钮的结构与交互基底、灰阶就绪标签、状态行、本机记忆控件、授权二维码和窄屏布局，最终颜色由 raycast-accent.css 统一
 generation-actions.js: 白模/空房生成动作状态控制器，以 Prompt 输入指纹管理首次单按钮、可复用双按钮、图片超分语义、忙碌状态与强制重新生成 Prompt 回调，固定显示 START/RUNNING…，按业务状态维护中文 aria-label，并以 is-busy/aria-busy 区分运行中与普通禁用

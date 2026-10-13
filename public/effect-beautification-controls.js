@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖主工作台美化容器或 Beta 已有强度/色调单选组、受控选择值与变更回调
- * [OUTPUT]: 对外提供主工作台美化语义骨架挂载、低强度/自然调归一化及 value/restore 单选控制器，支持方向键、Home/End 与焦点跟随
+ * [OUTPUT]: 对外提供无常驻说明的主工作台美化骨架、异常提示位、低强度/自然调归一化及 value/restore 单选控制器，支持方向键、Home/End 与焦点跟随
  * [POS]: public 的效果图美化输入层，由生图工作台与 Beta 共用，不持有 Prompt 正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,8 +32,7 @@ const BEAUTIFICATION_SECTION_HTML = `
                 <button class="feature-choice-option" type="button" role="radio" aria-checked="false" data-effect-tone="cool">冷调</button>
               </div>
             </div>
-            <p class="compact-config-note">低强度均衡光线；高强度增强空间层次与光影。保留原有材质颜色和纹理。</p>
-            <p id="effectBeautificationPromptNote" class="compact-config-note">正在读取当前上架 Prompt 版本。</p>
+            <p id="effectBeautificationPromptNote" class="compact-config-note" hidden></p>
 `;
 
 export function normalizeEffectBeautification(input = {}) {

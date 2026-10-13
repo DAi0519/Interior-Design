@@ -7,7 +7,7 @@ beta-base-schema.test.mjs: live Store verifier 的实时三表读取、字段/�
 beta-id-flow.test.mjs: ID 批次成员/功能绑定、超过20MB整集零原图入队、两并发按需取图、实际单图8MB/MIME保护、草稿显式空状态及逐张幂等保存/完成回读测试，使用内存CLI/模型替身
 beta-sample-library.test.mjs: 浏览器样本库24MB逐张读取/上传、稳定ID、部分失败后只重试剩余项、全景 2:1 源图准入与拒绝后释放预览、保存忙碌守卫与完成回读后ready、元数据无原图测试，使用假DOM/假API
 
-effect-beautification-ui.test.mjs: 效果图美化浏览器合同，六组合与失效缺省、独立单图主题、脱敏版本/失败提示及不携带环境控件的挂载语义骨架，使用纯函数/静态源码不触发真实生成
+effect-beautification-ui.test.mjs: 效果图美化浏览器合同，六组合与失效缺省、独立单图主题、脱敏版本/就绪无常驻说明/失败原因及不携带环境控件的挂载语义骨架，使用纯函数/静态源码不触发真实生成
 
 image-outpaint.test.mjs: AI 扩图 EXIF 方向归一化、实际/预处理尺寸、四边/8px 对齐/本机上限、节点/输入/模型只读能力与失败不缓存、HTTP 入队准入、独立客户端/工具配置及 OneAPI/飞书隔离测试，不提交 GPU 任务
 image-outpaint-workflow.test.mjs: AI 扩图参数 1082 来源身份、643 截图线索、LayerStyle 截断后 ceil32、8px 目标、Janus/Flux Fill 原参数与 18 节点闭合、传输适配、请求产物隔离及实际尺寸/来源指纹测试，不提交 GPU 任务

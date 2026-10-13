@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、参考图能力解释器、美化输入控制器及配置状态投影
- * [OUTPUT]: 对外提供六组合选择/归一化、跨功能单图约束、Prompt 可用/失败提示及隔离界面合同测试
+ * [OUTPUT]: 对外提供六组合选择/归一化、跨功能单图约束、Prompt 就绪无常驻说明/失败原因及隔离界面合同测试
  * [POS]: test 的效果图美化浏览器合同回归测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,10 +32,10 @@ test("美化与氛围转换上传均固定单图并明确当前主题", () => {
   assert.equal(referenceSubject("effectEnhancement"), "待转换效果图");
 });
 
-test("美化只展示脱敏版本状态，配置失败保留恢复原因", () => {
+test("美化就绪仅展示版本状态，配置失败保留恢复原因", () => {
   const status = effectBeautificationPromptStatus({ available: true, version: 1 });
   assert.equal(status.availability, "Prompt v1 · 已上架");
-  assert.match(status.note, /美化强度与画面色调/);
+  assert.equal(status.note, "");
   assert.equal(status.ready, true);
   const unavailable = effectBeautificationPromptStatus({ available: false, reason: "请检查新表配置" });
   assert.equal(unavailable.ready, false);
