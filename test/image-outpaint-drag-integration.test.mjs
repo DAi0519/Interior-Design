@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 public/image-outpaint.js 的完整拖动交互流程
- * [OUTPUT]: 验证拖动交互的端到端流程、状态同步与用户体验
- * [POS]: test 的扩图拖动集成测试，覆盖拖动开始/移动/结束完整生命周期
+ * [INPUT]: 依赖 public/image-outpaint.js 保留的旧四边几何纯函数
+ * [OUTPUT]: 验证固定画布中的像素位移、边界约束与旧四边求和恒等式
+ * [POS]: test 的旧扩图几何兼容测试，真实绑定拖动行为由 image-outpaint-ui.test.mjs 验证
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -154,22 +154,4 @@ describe("image-outpaint-drag-integration", () => {
     });
   });
 
-  describe("interaction with ratio buttons", () => {
-    it("should clear selected ratio when user drags manually", () => {
-      // This test documents the expected behavior:
-      // When user drags the image, selectedRatio should be cleared
-      // because the position is no longer centered
-
-      let selectedRatio = "4:3";
-
-      // Simulate drag event
-      const userDragged = true;
-
-      if (userDragged) {
-        selectedRatio = "";
-      }
-
-      strictEqual(selectedRatio, "", "ratio should be cleared after manual drag");
-    });
-  });
 });

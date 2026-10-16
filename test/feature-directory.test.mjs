@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与生图工作台入口/主题 CSS
- * [OUTPUT]: 对外提供 AI设计/AI渲染/AI创作内嵌目录、十功能唯一入口、美化/氛围转换独立导航、双面板桌面布局与窄屏降级的静态合同测试
+ * [OUTPUT]: 对外提供 AI设计/AI渲染/AI创作内嵌目录、十功能唯一入口、AI扩图位于AI创作末位、美化/氛围转换独立导航、双面板桌面布局与窄屏降级的静态合同测试
  * [POS]: test 的生图工作台信息架构回归测试，不创建 DOM 或发送请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,14 @@ test("十个功能只在三组内嵌目录中出现一次", async () => {
   assert.equal((html.match(/data-feature-mode=/g) || []).length, 10);
   assert.match(directory, /data-feature-mode="effectBeautification"[^>]*>效果图美化<\/button>/);
   assert.match(directory, /data-feature-mode="effectEnhancement"[^>]*>效果图氛围转换<\/button>/);
+  const renderGroup = directory.match(/<section[^>]*aria-labelledby="aiRenderTitle"[\s\S]*?<\/section>/)?.[0] || "";
+  const creationGroup = directory.match(/<section[^>]*aria-labelledby="aiCreationTitle"[\s\S]*?<\/section>/)?.[0] || "";
+  assert.deepEqual([...renderGroup.matchAll(/data-feature-mode="([^"]+)"/g)].map((match) => match[1]), [
+    "effectBeautification", "effectEnhancement", "panoramaEnhancement", "imageUpscale",
+  ]);
+  assert.deepEqual([...creationGroup.matchAll(/data-feature-mode="([^"]+)"/g)].map((match) => match[1]), [
+    "styleDna", "free", "imageOutpaint",
+  ]);
   assert.equal((directory.match(/>白模渲染<\/button>/g) || []).length, 1);
   assert.equal((directory.match(/>精模渲染<\/button>/g) || []).length, 1);
   assert.doesNotMatch(html, /id="featureModeTitle">功能/);

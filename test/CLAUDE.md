@@ -9,17 +9,30 @@ beta-sample-library.test.mjs: 浏览器样本库24MB逐张读取/上传、稳定
 
 effect-beautification-ui.test.mjs: 效果图美化浏览器合同，六组合与失效缺省、独立单图主题、脱敏版本/就绪无常驻说明/失败原因及不携带环境控件的挂载语义骨架，使用纯函数/静态源码不触发真实生成
 
-image-outpaint.test.mjs: AI 扩图 EXIF 方向归一化、实际/预处理尺寸、四边/8px 对齐/本机上限、节点/输入/模型只读能力与失败不缓存、HTTP 入队准入、独立客户端/工具配置及 OneAPI/飞书隔离测试，不提交 GPU 任务
-image-outpaint-workflow.test.mjs: AI 扩图参数 1082 来源身份、643 截图线索、LayerStyle 截断后 ceil32、8px 目标、Janus/Flux Fill 原参数与 18 节点闭合、传输适配、请求产物隔离及实际尺寸/来源指纹测试，不提交 GPU 任务
-image-outpaint-oneapi.test.mjs: Sunburst 原尺寸/透明画布/不透明原图矩形 mask、27档位、实际产物/身份/费用、错尺寸/多图拒绝且不重复收费调用、当前 Key 权限隔离、专用客户端与 imageEdit 入队合同测试，使用假客户端
-image-outpaint-ui.test.mjs: 双引擎扩图 ComfyUI32/8 旧合同、Sunburst 原尺寸/27档位/最小正扩展、引擎切换重置、不舍入手输、重绘提示、所选引擎请求与连接/换 Key/断开权限刷新合同测试
+image-outpaint.test.mjs: AI扩图EXIF/真实4K输入与原字节合同、旧四边与保护上限、OneReward FP8/Flux Fill dev候选独立文件/dtype能力探测及失败不缓存、执行前实时模型复核与身份透传、HTTP未知400/不可用409零入队及专用客户端/OneAPI隔离、扩图飞书Schema入队阻断与pending归档测试，不提交GPU任务
+image-outpaint-workflow.test.mjs: AI扩图1082来源/643线索、4K输入/32与8对齐、OneReward FP8默认与原版Flux Fill UNET/dtype唯一变化及metadata身份、Janus/采样参数与18节点闭合保真、传输适配/请求隔离及实际尺寸追溯测试，不提交GPU任务
+image-outpaint-oneapi.test.mjs: Sunburst 与 Flux 4K 独立的3840输入边界、原尺寸/透明画布/不透明原图矩形 mask、27档位的16px/像素/边长/比例边界、实际产物/身份/费用、错尺寸/多图拒绝且不重复收费调用、当前 Key 权限隔离、专用客户端与 imageEdit 入队合同测试，使用假客户端
+image-outpaint-canvas.test.mjs: 目标画布共享规划的五比例/1K–4K双引擎映射、源图按需适配/同尺寸留白/定位总和、非法参数400、服务端真实解码/EXIF后重算与实际resize提交字节、Sunburst透明画布/遮罩一致性及旧四边严格兼容测试，不提交GPU或付费任务
+image-outpaint-scale.test.mjs: 三引擎固定目标下显式scale/动态32px下限/非法范围、真实Sharp等比重采样与EXIF、零扩展提交阻断、scale/实际源图字节归档测试，缺省旧合同保持兼容
+image-outpaint-fixture.mjs: 扩图控制器共享内存DOM/冒泡与捕获事件/可控RAF/写入统计及transform视觉矩形夹具，供缩放/性能/连续轨迹测试复用
+image-outpaint-performance.test.mjs: 高频输入合帧/末坐标提交/失效帧取消与局部绘制隔离测试，覆盖30/60/120Hz输入和60Hz帧调度，不访问网络或GPU
+image-outpaint-continuous.test.mjs: 三引擎100帧0.1/0.2px真实绑定轨迹与旧网格冻结对照、四角固定对角/原图比例、松手及重绘无回弹、4K仅transform无源图布局写入、提交仍满足整数模型网格与误差界限测试，不访问网络或GPU
+image-outpaint-transform.test.mjs: 四角锚点与边界、鼠标/触屏/键盘缩放和取消、倍率预设/range连续端点/自定义/提示、浮层重排关闭及移动与缩放互斥的DOM交互测试，不调用网络或GPU
+image-outpaint-workspace.test.mjs: 主画布DOM节点/事件保留、四种任务阶段与页签选择保持、键盘焦点、原结果/飞书链接保留、隐藏构图时关闭浮层、上传默认预览/旧任务恢复与完成不覆盖新构图、新任务身份及跨功能ARIA恢复的内存交互测试，不调用模型或网络
+image-outpaint-ui.test.mjs: Flux/Qwen/Sunburst三引擎切换、双Flux模型下拉/服务默认值/失效保持并阻断/空目录禁止提交、Qwen与Sunburst隐藏并剥离Flux模型参数、比例/1K–4K固定目标与Qwen原尺寸16px合同、鼠标/触摸/键盘构图及只恢复位置的居中、默认1.5倍和带scale请求、引擎/换图状态重置、权限刷新保留构图与单份原图请求测试
+image-outpaint-qwen.test.mjs: 独立2511/专属4步LoRA隔离、遮罩采样与最终同遮罩原图合成、16对齐/源图扩边闭合/输入投影、实时节点端口与输出槽位漂移阻断、PNG实测尺寸/摘要及跨请求旧产物零下载测试，不访问远端或GPU
+image-outpaint-archive.test.mjs: 三引擎四模型的Prompt/实际源图/画布/模型/产物/费用投影、EXIF适配字节、错尺寸或失败零同步、已完成产物无GPU补写合同与超分本机路径回归
+image-outpaint-qwen-export.test.mjs: Qwen画布/API保存产物与真源一致、原生上传/16对齐等比预处理差异、双向端口/类型/槽位/无环、KSampler随机策略控件防错位及无图片凭据地址的离线交付验证
+image-outpaint-qwen-service.test.mjs: Qwen 原尺寸与EXIF/五比例16px目标/按需适配字节、独立能力失败恢复与成功缓存、执行前409零GPU/真实模型身份/错尺寸拒绝、专用客户端与OneAPI隔离、飞书归档及HTTP comfyUi阶段合同测试，不提交GPU任务
+image-outpaint-drag.test.mjs: 保留旧扩图预处理与四边求和纯函数的兼容、位移换算及非负边界测试，真实交互由image-outpaint-ui.test.mjs覆盖
+image-outpaint-drag-integration.test.mjs: 保留旧固定画布的拖动几何公式、边界夹紧与预处理尺寸不变测试，真实绑定拖动保留目标比例由image-outpaint-ui.test.mjs覆盖
 
 CLAUDE.md: 本模块地图，维护自动化测试成员清单
 
-app-update.test.mjs: GitHub 正式 Release 与 SemVer/标准 ZIP 准入、匿名查询、失败降级、超时、缓存与并发去重测试，不访问外部网络
+app-update.test.mjs: GitHub 正式 Release 与 SemVer/标准 ZIP 准入、匿名查询、HEAD 兜底不伪造说明、失败降级、超时、缓存与并发去重测试，不访问外部网络
 app-update-api.test.mjs: 最新正式版回执绑定、安装政策/安装前与替换前任务空闲、非法 URL/版本/不可检查/并发、待重启/恢复失败保护与 NDJSON 成功失败合同的内存 HTTP 测试
 app-installer.test.mjs: 注入 Response 的真实临时 ZIP 安装测试，覆盖官方摘要、Git 源码保护/持久新目录、Release 原地同路径版本更新/旧模块删除/配置数据保留/事务失败回滚与恢复失败备份/人工恢复指引/重复安装阻断、目录竞态/ZIP 路径/重定向/截断/并发合同，不访问网络或启动服务
-app-update-ui.test.mjs: 单一下载安装/按需检查/受信恢复链接、发布模板亮点提取/非模板保留、完整安装终态/错误码/互斥、两模式确认/指导与未知模式回退、待重启/恢复失败回归，不下载或安装新版
+app-update-ui.test.mjs: 无外链的单一下载安装/按需检查/原位失败重试、发布模板亮点提取/非模板保留/空说明隐藏、完整安装终态/错误码/互斥、两模式确认/指导与未知模式回退、待重启/恢复失败回归，不下载或安装新版
 custom-select.test.mjs: macOS/浏览器下拉回归测试，验证主指针在 click 前固定目标选项焦点、辅助按键不抢焦点、声明式向上菜单、Enter/Space 确认，并阻止内容宽度百分比导致的无效省略
 choice-controls.test.mjs: 生图页功能、风格与出图模型三类按钮选择回归测试，验证共享高度、圆角、内距、字重、阴影、纯黑白字选中态与完整交互状态
 generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
@@ -27,7 +40,7 @@ product-navigation.test.mjs: 共享顶栏字体与全局动效回归测试，验
 raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、含 Beta 全宽 START 的唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、三页最终加载顺序、中性焦点及同源近距阴影的含下载安装的中性弹层动作
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 六个 OneAPI 模型（含 GPT Image 2.5 双模型九比例与五质量档）与默认 9B FP8/7 steps Flux 工作流统一可选、Provider、单图、Pro 通用 1K/2K 与仅全景可用的 3040x1520 4K 实验档、Flux Prompt、原图比例 1K/2K 推理及同图 2K→4K/6K 攸行超分、16 像素对齐、全景 2:1 准入及请求白名单测试，不发送真实请求
+model-config.test.mjs: 六个 OneAPI 模型（含 GPT Image 2/2.5 全档位 16 对齐/像素与边长边界、原图 1K 16:9 请求与浏览器摘要、2.5 双模型九比例与五质量档）与默认 9B FP8/7 steps Flux 工作流统一可选、Provider、单图、Pro 通用 1K/2K 与仅全景可用的 3040x1520 4K 实验档、Flux Prompt、原图比例 1K/2K 推理及同图 2K→4K/6K 攸行超分、其他接口尺寸不变、全景 2:1 准入及请求白名单测试，不发送真实请求
 generation-batch.test.mjs: 服务端最多四张批次标识、浏览器逐模型及功能尺寸/质量适配、Seedream 5.0 Pro 全景 4K 保留、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图付费执行前飞书同步合同阻断、任务即时入队、查询恢复、领域阶段快照透传、最多两路并发、保序与部分失败测试，不调用真实生图服务；deferred 测试确保成功/失败终态前始终忙碌
 beta-base.test.mjs: Beta 三表隔离、创建null填默认可用后必须upsert清空并草稿回读、{id}对象数组关联、七功能映射、最终Prompt/多选Tag捕获；逐字段验证场景/配置快照、版本、真实尺寸、时延/费用漂移与附件token/字节数回读，合同不一致不可误报成功；使用CLI替身，不读写真实Base
@@ -37,7 +50,7 @@ beta-runner.test.mjs: 含效果图氛围转换/美化/全景美化的七功能�
 beta-panorama.test.mjs: 全景样本真实2:1/伪尺寸/8MB保护、ID元数据零原图入队、执行时原图比例校验、GPT2.5零入队阻断、独立冻结Prompt版本归档及Seedream全景4K/普通Flux工作流的内存合同测试
 beta-ui.test.mjs: 根容器 clip 与配置区定位边界回归， Beta跑图独立第三工作台、默认 Flux 与当前标签页配置恢复接线、飞书样本集选择/逐张保存及完成回读、无整批容量限制、按样本ID入队与free/style共用图片资产、独立测试时间、同选项键帽近距阴影的38px中性保存与右侧飞书结果按钮、七功能无反推、多模型、配置/监控双栏、START/RETRY、生成/飞书同步双进度和轻量预览的静态合同测试
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数及 ComfyUI/API 编辑阶段消息推导生成中状态、结果与过期/原始错误纯状态测试，不访问真实浏览器存储
-generation-task-request.test.mjs: 日常生图前台飞书实时 Schema 就绪阻断与图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张展开、美化六组合/指定版本穿透与氛围转换/全景美化分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
+generation-task-request.test.mjs: 日常生图前台生图及扩图飞书实时 Schema 就绪阻断与仅图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张展开、美化六组合/指定版本穿透与氛围转换/全景美化分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求
 image-upscale.test.mjs: 图片超分专项测试，覆盖三份 SeedVR2 映射与哈希、默认攸行 3B 原图直入/GPU 缓存、可独立或嵌入 Flux 的阶段、两套 7B 预处理、4K/6K/8K 比例参数、时限、Prompt ID、真实像素、本机结果及 OneAPI/飞书豁免，不提交真实 GPU 任务
 effect-render-enhancement.test.mjs: 效果图氛围转换旧编码/新展示名、环境模块与全景纯文本/开放 MAIN JSON和指定冻结版本、Seedream 全景 4K、普通 Flux 工作流、单图/原比例、脱敏响应与归档元数据内存集成测试
 model-multi-select.test.mjs: 同一出图模型入口至少一项、最多四项、取消与顺序纯规则测试
@@ -47,8 +60,8 @@ flux-negative-prompt.test.mjs: Flux 负向 Prompt 默认不变、自定义整段
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
 generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与忙碌态、内嵌 Smiley Sans、精密键帽反馈、761px 起独立配置滚动区、不遮挡控件的底部动作栏及窄屏自然流布局
-generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离与页面内存边界，不提交真实生图任务
-feature-directory.test.mjs: 生图工作台信息架构静态合同测试，覆盖 AI设计/AI渲染/AI创作内嵌目录、十功能唯一入口、黑色粗体分类、144px 目录与 11/12px 可读字号、各生成功能图片上传置顶、双面板桌面布局及窄屏三列降级
+generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离、带版本的入口与页面内存边界，不提交真实生图任务
+feature-directory.test.mjs: 生图工作台信息架构静态合同测试，覆盖 AI设计/AI渲染/AI创作内嵌目录、十功能唯一入口/AI扩图位于AI创作末位、黑色粗体分类、144px 目录与 11/12px 可读字号、各生成功能图片上传置顶、双面板桌面布局及窄屏三列降级
 empty-room-furniture.test.mjs: 空房家具跨层合同测试，覆盖线上目录推荐合法性、剥离“其他”入口、已选正向需求、未选及空条件省略、明确排除原文保留、其他家具/非法输入、浏览器请求、两条 Agent 路由、缓存隔离和飞书可读归档
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器

@@ -1,0 +1,87 @@
+{
+  "testedAt": "2026-10-15T07:07:15.559Z",
+  "passed": true,
+  "source": {
+    "width": 768,
+    "height": 512
+  },
+  "output": {
+    "width": 1024,
+    "height": 768,
+    "sha256": "fb5f9c9b3ee51f0db0690b7e3252cf0795f1c6e4f43f4c1491d21014cd9693fa"
+  },
+  "placement": {
+    "left": 128,
+    "top": 128
+  },
+  "preservedCenter": {
+    "inset": 32,
+    "width": 704,
+    "height": 448,
+    "meanAbsoluteChannelDifference": 0,
+    "maxAbsoluteChannelDifference": 0,
+    "differingChannels": 0,
+    "pixelIdentical": true
+  },
+  "generatedBandStatistics": {
+    "left": [
+      {
+        "mean": 56.87901306152344,
+        "stdev": 18.683432764611577
+      },
+      {
+        "mean": 57.43760681152344,
+        "stdev": 27.256976102111125
+      },
+      {
+        "mean": 65.41911315917969,
+        "stdev": 40.976539095190574
+      }
+    ],
+    "right": [
+      {
+        "mean": 67.75959777832031,
+        "stdev": 37.465592355642855
+      },
+      {
+        "mean": 51.21974182128906,
+        "stdev": 29.121247155727396
+      },
+      {
+        "mean": 40.20941162109375,
+        "stdev": 21.980347324289674
+      }
+    ],
+    "top": [
+      {
+        "mean": 73.60026550292969,
+        "stdev": 19.520182674579598
+      },
+      {
+        "mean": 57.782135009765625,
+        "stdev": 14.805764992641654
+      },
+      {
+        "mean": 50.73796081542969,
+        "stdev": 13.950716910769874
+      }
+    ],
+    "bottom": [
+      {
+        "mean": 66.0577163696289,
+        "stdev": 30.6209736595719
+      },
+      {
+        "mean": 51.01061248779297,
+        "stdev": 23.33632995619974
+      },
+      {
+        "mean": 46.03563690185547,
+        "stdev": 20.815025896698998
+      }
+    ]
+  },
+  "executionDurationMs": 138668,
+  "visualReview": "扩展区形成完整室内场景，接缝无明显灰边；单张样例可用性通过，不代表多场景画质评测。",
+  "scope": "一次 1024x768 真实GPU运行；2K/4K仅尺寸与节点合同测试，未实跑性能验证。"
+}

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent 模型目录、空房房间类型/其他详情真源、图片产物/尺寸/飞书 CLI、效果图氛围转换/美化和全景图美化、白模与精模图片及可选风格参考图，以及已创建的飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、含独立效果图氛围转换/美化的产品链路与设计字段投影、全部可写字段类型/单选值/附件 ID 的 409 准入、模型映射、记录 ID、三类附件及含天气时段或强度色调的完整工作流 JSON 同步
+ * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent/独立扩图模型目录、空房真源、图片产物/尺寸/飞书 CLI、生图与三引擎扩图结果及可选风格图、已创建飞书 Base
+ * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、生图与AI扩图功能投影、全部可写字段类型/单选值/附件 ID 的 409 准入、模型映射、记录 ID、三类附件及完整工作流 JSON 同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,7 @@ import {
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 import { publicModelCatalog } from "./model-config.mjs";
+import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "./image-outpaint-archive.mjs";
 
 export const LARK_SYNC_CONFIG = Object.freeze({
   baseToken:
@@ -44,13 +45,14 @@ const FEATURE_LABELS = Object.freeze({
   "effect-render-beautification": "效果图美化",
   "empty-room-design": "空房设计",
   "free-image-generation": "自由生图",
+  "image-outpaint": "AI扩图",
   "panorama-render-enhancement": "全景图美化",
   "refined-model-rendering": "精模渲染",
   "white-model-rendering": "白模渲染",
 });
 const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS));
 const REQUIRED_MODEL_LABELS = Object.freeze(
-  publicModelCatalog().map((model) => model.label),
+  [...new Set([...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS])],
 );
 const REQUIRED_AGENT_MODEL_LABELS = Object.freeze(
   publicAgentModelCatalog()
@@ -132,7 +134,7 @@ export function buildRecordFields({
   };
 
   return {
-    "标题": titleFromPrompt(finalPrompt),
+    "标题": titleFromPrompt(finalPrompt || FEATURE_LABELS[workflow?.feature] || ""),
     ...workflowRecordFields(workflow),
     "生图模型": modelLabel,
     ...(workflow?.agentModelLabel

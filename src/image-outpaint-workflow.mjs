@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 MaaS prod_test 参数 1082 的真实 prompt 执行图、单图 Base64、四边扩展、随机采样种子与唯一产物键
- * [OUTPUT]: 对外提供保留 Janus/Flux Fill/32 像素预处理的扩图执行图、来源身份、能力需求、几何规则与真实产物元数据
- * [POS]: src 的 AI 扩图工作流真源，仅适配本机传输与输出，不改写原工作流模型、提示词或采样参数
+ * [INPUT]: 依赖 MaaS prod_test 参数 1082 的真实 prompt 执行图、可选Flux Fill模型键、单图 Base64、四边扩展、随机采样种子与唯一产物键
+ * [OUTPUT]: 对外提供两款 Flux Fill 模型目录与严格解析、支持 32–4096px 输入的扩图执行图、来源身份、能力需求、几何规则与真实模型产物元数据
+ * [POS]: src 的 AI 扩图工作流真源，适配本机传输、4K 输入准入与输出，仅切换兼容 Flux Fill 的模型及权重格式，保留原提示词和采样参数
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,7 +9,7 @@ export const IMAGE_OUTPAINT_OUTPUT_NODE_ID = "output";
 export const IMAGE_OUTPAINT_WORKFLOW = Object.freeze({
   key: "image-outpaint",
   label: "AI 扩图",
-  version: "2026-09-10.1",
+  version: "2026-10-15.3",
   sourceStage: "prod_test",
   sourceUpdatedAt: "2026-09-10",
   maasParameterId: 1082,
@@ -18,13 +18,24 @@ export const IMAGE_OUTPAINT_WORKFLOW = Object.freeze({
   sourcePromptSha256: "2a68c653f0074da5a68324d0dbbdd2801b2b5792d955dca27765fedbd420d37f",
 });
 export const IMAGE_OUTPAINT_GEOMETRY = Object.freeze({
-  maxInputEdge: 2048,
+  maxInputEdge: 4096,
   minInputEdge: 32,
   sourceMultiple: 32,
   targetMultiple: 8,
 });
+export const IMAGE_OUTPAINT_DEFAULT_MODEL_KEY = "oneRewardFp8";
+export const IMAGE_OUTPAINT_MODELS = Object.freeze([
+  { key: IMAGE_OUTPAINT_DEFAULT_MODEL_KEY, label: "Flux Fill OneReward（FP8）", fileName: "flux1-fill-dev-OneReward-fp8.safetensors", weightDtype: "fp8_e4m3fn" },
+  { key: "fluxFillDev", label: "Flux Fill Dev（原版）", fileName: "flux1-fill-dev.safetensors", weightDtype: "default" },
+].map(Object.freeze));
 
-// -------- 原执行图常量：仅展开 MaaS 输入，替换图片传输与报告节点 --------
+export function resolveImageOutpaintModel(key = IMAGE_OUTPAINT_DEFAULT_MODEL_KEY) {
+  const model = IMAGE_OUTPAINT_MODELS.find((candidate) => candidate.key === key);
+  if (!model) throw inputError("不支持的 Flux Fill 扩图模型");
+  return model;
+}
+
+// -------- 原执行图常量：保留来源，生成执行图时覆盖传输、尺寸准入与报告 --------
 const SOURCE_GRAPH = {
   "vae": {
     "class_type": "VAELoader",
@@ -312,6 +323,7 @@ export function imageOutpaintArtifactPrefix(artifactKey) {
 }
 
 export function createImageOutpaintWorkflow({ artifactKey, generationRequest, imageBase64, seed, width, height }) {
+  const model = resolveImageOutpaintModel(generationRequest?.outpaintModel);
   const prefix = imageOutpaintArtifactPrefix(artifactKey);
   assertImageOutpaintAlignedTarget({ width, height });
   if (!Number.isSafeInteger(seed) || seed < 0) throw inputError("AI 扩图随机种子无效");
@@ -324,6 +336,13 @@ export function createImageOutpaintWorkflow({ artifactKey, generationRequest, im
   }
   if (!sides.some((side) => expansion[side] > 0)) throw inputError("请至少扩展一边");
   const graph = structuredClone(SOURCE_GRAPH);
+  Object.assign(graph.model.inputs, { unet_name: model.fileName, weight_dtype: model.weightDtype });
+  Object.assign(graph["check-size"].inputs, {
+    min_width: IMAGE_OUTPAINT_GEOMETRY.minInputEdge,
+    max_width: IMAGE_OUTPAINT_GEOMETRY.maxInputEdge,
+    min_height: IMAGE_OUTPAINT_GEOMETRY.minInputEdge,
+    max_height: IMAGE_OUTPAINT_GEOMETRY.maxInputEdge,
+  });
   graph.input.inputs.base64_data = imageBase64;
   graph.input.inputs.save_prefix = `CanvasLab_Outpaint_Input_${artifactKey}`;
   Object.assign(graph.expand.inputs, Object.fromEntries(sides.map((side) => [side, expansion[side]])));
@@ -337,6 +356,7 @@ export function imageOutpaintWorkflowMetadata({
   generationRequest, height, outputFilename, outputSha256, promptId,
   queueDurationMs, seed, width,
 }) {
+  const model = resolveImageOutpaintModel(generationRequest?.outpaintModel);
   return {
     artifactKey,
     engine: "comfyui",
@@ -344,7 +364,9 @@ export function imageOutpaintWorkflowMetadata({
     expansion: { ...generationRequest?.expansion },
     inputHeight: generationRequest?.sourceHeight ?? null,
     inputWidth: generationRequest?.sourceWidth ?? null,
-    model: SOURCE_GRAPH.model.inputs.unet_name,
+    model: model.fileName,
+    outpaintModel: model.key,
+    weightDtype: model.weightDtype,
     outputFilename,
     outputHeight: actualOutputHeight,
     outputSha256,

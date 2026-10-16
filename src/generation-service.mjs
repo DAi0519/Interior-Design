@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、各生图工作流、带阶段回调的独立图片工具及双引擎扩图服务，以及注入的模型/超分/扩图客户端、密钥、模型目录、Prompt 缓存与同步调度
- * [OUTPUT]: 对外提供含独立六预设效果图美化与原效果图氛围转换的统一生图路由、无需飞书归档的超分与双引擎扩图，按所选引擎严格调用 ComfyUI 或 OneAPI 编辑并透传阶段回调
+ * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、各生图工作流、带阶段回调的独立图片工具及 Flux/Qwen/Sunburst 扩图服务，以及注入的模型/超分/独立扩图客户端、密钥、目录、Prompt 缓存与同步调度
+ * [OUTPUT]: 对外提供含六预设效果图美化/氛围转换的统一生图路由与三引擎扩图归档，按引擎取专用 ComfyUI/OneAPI 编辑客户端并透传阶段，图片超分保持本机结果
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "./effect-render-enhancement-workflow.mjs";
 import { executeImageUpscale } from "./image-upscale-service.mjs";
 import { executeImageOutpaint, imageOutpaintEngineKey } from "./image-outpaint-service.mjs";
+import { QWEN_OUTPAINT_ENGINE_KEY } from "./image-outpaint-qwen.mjs";
 import {
   createGenerationRequest,
   imageProviderForModel,
@@ -23,6 +24,7 @@ export function createGenerationService({
   imageClientForModel,
   imageUpscaleClient,
   imageOutpaintClient = null,
+  qwenImageClient = null,
   promptResultCache,
   requireApiKey,
   scheduleGenerationSync,
@@ -120,8 +122,10 @@ export function createGenerationService({
   function executeForMode(featureMode, input, options = {}) {
     if (featureMode === "imageOutpaint") {
       const engine = imageOutpaintEngineKey(input);
+      const imageClient = engine === "comfyui" ? imageOutpaintClient
+        : engine === QWEN_OUTPAINT_ENGINE_KEY ? qwenImageClient : imageClientForModel(engine);
       return executeImageOutpaint(input, {
-        imageClient: engine === "comfyui" ? imageOutpaintClient : imageClientForModel(engine), onProgress: options.onProgress,
+        imageClient, onProgress: options.onProgress, scheduleSync: scheduleGenerationSync,
       });
     }
     if (["emptyRoom", "whiteModel"].includes(featureMode)) {

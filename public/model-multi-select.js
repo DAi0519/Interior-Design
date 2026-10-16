@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公开出图模型目录、模型展示解释器与用户点击事件
- * [OUTPUT]: 对外提供最多四项且至少保留一项的模型选择纯规则与按钮组控制器
+ * [OUTPUT]: 对外提供最多四项且至少保留一项的模型选择纯规则与带完整名称悬停/无障碍标签的按钮组控制器
  * [POS]: public 的出图模型多选交互层，让单模型和多模型共享同一个配置入口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -50,6 +50,8 @@ export function bindModelMultiSelect({
         button.type = "button";
         button.className = "model-option-toggle";
         button.dataset.modelKey = model.key;
+        button.title = presentation.label;
+        button.setAttribute("aria-label", presentation.label);
         button.disabled = !presentation.selectable;
         button.setAttribute("role", "checkbox");
         button.setAttribute("aria-checked", String(selected));

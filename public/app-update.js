@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 workbench-utils.js 的同源 JSON API、更新检查 installMode 与安装 NDJSON 合同、三个工作台的更新入口及原生 dialog/页面可见性能力
- * [OUTPUT]: 对外提供受信发布链接验证、版本亮点/安装模式/待重启/恢复失败映射、可注入检查/安装请求的控制器，以及单一下载安装动作、完成/恢复指导与安装互斥弹层
+ * [OUTPUT]: 对外提供受信安装地址验证、版本亮点/安装模式/待重启/恢复失败映射、可注入检查/安装请求的控制器，以及无外链的单一下载安装、完成/恢复指导与安装互斥弹层
  * [POS]: public 的跨工作台更新交互层，用户确认后才请求安装，仅收到有效 complete 回执才呈现安装成功
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -187,10 +187,6 @@ export function createAppUpdateController({
   status.setAttribute("aria-live", "polite");
   const versionLine = makeElement("p", "app-update-version-line");
   const message = makeElement("p", "app-update-message");
-  const releaseLink = makeElement("a", "app-update-release-link", "查看发布页");
-  releaseLink.target = "_blank";
-  releaseLink.rel = "noopener noreferrer";
-  releaseLink.hidden = true;
   const notesSection = makeElement("section", "app-update-notes");
   const notes = makeElement("p", "app-update-release-notes");
   notesSection.append(makeElement("h3", "", "更新说明"), notes);
@@ -208,7 +204,7 @@ export function createAppUpdateController({
   const installButton = makeElement("button", "app-update-action app-update-install", "下载安装");
   installButton.type = "button";
   actions.append(closeButton, checkButton, installButton);
-  dialog.append(status, versionLine, message, releaseLink, notesSection, instructions, progressBar, progressText, actions);
+  dialog.append(status, versionLine, message, notesSection, instructions, progressBar, progressText, actions);
   pageDocument.body.append(dialog);
   let restoreFocus = trigger;
   let lastAutomaticCheck = 0;
@@ -256,7 +252,6 @@ export function createAppUpdateController({
     status.textContent = "正在安装更新…";
     status.dataset.status = "installing";
     message.hidden = true;
-    releaseLink.hidden = true;
     dialog.setAttribute("aria-busy", "true");
     renderActions(getAppUpdateView(currentUpdateState));
     progressBar.hidden = false;
@@ -365,8 +360,6 @@ export function createAppUpdateController({
       progressText.hidden = true;
       message.textContent = detail;
       message.hidden = false;
-      releaseLink.href = getTrustedUpdateUrl(update.releaseUrl) || RELEASES_URL;
-      releaseLink.hidden = false;
     } finally {
       reader?.releaseLock?.();
       isInstalling = false;
@@ -390,10 +383,8 @@ export function createAppUpdateController({
       versionLine.hidden = !view.versionLine;
       message.textContent = view.message;
       message.hidden = !view.message;
-      releaseLink.href = view.releaseUrl;
-      releaseLink.hidden = view.status !== "available" || (Boolean(view.releaseNotes) && Boolean(view.downloadUrl));
-      if (!releaseLink.hidden) {
-        message.textContent = view.downloadUrl ? "更新详情请在发布页查看。" : "安装包暂不可用，请在发布页查看。";
+      if (view.status === "available" && !view.downloadUrl) {
+        message.textContent = "安装包暂不可用，请稍后重新检查。";
         message.hidden = false;
       }
       notes.textContent = view.releaseNotes;

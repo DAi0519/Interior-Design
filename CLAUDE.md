@@ -3,10 +3,12 @@ Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable
 
 <directory>
 .impeccable/ - Impeccable 项目级设计配置与验收证据（2 个子目录：live、review）
-public/ - 浏览器工作台界面（78 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、三页共享版本检测与用户确认后安装、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、默认 ComfyUI 参数 1082 与可选 Sunburst API 的双引擎单图扩图/四边画布/各自尺寸合同与动态准入、时间追溯 Run ID 与飞书回读结果预览的七功能 Beta跑图、效果图氛围转换当前上架 Prompt 版本及天气/时段选项、独立六预设的效果图美化强度/色调控件、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
-src/ - GitHub 正式 Release 更新检测/受信安装与共享 HTTP 边界、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、含 ComfyUI/Sunburst 扩图/方向归一化/所选引擎节点或 Key 权限准入的独立图片工具、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图美化/氛围转换/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（59 个模块）
-test/ - Node 原生测试（77 个测试文件，覆盖版本检查/失败降级/更新提示与安装摘要/目录保护/完整进度终态、共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、双引擎扩图来源/EXIF/ComfyUI32与8规则/Sunburst27档位/透明PNG与mask/收费POST及产物合同、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
-scripts/ - 源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
+public/ - 浏览器工作台界面（81 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、三页共享版本检测与用户确认后安装、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的三套 SeedVR2 与 4K/6K/8K 图片超分、默认 ComfyUI 参数 1082、可选 Qwen Image Edit 2511 原生遮罩及 Sunburst API 的三引擎单图扩图/兼容Flux Fill模型选择/目标比例与1K至4K分辨率/固定输出的主区域棋盘格构图/四角等比缩放/倍率设置/浮点transform连续构图与整数提交隔离/上传默认预览与结果切换/各自尺寸合同与动态准入、时间追溯 Run ID 与飞书回读结果预览的七功能 Beta跑图、效果图氛围转换当前上架 Prompt 版本及天气/时段选项、独立六预设的效果图美化强度/色调控件、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或最多四模型批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
+src/ - GitHub 正式 Release 更新检测/受信安装与共享 HTTP 边界、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、含 Flux/Qwen ComfyUI 与 Sunburst 扩图/方向归一化/所选引擎节点或 Key 权限准入的独立图片工具、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图美化/氛围转换/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计编排及 Benchmark 运行层（61 个模块）
+docs/ - 图片扩图目标分辨率与可交互构图的使用/维护说明（无子目录）
+test/ - Node 原生测试（87 个测试文件及共享交互夹具，覆盖版本检查/失败降级/更新提示与安装摘要/目录保护/完整进度终态、共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 三工作流与 4K/6K/8K 图片超分、三引擎扩图来源/EXIF/Qwen遮罩采样与中心合成/原生JSON导出/ComfyUI32与8规则/Sunburst27档位/透明PNG与mask/收费POST及产物合同、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt、空房必填房间类型、白模渲染方式、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
+workflows/ - 可独立导入 ComfyUI 的 Qwen 扩图画布/API JSON 与使用说明，由运行真源导出（无子目录）
+scripts/ - 独立工作流导出与源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>
 
@@ -14,7 +16,7 @@ PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 package.json - 固定 Node 版本、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli/Pannellum 版本
 launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
-server.mjs - 本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立图片工具配置与共享扩图动态能力准入、ComfyUI 图片超分与 ComfyUI/Sunburst 双引擎扩图客户端、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
+server.mjs - 本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立图片工具配置与共享扩图动态能力准入、ComfyUI 图片超分与 Flux/Qwen/Sunburst 三引擎扩图客户端、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
 start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总多候选 Agent/Style/融合模型且仅在显式 --execute 后调用模型并写回 Base
@@ -50,10 +52,12 @@ Benchmark 法则：浏览器评测以样本集、可编辑实验计划、执行�
 
 任务法则：Benchmark 批量出图允许主动停止；取消信号贯穿任务注册表、Runner 与 Provider 请求，任务进度由 Base 已存在的唯一 Run 槽位重建，已写入的 Prompt/Run/结果保留并可通过“继续生成”沿原实验断点续跑。
 
+GPT 尺寸法则：1K/2K/4K 是工作台档位，各比例尺寸以 src/model-config.mjs 为真源，三工作台公开摘要与实际请求使用同一映射；GPT Image 2/2.5 的宽高须为16倍数、边长不超过3840、总像素655360–8294400且长短边比不超过3。1K 16:9 使用1536x864，4K 非16:9画幅按总像素上限缩小并保持精确比例；其他模型继续按各自接口合同映射，禁止把1K统一解释成长边1024。
+
 归档法则：生成记录的“尺寸”必须从结果图真实字节读取，禁止用请求尺寸冒充实际产物。
 
 发布法则：对外发布先创建 GitHub 草稿 Release 并校验提交及全部制品摘要，转正式后才清理本地制品；已存在 Release 或远端 Tag 的版本禁止覆盖。
 
 更新法则：以 package.json 的当前版本与 GitHub 正式 Release 的标准运行 ZIP 为准；自动检测并提示下载，用户确认后由更新 HTTP 边界重新核验最新正式版回执，下载固定仓库 ZIP 并与同版本官方 .sha256 比对。带 .git 的源码工作区采用新目录安装，INSTALL_BASE_DIR 可指定父目录，已有目录拒绝覆盖；Release 运行目录原地替换 public/src 与白名单根程序文件，保留 .env.local、node_modules 和本地数据。原地更新先校验生成/Beta/评测/同步与前台写请求空闲，安装期间阻断新业务写入，替换前再次校验；按根项备份并在失败时回滚，回滚失败保留恢复证据。原地成功后旧进程保持只读并要求关闭服务、重启启动脚本，禁止旧模块与新页面混用。公开仓库以匿名接口查询，不读取 GitHub 凭据；访问受限、网络失败或无合格发布物必须显示无法检查，不得误报已是最新。安装过程实时反馈进度，失败保留错误代码与原因，只有完整安装回执才能显示成功。
 
-AI 扩图法则：独立单图工具默认 comfyui，保留 MaaS prod_test 参数 1082「PLG-AI扩图」2026-09-10 的 Janus-Pro-1B/Flux Fill OneReward 18节点图与 20步/guidance30/feathering30；策略 643 仅截图线索。ComfyUI 原图每轴 32–2048px，EXIF 方向归一后执行原 LayerStyle 比例截断/ceil32 预处理，可能轻微缩放裁切，快捷比例以预处理图按 8px 单位居中扩展且目标须对齐 8px；其节点/输入/模型准入只缓存成功 30秒，失败不缓存，16384长边/8192单边/32Mi像素仍为本机保护。第二引擎 gptImage25Sunburst 按当前 OneAPI Key 目录准入，EXIF 归一后的原图不缩放裁切，按四边定位在透明 PNG 画布；mask 原图矩形不透明、外围透明仅表达编辑意图，模型仍可能重绘原图区域，页面必须明确提示检查结果。Sunburst 只用既有27个目标档位，快捷比例选最小可容原图且正扩展的档位，手输目标必须匹配，不静默舍入；JSON POST `/images/edits` 固定 medium/n1/png，画布/mask 不经旧 JPEG 压缩，不重试收费 POST。配置、连接/换Key/断开后的页面刷新与 HTTP 入队按所选引擎分别准入，接口/模型准入不代表 mask 支持或质量验收；任务区分 comfyUi/imageEdit 阶段。结果只留本机、不写飞书，须保留实际尺寸/结果 SHA-256、placement、画布/mask SHA-256 与真实费用身份，禁用异画幅原图滑动对比。2026-10-12 Sunburst 单次实测已通过接口/唯一结果/1536×1024 实际尺寸核验，原图区域并非像素一致；不得据此宣称严格保真或完整质量通过。
+AI 扩图法则：独立单图工具默认 comfyui，保留 MaaS prod_test 参数1082「PLG-AI扩图」2026-09-10的 Janus-Pro-1B/Flux Fill OneReward 18节点图与20步/guidance30/feathering30；策略643仅截图线索。页面提供兼容Flux Fill模型下拉、画幅比例、1K/2K/4K和原图位置，默认OneReward FP8/16:9/2K；模型仅允许OneReward FP8与Flux Fill Dev原版，按服务端实际节点/文件枚举逐项准入，默认缺失不能影响另一个可用候选；显式选择失效须阻断且不静默换模，入队冻结outpaintModel并在执行前复核，实际UNET文件/权重格式与结果元数据必须一致；模型目录仅属于扩图，不进入通用生图候选；飞书生图模型单选须包含两款Flux Fill与Qwen独立标签；四边像素与32/8/16执行对齐由共享 public/image-outpaint-geometry.js 负责；预览由独立浮点视觉规划保留原图比例与亚像素位置，图片基准尺寸固定且只用transform跟手，页签/原图无选中框，模型网格不参与视觉吸附。移动与缩放不得改变目标画布或清空已选比例。新任务只提交 outpaintCanvas={ratio,resolution,position,scale}，服务端从真实图片字节与EXIF方向归一后重算并真实重采样，记录原始尺寸/scale/sourceResized；显式scale可缩小或放大，执行与预览允许模型网格范围内差异。省略scale的旧合同保留不放大、必要时缩小及等大缩至约90%留白。Flux输入每轴32–4096px，运行图/前后端一致，目标按长边1024/2048/4096与8px网格，预处理沿用LayerStyle比例截断/ceil32；16384长边/8192单边/32Mi像素保护与节点成功缓存30秒保持。Qwen作为独立qwenImageEdit2511引擎，固定2511 FP8mixed底模与专属Lightning4steps/CFG1/euler/simple/shift3.1，原生pad遮罩同时控制latent采样与最终合成，保留原图中心和内侧32px接缝过渡；其源图按原尺寸、目标16px对齐、32至4096px输入与1K至4K目标，实际模型/LoRA/采样/种子/产物身份可追溯，不消费Flux模型选择，不安装缺失的作者插件。Qwen能力独立缓存30秒并在GPU前复核节点类型/端口/枚举，配置准入和4K尺寸支持不代表4K性能已实测。workflows两份原生JSON由scripts/export-qwen-outpaint.mjs从执行真源导出，独立图仅替换上传和等比16对齐预处理。Sunburst按当前OneAPI Key目录准入，尺寸只用模型真源27档位；透明PNG画布与mask表达编辑意图，页面保留可能重绘原图区提示。旧expansion请求仍严格校验，手输非法值不静默舍入；旧Sunburst路径原尺寸不缩放裁切。JSON POST /images/edits 固定medium/n1/png、不经JPEG压缩且不重试收费POST。配置与任务按引擎分别准入，AI扩图入口位于AI创作末位；三引擎通过飞书实时Schema后才可生成，完成后复用既有后台同步归档源图/结果图/实际尺寸/模型与完整工作流参数，结果卡显示同步状态与记录链接；仅图片超分保留本机路径。Qwen/Sunburst最终Prompt复用执行真源，Flux内部Janus正文未返回时留空并注明，不伪造。保留真实产物尺寸/SHA-256/费用/placement/画布与mask身份，不以接口或单例成功宣称严格保真或完整质量通过。

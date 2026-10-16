@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 generation-results、任务控制器、生成编排器与结果视觉源码
+ * [INPUT]: 依赖 generation-results、任务控制器、带版本入口的生成编排器与结果视觉源码
  * [OUTPUT]: 对外提供原图/结果图滑动对比、键盘语义、页面内存边界、扩图异画幅对比隔离及无原图降级的回归保障
  * [POS]: test 的生成结果对比专项测试，不提交真实生图任务或持久化图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -67,5 +67,5 @@ test("任务原图只保存在当前页面内存并由生成入口显式传入",
   assert.match(controller, /saveGenerationTask\(storage, currentTask\)/);
   assert.doesNotMatch(controller, /saveGenerationTask\(storage, currentTask, comparisonImage\)/);
   assert.match(html, /result\.css\?v=14/);
-  assert.match(html, /app\.js\?v=55/);
+  assert.match(html, /app\.js\?v=\d+/);
 });

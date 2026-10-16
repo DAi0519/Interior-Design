@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 beta.html DOM、beta-model-rules 七功能/全景 2:1 与功能尺寸合同、beta-configuration/beta-page-state 本机持久配置状态、effect-beautification-controls 强度色调控制器、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、beta-assets 图片去重、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的七功能/样本集/模型/美化强度色调/含 GPT Image 2.5 质量档的参数配置、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的七功能/样本集/模型/美化强度色调/含 GPT Image 2.5 质量档的参数配置、出图模型完整名称悬停/无障碍标签、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -281,6 +281,8 @@ function renderModels() {
     button.setAttribute("role", "checkbox");
     button.setAttribute("aria-checked", String(selected));
     label.textContent = button.disabled ? `${model.label} · 不支持 2:1` : model.label;
+    button.title = label.textContent;
+    button.setAttribute("aria-label", label.textContent);
     check.setAttribute("aria-hidden", "true");
     check.textContent = selected ? "✓" : "+";
     button.append(label, check);

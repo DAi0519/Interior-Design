@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖超分公开目录、注入的 ComfyUI/Sunburst 双引擎合同与能力读取器、ComfyUI 超分客户端和 JSON 响应函数
- * [OUTPUT]: 对外提供图片超分与 AI 扩图两引擎合同/动态可用性/准入原因的只读 HTTP 处理器
+ * [INPUT]: 依赖超分公开目录、注入的 Flux/Qwen/Sunburst 三引擎合同与能力读取器、ComfyUI 超分客户端和 JSON 响应函数
+ * [OUTPUT]: 对外提供图片超分与 AI 扩图三引擎合同/动态可用性/准入原因的只读 HTTP 处理器
  * [POS]: src 的独立图片工具配置入口，保持根 HTTP 组合文件精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

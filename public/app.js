@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分三工作流与 4K/6K/8K 配置、ComfyUI/Sunburst 扩图引擎及各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、需归档生图的飞书同步合同阻断、不写飞书的独立图片工具及默认 ComfyUI/可选 Sunburst 扩图入口、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/复用普通 Flux 工作流且含 Pro 4K 实验尺寸的全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分三工作流与 4K/6K/8K 配置、三引擎扩图及大画布/结果切换与各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、生图与三引擎扩图的飞书同步合同阻断、仅超分保留本机路径、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -160,7 +160,7 @@ function selectFeatureMode(featureMode) {
   const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
-  const imageTool = imageTools.forMode(featureMode);
+  const imageTool = imageTools.setFeatureMode(featureMode);
   const isImageUpscale = featureMode === "imageUpscale";
   for (const button of elements.featureModeButtons) {
     const selected = button.dataset.featureMode === featureMode;
@@ -389,7 +389,7 @@ const generationResults = bindGenerationResults({ api, showToast });
 const generationTasks = bindGenerationTaskController({
   generationResults,
   getFeatureMode: () => state.featureMode,
-  onBusy: (busy) => generationActions.setBusy(busy),
+  onBusy: (busy) => { generationActions.setBusy(busy); imageTools.setStage(generationTasks.view().stage, generationTasks.task()); },
 });
 function renderActiveGenerationTask() { generationTasks.render(); }
 
@@ -447,7 +447,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const imageTool = imageTools.forMode(featureMode);
   const localImageRequest = Boolean(imageTool);
   if (generationTasks.view(featureMode).stage === "loading") return;
-  if (!state.larkReady && !localImageRequest) {
+  if (!state.larkReady && featureMode !== "imageUpscale") {
     connectionCenter.open();
     showToast("飞书同步合同未通过，已阻止生成");
     return;

@@ -1,20 +1,28 @@
 /**
- * [INPUT]: 依赖单图安全校验、sharp 方向归一化、ComfyUI 几何/节点合同、Sunburst 画布/遮罩适配、异步缓存及扩图客户端与阶段回调
- * [OUTPUT]: 对外提供双引擎脱敏配置、节点/模型准入、各引擎四边尺寸校验与单图本机结果服务
+ * [INPUT]: 依赖单图安全校验、sharp 方向归一化与等比缩放、共享画幅/分辨率/缩放计划、三引擎工作流合同、归档投影、异步缓存及扩图客户端/阶段回调/同步调度
+ * [OUTPUT]: 对外提供三引擎独立准入与脱敏配置、Flux 模型选择、固定画布与真实等比缩放/构图、旧四边校验及真实尺寸通过后附带飞书同步状态的单图结果服务
  * [POS]: src 的 AI 扩图应用边界，真实工作流适配器与浏览器任务之间的单一校验入口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import sharp from "sharp";
+import { outpaintCanvasPlan } from "../public/image-outpaint-geometry.js";
 import { createAsyncTtlCache } from "./runtime-cache.mjs";
+import { buildImageOutpaintArchive } from "./image-outpaint-archive.mjs";
 import {
   ONEAPI_OUTPAINT_ENGINE_KEY, assertOneApiOutpaintTarget, executeOneApiOutpaint,
   oneApiOutpaintPreparedDimensions, publicOneApiOutpaintConfig,
 } from "./image-outpaint-oneapi.mjs";
 import { MODEL_CONFIGS } from "./model-config.mjs";
 import {
+  QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_REQUIRED_NODES, QWEN_OUTPAINT_WORKFLOW,
+  assertQwenOutpaintTarget, publicQwenOutpaintConfig, qwenOutpaintPreparedDimensions,
+  verifyQwenOutpaintCapabilities,
+} from "./image-outpaint-qwen.mjs";
+import {
   IMAGE_OUTPAINT_GEOMETRY, IMAGE_OUTPAINT_WORKFLOW, IMAGE_OUTPAINT_REQUIRED_NODES,
+  IMAGE_OUTPAINT_DEFAULT_MODEL_KEY, IMAGE_OUTPAINT_MODELS, resolveImageOutpaintModel,
   assertImageOutpaintAlignedTarget, createImageOutpaintWorkflow,
   imageOutpaintPreparedDimensions,
 } from "./image-outpaint-workflow.mjs";
@@ -28,11 +36,22 @@ export const IMAGE_OUTPAINT_LIMITS = Object.freeze({
 export const IMAGE_OUTPAINT_PENDING_REASON = "扩图客户端尚未配置";
 export const IMAGE_OUTPAINT_QUEUE_TIMEOUT_MS = 5 * 60 * 1000;
 
-export function publicImageOutpaintConfig({ available = false, reason = IMAGE_OUTPAINT_PENDING_REASON } = {}) {
+export function publicImageOutpaintConfig({
+  available = false, reason = IMAGE_OUTPAINT_PENDING_REASON, models = null,
+} = {}) {
+  const candidates = IMAGE_OUTPAINT_MODELS.map((model) => {
+    const status = models?.find((candidate) => candidate.key === model.key);
+    const modelAvailable = status ? Boolean(status.available) : available;
+    return { ...model, available: modelAvailable, reason: modelAvailable ? null : status?.reason || reason };
+  });
+  const defaultModelKey = candidates.find((model) => model.key === IMAGE_OUTPAINT_DEFAULT_MODEL_KEY && model.available)?.key
+    || candidates.find((model) => model.available)?.key || IMAGE_OUTPAINT_DEFAULT_MODEL_KEY;
   return {
     ...IMAGE_OUTPAINT_LIMITS,
     available,
     reason: available ? null : reason,
+    defaultModelKey,
+    models: candidates,
     minInputEdge: IMAGE_OUTPAINT_GEOMETRY.minInputEdge,
     maxInputEdge: IMAGE_OUTPAINT_GEOMETRY.maxInputEdge,
     inputAlignment: IMAGE_OUTPAINT_GEOMETRY.sourceMultiple,
@@ -46,9 +65,9 @@ export function publicImageOutpaintConfig({ available = false, reason = IMAGE_OU
 }
 
 // -------- 只读准入：核对实际节点接口与模型枚举，不启动 GPU --------
-export function verifyImageOutpaintCapabilities(objectInfo = {}) {
+export function verifyImageOutpaintCapabilities(objectInfo = {}, outpaintModel = IMAGE_OUTPAINT_DEFAULT_MODEL_KEY) {
   const graph = createImageOutpaintWorkflow({
-    artifactKey: "capability-check", generationRequest: { expansion: { left: 8, top: 0, right: 0, bottom: 0 } },
+    artifactKey: "capability-check", generationRequest: { outpaintModel, expansion: { left: 8, top: 0, right: 0, bottom: 0 } },
     height: 512, imageBase64: "", seed: 4, width: 520,
   });
   for (const node of Object.values(graph)) {
@@ -69,14 +88,29 @@ export function verifyImageOutpaintCapabilities(objectInfo = {}) {
   }
 }
 
-export function createImageOutpaintConfigReader(imageClient, { getOneApiModels = null } = {}) {
+export function createImageOutpaintConfigReader(imageClient, { getOneApiModels = null, qwenImageClient = null } = {}) {
   const cache = createAsyncTtlCache({ maxEntries: 1, ttlMs: 30_000 });
+  const qwenCache = createAsyncTtlCache({ maxEntries: 1, ttlMs: 30_000 });
   async function comfyConfig() {
     if (!imageClient?.getObjectInfo) return publicImageOutpaintConfig();
     try {
-      await cache.get("capabilities", async () => verifyImageOutpaintCapabilities(await imageClient.getObjectInfo(IMAGE_OUTPAINT_REQUIRED_NODES)));
-      return publicImageOutpaintConfig({ available: true });
+      return await cache.get("capabilities", async () => {
+        const objectInfo = await imageClient.getObjectInfo(IMAGE_OUTPAINT_REQUIRED_NODES);
+        const models = IMAGE_OUTPAINT_MODELS.map((model) => {
+          try {
+            verifyImageOutpaintCapabilities(objectInfo, model.key);
+            return { key: model.key, available: true, reason: null };
+          } catch (error) {
+            return { key: model.key, available: false, reason: `扩图模型暂不可用：${String(error.message).slice(0, 500)}` };
+          }
+        });
+        const available = models.some((model) => model.available);
+        const config = publicImageOutpaintConfig({ available, models, reason: models[0].reason });
+        if (!available) throw Object.assign(new Error(config.reason), { outpaintConfig: config });
+        return config;
+      });
     } catch (error) {
+      if (error.outpaintConfig) return error.outpaintConfig;
       return publicImageOutpaintConfig({ reason: `扩图服务暂不可用：${String(error.message).slice(0, 500)}` });
     }
   }
@@ -90,9 +124,20 @@ export function createImageOutpaintConfigReader(imageClient, { getOneApiModels =
       return publicOneApiOutpaintConfig({ reason: "OneAPI 未连接或模型权限读取失败，请检查连接后重试" });
     }
   }
+  async function qwenConfig() {
+    if (!qwenImageClient?.getObjectInfo) return publicQwenOutpaintConfig();
+    try {
+      return await qwenCache.get("capabilities", async () => {
+        verifyQwenOutpaintCapabilities(await qwenImageClient.getObjectInfo(QWEN_OUTPAINT_REQUIRED_NODES));
+        return publicQwenOutpaintConfig({ available: true });
+      });
+    } catch (error) {
+      return publicQwenOutpaintConfig({ reason: `Qwen 扩图暂不可用：${String(error.message).slice(0, 500)}` });
+    }
+  }
   return async () => {
-    const [comfy, oneApi] = await Promise.all([comfyConfig(), oneApiConfig()]);
-    return { ...comfy, engines: [{ ...comfy, key: "comfyui", label: "Flux Fill", provider: "comfyui" }, oneApi] };
+    const [comfy, oneApi, qwen] = await Promise.all([comfyConfig(), oneApiConfig(), qwenConfig()]);
+    return { ...comfy, engines: [{ ...comfy, key: "comfyui", label: "Flux Fill", provider: "comfyui" }, oneApi, qwen] };
   };
 }
 
@@ -100,15 +145,52 @@ function inputError(message) {
   return Object.assign(new Error(message), { statusCode: 400 });
 }
 
+// -------- 显式缩放仅指定长边，不裁切；旧自动适配保持已有整数像素合同 --------
+async function resizeOutpaintSource(source, resize, proportional = false) {
+  try {
+    const bytes = Buffer.from(source.imageUrl.split(",")[1], "base64");
+    const image = sharp(bytes);
+    if (proportional) {
+      const axis = source.width >= source.height ? "width" : "height";
+      image.resize({ [axis]: resize[axis], withoutEnlargement: false });
+    } else image.resize(resize.width, resize.height, { fit: "cover" });
+    const result = await image.png().toBuffer({ resolveWithObject: true });
+    return {
+      ...source, width: result.info.width, height: result.info.height,
+      fileName: source.fileName.replace(/\.[^.]+$/, "") + ".png",
+      imageUrl: `data:image/png;base64,${result.data.toString("base64")}`,
+      mimeType: "image/png", size: result.data.length,
+    };
+  } catch {
+    throw inputError("AI 扩图无法适配图片，请重新导出 PNG/JPEG/WebP");
+  }
+}
+
+function sourceAdaptationMetadata(normalized) {
+  return {
+    originalSourceWidth: normalized.originalSource.width,
+    originalSourceHeight: normalized.originalSource.height,
+    sourceResized: normalized.sourceResized,
+    ...(normalized.outpaintCanvas ? { outpaintCanvas: normalized.outpaintCanvas } : {}),
+  };
+}
+
 export function imageOutpaintEngineKey(input = {}) {
   const key = input.outpaintEngine ?? "comfyui";
-  if (!["comfyui", ONEAPI_OUTPAINT_ENGINE_KEY].includes(key)) throw inputError("不支持的扩图引擎");
+  if (!["comfyui", ONEAPI_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_ENGINE_KEY].includes(key)) throw inputError("不支持的扩图引擎");
+  if (key !== "comfyui" && input.outpaintModel != null && input.outpaintModel !== "") {
+    throw inputError(`${key === ONEAPI_OUTPAINT_ENGINE_KEY ? "Sunburst" : "Qwen"} 扩图不支持 Flux Fill 模型选择`);
+  }
   return key;
 }
 
 export async function normalizeImageOutpaintInput(input = {}) {
-  const oneApi = imageOutpaintEngineKey(input) === ONEAPI_OUTPAINT_ENGINE_KEY;
-  const dimensions = oneApi ? oneApiOutpaintPreparedDimensions : imageOutpaintPreparedDimensions;
+  const engineKey = imageOutpaintEngineKey(input);
+  const oneApi = engineKey === ONEAPI_OUTPAINT_ENGINE_KEY;
+  const qwen = engineKey === QWEN_OUTPAINT_ENGINE_KEY;
+  const dimensions = oneApi ? oneApiOutpaintPreparedDimensions : qwen ? qwenOutpaintPreparedDimensions : imageOutpaintPreparedDimensions;
+  const assertTarget = oneApi ? assertOneApiOutpaintTarget : qwen ? assertQwenOutpaintTarget : assertImageOutpaintAlignedTarget;
+  const limits = oneApi ? publicOneApiOutpaintConfig() : qwen ? publicQwenOutpaintConfig() : publicImageOutpaintConfig();
   let [source] = normalizeReferenceImages(input.referenceImages, { maxCount: 1 });
   if (!source?.width || !source?.height) throw inputError("AI 扩图需要 1 张可读取尺寸的图片");
   dimensions(source);
@@ -128,29 +210,77 @@ export async function normalizeImageOutpaintInput(input = {}) {
   } catch {
     throw inputError("AI 扩图无法读取图片，请重新导出 PNG/JPEG/WebP");
   }
-  const prepared = dimensions(source);
+  const originalSource = { width: source.width, height: source.height };
+  let prepared = dimensions(source);
+  if (input.outpaintCanvas !== undefined) {
+    const canvas = input.outpaintCanvas;
+    if (!canvas || typeof canvas !== "object" || Array.isArray(canvas)) throw inputError("扩图画布设置无效");
+    const position = canvas.position === undefined ? { x: 0.5, y: 0.5 } : canvas.position;
+    const plan = outpaintCanvasPlan({
+      source, ratio: canvas.ratio, resolution: canvas.resolution, position, scale: canvas.scale,
+      limits,
+    });
+    if (!Object.values(plan.expansion).some((value) => value > 0)) throw inputError("请缩小原图以留出扩图区域");
+    if (plan.resize) source = await resizeOutpaintSource(source, plan.resize, plan.scale !== undefined);
+    prepared = dimensions(source);
+    if (prepared.width !== plan.prepared.width || prepared.height !== plan.prepared.height) {
+      throw inputError("扩图原图适配尺寸与目标计划不一致，请重新上传图片");
+    }
+    const { width, height } = plan.target;
+    assertTarget({ width, height });
+    return {
+      expansion: plan.expansion, height, prepared, source, width,
+      originalSource, sourceResized: plan.resize !== null,
+      outpaintCanvas: { ratio: plan.ratio, resolution: plan.resolution, position: { x: position.x, y: position.y }, ...(plan.scale === undefined ? {} : { scale: plan.scale }) },
+    };
+  }
   const expansion = {};
   for (const side of ["left", "top", "right", "bottom"]) {
     const value = input.expansion?.[side];
-    if (!Number.isSafeInteger(value) || value < 0 || value > IMAGE_OUTPAINT_LIMITS.maxExpansion) {
-      throw inputError(`四边扩展尺寸必须为 0–${IMAGE_OUTPAINT_LIMITS.maxExpansion} 的整数像素`);
+    if (!Number.isSafeInteger(value) || value < 0 || value > limits.maxExpansion) {
+      throw inputError(`四边扩展尺寸必须为 0–${limits.maxExpansion} 的整数像素`);
     }
     expansion[side] = value;
   }
   if (!Object.values(expansion).some((value) => value > 0)) throw inputError("请至少扩展一边");
   const width = prepared.width + expansion.left + expansion.right;
   const height = prepared.height + expansion.top + expansion.bottom;
-  if (Math.max(width, height) > IMAGE_OUTPAINT_LIMITS.maxEdge || width * height > IMAGE_OUTPAINT_LIMITS.maxPixels) {
+  if (Math.max(width, height) > limits.maxEdge || width * height > limits.maxPixels) {
     throw inputError("目标画布超过本机请求保护上限，请减少扩展尺寸");
   }
-  (oneApi ? assertOneApiOutpaintTarget : assertImageOutpaintAlignedTarget)({ width, height });
-  return { expansion, height, prepared, source, width };
+  assertTarget({ width, height });
+  return { expansion, height, prepared, source, width, originalSource, sourceResized: false };
 }
 
-export async function executeImageOutpaint(input, { imageClient = null, onProgress = null } = {}) {
+function archiveOutpaintResult(input, normalized, result, scheduleSync) {
+  if (!scheduleSync) return result;
+  const archive = buildImageOutpaintArchive({ input, normalized, result });
+  return { ...result, request: archive.preview, sync: scheduleSync(archive) };
+}
+
+export async function executeImageOutpaint(input, { imageClient = null, onProgress = null, scheduleSync = null } = {}) {
   if (!imageClient) throw Object.assign(new Error(IMAGE_OUTPAINT_PENDING_REASON), { statusCode: 409 });
   const normalized = await normalizeImageOutpaintInput(input);
-  if (imageOutpaintEngineKey(input) === ONEAPI_OUTPAINT_ENGINE_KEY) return executeOneApiOutpaint(normalized, { imageClient, onProgress });
+  const engineKey = imageOutpaintEngineKey(input);
+  if (engineKey === ONEAPI_OUTPAINT_ENGINE_KEY) {
+    const result = await executeOneApiOutpaint(normalized, { imageClient, onProgress });
+    result.upstream.metadata = { ...result.upstream.metadata, ...sourceAdaptationMetadata(normalized) };
+    if (normalized.outpaintCanvas) result.request.outpaintCanvas = normalized.outpaintCanvas;
+    return archiveOutpaintResult(input, normalized, result, scheduleSync);
+  }
+  const qwen = engineKey === QWEN_OUTPAINT_ENGINE_KEY;
+  const model = qwen ? null : resolveImageOutpaintModel(input.outpaintModel);
+  const modelIdentity = qwen ? { model: QWEN_OUTPAINT_WORKFLOW.model } : {
+    model: model.fileName, outpaintModel: model.key, weightDtype: model.weightDtype,
+  };
+  if (imageClient.getObjectInfo) {
+    try {
+      if (qwen) verifyQwenOutpaintCapabilities(await imageClient.getObjectInfo(QWEN_OUTPAINT_REQUIRED_NODES));
+      else verifyImageOutpaintCapabilities(await imageClient.getObjectInfo(IMAGE_OUTPAINT_REQUIRED_NODES), model.key);
+    } catch (error) {
+      throw Object.assign(new Error(`所选扩图模型暂不可用：${error.message}`), { statusCode: 409 });
+    }
+  }
   const { expansion, height, prepared, source, width } = normalized;
   const startedAt = Date.now();
   const progress = typeof onProgress === "function" ? ({ phase, promptId }) => onProgress({
@@ -159,6 +289,7 @@ export async function executeImageOutpaint(input, { imageClient = null, onProgre
   }) : null;
   const result = await imageClient.generateImage({
     expansion,
+    ...(!qwen ? { outpaintModel: model.key } : {}),
     height,
     images: [{ fileName: source.fileName, image_url: source.imageUrl }],
     preparedWidth: prepared.width, preparedHeight: prepared.height,
@@ -168,12 +299,23 @@ export async function executeImageOutpaint(input, { imageClient = null, onProgre
   if (result.metadata?.outputWidth !== width || result.metadata?.outputHeight !== height) {
     throw new Error("扩图实际输出尺寸与目标画布不一致");
   }
-  return {
+  const output = {
     durationMs: Date.now() - startedAt,
     images: result.images,
-    request: { expansion, outputFormat: result.outputFormat, referenceImageCount: 1, size: `${width}x${height}`, syncMode: "local-only" },
+    request: {
+      expansion, outputFormat: result.outputFormat, referenceImageCount: 1, size: `${width}x${height}`, syncMode: "local-only",
+      ...modelIdentity,
+      ...(normalized.outpaintCanvas ? { outpaintCanvas: normalized.outpaintCanvas } : {}),
+    },
     sync: { generationId: null, status: "skipped" },
-    upstream: { created: result.created, metadata: result.metadata, outputFormat: result.outputFormat, transport: result.transport },
-    workflow: { key: "image-outpaint", label: "AI 扩图", version: result.metadata?.workflowVersion || null },
+    upstream: { created: result.created, metadata: {
+      ...result.metadata, ...modelIdentity,
+      ...sourceAdaptationMetadata(normalized),
+    }, outputFormat: result.outputFormat, transport: result.transport },
+    workflow: {
+      key: qwen ? QWEN_OUTPAINT_WORKFLOW.key : "image-outpaint", label: qwen ? QWEN_OUTPAINT_WORKFLOW.label : "AI 扩图",
+      version: result.metadata?.workflowVersion || (qwen ? QWEN_OUTPAINT_WORKFLOW.version : null),
+    },
   };
+  return archiveOutpaintResult(input, normalized, output, scheduleSync);
 }

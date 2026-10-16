@@ -1,0 +1,32 @@
+{
+  "verifiedAt": "2026-10-15T07:17:11.718Z",
+  "path": "UI上传→后台任务→Qwen ComfyUI→结果卡→本地下载",
+  "passed": true,
+  "source": {
+    "width": 768,
+    "height": 512
+  },
+  "output": {
+    "width": 1024,
+    "height": 576,
+    "sha256": "5e3f6833aeca96803fdf4600a63c7c6163652d3dbbbf9b9ffe0ca7cb70b2a787"
+  },
+  "observedEngine": "Qwen Image Edit 2511",
+  "identityEvidence": "页面选中引擎与结果标签；实时配置准入成功。下载PNG未携工作流文本元数据。",
+  "expansion": {
+    "left": 128,
+    "top": 32,
+    "right": 128,
+    "bottom": 32
+  },
+  "preservedCenter": {
+    "inset": 32,
+    "width": 704,
+    "height": 448,
+    "maxAbsoluteChannelDifference": 0,
+    "differingChannels": 0,
+    "channelCount": 946176,
+    "pixelIdentical": true
+  },
+  "pageObservedDurationSeconds": 219.1
+}

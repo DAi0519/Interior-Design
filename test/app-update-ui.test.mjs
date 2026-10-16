@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、app-update.js 的视图/链接/检查与安装控制器、正式发布说明模板，以及 DOM/JSON/进度流请求替身
- * [OUTPUT]: 对外提供单一下载安装动作、版本亮点摘要/非模板保真、检查降级/去重/重试、两种安装模式指导、失败恢复、待重启/恢复失败与完整终态/安装互斥的行为回归保障
+ * [OUTPUT]: 对外提供无外链的单一下载安装、版本亮点摘要/空说明隐藏、检查降级/去重/重试、两种安装模式指导、失败恢复、待重启/恢复失败与完整终态/安装互斥的行为回归保障
  * [POS]: test 的共享版本更新交互测试，仅在内存消费安装进度，不访问 GitHub、下载或安装文件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -284,24 +284,24 @@ test("新版只有关闭与下载安装，检查未完成或当前版本才显�
   }
 });
 
-test("缺省说明提供受信发布页入口，真实说明不额外显示链接", async () => {
+test("缺省说明隐藏说明区与跳转提示，仍可下载安装", async () => {
   for (const releaseNotes of [undefined, "", "更新说明请在版本页面查看。", buildReleaseNotes({
     highlights: [], names: { archive: "archive.zip", checksum: "archive.sha256", manifest: "archive.manifest.json" }, tag: "v0.1.11",
   })]) {
     const ui = await updateHarness({ request: async () => ({ ...available, releaseNotes, releaseUrl: "https://evil.test/install" }) });
     assert.equal(ui.find("app-update-notes").hidden, true);
-    assert.equal(ui.find("app-update-message").textContent, "更新详情请在发布页查看。");
-    assert.equal(ui.find("app-update-release-link").href, releasesUrl);
-    assert.equal(ui.find("app-update-release-link").hidden, false);
-    assert.equal(ui.find("app-update-release-link").textContent, "查看发布页");
+    assert.equal(ui.find("app-update-message").hidden, true);
+    assert.equal(ui.find("app-update-release-link"), undefined);
+    assert.equal(ui.find("app-update-install").hidden, false);
+    assert.equal(ui.find("app-update-install").disabled, false);
     ui.controller.destroy();
   }
   const ui = await updateHarness();
-  assert.equal(ui.find("app-update-release-link").hidden, true);
+  assert.equal(ui.find("app-update-release-link"), undefined);
   ui.controller.destroy();
 });
 
-test("无受信安装包时恢复检查和发布页入口，不能发送安装请求", async () => {
+test("无受信安装包时提示重新检查，不提供跳转或发送安装请求", async () => {
   let installations = 0;
   const ui = await updateHarness({
     request: async () => ({ ...available, downloadUrl: "https://evil.test/update.zip" }),
@@ -309,8 +309,7 @@ test("无受信安装包时恢复检查和发布页入口，不能发送安装�
   });
   assert.equal(ui.find("app-update-install").hidden, true);
   assert.equal(ui.find("app-update-check").hidden, false);
-  assert.equal(ui.find("app-update-release-link").hidden, false);
-  assert.equal(ui.find("app-update-release-link").href, available.releaseUrl);
+  assert.equal(ui.find("app-update-release-link"), undefined);
   assert.match(ui.find("app-update-message").textContent, /安装包暂不可用/);
   await ui.find("app-update-install").dispatch("click");
   assert.equal(installations, 0);
@@ -379,7 +378,7 @@ test("安装只在完整完成回执后成功，支持分块中文与末尾无�
   ui.controller.destroy();
 });
 
-test("安装 HTTP 与进度错误均保留错误 code，恢复同一安装按钮与发布页链接", async () => {
+test("安装 HTTP 与进度错误均保留错误 code，恢复同一安装按钮且不跳转", async () => {
   for (const response of [
     { ok: false, json: async () => ({ error: "请等待生成任务完成", code: "JOBS_RUNNING" }) },
     progressResponse(['{"stage":"error","error":"校验失败","code":"CHECKSUM_MISMATCH"}\n']),
@@ -393,9 +392,7 @@ test("安装 HTTP 与进度错误均保留错误 code，恢复同一安装按钮
     assert.equal(ui.find("app-update-download"), undefined);
     assert.equal(ui.find("app-update-install").textContent, "下载安装");
     assert.equal(ui.find("app-update-check").hidden, false);
-    assert.equal(ui.find("app-update-release-link").hidden, false);
-    assert.equal(ui.find("app-update-release-link").href, available.releaseUrl);
-    assert.equal(ui.find("app-update-release-link").rel, "noopener noreferrer");
+    assert.equal(ui.find("app-update-release-link"), undefined);
     assert.equal(ui.find("app-update-action").disabled, false);
     assert.equal(ui.alerts.length, 0);
     assert.equal(ui.find("app-update-progress-text").hidden, true);
@@ -415,7 +412,7 @@ test("失败后的重新检查清除错误，同一下载安装按钮也可直�
   await ui.controller.check(true);
   assert.equal(ui.find("app-update-status").textContent, "发现新版本");
   assert.equal(ui.find("app-update-message").hidden, true);
-  assert.equal(ui.find("app-update-release-link").hidden, true);
+  assert.equal(ui.find("app-update-release-link"), undefined);
   assert.equal(ui.find("app-update-check").hidden, true);
   await ui.find("app-update-install").dispatch("click");
   assert.equal(ui.find("app-update-status").textContent, "安装失败");
@@ -423,7 +420,7 @@ test("失败后的重新检查清除错误，同一下载安装按钮也可直�
   await ui.find("app-update-install").dispatch("click");
   assert.equal(installations, 3);
   assert.equal(ui.find("app-update-status").textContent, "安装成功");
-  assert.equal(ui.find("app-update-release-link").hidden, true);
+  assert.equal(ui.find("app-update-release-link"), undefined);
   assert.deepEqual(ui.find("app-update-actions").children.filter((item) => !item.hidden).map((item) => item.textContent), ["关闭"]);
   ui.controller.destroy();
 });

@@ -4,6 +4,7 @@
 成员清单
 
 CLAUDE.md: 本模块地图，维护源码发布工具成员清单
+export-qwen-outpaint.mjs: Qwen 扩图执行图的独立 ComfyUI 画布/API 导出器，复用真源并替换为原生上传及16对齐等比预处理，不携密钥或图片
 release-files.mjs: 发布白名单纯规则，维护运行文件准入、SemVer 校验与确定性产物命名
 release-files.test.mjs: 发布白名单、开发文件排除、必需文件和稳定命名的无副作用单元测试
 release-check.mjs: 发布准入门，验证干净提交、macOS 启动权限、package/lock、疑似密钥与测试，且一次汇总全部 800 行上限/L3 契约问题并带有限重试地审计生产依赖

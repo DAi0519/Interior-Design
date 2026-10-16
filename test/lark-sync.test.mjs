@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部字段类型/单选值/附件 ID 的 409 阻断、真实尺寸、模型目录、美化/氛围功能 Schema、设计字段及完整工作流回归保障
+ * [OUTPUT]: 对外提供全部字段类型/单选值/附件 ID 的 409 阻断、真实尺寸、独立扩图模型与功能 Schema、设计字段及完整工作流回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,6 +18,7 @@ import {
 import { publicAgentModelCatalog } from "../src/agent-model-config.mjs";
 import { EMPTY_ROOM_TYPES } from "../src/empty-room-type.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
+import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "../src/image-outpaint-archive.mjs";
 
 function selectField(name, options) {
   return {
@@ -35,9 +36,9 @@ function validSyncSchemaFields() {
     selectField("Prompt融合", publicAgentModelCatalog()
       .filter((model) => model.imageInput)
       .map((model) => model.label)),
-    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化"]),
+    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "AI扩图"]),
     selectField("状态", ["成功", "生成失败", "同步失败"]),
-    selectField("生图模型", publicModelCatalog().map((model) => model.label)),
+    selectField("生图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS]),
     selectField("空间类型", EMPTY_ROOM_TYPES),
     selectField("设计方式", ["智能默认", "平台风格"]),
     ...[
@@ -82,6 +83,8 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
   assert.ok(schema.featureOptions.includes("效果图美化"));
   assert.ok(schema.featureOptions.includes("效果图氛围转换"));
   assert.ok(schema.featureOptions.includes("全景图美化"));
+  assert.ok(schema.featureOptions.includes("AI扩图"));
+  for (const label of IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS) assert.ok(schema.modelOptions.includes(label));
   assert.ok(schema.modelOptions.includes("Seedream 5.0 Pro"));
 
   const featureField = fields.find((field) => field.name === "功能");
@@ -92,6 +95,26 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
     () => assertLarkSyncSchema({ data: { fields } }),
     (error) => error.statusCode === 409 && /“功能”字段缺少选项：全景图美化/.test(error.message),
   );
+});
+
+test("AI扩图或独立模型选项缺失时 Schema 阻断且保留既有生图目录", () => {
+  const fields = validSyncSchemaFields();
+  fields.find((field) => field.name === "功能").options = fields.find((field) => field.name === "功能").options.filter((option) => option.name !== "AI扩图");
+  fields.find((field) => field.name === "生图模型").options = fields.find((field) => field.name === "生图模型").options.filter((option) => option.name !== "Qwen Image Edit 2511");
+  assert.throws(() => assertLarkSyncSchema({ fields }), (error) => error.statusCode === 409
+    && /功能.*AI扩图/.test(error.message) && /生图模型.*Qwen Image Edit 2511/.test(error.message));
+  assert.equal(publicModelCatalog().some((model) => IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS.includes(model.label)), false);
+});
+
+test("Flux扩图最终Prompt未返回时留空且用功能名生成可读标题", () => {
+  const fields = buildRecordFields({ actualSize: "1024x768", durationMs: 1000, finalPrompt: "",
+    modelLabel: "Flux Fill Dev（原版）", preview: { outputFormat: "png", referenceImageCount: 1 },
+    workflow: { feature: "image-outpaint", finalPromptCaptured: false, promptSource: "Janus 内部生成，正文未返回" },
+  });
+  assert.equal(fields["功能"], "AI扩图");
+  assert.equal(fields["标题"], "AI扩图");
+  assert.equal(fields["最终 Prompt"], "");
+  assert.equal(JSON.parse(fields["生成参数"]).workflow.finalPromptCaptured, false);
 });
 
 test("后台新增模型但飞书单选未同步时在生成前阻断", () => {

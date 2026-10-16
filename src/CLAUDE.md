@@ -3,20 +3,22 @@
 
 成员清单
 
-image-outpaint-service.mjs: AI 扩图双引擎应用边界，默认 ComfyUI 的 32–2048px/ceil32/8px 合同与 Sunburst 原尺寸/27档位合同、共用 EXIF 方向归一化、节点能力或当前 OneAPI Key 目录准入、按引擎独立执行与真实尺寸校验
-image-outpaint-workflow.mjs: AI 扩图真实执行图真源，适配 MaaS prod_test 参数 1082 的 18 节点图，固定 Janus-Pro-1B/Flux Fill OneReward/20步/guidance30/feathering30，保留 LayerStyle 比例截断后 ceil32 预处理、8px 目标、唯一产物与尺寸/来源 SHA-256；643 仅截图线索
-image-outpaint-oneapi.mjs: GPT Image 2.5 Sunburst 编辑扩图适配器，原图不缩放裁切、四边定位的透明 PNG/原图不透明外围透明 mask、27目标档位与固定 medium/n1/png、实际尺寸/结果/画布/遮罩 SHA-256、placement 与真实费用身份
-image-tools-api.mjs: 独立图片工具只读配置 API，保留超分健康与目录，公开 ComfyUI/Sunburst 两引擎各自合同、动态可用性与准入原因
+image-outpaint-service.mjs: AI 扩图 Flux/Qwen/Sunburst 三引擎应用边界，共享画幅/1K2K4K/位置/scale计划，EXIF后按真实等比缩放适配并记录原尺寸/缩放事实/用户scale，零扩展显式阻断且旧省略scale请求兼容；两款 Flux 候选与Qwen节点分别准入/缓存30秒/执行前复核，非Flux拒绝Flux模型参数；保留各引擎尺寸/Key合同，实际产物校验后复用飞书调度并返回同步身份，底层无调度可独立验证
+image-outpaint-archive.mjs: 三引擎共用飞书归档投影与独立模型标签目录，保留实际提交源图/输出/画布/原尺寸/缩放/模型/LoRA/种子/产物指纹/费用/耗时；Qwen固定及Sunburst动态Prompt复用执行真源，Flux Janus正文未返回时留空并记录来源事实，不扩展通用模型目录
+image-outpaint-qwen.mjs: 独立 Qwen Image Edit 2511 FP8 mixed 扩图真源，公开固定Prompt供执行与归档共用，对应Lightning4steps/CFG1/euler/simple/shift3.1；原生pad遮罩同时控制latent噪声与最终合成，保留原图中心与32px过渡；固定模型身份/节点能力准入、1K–4K与16px目标合同、请求级产物与实际尺寸/指纹元数据
+image-outpaint-workflow.mjs: AI 扩图真实执行图真源，2026-10-15.4 适配 MaaS prod_test 参数 1082 的 18 节点图，输入准入统一放宽至每轴 4096px，受控选择 Flux Fill OneReward FP8/原版 Dev 与各自权重格式，固定 Janus-Pro-1B/20步/guidance30/feathering30，保留 LayerStyle 比例截断后 ceil32 预处理、8px 目标、唯一产物与尺寸/原始来源 SHA-256；643 仅截图线索
+image-outpaint-oneapi.mjs: GPT Image 2.5 Sunburst 编辑扩图适配器，按实际输入/四边构造动态Prompt供执行与归档共用，生成透明PNG/外围透明mask，复用模型真源27合法档位/16px对齐/8294400像素上限、固定medium/n1/png、实际尺寸/结果/画布/遮罩SHA-256、placement与真实费用身份
+image-tools-api.mjs: 独立图片工具只读配置 API，保留超分健康与目录，公开 Flux/Qwen/Sunburst 三引擎各自合同、动态可用性与准入原因
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
-app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
+app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及无说明正文的版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
 app-update-api.mjs: 共享版本检查与安装 HTTP 边界，按服务端最新正式版回执、安装政策及运行任务状态准入，流式返回安装进度/错误并保护待重启与恢复失败状态
 app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 与受信重定向/容量/ZIP 路径准入，无 shell 解压；含 .git 的源码工作区仅安装到持久新目录，无 .git 的 Release 目录原地事务替换发布运行根项、保留配置/依赖/数据并失败回滚；公开 getPolicy/isRestartRequired/isRecoveryRequired，成功后要求重启，恢复失败保留备份与操作指引并阻断再次安装，不自动重启
-model-config.mjs: 模型参数真源，维护六个 OneAPI 模型（含 GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt、原有四模型 2:1 与 2.5 九比例/五质量档、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
+model-config.mjs: 模型参数真源，维护六个 OneAPI 模型（含 GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt、原有四模型 2:1 与 2.5 九比例/五质量档、GPT 按比例的 16px/655360–8294400像素/3840边长尺寸映射（1K 16:9 为1536x864）、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留；只读 hasActiveJobs 持续守护 running 任务，供原地更新准入使用
-generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，需归档生图先校验飞书同步合同，独立图片工具绕过飞书且按所选扩图引擎准入，ComfyUI 能力或当前 Key 模型权限未通过不入队，分别公开 comfyUi/imageEdit 阶段与可用上游身份
-generation-service.mjs: 显式功能路由穿透生成输入，含效果图氛围转换与独立效果图美化，阻止空房默认走白模，统一生图与独立图片工具路由，扩图按所选引擎严格取 ComfyUI 或 OneAPI 编辑客户端，不写飞书并透传各自阶段，保留 Flux 负向 Prompt 归档与脱离 HTTP 单项执行
+generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，需归档生图先校验飞书同步合同，独立图片工具绕过飞书且按所选扩图引擎准入，仅为Flux校验/冻结Fill模型，Flux/Qwen能力或Sunburst当前Key权限未通过不入队，扩图同样需通过飞书Schema，依据Provider公开comfyUi/imageEdit阶段，仅超分豁免归档
+generation-service.mjs: 显式功能路由穿透生成输入，含效果图氛围转换与独立效果图美化，阻止空房默认走白模，统一生图与图片工具路由；扩图按所选引擎严格取Flux/Qwen专用ComfyUI或Sunburst编辑客户端、不进通用OneAPI目录、复用飞书调度并透传阶段；超分保持本机结果，保留Flux负向Prompt归档与脱离HTTP单项执行
 image-upscale-service.mjs: 图片超分应用服务，校验单图并按源图比例计算 4K/6K/8K 目标，分开 5 分钟排队时限与仅 8K 使用的 15 分钟执行时限，映射带 Prompt ID 的 ComfyUI 阶段并返回真实输出尺寸的本机结果
 image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固定三份 SeedVR2 JSON，默认攸行 3B 原图直入并保留两套 7B 预处理差异，提供 4K/6K/8K 长边合同、可独立提交或嵌入 Flux 的 SeedVR2 阶段、最小 ComfyUI 图、唯一产物前缀与元数据
 beta-base.mjs: 三表实时 Schema verifier 与含全景美化的七功能映射，组合逐张样本 Store；强度色调/专属美化和全景版本保存到场景/配置 JSON，复用正式投影归档 Prompt/风格/家具/Agent/真实尺寸，回读全部实际写入普通字段及附件 token/字节数，合同错误归一为不可重试 409，确认后返回轻量预览
@@ -36,7 +38,7 @@ comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行�
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 飞书生成记录同步边界，真实结果尺寸、模型/Agent 真源与实时 Schema 409 准入全部字段类型/附件 ID/单选值，区分效果图氛围转换与美化功能，投影房型/家具/设计/Agent/风格/模型/Prompt，完整天气时段或强度色调保留在工作流 JSON，参考/结果/风格图片分列上传
+lark-sync.mjs: 飞书生成记录同步边界，真实结果尺寸、通用及独立扩图模型/Agent真源与实时Schema 409准入全部字段类型/附件ID/单选值，含AI扩图/氛围转换/美化功能，投影房型/家具/设计/Agent/风格/模型/Prompt，完整工作流保留画布/模型/产物/费用或天气色调，参考/结果/风格图片分列上传；最终Prompt缺失时留空并用功能名作标题
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档

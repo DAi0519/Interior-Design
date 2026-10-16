@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 GitHub 公开仓库正式 Release、正式版本网页指针与可注入的匿名请求和时钟
- * [OUTPUT]: 对外提供 createAppUpdateService，返回脱敏、限时、缓存并去重的更新检查回执
+ * [OUTPUT]: 对外提供 createAppUpdateService，返回脱敏、限时、缓存并去重的更新回执，HEAD 兜底只返回版本与安装包、不伪造说明
  * [POS]: src 的应用更新边界，只检测固定仓库的正式下载包，不下载、安装或修改本机配置
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -170,7 +170,7 @@ export function createAppUpdateService({
     return {
       latest: version,
       releaseUrl: `${REPOSITORY_URL}/releases/tag/${encodeURIComponent(tag)}`,
-      releaseNotes: "更新说明请在版本页面查看。",
+      releaseNotes: "",
       downloadUrl,
     };
   }

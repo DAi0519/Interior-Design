@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图服务/真实工作流、图片工具 API、生成任务入口、通用客户端与 sharp 图片样本
- * [OUTPUT]: 对外提供真实源尺寸/32 与 8 对齐、参数拒绝、只读能力准入、服务预检/任务路由与真实尺寸结果合同测试
+ * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选独立能力探测/失败不缓存、模型选择透传/实时拒绝、HTTP入队前400/409阻断及原尺寸/旧四边兼容测试
  * [POS]: test 的扩图应用与 HTTP 合同验证，使用内存客户端，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -67,7 +67,7 @@ test("旋转 JPEG 按浏览器显示方向归一 PNG，尺寸与提交字节一�
 });
 
 test("扩图前后端几何在非对称与浮点边界保持一致", () => {
-  for (const [width, height] of [[32, 32], [97, 149], [149, 97], [1000, 751], [2048, 2048]]) {
+  for (const [width, height] of [[32, 32], [97, 149], [149, 97], [1000, 751], [2048, 2048], [3840, 2160], [4096, 4096]]) {
     const prepared = browserDimensions({ width, height });
     assert.deepEqual(prepared, imageOutpaintPreparedDimensions({ width, height }));
     assert.equal(prepared.width % 32, 0);
@@ -77,10 +77,40 @@ test("扩图前后端几何在非对称与浮点边界保持一致", () => {
 
 test("扩图在图片解码与方向归一前拒绝超限尺寸", async () => {
   const header = Buffer.from(bytes.subarray(0, 24));
-  header.writeUInt32BE(4096, 16);
+  header.writeUInt32BE(4097, 16);
   await assert.rejects(normalizeImageOutpaintInput({
     ...input, referenceImages: [{ dataUrl: `data:image/png;base64,${header.toString("base64")}` }],
-  }), (error) => error.statusCode === 400 && /32–2048px/.test(error.message));
+  }), (error) => error.statusCode === 400 && /32–4096px/.test(error.message));
+});
+
+test("Flux扩图接受真实4K原图并保留字节与目标尺寸，输出保护不随输入上限扩大", async () => {
+  const largeBytes = await sharp({ create: { width: 4096, height: 3072, channels: 3, background: "#ddd" } }).png().toBuffer();
+  const largeInput = {
+    referenceImages: [{ dataUrl: `data:image/png;base64,${largeBytes.toString("base64")}`, name: "4k.png", width: 2048, height: 1536 }],
+    expansion: { left: 8, top: 0, right: 0, bottom: 0 },
+  };
+  let submitted = false;
+  const result = await executeImageOutpaint(largeInput, { imageClient: { generateImage: async (request) => {
+    submitted = true;
+    assert.deepEqual([request.sourceWidth, request.sourceHeight], [4096, 3072]);
+    assert.deepEqual([request.preparedWidth, request.preparedHeight], [4096, 3072]);
+    assert.deepEqual([request.width, request.height], [4104, 3072]);
+    assert.deepEqual(request.expansion, largeInput.expansion);
+    assert.deepEqual(Buffer.from(request.images[0].image_url.split(",")[1], "base64"), largeBytes);
+    return { images: [{ url: "data:image/png;base64,fixture" }], metadata: { outputWidth: request.width, outputHeight: request.height }, outputFormat: "png" };
+  } } });
+  assert.equal(submitted, true);
+  assert.equal(result.request.size, "4104x3072");
+  const config = publicImageOutpaintConfig();
+  assert.deepEqual([config.maxInputEdge, config.inputAlignment, config.outputAlignment], [4096, 32, 8]);
+  assert.deepEqual([config.maxEdge, config.maxPixels, config.maxExpansion], [16384, 32 * 1024 * 1024, 8192]);
+  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, expansion: { left: 4096, top: 4096, right: 0, bottom: 0 } }), /保护上限/);
+  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, expansion: { left: 8192, top: 0, right: 8192, bottom: 0 } }), /保护上限/);
+  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, expansion: { left: 1, top: 0, right: 0, bottom: 0 } }), /8px/);
+  const oversized = await sharp({ create: { width: 4097, height: 32, channels: 3, background: "#ddd" } }).png().toBuffer();
+  await assert.rejects(normalizeImageOutpaintInput({
+    ...largeInput, referenceImages: [{ dataUrl: `data:image/png;base64,${oversized.toString("base64")}` }],
+  }), (error) => error.statusCode === 400 && /32–4096px/.test(error.message));
 });
 
 test("扩图拒绝非法边值、零扩展、不对齐画布和请求保护上限", async () => {
@@ -110,7 +140,65 @@ test("扩图节点或模型缺失时只读准入拒绝执行，失败不缓存�
   assert.equal((await reader()).available, true);
   assert.equal((await reader()).available, true);
   assert.equal(reads, 2);
-  assert.equal(JSON.stringify(await reader()).includes("safetensors"), false);
+  const config = await reader();
+  assert.deepEqual(config.models.map((model) => model.fileName), ["flux1-fill-dev-OneReward-fp8.safetensors", "flux1-fill-dev.safetensors"]);
+  assert.doesNotMatch(JSON.stringify(config), /deepseek-ai\/Janus-Pro-1B|ae\.safetensors/);
+});
+
+test("两候选独立探测，默认缺失时原版仍可用，公共节点失配不误报可用", async () => {
+  const info = capabilityFixture();
+  info.UNETLoader.input.required.unet_name = [["flux1-fill-dev.safetensors"]];
+  info.UNETLoader.input.required.weight_dtype = [["default", "fp8_e4m3fn"]];
+  assert.throws(() => verifyImageOutpaintCapabilities(info, "oneRewardFp8"), /缺少配置项/);
+  verifyImageOutpaintCapabilities(info, "fluxFillDev");
+  const config = await createImageOutpaintConfigReader({ getObjectInfo: async () => info })();
+  assert.equal(config.available, true);
+  assert.equal(config.defaultModelKey, "fluxFillDev");
+  assert.deepEqual(config.models.map(({ key, available }) => ({ key, available })), [
+    { key: "oneRewardFp8", available: false }, { key: "fluxFillDev", available: true },
+  ]);
+  assert.match(config.models[0].reason, /缺少配置项/);
+  assert.equal(config.models[1].weightDtype, "default");
+  const wrongDtype = structuredClone(info);
+  wrongDtype.UNETLoader.input.required.weight_dtype = [["fp8_e4m3fn"]];
+  const dtypeUnavailable = await createImageOutpaintConfigReader({ getObjectInfo: async () => wrongDtype })();
+  assert.equal(dtypeUnavailable.models.find((model) => model.key === "fluxFillDev").available, false);
+  assert.match(dtypeUnavailable.models.find((model) => model.key === "fluxFillDev").reason, /weight_dtype/);
+  const missingCommonNode = structuredClone(info);
+  delete missingCommonNode.JanusModelLoader;
+  const unavailable = await createImageOutpaintConfigReader({ getObjectInfo: async () => missingCommonNode })();
+  assert.equal(unavailable.available, false);
+  assert.ok(unavailable.models.every((model) => !model.available));
+});
+
+test("执行前复核已选模型，未知或目录失效时零生成，合法请求和结果保留真实模型身份", async () => {
+  const info = capabilityFixture();
+  info.UNETLoader.input.required.unet_name = [["flux1-fill-dev.safetensors"]];
+  info.UNETLoader.input.required.weight_dtype = [["default", "fp8_e4m3fn"]];
+  let generated = 0;
+  const imageClient = {
+    getObjectInfo: async () => info,
+    generateImage: async (request) => {
+      generated += 1;
+      assert.equal(request.outpaintModel, "fluxFillDev");
+      return { images: [{ url: "data:image/png;base64,fixture" }], metadata: { outputWidth: request.width, outputHeight: request.height }, outputFormat: "png" };
+    },
+  };
+  await assert.rejects(executeImageOutpaint({ ...input, outpaintModel: "unknown" }, { imageClient }), (error) => error.statusCode === 400);
+  await assert.rejects(executeImageOutpaint({ ...input, outpaintModel: "oneRewardFp8" }, { imageClient }), (error) => error.statusCode === 409);
+  assert.equal(generated, 0);
+  const result = await executeImageOutpaint({ ...input, outpaintModel: "fluxFillDev" }, { imageClient });
+  assert.equal(generated, 1);
+  for (const identity of [result.request, result.upstream.metadata]) {
+    assert.equal(identity.outpaintModel, "fluxFillDev");
+    assert.equal(identity.model, "flux1-fill-dev.safetensors");
+    assert.equal(identity.weightDtype, "default");
+  }
+  const legacy = await executeImageOutpaint(input, { imageClient: { generateImage: async (request) => {
+    assert.equal(request.outpaintModel, "oneRewardFp8");
+    return { metadata: { outputWidth: request.width, outputHeight: request.height } };
+  } } });
+  assert.equal(legacy.request.outpaintModel, "oneRewardFp8");
 });
 
 test("ComfyUI 能力目录只读 GET，不提交 prompt", async () => {
@@ -142,7 +230,7 @@ test("缺少扩图客户端时应用服务拒绝执行", async () => {
   await assert.rejects(executeImageOutpaint(input), (error) => error.statusCode === 409);
 });
 
-test("扩图执行使用专用客户端和真实尺寸，跳过 OneAPI 与飞书并传阶段", async () => {
+test("扩图执行使用专用客户端和真实尺寸，透传阶段并调度飞书归档", async () => {
   const phases = [];
   const client = { generateImage: async (request, options) => {
     assert.equal(request.width, 1224);
@@ -155,34 +243,90 @@ test("扩图执行使用专用客户端和真实尺寸，跳过 OneAPI 与飞书
   const service = createGenerationService({
     imageOutpaintClient: client,
     requireApiKey: () => assert.fail("扩图无需 Key"),
-    scheduleGenerationSync: () => assert.fail("扩图不归档飞书"),
+    scheduleGenerationSync: (archive) => {
+      assert.equal(archive.workflow.feature, "image-outpaint");
+      assert.equal(archive.modelLabel, "Flux Fill OneReward（FP8）");
+      return { generationId: "outpaint-sync", status: "pending" };
+    },
   });
   const result = await service.executeForMode("imageOutpaint", input, { onProgress: (phase) => phases.push(phase) });
   assert.equal(result.request.size, "1224x808");
-  assert.equal(result.sync.status, "skipped");
+  assert.equal(result.sync.status, "pending");
   assert.equal(phases[0].promptId, "outpaint-prompt");
   await assert.rejects(executeImageOutpaint(input, { imageClient: { generateImage: async () => ({ metadata: { outputWidth: 1000, outputHeight: 751 } }) } }), /实际输出尺寸/);
 });
 
-test("能力未通过时 HTTP 在入队前拒绝，可用时允许专用任务且不查飞书", async () => {
+test("扩图仅在引擎能力与飞书合同都通过后入队，合同失败不执行GPU", async () => {
   let response;
   let enqueued = false;
   let available = false;
+  let syncReady = false;
+  let syncChecks = 0;
   const handler = createGenerationJobApiHandler({
     generationJobs: { enqueue() { enqueued = true; return { id: "fixture" }; } },
     generationService: {},
     getImageOutpaintConfig: async () => publicImageOutpaintConfig({ available, reason: "节点缺失" }),
     readJson: async () => ({ featureMode: "imageOutpaint", jobId: "generation-123456789012", items: [{ input }] }),
     sendJson(_response, status, body) { response = { status, body }; },
-    verifySyncContract: async () => assert.fail("本机图片工具无需飞书"),
+    verifySyncContract: async () => {
+      syncChecks += 1;
+      if (!syncReady) throw new Error("功能字段缺少 AI扩图");
+    },
   });
   await handler({ method: "POST" }, {}, "/api/generation-jobs");
   assert.equal(response.status, 409);
   assert.equal(enqueued, false);
+  assert.equal(syncChecks, 0);
   available = true;
+  await handler({ method: "POST" }, {}, "/api/generation-jobs");
+  assert.equal(response.status, 409);
+  assert.match(response.body.error, /功能字段缺少 AI扩图/);
+  assert.equal(enqueued, false);
+  syncReady = true;
   await handler({ method: "POST" }, {}, "/api/generation-jobs");
   assert.equal(response.status, 202);
   assert.equal(enqueued, true);
+  assert.equal(syncChecks, 2);
+});
+
+test("HTTP按实际选项入队前阻断未知400/不可用409，单项模型覆盖共享值且API引擎不接受Flux模型", async () => {
+  let response;
+  const enqueued = [];
+  const executed = [];
+  const comfy = publicImageOutpaintConfig({ available: true });
+  const config = { ...comfy, defaultModelKey: "fluxFillDev", models: comfy.models.map((model) => ({ ...model, available: model.key === "fluxFillDev", reason: model.key === "oneRewardFp8" ? "OneReward模型文件缺失" : null })) };
+  config.engines = [{ ...config, key: "comfyui" }, { key: "gptImage25Sunburst", available: true }];
+  let body = { featureMode: "imageOutpaint", jobId: "generation-model-123456789012", sharedInput: { referenceImages: [source], outpaintModel: "oneRewardFp8" }, items: [{ input: { outpaintModel: "unknown" } }] };
+  const handler = createGenerationJobApiHandler({
+    generationJobs: { enqueue(id, details, run) { enqueued.push({ id, details, run }); return { id }; } },
+    generationService: { async executeForMode(mode, request) { executed.push({ mode, request }); return {}; } },
+    getImageOutpaintConfig: async () => config,
+    readJson: async () => body,
+    sendJson(_response, status, result) { response = { status, result }; },
+    verifySyncContract: async () => {},
+  });
+  await handler({ method: "POST" }, {}, "/api/generation-jobs");
+  assert.equal(response.status, 400);
+  assert.equal(enqueued.length, 0);
+  body.items[0].input.outpaintModel = "oneRewardFp8";
+  await handler({ method: "POST" }, {}, "/api/generation-jobs");
+  assert.equal(response.status, 409);
+  assert.match(response.result.error, /OneReward模型文件缺失/);
+  assert.equal(enqueued.length, 0);
+  body.items[0].input.outpaintModel = "fluxFillDev";
+  await handler({ method: "POST" }, {}, "/api/generation-jobs");
+  assert.equal(response.status, 202);
+  await enqueued[0].run(() => {});
+  assert.equal(executed[0].request.outpaintModel, "fluxFillDev");
+  assert.deepEqual(enqueued[0].details.stages, { comfyUi: "submitting" });
+  body = { ...body, sharedInput: { referenceImages: [source] }, items: [{ input: { outpaintEngine: "gptImage25Sunburst", outpaintModel: "fluxFillDev" } }] };
+  await handler({ method: "POST" }, {}, "/api/generation-jobs");
+  assert.equal(response.status, 400);
+  assert.equal(enqueued.length, 1);
+  delete body.items[0].input.outpaintModel;
+  await handler({ method: "POST" }, {}, "/api/generation-jobs");
+  assert.equal(response.status, 202);
+  assert.deepEqual(enqueued[1].details.stages, { imageEdit: "submitting" });
 });
 
 test("独立图片工具公开同一扩图配置，保留超分健康与目录", async () => {

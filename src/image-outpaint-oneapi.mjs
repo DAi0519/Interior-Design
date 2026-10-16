@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 sharp、模型目录的 Sunburst 尺寸真源、图片字节读取、真实原图尺寸/四边定位和注入的 OneAPI 编辑客户端
- * [OUTPUT]: 对外提供 Sunburst 扩图公开合同、原尺寸/目标档位校验、透明画布与编辑遮罩、真实产物和费用元数据
+ * [INPUT]: 依赖 sharp、模型目录按官方 16px 网格/像素/边长约束映射的 Sunburst 尺寸真源、图片字节读取、服务层按比例适配后的真实输入尺寸/四边定位和注入的 OneAPI 编辑客户端
+ * [OUTPUT]: 对外提供 Sunburst 扩图公开合同、提交输入尺寸/27个合法目标档位校验、透明画布/编辑遮罩、动态 Prompt 真源及真实产物/费用元数据
  * [POS]: src 的 API 扩图适配器，与 MaaS/ComfyUI 工作流并列，沿用单图工具结果边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@ import { MODEL_CONFIGS } from "./model-config.mjs";
 
 export const ONEAPI_OUTPAINT_ENGINE_KEY = "gptImage25Sunburst";
 const MODEL = MODEL_CONFIGS[ONEAPI_OUTPAINT_ENGINE_KEY];
-const VERSION = "2026-10-12.1";
+const VERSION = "2026-10-15.2";
 const MAX_IMAGE_URL_LENGTH = 20 * 1024 * 1024;
 const MAX_MASK_BYTES = 4 * 1024 * 1024;
 const TARGET_SIZES = Object.entries(MODEL.sizes).flatMap(([ratio, sizes]) =>
@@ -44,9 +44,9 @@ export function publicOneApiOutpaintConfig({ available = false, reason = "请先
     maxEdge: 3840,
     maxExpansion: 8192,
     maxInputEdge: 3840,
-    maxPixels: 3840 * 3840,
+    maxPixels: 8294400,
     minInputEdge: 32,
-    outputAlignment: 1,
+    outputAlignment: 16,
     provider: "oneapi",
     quality: "medium",
     reason: available ? null : reason,
@@ -72,7 +72,7 @@ export function assertOneApiOutpaintTarget({ width, height }) {
   return { width, height };
 }
 
-// -------- 原图不缩放：外围透明，原图所在矩形在遮罩中保持不透明 --------
+// -------- 保持已适配输入尺寸：外围透明，输入所在矩形在遮罩中保持不透明 --------
 export async function prepareOneApiOutpaintCanvas({ source, expansion, width, height }) {
   const input = Buffer.from(source.imageUrl.split(",")[1], "base64");
   const position = { left: expansion.left, top: expansion.top };
@@ -90,6 +90,15 @@ export async function prepareOneApiOutpaintCanvas({ source, expansion, width, he
   return { canvas, imageUrl, mask, maskUrl: pngDataUrl(mask), placement: { ...position, width: source.width, height: source.height } };
 }
 
+export function buildOneApiOutpaintPrompt({ source, expansion, width, height }) {
+  return [
+    `Outpaint this image to fill the entire ${width} by ${height} canvas.`,
+    `The original image occupies the rectangle at x=${expansion.left}, y=${expansion.top}, width=${source.width}, height=${source.height}.`,
+    "Only generate in the transparent editable areas indicated by the mask. Preserve the original image's content, scale, camera perspective, geometry, materials, lighting and text inside the protected rectangle.",
+    "Continue the existing scene naturally beyond its borders, with seamless edges and consistent perspective. Do not add frames, margins, solid-color borders, watermarks or unrelated objects. Return one complete image.",
+  ].join(" ");
+}
+
 export async function executeOneApiOutpaint(normalized, { imageClient, onProgress = null } = {}) {
   if (typeof imageClient?.editImage !== "function") {
     throw Object.assign(new Error("Sunburst 扩图编辑客户端未配置"), { statusCode: 409 });
@@ -98,12 +107,7 @@ export async function executeOneApiOutpaint(normalized, { imageClient, onProgres
   const prepared = await prepareOneApiOutpaintCanvas(normalized);
   const startedAt = Date.now();
   onProgress?.({ phase: "executing", provider: "oneapi", message: "GPT Image 2.5 Sunburst 正在补全扩展区域" });
-  const prompt = [
-    `Outpaint this image to fill the entire ${width} by ${height} canvas.`,
-    `The original image occupies the rectangle at x=${expansion.left}, y=${expansion.top}, width=${source.width}, height=${source.height}.`,
-    "Only generate in the transparent editable areas indicated by the mask. Preserve the original image's content, scale, camera perspective, geometry, materials, lighting and text inside the protected rectangle.",
-    "Continue the existing scene naturally beyond its borders, with seamless edges and consistent perspective. Do not add frames, margins, solid-color borders, watermarks or unrelated objects. Return one complete image.",
-  ].join(" ");
+  const prompt = buildOneApiOutpaintPrompt(normalized);
   const result = await imageClient.editImage({
     images: [{ image_url: prepared.imageUrl }],
     mask: { image_url: prepared.maskUrl },

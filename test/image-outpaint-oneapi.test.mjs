@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖双引擎扩图边界、Sunburst 画布/遮罩适配、任务 API、统一生成服务、前端几何及 sharp 图片样本
- * [OUTPUT]: 对外提供原图像素/遮罩定位、API 尺寸准入与真实产物、权限切换和独立任务路由回归测试
+ * [OUTPUT]: 对外提供独立于Flux的Sunburst输入/模型参数边界、原图像素/遮罩定位、27个合法目标档位/16px网格/像素边界、API尺寸/真实产物/权限与独立路由回归测试
  * [POS]: test 的 OneAPI 扩图合同测试，使用假客户端，不调用付费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,7 +19,7 @@ const input = { outpaintEngine: "gptImage25Sunburst", referenceImages: [source],
 const resultBytes = await sharp({ create: { width: 1024, height: 768, channels: 3, background: "#bbb" } }).png().toBuffer();
 const resultUrl = `data:image/png;base64,${resultBytes.toString("base64")}`;
 
-test("Sunburst 几何按实际原尺寸定位，不复用32px裁切或2048上限", async () => {
+test("Sunburst 按原尺寸定位，输入边界与 Flux 4K/32px 预处理独立", async () => {
   const normalized = await normalizeImageOutpaintInput(input);
   assert.deepEqual(normalized.prepared, { width: 403, height: 301 });
   assert.equal(normalized.width, 1024);
@@ -30,7 +30,11 @@ test("Sunburst 几何按实际原尺寸定位，不复用32px裁切或2048上限
   const large = await sharp({ create: { width: 2500, height: 1000, channels: 3, background: "#aaa" } }).png().toBuffer();
   const largeInput = { ...input, referenceImages: [{ dataUrl: `data:image/png;base64,${large.toString("base64")}` }], expansion: { left: 670, right: 670, top: 580, bottom: 580 } };
   assert.equal((await normalizeImageOutpaintInput(largeInput)).width, 3840);
-  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, outpaintEngine: "comfyui" }), /32–2048/);
+  const comfy = await normalizeImageOutpaintInput({ ...largeInput, outpaintEngine: "comfyui", expansion: { left: 8, right: 0, top: 0, bottom: 0 } });
+  assert.deepEqual(comfy.prepared, { width: 2528, height: 1024 });
+  assert.deepEqual([comfy.width, comfy.height], [2536, 1024]);
+  assert.equal(config.maxInputEdge, 3840);
+  assert.equal(imageOutpaintPreparedDimensions({ width: 4096, height: 32 }, config), null);
 });
 
 test("透明画布保持原图字节解码像素，遮罩精确保护原图矩形", async () => {
@@ -47,11 +51,24 @@ test("透明画布保持原图字节解码像素，遮罩精确保护原图矩�
   assert.deepEqual(prepared.placement, { left: 100, top: 80, width: 403, height: 301 });
 });
 
-test("Sunburst 目标只准入27个网关档位，拒绝未知引擎和未匹配尺寸", async () => {
+test("Sunburst 目标只准入27个官方合法档位，拒绝未知引擎和未匹配尺寸", async () => {
   const config = publicOneApiOutpaintConfig();
+  assert.equal(config.inputAlignment, 1);
+  assert.equal(config.outputAlignment, 16);
+  assert.equal(config.maxPixels, 8294400);
+  assert.equal(config.workflow.version, "2026-10-15.2");
   assert.equal(config.targetSizes.length, 27);
-  for (const size of config.targetSizes) assertOneApiOutpaintTarget(size);
+  for (const size of config.targetSizes) {
+    assertOneApiOutpaintTarget(size);
+    const label = `${size.ratio} ${size.resolution}: ${size.width}x${size.height}`;
+    assert.equal(size.width % config.outputAlignment, 0, label);
+    assert.equal(size.height % config.outputAlignment, 0, label);
+    assert.ok(size.width * size.height >= 655360 && size.width * size.height <= config.maxPixels, label);
+    assert.ok(Math.max(size.width, size.height) <= config.maxEdge, label);
+    assert.ok(Math.max(size.width, size.height) <= Math.min(size.width, size.height) * 3, label);
+  }
   await assert.rejects(normalizeImageOutpaintInput({ ...input, outpaintEngine: "unknown" }), /不支持的扩图引擎/);
+  await assert.rejects(normalizeImageOutpaintInput({ ...input, outpaintModel: "fluxFillDev" }), (error) => error.statusCode === 400);
   await assert.rejects(normalizeImageOutpaintInput({ ...input, expansion: { ...input.expansion, left: 101 } }), /目标尺寸需匹配/);
 });
 
@@ -100,17 +117,24 @@ test("独立API配置按当前Key重新检查权限，不受ComfyUI故障阻断"
   assert.equal(JSON.stringify(await failed()).includes("credential-private"), false);
 });
 
-test("统一应用服务按API引擎取客户端，跳过ComfyUI和飞书", async () => {
+test("统一应用服务按API引擎取客户端并调度飞书归档", async () => {
   const service = createGenerationService({
     imageOutpaintClient: { generateImage: () => assert.fail("不能调用 ComfyUI") },
     imageClientForModel(key) { assert.equal(key, "gptImage25Sunburst"); return { async editImage() { return { images: [{ url: resultUrl }], outputFormat: "png" }; } }; },
-    scheduleGenerationSync: () => assert.fail("独立扩图不归档"),
+    scheduleGenerationSync: (archive) => {
+      assert.equal(archive.workflow.feature, "image-outpaint");
+      assert.equal(archive.modelLabel, "GPT Image 2.5 Sunburst");
+      return { generationId: "sunburst-sync", status: "pending" };
+    },
   });
-  assert.equal((await service.executeForMode("imageOutpaint", input)).workflow.key, "image-outpaint-sunburst");
+  const result = await service.executeForMode("imageOutpaint", input);
+  assert.equal(result.workflow.key, "image-outpaint-sunburst");
+  assert.equal(result.sync.status, "pending");
 });
 
 test("HTTP 按所选API引擎准入且使用imageEdit阶段，缺权限不入队", async () => {
   let available = true;
+  let syncChecks = 0;
   let response, queued;
   const handler = createGenerationJobApiHandler({
     generationJobs: { enqueue(_id, metadata) { queued = metadata; return { id: "fixture" }; } },
@@ -118,11 +142,12 @@ test("HTTP 按所选API引擎准入且使用imageEdit阶段，缺权限不入队
     generationService: {},
     readJson: async () => ({ featureMode: "imageOutpaint", jobId: "generation-123456789012", items: [{ input }] }),
     sendJson(_response, status, body) { response = { status, body }; },
-    verifySyncContract: () => assert.fail("独立API扩图无需飞书"),
+    verifySyncContract: async () => { syncChecks += 1; },
   });
   await handler({ method: "POST" }, {}, "/api/generation-jobs");
   assert.equal(response.status, 202);
   assert.deepEqual(queued.stages, { imageEdit: "submitting" });
+  assert.equal(syncChecks, 1);
   available = false;
   queued = null;
   await handler({ method: "POST" }, {}, "/api/generation-jobs");

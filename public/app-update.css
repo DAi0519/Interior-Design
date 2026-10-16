@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖三个工作台的更新入口、app-update.js 单一下载安装动作与状态类，以及 raycast-accent.css 共享弹层配色和中性键帽令牌
- * [OUTPUT]: 对外提供小型版本入口、被动新版圆点、紧凑银灰弹层、版本亮点与恢复链接、统一对齐的关闭/按需检查/下载安装动作
+ * [OUTPUT]: 对外提供小型版本入口、被动新版圆点、紧凑银灰弹层、按需版本亮点、统一对齐的关闭/按需检查/下载安装动作
  * [POS]: public 的跨工作台更新视觉层，在最终颜色层前加载，复用 Light Command Center 令牌
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -120,15 +120,6 @@
 
 .app-update-instructions {
   margin-top: 20px;
-}
-
-.app-update-release-link {
-  color: var(--brand-key-strong-ink, #202024);
-  display: inline-block;
-  font-size: 12px;
-  line-height: 1.65;
-  margin-top: 8px;
-  text-underline-offset: 3px;
 }
 
 .app-update-progress {

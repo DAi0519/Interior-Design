@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 public/image-outpaint.js 的可交互画布、拖动计算与四边扩展值更新
- * [OUTPUT]: 验证拖动原图在画布中调整位置、边界约束、像素计算精度与输入框同步
- * [POS]: test 的扩图拖动交互单元测试，覆盖鼠标/触摸事件、边界限制与状态一致性
+ * [INPUT]: 依赖 public/image-outpaint.js 保留的旧四边几何纯函数
+ * [OUTPUT]: 验证旧预处理/扩边兼容、固定目标画布的位移换算与非负边界
+ * [POS]: test 的旧扩图几何单元测试，真实鼠标/触摸事件由 image-outpaint-ui.test.mjs 验证
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

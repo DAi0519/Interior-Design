@@ -1,0 +1,51 @@
+{
+  "startedAt": "2026-10-15T07:04:09.400Z",
+  "finishedAt": "2026-10-15T07:06:32.381Z",
+  "request": {
+    "sourceWidth": 768,
+    "sourceHeight": 512,
+    "width": 1024,
+    "height": 768,
+    "expansion": {
+      "left": 128,
+      "top": 128,
+      "right": 128,
+      "bottom": 128
+    }
+  },
+  "metadata": {
+    "artifactKey": "a1b2b0fa-8ef4-469f-864c-e788370f50e5",
+    "engine": "qwenImageEdit2511",
+    "executionDurationMs": 138668,
+    "expansion": {
+      "left": 128,
+      "top": 128,
+      "right": 128,
+      "bottom": 128
+    },
+    "inputHeight": 512,
+    "inputWidth": 768,
+    "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+    "weightDtype": "default",
+    "steps": 4,
+    "cfg": 1,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "shift": 3.1,
+    "feathering": 32,
+    "preservation": "original-center-masked-composite",
+    "outputFilename": "CanvasLab_QwenOutpaint_a1b2b0fa-8ef4-469f-864c-e788370f50e5_00001_.png",
+    "outputHeight": 768,
+    "outputWidth": 1024,
+    "outputSha256": "fb5f9c9b3ee51f0db0690b7e3252cf0795f1c6e4f43f4c1491d21014cd9693fa",
+    "promptId": "5f714133-6836-49da-a5ec-da93bb861eab",
+    "queueDurationMs": 1151,
+    "seed": 2469831208,
+    "targetHeight": 768,
+    "targetWidth": 1024,
+    "workflowId": "image-outpaint-qwen",
+    "workflowVersion": "2026-10-15.1"
+  },
+  "outputFormat": "png"
+}

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/app-update.mjs，可注入匿名 GitHub 请求、时钟和计时器替身
- * [OUTPUT]: 对外提供正式版本比较、附件准入、匿名 API 与网页兜底、错误脱敏、超时和缓存并发回归保障
+ * [OUTPUT]: 对外提供正式版本比较、附件准入、匿名 API 与无说明 HEAD 兜底、错误脱敏、超时和缓存并发回归保障
  * [POS]: test 的应用更新边界测试，不访问网络、下载文件或读取真实 GitHub 配置
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -195,7 +195,7 @@ test("API 限流、服务错误或暂时网络异常时，通过两次 HEAD 验�
     assert.equal(receipt.status, "available", status);
     assert.equal(receipt.latestVersion, "0.1.10");
     assert.equal(receipt.downloadUrl, `${REPOSITORY_URL}/releases/download/v0.1.10/canvas-lab-v0.1.10.zip`);
-    assert.equal(receipt.releaseNotes, "更新说明请在版本页面查看。");
+    assert.equal(receipt.releaseNotes, "");
     assert.equal(requests.length, 3);
     const [api, latest, asset] = requests;
     assert.equal(api.options.signal, latest.options.signal);

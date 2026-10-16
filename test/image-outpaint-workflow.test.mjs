@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖真实 MaaS 扩图工作流适配器、来源身份、几何规则与通用 ComfyUI 客户端选项
- * [OUTPUT]: 对外提供原图预处理取整、模型/采样链路保真、MaaS 传输替换、请求隔离与真实产物追溯测试
+ * [OUTPUT]: 对外提供 4K 输入准入/原图预处理取整、OneReward FP8/Flux Fill dev 选择与身份追溯、其余采样链路保真、MaaS 传输替换和请求隔离测试
  * [POS]: test 的 AI 扩图执行图契约验证，不访问远端或提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,6 +35,8 @@ test("扩图来源保持 prod_test 参数身份，策略 ID 仅作为截图线�
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.maasParameterId, 1082);
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.maasStrategyHint, 643);
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourceStage, "prod_test");
+  assert.equal(IMAGE_OUTPAINT_WORKFLOW.version, "2026-10-15.3");
+  assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourceUpdatedAt, "2026-09-10");
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourceSha256, "64684baf682a0a744a03c788928507859bc14160954751a6f3d78c626be47ce1");
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourcePromptSha256, "2a68c653f0074da5a68324d0dbbdd2801b2b5792d955dca27765fedbd420d37f");
   assert.equal(IMAGE_OUTPAINT_CLIENT_OPTIONS.outputNodeId, IMAGE_OUTPAINT_OUTPUT_NODE_ID);
@@ -47,8 +49,11 @@ test("扩图预处理忠于短轴 int 截断后 32 对齐，包括浮点边界",
   assert.deepEqual(imageOutpaintPreparedDimensions({ width: 149, height: 97 }), { width: 160, height: 128 });
   assert.deepEqual(imageOutpaintPreparedDimensions({ width: 32, height: 32 }), { width: 32, height: 32 });
   assert.deepEqual(imageOutpaintPreparedDimensions({ width: 2048, height: 2048 }), { width: 2048, height: 2048 });
-  for (const value of [0, 31, 2049, 32.5, NaN, undefined]) {
-    assert.throws(() => imageOutpaintPreparedDimensions({ width: value, height: 256 }), /32–2048/);
+  assert.deepEqual(imageOutpaintPreparedDimensions({ width: 3840, height: 2160 }), { width: 3840, height: 2176 });
+  assert.deepEqual(imageOutpaintPreparedDimensions({ width: 4096, height: 4096 }), { width: 4096, height: 4096 });
+  for (const value of [0, 31, 4097, 32.5, NaN, undefined]) {
+    assert.throws(() => imageOutpaintPreparedDimensions({ width: value, height: 256 }), /32–4096/);
+    assert.throws(() => imageOutpaintPreparedDimensions({ width: 256, height: value }), /32–4096/);
   }
 });
 
@@ -65,7 +70,7 @@ test("真实扩图图保留尺寸校验、32 像素 Lanczos crop 与 mask 连线
   const graph = createImageOutpaintWorkflow(options);
   assert.deepEqual(graph["check-size"], {
     class_type: "MaaSCheckImageSize",
-    inputs: { min_width: 32, max_width: 2048, min_height: 32, max_height: 2048, image: ["input", 0] },
+    inputs: { min_width: 32, max_width: 4096, min_height: 32, max_height: 4096, image: ["input", 0] },
   });
   assert.deepEqual(graph.prepare.inputs, {
     aspect_ratio: "original", proportional_width: 1, proportional_height: 1,
@@ -102,7 +107,28 @@ test("扩图保留 Janus 自动描述、Flux Fill OneReward 与原采样参数",
   assert.equal(graph.sample.inputs.seed, options.seed);
 });
 
-test("扩图适配只替换 MaaS 输入与报告，所有结果依赖闭合且逐请求隔离", () => {
+test("扩图模型只切换UNET文件与dtype，默认保持OneReward FP8且请求之间互不污染", () => {
+  const baseline = createImageOutpaintWorkflow(options);
+  for (const [key, fileName, weightDtype] of [
+    ["oneRewardFp8", "flux1-fill-dev-OneReward-fp8.safetensors", "fp8_e4m3fn"],
+    ["fluxFillDev", "flux1-fill-dev.safetensors", "default"],
+  ]) {
+    const generationRequest = { expansion, outpaintModel: key };
+    const graph = createImageOutpaintWorkflow({ ...options, generationRequest });
+    assert.deepEqual(graph.model, { class_type: "UNETLoader", inputs: { unet_name: fileName, weight_dtype: weightDtype } });
+    const otherNodes = ({ model, ...rest }) => rest;
+    assert.deepEqual(otherNodes(graph), otherNodes(baseline));
+    const metadata = imageOutpaintWorkflowMetadata({ ...options, generationRequest });
+    assert.equal(metadata.model, fileName);
+    assert.equal(metadata.outpaintModel, key);
+    assert.equal(metadata.weightDtype, weightDtype);
+    assert.equal(metadata.workflowVersion, "2026-10-15.3");
+  }
+  assert.deepEqual(createImageOutpaintWorkflow(options).model, baseline.model);
+  assert.throws(() => createImageOutpaintWorkflow({ ...options, generationRequest: { expansion, outpaintModel: "unknown" } }), (error) => error.statusCode === 400);
+});
+
+test("扩图适配替换 MaaS 传输与4K准入，所有结果依赖闭合且逐请求隔离", () => {
   const graph = createImageOutpaintWorkflow(options);
   assert.equal(Object.keys(graph).length, 18);
   assert.deepEqual(graph.input, {
@@ -123,8 +149,11 @@ test("扩图适配只替换 MaaS 输入与报告，所有结果依赖闭合且�
   assert.ok(IMAGE_OUTPAINT_REQUIRED_NODES.includes("LayerUtility: ImageScaleByAspectRatio V2"));
   assert.ok(IMAGE_OUTPAINT_REQUIRED_MODELS.some((model) => model.inputName === "unet_name" && model.value === graph.model.inputs.unet_name));
   graph.model.inputs.unet_name = "不得污染下一请求";
+  graph["check-size"].inputs.max_width = 2048;
   const next = createImageOutpaintWorkflow({ ...options, artifactKey: "outpaint-request-456", seed: 456 });
   assert.equal(next.model.inputs.unet_name, "flux1-fill-dev-OneReward-fp8.safetensors");
+  assert.equal(next["check-size"].inputs.max_width, 4096);
+  assert.equal(next["check-size"].inputs.max_height, 4096);
   assert.equal(next.sample.inputs.seed, 456);
   assert.equal(next.output.inputs.filename_prefix, "CanvasLab_Outpaint_outpaint-request-456");
 });

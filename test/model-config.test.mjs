@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供六个 OneAPI 模型（含 GPT Image 2.5 双模型及独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供六个 OneAPI 模型（含 GPT Image 2/2.5 尺寸边界与截图 1K 回归、独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -281,6 +281,63 @@ test("GPT Image 2.5 双模型按公司模板使用九种比例和新增质量档
       ratio: "16:9",
       resolution: "1K",
     }), /不支持全景图所需的 2:1 画幅/);
+  }
+});
+
+test("GPT Image 2/2.5 所有公开档位和实际请求都满足接口尺寸边界", () => {
+  const models = publicModelCatalog().filter(({ key }) => key.startsWith("gptImage"));
+  assert.equal(models.length, 3);
+  for (const model of models) {
+    for (const [ratio, resolutions] of Object.entries(model.sizes)) {
+      const [ratioWidth, ratioHeight] = ratio.split(":").map(Number);
+      for (const [resolution, size] of Object.entries(resolutions)) {
+        const label = `${model.key} ${ratio} ${resolution}: ${size}`;
+        const [width, height] = size.split("x").map(Number);
+        assert.equal(width % 16, 0, label);
+        assert.equal(height % 16, 0, label);
+        assert.ok(Math.max(width, height) <= 3840, label);
+        assert.ok(width * height >= 655360 && width * height <= 8294400, label);
+        assert.ok(Math.max(width, height) / Math.min(width, height) <= 3, label);
+        assert.equal(width * ratioHeight, height * ratioWidth, label);
+        const generation = createGenerationRequest({
+          modelKey: model.key, outputFormat: "png", prompt: "保持空间比例并映射真实材质",
+          ratio, resolution,
+        });
+        assert.equal(generation.request.size, size, label);
+        assert.equal(generation.preview.size, size, label);
+        assert.equal(sizeSummary({
+          model, ratio, ratioMode: "manual", resolution,
+        }).exactSize, size, label);
+      }
+    }
+  }
+});
+
+test("GPT 的 1K 16:9 原图适配、浏览器摘要和请求都使用 1536x864", () => {
+  const sourceImage = { height: 710, width: 1314 };
+  for (const model of publicModelCatalog().filter(({ key }) => key.startsWith("gptImage"))) {
+    const generation = createGenerationRequest({
+      modelKey: model.key, outputFormat: "png", prompt: "保持精模构图并提高真实感",
+      ratio: "1:1", resolution: "1K",
+    }, { preferSourceAspect: true, sourceDimensions: sourceImage });
+    assert.equal(generation.preview.ratio, "16:9");
+    assert.equal(generation.preview.resolution, "1K");
+    assert.equal(generation.request.size, "1536x864");
+    assert.equal(generation.preview.size, "1536x864");
+    assert.equal(sizeSummary({
+      model, ratio: generation.preview.ratio, ratioMode: "auto", resolution: "1K", sourceImage,
+    }).exactSize, "1.85:1 → 16:9 · 1536x864");
+  }
+});
+
+test("同一 1K 16:9 仍按 Banana 2 与 Seedream 5.0 Pro 各自接口映射", () => {
+  for (const [modelKey, size] of [["banana2", "1376x768"], ["seedream5Pro", "1424x800"]]) {
+    const generation = createGenerationRequest({
+      modelKey, outputFormat: "png", prompt: "现代简约客厅，柔和自然光",
+      ratio: "16:9", resolution: "1K",
+    });
+    assert.equal(generation.request.size, size);
+    assert.equal(generation.preview.size, size);
   }
 });
 
@@ -646,7 +703,7 @@ test("Seedream 5.0 Pro 仅在全景图美化开放 3040x1520 的 4K 实验档", 
   );
 });
 
-test("Banana 2 与 GPT Image 2 公开网关实测可用的 2:1 尺寸", () => {
+test("Banana 2 与 GPT Image 2 的 2:1 尺寸按各自接口映射", () => {
   assert.deepEqual(MODEL_CONFIGS.banana2.sizes["2:1"], {
     "512": "720x360",
     "1K": "1440x720",
@@ -654,7 +711,7 @@ test("Banana 2 与 GPT Image 2 公开网关实测可用的 2:1 尺寸", () => {
     "4K": "5760x2880",
   });
   assert.deepEqual(MODEL_CONFIGS.gptImage2.sizes["2:1"], {
-    "1K": "1024x512",
+    "1K": "1536x768",
     "2K": "2048x1024",
     "4K": "3840x1920",
   });

@@ -1,12 +1,14 @@
 /**
  * [INPUT]: 依赖日常生成任务注册表、含效果图氛围转换/美化的统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
- * [OUTPUT]: 对外提供任务入队和查询，在需归档生图前阻断 Schema 漂移，独立图片工具按所选引擎准入并跳过归档，区分 ComfyUI 与 API 编辑阶段
+ * [OUTPUT]: 对外提供任务入队和查询，在生图/扩图前阻断飞书 Schema 漂移，扩图按 Flux/Qwen/Sunburst 引擎准入并仅为 Flux 冻结默认模型，依据 Provider 区分 ComfyUI/API 编辑阶段，仅超分跳过飞书归档
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { runGenerationJobBatch } from "./generation-jobs.mjs";
 import { imageOutpaintEngineKey, publicImageOutpaintConfig } from "./image-outpaint-service.mjs";
+import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
+import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
@@ -68,8 +70,10 @@ export function createGenerationJobApiHandler({
         return true;
       }
       let engineKey;
+      const outpaintInput = { ...sharedInput, ...items[0].input };
       try {
-        engineKey = imageOutpaintEngineKey({ ...sharedInput, ...items[0].input });
+        engineKey = imageOutpaintEngineKey(outpaintInput);
+        if (engineKey === "comfyui" && outpaintInput.outpaintModel !== undefined) resolveImageOutpaintModel(outpaintInput.outpaintModel);
       } catch (error) {
         sendJson(response, 400, { error: error.message });
         return true;
@@ -80,9 +84,26 @@ export function createGenerationJobApiHandler({
         sendJson(response, 409, { error: engine?.reason || "扩图引擎未配置" });
         return true;
       }
-      if (engineKey !== "comfyui") imageStage = "imageEdit";
+      if (engineKey === "comfyui") {
+        let model;
+        try {
+          model = resolveImageOutpaintModel(outpaintInput.outpaintModel === undefined ? engine.defaultModelKey : outpaintInput.outpaintModel);
+        } catch (error) {
+          sendJson(response, 400, { error: error.message });
+          return true;
+        }
+        const candidate = engine.models?.find((entry) => entry.key === model.key);
+        if (!candidate?.available) {
+          sendJson(response, 409, { error: candidate?.reason || "所选扩图模型暂不可用" });
+          return true;
+        }
+        items[0] = { ...items[0], input: { ...items[0].input, outpaintModel: model.key } };
+      }
+      // -------- 兼容尚未携带 Provider 的旧 Sunburst 目录，Qwen 始终走 ComfyUI --------
+      const provider = engine.provider || (engineKey === ONEAPI_OUTPAINT_ENGINE_KEY ? "oneapi" : "comfyui");
+      if (provider === "oneapi") imageStage = "imageEdit";
     }
-    if (!localImageRequest) {
+    if (featureMode !== "imageUpscale") {
       try {
         await verifySyncContract();
       } catch (error) {
