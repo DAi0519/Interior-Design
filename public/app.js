@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2 图片超分三工作流与 4K/6K/8K 配置、三引擎扩图及大画布/结果切换与各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、生图与三引擎扩图的飞书同步合同阻断、仅超分保留本机路径、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房双模式、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2/KS 图片超分五工作流与各自尺寸目录/选择恢复、三引擎扩图及大画布/结果切换与各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房/风格转换双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、生图与三引擎扩图的飞书同步合同阻断、仅超分保留本机路径、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房/风格转换双模式与参考图互斥风格选择、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
-import { createAppElements } from "./app-elements.js";
-import { renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=1";
+import { createAppElements } from "./app-elements.js?v=2";
+import { designPromptConfiguration, designSourceValidation, platformStyleAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=2";
 import { bindDesignInputs } from "./design-inputs.js?v=2";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
@@ -17,7 +17,7 @@ import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
-import { bindImageTools } from "./image-tools.js";
+import { bindImageTools } from "./image-tools.js?v=2";
 import {
   buildGenerationJobRequest,
   generationItemsForSelection,
@@ -40,6 +40,7 @@ const state = {
   connected: false,
   effectBeautificationPrompt: { available: false, version: null },
   emptyRoomConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
+  styleTransferConfig: { promptAgent: { defaultVersion: null, versions: [] }, reference: { available: false, reason: "读取中", version: null } },
   featureMode: "whiteModel",
   modelKeys: ["aiTextureEnhancement"],
   promptAgentCatalog: [],
@@ -86,14 +87,10 @@ function selectedModel() { return selectedModels()[0]; }
 function referenceImages() { return referenceUpload?.images() || []; }
 function styleReferenceImages() { return styleReferenceUpload?.images() || []; }
 function selectedSourceImage() { return state.featureMode === "styleDna" ? null : referenceImages()[0]; }
-function isDesignPromptFlow() { return ["emptyRoom", "whiteModel"].includes(state.featureMode); }
-function activeDesignPromptConfig() {
-  return state.featureMode === "emptyRoom"
-    ? state.emptyRoomConfig.smartDefault
-    : state.smartDefaultConfig;
-}
+function isDesignPromptFlow() { return ["emptyRoom", "styleTransfer", "whiteModel"].includes(state.featureMode); }
+function activeDesignPromptConfig() { return designPromptConfiguration(state).smartDefault; }
 function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
-  state.featureMode === "emptyRoom" ? state.emptyRoomConfig.promptAgent : state.fusionPromptConfig); }
+  designPromptConfiguration(state).promptAgent); }
 function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
   (model) => model.key === state.promptAgentModelKey); }
 function renderPromptAgentModels() {
@@ -107,22 +104,8 @@ function selectPromptAgent(modelKey) {
   state.promptAgentModelKey = modelKey;
   renderPromptAgentModels();
 }
-function renderPromptAgentContext(smartDefault) {
-  const emptyRoom = state.featureMode === "emptyRoom";
-  const implicitVersion = smartDefault;
-  elements.promptAgentTitle.textContent = emptyRoom
-    ? smartDefault ? "空房智能默认 Agent" : "空房风格融合 Agent"
-    : smartDefault ? "智能默认 Agent" : "场景融合 Agent";
-  elements.promptAgentVersionAvailability.classList.toggle("hidden", implicitVersion);
-  elements.promptAgentVersionField.classList.toggle("hidden", implicitVersion);
-  elements.promptAgentVersionLabel.classList.toggle("hidden", implicitVersion);
-  elements.promptAgentModelLabelCopy.textContent = implicitVersion
-    ? "Agent 基模"
-    : "融合基模";
-  elements.promptAgentModelSelect.setAttribute("aria-label", emptyRoom
-    ? smartDefault ? "空房智能默认 Agent 基模" : "空房风格融合基模"
-    : smartDefault ? "智能默认 Agent 基模" : "融合基模");
-  renderPromptAgentModels();
+function renderPromptAgentContext(renderMode) {
+  renderAgentContext(elements, state, renderMode);
 }
 function referenceLimit() {
   if (imageTools.forMode(state.featureMode)) return 1;
@@ -142,7 +125,7 @@ function updateReferenceRequirements() {
 function selectFeatureMode(featureMode) {
   const supported = [
     "effectEnhancement", "effectBeautification", "emptyRoom", "free",
-    "imageUpscale", "imageOutpaint", "panoramaEnhancement", "refinedModel", "styleDna", "whiteModel",
+    "imageUpscale", "imageOutpaint", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
   state.featureMode = featureMode;
@@ -154,7 +137,8 @@ function selectFeatureMode(featureMode) {
   }
   const isWhiteModel = featureMode === "whiteModel";
   const isEmptyRoom = featureMode === "emptyRoom";
-  const isDesignModel = isWhiteModel || isEmptyRoom;
+  const isStyleTransfer = featureMode === "styleTransfer";
+  const isDesignModel = isWhiteModel || isEmptyRoom || isStyleTransfer;
   const isEffectEnhancement = featureMode === "effectEnhancement";
   const isEffectBeautification = featureMode === "effectBeautification";
   const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
@@ -181,16 +165,14 @@ function selectFeatureMode(featureMode) {
     return;
   }
 
-  whiteModelRenderMode.setPlatformStylesEnabled(
-    !isEmptyRoom || styleReferenceImages().length === 0,
-    "已上传风格参考图，空房设计固定使用智能默认",
-  );
-  whiteModelRenderMode.setSmartDefault(activeDesignPromptConfig());
-  const smartDefault = whiteModelRenderMode.current().mode === "smart-default";
+  const platformStyles = platformStyleAvailability(featureMode, styleReferenceImages().length);
+  whiteModelRenderMode.setDesignContext({ featureMode, platformStyles,
+    reference: state.styleTransferConfig.reference, referenceCount: styleReferenceImages().length });
+  if (!isStyleTransfer) whiteModelRenderMode.setSmartDefault(activeDesignPromptConfig());
   elements.promptAgentSection.classList.toggle("hidden", !isDesignModel);
   if (isDesignModel) {
     renderActivePromptAgentVersions();
-    renderPromptAgentContext(smartDefault);
+    renderPromptAgentContext(whiteModelRenderMode.current().mode);
   }
   elements.styleSection.classList.toggle("hidden", !isDesignModel);
   elements.imageUpscaleSection.classList.toggle("hidden", !isImageUpscale);
@@ -203,9 +185,9 @@ function selectFeatureMode(featureMode) {
   elements.emptyRoomTypeSection.classList.toggle("hidden", !isEmptyRoom);
   emptyRoomType.setFeatureMode(featureMode);
   elements.styleReferenceSection.classList.toggle("hidden", !isDesignModel);
-  elements.styleTitle.textContent = isEmptyRoom ? "设计风格" : "风格选择";
+  elements.styleTitle.textContent = isStyleTransfer ? "目标风格" : isEmptyRoom ? "设计风格" : "风格选择";
   elements.whiteModelRenderModeList.setAttribute("aria-label",
-    isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
+    isStyleTransfer ? "风格转换目标风格" : isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
   elements.promptSection.classList.toggle(
     "hidden", isRefinedModel || isEffectEnhancement || isEffectBeautification || isPanoramaEnhancement || Boolean(imageTool),
@@ -455,7 +437,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const models = localImageRequest ? [imageTool.currentItem()] : selectedModels();
   const whiteModelRequest = featureMode === "whiteModel";
   const emptyRoomRequest = featureMode === "emptyRoom";
-  const designPromptRequest = whiteModelRequest || emptyRoomRequest;
+  const styleTransferRequest = featureMode === "styleTransfer";
+  const designPromptRequest = whiteModelRequest || emptyRoomRequest || styleTransferRequest;
   const refinedModelRequest = featureMode === "refinedModel";
   const effectEnhancementRequest = featureMode === "effectEnhancement";
   const effectBeautificationRequest = featureMode === "effectBeautification";
@@ -495,12 +478,12 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   if (designPromptRequest) {
     const renderMode = whiteModelRenderMode.current();
     if (!renderMode.available) {
-      showToast(renderMode.reason || "飞书智能默认 Agent 暂不可用");
+      showToast(renderMode.reason || (styleTransferRequest ? "请选择平台风格，或上传风格参考图" : "飞书智能默认 Agent 暂不可用"));
       return;
     }
     if (renderMode.mode === "style-dna") {
       if (!promptAgentVersionSelect.value()) {
-        showToast(emptyRoomRequest
+        showToast(styleTransferRequest ? "飞书风格转换融合 Agent 没有可用的已上架版本" : emptyRoomRequest
           ? "飞书空房风格融合 Agent 没有可用的已上架版本"
           : "飞书场景融合 Agent 没有可用的已上架版本");
         return;
@@ -510,10 +493,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
         return;
       }
     }
-    if (referenceImages().length !== 1) {
-      showToast(emptyRoomRequest
-        ? "空房设计需要且只允许 1 张空房图"
-        : "白模渲染需要且只允许 1 张白模图");
+    const sourceError = designSourceValidation(featureMode, referenceImages().length);
+    if (sourceError) {
+      showToast(sourceError);
       return;
     }
   }
@@ -559,6 +541,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const loadingCopy = localImageRequest ? imageTool.loadingCopy() : generationLoadingCopy({
     designPromptRequest,
     emptyRoomRequest,
+    styleTransferRequest,
     effectEnhancementRequest,
     effectBeautificationRequest,
     panoramaEnhancementRequest,
@@ -712,6 +695,11 @@ const loadConfiguration = bindConfigRefresh({
     }
     generationActions.clearReusable();
   },
+  onStyleTransfer(config) {
+    state.styleTransferConfig = config;
+    if (state.featureMode === "styleTransfer") selectFeatureMode("styleTransfer");
+    generationActions.clearReusable();
+  },
   onPromptAgentVersions(config) {
     state.fusionPromptConfig = config;
     if (state.featureMode === "whiteModel") renderActivePromptAgentVersions();
@@ -761,14 +749,8 @@ styleReferenceUpload = bindReferenceUpload({
   getSubject: () => "风格参考图",
   input: elements.styleReferenceInput,
   list: elements.styleReferenceList,
-  onChange({ images }) {
-    if (state.featureMode === "emptyRoom") {
-      whiteModelRenderMode.setPlatformStylesEnabled(
-        images.length === 0,
-        "已上传风格参考图，空房设计固定使用智能默认",
-      );
-      selectFeatureMode("emptyRoom");
-    }
+  onChange() {
+    if (["emptyRoom", "styleTransfer"].includes(state.featureMode)) selectFeatureMode(state.featureMode);
     generationActions.refresh();
   },
   showToast,

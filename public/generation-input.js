@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖工作台已归一化的功能、模型、正向 Prompt、可选 Flux 负向 Prompt、图片、尺寸、效果图氛围转换时段天气、效果图美化强度色调、全景图美化默认模式与设计模式状态
- * [OUTPUT]: 对外提供 buildGenerationInput，将页面状态投影为统一生成请求输入且不携带 DOM
+ * [INPUT]: 依赖工作台已归一化的功能、模型、正向 Prompt、可选 Flux 负向 Prompt、图片、尺寸、效果图氛围转换时段天气、效果图美化强度色调、全景图美化与白模/空房/风格转换双模式状态
+ * [OUTPUT]: 对外提供 buildGenerationInput，将页面状态与各功能独立 Agent 版本投影为统一生成请求输入且不携带 DOM
  * [POS]: public 的生成输入领域映射层，隔离页面编排与服务端请求字段契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,7 +37,8 @@ export function buildGenerationInput({
   const effectBeautificationRequest = featureMode === "effectBeautification";
   const panoramaEnhancement = featureMode === "panoramaEnhancement";
   const whiteModel = featureMode === "whiteModel";
-  const designPromptFlow = emptyRoom || whiteModel;
+  const styleTransfer = featureMode === "styleTransfer";
+  const designPromptFlow = emptyRoom || whiteModel || styleTransfer;
   return {
     featureMode,
     modelKey: model?.key,
@@ -63,6 +64,12 @@ export function buildGenerationInput({
       ? renderMode.agentVersion || undefined
       : undefined,
     emptyRoomPromptAgentVersion: emptyRoom && renderMode.mode === "style-dna"
+      ? promptAgentVersion
+      : undefined,
+    styleTransferReferenceVersion: styleTransfer && renderMode.mode === "style-reference"
+      ? renderMode.agentVersion || undefined
+      : undefined,
+    styleTransferPromptAgentVersion: styleTransfer && renderMode.mode === "style-dna"
       ? promptAgentVersion
       : undefined,
     smartDefaultAgentVersion: whiteModel ? renderMode.agentVersion || undefined : undefined,

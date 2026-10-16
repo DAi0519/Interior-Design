@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 localStorage 兼容存储、beta-model-rules 七功能目录、effect-beautification-controls 的强度色调归一化与模型和轻量表单配置
- * [OUTPUT]: 对外提供默认 Flux2 Klein 的 Beta 页面配置归一化、安全读取与持久化
+ * [INPUT]: 依赖 localStorage 兼容存储、beta-model-rules 八功能目录、effect-beautification-controls 的强度色调归一化与模型和轻量表单配置
+ * [OUTPUT]: 对外提供默认 Flux2 Klein 的 Beta 页面配置归一化、安全读取与持久化，保留 style-reference 与风格转换独立路线/版本及八功能样本集引用
  * [POS]: public 的 Beta跑图持久配置边界，只保存可重建配置与样本集引用，不保存图片、生成结果或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -28,6 +28,10 @@ const CONTROL_KEYS = Object.freeze([
   "roomType",
   "roomTypeDetail",
   "styleCode",
+  "styleTransferRenderMode",
+  "styleTransferStyleCode",
+  "styleTransferReferenceVersion",
+  "styleTransferPromptAgentVersion",
 ]);
 
 function cleanString(value, maxLength = 8000) {

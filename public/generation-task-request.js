@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、效果图氛围转换/美化及全景图美化、风格、参考图状态与后台任务批次元数据
- * [OUTPUT]: 对外提供单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含效果图氛围转换/美化及全景图美化的分功能加载文案
+ * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、风格转换/效果图氛围转换/美化及全景图美化、风格、参考图状态与后台任务批次元数据
+ * [OUTPUT]: 对外提供单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含风格转换/效果图氛围转换/美化及全景图美化的分功能加载文案
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,6 +37,7 @@ export function generationLoadingCopy({
   refinedPrompt,
   renderMode,
   styleReferenceCount,
+  styleTransferRequest,
 }) {
   if (effectEnhancementRequest) {
     return "正在按时段与天气规则转换效果图氛围…";
@@ -49,6 +50,11 @@ export function generationLoadingCopy({
   }
   if (designPromptRequest && forcePromptRegeneration) {
     return "正在重新生成提示词并渲染…";
+  }
+  if (styleTransferRequest) {
+    return renderMode === "style-dna"
+      ? "正在读取平台风格，保留空间结构与原视角转换风格…"
+      : "正在提取参考图风格，保留空间结构与原视角转换风格…";
   }
   if (emptyRoomRequest) {
     if (renderMode === "style-dna") {

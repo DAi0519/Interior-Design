@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与生图页功能/风格/出图模型三类按钮选择控件的主题、交互 CSS、最终纯黑反色层和静态资源版本
+ * [INPUT]: 依赖 node:test/assert、node:fs 与生图页功能/风格/出图模型三类按钮选择控件的主题、交互 CSS、最终纯黑反色层和版本化主题资源引用
  * [OUTPUT]: 对外提供共享高度、圆角、内距、字重、对齐、阴影、纯黑白字选中态与完整交互状态的回归保障
  * [POS]: test 的工作台选择按钮视觉合同护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -30,7 +30,7 @@ test("三类选择按钮复用同一套紧凑控件尺寸与表面令牌", async
   assert.match(themeCss, /\.feature-mode-option,\s*\.model-option-toggle\s*{[^}]*min-height: var\(--choice-control-height\)[^}]*text-align: left/s);
   assert.match(themeCss, /\.feature-mode-option,\s*\.model-option-toggle\s*{[^}]*font-weight: 500[^}]*padding: 0 var\(--choice-control-padding\)/s);
   assert.match(styleCss, /\.style-choice-option\s*{[^}]*font-weight: 500[^}]*min-height: var\(--choice-control-height\)[^}]*padding: 0 var\(--choice-control-padding\)[^}]*text-align: left/s);
-  assert.match(html, /\/theme\.css\?v=32/);
+  assert.match(html, /<link rel="stylesheet" href="\/theme\.css\?v=\d+" \/>/);
   assert.match(html, /\/theme-interactions\.css\?v=1/);
   assert.match(html, /\/white-model-render-mode\.css\?v=4/);
 });

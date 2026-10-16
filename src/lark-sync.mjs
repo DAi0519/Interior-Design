@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent/独立扩图模型目录、空房真源、图片产物/尺寸/飞书 CLI、生图与三引擎扩图结果及可选风格图、已创建飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、生图与AI扩图功能投影、全部可写字段类型/单选值/附件 ID 的 409 准入、模型映射、记录 ID、三类附件及完整工作流 JSON 同步
+ * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、风格转换的平台/参考图风格归档、生图与AI扩图功能投影、全部可写字段类型/单选值/附件 ID 的 409 准入、模型映射、记录 ID、三类附件及完整工作流 JSON 同步
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -48,6 +48,7 @@ const FEATURE_LABELS = Object.freeze({
   "image-outpaint": "AI扩图",
   "panorama-render-enhancement": "全景图美化",
   "refined-model-rendering": "精模渲染",
+  "style-transfer": "风格转换",
   "white-model-rendering": "白模渲染",
 });
 const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS));
@@ -63,6 +64,7 @@ const REQUIRED_AGENT_MODEL_LABELS = Object.freeze(
 const RENDER_MODE_LABELS = Object.freeze({
   "smart-default": "智能默认",
   "style-dna": "平台风格",
+  "style-reference": "参考图风格",
 });
 
 export function actualImageSize(bytes) {

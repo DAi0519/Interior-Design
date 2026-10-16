@@ -3,6 +3,10 @@
 
 成员清单
 
+ai-edit/: 2026-10-16 AI编辑与五套超分工作流的目录/交互/测试验证，详见 ai-edit/CLAUDE.md
+banana21/: 2026-10-16 Banana 2.1 与 Beta 模型标签/历史记录保留验证，详见 banana21/CLAUDE.md
+layout-overflow/: 2026-10-16 左面板焦点滚动修复的前后几何与真实浏览器验证，详见 layout-overflow/CLAUDE.md
+
 effect-beautification/: 2026-10-12 效果图美化六预设控件、氛围转换更名与 Beta 共用配置的真实浏览器截图与静态设计检测，详见 effect-beautification/CLAUDE.md
 
 desktop.png: 2026-10-10 扩图参数与预览桌面截图

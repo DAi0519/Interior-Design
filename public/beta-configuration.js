@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 beta-page-state 持久化函数、Beta 表单 DOM、效果图美化强度色调控制器、当前页面状态读取器与配置重渲染回调
+ * [INPUT]: 依赖 beta-page-state 持久化函数、Beta 表单 DOM、效果图美化强度色调控制器、含风格转换路线/独立版本快照的页面状态读取器与配置重渲染回调
  * [OUTPUT]: 对外提供 createBetaConfigurationPersistence，统一配置采集、跳过已禁用模型选项的分阶段恢复、快速切页落盘与可见保存状态
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { saveBetaPageState } from "./beta-page-state.js?v=3";
+import { saveBetaPageState } from "./beta-page-state.js?v=4";
 
 function restoreTextValue(input, value) {
   if (typeof value === "string") input.value = value;
@@ -54,6 +54,7 @@ export function createBetaConfigurationPersistence({
       roomType: elements.roomTypeSelect.value,
       roomTypeDetail: elements.roomTypeDetailInput.value,
       styleCode: stylesReady ? elements.styleSelect.value : restoredControls.styleCode,
+      ...currentState().designControls,
     };
   }
 

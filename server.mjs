@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测/安装 HTTP 边界、固定版本浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/独立效果图美化 Prompt/空房家具/图片工具目录、Flux/Qwen 专用扩图客户端与引擎准入、双 Provider、日常生成及 Beta/Benchmark 工作流
+ * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测/安装 HTTP 边界、固定版本浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/独立风格转换及效果图美化 Prompt/空房家具/图片工具目录、Flux/Qwen 专用扩图客户端与引擎准入、双 Provider、日常生成及 Beta/Benchmark 工作流
  * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新检测/受信安装进度、连接、配置、飞书合同与模型权限准入、生成和下载；Beta 逐张上传样本、按样本 ID 入队并提供轻量预览，JSON 单次请求保留 30MB 保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -62,7 +62,9 @@ import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
 import {
   EMPTY_ROOM_PROMPT_CONFIG,
   STYLE_DNA_REVERSE_PROMPT_CONFIG,
+  STYLE_TRANSFER_PROMPT_CONFIG,
   getPublishedPromptAgent,
+  publicStyleTransferConfig,
 } from "./src/prompt-agent.mjs";
 import { publicRefinedModelPromptConfig } from "./src/refined-model-prompt.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
@@ -248,6 +250,12 @@ async function verifyLarkConfiguration() {
     }),
     getPublishedPromptAgent("empty-room-fusion", {
       config: EMPTY_ROOM_PROMPT_CONFIG,
+    }),
+    getPublishedPromptAgent("style-transfer-reference", {
+      config: STYLE_TRANSFER_PROMPT_CONFIG,
+    }),
+    getPublishedPromptAgent("style-transfer-fusion", {
+      config: STYLE_TRANSFER_PROMPT_CONFIG,
     }),
     getPublishedPromptAgent("style-dna-reverse", {
       config: STYLE_DNA_REVERSE_PROMPT_CONFIG,
@@ -549,6 +557,10 @@ async function handleApi(request, response, pathname) {
       models: publicModelCatalog(),
       referenceImage: REFERENCE_IMAGE_POLICY,
     });
+  }
+
+  if (request.method === "GET" && pathname === "/api/style-transfer/config") {
+    return sendJson(response, 200, await publicStyleTransferConfig());
   }
 
   if (request.method === "GET" && pathname === "/api/session") {

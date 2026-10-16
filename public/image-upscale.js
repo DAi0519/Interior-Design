@@ -1,16 +1,30 @@
 /**
- * [INPUT]: 依赖服务端公开的默认项、三套 SeedVR2 工作流与 4K/6K/8K 目录、当前单张上传图尺寸、工作流按钮组和共享分辨率控件
- * [OUTPUT]: 对外提供图片超分配置渲染、保持原图比例的目标尺寸预览、任务项与不重复图片载荷的后台任务请求
+ * [INPUT]: 依赖服务端公开的默认项、SeedVR2/KS 工作流完整/紧凑名称及尺寸目录与说明、单张上传图、共享分辨率控件和 sessionStorage
+ * [OUTPUT]: 对外提供工作流选择与合法档位记忆/恢复、长边或原图倍率的尺寸预览、任务项与不重复图片载荷的后台任务请求
  * [POS]: public 的图片超分交互边界，让主编排器无需理解 SeedVR2 工作流细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+const STORAGE_KEY = "canvas-lab.image-upscale-selection";
+
+function readSelection() {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
 
 function compactImage({ dataUrl, name, size, type }) {
   return { dataUrl, name, size, type };
 }
 
-export function targetDimensions(source, longEdge) {
-  if (!source?.width || !source?.height || !longEdge) return null;
+export function targetDimensions(source, resolution) {
+  if (!source?.width || !source?.height || !resolution) return null;
+  if (resolution.scale) return { width: source.width * resolution.scale, height: source.height * resolution.scale };
+  const longEdge = typeof resolution === "number" ? resolution : resolution.longEdge;
+  if (!longEdge) return null;
   const scale = longEdge / Math.max(source.width, source.height);
   const even = (value) => Math.max(2, Math.round(value / 2) * 2);
   return {
@@ -25,19 +39,48 @@ export function bindImageUpscale({
   emptySize,
   exactSize,
   getSourceImage,
+  note,
   onChange,
   resolutionSelect,
   workflowList,
 }) {
   let config = { comfyUi: { available: false }, resolutions: [], workflows: [] };
-  let workflowKey = "";
+  const remembered = readSelection();
+  let workflowKey = remembered.workflowKey || "";
+  let resolutionKey = remembered.resolution || "";
+
+  function resolutions() {
+    return selectedWorkflow()?.resolutions || config.resolutions;
+  }
+
+  function remember() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ resolution: resolutionKey, workflowKey }));
+    } catch {}
+  }
 
   function selectedResolution() {
-    return config.resolutions.find((entry) => entry.key === resolutionSelect.value);
+    return resolutions().find((entry) => entry.key === resolutionKey);
   }
 
   function selectedWorkflow() {
     return config.workflows.find((entry) => entry.key === workflowKey);
+  }
+
+  function sourceIssue(source = getSourceImage()) {
+    const limits = selectedWorkflow()?.inputSize;
+    if (!source || !limits) return "";
+    if (source.width < limits.minWidth || source.width > limits.maxWidth
+      || source.height < limits.minHeight || source.height > limits.maxHeight) {
+      return `当前工作流要求原图宽 ${limits.minWidth}–${limits.maxWidth}px、高 ${limits.minHeight}–${limits.maxHeight}px，请调整图片后上传。`;
+    }
+    return "";
+  }
+
+  function availabilityReason() {
+    if (!config.comfyUi?.available) return "ComfyUI 当前不可用，请检查工作流服务";
+    if (!selectedWorkflow() || !selectedResolution()) return "超分工作流未就绪，请刷新页面后重试";
+    return sourceIssue();
   }
 
   function currentItem() {
@@ -45,32 +88,35 @@ export function bindImageUpscale({
     const resolution = selectedResolution();
     return {
       key: workflow?.key,
-      label: `${workflow?.label || "SeedVR2"} · ${resolution?.key || "4K"}`,
+      label: `${workflow?.label || "SeedVR2"} · ${resolution?.label || ""}`,
       provider: "comfyui",
     };
   }
 
   function activate() {
-    const current = config.resolutions.some((entry) => entry.key === resolutionSelect.value)
-      ? resolutionSelect.value
-      : "4K";
-    resolutionSelect.replaceChildren(...config.resolutions.map((resolution) => {
+    const options = resolutions();
+    if (!options.some((entry) => entry.key === resolutionKey)) resolutionKey = options[0]?.key || "";
+    resolutionSelect.replaceChildren(...options.map((resolution) => {
       const option = document.createElement("option");
       option.value = resolution.key;
-      option.textContent = `${resolution.label} · 长边 ${resolution.longEdge}px`;
+      option.textContent = resolution.longEdge
+        ? `${resolution.label} · 长边 ${resolution.longEdge}px` : resolution.label;
       return option;
     }));
-    resolutionSelect.value = current;
-    resolutionSelect.disabled = false;
+    resolutionSelect.value = resolutionKey;
+    resolutionSelect.disabled = options.length === 0;
     renderSummary();
   }
 
   function renderSummary() {
+    if (resolutions().some((entry) => entry.key === resolutionSelect.value)) resolutionKey = resolutionSelect.value;
     const resolution = selectedResolution();
-    const target = targetDimensions(getSourceImage(), resolution?.longEdge);
-    exactSize.textContent = target ? `${target.width} × ${target.height}` : `${resolution?.key || "4K"} · 保持原图比例`;
+    const target = sourceIssue() ? null : targetDimensions(getSourceImage(), resolution);
+    exactSize.textContent = target ? `${target.width} × ${target.height}` : `${resolution?.label || "待选择"} · 保持原图比例`;
     emptyModel.textContent = selectedWorkflow()?.label || "SeedVR2";
-    emptySize.textContent = target ? `${target.width} × ${target.height}` : "上传图片后计算";
+    emptySize.textContent = target ? `${target.width} × ${target.height}` : sourceIssue() ? "请调整输入图片尺寸" : "上传图片后计算";
+    if (note) note.textContent = sourceIssue() || selectedWorkflow()?.helpText || "输出保持原图比例。";
+    remember();
   }
 
   function renderWorkflows() {
@@ -84,15 +130,17 @@ export function bindImageUpscale({
       button.dataset.upscaleWorkflow = workflow.key;
       button.setAttribute("role", "radio");
       button.setAttribute("aria-checked", String(selected));
+      button.setAttribute("aria-label", workflow.label);
+      button.title = workflow.label;
       button.classList.toggle("selected", selected);
-      label.textContent = workflow.label;
+      label.textContent = workflow.shortLabel || workflow.label;
       mark.textContent = selected ? "✓" : "+";
       mark.setAttribute("aria-hidden", "true");
       button.append(label, mark);
       button.addEventListener("click", () => {
         workflowKey = workflow.key;
         renderWorkflows();
-        renderSummary();
+        activate();
         onChange();
       });
       return button;
@@ -102,9 +150,10 @@ export function bindImageUpscale({
   return {
     configure(nextConfig) {
       config = nextConfig;
-      workflowKey = config.workflows.some((workflow) => workflow.key === config.defaultWorkflowKey)
-        ? config.defaultWorkflowKey
-        : config.workflows[0]?.key || "";
+      if (!config.workflows.some((workflow) => workflow.key === workflowKey)) {
+        workflowKey = config.workflows.some((workflow) => workflow.key === config.defaultWorkflowKey)
+          ? config.defaultWorkflowKey : config.workflows[0]?.key || "";
+      }
       availability.textContent = config.comfyUi?.available
         ? `ComfyUI ${config.comfyUi.version || "可用"}`
         : "ComfyUI 不可用";
@@ -114,8 +163,10 @@ export function bindImageUpscale({
     },
     activate,
     currentItem,
-    isAvailable: () => Boolean(config.comfyUi?.available),
+    availabilityReason,
+    isAvailable: () => !availabilityReason(),
     jobRequest({ image, jobId }) {
+      if (sourceIssue(image)) throw new Error(sourceIssue(image));
       const item = currentItem();
       return {
         batchId: null,
@@ -134,7 +185,7 @@ export function bindImageUpscale({
       };
     },
     loadingCopy() {
-      return `正在用 ${selectedWorkflow()?.label || "SeedVR2"} 超分到 ${selectedResolution()?.key || "4K"}…`;
+      return `正在用 ${selectedWorkflow()?.label || "SeedVR2"} 超分到 ${selectedResolution()?.label || "所选尺寸"}…`;
     },
     renderSummary,
   };

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与 AI 生图 Base 内独立表的统一 Prompt Agent 版本协议
- * [OUTPUT]: 对外提供保留 Agent 编码且支持可选展示名的白模/空房双模式/风格反推 Prompt 资源配置、脱敏已上架版本目录、默认最高版本与指定已上架版本读取
+ * [OUTPUT]: 对外提供白模/空房智能默认及平台融合、风格转换平台风格及参考图、风格反推的独立 Prompt 配置与脱敏版本目录，保留稳定 Agent 编码和指定已上架版本读取
  * [POS]: src 的服务端 Prompt 资产边界，让不同执行链复用同一发布与缓存语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,8 @@ const AGENT_DISPLAY_NAMES = Object.freeze({
   "empty-room-design": "空房设计 Agent",
   "empty-room-fusion": "空房风格融合 Agent",
   "empty-room-smart-default": "空房智能默认 Agent",
+  "style-transfer-fusion": "风格转换融合 Agent",
+  "style-transfer-reference": "风格转换参考图 Agent",
   "style-dna-reverse": "Style DNA 反推 Agent",
   "white-model-smart-default": "白模智能默认 Agent",
   "white-model-fusion": "白模渲染融合 Agent",
@@ -53,6 +55,16 @@ export const EMPTY_ROOM_PROMPT_CONFIG = Object.freeze({
   displayNameField: AGENT_NAME_FIELD,
   tableId:
     process.env.LARK_EMPTY_ROOM_PROMPT_TABLE_ID || "tbly0sllVNcZwkXl",
+});
+
+export const STYLE_TRANSFER_PROMPT_CONFIG = Object.freeze({
+  baseToken:
+    process.env.LARK_STYLE_TRANSFER_PROMPT_BASE_TOKEN ||
+    "SALobKnnra17iSsGT2ccC52PnHd",
+  cliPath: process.env.LARK_CLI_PATH || "lark-cli",
+  displayNameField: AGENT_NAME_FIELD,
+  tableId:
+    process.env.LARK_STYLE_TRANSFER_PROMPT_TABLE_ID || "tblmisc7ePjSwJ0U",
 });
 
 function values(value) {
@@ -227,26 +239,48 @@ export function publicSmartDefaultConfig(options = {}) {
   });
 }
 
-export async function publicEmptyRoomConfig(options = {}) {
-  const smartDefault = await publicSingleAgentConfig({
-    code: "empty-room-smart-default",
-    config: EMPTY_ROOM_PROMPT_CONFIG,
-    description: "AI 根据空间自主确定整体风格，统筹墙地顶、材质与灯光，并满足家具需求；有参考图时遵循参考风格",
-    fallbackName: "空房智能默认 Agent",
+async function publicDesignAgentConfig({ companionCode, companionKey, config, description, fusionCode, options }) {
+  const companion = await publicSingleAgentConfig({
+    code: companionCode,
+    config,
+    description,
+    fallbackName: agentDisplayName(companionCode),
     options,
   });
   try {
     const promptAgents = await listPublishedPromptAgentVersions(
-      "empty-room-fusion",
-      { ...options, config: EMPTY_ROOM_PROMPT_CONFIG },
+      fusionCode,
+      { ...options, config },
     );
-    return { promptAgent: publicPromptAgentCatalog(promptAgents), smartDefault };
+    return { promptAgent: publicPromptAgentCatalog(promptAgents), [companionKey]: companion };
   } catch (error) {
     return {
       promptAgent: { defaultVersion: null, reason: error.message, versions: [] },
-      smartDefault,
+      [companionKey]: companion,
     };
   }
+}
+
+export function publicEmptyRoomConfig(options = {}) {
+  return publicDesignAgentConfig({
+    companionCode: "empty-room-smart-default",
+    companionKey: "smartDefault",
+    config: EMPTY_ROOM_PROMPT_CONFIG,
+    description: "AI 根据空间自主确定整体风格，统筹墙地顶、材质与灯光，并满足家具需求；有参考图时遵循参考风格",
+    fusionCode: "empty-room-fusion",
+    options,
+  });
+}
+
+export function publicStyleTransferConfig(options = {}) {
+  return publicDesignAgentConfig({
+    companionCode: "style-transfer-reference",
+    companionKey: "reference",
+    config: STYLE_TRANSFER_PROMPT_CONFIG,
+    description: "上传风格参考图，保留原图空间结构、视角与布局，按参考图转换材质、配色、家具及软装风格",
+    fusionCode: "style-transfer-fusion",
+    options,
+  });
 }
 
 export async function getPublishedPromptAgent(

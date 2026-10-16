@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖任务批处理、generation-service、模型2:1矩阵、实时三表 Schema/逐张资产 Store、参考图/全景比例/房型校验和当前 Key 的 Prompt Agent 可用性
- * [OUTPUT]: 对外提供草稿/逐张保存/完成回读与 ID 批次 Schema/Agent/全景模型准入、按执行项读取原图、七功能两路并发单图执行、冻结全景版本、生成/同步双阶段快照、回读后预览、瞬时重跑及合同错误不重试、只读批次忙碌检查
+ * [INPUT]: 依赖任务批处理、generation-service、风格转换显式来源/冻结版本合同、模型2:1矩阵、实时三表 Schema/逐张资产 Store、参考图/全景比例/房型校验和当前 Key 的 Prompt Agent 可用性
+ * [OUTPUT]: 对外提供草稿/逐张保存/完成回读与 ID 批次 Schema/Agent/全景模型准入、按执行项读取原图、八功能两路并发单图执行、冻结全景及风格转换独立版本、共用参考图去重、生成/同步双阶段快照、回读后预览、瞬时重跑及合同错误不重试、只读批次忙碌检查
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { normalizeEmptyRoomType, normalizeEmptyRoomTypeDetail, EMPTY_ROOM_TYPE_D
 import { normalizeBetaSampleImage } from "./beta-sample-store.mjs";
 import { normalizeReferenceImages, REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
 import { MODEL_CONFIGS } from "./model-config.mjs";
+import { normalizeStyleTransferSelection } from "./white-model-workflow.mjs";
 
 import {
   createGenerationJobRegistry,
@@ -18,6 +19,7 @@ import {
 export const BETA_FEATURE_MODES = Object.freeze([
   "whiteModel",
   "emptyRoom",
+  "styleTransfer",
   "refinedModel",
   "effectEnhancement",
   "effectBeautification",
@@ -70,7 +72,7 @@ function inputError(message) {
 }
 
 export function assertBetaPromptAgentAccess(batch, agentModels) {
-  if (!["whiteModel", "emptyRoom"].includes(batch?.featureMode)) return;
+  if (!["whiteModel", "emptyRoom", "styleTransfer"].includes(batch?.featureMode)) return;
   const available = new Map(agentModels.map((model) => [model.key, model]));
   const keys = new Set((batch.items || []).map((item) => item?.input?.promptAgentModelKey));
   for (const key of keys) {
@@ -117,7 +119,7 @@ function normalizeSampleSet(body = {}) {
       }
       return {
         ...(featureMode === "emptyRoom" ? { roomType, roomTypeDetail } : {}),
-        image: featureMode === "panoramaEnhancement" ? normalizeBetaSampleImage(image, featureMode) : {
+        image: ["panoramaEnhancement", "styleTransfer"].includes(featureMode) ? normalizeBetaSampleImage(image, featureMode) : {
           dataUrl: String(image.dataUrl),
           name: String(image.name || `sample-${index + 1}`).slice(0, 160),
           size: Number(image.size) || 0,
@@ -225,6 +227,7 @@ function normalizeBatch(body = {}) {
     throw inputError("Beta跑图测试时间无效");
   }
   const runIds = new Set();
+  const sharedStyleReferences = new Map();
   const normalizedItems = items.map((item, index) => {
     const runId = String(item?.runId || "").trim();
     const caseId = String(item?.caseId || "").trim();
@@ -245,12 +248,23 @@ function normalizeBatch(body = {}) {
     const styleReferenceImages = item.styleReferenceAssetKey
       ? assetImages(assets, item.styleReferenceAssetKey, `第 ${index + 1} 个风格图片资产`)
       : item.input.styleReferenceImages;
-    const input = {
+    let input = {
       ...item.input,
       featureMode,
       ...(referenceImages ? { referenceImages } : {}),
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
     };
+    if (featureMode === "styleTransfer") {
+      if (!sharedStyleReferences.has(styleReferenceImages)) {
+        sharedStyleReferences.set(styleReferenceImages, singleSharedImages(styleReferenceImages, "风格参考图"));
+      }
+      input.styleReferenceImages = sharedStyleReferences.get(styleReferenceImages);
+      const selection = normalizeStyleTransferSelection(input, {
+        styleReferenceCount: input.styleReferenceImages.length, requireVersion: true,
+      });
+      input = { ...input, renderMode: selection.renderMode, [selection.versionField]: selection.version };
+      if (selection.renderMode === "style-reference") delete input.styleCode;
+    }
     return {
       attempt: Number.isInteger(item.attempt) && item.attempt > 0 ? item.attempt : 1,
       caseId,
@@ -497,7 +511,7 @@ export function createBetaApiHandler({ getAgentModels, readJson, sendImage, send
     }
     if (request.method === "POST" && pathname === "/api/beta/jobs") {
       const body = await readJson(request);
-      if (["whiteModel", "emptyRoom"].includes(body.featureMode)) {
+      if (["whiteModel", "emptyRoom", "styleTransfer"].includes(body.featureMode)) {
         assertBetaPromptAgentAccess(body, await getAgentModels());
       }
       sendJson(response, 202, { job: await service.start(body) });

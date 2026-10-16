@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置与字段映射纯函数
- * [OUTPUT]: 对外提供新 Base 隔离、默认可用状态在创建后清空/草稿回读与对象关联、七功能映射、场景/配置快照、全部实际写入元数据漂移与附件身份回读拒绝成功的回归保障
+ * [OUTPUT]: 对外提供新 Base 隔离、目录模型单选标签与无 Agent 清空、默认可用状态在创建后清空/草稿回读与对象关联、八功能映射、场景/配置快照、全部实际写入元数据漂移与附件身份回读拒绝成功的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -101,16 +101,17 @@ test("Beta跑图只指向新 Base 的样本集、样本和跑图明细三表", (
   assert.notEqual(BETA_BASE_CONFIG.tableId, LARK_SYNC_CONFIG.tableId);
 });
 
-test("Beta跑图接受七个工作台出图功能，新旧美化和全景独立映射", () => {
+test("Beta跑图接受八个工作台出图功能，风格转换及新旧美化和全景独立映射", () => {
   assert.deepEqual([
     betaFeatureLabel("whiteModel"),
     betaFeatureLabel("emptyRoom"),
+    betaFeatureLabel("styleTransfer"),
     betaFeatureLabel("refinedModel"),
     betaFeatureLabel("effectEnhancement"),
     betaFeatureLabel("effectBeautification"),
     betaFeatureLabel("panoramaEnhancement"),
     betaFeatureLabel("free"),
-  ], ["白模渲染", "空房设计", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "自由生图"]);
+  ], ["白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "自由生图"]);
   assert.throws(() => betaFeatureLabel("styleDnaReverse"), /不受支持/);
 });
 
@@ -169,6 +170,15 @@ test("一行一 Run 冻结可追溯的输入与配置", () => {
   assert.deepEqual(JSON.parse(fields["配置快照"]), betaConfigSnapshot(input));
   assert.equal(fields["输入文本"], "保持空间结构");
   assert.equal(fields["测试时间"], "2026-09-02 14:03:21");
+  assert.equal(fields["出图模型"], "Seedream 5.0");
+});
+
+test("Beta 模型标签由目录解析，忽略伪造展示名并保留合法历史标签快照", () => {
+  const build = (item) => buildBetaRunFields({ batchId: "BETA-tags", featureMode: "free", item });
+  assert.equal(build({ input: { modelKey: "banana21" }, modelLabel: "客户端伪造标签" })["出图模型"], "Banana 2.1");
+  assert.equal(build({ input: { modelKey: "seedream50" }, modelLabel: "Seedream 5.0" })["出图模型"], "Seedream 5.0");
+  assert.throws(() => build({ input: {} }), (error) => error.statusCode === 409 && error.retryable === false);
+  assert.throws(() => build({ input: { modelKey: "unsupported" }, modelLabel: "未知标签" }), /合法的目录标签/);
 });
 
 test("完成结果提取 Prompt 版本与非负费用", () => {
@@ -287,6 +297,55 @@ test("Beta 接住正式工作流原文与场景元数据，不保留附件副本
   assert.doesNotMatch(JSON.stringify(receipt), /private-image|private-result/);
 });
 
+test("Beta 完成归档使用字符串模型标签，无 Agent 时清空并核验实际单选回读", async () => {
+  const cases = [
+    { prompt: undefined, returned: null },
+    { prompt: "", returned: [] },
+    { prompt: "  ", returned: null },
+    { prompt: "Gemini 3.1 Pro", returned: "Gemini 3.1 Pro" },
+    { prompt: "Gemini 3.1 Pro", returned: ["Gemini 3.1 Pro"] },
+    { prompt: undefined, returned: ["Gemini 3.1 Pro"], rejected: /生成信息回读不一致：Prompt融合/ },
+    { prompt: "Gemini 3.1 Pro", returned: ["GPT 5.5"], rejected: /生成信息回读不一致：Prompt融合/ },
+    { prompt: "Gemini 3.1 Pro", returned: ["Gemini 3.1 Pro", "GPT 5.5"], rejected: /不是单选：Prompt融合/ },
+  ];
+  for (const current of cases) {
+    const written = {};
+    const store = createBetaBaseStore({ run: async (_config, args) => {
+      if (args.includes("+record-batch-create")) {
+        const body = JSON.parse(args[args.indexOf("--json") + 1]);
+        Object.assign(written, Object.fromEntries(body.fields.map((name, index) => [name, body.rows[0][index]])));
+        return { ok: true, data: { record_id_list: ["rec-tags"] } };
+      }
+      if (args.includes("+record-upsert")) Object.assign(written, JSON.parse(args[args.indexOf("--json") + 1]));
+      if (args.includes("+record-get")) return recordEnvelope("rec-tags", { ...written,
+        "出图模型": [written["出图模型"]], "Prompt融合": current.returned,
+        "结果图": [{ file_token: "result-token", size: onePixelPngBytes.length }],
+      });
+      return { ok: true, data: {} };
+    } });
+    await store.beginRun({ batchId: "BETA-tags", featureMode: "free", item: {
+      runId: "RUN-tags", caseId: "CASE-1", input: { modelKey: "banana21" },
+    } });
+    const result = { images: [{ url: onePixelPng }], request: { outputFormat: "png" },
+      sync: { archiveFields: current.prompt === undefined ? {} : { "Prompt融合": current.prompt } } };
+    if (current.rejected) await assert.rejects(store.completeRun("rec-tags", result), current.rejected);
+    else await store.completeRun("rec-tags", result);
+    assert.equal(written["出图模型"], "Banana 2.1");
+    assert.equal(written["Prompt融合"], current.prompt?.trim() || null);
+  }
+});
+
+test("Beta 禁止向 Prompt融合 单选提交未知模型、纯文本 Agent 或多值数组", async () => {
+  for (const value of ["未知模型", "DeepSeek 4 Pro", ["Gemini 3.1 Pro"]]) {
+    const commands = [];
+    const store = createBetaBaseStore({ run: async (_config, args) => { commands.push(args); return { ok: true, data: {} }; } });
+    await assert.rejects(store.completeRun("rec-invalid-tag", {
+      images: [{ url: onePixelPng }], request: { outputFormat: "png" }, sync: { archiveFields: { "Prompt融合": value } },
+    }), (error) => error.statusCode === 409 && error.retryable === false);
+    assert.equal(commands.length, 0);
+  }
+});
+
 test("最终 Prompt 原文必须写入且回读一致，差异不能误报完成", async () => {
   for (const returnedPrompt of ["exact\nfinal prompt", "different prompt"]) {
     const patches = [];
@@ -326,7 +385,7 @@ test("场景/配置快照、版本、真实尺寸、时延与费用必须逐字�
       return { ok: true, data: {} };
     } });
     await store.beginRun({ batchId: "BETA-fullmeta", featureMode: "effectBeautification", testTime: "2026-10-12 12:00:00",
-      item: { runId: "RUN-fullmeta-001", caseId: "CASE-1", input: { effectBeautification: { intensity: "high", tone: "cool" }, effectBeautificationPromptVersion: 2 } } });
+      item: { runId: "RUN-fullmeta-001", caseId: "CASE-1", input: { modelKey: "gptImage2", effectBeautification: { intensity: "high", tone: "cool" }, effectBeautificationPromptVersion: 2 } } });
     const result = { durationMs: 123, images: [{ url: onePixelPng }], request: { outputFormat: "png" },
       prompt: { code: "effect-render-beautification", version: 2 }, upstream: { metadata: { costUsd: 0.031 } } };
     if (!driftedField) await store.completeRun("rec-full", result);

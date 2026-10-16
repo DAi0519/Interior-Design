@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含全景脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
+ * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含全景及风格转换脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
  * [OUTPUT]: 对外提供去除 LoRA 触发词后的六预设正文原样投递、默认值/非法值/单图校验、独立版本来源与脱敏、双 Provider 负向行为、功能标签和完整元信息穿透回归保障
  * [POS]: test 的效果图美化服务端合同测试，模型与飞书只用内存替身，不生成或写入真实数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -149,7 +149,7 @@ test("新旧功能标签与预设进入完整工作流和 Beta 快照，沿用�
   assert.deepEqual(betaSceneParameters(beautificationInput).effectBeautification, selection);
   assert.equal(betaConfigSnapshot(beautificationInput).effectBeautificationPromptVersion, 3);
   assert.equal(buildBetaRunFields({ batchId: "BETA-TEST", featureMode: "effectBeautification", item: { input: beautificationInput } })["功能"], "效果图美化");
-  assert.equal(buildBetaRunFields({ batchId: "BETA-TEST", featureMode: "effectEnhancement", item: { input: {} } })["功能"], "效果图氛围转换");
+  assert.equal(buildBetaRunFields({ batchId: "BETA-TEST", featureMode: "effectEnhancement", item: { input: { modelKey: "gptImage2" } } })["功能"], "效果图氛围转换");
 });
 
 test("新效果图美化在日常后台任务目录准入并把预设传到指定功能路由", async () => {
@@ -170,7 +170,7 @@ test("新效果图美化在日常后台任务目录准入并把预设传到指�
 
 test("配置目录与刷新共用独立读取器，刷新穿透各来源且保持正文隔离", async () => {
   const calls = [];
-  const readers = Object.fromEntries(["styles", "promptAgents", "refinedPrompt", "effectEnhancementPrompt", "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "styleDna"].map((key) => [key, async (options) => {
+  const readers = Object.fromEntries(["styles", "promptAgents", "refinedPrompt", "effectEnhancementPrompt", "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "styleTransfer", "styleDna"].map((key) => [key, async (options) => {
     calls.push({ key, forceRefresh: options.forceRefresh });
     return key === "styles" || key === "promptAgents" ? [] : { version: key === "effectBeautificationPrompt" ? 1 : 13 };
   }]));
@@ -178,9 +178,10 @@ test("配置目录与刷新共用独立读取器，刷新穿透各来源且保�
   assert.equal(config.effectBeautificationPrompt.version, 1);
   assert.equal(config.effectEnhancementPrompt.version, 13);
   assert.equal(config.panoramaEnhancementPrompt.version, 13);
+  assert.equal(config.styleTransfer.version, 13);
   assert.equal(calls.some((call) => call.key === "styleDna"), false);
   calls.length = 0;
   await readGenerationConfig({ readers, forceRefresh: true });
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 10);
   assert.equal(calls.every((call) => call.forceRefresh === true), true);
 });

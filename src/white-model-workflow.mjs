@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖白模与空房双模式的独立 Prompt Agent 配置、空房必填房间类型、“其他”详情及最终家具选择、Style DNA、必填主图与仅智能默认可用的风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供白模/空房按智能默认或平台融合 Agent 分流、空房类型/家具选择校验及非空已选需求注入、含家具的缓存隔离和响应/归档、最终模型仅接收主图
+ * [INPUT]: 依赖白模/空房/风格转换的独立 Prompt Agent 配置、空房必填房间类型、“其他”详情及最终家具选择、Style DNA、必填主图与可选风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
+ * [OUTPUT]: 对外提供白模/空房智能默认或平台融合、日常及 Beta 共用的风格转换显式来源/冻结版本校验与独立 Agent 分流，空房类型/家具校验及需求注入、风格转换空间保护/来源互斥、按功能隔离的缓存和响应/归档、最终模型仅接收主图
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,14 +19,17 @@ import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs"
 import {
   EMPTY_ROOM_PROMPT_CONFIG,
   getPublishedPromptAgent,
+  STYLE_TRANSFER_PROMPT_CONFIG,
 } from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";
+export const STYLE_REFERENCE_RENDER_MODE = "style-reference";
 export const EMPTY_ROOM_FEATURE_MODE = "emptyRoom";
 export const WHITE_MODEL_FEATURE_MODE = "whiteModel";
+export const STYLE_TRANSFER_FEATURE_MODE = "styleTransfer";
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -186,21 +189,85 @@ export function buildEmptyRoomFusionPromptAgentInput({
   ].join("\n");
 }
 
+export function buildStyleTransferPromptAgentInput({
+  hasStyleReference = false,
+  renderMode,
+  styleDna = null,
+  userRequirements,
+}) {
+  return [
+    "请执行空间图风格转换任务。",
+    "",
+    "feature_mode:",
+    STYLE_TRANSFER_FEATURE_MODE,
+    "",
+    "render_mode:",
+    renderMode,
+    "",
+    "input_image_roles:",
+    "图片 1 是用户上传的空间图，是空间结构、门窗位置、机位、透视、构图、功能分区及主要家具位置的唯一事实来源。",
+    "严格保留图片 1 的空间结构、视角和布局；转换材质、色彩、家具造型、软装及灯光风格，不移动或新增门窗，不重排主要家具。",
+    ...(hasStyleReference ? [
+      "图片 2 是风格参考图，只提取可迁移的材质、颜色关系、家具造型语言、软装气质和灯光氛围；不得迁移其空间结构、物件位置、镜头或构图。",
+      "冲突优先级：图片 1 的空间事实 > 用户明确要求 > 图片 2 的风格。",
+    ] : ["冲突优先级：图片 1 的空间事实 > 用户明确要求 > 用户所选平台 Style DNA。"]),
+    "",
+    "style_reference_present:",
+    hasStyleReference ? "true" : "false",
+    ...(styleDna ? ["", "style_dna:", JSON.stringify(styleDna)] : []),
+    "",
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
+    "严格按既定 JSON Schema 输出，所有字符串值使用英文，不增加分析或合同外字段。",
+  ].join("\n");
+}
+
 function normalizeFeatureMode(input) {
   const requested = String(input.featureMode || WHITE_MODEL_FEATURE_MODE).trim();
-  if ([WHITE_MODEL_FEATURE_MODE, EMPTY_ROOM_FEATURE_MODE].includes(requested)) {
+  if ([WHITE_MODEL_FEATURE_MODE, EMPTY_ROOM_FEATURE_MODE, STYLE_TRANSFER_FEATURE_MODE].includes(requested)) {
     return requested;
   }
   throw workflowError("设计功能不受支持");
 }
 
-function normalizeRenderMode(input) {
+function normalizeRenderMode(input, featureMode) {
   const requested = String(input.renderMode || "").trim();
+  if (featureMode === STYLE_TRANSFER_FEATURE_MODE) {
+    if (requested === SMART_DEFAULT_RENDER_MODE) {
+      throw workflowError("风格转换不支持智能默认，请选择平台风格或上传风格参考图");
+    }
+    if (![STYLE_DNA_RENDER_MODE, STYLE_REFERENCE_RENDER_MODE].includes(requested)) {
+      throw workflowError("风格转换必须选择平台风格或上传风格参考图");
+    }
+    return requested;
+  }
   if (!requested) return STYLE_DNA_RENDER_MODE;
   if ([SMART_DEFAULT_RENDER_MODE, STYLE_DNA_RENDER_MODE].includes(requested)) {
     return requested;
   }
   throw workflowError("设计渲染方式不受支持");
+}
+
+export function normalizeStyleTransferSelection(input, { styleReferenceCount = null, requireVersion = false } = {}) {
+  const renderMode = normalizeRenderMode(input, STYLE_TRANSFER_FEATURE_MODE);
+  const referenceMode = renderMode === STYLE_REFERENCE_RENDER_MODE;
+  const referenceCount = styleReferenceCount ?? normalizeReferenceImages(input.styleReferenceImages, { maxCount: 1 }).length;
+  if (referenceMode && referenceCount !== 1) {
+    throw workflowError("风格转换参考图模式必须上传 1 张风格参考图");
+  }
+  if (!referenceMode && referenceCount > 0) {
+    throw workflowError("风格转换平台风格模式不接收风格参考图，请改用参考图模式");
+  }
+  if (!referenceMode && !String(input.styleCode || "").trim()) {
+    throw workflowError("风格转换必须选择一个平台风格");
+  }
+  const versionField = referenceMode ? "styleTransferReferenceVersion" : "styleTransferPromptAgentVersion";
+  const version = requireVersion ? Number(input[versionField]) : input[versionField];
+  if (requireVersion && (!Number.isInteger(version) || version < 1)) {
+    throw workflowError(`请先读取可用的风格转换${referenceMode ? "参考图" : "平台风格"} Prompt 版本`);
+  }
+  return { renderMode, version, versionField };
 }
 
 function promptResultCacheKey({
@@ -269,6 +336,7 @@ export async function executeWhiteModelWorkflow(
   }
   const featureMode = normalizeFeatureMode(input);
   const emptyRoom = featureMode === EMPTY_ROOM_FEATURE_MODE;
+  const styleTransfer = featureMode === STYLE_TRANSFER_FEATURE_MODE;
   const roomType = emptyRoom ? normalizeEmptyRoomType(input.roomType) : null;
   if (emptyRoom && !String(input.roomType || "").trim()) {
     throw workflowError("空房设计必须选择房间类型");
@@ -300,7 +368,9 @@ export async function executeWhiteModelWorkflow(
     throw workflowError(
       emptyRoom
         ? "空房设计需要且只允许 1 张空房图"
-        : "白模渲染需要且只允许 1 张白模图",
+        : styleTransfer
+          ? "风格转换需要且只允许 1 张空间图"
+          : "白模渲染需要且只允许 1 张白模图",
     );
   }
   const styleReferences = normalizeReferenceImages(input.styleReferenceImages, {
@@ -308,14 +378,32 @@ export async function executeWhiteModelWorkflow(
   });
   const promptModel = agentModelOrThrow(input.promptAgentModelKey);
   const forcePromptRegeneration = input.forcePromptRegeneration === true;
-  const renderMode = normalizeRenderMode(input);
+  const renderMode = styleTransfer
+    ? normalizeStyleTransferSelection(input, { styleReferenceCount: styleReferences.length }).renderMode
+    : normalizeRenderMode(input, featureMode);
   const smartDefault = renderMode === SMART_DEFAULT_RENDER_MODE;
+  const styleReference = renderMode === STYLE_REFERENCE_RENDER_MODE;
   if (emptyRoom && !smartDefault && styleReferences.length > 0) {
     throw workflowError("空房平台风格模式不接收风格参考图，请改用智能默认");
   }
   let style = null;
   let agent;
-  if (emptyRoom) {
+  if (styleTransfer) {
+    if (styleReference) {
+      agent = await loadAgent("style-transfer-reference", {
+        config: STYLE_TRANSFER_PROMPT_CONFIG,
+        version: input.styleTransferReferenceVersion,
+      });
+    } else {
+      [style, agent] = await Promise.all([
+        loadStyle(input.styleCode),
+        loadAgent("style-transfer-fusion", {
+          config: STYLE_TRANSFER_PROMPT_CONFIG,
+          version: input.styleTransferPromptAgentVersion,
+        }),
+      ]);
+    }
+  } else if (emptyRoom) {
     if (smartDefault) {
       agent = await loadAgent("empty-room-smart-default", {
         config: EMPTY_ROOM_PROMPT_CONFIG,
@@ -372,7 +460,14 @@ export async function executeWhiteModelWorkflow(
         : { imageUrl: sourceImages[0].imageUrl }),
       model: promptModel.id,
       systemPrompt: agent.systemPrompt,
-      userPrompt: emptyRoom
+      userPrompt: styleTransfer
+        ? buildStyleTransferPromptAgentInput({
+            hasStyleReference: styleReferences.length > 0,
+            renderMode,
+            styleDna: style?.styleDna,
+            userRequirements,
+          })
+        : emptyRoom
         ? smartDefault
           ? buildEmptyRoomSmartDefaultPromptAgentInput({
               furnitureSelection,
@@ -401,7 +496,7 @@ export async function executeWhiteModelWorkflow(
     });
     return JSON.stringify(
       parsePromptAgentOutput(promptResult.text, {
-        strict: smartDefault || emptyRoom,
+        strict: smartDefault || emptyRoom || styleTransfer,
       }),
       null,
       2,
@@ -470,7 +565,7 @@ export async function executeWhiteModelWorkflow(
     agentModel: promptModel.id,
     agentModelLabel: promptModel.label,
     agentVersion: agent.version,
-    feature: emptyRoom ? "empty-room-design" : "white-model-rendering",
+    feature: styleTransfer ? "style-transfer" : emptyRoom ? "empty-room-design" : "white-model-rendering",
     imageDurationMs,
     provider: generation.provider,
     promptDurationMs,
@@ -479,7 +574,7 @@ export async function executeWhiteModelWorkflow(
     ...(roomType ? { roomType } : {}),
     ...(roomTypeDetail ? { roomTypeDetail } : {}),
     ...(emptyRoom ? { furnitureSelection } : {}),
-    selectionName: smartDefault ? "智能默认" : style.name,
+    selectionName: styleReference ? "参考图风格" : smartDefault ? "智能默认" : style.name,
     styleReferenceUsed: styleReferences.length > 0,
     ...(generation.workflowMetadata || {}),
     ...(style

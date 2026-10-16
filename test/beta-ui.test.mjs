@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供七功能可恢复配置、全景独立版本与 2:1 准入、飞书样本 ID 批次及共享参考资产传输行为、单图上传文案与同步进度、START/RETRY、双阶段监控及可访问布局的静态回归保障
+ * [OUTPUT]: 对外提供八功能可恢复配置、风格转换明确目标、全景独立版本与 2:1 准入、飞书样本 ID 批次及共享参考资产传输行为、单图上传文案与同步进度、START/RETRY、双阶段监控及可访问布局的静态回归保障
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { packBatchAssets } from "../public/beta-assets.js";
 
-test("Beta跑图是独立第三工作台且提供七个出图功能", async () => {
+test("Beta跑图是独立第三工作台且提供八个出图功能", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -28,11 +28,12 @@ test("Beta跑图是独立第三工作台且提供七个出图功能", async () =
   assert.match(html, /href="\/beta\.html" aria-current="page">Beta跑图/);
   assert.match(html, /data-feature-mode="whiteModel"/);
   assert.match(html, /data-feature-mode="emptyRoom"/);
+  assert.match(html, /data-feature-mode="styleTransfer"[^>]*>风格转换/);
   assert.match(html, /data-feature-mode="refinedModel"/);
   assert.match(html, /data-feature-mode="effectEnhancement"[^>]*>效果图氛围转换/);
   assert.match(html, /data-feature-mode="effectBeautification"[^>]*>效果图美化/);
   assert.match(html, /data-feature-mode="panoramaEnhancement"[^>]*>全景图美化/);
-  assert.equal((html.match(/data-feature-mode="/g) || []).length, 7);
+  assert.equal((html.match(/data-feature-mode="/g) || []).length, 8);
   assert.match(html, /data-feature-mode="free"/);
   assert.doesNotMatch(html, /styleDnaReverse|风格反推/);
   assert.match(html, /id="sourceFilesInput"[^>]*multiple/);
@@ -49,7 +50,7 @@ test("Beta跑图是独立第三工作台且提供七个出图功能", async () =
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=9/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=24/);
+  assert.match(html, /beta-app\.js\?v=25/);
   assert.match(html, /单张 8MB · 逐张上传/);
   assert.doesNotMatch(html, /合计 20MB/);
   assert.match(configuration, /configurationState = "saved"/);

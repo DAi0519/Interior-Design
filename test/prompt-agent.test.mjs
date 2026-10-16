@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/空房双模式/反推展示名派生、脱敏已上架目录、独立空房双配置与自主风格说明、版本选择、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/空房/风格转换双模式/反推展示名派生、脱敏已上架目录、独立空房和风格转换双配置、版本选择、System Prompt 与分页边界回归保障
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,8 @@ import {
   listPublishedPromptAgentVersions,
   parsePromptAgentEnvelope,
   publicEmptyRoomConfig,
+  publicStyleTransferConfig,
+  STYLE_TRANSFER_PROMPT_CONFIG,
 } from "../src/prompt-agent.mjs";
 
 const fields = [
@@ -183,4 +185,38 @@ test("空房设计独立表向前端公开智能默认与融合版本目录", as
     },
   });
   assert.equal("systemPrompt" in config.smartDefault, false);
+});
+
+test("风格转换独立表公开双 Agent 脱敏目录，正文与白模空房资产隔离", async () => {
+  const reads = [];
+  const config = await publicStyleTransferConfig({ forceRefresh: true, run: async (_config, args) => {
+    reads.push(args);
+    return envelope([
+      ["style-transfer-reference", 1, ["上架"], ["风格转换"], "Reference secret"],
+      ["style-transfer-fusion", 2, ["上架"], ["风格转换"], "Fusion secret"],
+    ]);
+  } });
+  assert.equal(reads.every((args) => args[args.indexOf("--table-id") + 1] === STYLE_TRANSFER_PROMPT_CONFIG.tableId), true);
+  assert.equal(config.promptAgent.defaultVersion, 2);
+  assert.equal(config.promptAgent.versions[0].code, "style-transfer-fusion");
+  assert.equal(config.promptAgent.versions[0].name, "风格转换融合 Agent");
+  assert.equal(config.reference.available, true);
+  assert.equal(config.reference.name, "风格转换参考图 Agent");
+  assert.match(config.reference.description, /保留原图空间结构、视角与布局/);
+  assert.equal("smartDefault" in config, false);
+  assert.equal(JSON.stringify(config).includes("secret"), false);
+});
+
+test("风格转换双 Agent 各自降级可用性，不回退到其他功能 Prompt", async () => {
+  const config = await publicStyleTransferConfig({ run: async () => envelope([
+    ["style-transfer-reference", 1, ["下架"], ["风格转换"], "Reference"],
+    ["style-transfer-fusion", 1, ["上架"], ["风格转换"], ""],
+    ["white-model-fusion", 9, ["上架"], ["白模渲染"], "Do not reuse"],
+  ]) });
+  assert.equal(config.reference.available, false);
+  assert.equal(config.reference.version, null);
+  assert.equal("smartDefault" in config, false);
+  assert.equal(config.promptAgent.defaultVersion, null);
+  assert.deepEqual(config.promptAgent.versions, []);
+  assert.match(config.promptAgent.reason, /未上架或 System Prompt 为空/);
 });

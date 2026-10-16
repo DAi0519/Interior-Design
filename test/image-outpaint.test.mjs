@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图服务/真实工作流、图片工具 API、生成任务入口、通用客户端与 sharp 图片样本
- * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选独立能力探测/失败不缓存、模型选择透传/实时拒绝、HTTP入队前400/409阻断及原尺寸/旧四边兼容测试
+ * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选独立能力探测/失败不缓存、模型选择透传/实时拒绝、HTTP入队前400/409阻断、原尺寸/旧四边兼容与图片工具五套超分公开目录合同测试
  * [POS]: test 的扩图应用与 HTTP 合同验证，使用内存客户端，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -341,6 +341,13 @@ test("独立图片工具公开同一扩图配置，保留超分健康与目录",
   assert.equal(responses[0].body.available, true);
   assert.equal(responses[0].body.inputAlignment, 32);
   assert.equal(responses[1].body.comfyUi.available, true);
-  assert.equal(responses[1].body.workflows.length, 3);
+  assert.deepEqual(responses[1].body.workflows.map(({ key }) => key), [
+    "youxing_seedvr2_3b", "seedvr2_1mp", "seedvr2_075mp", "seedvr2_7b_direct", "ks_seedvr2_2x",
+  ]);
+  assert.equal(responses[1].body.defaultWorkflowKey, "youxing_seedvr2_3b");
+  const direct = responses[1].body.workflows.find(({ key }) => key === "seedvr2_7b_direct");
+  const ks = responses[1].body.workflows.find(({ key }) => key === "ks_seedvr2_2x");
+  assert.deepEqual(direct.resolutions.map(({ key }) => key), ["4K", "6K", "8K"]);
+  assert.deepEqual(ks.resolutions, [{ key: "2X", label: "2× 原图尺寸", scale: 2 }]);
   assert.equal(await handler({ method: "POST" }, {}, "/api/image-outpaint/config"), false);
 });

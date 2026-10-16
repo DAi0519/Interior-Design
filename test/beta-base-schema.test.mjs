@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta Store/runner 与三表字段响应内存替身
- * [OUTPUT]: 对外提供缺字段、类型/选项/附件/关联漂移在入队与样本写入前阻断、实时分页读取和晚遇合同错误不重生成的回归保障
+ * [OUTPUT]: 对外提供含风格转换的功能选项、两类模型单选标签与当前目录选项、设计/版本/三图附件复用，缺字段、类型/附件/关联漂移在入队与样本写入前阻断、实时分页读取和晚遇合同错误不重生成的回归保障
  * [POS]: test 的 Beta 归档 Schema 合同集成测试，不读写真实 Base 或调用模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,8 @@ import { BETA_BASE_CONFIG as config, betaFeatureLabel, createBetaBaseStore } fro
 import { BETA_FEATURE_MODES, createBetaApiHandler, createBetaRunnerService } from "../src/beta-runner.mjs";
 import { EMPTY_ROOM_TYPES } from "../src/empty-room-type.mjs";
 import { normalizeBetaBaseError } from "../src/beta-base-schema.mjs";
+import { publicAgentModelCatalog } from "../src/agent-model-config.mjs";
+import { publicModelCatalog } from "../src/model-config.mjs";
 
 function schemaFixture() {
   const textFields = (names) => names.map((name) => ({ id: `field-${name}`, name, type: "text" }));
@@ -18,10 +20,12 @@ function schemaFixture() {
   const features = BETA_FEATURE_MODES.map(betaFeatureLabel);
   return {
     [config.tableId]: [
-      ...textFields(["Run ID", "批次 ID", "样本 ID", "输入文本", "场景参数", "配置快照", "出图模型", "Prompt / 工作流版本", "错误信息", "最终 Prompt", "设计方式", "风格选择", "家具选择", "Prompt融合", "Agent 编码", "生成参数", "尺寸"]),
+      ...textFields(["Run ID", "批次 ID", "样本 ID", "输入文本", "场景参数", "配置快照", "Prompt / 工作流版本", "错误信息", "最终 Prompt", "设计方式", "风格选择", "家具选择", "Agent 编码", "生成参数", "尺寸"]),
       { id: config.testTimeFieldId, name: "测试时间", type: "text" },
       ...["Attempt", "Agent 版本", "时延（ms）", "费用（USD）"].map((name) => ({ name, type: "number" })),
       select("功能", features), select("状态", ["运行中", "成功", "失败"]), select("场景标签", EMPTY_ROOM_TYPES, true),
+      select("出图模型", publicModelCatalog().map((model) => model.label)),
+      select("Prompt融合", publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label)),
       ...[["输入图", config.inputFieldId], ["风格参考图", config.styleReferenceFieldId], ["结果图", config.resultFieldId]].map(([name, id]) => ({ name, id, type: "attachment" })),
     ],
     [config.sampleSetTableId]: [
@@ -36,7 +40,7 @@ function schemaFixture() {
 }
 
 const batch = () => ({ batchId: "BETA-contract1234", jobId: "beta-contract1234", featureMode: "free", testTime: "2026-10-12 12:00:00",
-  items: [{ runId: "RUN-contract-001", caseId: "CASE-1", input: { prompt: "test" } }] });
+  items: [{ runId: "RUN-contract-001", caseId: "CASE-1", input: { modelKey: "gptImage2", prompt: "test" } }] });
 
 function storeForSchema(schemas, commands) {
   return createBetaBaseStore({ run: async (_config, args) => {
@@ -69,6 +73,42 @@ test("live Store 的实时 verifier 每次读取三表，后一次字段漂移�
   assert.equal(commands.length, 6);
 });
 
+test("风格转换复用现有归档字段，并要求跑图明细和样本集均有功能选项", async () => {
+  assert.ok(BETA_FEATURE_MODES.includes("styleTransfer"));
+  assert.equal(betaFeatureLabel("styleTransfer"), "风格转换");
+  const schemas = schemaFixture();
+  const runFields = schemas[config.tableId];
+  for (const name of ["设计方式", "风格选择", "配置快照", "场景参数", "Agent 编码", "最终 Prompt"]) {
+    assert.equal(runFields.find((field) => field.name === name)?.type, "text");
+  }
+  assert.equal(runFields.find((field) => field.name === "Agent 版本")?.type, "number");
+  assert.equal(schemas[config.sampleTableId].some((field) => field.name === "功能"), false);
+  await storeForSchema(schemas, []).verifySchema();
+  for (const [tableId, name] of [[config.tableId, "跑图明细"], [config.sampleSetTableId, "样本集"]]) {
+    const drifted = schemaFixture();
+    const field = drifted[tableId].find((entry) => entry.name === "功能");
+    field.options = field.options.filter((option) => option.name !== "风格转换");
+    await assert.rejects(storeForSchema(drifted, []).verifySchema(),
+      (error) => error.statusCode === 409 && error.retryable === false
+        && error.message.includes(`${name}“功能”缺少选项：风格转换`));
+  }
+});
+
+test("Beta 两类模型字段使用当前目录单选标签，允许保留历史选项且不要求纯文本 Agent", async () => {
+  const schemas = schemaFixture();
+  for (const name of ["出图模型", "Prompt融合"]) {
+    const field = schemas[config.tableId].find((entry) => entry.name === name);
+    assert.equal(field.type, "select");
+    assert.equal(field.multiple, false);
+    field.options.push({ name: "历史模型标签" });
+  }
+  const promptOptions = schemas[config.tableId].find((entry) => entry.name === "Prompt融合").options;
+  assert.equal(promptOptions.some((option) => option.name === "DeepSeek 4 Pro"), false);
+  assert.equal(promptOptions.some((option) => option.name === "Gemini 3.1 Pro"), true);
+  assert.equal(schemas[config.tableId].find((entry) => entry.name === "场景标签").multiple, true);
+  await storeForSchema(schemas, []).verifySchema();
+});
+
 test("三表字段分页必须读完，不能用首段字段漏检后半段", async () => {
   const schemas = schemaFixture();
   const pages = [];
@@ -87,8 +127,12 @@ test("缺字段、坏类型、缺功能/状态/房型选项、错误附件与关
   const mutations = [
     (tables) => { tables[config.tableId] = tables[config.tableId].filter((field) => field.name !== "最终 Prompt"); },
     (tables) => { tables[config.tableId].find((field) => field.name === "配置快照").type = "formula"; },
-    (tables) => { tables[config.tableId].find((field) => field.name === "出图模型").type = "select"; },
-    (tables) => { tables[config.tableId].find((field) => field.name === "Prompt融合").type = "select"; },
+    (tables) => { tables[config.tableId].find((field) => field.name === "出图模型").type = "text"; },
+    (tables) => { tables[config.tableId].find((field) => field.name === "Prompt融合").type = "text"; },
+    (tables) => { tables[config.tableId].find((field) => field.name === "出图模型").multiple = true; },
+    (tables) => { tables[config.tableId].find((field) => field.name === "Prompt融合").multiple = true; },
+    (tables) => { const field = tables[config.tableId].find((field) => field.name === "出图模型"); field.options = field.options.filter((option) => option.name !== "Banana 2.1"); },
+    (tables) => { tables[config.tableId].find((field) => field.name === "Prompt融合").options.pop(); },
     (tables) => { tables[config.sampleSetTableId].find((field) => field.name === "功能").options.pop(); },
     (tables) => { tables[config.tableId].find((field) => field.name === "功能").options.splice(4, 1); },
     (tables) => { tables[config.tableId].find((field) => field.name === "状态").options.pop(); },

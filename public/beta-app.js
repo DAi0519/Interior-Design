@@ -1,14 +1,15 @@
 /**
- * [INPUT]: 依赖 beta.html DOM、beta-model-rules 七功能/全景 2:1 与功能尺寸合同、beta-configuration/beta-page-state 本机持久配置状态、effect-beautification-controls 强度色调控制器、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、beta-assets 图片去重、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的七功能/样本集/模型/美化强度色调/含 GPT Image 2.5 质量档的参数配置、出图模型完整名称悬停/无障碍标签、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
+ * [INPUT]: 依赖 beta.html DOM、beta-model-rules 八功能/全景 2:1 与功能尺寸合同、beta-design-config 独立风格来源/版本与 beta-configuration/beta-page-state 本机持久配置状态、effect-beautification-controls 强度色调控制器、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、beta-assets 图片去重、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的八功能（含明确平台/参考图风格转换）/样本集/模型/美化强度色调/含 GPT Image 2.5 质量档的参数配置、仅已上架的精模 Prompt 选择、出图模型完整名称悬停/无障碍标签、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import "./custom-select.js?v=7";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=3";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=3";
-import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=1";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=4";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=4";
+import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=2";
+import { createBetaDesignConfiguration } from "./beta-design-config.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=1";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
@@ -88,12 +89,14 @@ const sampleLibrary = createBetaSampleLibrary({
   validateSourceImage: assertBetaPanoramaSource,
 });
 
+const designConfiguration = createBetaDesignConfiguration({ elements, fillSelect, getState: () => state, restoredPageState });
 const configuration = createBetaConfigurationPersistence({
   currentState: () => ({
     featureMode: state.featureMode,
     sampleSetIds: state.sampleSetIds,
     selectedModelKeys: state.selectedModelKeys,
     stylesReady: Boolean(state.stylesConfig),
+    designControls: designConfiguration.snapshot(),
   }),
   effectBeautificationControls,
   elements,
@@ -198,6 +201,9 @@ function renderSingleReference(key, list, dropZone) {
     onRemove: () => {
       state[key] = null;
       renderSingleReference(key, list, dropZone);
+      if (key === "styleReference") designConfiguration.referenceChanged();
+      renderRunSummary();
+      saveConfiguration();
     },
     replaceEnabled: images.length === 1,
   });
@@ -230,21 +236,24 @@ function renderRunSummary() {
     renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, 0, total);
   }
   const running = state.job?.status === "running";
-  const needsPromptAgent = ["whiteModel", "emptyRoom"].includes(state.featureMode);
+  const needsPromptAgent = ["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode);
   const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
   const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
   const effectPromptKey = FEATURE_COPY[state.featureMode].promptConfig;
   const effectReady = !effectPromptKey || state.stylesConfig?.[effectPromptKey]?.available;
+  const targetReady = state.featureMode !== "styleTransfer" || designConfiguration.ready();
   if (!agentReady && !running) {
     elements.runHint.textContent = state.agentAccessChecked
       ? "提示词模型不可用，请选择当前 Key 已开放的模型"
       : "正在检测提示词模型权限";
   }
+  if (!targetReady && agentReady && !running) elements.runHint.textContent = "请选择平台风格，或上传风格参考图";
   elements.runButton.disabled = !state.connected
     || !sampleLibrary.isReady()
     || total < 1
     || !agentReady
     || !effectReady
+    || !targetReady
     || running;
   elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
   elements.runButton.setAttribute("aria-busy", String(running));
@@ -314,29 +323,7 @@ function renderOutputControls() {
   renderRunSummary();
 }
 
-function renderDesignConfig() {
-  const config = state.stylesConfig || {};
-  const emptyRoom = state.featureMode === "emptyRoom";
-  const renderMode = elements.renderModeSelect.value;
-  const smartConfig = emptyRoom ? config.emptyRoom?.smartDefault : config.smartDefault;
-  const promptConfig = emptyRoom ? config.emptyRoom?.promptAgent : config.promptAgent;
-  const styles = (config.styles || []).filter((style) => style.published && style.validDna);
-  fillSelect(elements.styleSelect, styles.map((style) => ({
-    label: `${style.name} · v${style.version}`,
-    value: style.code,
-  })), elements.styleSelect.value || styles[0]?.code);
-  fillSelect(elements.promptAgentVersionSelect, (promptConfig?.versions || []).map((entry) => ({
-    label: `${entry.name} · v${entry.version}`,
-    value: entry.version,
-  })), elements.promptAgentVersionSelect.value || promptConfig?.defaultVersion);
-  const styleMode = renderMode === "style-dna";
-  elements.styleField.classList.toggle("hidden", !styleMode);
-  elements.promptAgentVersionField.classList.toggle("hidden", !styleMode);
-  elements.styleReferenceField.classList.toggle("hidden", styleMode);
-  elements.configStatus.textContent = styleMode
-    ? styles.length && promptConfig?.versions?.length ? "平台风格已就绪" : "平台风格配置不可用"
-    : smartConfig?.available ? `智能默认 v${smartConfig.version}` : "智能默认配置不可用";
-}
+function renderDesignConfig() { designConfiguration.render(); }
 
 function renderFeature() {
   const copy = FEATURE_COPY[state.featureMode];
@@ -346,7 +333,7 @@ function renderFeature() {
     button.setAttribute("aria-checked", String(selected));
   }
   const free = state.featureMode === "free";
-  const design = ["whiteModel", "emptyRoom"].includes(state.featureMode);
+  const design = ["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode);
   const emptyRoom = state.featureMode === "emptyRoom";
   const effect = Boolean(copy.promptConfig);
   const refined = state.featureMode === "refinedModel";
@@ -373,11 +360,13 @@ function renderFeature() {
   }
   if (refined) {
     const promptConfig = state.stylesConfig?.refinedPrompt;
-    fillSelect(elements.refinedPromptSelect, (promptConfig?.versions || []).map((entry) => ({
-      label: `${entry.name} · v${entry.version}${entry.published ? "" : " · 测试中"}`,
+    const versions = (promptConfig?.versions || []).filter((entry) => entry.published === true);
+    fillSelect(elements.refinedPromptSelect, versions.map((entry) => ({
+      label: `${entry.name} · v${entry.version}`,
       value: entry.version,
     })), promptConfig?.defaultVersion);
-    elements.configStatus.textContent = promptConfig?.versions?.length ? "精模 Prompt 已就绪" : "精模 Prompt 不可用";
+    elements.refinedPromptSelect.disabled = versions.length === 0;
+    elements.configStatus.textContent = versions.length ? "精模 Prompt 已就绪" : "精模 Prompt 不可用";
   }
   renderReferenceInputs();
   renderRunSummary();
@@ -391,34 +380,7 @@ function currentCases() {
   });
 }
 
-function designSettings() {
-  const emptyRoom = state.featureMode === "emptyRoom";
-  const smartDefault = elements.renderModeSelect.value === "smart-default";
-  const config = state.stylesConfig || {};
-  const smartConfig = emptyRoom ? config.emptyRoom?.smartDefault : config.smartDefault;
-  const promptConfig = emptyRoom ? config.emptyRoom?.promptAgent : config.promptAgent;
-  const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
-  if (!state.agentAccessChecked || !selectedAgent?.selectable) {
-    throw new Error("提示词模型当前未向这个 API Key 开放，请选择可用模型");
-  }
-  if (smartDefault && !smartConfig?.available) throw new Error("当前智能默认 Agent 不可用");
-  if (!smartDefault && (!elements.styleSelect.value || !elements.promptAgentVersionSelect.value)) {
-    throw new Error("平台风格或融合 Agent 版本不可用");
-  }
-  return {
-    renderMode: elements.renderModeSelect.value,
-    promptAgentModelKey: elements.promptAgentModelSelect.value,
-    styleCode: smartDefault ? undefined : elements.styleSelect.value,
-    styleReferenceImages: smartDefault && state.styleReference ? [state.styleReference] : [],
-    ...(emptyRoom
-      ? smartDefault
-        ? { emptyRoomSmartDefaultVersion: smartConfig.version }
-        : { emptyRoomPromptAgentVersion: Number(elements.promptAgentVersionSelect.value || promptConfig?.defaultVersion) }
-      : smartDefault
-        ? { smartDefaultAgentVersion: smartConfig.version }
-        : { promptAgentVersion: Number(elements.promptAgentVersionSelect.value || promptConfig?.defaultVersion) }),
-  };
-}
+function designSettings() { return designConfiguration.settings(); }
 
 function assertFeatureConfig() {
   sampleLibrary.assertRoomTypes();
@@ -474,7 +436,7 @@ function buildItems(startedAt = new Date()) {
       ...(state.featureMode === "refinedModel" ? {
         promptVersion: Number(elements.refinedPromptSelect.value),
       } : {}),
-      ...(["whiteModel", "emptyRoom"].includes(state.featureMode) ? designSettings() : {}),
+      ...(["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode) ? designSettings() : {}),
       ...(state.featureMode === "emptyRoom" ? {
         roomType: currentCase.roomType,
         ...(currentCase.roomType === "其他"
@@ -617,6 +579,9 @@ async function setSingleReference(fileList, key) {
     const next = await readImage(file);
     state[key] = next;
     renderReferenceInputs();
+    if (key === "styleReference") designConfiguration.referenceChanged();
+    renderRunSummary();
+    saveConfiguration();
   } catch (error) {
     reportUploadError(error);
   }
@@ -663,6 +628,7 @@ function bindEvents() {
   });
   elements.renderModeSelect.addEventListener("change", () => {
     renderDesignConfig();
+    renderRunSummary();
     saveConfiguration();
   });
   elements.roomTypeSelect.addEventListener("change", () => {
@@ -687,7 +653,10 @@ function bindEvents() {
     elements.refinedPromptSelect,
     elements.resolutionSelect,
     elements.styleSelect,
-  ]) select.addEventListener("change", saveConfiguration);
+  ]) select.addEventListener("change", () => {
+    if (select === elements.styleSelect) renderDesignConfig();
+    renderRunSummary(); saveConfiguration();
+  });
   elements.betaForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (state.job?.status === "running") return;

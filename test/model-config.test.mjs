@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供六个 OneAPI 模型（含 GPT Image 2/2.5 尺寸边界与截图 1K 回归、独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 对外提供七个 OneAPI 模型（含独立 Banana 2.1、GPT Image 2/2.5 尺寸边界与截图 1K 回归、独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,11 +24,12 @@ import {
   sizeSummary,
 } from "../public/model-capabilities.js";
 
-test("目录暴露六个 OneAPI 模型和一个 ComfyUI 工作流", () => {
+test("目录暴露七个 OneAPI 模型和一个 ComfyUI 工作流", () => {
   assert.deepEqual(
     publicModelCatalog().map(({ id, key }) => ({ id, key })),
     [
       { id: "gemini-3.1-flash-image-preview", key: "banana2" },
+      { id: "gemini-nano-banana-2.1", key: "banana21" },
       { id: "gpt-image-2", key: "gptImage2" },
       { id: "gpt-image-2.5-sunburst", key: "gptImage25Sunburst" },
       { id: "gpt-image-2.5-flare", key: "gptImage25Flare" },
@@ -56,8 +57,9 @@ test("出图模型统一可选且不向使用者暴露内部目录状态", () =>
       { available: true },
       { available: true },
       { available: true },
+      { available: true },
     ]),
-    "7 个模型可选",
+    "8 个模型可选",
   );
 });
 

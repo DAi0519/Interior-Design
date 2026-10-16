@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供 Beta跑图默认 Flux、七功能引用与美化强度色调配置往返、全景固定比例/4K 配置恢复、控制器恢复后落盘、非法存储降级与轻量状态边界回归保障
+ * [OUTPUT]: 对外提供 Beta跑图默认 Flux、八功能目录兼容与美化强度色调配置往返、全景固定比例/4K 配置恢复、控制器恢复后落盘、非法存储降级与轻量状态边界回归保障
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

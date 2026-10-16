@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖白模/空房设计方式容器、飞书 Style DNA 脱敏目录、独立 Agent 可用性、平台风格临时锁定状态与调用方模式变更回调
- * [OUTPUT]: 对外提供可切换说明的智能默认/平台风格选项推导、禁用态选择归一化及紧凑风格按钮组控制器
- * [POS]: public 的设计风格选择层，对外统一表达风格选择，并支持空房风格图输入强制智能默认
+ * [INPUT]: 依赖白模/空房/风格转换设计方式容器、飞书 Style DNA 脱敏目录、独立 Agent 可用性、平台风格临时锁定状态与调用方模式变更回调
+ * [OUTPUT]: 对外提供白模/空房智能默认与平台风格、风格转换明确平台风格/参考图风格选项、无目标阻断和互斥选择控制器
+ * [POS]: public 的设计风格选择层，风格转换独立保留选择且不提供自动风格，空房仍遵循原智能默认合同
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";
+export const STYLE_REFERENCE_RENDER_MODE = "style-reference";
 
 function selectableStyles(styles) {
   const seenFamilies = new Set();
@@ -69,6 +70,35 @@ export function normalizeWhiteModelRenderModeSelection(
   return requested || choices[0];
 }
 
+export function styleTransferRenderModeOptions(styles, { reference = {}, referenceCount = 0 } = {}) {
+  return [
+    ...(referenceCount > 0 ? [{
+      agentVersion: reference.version,
+      available: reference.available === true,
+      description: reference.description || "提取参考图的材质、色彩与软装风格，保留空间结构与原视角。",
+      label: "参考图风格", mode: STYLE_REFERENCE_RENDER_MODE,
+      reason: reference.reason || (reference.available ? "" : "风格转换参考图 Agent 暂不可用"), style: null, styleCode: null,
+    }] : []),
+    ...selectableStyles(styles).map((style) => ({
+      available: referenceCount === 0,
+      description: style.description || `${style.name} Style DNA 已就绪`,
+      label: style.name, mode: STYLE_DNA_RENDER_MODE,
+      reason: referenceCount ? "已上传风格参考图，当前使用参考图风格" : "",
+      style, styleCode: style.code,
+    })),
+  ];
+}
+
+export function normalizeStyleTransferSelection(selection, styles, options = {}) {
+  const choices = styleTransferRenderModeOptions(styles, options);
+  const reference = choices.find((choice) => choice.mode === STYLE_REFERENCE_RENDER_MODE);
+  return reference || choices.find((choice) => choice.available && selection?.mode === STYLE_DNA_RENDER_MODE
+    && choice.styleCode === selection?.styleCode) || {
+    available: false, description: "请选择一个平台风格，或上传风格参考图。",
+    mode: null, reason: "请选择平台风格，或上传风格参考图", style: null, styleCode: null,
+  };
+}
+
 function buttonFor(choice, selected) {
   const button = document.createElement("button");
   const label = document.createElement("strong");
@@ -86,9 +116,8 @@ function buttonFor(choice, selected) {
   button.setAttribute("role", "radio");
 
   label.textContent = choice.label;
-  badge.textContent = choice.mode === SMART_DEFAULT_RENDER_MODE
-    ? "默认"
-    : `v${choice.style.version}`;
+  badge.textContent = choice.mode === SMART_DEFAULT_RENDER_MODE ? "默认"
+    : choice.mode === STYLE_REFERENCE_RENDER_MODE ? "参考图" : `v${choice.style.version}`;
   button.append(label, badge);
   return button;
 }
@@ -112,27 +141,28 @@ export function bindWhiteModelRenderMode({
     styleCode: null,
   };
   let platformStyles = { available: true, reason: "" };
+  let transfer = { enabled: false, reference: {}, referenceCount: 0 };
+  const selections = new Map();
 
-  function current() {
-    return normalizeWhiteModelRenderModeSelection(selection, styles, {
+  function options() {
+    return {
       smartDefaultAvailable: smartDefault.available,
       smartDefaultDescription: smartDefault.description,
       smartDefaultReason: smartDefault.reason,
       smartDefaultVersion: smartDefault.version,
       platformStylesAvailable: platformStyles.available,
       platformStylesReason: platformStyles.reason,
-    });
+    };
+  }
+
+  function current() {
+    return transfer.enabled ? normalizeStyleTransferSelection(selection, styles, transfer)
+      : normalizeWhiteModelRenderModeSelection(selection, styles, options());
   }
 
   function render() {
-    const choices = whiteModelRenderModeOptions(styles, {
-      smartDefaultAvailable: smartDefault.available,
-      smartDefaultDescription: smartDefault.description,
-      smartDefaultReason: smartDefault.reason,
-      smartDefaultVersion: smartDefault.version,
-      platformStylesAvailable: platformStyles.available,
-      platformStylesReason: platformStyles.reason,
-    });
+    const choices = transfer.enabled ? styleTransferRenderModeOptions(styles, transfer)
+      : whiteModelRenderModeOptions(styles, options());
     const active = current();
     root.replaceChildren(
       ...choices.map((choice) => buttonFor(
@@ -149,12 +179,12 @@ export function bindWhiteModelRenderMode({
       ? active.available
         ? [active.description, platformStyles.reason].filter(Boolean).join("；")
         : `${active.description}；${active.reason || "Agent 暂不可用"}。`
-      : active.description;
+      : active.available || !active.mode ? active.description : [active.description, active.reason].filter(Boolean).join("；");
   }
 
   root.addEventListener("click", (event) => {
     const button = event.target.closest("[data-render-mode]");
-    if (!button || !root.contains(button)) return;
+    if (!button || !root.contains(button) || button.disabled) return;
     selection = {
       mode: button.dataset.renderMode,
       styleCode: button.dataset.styleCode || null,
@@ -166,16 +196,20 @@ export function bindWhiteModelRenderMode({
   render();
   return {
     current,
+    setDesignContext({ featureMode, platformStyles: nextPlatform, reference = {}, referenceCount = 0 }) {
+      const enabled = featureMode === "styleTransfer";
+      if (enabled !== transfer.enabled) {
+        selections.set(transfer.enabled, selection);
+        selection = selections.get(enabled) || { mode: enabled ? null : SMART_DEFAULT_RENDER_MODE, styleCode: null };
+      }
+      transfer = { enabled, reference, referenceCount };
+      platformStyles = nextPlatform || { available: true, reason: "" };
+      selection = current();
+      render();
+    },
     setStyles(nextStyles) {
       styles = nextStyles || [];
-      selection = normalizeWhiteModelRenderModeSelection(selection, styles, {
-        smartDefaultAvailable: smartDefault.available,
-        smartDefaultDescription: smartDefault.description,
-        smartDefaultReason: smartDefault.reason,
-        smartDefaultVersion: smartDefault.version,
-        platformStylesAvailable: platformStyles.available,
-        platformStylesReason: platformStyles.reason,
-      });
+      selection = current();
       render();
     },
     setSmartDefault(config) {
@@ -193,14 +227,7 @@ export function bindWhiteModelRenderMode({
         available: available === true,
         reason: available ? "" : String(reason || "").trim(),
       };
-      selection = normalizeWhiteModelRenderModeSelection(selection, styles, {
-        smartDefaultAvailable: smartDefault.available,
-        smartDefaultDescription: smartDefault.description,
-        smartDefaultReason: smartDefault.reason,
-        smartDefaultVersion: smartDefault.version,
-        platformStylesAvailable: platformStyles.available,
-        platformStylesReason: platformStyles.reason,
-      });
+      selection = current();
       render();
     },
   };

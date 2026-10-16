@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta Run 输入中的参考图数组、样本 ID 与当前功能
- * [OUTPUT]: 对外提供 packBatchAssets，仅去重自由生图共享主图及风格图，已有飞书样本只保留样本 ID
+ * [OUTPUT]: 对外提供 packBatchAssets，去重自由生图共享主图和含风格转换的共享风格图，已有飞书样本只保留样本 ID
  * [POS]: public 的 Beta 批次传输边界，防止样本原图随整批请求重复提交
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

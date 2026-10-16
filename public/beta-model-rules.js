@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 model-capabilities 的按功能尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
- * [OUTPUT]: 对外提供七功能文案、全景 2:1 模型准入与源图校验、包含全景实验档的共享输出控件状态
+ * [OUTPUT]: 对外提供八功能文案、风格转换空间图/补充要求、全景 2:1 模型准入与源图校验、包含全景实验档的共享输出控件状态
  * [POS]: public 的 Beta 功能与模型纯规则层，供页面编排、持久配置和测试复用，不读取 DOM 或图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,7 @@ export const BETA_FEATURE_COPY = Object.freeze({
   free: { prompt: "提示词", source: "" },
   panoramaEnhancement: { label: "全景图美化", prompt: "", promptConfig: "panoramaEnhancementPrompt", source: "待美化全景图" },
   refinedModel: { prompt: "自定义要求（可选）", source: "带材质精模图" },
+  styleTransfer: { label: "风格转换", prompt: "补充要求（可选）", source: "待转换空间图" },
   whiteModel: { prompt: "补充要求（可选）", source: "白模图" },
 });
 

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖日常生成任务注册表、含效果图氛围转换/美化的统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
+ * [INPUT]: 依赖日常生成任务注册表、含风格转换与效果图氛围转换/美化的统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
  * [OUTPUT]: 对外提供任务入队和查询，在生图/扩图前阻断飞书 Schema 漂移，扩图按 Flux/Qwen/Sunburst 引擎准入并仅为 Flux 冻结默认模型，依据 Provider 区分 ComfyUI/API 编辑阶段，仅超分跳过飞书归档
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -19,6 +19,7 @@ const FEATURE_MODES = new Set([
   "imageOutpaint",
   "panoramaEnhancement",
   "refinedModel",
+  "styleTransfer",
   "whiteModel",
 ]);
 

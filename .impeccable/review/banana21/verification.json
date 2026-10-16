@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-16",
+  "model": {
+    "key": "banana21",
+    "id": "gemini-nano-banana-2.1",
+    "label": "Banana 2.1",
+    "apiAvailable": true,
+    "mainUiVerified": true,
+    "betaUiVerified": true,
+    "benchmarkAdmitted": true
+  },
+  "betaModelTags": {
+    "outputModelOptions": 8,
+    "promptModelOptions": 10,
+    "singleSelect": true,
+    "historicalRecordsBefore": 1430,
+    "historicalRecordsAfter": 1430,
+    "groupCountsPreserved": true,
+    "emptyPromptFusionPreserved": 1265,
+    "liveSchemaVerified": true
+  },
+  "tests": {
+    "passed": 760,
+    "failed": 0
+  },
+  "paidImageGeneration": false,
+  "evidenceDirectory": "/var/folders/fq/7kdrpfyd68s_vtzh1fv5tl9m0000gn/T/canvas-banana21-schema-HT1dYp"
+}

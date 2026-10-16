@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖房型/家具输入控制器、生图页面区块与当前功能
- * [OUTPUT]: 对外提供所有生成功能的图片上传置顶顺序，以及空房类型、家具请求合同、必填校验、专属输入顺序和直接显示的 Agent 配置
+ * [OUTPUT]: 对外提供所有生成功能的图片上传置顶顺序、风格转换补充要求与主图/风格图输入，以及空房类型、家具请求合同、必填校验和直接显示的 Agent 配置
  * [POS]: public 的生成输入布局与空房输入组合层，保持主 app 编排器精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,6 +31,7 @@ export function bindDesignInputs({ root, onChange }) {
     },
     setFeatureMode(featureMode) {
       const empty = featureMode === "emptyRoom";
+      const transfer = featureMode === "styleTransfer";
       // --- 每次先恢复稳定顺序，再统一把图片输入放到当前配置最前 ---
       parent.append(...originalOrder);
       if (empty) {
@@ -40,12 +41,20 @@ export function bindDesignInputs({ root, onChange }) {
       } else {
         parent.prepend(reference);
         reference.after(styleReference);
+        if (transfer) {
+          let previous = styleReference;
+          for (const section of [byId("styleSection"), byId("promptSection"), byId("modelSection"),
+            byId("negativePromptSection"), byId("parameterSection"), agent]) {
+            previous.after(section); previous = section;
+          }
+        }
       }
       if (empty) furniture.setRoomType(type.value());
       else byId("emptyRoomFurnitureSection").classList.add("hidden");
-      byId("promptTitle").textContent = empty ? "补充要求（可选）" : "提示词";
-      label.textContent = empty ? "空房补充要求" : "图像提示词";
-      prompt.placeholder = empty ? "例如：保留宽走道、需要双人办公、喜欢深色木材；家具增减请在上方选择。" : "";
+      byId("promptTitle").textContent = empty || transfer ? "补充要求（可选）" : "提示词";
+      label.textContent = transfer ? "风格转换补充要求" : empty ? "空房补充要求" : "图像提示词";
+      prompt.placeholder = transfer ? "例如：保留沙发与家具布局，使用深色木材和暖色灯光。"
+        : empty ? "例如：保留宽走道、需要双人办公、喜欢深色木材；家具增减请在上方选择。" : "";
     },
   };
 }

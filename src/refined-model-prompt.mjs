@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与具有同构字段的精模/效果图氛围转换/效果图美化/全景图美化独立 Prompt 表
- * [OUTPUT]: 对外提供可定制来源标签的固定 Prompt 版本解析、脱敏目录、草稿测试选择与指定版本正文读取
+ * [OUTPUT]: 对外提供可定制来源标签的固定 Prompt 版本解析、仅已上架的脱敏目录与指定上架版本正文读取
  * [POS]: src 的同构版本化 Prompt 读取基础设施，正文只在服务端进入各自出图链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -107,9 +107,9 @@ export async function listRefinedModelPrompts({
 
 export async function publicRefinedModelPromptConfig(options = {}) {
   const prompts = (await listRefinedModelPrompts(options))
-    .filter((entry) => entry.validPrompt)
+    .filter((entry) => entry.validPrompt && entry.published)
     .sort((left, right) => right.version - left.version);
-  const defaultPrompt = prompts.find((entry) => entry.published) || prompts[0];
+  const defaultPrompt = prompts[0];
   return {
     defaultVersion: defaultPrompt?.version || null,
     versions: prompts.map(({ code, name, published, version }) => ({
@@ -123,7 +123,7 @@ export async function publicRefinedModelPromptConfig(options = {}) {
 
 export async function getRefinedModelPrompt(
   code = DEFAULT_REFINED_MODEL_PROMPT_CODE,
-  { allowDraft = false, label = "精模", version = null, ...options } = {},
+  { label = "精模", version = null, ...options } = {},
 ) {
   const normalizedCode = String(code || "").trim();
   const matching = (await listRefinedModelPrompts({ ...options, label }))
@@ -145,14 +145,14 @@ export async function getRefinedModelPrompt(
     throw error;
   }
   const prompt = requestedVersion == null
-    ? matching.find((entry) => entry.validPrompt && (allowDraft || entry.published))
+    ? matching.find((entry) => entry.validPrompt && entry.published)
     : matching.find((entry) => entry.version === requestedVersion);
   if (!prompt || !prompt.validPrompt) {
     const error = new Error(`指定的${label} Prompt 版本不存在或正文不完整`);
     error.statusCode = 409;
     throw error;
   }
-  if (!allowDraft && !prompt.published) {
+  if (!prompt.published) {
     const error = new Error(`${prompt.name} v${prompt.version} 尚未上架`);
     error.statusCode = 409;
     throw error;

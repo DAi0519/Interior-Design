@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖固定精模 Prompt、可选用户补充要求/Flux 负向 Prompt、单张带材质模型图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
+ * [INPUT]: 依赖仅已上架的固定精模 Prompt、可选用户补充要求/Flux 负向 Prompt、单张带材质模型图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
  * [OUTPUT]: 对外提供用户要求前置、预设 Prompt 后置的精模忠实渲染、实际参数摘要和独立飞书同步任务
  * [POS]: src 的精模渲染应用服务，与白模 Style DNA/Prompt Agent 链路隔离并复用出图基础设施
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -49,7 +49,7 @@ export async function executeRefinedModelWorkflow(
 
   const promptAsset = await loadPrompt(
     input.promptCode || DEFAULT_REFINED_MODEL_PROMPT_CODE,
-    { allowDraft: true, version: input.promptVersion },
+    { allowDraft: false, version: input.promptVersion },
   );
   const sourcePrompt = String(input.prompt || "").trim();
   const finalPrompt = composeRefinedModelPrompt(promptAsset.prompt, sourcePrompt);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 真实图片夹具、Beta 样本/批次/归档边界、独立全景工作流和浏览器模型尺寸规则
- * [OUTPUT]: 对外提供全景真实 2:1、ID 惰性取图、模型零调用准入、冻结 Prompt 版本、重试归档、Seedream 全景 4K 与普通 Flux 请求合同回归保障
+ * [OUTPUT]: 对外提供全景真实 2:1、ID 惰性取图、Banana 2.1/GPT2.5 非 2:1 模型零调用准入、冻结 Prompt 版本、重试归档、Seedream 全景 4K 与普通 Flux 请求合同回归保障
  * [POS]: test 的 Beta 全景跨层合同测试，使用内存 Store/模型替身，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -183,12 +183,13 @@ test("全景 ID 批次入队不取原图，固定 2:1 和独立版本进入每�
   assert.deepEqual(queue.snapshots.at(-1).stages, { generated: 2, synced: 2 });
 });
 
-test("GPT Image 2.5 全景与未冻结版本在入队前失败，零下载零生成", async () => {
+test("GPT Image 2.5/Banana 2.1 全景与未冻结版本在入队前失败，零下载零生成", async () => {
   const missingVersion = batch();
   delete missingVersion.items[0].input.panoramaPromptVersion;
   for (const input of [
     batch({ modelKeys: ["gptImage25Sunburst"] }),
     batch({ modelKeys: ["gptImage25Flare"] }),
+    batch({ modelKeys: ["banana21"] }),
     missingVersion,
     batch({ version: 0 }),
     batch({ version: -2 }),
@@ -313,9 +314,9 @@ test("Flux 全景请求只有普通工作流参数与独立 Prompt", async () =>
   assert.equal(request.width, request.height * 2);
 });
 
-test("浏览器全景规则固定 2:1，屏蔽两个 GPT2.5 并保留普通功能能力", () => {
+test("浏览器全景规则固定 2:1，屏蔽两个 GPT2.5 和 Banana 2.1 并保留普通功能能力", () => {
   for (const model of models) {
-    const supported = !["gptImage25Sunburst", "gptImage25Flare"].includes(model.key);
+    const supported = !["gptImage25Sunburst", "gptImage25Flare", "banana21"].includes(model.key);
     assert.equal(betaModelSelectable(model, FEATURE_MODE), supported, model.key);
     assert.equal(betaModelSelectable(model, "effectBeautification"), true, model.key);
   }

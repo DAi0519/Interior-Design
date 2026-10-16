@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
- * [OUTPUT]: 对外提供三表 Schema 准入、七功能映射与强度色调/独立全景版本快照、全部实际写入字段及结果附件归档回读、样本草稿/单图保存/元数据/按需图片读取、Run 建档与轻量预览；合同错误不可重试
+ * [INPUT]: 依赖模型/图片输入 Agent 真源、Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
+ * [OUTPUT]: 对外提供三表 Schema 准入、真实目录模型单选标签及无 Agent 时清空 Prompt融合、八功能映射与风格转换显式来源/独立版本及强度色调/全景版本快照、全部实际写入字段及结果附件归档回读，风格转换另核验输入/参考/结果三附件数量及 token/真实字节数、样本草稿/单图保存/元数据/按需图片读取、Run 建档与轻量预览；合同错误不可重试
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,6 +18,8 @@ import { runLarkCli } from "./lark-cli.mjs";
 import { createBetaSampleStore } from "./beta-sample-store.mjs";
 import { betaBaseContractError, normalizeBetaBaseError, verifyBetaBaseSchema } from "./beta-base-schema.mjs";
 import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
+import { publicAgentModelCatalog } from "./agent-model-config.mjs";
+import { publicModelCatalog } from "./model-config.mjs";
 
 export const BETA_BASE_CONFIG = Object.freeze({
   baseToken: process.env.BETA_BASE_TOKEN || "ORwJbt5EYauNORsrhqJcpetLnEb",
@@ -42,6 +44,7 @@ const FEATURE_LABELS = Object.freeze({
   emptyRoom: "空房设计",
   free: "自由生图",
   refinedModel: "精模渲染",
+  styleTransfer: "风格转换",
   whiteModel: "白模渲染",
 });
 
@@ -82,7 +85,8 @@ export function betaSceneParameters(input = {}) {
     renderMode: input.renderMode,
     roomType: input.roomType,
     roomTypeDetail: input.roomTypeDetail,
-    styleCode: input.styleCode,
+    styleCode: input.featureMode !== "styleTransfer" || input.renderMode === "style-dna" ? input.styleCode : undefined,
+    styleReferenceUsed: input.featureMode === "styleTransfer" ? Boolean(input.styleReferenceImages?.length) : undefined,
   });
 }
 
@@ -102,6 +106,8 @@ export function betaConfigSnapshot(input = {}) {
     ratioMode: input.ratioMode,
     resolution: input.resolution,
     smartDefaultAgentVersion: input.smartDefaultAgentVersion,
+    styleTransferPromptAgentVersion: input.renderMode === "style-dna" ? input.styleTransferPromptAgentVersion : undefined,
+    styleTransferReferenceVersion: input.renderMode === "style-reference" ? input.styleTransferReferenceVersion : undefined,
   });
 }
 
@@ -146,6 +152,25 @@ export function captureBetaGenerationArchive(input) {
   };
 }
 
+function runModelLabel(item) {
+  const catalog = publicModelCatalog();
+  const model = catalog.find((entry) => entry.key === item.input?.modelKey)
+    || catalog.find((entry) => entry.label === item.modelLabel);
+  if (!model) throw betaBaseContractError("Beta 出图模型缺少合法的目录标签");
+  return model.label;
+}
+
+function promptModelLabel(value) {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") throw betaBaseContractError("Beta Prompt融合必须是单个模型标签");
+  const label = value.trim();
+  if (!label) return null;
+  if (!publicAgentModelCatalog().some((model) => model.imageInput && model.label === label)) {
+    throw betaBaseContractError(`Beta Prompt融合不在图片输入 Agent 目录：${label}`);
+  }
+  return label;
+}
+
 export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
   const attempt = Number(item.attempt || 1);
   return {
@@ -158,7 +183,7 @@ export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
     "输入文本": String(item.input?.prompt || "").trim(),
     "场景参数": JSON.stringify(betaSceneParameters(item.input)),
     "配置快照": JSON.stringify(betaConfigSnapshot(item.input)),
-    "出图模型": String(item.modelLabel || item.input?.modelKey || ""),
+    "出图模型": runModelLabel(item),
     "Prompt / 工作流版本": "",
     "Attempt": Number.isInteger(attempt) && attempt > 0 ? attempt : 1,
     "错误信息": "",
@@ -260,23 +285,34 @@ function safeFileName(value, fallback) {
 
 async function materializeImages(images, directory, prefix) {
   const files = [];
+  const sizes = [];
   for (const [index, image] of (images || []).entries()) {
     const source = image?.dataUrl || image?.imageUrl || image?.url;
     if (!source) continue;
     const mimeType = String(image.type || image.mimeType || "image/png");
     const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1] || "png";
     const file = `${prefix}-${index + 1}-${safeFileName(image.name || image.fileName, `image.${extension}`)}`;
-    await writeFile(join(directory, file), await loadImageBytes(source));
+    const bytes = await loadImageBytes(source);
+    await writeFile(join(directory, file), bytes);
     files.push(file);
+    sizes.push(bytes.length);
   }
-  return files;
+  return { files, sizes };
+}
+
+function assertAttachmentReadback(fields, name, expectedSizes) {
+  const attachments = fields?.[name] ?? [];
+  if (!Array.isArray(attachments) || attachments.length !== expectedSizes.length
+    || expectedSizes.some((size, index) => !attachments[index]?.file_token || Number(attachments[index].size) !== size)) {
+    throw betaBaseContractError(`飞书${name}附件数量、token 或字节数回读不一致`);
+  }
 }
 
 export function createBetaBaseStore({
   config = BETA_BASE_CONFIG,
   run: executeCli = runLarkCli,
 } = {}) {
-  const runFields = new Map();
+  const runArchives = new Map();
   const run = async (...args) => {
     try { return await executeCli(...args); }
     catch (error) { throw normalizeBetaBaseError(error); }
@@ -302,6 +338,7 @@ export function createBetaBaseStore({
         fields,
       );
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-"));
+      let inputAttachments = null;
       try {
         const inputFiles = await materializeImages(
           item.input?.referenceImages,
@@ -318,7 +355,7 @@ export function createBetaBaseStore({
           config,
           recordId,
           config.inputFieldId,
-          inputFiles,
+          inputFiles.files,
           directory,
         );
         await uploadAttachments(
@@ -326,13 +363,16 @@ export function createBetaBaseStore({
           config,
           recordId,
           config.styleReferenceFieldId,
-          styleFiles,
+          styleFiles.files,
           directory,
         );
+        if (featureMode === "styleTransfer") {
+          inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
+        }
       } finally {
         await rm(directory, { force: true, recursive: true });
       }
-      runFields.set(recordId, fields);
+      runArchives.set(recordId, { fields, inputAttachments });
       return { recordId, recordUrl: recordUrl(config, recordId) };
     },
     async completeRun(recordId, result) {
@@ -348,6 +388,7 @@ export function createBetaBaseStore({
         resultBytes = await loadImageBytes(image.url);
         generatedFields = {
           ...(result.sync?.archiveFields || {}),
+          "Prompt融合": promptModelLabel(result.sync?.archiveFields?.["Prompt融合"]),
           "尺寸": actualImageSize(resultBytes),
         };
         await updateRecord(run, config, recordId, generatedFields);
@@ -373,18 +414,29 @@ export function createBetaBaseStore({
         "错误信息": "",
       };
       await updateRecord(run, config, recordId, completionFields);
-      const expectedFields = { ...(runFields.get(recordId) || {}), ...generatedFields, ...completionFields };
+      const runArchive = runArchives.get(recordId);
+      const expectedFields = { ...(runArchive?.fields || {}), ...generatedFields, ...completionFields };
       const archived = await getRecord(
         run,
         config,
         config.tableId,
         recordId,
-        ["结果图", ...Object.keys(expectedFields)],
+        ["结果图", ...Object.keys(runArchive?.inputAttachments || {}), ...Object.keys(expectedFields)],
       );
       for (const [field, value] of Object.entries(expectedFields)) {
-        if (String(archived?.fields?.[field] ?? "") !== String(value)) {
+        const actual = archived?.fields?.[field];
+        if (["出图模型", "Prompt融合"].includes(field) && Array.isArray(actual) && actual.length > 1) {
+          throw betaBaseContractError(`飞书模型标签回读不是单选：${field}`);
+        }
+        if (String(actual ?? "") !== String(value ?? "")) {
           throw betaBaseContractError(`飞书生成信息回读不一致：${field}`);
         }
+      }
+      if (runArchive?.inputAttachments) {
+        for (const [name, sizes] of Object.entries(runArchive.inputAttachments)) {
+          assertAttachmentReadback(archived?.fields, name, sizes);
+        }
+        assertAttachmentReadback(archived?.fields, "结果图", [resultBytes.length]);
       }
       const resultAttachment = archived?.fields?.["结果图"]?.[0];
       if (selectValue(archived?.fields?.["状态"]) !== "成功"
@@ -392,7 +444,7 @@ export function createBetaBaseStore({
         || Number(resultAttachment.size) !== resultBytes.length) {
         throw betaBaseContractError("飞书结果附件校验失败");
       }
-      runFields.delete(recordId);
+      runArchives.delete(recordId);
       return {
         attachment: {
           fileToken: resultAttachment.file_token,
@@ -405,7 +457,7 @@ export function createBetaBaseStore({
       };
     },
     async failRun(recordId, error) {
-      runFields.delete(recordId);
+      runArchives.delete(recordId);
       await updateRecord(run, config, recordId, {
         "状态": "失败",
         "错误信息": String(error?.message || "跑图失败").slice(0, 1000),

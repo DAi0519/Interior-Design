@@ -1,18 +1,20 @@
 /**
- * [INPUT]: 依赖空房房型真源、Beta 三表实时字段响应、含全景图美化的七功能标签与配置中的表/附件 ID
- * [OUTPUT]: 对外提供三表字段类型/单多选/附件/关联目标准入、实时 Schema 读取与不可重试合同错误归一化
+ * [INPUT]: 依赖出图/图片输入 Agent/空房房型真源、Beta 三表实时字段响应、含风格转换/全景图美化的八功能标签与配置中的表/附件 ID
+ * [OUTPUT]: 对外提供三表字段类型/模型单选标签/单多选/附件/关联目标准入，风格转换复用设计方式/版本快照/Agent/三图附件，实时 Schema 读取与不可重试合同错误归一化
  * [POS]: src 的 Beta 独立归档合同边界，被 beta-base Store 和批量入队前检查消费，不访问旧生成记录或 Benchmark 表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { EMPTY_ROOM_TYPES } from "./empty-room-type.mjs";
+import { publicAgentModelCatalog } from "./agent-model-config.mjs";
+import { publicModelCatalog } from "./model-config.mjs";
 
 const RUN_FIELD_TYPES = Object.freeze({
   "Run ID": "text", "批次 ID": "text", "测试时间": "text", "功能": "select",
   "样本 ID": "text", "状态": "select", "输入文本": "text", "场景参数": "text",
-  "配置快照": "text", "出图模型": "text", "Prompt / 工作流版本": "text",
+  "配置快照": "text", "出图模型": "select", "Prompt / 工作流版本": "text",
   "Attempt": "number", "错误信息": "text", "场景标签": "select", "最终 Prompt": "text",
-  "设计方式": "text", "风格选择": "text", "家具选择": "text", "Prompt融合": "text",
+  "设计方式": "text", "风格选择": "text", "家具选择": "text", "Prompt融合": "select",
   "Agent 编码": "text", "Agent 版本": "number", "生成参数": "text", "尺寸": "text",
   "时延（ms）": "number", "费用（USD）": "number",
 });
@@ -42,7 +44,9 @@ export function normalizeBetaBaseError(error) {
 function tableContracts(config, featureLabels) {
   return [
     { name: "跑图明细", tableId: config.tableId, types: RUN_FIELD_TYPES,
-      options: { "功能": featureLabels, "状态": ["运行中", "成功", "失败"], "场景标签": EMPTY_ROOM_TYPES },
+      options: { "功能": featureLabels, "状态": ["运行中", "成功", "失败"], "场景标签": EMPTY_ROOM_TYPES,
+        "出图模型": publicModelCatalog().map((model) => model.label),
+        "Prompt融合": publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label) },
       attachments: { "输入图": config.inputFieldId, "风格参考图": config.styleReferenceFieldId, "结果图": config.resultFieldId },
       fieldIds: { "测试时间": config.testTimeFieldId } },
     { name: "样本集", tableId: config.sampleSetTableId, types: SAMPLE_SET_FIELD_TYPES,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部字段类型/单选值/附件 ID 的 409 阻断、真实尺寸、独立扩图模型与功能 Schema、设计字段及完整工作流回归保障
+ * [OUTPUT]: 对外提供全部字段类型/单选值/附件 ID 的 409 阻断、Banana 2.1 独立模型归档、真实尺寸、风格转换平台/参考图风格与独立扩图功能 Schema、设计字段及完整工作流回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,11 +36,11 @@ function validSyncSchemaFields() {
     selectField("Prompt融合", publicAgentModelCatalog()
       .filter((model) => model.imageInput)
       .map((model) => model.label)),
-    selectField("功能", ["自由生图", "白模渲染", "空房设计", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "AI扩图"]),
+    selectField("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "AI扩图"]),
     selectField("状态", ["成功", "生成失败", "同步失败"]),
     selectField("生图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS]),
     selectField("空间类型", EMPTY_ROOM_TYPES),
-    selectField("设计方式", ["智能默认", "平台风格"]),
+    selectField("设计方式", ["智能默认", "平台风格", "参考图风格"]),
     ...[
       "Agent 编码",
       "其他空间类型",
@@ -84,6 +84,7 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
   assert.ok(schema.featureOptions.includes("效果图氛围转换"));
   assert.ok(schema.featureOptions.includes("全景图美化"));
   assert.ok(schema.featureOptions.includes("AI扩图"));
+  assert.ok(schema.featureOptions.includes("风格转换"));
   for (const label of IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS) assert.ok(schema.modelOptions.includes(label));
   assert.ok(schema.modelOptions.includes("Seedream 5.0 Pro"));
 
@@ -95,6 +96,50 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
     () => assertLarkSyncSchema({ data: { fields } }),
     (error) => error.statusCode === 409 && /“功能”字段缺少选项：全景图美化/.test(error.message),
   );
+});
+
+test("风格转换单选缺失时 Schema 在生成前阻断", () => {
+  const fields = validSyncSchemaFields();
+  const feature = fields.find((field) => field.name === "功能");
+  feature.options = feature.options.filter((option) => option.name !== "风格转换");
+  assert.throws(() => assertLarkSyncSchema({ fields }),
+    (error) => error.statusCode === 409 && /功能.*风格转换/.test(error.message));
+});
+
+test("风格转换平台或参考图模式复用独立 Agent 与风格归档字段", () => {
+  for (const renderMode of ["style-reference", "style-dna"]) {
+    const workflow = {
+      feature: "style-transfer",
+      renderMode,
+      agentCode: renderMode === "style-dna" ? "style-transfer-fusion" : "style-transfer-reference",
+      agentVersion: 1,
+      agentModelLabel: "Gemini 3.1 Pro",
+      selectionName: "参考图风格",
+      ...(renderMode === "style-dna" ? { styleName: "现代简约", styleVersion: 2 } : {}),
+    };
+    const fields = buildRecordFields({ actualSize: "1536x1024", durationMs: 1000,
+      finalPrompt: "Final English style-transfer prompt", sourcePrompt: "保持沙发布局",
+      modelLabel: "Flux2 Klein", preview: { outputFormat: "png", referenceImageCount: 1 }, workflow });
+    assert.equal(fields["功能"], "风格转换");
+    assert.equal(fields["设计方式"], renderMode === "style-dna" ? "平台风格" : "参考图风格");
+    assert.equal(fields["Agent 编码"], workflow.agentCode);
+    assert.equal(fields["Agent 版本"], 1);
+    assert.equal(fields["Prompt融合"], "Gemini 3.1 Pro");
+    assert.equal(fields["风格选择"], renderMode === "style-dna" ? "现代简约 · v2" : "参考图风格");
+    assert.equal(fields["原始 Prompt"], "保持沙发布局");
+    assert.equal(fields["空间类型"], undefined);
+    assert.equal(fields["家具选择"], undefined);
+    assert.deepEqual(JSON.parse(fields["生成参数"]).workflow, workflow);
+  }
+});
+
+test("参考图风格单选缺失时 Schema 阻断且智能默认仍供白模空房使用", () => {
+  const fields = validSyncSchemaFields();
+  const mode = fields.find((field) => field.name === "设计方式");
+  mode.options = mode.options.filter((option) => option.name !== "参考图风格");
+  assert.ok(mode.options.some((option) => option.name === "智能默认"));
+  assert.throws(() => assertLarkSyncSchema({ fields }),
+    (error) => error.statusCode === 409 && /设计方式.*参考图风格/.test(error.message));
 });
 
 test("AI扩图或独立模型选项缺失时 Schema 阻断且保留既有生图目录", () => {
@@ -127,6 +172,30 @@ test("后台新增模型但飞书单选未同步时在生成前阻断", () => {
     () => assertLarkSyncSchema({ data: { fields } }),
     (error) => error.statusCode === 409 && /“生图模型”字段缺少选项：Seedream 5\.0 Pro/.test(error.message),
   );
+});
+
+test("Banana 2.1 单选缺失时阻断，旧 Banana 2 不能替代新模型选项", () => {
+  const fields = validSyncSchemaFields();
+  const modelField = fields.find((field) => field.name === "生图模型");
+  modelField.options = modelField.options.filter((option) => option.name !== "Banana 2.1");
+  assert.ok(modelField.options.some((option) => option.name === "Banana 2"));
+  assert.throws(() => assertLarkSyncSchema({ data: { fields } }),
+    (error) => error.statusCode === 409 && /生图模型.*Banana 2\.1/.test(error.message));
+});
+
+test("Banana 2.1 写入生图模型，Prompt融合仍记录提示词模型", () => {
+  const schema = assertLarkSyncSchema({ data: { fields: validSyncSchemaFields() } });
+  assert.ok(schema.modelOptions.includes("Banana 2.1"));
+  const fields = buildRecordFields({
+    actualSize: "1200x896", durationMs: 1000, finalPrompt: "保持室内结构并增强材质",
+    modelLabel: "Banana 2.1", preview: { outputFormat: "png", referenceImageCount: 1,
+      resolution: "1K", ratio: "4:3", transport: "responses" },
+    workflow: { feature: "white-model", agentModelLabel: "Gemini 3.1 Pro" },
+  });
+  assert.equal(fields["生图模型"], "Banana 2.1");
+  assert.equal(fields["Prompt融合"], "Gemini 3.1 Pro");
+  assert.equal(fields["尺寸"], "1200x896");
+  assert.equal(fields["模型"], undefined);
 });
 
 test("生成记录字段类型或附件 ID 漂移时一次汇总阻断", () => {

@@ -1,0 +1,86 @@
+{
+  "cause": {
+    "outerPanelScrollTop": 339,
+    "outerPanelClientHeight": 850,
+    "outerPanelScrollHeight": 1189,
+    "sidebarTop": -250,
+    "actionBottom": 600,
+    "panelBottom": 940
+  },
+  "afterDropdownChecks": {
+    "images": 4,
+    "layout": [
+      {
+        "bottom": 940,
+        "clientHeight": 850,
+        "overflow": "clip",
+        "position": "static",
+        "scrollHeight": 850,
+        "scrollTop": 0,
+        "selector": "control-panel",
+        "top": 88
+      },
+      {
+        "bottom": 939,
+        "clientHeight": 850,
+        "overflow": "hidden auto",
+        "position": "static",
+        "scrollHeight": 850,
+        "scrollTop": 0,
+        "selector": "feature-directory",
+        "top": 89
+      },
+      {
+        "bottom": 861,
+        "clientHeight": 772,
+        "overflow": "hidden auto",
+        "position": "relative",
+        "scrollHeight": 1243,
+        "scrollTop": 471,
+        "selector": "control-panel-scroll",
+        "top": 89
+      },
+      {
+        "bottom": 939,
+        "clientHeight": 78,
+        "overflow": "visible",
+        "position": "relative",
+        "scrollHeight": 78,
+        "scrollTop": 0,
+        "selector": "action-section generation-control",
+        "top": 861
+      }
+    ],
+    "values": [
+      {
+        "id": "ratioSelect",
+        "value": "2:3"
+      },
+      {
+        "id": "resolutionSelect",
+        "value": "2K"
+      },
+      {
+        "id": "promptAgentModelSelect",
+        "value": "gemini3pro"
+      }
+    ],
+    "viewport": [
+      1679,
+      972
+    ]
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "pageWidth": 384,
+    "directoryColumns": 2,
+    "workspaceColumns": 1
+  },
+  "tests": {
+    "passed": 28,
+    "failed": 0
+  },
+  "detector": "Degraded: missing optional parser modules; browser geometry and screenshots checked",
+  "liveUpdate": "Only theme link updated to v34; no page reload, service restart, generation, or value changes"
+}

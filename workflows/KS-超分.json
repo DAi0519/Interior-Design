@@ -1,0 +1,122 @@
+{
+  "id": "b83cf737-74b9-4c69-9333-f0c119176d93",
+  "revision": 0,
+  "last_node_id": 146,
+  "last_link_id": 284,
+  "groups": [
+    {
+      "id": 2,
+      "title": "放大",
+      "bounding": [
+        44.45607376098633,
+        -27.21238899230957,
+        743.7631225585938,
+        692.4736938476562
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "画质模糊处理",
+      "bounding": [
+        -378.3428955078125,
+        -27.154308319091797,
+        382.041748046875,
+        679.3091430664062
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "效果对比",
+      "bounding": [
+        829.0933227539062,
+        -21.75910758972168,
+        392.6018371582031,
+        677.8115234375
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "短边*2计算",
+      "bounding": [
+        -375.3351745605469,
+        -385.1924743652344,
+        1163.5430908203125,
+        334.35333251953125
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7247295000000004,
+      "offset": [
+        1326.3758336673882,
+        308.768786654909
+      ]
+    },
+    "frontendVersion": "1.53.10",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "workflowRendererVersion": "LG",
+    "canvasLabSource": {
+      "file": "KS-超分.json",
+      "sha256": "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
+      "[INPUT]": "用户KS超分附件的原节点、连线和参数；实际运行由src/image-upscale-workflow.mjs适配",
+      "[OUTPUT]": "KS来源画布归档，保留0.75MP预处理与源图短边两倍规则，不作为产品运行依赖",
+      "[POS]": "workflows的KS原图语义归档，与运行工厂和来源SHA-256对应",
+      "[PROTOCOL]": "变更时更新此头部，然后检查 CLAUDE.md"
+    }
+  },
+  "version": 0.4,
+  "nodes": [
+    {"id": "SeedVR2LoadVAEModel-98a13167f08a708bf4f0bebfac288fa9", "type": "SeedVR2LoadVAEModel", "pos": [67.48603057861328, 337.7746276855469], "size": [302.6608581542969, 298], "flags": {}, "order": 0, "mode": 0, "inputs": [{"label": "torch_compile_args", "name": "torch_compile_args", "shape": 7, "type": "TORCH_COMPILE_ARGS", "link": null}], "outputs": [{"label": "SEEDVR2_VAE", "name": "SEEDVR2_VAE", "type": "SEEDVR2_VAE", "links": [221]}], "properties": {"Node name for S&R": "SeedVR2LoadVAEModel", "device_label": "", "cnr_id": "seedvr2_videoupscaler", "ver": "912ab4a5da8bb3590c4659f8f19160a7bd88a656", "ue_properties": {"widget_ue_connectable": {}, "input_ue_unconnectable": {}, "version": "7.5.1"}}, "widgets_values": ["ema_vae_fp16.safetensors", "cuda:0", true, 1024, 128, true, 1024, 128, "false", "cpu", false], "widgets_values_named": {"model": "ema_vae_fp16.safetensors", "device": "cuda:0", "encode_tiled": true, "encode_tile_size": 1024, "encode_tile_overlap": 128, "decode_tiled": true, "decode_tile_size": 1024, "decode_tile_overlap": 128, "tile_debug": "false", "offload_device": "cpu", "cache_model": false}},
+    {"id": "SeedVR2LoadDiTModel-7fe909015813519f5d96d2147172eb0d", "type": "SeedVR2LoadDiTModel", "pos": [60.746437072753906, 54.9627571105957], "size": [304.1529541015625, 203.3718719482422], "flags": {}, "order": 1, "mode": 0, "inputs": [{"label": "torch_compile_args", "name": "torch_compile_args", "shape": 7, "type": "TORCH_COMPILE_ARGS", "link": null}], "outputs": [{"label": "SEEDVR2_DIT", "name": "SEEDVR2_DIT", "type": "SEEDVR2_DIT", "links": [220]}], "properties": {"Node name for S&R": "SeedVR2LoadDiTModel", "device_label": "", "cnr_id": "seedvr2_videoupscaler", "ver": "912ab4a5da8bb3590c4659f8f19160a7bd88a656", "ue_properties": {"widget_ue_connectable": {}, "input_ue_unconnectable": {}, "version": "7.5.1"}}, "widgets_values": ["seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors", "cuda:0", 32, false, "cpu", false, "sdpa"], "widgets_values_named": {"model": "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors", "device": "cuda:0", "blocks_to_swap": 32, "swap_io_components": false, "offload_device": "cpu", "cache_model": false, "attention_mode": "sdpa"}},
+    {"id": "MaaSReportImage-4b1dc39f636e7489b42f628ab6b08a3b", "type": "MaaSReportImage", "pos": [1285.3848876953125, 63.67546463012695], "size": [270, 174], "flags": {}, "order": 16, "mode": 0, "inputs": [{"name": "image", "type": "IMAGE", "link": 277}, {"name": "mask", "shape": 7, "type": "MASK", "link": null}], "outputs": [], "properties": {"Node name for S&R": "MaaSReportImage", "device_label": "GPU"}, "widgets_values": ["result_img", "", 1, ".jpg", 80], "widgets_values_named": {"key": "result_img", "bucket_key": "", "batch_size": 1, "format": ".jpg", "quality": 80}, "color": "#232", "bgcolor": "#353", "shape": 1},
+    {"id": "Reroute-65cfc16d2c609121b6f55155964c6091", "type": "Reroute", "pos": [-559.6239624023438, 112.65316009521484], "size": [75, 26], "flags": {}, "order": 6, "mode": 0, "inputs": [{"name": "", "type": "*", "link": 280}], "outputs": [{"name": "", "type": "IMAGE", "links": [281, 282, 283]}], "properties": {"showOutputText": false, "horizontal": false}},
+    {"id": "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", "type": "SeedVR2VideoUpscaler", "pos": [436.0897521972656, 215.24595642089844], "size": [277.0309753417969, 386], "flags": {}, "order": 13, "mode": 0, "inputs": [{"label": "image", "name": "image", "type": "IMAGE", "link": 217}, {"label": "dit", "name": "dit", "type": "SEEDVR2_DIT", "link": 220}, {"label": "vae", "name": "vae", "type": "SEEDVR2_VAE", "link": 221}, {"name": "resolution", "type": "INT", "widget": {"name": "resolution"}, "link": 284}], "outputs": [{"label": "IMAGE", "name": "IMAGE", "type": "IMAGE", "links": [186, 187, 277]}], "properties": {"Node name for S&R": "SeedVR2VideoUpscaler", "device_label": "", "cnr_id": "seedvr2_videoupscaler", "ver": "912ab4a5da8bb3590c4659f8f19160a7bd88a656", "ue_properties": {"widget_ue_connectable": {}, "input_ue_unconnectable": {}, "version": "7.5.1"}}, "widgets_values": [2627526869, "randomize", 16, 0, 1, false, "lab", 0, 0, 0, 0, "cpu", false], "widgets_values_named": {"seed": 2627526869, "control_after_generate": "randomize", "resolution": 16, "max_resolution": 0, "batch_size": 1, "uniform_batch_size": false, "color_correction": "lab", "temporal_overlap": 0, "prepend_frames": 0, "input_noise_scale": 0, "latent_noise_scale": 0, "offload_device": "cpu", "enable_debug": false}},
+    {"id": "SimpleMath+-32a24ad895474bfe79c8c050e16a0ca3", "type": "SimpleMath+", "pos": [-95.7333755493164, -219.2371826171875], "size": [270, 98], "flags": {}, "order": 9, "mode": 0, "inputs": [{"name": "a", "shape": 7, "type": "*", "link": 268}, {"name": "b", "shape": 7, "type": "*", "link": 269}, {"name": "c", "shape": 7, "type": "*", "link": null}], "outputs": [{"label": "整数", "name": "INT", "type": "INT", "links": null}, {"label": "浮点", "name": "FLOAT", "type": "FLOAT", "links": [267]}], "properties": {"Node name for S&R": "SimpleMath+", "device_label": "", "cnr_id": "comfyui_essentials", "ver": "9d9f4bedfc9f0321c19faf71855e228c93bd0dc9"}, "widgets_values": ["min(a,b)"], "widgets_values_named": {"value": "min(a,b)"}},
+    {"id": "easy imageSize-f915b27d8706f4c6f72272b204a65568", "type": "easy imageSize", "pos": [-332.2487487792969, -220.64479064941406], "size": [210, 108], "flags": {}, "order": 7, "mode": 0, "inputs": [{"label": "图像", "name": "image", "type": "IMAGE", "link": 281}], "outputs": [{"label": "宽度", "name": "width_int", "type": "INT", "links": [268]}, {"label": "高度", "name": "height_int", "type": "INT", "links": [269]}], "properties": {"Node name for S&R": "easy imageSize", "device_label": ""}, "widgets_values": ["Width: 716 , Height: 1294"], "widgets_values_named": {"info": "Width: 716 , Height: 1294"}},
+    {"id": "SimpleMath+-2f40d41d4d56fb39f28800a3c2cfe3e3", "type": "SimpleMath+", "pos": [199.40321350097656, -221.40432739257812], "size": [270, 98], "flags": {}, "order": 11, "mode": 0, "inputs": [{"name": "a", "shape": 7, "type": "*", "link": 267}, {"name": "b", "shape": 7, "type": "*", "link": null}, {"name": "c", "shape": 7, "type": "*", "link": null}], "outputs": [{"label": "整数", "name": "INT", "type": "INT", "links": [279, 284]}, {"label": "浮点", "name": "FLOAT", "type": "FLOAT", "links": []}], "properties": {"Node name for S&R": "SimpleMath+", "device_label": "", "cnr_id": "comfyui_essentials", "ver": "9d9f4bedfc9f0321c19faf71855e228c93bd0dc9"}, "widgets_values": ["a*2"], "widgets_values_named": {"value": "a*2"}},
+    {"id": "easy showAnything-fdf43ffc87eab02de898122015ea4bac", "type": "easy showAnything", "pos": [501.9059143066406, -223.88186645507812], "size": [210, 96.97509002685547], "flags": {}, "order": 12, "mode": 0, "inputs": [{"name": "anything", "shape": 7, "type": "*", "link": 279}], "outputs": [{"name": "output", "type": "*", "links": null}], "title": "短边*2数值输出", "properties": {"Node name for S&R": "easy showAnything", "device_label": ""}, "widgets_values": ["1432"], "widgets_values_named": {"text": "1432"}, "color": "#322", "bgcolor": "#533"},
+    {"id": "MaaSUrlLoader-1c8af125811cf1ac50695b83063578f4", "type": "MaaSUrlLoader", "pos": [-861.9276733398438, -3.061695098876953], "size": [270, 78], "flags": {}, "order": 4, "mode": 0, "inputs": [{"name": "url", "type": "STRING", "widget": {"name": "url"}, "link": 272}], "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [273]}, {"name": "MASK", "type": "MASK", "links": null}], "properties": {"Node name for S&R": "MaaSUrlLoader", "device_label": "GPU"}, "widgets_values": ["https://"], "widgets_values_named": {"url": "https://"}, "color": "#232", "bgcolor": "#353"},
+    {"id": "LoadImage-8f23922029986aa1adfe7c49ac5fd612", "type": "LoadImage", "pos": [-931.8124389648438, 312.07110595703125], "size": [338.0973815917969, 332.305908203125], "flags": {}, "order": 2, "mode": 4, "inputs": [], "outputs": [{"label": "图像", "name": "IMAGE", "type": "IMAGE", "links": []}, {"label": "遮罩", "name": "MASK", "type": "MASK", "links": null}], "properties": {"Node name for S&R": "LoadImage", "device_label": "", "cnr_id": "comfy-core", "ver": "0.3.50", "ue_properties": {"widget_ue_connectable": {"image": true, "upload": true}, "version": "7.0.1"}}, "widgets_values": ["自由相机1-未命名 (20).jpg", "image"], "widgets_values_named": {"image": "自由相机1-未命名 (20).jpg", "upload": "image"}},
+    {"id": "MaaSCheckImageSize-9642ed9037671c5f8f622c026dc63069", "type": "MaaSCheckImageSize", "pos": [-861.7294921875, 112.92105865478516], "size": [270, 130], "flags": {}, "order": 5, "mode": 0, "inputs": [{"name": "image", "type": "IMAGE", "link": 273}], "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [280]}], "properties": {"Node name for S&R": "MaaSCheckImageSize", "device_label": ""}, "widgets_values": [384, 3200, 384, 3200], "widgets_values_named": {"min_width": 384, "max_width": 3200, "min_height": 384, "max_height": 3200}, "color": "#232", "bgcolor": "#353"},
+    {"id": "ImageScaleToTotalPixels-14fb5a9c5ce71fe5903cf2467c2da65a", "type": "ImageScaleToTotalPixels", "pos": [-326.078125, 48.94514846801758], "size": [285.20831298828125, 106], "flags": {}, "order": 8, "mode": 0, "inputs": [{"label": "图像", "name": "image", "type": "IMAGE", "link": 282}], "outputs": [{"label": "图像", "name": "IMAGE", "type": "IMAGE", "links": [25, 217]}], "properties": {"Node name for S&R": "ImageScaleToTotalPixels", "device_label": "GPU", "cnr_id": "comfy-core", "ver": "0.3.68", "ue_properties": {"widget_ue_connectable": {}, "input_ue_unconnectable": {}, "version": "7.5.1"}}, "widgets_values": ["lanczos", 0.75, 1], "widgets_values_named": {"upscale_method": "lanczos", "megapixels": 0.75, "resolution_steps": 1}},
+    {"id": "MaaSInputString-f122c0ae1456f3846a8745f7e5a3b655", "type": "MaaSInputString", "pos": [-1088.3743896484375, 1.8696155548095703], "size": [210, 245.16781616210938], "flags": {}, "order": 3, "mode": 0, "inputs": [], "outputs": [{"name": "string", "type": "STRING", "links": [272]}], "title": "接口参数：input_img", "properties": {"Node name for S&R": "MaaSInputString", "device_label": ""}, "widgets_values": ["input_img", "", false, "", ""], "widgets_values_named": {"key": "input_img", "value": "", "required": false, "display_name": "", "info": ""}, "color": "#232", "bgcolor": "#353", "shape": 1},
+    {"id": "Image Comparer (rgthree)-33139b8cb21871955d684dc09e2e4605", "type": "Image Comparer (rgthree)", "pos": [853.6793823242188, 69.32078552246094], "size": [344.43701171875, 556.0226440429688], "flags": {}, "order": 14, "mode": 0, "inputs": [{"dir": 3, "label": "图像_A", "name": "image_a", "type": "IMAGE", "link": 283}, {"dir": 3, "label": "图像_B", "name": "image_b", "type": "IMAGE", "link": 186}], "outputs": [{"dir": 4, "name": "images", "shape": 3, "type": "IMAGE", "links": null}], "properties": {"comparer_mode": "Slide", "device_label": "", "cnr_id": "rgthree-comfy", "ver": "c5ffa43de4ddb17244626a65a30700a05dd6b67d", "ue_properties": {"widget_ue_connectable": {}, "version": "7.0.1"}}, "widgets_values": [[{"url": "/api/view?filename=rgthree.compare._temp_bptou_00005_.png&type=temp&subfolder=&rand=0.8482909288692516", "name": "A", "selected": true}, {"url": "/api/view?filename=rgthree.compare._temp_bptou_00006_.png&type=temp&subfolder=&rand=0.7115829325377117", "name": "B", "selected": true}]], "widgets_values_named": {"rgthree_comparer": {"images": [{"url": "/api/view?filename=rgthree.compare._temp_bptou_00005_.png&type=temp&subfolder=&rand=0.8482909288692516", "name": "A", "selected": true, "img": {}}, {"url": "/api/view?filename=rgthree.compare._temp_bptou_00006_.png&type=temp&subfolder=&rand=0.7115829325377117", "name": "B", "selected": true, "img": {}}]}}},
+    {"id": "SaveImage-058658245be61f23a41320af131fbcfc", "type": "SaveImage", "pos": [1279.5, 298.5658264160156], "size": [339.0055236816406, 292.73419189453125], "flags": {}, "order": 15, "mode": 4, "inputs": [{"label": "图像", "name": "images", "type": "IMAGE", "link": 187}], "outputs": [{"name": "images", "type": "IMAGE", "links": null}], "properties": {"Node name for S&R": "SaveImage", "device_label": "", "cnr_id": "comfy-core", "ver": "0.3.68", "ue_properties": {"widget_ue_connectable": {}, "input_ue_unconnectable": {}, "version": "7.5.1"}}, "widgets_values": ["ComfyUI"], "widgets_values_named": {"filename_prefix": "ComfyUI"}},
+    {"id": "PreviewImage-6628eb4d353a13e5051c67aef1ab7733", "type": "PreviewImage", "pos": [-350.53872344382216, 223.54336504415156], "size": [307.76837158203125, 364.85272216796875], "flags": {}, "order": 10, "mode": 4, "inputs": [{"label": "图像", "name": "images", "type": "IMAGE", "link": 25}], "outputs": [{"name": "images", "type": "IMAGE", "links": null}], "properties": {"Node name for S&R": "PreviewImage", "device_label": "", "cnr_id": "comfy-core", "ver": "0.3.68", "ue_properties": {"widget_ue_connectable": {}, "input_ue_unconnectable": {}, "version": "7.5.1"}}}
+  ],
+  "links": [
+    [25, "ImageScaleToTotalPixels-14fb5a9c5ce71fe5903cf2467c2da65a", 0, "PreviewImage-6628eb4d353a13e5051c67aef1ab7733", 0, "IMAGE"],
+    [186, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 0, "Image Comparer (rgthree)-33139b8cb21871955d684dc09e2e4605", 1, "IMAGE"],
+    [187, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 0, "SaveImage-058658245be61f23a41320af131fbcfc", 0, "IMAGE"],
+    [217, "ImageScaleToTotalPixels-14fb5a9c5ce71fe5903cf2467c2da65a", 0, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 0, "IMAGE"],
+    [220, "SeedVR2LoadDiTModel-7fe909015813519f5d96d2147172eb0d", 0, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 1, "SEEDVR2_DIT"],
+    [221, "SeedVR2LoadVAEModel-98a13167f08a708bf4f0bebfac288fa9", 0, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 2, "SEEDVR2_VAE"],
+    [267, "SimpleMath+-32a24ad895474bfe79c8c050e16a0ca3", 1, "SimpleMath+-2f40d41d4d56fb39f28800a3c2cfe3e3", 0, "*"],
+    [268, "easy imageSize-f915b27d8706f4c6f72272b204a65568", 0, "SimpleMath+-32a24ad895474bfe79c8c050e16a0ca3", 0, "*"],
+    [269, "easy imageSize-f915b27d8706f4c6f72272b204a65568", 1, "SimpleMath+-32a24ad895474bfe79c8c050e16a0ca3", 1, "*"],
+    [272, "MaaSInputString-f122c0ae1456f3846a8745f7e5a3b655", 0, "MaaSUrlLoader-1c8af125811cf1ac50695b83063578f4", 0, "STRING"],
+    [273, "MaaSUrlLoader-1c8af125811cf1ac50695b83063578f4", 0, "MaaSCheckImageSize-9642ed9037671c5f8f622c026dc63069", 0, "IMAGE"],
+    [277, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 0, "MaaSReportImage-4b1dc39f636e7489b42f628ab6b08a3b", 0, "IMAGE"],
+    [279, "SimpleMath+-2f40d41d4d56fb39f28800a3c2cfe3e3", 0, "easy showAnything-fdf43ffc87eab02de898122015ea4bac", 0, "*"],
+    [280, "MaaSCheckImageSize-9642ed9037671c5f8f622c026dc63069", 0, "Reroute-65cfc16d2c609121b6f55155964c6091", 0, "*"],
+    [281, "Reroute-65cfc16d2c609121b6f55155964c6091", 0, "easy imageSize-f915b27d8706f4c6f72272b204a65568", 0, "IMAGE"],
+    [282, "Reroute-65cfc16d2c609121b6f55155964c6091", 0, "ImageScaleToTotalPixels-14fb5a9c5ce71fe5903cf2467c2da65a", 0, "IMAGE"],
+    [283, "Reroute-65cfc16d2c609121b6f55155964c6091", 0, "Image Comparer (rgthree)-33139b8cb21871955d684dc09e2e4605", 0, "IMAGE"],
+    [284, "SimpleMath+-2f40d41d4d56fb39f28800a3c2cfe3e3", 0, "SeedVR2VideoUpscaler-1cc2c06a929a2fa709bd1852cfad8aa1", 3, "INT"]
+  ]
+}
