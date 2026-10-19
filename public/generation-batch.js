@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 model-capabilities.js 的按功能合法尺寸推导、含风格转换/效果图氛围转换/美化及全景图美化的统一生成输入、使用 Flux 默认模型参数的模型目录与批量执行回调
- * [OUTPUT]: 对外提供逐模型及功能合法尺寸/质量适配、遗留工作流档位剥离和最多四项、并发度受限、保序且允许部分失败的批量调度
+ * [OUTPUT]: 对外提供逐模型及功能合法尺寸/质量适配、遗留工作流档位剥离和不设总项数上限、并发度受限、保序且允许部分失败的批量调度
  * [POS]: public 的多模型生成领域层，与 DOM、网络客户端和结果渲染分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -59,8 +59,8 @@ export async function runGenerationBatch({
   items,
   onProgress = () => {},
 }) {
-  if (!Array.isArray(items) || items.length < 1 || items.length > 4) {
-    throw new RangeError("批量出图需要选择 1–4 个模型");
+  if (!Array.isArray(items) || items.length < 1) {
+    throw new RangeError("批量出图需要至少 1 个生成项");
   }
   const results = new Array(items.length);
   let cursor = 0;

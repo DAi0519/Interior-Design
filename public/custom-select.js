@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖 .compact-config-field 与 .field 内的原生 select 选项、可选 data-dropdown-placement、禁用/change 语义与浏览器指针/焦点生命周期
- * [OUTPUT]: 对外提供与原生值同步且显式展示详情的自定义下拉触发器、向上/向下菜单定位、跨浏览器稳定指针选择和完整键盘操作，并导出指针焦点稳定器
- * [POS]: public 的表单渐进增强层，统一 Style DNA、场景融合 Agent、出图模型、反推模型、参数与 Benchmark 下拉视觉
+ * [INPUT]: 依赖 .compact-config-field 与 .field 内的原生 select 选项、可选 data-dropdown-placement/data-searchable、model-multi-select 的共享搜索单选控件、禁用/change 语义与浏览器指针/焦点生命周期
+ * [OUTPUT]: 对外提供与原生值同步的常规下拉及声明式搜索单选增强、向上/向下菜单定位、跨浏览器稳定指针选择和完整键盘操作，并导出指针焦点稳定器与搜索单选适配器
+ * [POS]: public 的表单渐进增强层，统一 Style DNA、场景融合 Agent、风格、反推模型、参数与 Benchmark 下拉视觉；搜索分支保留原生表单值与 change 合同
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { bindSearchableChoice } from "./model-multi-select.js?v=4";
 
 function optionCopy(option) {
   const [label, ...details] = option.textContent.split(" · ");
@@ -36,10 +38,49 @@ export function stabilizePointerFocus(event, item) {
   return true;
 }
 
+export function enhanceSearchableSelect(select, bindChoice = bindSearchableChoice) {
+  const doc = select.ownerDocument || document;
+  const root = doc.createElement("div");
+  select.insertAdjacentElement("afterend", root);
+  const picker = bindChoice({
+    container: root,
+    label: select.getAttribute("aria-label") || "选择选项",
+    multiple: false,
+    placeholder: select.dataset.placeholder || "请选择",
+    searchPlaceholder: select.dataset.searchPlaceholder || "搜索选项名称",
+    presentOption: (option) => ({ label: option.label, selectable: !option.disabled }),
+    onChange(keys) {
+      const option = [...select.options].find((entry) => entry.value === keys[0]);
+      if (!option || !option.value || option.disabled || option.parentElement?.disabled === true || select.disabled) return;
+      select.value = option.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+  });
+
+  function sync() {
+    const catalog = [...select.options].filter((option) => option.value && !option.hidden)
+      .map((option) => ({ key: option.value, label: option.textContent,
+        disabled: option.disabled || option.parentElement?.disabled === true }));
+    root.hidden = select.hidden || select.classList.contains("hidden");
+    picker.setDisabled(select.disabled || root.hidden);
+    picker.render(catalog, catalog.some((option) => option.key === select.value) ? [select.value] : []);
+  }
+
+  select.addEventListener("change", sync);
+  const Observer = doc.defaultView?.MutationObserver || MutationObserver;
+  new Observer(sync).observe(select, { attributes: true, childList: true, subtree: true });
+  sync();
+  return picker;
+}
+
 function enhanceSelect(select) {
   if (select.dataset.enhanced === "true") return;
   select.dataset.enhanced = "true";
   select.classList.add("custom-select-native");
+  if (select.dataset.searchable === "true") {
+    enhanceSearchableSelect(select);
+    return;
+  }
 
   const root = document.createElement("div");
   const trigger = document.createElement("button");

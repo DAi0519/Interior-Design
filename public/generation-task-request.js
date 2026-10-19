@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、风格转换/效果图氛围转换/美化及全景图美化、风格、参考图状态与后台任务批次元数据
- * [OUTPUT]: 对外提供单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含风格转换/效果图氛围转换/美化及全景图美化的分功能加载文案
+ * [OUTPUT]: 对外提供不设模型数上限的单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含风格转换/效果图氛围转换/美化及全景图美化的分功能加载文案
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,8 +8,8 @@
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 
 export function generationItemsForSelection(models, generationCount = 1) {
-  if (!Array.isArray(models) || models.length < 1 || models.length > 4) {
-    throw new RangeError("请选择 1–4 个出图模型");
+  if (!Array.isArray(models) || models.length < 1) {
+    throw new RangeError("请至少选择 1 个出图模型");
   }
   const count = Number(generationCount);
   if (!Number.isInteger(count) || count < 1 || count > 4) {

@@ -1,16 +1,17 @@
 /**
- * [INPUT]: 依赖 beta.html DOM、beta-model-rules 八功能/全景 2:1 与功能尺寸合同、beta-design-config 独立风格来源/版本与 beta-configuration/beta-page-state 本机持久配置状态、effect-beautification-controls 强度色调控制器、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、beta-assets 图片去重、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的八功能（含明确平台/参考图风格转换）/样本集/模型/美化强度色调/含 GPT Image 2.5 质量档的参数配置、仅已上架的精模 Prompt 选择、出图模型完整名称悬停/无障碍标签、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
+ * [INPUT]: 依赖 beta.html DOM、model-multi-select 已选摘要/简洁搜索多选控件、beta-model-rules 八功能/全景 2:1 与功能尺寸合同、beta-design-config 独立风格来源/版本与 beta-configuration/beta-page-state 本机持久配置状态、effect-beautification-controls 强度色调控制器、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、beta-assets 图片去重、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的八功能（含明确平台/参考图风格转换）/样本集/不限数量且可简洁搜索的模型多选/美化强度色调/含 GPT Image 2.5 质量档的参数配置、仅已上架的精模 Prompt 选择、出图模型已选摘要及完整名称、同宽可搜索单选平台风格、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import "./custom-select.js?v=7";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=4";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=4";
+import "./custom-select.js?v=8";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=5";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=5";
 import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=2";
 import { createBetaDesignConfiguration } from "./beta-design-config.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=1";
+import { bindModelMultiSelect } from "./model-multi-select.js?v=4";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
 import { createBetaSampleLibrary } from "./beta-sample-library.js?v=7";
@@ -69,6 +70,22 @@ const state = {
   styleReference: null,
   stylesConfig: null,
 };
+
+const modelSelection = bindModelMultiSelect({
+  container: elements.modelOptions,
+  onChange(keys) {
+    state.selectedModelKeys = keys;
+    renderOutputControls();
+    saveConfiguration();
+  },
+  onMessage(message) {
+    elements.runHint.textContent = message;
+  },
+  presentOption(model) {
+    const selectable = betaModelSelectable(model, state.featureMode);
+    return { label: model.label, selectable, reason: selectable ? "" : "不支持 2:1" };
+  },
+});
 
 const effectBeautificationControls = bindEffectBeautificationControls({
   intensityGroup: elements.effectBeautificationIntensityOptions,
@@ -277,26 +294,7 @@ function renderModels() {
       || selectable[0];
     state.selectedModelKeys = [defaultModel.key];
   }
-  elements.modelOptions.replaceChildren(...runnable.map((model) => {
-    const button = document.createElement("button");
-    const label = document.createElement("span");
-    const check = document.createElement("i");
-    const selected = state.selectedModelKeys.includes(model.key);
-    button.type = "button";
-    button.className = "model-option-toggle";
-    button.classList.toggle("selected", selected);
-    button.dataset.modelKey = model.key;
-    button.disabled = !betaModelSelectable(model, state.featureMode);
-    button.setAttribute("role", "checkbox");
-    button.setAttribute("aria-checked", String(selected));
-    label.textContent = button.disabled ? `${model.label} · 不支持 2:1` : model.label;
-    button.title = label.textContent;
-    button.setAttribute("aria-label", label.textContent);
-    check.setAttribute("aria-hidden", "true");
-    check.textContent = selected ? "✓" : "+";
-    button.append(label, check);
-    return button;
-  }));
+  modelSelection.render(runnable, state.selectedModelKeys);
   renderOutputControls();
 }
 
@@ -612,20 +610,6 @@ function bindEvents() {
       onFiles: (files) => setSingleReference(files, key),
     });
   }
-  elements.modelOptions.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-model-key]");
-    if (!button || button.disabled) return;
-    const key = button.dataset.modelKey;
-    if (state.selectedModelKeys.includes(key)) {
-      if (state.selectedModelKeys.length > 1) {
-        state.selectedModelKeys = state.selectedModelKeys.filter((entry) => entry !== key);
-      }
-    } else if (state.selectedModelKeys.length < 4) {
-      state.selectedModelKeys.push(key);
-    }
-    renderModels();
-    saveConfiguration();
-  });
   elements.renderModeSelect.addEventListener("change", () => {
     renderDesignConfig();
     renderRunSummary();

@@ -20,6 +20,7 @@ outpaint-continuous/: 2026-10-15 去除选中框、预览浮点几何与执行�
 outpaint-scale/: 2026-10-15 四角等比缩放/倍率预设/连续大小与边界提示、真实重采样及664项测试证据，详见 outpaint-scale/CLAUDE.md
 outpaint-workspace/: 2026-10-15 参考Figma只读稿的主区域棋盘格构图、桌面/窄屏/任务切换与647项测试证据，详见 outpaint-workspace/CLAUDE.md
 qwen-outpaint/: 2026-10-15 Qwen Image Edit 2511 原生遮罩扩图实跑、中心保留与产物证据，详见 qwen-outpaint/CLAUDE.md
+qwen-outpaint-alignment/: 2026-10-19 Qwen 2K/4K原图边缘断层的同尺度推理/遮罩/恢复修复与实跑记录，详见 qwen-outpaint-alignment/CLAUDE.md
 CLAUDE.md: 本目录历史界面证据与真实 API 实测来源地图
 
 时间与状态以各记录内容为准；接口、结果尺寸、原图区像素一致和质量验收分别判断，不能由截图或产物文件存在性推定通过。

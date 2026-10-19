@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与服务端/浏览器批量生成纯规则
- * [OUTPUT]: 对外提供最多四模型、批次标识、逐模型及功能参数适配、效果图氛围转换/美化固定格式、Seedream 5.0 Pro 全景 4K 保留、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
+ * [OUTPUT]: 对外提供超过四模型的批次标识、逐模型及功能参数适配、效果图氛围转换/美化固定格式、Seedream 5.0 Pro 全景 4K 保留、保序并发、部分失败与 ComfyUI 分段耗时摘要回归保障
  * [POS]: test 的多模型批量生成单元测试，不发送真实模型请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,7 +27,13 @@ test("服务端只在多模型请求中保留严格批次元数据", () => {
     batchId: "batch_20260806",
     batchIndex: 3,
   });
-  assert.throws(() => normalizeGenerationBatch({ batchCount: 5 }), /最多生成 4 张图/);
+  assert.deepEqual(normalizeGenerationBatch({
+    batchCount: 8, batchId: "batch_all_models", batchIndex: 8,
+  }), { batchCount: 8, batchId: "batch_all_models", batchIndex: 8 });
+  for (const batchCount of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => normalizeGenerationBatch({ batchCount, batchId: "batch_all_models", batchIndex: 1 }));
+  }
+  assert.throws(() => normalizeGenerationBatch({ batchCount: 8, batchId: "batch_all_models", batchIndex: 9 }));
   assert.throws(
     () => normalizeGenerationBatch({ batchCount: 2, batchIndex: 1 }),
     /批次 ID/,
@@ -129,13 +135,12 @@ test("Flux 结果摘要区分 Prompt、排队与 Comfy 执行耗时", () => {
   assert.match(metadata, /Comfy 执行 30\.5s/);
 });
 
-test("批量调度最多并发两个并按模型顺序保留部分失败", async () => {
+test("超过四项的批量调度默认最多并发两个并保序保留部分失败", async () => {
   let active = 0;
   let maximumActive = 0;
   const progress = [];
   const outcomes = await runGenerationBatch({
-    concurrency: 2,
-    items: ["a", "b", "c", "d"],
+    items: ["a", "b", "c", "d", "e", "f", "g", "h"],
     onProgress: ({ completed }) => progress.push(completed),
     async execute(item) {
       active += 1;
@@ -148,9 +153,9 @@ test("批量调度最多并发两个并按模型顺序保留部分失败", async
   });
 
   assert.equal(maximumActive, 2);
-  assert.deepEqual(outcomes.map((entry) => entry.item), ["a", "b", "c", "d"]);
+  assert.deepEqual(outcomes.map((entry) => entry.item), ["a", "b", "c", "d", "e", "f", "g", "h"]);
   assert.deepEqual(outcomes.map((entry) => entry.status), [
-    "fulfilled", "fulfilled", "rejected", "fulfilled",
+    "fulfilled", "fulfilled", "rejected", "fulfilled", "fulfilled", "fulfilled", "fulfilled", "fulfilled",
   ]);
-  assert.deepEqual(progress.sort(), [1, 2, 3, 4]);
+  assert.deepEqual(progress.sort(), [1, 2, 3, 4, 5, 6, 7, 8]);
 });

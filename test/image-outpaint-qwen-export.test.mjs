@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Qwen 运行图/独立导出工厂、已保存画布/API JSON 与 Node 文件读取
- * [OUTPUT]: 对外提供真源一致、双向端口/类型/槽位/无环、控件顺序及无图片/凭据/服务地址的离线交付验证
+ * [OUTPUT]: 对外提供真源一致、统一推理/恢复目标/原遮罩回贴、双向端口/类型/槽位/无环、控件顺序及无图片/凭据/服务地址的离线交付验证
  * [POS]: test 的独立 ComfyUI 导出交付测试，不重写导出文件、不访问网络或 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,6 +29,10 @@ const widgetFields = {
   LoraLoaderModelOnly: ["lora_name", "strength_model"],
   ImagePadForOutpaint: ["left", "top", "right", "bottom", "feathering"],
   TextEncodeQwenImageEditPlus: ["prompt"],
+  ImageScale: ["upscale_method", "width", "height", "crop"],
+  GetImageSize: [],
+  MaskToImage: [],
+  ImageToMask: ["channel"],
   VAEEncode: [],
   SetLatentNoiseMask: [],
   KSampler: ["seed", null, "steps", "cfg", "sampler_name", "scheduler", "denoise"],
@@ -67,6 +71,13 @@ test("独立图仅增加原生上传和等比 16 对齐预处理，其余模型/
   assert.equal(api.prepare.class_type, "ImageScaleToTotalPixels");
   assert.deepEqual(api.prepare.inputs, { image: ["input", 0], upscale_method: "lanczos", megapixels: 0.39, resolution_steps: 16 });
   assert.deepEqual(api.pad.inputs.image, ["prepare", 0]);
+  assert.deepEqual(api.inference.inputs, { image: ["pad", 0], upscale_method: "lanczos", megapixels: 1, resolution_steps: 8 });
+  assert.deepEqual(api.inferenceSize.inputs.image, ["inference", 0]);
+  assert.deepEqual(api.inferenceMaskImage.inputs.width, ["inferenceSize", 0]);
+  assert.deepEqual(api.inferenceMaskImage.inputs.height, ["inferenceSize", 1]);
+  assert.deepEqual(api.outputSize.inputs.image, ["pad", 0]);
+  assert.deepEqual(api.restore.inputs.width, ["outputSize", 0]);
+  assert.deepEqual(api.restore.inputs.height, ["outputSize", 1]);
   const projected = structuredClone(api);
   projected.input = runtime.input;
   delete projected.prepare;
@@ -138,7 +149,12 @@ test("画布与 API 依赖一一映射并形成有向无环图，结果必须经
   assert.equal(visited.size, Object.keys(api).length);
   assert.deepEqual(api.sample.inputs.latent_image, ["mask", 0]);
   assert.deepEqual(api.output.inputs.images, ["composite", 0]);
-  assert.deepEqual(api.composite.inputs.mask, api.mask.inputs.mask);
+  assert.deepEqual(api.positive.inputs.image1, ["inference", 0]);
+  assert.deepEqual(api.negative.inputs.image1, ["inference", 0]);
+  assert.deepEqual(api.encode.inputs.pixels, ["inference", 0]);
+  assert.deepEqual(api.mask.inputs.mask, ["inferenceMask", 0]);
+  assert.deepEqual(api.composite.inputs.mask, ["pad", 1]);
+  assert.deepEqual(api.composite.inputs.source, ["restore", 0]);
   assert.deepEqual(api.composite.inputs.destination, ["pad", 0]);
 });
 
@@ -150,7 +166,13 @@ test("所有实际控件逐项匹配 API 标量，KSampler 随机策略不会错
     const covered = new Set();
     fields.forEach((field, index) => {
       if (field == null) return;
-      assert.deepEqual(node.widgets_values[index], api[key].inputs[field], `${key}.${field} 控件值漂移`);
+      if (Array.isArray(api[key].inputs[field])) {
+        assert.equal(node.widgets_values[index], 0, `${key}.${field} 连线控件应保留数值占位`);
+        const input = node.inputs.find((value) => value.name === field);
+        assert.deepEqual(input.widget, { name: field }, `${key}.${field} 必须注册已转输入的控件`);
+        assert.equal(input.type, "INT");
+        assert.ok(input.link != null);
+      } else assert.deepEqual(node.widgets_values[index], api[key].inputs[field], `${key}.${field} 控件值漂移`);
       covered.add(field);
     });
     for (const [field, value] of Object.entries(api[key].inputs)) {

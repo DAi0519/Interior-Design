@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖白模/空房/风格转换设计方式容器、飞书 Style DNA 脱敏目录、独立 Agent 可用性、平台风格临时锁定状态与调用方模式变更回调
- * [OUTPUT]: 对外提供白模/空房智能默认与平台风格、风格转换明确平台风格/参考图风格选项、无目标阻断和互斥选择控制器
- * [POS]: public 的设计风格选择层，风格转换独立保留选择且不提供自动风格，空房仍遵循原智能默认合同
+ * [INPUT]: 依赖共享 bindSearchableChoice 单选下拉、白模/空房/风格转换设计方式容器、飞书 Style DNA 脱敏目录、独立 Agent 可用性、平台风格临时锁定状态与模式变更回调
+ * [OUTPUT]: 对外提供可搜索的白模/空房智能默认与平台风格单选、风格转换明确平台/参考图风格选项、无目标阻断和互斥选择控制器
+ * [POS]: public 的设计风格选择层，复用模型选择器的同宽搜索浮层；风格转换独立保留选择且不提供自动风格，空房遵循原智能默认合同
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { bindSearchableChoice } from "./model-multi-select.js?v=4";
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";
@@ -99,27 +101,8 @@ export function normalizeStyleTransferSelection(selection, styles, options = {})
   };
 }
 
-function buttonFor(choice, selected) {
-  const button = document.createElement("button");
-  const label = document.createElement("strong");
-  const badge = document.createElement("small");
-
-  button.className = "style-choice-option";
-  button.type = "button";
-  button.dataset.renderMode = choice.mode;
-  if (choice.styleCode) button.dataset.styleCode = choice.styleCode;
-  button.classList.toggle("selected", selected);
-  button.disabled = !choice.available;
-  button.title = choice.reason || "";
-  button.setAttribute("aria-disabled", String(!choice.available));
-  button.setAttribute("aria-checked", String(selected));
-  button.setAttribute("role", "radio");
-
-  label.textContent = choice.label;
-  badge.textContent = choice.mode === SMART_DEFAULT_RENDER_MODE ? "默认"
-    : choice.mode === STYLE_REFERENCE_RENDER_MODE ? "参考图" : `v${choice.style.version}`;
-  button.append(label, badge);
-  return button;
+function choiceKey(choice) {
+  return `${choice.mode}:${choice.styleCode || ""}`;
 }
 
 export function bindWhiteModelRenderMode({
@@ -142,7 +125,27 @@ export function bindWhiteModelRenderMode({
   };
   let platformStyles = { available: true, reason: "" };
   let transfer = { enabled: false, reference: {}, referenceCount: 0 };
+  let choices = [];
   const selections = new Map();
+  const picker = bindSearchableChoice({
+    container: root,
+    multiple: false,
+    label: "设计风格",
+    placeholder: "请选择风格",
+    searchPlaceholder: "搜索风格名称",
+    presentOption: (choice) => ({
+      label: choice.label,
+      reason: choice.reason,
+      selectable: choice.available,
+    }),
+    onChange(keys) {
+      const choice = choices.find((option) => choiceKey(option) === keys[0]);
+      if (!choice?.available) return;
+      selection = { mode: choice.mode, styleCode: choice.styleCode };
+      render();
+      onChange(current());
+    },
+  });
 
   function options() {
     return {
@@ -161,15 +164,14 @@ export function bindWhiteModelRenderMode({
   }
 
   function render() {
-    const choices = transfer.enabled ? styleTransferRenderModeOptions(styles, transfer)
+    choices = transfer.enabled ? styleTransferRenderModeOptions(styles, transfer)
       : whiteModelRenderModeOptions(styles, options());
     const active = current();
-    root.replaceChildren(
-      ...choices.map((choice) => buttonFor(
-        choice,
-        choice.mode === active.mode && choice.styleCode === active.styleCode,
-      )),
-    );
+    picker.render(choices.map((choice) => ({
+      ...choice,
+      key: choiceKey(choice),
+      label: choice.style ? `${choice.label} · v${choice.style.version}` : choice.label,
+    })), active.mode ? [choiceKey(active)] : []);
     availability.textContent = `${choices.length} 个风格`;
     availability.classList.toggle(
       "ready",
@@ -181,17 +183,6 @@ export function bindWhiteModelRenderMode({
         : `${active.description}；${active.reason || "Agent 暂不可用"}。`
       : active.available || !active.mode ? active.description : [active.description, active.reason].filter(Boolean).join("；");
   }
-
-  root.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-render-mode]");
-    if (!button || !root.contains(button) || button.disabled) return;
-    selection = {
-      mode: button.dataset.renderMode,
-      styleCode: button.dataset.styleCode || null,
-    };
-    render();
-    onChange(current());
-  });
 
   render();
   return {

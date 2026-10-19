@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供八功能可恢复配置、风格转换明确目标、全景独立版本与 2:1 准入、飞书样本 ID 批次及共享参考资产传输行为、单图上传文案与同步进度、START/RETRY、双阶段监控及可访问布局的静态回归保障
+ * [OUTPUT]: 对外提供八功能可恢复配置、共享已选摘要/简洁搜索模型选择器接线、可多选全部可用模型文案、风格转换明确目标、全景独立版本与 2:1 准入、飞书样本 ID 批次及共享参考资产传输行为、单图上传文案与同步进度、START/RETRY、双阶段监控及可访问布局的静态回归保障
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -38,7 +38,7 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.doesNotMatch(html, /styleDnaReverse|风格反推/);
   assert.match(html, /id="sourceFilesInput"[^>]*multiple/);
   assert.doesNotMatch(html, /class="beta-hero"|选择样本集，设置后运行。/);
-  assert.match(html, /最多选择 4 个/);
+  assert.match(html, /可多选全部可用模型/);
   assert.match(html, /结果自动同步飞书/);
   assert.match(html, /<h2>选择样本集<\/h2>/);
   assert.doesNotMatch(html, /<span>0[1-4]<\/span>/);
@@ -50,7 +50,16 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=9/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=25/);
+  assert.match(html, /beta-app\.js\?v=29/);
+  assert.match(html, /model-picker\.css\?v=2[^]*raycast-accent\.css\?v=42/);
+  assert.match(source, /import \{ bindModelMultiSelect \} from "\.\/model-multi-select\.js\?v=4"/);
+  assert.match(source, /const modelSelection = bindModelMultiSelect\(\{/);
+  assert.match(source, /modelSelection\.render\(runnable, state\.selectedModelKeys\)/);
+  assert.match(source, /state\.selectedModelKeys = keys;\s*renderOutputControls\(\);\s*saveConfiguration\(\);/);
+  assert.match(source, /const selectable = betaModelSelectable\(model, state\.featureMode\)/);
+  assert.match(source, /reason: selectable \? "" : "不支持 2:1"/);
+  assert.doesNotMatch(source, /modelOptions\.replaceChildren|modelOptions\.addEventListener/);
+  assert.doesNotMatch(configuration, /modelOptions\.querySelector/);
   assert.match(html, /单张 8MB · 逐张上传/);
   assert.doesNotMatch(html, /合计 20MB/);
   assert.match(configuration, /configurationState = "saved"/);
@@ -75,7 +84,7 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.match(source, /packBatchAssets\(buildItems\(startedAt\), state\.featureMode\)/);
   assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
   assert.match(assetSource, /referenceAssetKey/);
-  assert.match(source, /import "\.\/custom-select\.js\?v=7"/);
+  assert.match(source, /import "\.\/custom-select\.js\?v=8"/);
   assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=7"/);
   assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
   assert.match(source, /sampleId: currentCase\.caseId/);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2/KS 图片超分五工作流与各自尺寸目录/选择恢复、三引擎扩图及大画布/结果切换与各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房/风格转换双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、生图与三引擎扩图的飞书同步合同阻断、仅超分保留本机路径、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房/风格转换双模式与参考图互斥风格选择、Flux 负向 Prompt、单模型多张或多模型生成与独立飞书反馈
+ * [OUTPUT]: 对外提供默认 Flux2 Klein、生图与三引擎扩图的飞书同步合同阻断、仅超分保留本机路径、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房/风格转换同宽搜索单选与参考图互斥风格选择、Flux 负向 Prompt、共享已选摘要/简洁搜索模型多选、单模型多张或不设模型数上限的多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,7 +25,7 @@ import {
 } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
-import { bindModelMultiSelect } from "./model-multi-select.js";
+import { bindModelMultiSelect } from "./model-multi-select.js?v=4";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
@@ -33,7 +33,7 @@ import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
-import "./custom-select.js?v=7";
+import "./custom-select.js?v=8";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
@@ -208,8 +208,8 @@ function renderModelSelect() {
   modelMultiSelect.render(state.catalog, state.modelKeys);
   const count = state.modelKeys.length;
   elements.modelNote.textContent = count === 1
-    ? `${selectedModel()?.description || ""} 单模型支持生成 1–4 张；也可继续选择模型。`
-    : `已选择 ${count} 个；参数以 ${selectedModel()?.label} 为编辑基准，每个模型各生成 1 张。`;
+    ? "已选 1 个模型，生成张数可在参数中设置。"
+    : `${count} 个模型，各 1 张，共 ${count} 张；参数以 ${selectedModel()?.label} 为准。`;
 }
 
 function configurePrimaryModel() {
@@ -377,7 +377,6 @@ function renderActiveGenerationTask() { generationTasks.render(); }
 
 const modelMultiSelect = bindModelMultiSelect({
   container: elements.modelSelect,
-  max: 4,
   onChange: selectModels,
   onMessage: showToast,
   presentOption: (model) => state.featureMode === "panoramaEnhancement"
@@ -458,8 +457,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     connectionCenter.open({ focusApi: true });
     return;
   }
-  if (models.length < 1 || models.length > 4) {
-    showToast("请选择 1–4 个出图模型");
+  if (models.length < 1) {
+    showToast("请至少选择 1 个出图模型");
     return;
   }
   if (localImageRequest) {

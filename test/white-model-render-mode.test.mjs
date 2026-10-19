@@ -58,7 +58,7 @@ test("空房设计可以替换智能默认说明而不复制风格路由", () =>
   assert.equal(smartDefault.agentVersion, 1);
 });
 
-test("新增平台风格继续进入两列选项且同风格只保留最高发布版本", () => {
+test("新增平台风格进入同一选择目录且同风格只保留最高发布版本", () => {
   const options = whiteModelRenderModeOptions([
     ...styles,
     { ...styles[0], code: "cream-french@v5", version: 5 },
@@ -86,7 +86,7 @@ test("新增平台风格继续进入两列选项且同风格只保留最高发�
   );
 });
 
-test("已上架且合法的 Style DNA 映射为紧凑固定风格选项", () => {
+test("已上架且合法的 Style DNA 保留平台风格与版本", () => {
   const choice = normalizeWhiteModelRenderModeSelection(
     { mode: STYLE_DNA_RENDER_MODE, styleCode: "cream-french@v4" },
     styles,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Qwen/Flux/Sunburst 扩图服务、Qwen 执行图、统一生成路由、HTTP 任务准入与 sharp 图片样本
- * [OUTPUT]: 对外提供 Qwen 原尺寸/EXIF与画幅适配、独立能力缓存/执行前409阻断、真实模型身份与专用客户端/ComfyUI阶段/飞书归档测试
+ * [OUTPUT]: 对外提供 Qwen 原尺寸/EXIF与画幅适配、独立能力缓存/推理缩放节点缺失前置409阻断、真实模型身份与专用客户端/ComfyUI阶段/飞书归档测试
  * [POS]: test 的 Qwen 扩图应用边界验证，使用内存替身，不启动 GPU 或收费任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,6 +29,8 @@ function capabilityFixture() {
     "easy loadImageBase64": ["IMAGE", "MASK"], UNETLoader: ["MODEL"], CLIPLoader: ["CLIP"], VAELoader: ["VAE"],
     ModelSamplingAuraFlow: ["MODEL"], CFGNorm: ["MODEL"], LoraLoaderModelOnly: ["MODEL"], ImagePadForOutpaint: ["IMAGE", "MASK"],
     TextEncodeQwenImageEditPlus: ["CONDITIONING"], VAEEncode: ["LATENT"], SetLatentNoiseMask: ["LATENT"],
+    ImageScaleToTotalPixels: ["IMAGE"], GetImageSize: ["INT", "INT", "INT"],
+    ImageScale: ["IMAGE"], MaskToImage: ["IMAGE"], ImageToMask: ["MASK"],
     KSampler: ["LATENT"], VAEDecode: ["IMAGE"], ImageCompositeMasked: ["IMAGE"], SaveImage: [],
   };
   const graph = createQwenOutpaintWorkflow({
@@ -110,11 +112,13 @@ test("Qwen 能力失败不缓存且独立于 Flux/Sunburst，恢复后缓存成�
 test("Qwen 执行前复核依赖且零GPU阻断，成功结果归档真实模型并拒绝错尺寸", async () => {
   let calls = 0;
   const valid = capabilityFixture();
-  const invalid = structuredClone(valid);
-  delete invalid.UNETLoader;
-  await assert.rejects(executeImageOutpaint(input, { imageClient: { getObjectInfo: async () => invalid,
-    generateImage() { calls += 1; },
-  } }), (error) => error.statusCode === 409);
+  for (const className of ["UNETLoader", "ImageScaleToTotalPixels", "GetImageSize", "ImageScale", "MaskToImage", "ImageToMask"]) {
+    const invalid = structuredClone(valid);
+    delete invalid[className];
+    await assert.rejects(executeImageOutpaint(input, { imageClient: { getObjectInfo: async () => invalid,
+      generateImage() { calls += 1; },
+    } }), (error) => error.statusCode === 409);
+  }
   assert.equal(calls, 0);
   const result = await executeImageOutpaint(input, { imageClient: {
     getObjectInfo: async () => valid,

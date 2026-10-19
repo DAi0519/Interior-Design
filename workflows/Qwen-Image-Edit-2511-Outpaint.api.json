@@ -72,6 +72,65 @@
       "feathering": 32
     }
   },
+  "inference": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "pad",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 1,
+      "resolution_steps": 8
+    }
+  },
+  "inferenceSize": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "inference",
+        0
+      ]
+    }
+  },
+  "maskImage": {
+    "class_type": "MaskToImage",
+    "inputs": {
+      "mask": [
+        "pad",
+        1
+      ]
+    }
+  },
+  "inferenceMaskImage": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "maskImage",
+        0
+      ],
+      "upscale_method": "bilinear",
+      "width": [
+        "inferenceSize",
+        0
+      ],
+      "height": [
+        "inferenceSize",
+        1
+      ],
+      "crop": "disabled"
+    }
+  },
+  "inferenceMask": {
+    "class_type": "ImageToMask",
+    "inputs": {
+      "image": [
+        "inferenceMaskImage",
+        0
+      ],
+      "channel": "red"
+    }
+  },
   "positive": {
     "class_type": "TextEncodeQwenImageEditPlus",
     "inputs": {
@@ -84,7 +143,7 @@
         0
       ],
       "image1": [
-        "pad",
+        "inference",
         0
       ],
       "prompt": "Extend the scene naturally into the blank gray canvas surrounding the original image. Continue the existing architecture, surfaces, objects and background with coherent perspective, geometry, lighting, colors and texture. Preserve the original composition, camera viewpoint, subject identity and visual style. Create a seamless continuation across every original image boundary. Only fill the newly extended areas; do not add frames, text, watermarks or duplicate subjects."
@@ -102,7 +161,7 @@
         0
       ],
       "image1": [
-        "pad",
+        "inference",
         0
       ],
       "prompt": ""
@@ -112,7 +171,7 @@
     "class_type": "VAEEncode",
     "inputs": {
       "pixels": [
-        "pad",
+        "inference",
         0
       ],
       "vae": [
@@ -129,8 +188,8 @@
         0
       ],
       "mask": [
-        "pad",
-        1
+        "inferenceMask",
+        0
       ]
     }
   },
@@ -174,6 +233,34 @@
       ]
     }
   },
+  "outputSize": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "pad",
+        0
+      ]
+    }
+  },
+  "restore": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "decode",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": [
+        "outputSize",
+        0
+      ],
+      "height": [
+        "outputSize",
+        1
+      ],
+      "crop": "disabled"
+    }
+  },
   "composite": {
     "class_type": "ImageCompositeMasked",
     "inputs": {
@@ -182,7 +269,7 @@
         0
       ],
       "source": [
-        "decode",
+        "restore",
         0
       ],
       "x": 0,

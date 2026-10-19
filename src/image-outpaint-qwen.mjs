@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 Qwen Image Edit 2511/对应 Lightning 4步权重、原生扩边遮罩与采样/合成节点、单图 Base64、构图几何和请求级产物键
- * [OUTPUT]: 对外提供独立 Qwen 扩图身份、固定 Prompt 真源、公开尺寸合同、实时节点准入、执行图与可追溯产物元数据
- * [POS]: src 的 Qwen 扩图工作流真源，与 Flux Fill/Sunburst 并列，原图中心由遮罩合成保留
+ * [INPUT]: 依赖 Qwen Image Edit 2511/对应 Lightning 4步权重、原生等比缩放/扩边遮罩/采样/合成节点、单图 Base64、构图几何和请求级产物键
+ * [OUTPUT]: 对外提供独立 Qwen 扩图身份、固定 Prompt 真源、参考编码同尺度推理尺寸、实时节点准入、执行图与实际输出/重采样元数据
+ * [POS]: src 的 Qwen 扩图工作流真源，与 Flux Fill/Sunburst 并列；整张画布与遮罩在约 1MP 推理，恢复目标后回贴原图中心
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,13 +9,15 @@ export const QWEN_OUTPAINT_ENGINE_KEY = "qwenImageEdit2511";
 export const QWEN_OUTPAINT_WORKFLOW = Object.freeze({
   key: "image-outpaint-qwen",
   label: "Qwen Image Edit 2511",
-  version: "2026-10-15.1",
+  version: "2026-10-19.1",
   model: "qwen_image_edit_2511_fp8mixed.safetensors",
   clip: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
   vae: "qwen_image_vae.safetensors",
   lora: "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
   steps: 4, cfg: 1, shift: 3.1, feathering: 32,
   sampler: "euler", scheduler: "simple",
+  inferenceMegapixels: 1, inferencePixels: 1024 * 1024, inferenceAlignment: 8,
+  imageResampling: "lanczos", maskResampling: "bilinear",
 });
 
 const SIDES = ["left", "top", "right", "bottom"];
@@ -52,12 +54,26 @@ export function assertQwenOutpaintTarget({ width, height } = {}) {
   return { width, height };
 }
 
+// -------- 对齐 Plus 与原生 ImageScaleToTotalPixels；小图也先统一参考编码尺寸 --------
+export function qwenOutpaintInferenceDimensions({ width, height } = {}) {
+  assertQwenOutpaintTarget({ width, height });
+  const { inferencePixels, inferenceAlignment: alignment } = QWEN_OUTPAINT_WORKFLOW;
+  const factor = Math.sqrt(inferencePixels / (width * height));
+  const aligned = (value) => {
+    const units = value * factor / alignment;
+    const lower = Math.floor(units);
+    // -------- Python round 使用偶数舍入，和 ComfyUI 原生节点保持一致 --------
+    return (units - lower === 0.5 ? lower + lower % 2 : Math.round(units)) * alignment;
+  };
+  return { width: aligned(width), height: aligned(height) };
+}
+
 export function qwenOutpaintArtifactPrefix(artifactKey) {
   if (!/^[A-Za-z0-9_-]{8,80}$/.test(String(artifactKey || ""))) throw new TypeError("Qwen 扩图产物键格式不正确");
   return `CanvasLab_QwenOutpaint_${artifactKey}`;
 }
 
-// -------- 仅新区域与内侧 32px 接缝带参与采样，最终按同一遮罩回贴 --------
+// -------- 条件、图像 latent 与噪声遮罩统一尺度；目标尺寸仅用于最后恢复与回贴 --------
 export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, imageBase64, seed, width, height }) {
   assertQwenOutpaintTarget({ width, height });
   const prefix = qwenOutpaintArtifactPrefix(artifactKey);
@@ -80,16 +96,23 @@ export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, ima
     norm: node("CFGNorm", { model: ["shift", 0], strength: 1, pre_cfg: false }),
     lightning: node("LoraLoaderModelOnly", { model: ["norm", 0], lora_name: settings.lora, strength_model: 1 }),
     pad: node("ImagePadForOutpaint", { image: ["input", 0], ...Object.fromEntries(SIDES.map((side) => [side, expansion[side]])), feathering: settings.feathering }),
-    positive: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["pad", 0], prompt: QWEN_OUTPAINT_PROMPT }),
-    negative: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["pad", 0], prompt: "" }),
-    encode: node("VAEEncode", { pixels: ["pad", 0], vae: ["vae", 0] }),
-    mask: node("SetLatentNoiseMask", { samples: ["encode", 0], mask: ["pad", 1] }),
+    inference: node("ImageScaleToTotalPixels", { image: ["pad", 0], upscale_method: settings.imageResampling, megapixels: settings.inferenceMegapixels, resolution_steps: settings.inferenceAlignment }),
+    inferenceSize: node("GetImageSize", { image: ["inference", 0] }),
+    maskImage: node("MaskToImage", { mask: ["pad", 1] }),
+    inferenceMaskImage: node("ImageScale", { image: ["maskImage", 0], upscale_method: settings.maskResampling, width: ["inferenceSize", 0], height: ["inferenceSize", 1], crop: "disabled" }),
+    inferenceMask: node("ImageToMask", { image: ["inferenceMaskImage", 0], channel: "red" }),
+    positive: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["inference", 0], prompt: QWEN_OUTPAINT_PROMPT }),
+    negative: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["inference", 0], prompt: "" }),
+    encode: node("VAEEncode", { pixels: ["inference", 0], vae: ["vae", 0] }),
+    mask: node("SetLatentNoiseMask", { samples: ["encode", 0], mask: ["inferenceMask", 0] }),
     sample: node("KSampler", {
       model: ["lightning", 0], positive: ["positive", 0], negative: ["negative", 0], latent_image: ["mask", 0],
       seed, steps: settings.steps, cfg: settings.cfg, sampler_name: settings.sampler, scheduler: settings.scheduler, denoise: 1,
     }),
     decode: node("VAEDecode", { samples: ["sample", 0], vae: ["vae", 0] }),
-    composite: node("ImageCompositeMasked", { destination: ["pad", 0], source: ["decode", 0], x: 0, y: 0, resize_source: false, mask: ["pad", 1] }),
+    outputSize: node("GetImageSize", { image: ["pad", 0] }),
+    restore: node("ImageScale", { image: ["decode", 0], upscale_method: settings.imageResampling, width: ["outputSize", 0], height: ["outputSize", 1], crop: "disabled" }),
+    composite: node("ImageCompositeMasked", { destination: ["pad", 0], source: ["restore", 0], x: 0, y: 0, resize_source: false, mask: ["pad", 1] }),
     output: node("SaveImage", { images: ["composite", 0], filename_prefix: prefix }),
   };
 }
@@ -97,6 +120,7 @@ export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, ima
 export const QWEN_OUTPAINT_REQUIRED_NODES = Object.freeze([
   "easy loadImageBase64", "UNETLoader", "CLIPLoader", "VAELoader", "ModelSamplingAuraFlow", "CFGNorm", "LoraLoaderModelOnly",
   "ImagePadForOutpaint", "TextEncodeQwenImageEditPlus", "VAEEncode", "SetLatentNoiseMask", "KSampler", "VAEDecode", "ImageCompositeMasked", "SaveImage",
+  "ImageScaleToTotalPixels", "GetImageSize", "MaskToImage", "ImageScale", "ImageToMask",
 ]);
 
 // -------- 逐节点核对必填、枚举与标量范围，准入失败不得提交 GPU --------
@@ -120,7 +144,8 @@ export function verifyQwenOutpaintCapabilities(objectInfo = {}) {
         if (!outputType || outputType !== spec[0]) throw new Error(`Qwen 扩图节点连接不兼容：${node.class_type}.${field}`);
         continue;
       }
-      if (Array.isArray(spec[0]) && !spec[0].includes(value)) throw new Error(`Qwen 扩图节点缺少配置项：${node.class_type}.${field} = ${value}`);
+      const choices = Array.isArray(spec[0]) ? spec[0] : spec[0] === "COMBO" ? spec[1]?.options : null;
+      if (choices && !choices.includes(value)) throw new Error(`Qwen 扩图节点缺少配置项：${node.class_type}.${field} = ${value}`);
       if (typeof value === "number" && ((spec[1]?.min != null && value < spec[1].min) || (spec[1]?.max != null && value > spec[1].max))) {
         throw new Error(`Qwen 扩图节点参数超出范围：${node.class_type}.${field}`);
       }
@@ -133,6 +158,7 @@ export function qwenOutpaintWorkflowMetadata({
   outputFilename, outputSha256, promptId, queueDurationMs, seed, width,
 }) {
   const settings = QWEN_OUTPAINT_WORKFLOW;
+  const inference = qwenOutpaintInferenceDimensions({ width, height });
   return {
     artifactKey, engine: QWEN_OUTPAINT_ENGINE_KEY, executionDurationMs, expansion: { ...generationRequest?.expansion },
     inputHeight: generationRequest?.sourceHeight, inputWidth: generationRequest?.sourceWidth,
@@ -140,6 +166,11 @@ export function qwenOutpaintWorkflowMetadata({
     sampler: settings.sampler, scheduler: settings.scheduler, shift: settings.shift, feathering: settings.feathering,
     preservation: "original-center-masked-composite", outputFilename, outputHeight: actualOutputHeight, outputWidth: actualOutputWidth,
     outputSha256, promptId, queueDurationMs, seed, targetHeight: height, targetWidth: width,
+    inferenceWidth: inference.width, inferenceHeight: inference.height, inferencePixels: inference.width * inference.height,
+    inferenceMegapixels: settings.inferenceMegapixels, inferenceAlignment: settings.inferenceAlignment,
+    inferenceResampling: settings.imageResampling, maskResampling: settings.maskResampling,
+    outputResampling: settings.imageResampling, outputRestored: inference.width !== width || inference.height !== height,
+    outputSizeStrategy: "restore-target-then-original-mask-composite", upscaleModel: null,
     workflowId: settings.key, workflowVersion: settings.version,
   };
 }

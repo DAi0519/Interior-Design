@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Qwen 扩图执行图真源、原生节点端口/控件描述与 Node 文件写入
- * [OUTPUT]: 生成可拖入 ComfyUI 的画布 JSON 及 LoadImage API JSON，不含服务地址、密钥或内嵌图片
+ * [INPUT]: 依赖 Qwen 统一推理/动态目标恢复执行图真源、原生节点端口/控件描述与 Node 文件写入
+ * [OUTPUT]: 生成可拖入 ComfyUI 的画布 JSON 及 LoadImage API JSON，动态尺寸链接转为 INT 控件端口，不含服务地址、密钥或内嵌图片
  * [POS]: scripts 的独立工作流导出器，将运行真源投影为 workflows/ 中的人工可编辑交付物
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,6 +25,10 @@ export function standaloneQwenOutpaintGraph() {
 const INTERFACES = {
   LoadImage: { inputs: {}, outputs: ["IMAGE", "MASK"], widgets: ["image", () => "image"] },
   ImageScaleToTotalPixels: { inputs: { image: "IMAGE" }, outputs: ["IMAGE"], widgets: ["upscale_method", "megapixels", "resolution_steps"] },
+  GetImageSize: { inputs: { image: "IMAGE" }, outputs: ["INT", "INT", "INT"], outputNames: ["width", "height", "batch_size"], widgets: [] },
+  MaskToImage: { inputs: { mask: "MASK" }, outputs: ["IMAGE"], widgets: [] },
+  ImageScale: { inputs: { image: "IMAGE" }, outputs: ["IMAGE"], widgets: ["upscale_method", "width", "height", "crop"], widgetInputs: { width: "INT", height: "INT" } },
+  ImageToMask: { inputs: { image: "IMAGE" }, outputs: ["MASK"], widgets: ["channel"] },
   UNETLoader: { inputs: {}, outputs: ["MODEL"], widgets: ["unet_name", "weight_dtype"] },
   CLIPLoader: { inputs: {}, outputs: ["CLIP"], widgets: ["clip_name", "type", "device"] },
   VAELoader: { inputs: {}, outputs: ["VAE"], widgets: ["vae_name"] },
@@ -38,19 +42,24 @@ const INTERFACES = {
   KSampler: { inputs: { model: "MODEL", positive: "CONDITIONING", negative: "CONDITIONING", latent_image: "LATENT" }, outputs: ["LATENT"], widgets: ["seed", () => "randomize", "steps", "cfg", "sampler_name", "scheduler", "denoise"] },
   VAEDecode: { inputs: { samples: "LATENT", vae: "VAE" }, outputs: ["IMAGE"], widgets: [] },
   ImageCompositeMasked: { inputs: { destination: "IMAGE", source: "IMAGE", mask: "MASK" }, outputs: ["IMAGE"], widgets: ["x", "y", "resize_source"] },
-  SaveImage: { inputs: { images: "IMAGE" }, outputs: ["IMAGE"], widgets: ["filename_prefix"] },
+  SaveImage: { inputs: { images: "IMAGE" }, outputs: [], widgets: ["filename_prefix"] },
 };
 
 const POSITIONS = {
-  input: [0, 300], prepare: [350, 300], model: [0, -200], clip: [350, 900], vae: [350, 1150],
+  input: [0, 300], prepare: [350, 300], model: [0, -200], clip: [350, 900], vae: [350, 1200],
   shift: [350, -200], norm: [700, -200], lightning: [1050, -200], pad: [700, 300],
-  positive: [1080, 230], negative: [1080, 600], encode: [1080, 1030], mask: [1460, 1000],
-  sample: [1510, 230], decode: [1880, 230], composite: [2240, 230], output: [2600, 230],
+  inference: [1050, 300], inferenceSize: [1400, 650], maskImage: [1050, 1100],
+  inferenceMaskImage: [1400, 950], inferenceMask: [1750, 950],
+  positive: [1750, 230], negative: [1750, 600], encode: [1750, 1200], mask: [2100, 1000],
+  sample: [2450, 230], decode: [2800, 230], outputSize: [2800, 600], restore: [3150, 230],
+  composite: [3500, 230], output: [3850, 230],
 };
 const TITLES = {
   input: "1. 上传原图", prepare: "2. 等比适配 / 16 像素对齐", pad: "3. 扩展画布 / 接缝融合",
-  positive: "4. 扩图要求", negative: "负向条件（Lightning CFG=1）", mask: "仅扩展区与接缝参与采样",
-  sample: "5. Qwen 2511 / Lightning 4 步", composite: "6. 合成 / 保留原图中心", output: "7. 保存结果",
+  inference: "4. 统一到约 1MP 推理画布", inferenceSize: "读取推理画布尺寸", maskImage: "扩边遮罩转图像",
+  inferenceMaskImage: "遮罩同步到推理尺寸", inferenceMask: "恢复推理遮罩", positive: "5. 扩图要求",
+  negative: "负向条件（Lightning CFG=1）", mask: "仅扩展区与接缝参与采样", sample: "6. Qwen 2511 / Lightning 4 步",
+  outputSize: "读取原始扩图目标尺寸", restore: "7. 恢复目标尺寸（Lanczos）", composite: "8. 原遮罩合成 / 保留原图中心", output: "9. 保存结果",
 };
 
 export function qwenOutpaintCanvas(graph) {
@@ -58,13 +67,19 @@ export function qwenOutpaintCanvas(graph) {
   const ids = new Map(entries.map(([key], index) => [key, index + 1]));
   const nodes = entries.map(([key, node], order) => {
     const spec = INTERFACES[node.class_type];
+    if (!spec || !POSITIONS[key]) throw new Error(`导出节点缺少画布描述：${key} (${node.class_type})`);
+    const widgetInputs = Object.entries(spec.widgetInputs || {}).filter(([field]) => Array.isArray(node.inputs[field]));
     return {
       id: ids.get(key), type: node.class_type, pos: POSITIONS[key], size: [320, key === "positive" || key === "negative" ? 300 : key === "sample" ? 460 : 240],
       flags: {}, order, mode: 0, title: TITLES[key] || node.class_type,
-      inputs: Object.entries(spec.inputs).map(([name, type]) => ({ name, type, link: null })),
-      outputs: spec.outputs.map((type, slot_index) => ({ name: type, type, links: [], slot_index })),
+      inputs: [
+        ...Object.entries(spec.inputs).map(([name, type]) => ({ name, type, link: null })),
+        ...widgetInputs.map(([name, type]) => ({ name, type, link: null, widget: { name } })),
+      ],
+      outputs: spec.outputs.map((type, slot_index) => ({ name: spec.outputNames?.[slot_index] || type, type, links: [], slot_index })),
       properties: { "Node name for S&R": node.class_type },
-      widgets_values: spec.widgets.map((field) => typeof field === "function" ? field() : node.inputs[field]),
+      // -------- 已链接的数值控件保留占位值，实际尺寸由 INT 端口提供 --------
+      widgets_values: spec.widgets.map((field) => typeof field === "function" ? field() : Array.isArray(node.inputs[field]) ? 0 : node.inputs[field]),
     };
   });
   const links = [];

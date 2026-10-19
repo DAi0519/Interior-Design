@@ -51,8 +51,10 @@ test("日常生图移除输出格式 UI 并固定提交 PNG", async () => {
   assert.doesNotMatch(app, /formatSelect/);
 });
 
-test("多模型后台任务只在共享输入传递一份图片", () => {
-  const models = publicModelCatalog().slice(0, 2);
+test("超过四个模型的后台任务只在共享输入传递一份图片", () => {
+  const models = publicModelCatalog();
+  assert.ok(models.length > 4);
+  assert.equal(generationItemsForSelection(models, 4), models);
   const request = buildGenerationJobRequest({
     baseInput: {
       featureMode: "free",
@@ -70,9 +72,10 @@ test("多模型后台任务只在共享输入传递一份图片", () => {
     sourceImage: null,
   });
   assert.equal(request.sharedInput.referenceImages.length, 1);
-  assert.equal(request.items.length, 2);
-  assert.equal("referenceImages" in request.items[0].input, false);
-  assert.equal("referenceImages" in request.items[1].input, false);
+  assert.equal(request.items.length, models.length);
+  assert.deepEqual(request.items.map((item) => item.key), models.map((model) => model.key));
+  assert.ok(request.items.every((item) => !("referenceImages" in item.input)));
+  assert.throws(() => generationItemsForSelection([], 1), /至少选择 1 个/);
 });
 
 test("单模型生成张数展开为最多四个独立生成项", () => {

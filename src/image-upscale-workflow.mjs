@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖五个 SeedVR2 编辑器工作流的核心节点参数、单张图片 Base64、4K/6K/8K 或原图 2 倍目标宽高、运行时随机种子与请求级产物键
- * [OUTPUT]: 对外提供默认工作流键、逐工作流分辨率/输入尺寸合同、保持原图比例的目标尺寸计算、可嵌入其他执行图的 SeedVR2 阶段、五套 ComfyUI API 工作流工厂及可追溯元数据
+ * [OUTPUT]: 对外提供默认工作流键、含拆分版/KS版来源的显示名称、逐工作流分辨率/输入尺寸合同、保持原图比例的目标尺寸计算、可嵌入其他执行图的 SeedVR2 阶段、五套 ComfyUI API 工作流工厂及可追溯元数据
  * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -81,10 +81,10 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     helpText: "7B 原图直接超分，保持原图比例。",
     inputMegapixels: null,
     key: "seedvr2_7b_direct",
-    label: "SeedVR2 7B · 原图直入",
+    label: "拆分版 · 7B原图超分",
     model: "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
     resolutions: LONG_EDGE_RESOLUTIONS,
-    shortLabel: "7B 直入",
+    shortLabel: "拆分版 · 7B",
     sourceSha256: "275f8f8afbe62f8d7b443777ede5ff8003559fa660e2ab4afa0ccf2072cef6b6",
     vaeOffloadDevice: "cpu",
     version: "2026-10-16.1",
@@ -98,11 +98,11 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     inputMegapixels: 0.75,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x",
-    label: "KS 超分 · 2×",
+    label: "KS版 · 原图2倍",
     model: "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
     outputScale: 2,
     resolutions: DOUBLE_SOURCE_RESOLUTIONS,
-    shortLabel: "KS 2×",
+    shortLabel: "KS版 · 2倍",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
     version: "2026-10-16.1",

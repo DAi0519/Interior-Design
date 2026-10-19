@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 指针焦点稳定器/定位增强与 custom-select.css 文字及向上菜单布局契约
- * [OUTPUT]: 验证主指针在 click 前固定选项焦点、辅助按键不篡改焦点、选项文字不受内容宽度百分比二次裁切，并支持声明式向上展开
- * [POS]: test 的跨浏览器自定义下拉竞态回归测试，不启动浏览器或修改原生 select
+ * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 指针焦点稳定器/搜索单选适配器/定位增强与 custom-select.css 文字及向上菜单布局契约
+ * [OUTPUT]: 验证主指针焦点、辅助按键、真实宽度和声明式向上展开，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
+ * [POS]: test 的跨浏览器自定义下拉竞态与搜索单选原生适配回归测试，不启动浏览器或真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,7 +9,110 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { stabilizePointerFocus } from "../public/custom-select.js";
+import { enhanceSearchableSelect, stabilizePointerFocus } from "../public/custom-select.js";
+
+function searchableSelectFixture() {
+  const listeners = new Map();
+  const classes = new Set();
+  let observerCallback;
+  let observed;
+  let binding;
+  const renders = [];
+  const disabled = [];
+  const root = { hidden: false };
+  const picker = {
+    render(catalog, keys) { renders.push({ catalog, keys }); },
+    setDisabled(value) { disabled.push(value); },
+  };
+  const select = {
+    classList: { contains: (name) => classes.has(name) },
+    dataset: { placeholder: "请选择平台风格", searchPlaceholder: "搜索风格名称" },
+    disabled: false,
+    hidden: false,
+    options: [
+      { value: "", textContent: "请选择平台风格" },
+      { value: "modern", textContent: "现代简约" },
+      { value: "minimal", textContent: "极简主义", disabled: true },
+    ],
+    value: "",
+    ownerDocument: {
+      createElement: () => root,
+      defaultView: {
+        MutationObserver: class {
+          constructor(callback) { observerCallback = callback; }
+          observe(target, options) { observed = { target, options }; }
+        },
+      },
+    },
+    getAttribute: (name) => name === "aria-label" ? "平台风格" : null,
+    insertAdjacentElement(position, element) { assert.equal(position, "afterend"); assert.equal(element, root); },
+    addEventListener(name, callback) { listeners.set(name, callback); },
+    dispatchEvent(event) { this.changeEvents.push(event); listeners.get(event.type)?.(event); },
+    changeEvents: [],
+  };
+  const controller = enhanceSearchableSelect(select, (options) => { binding = options; return picker; });
+  return { binding, classes, controller, disabled, observed, renders, root, select,
+    mutate: () => observerCallback() };
+}
+
+test("搜索风格仅单选，空值显示占位且选择同步原生 change", () => {
+  const ui = searchableSelectFixture();
+  assert.equal(ui.binding.multiple, false);
+  assert.equal(ui.binding.label, "平台风格");
+  assert.equal(ui.binding.placeholder, "请选择平台风格");
+  assert.equal(ui.binding.searchPlaceholder, "搜索风格名称");
+  assert.deepEqual(ui.renders.at(-1).keys, []);
+  assert.deepEqual(ui.renders.at(-1).catalog.map((option) => option.key), ["modern", "minimal"]);
+  assert.equal(ui.binding.presentOption(ui.renders.at(-1).catalog[1]).selectable, false);
+
+  ui.binding.onChange(["modern"]);
+  assert.equal(ui.select.value, "modern");
+  assert.deepEqual(ui.renders.at(-1).keys, ["modern"]);
+  assert.equal(ui.select.changeEvents.length, 1);
+  assert.equal(ui.select.changeEvents[0].bubbles, true);
+  ui.binding.onChange(["minimal"]);
+  ui.binding.onChange([""]);
+  ui.binding.onChange(["missing"]);
+  assert.equal(ui.select.value, "modern");
+  assert.equal(ui.select.changeEvents.length, 1);
+});
+
+test("原生选项动态替换、禁用与隐藏同步，外部恢复仍由 change 驱动", () => {
+  const ui = searchableSelectFixture();
+  assert.equal(ui.observed.target, ui.select);
+  assert.deepEqual(ui.observed.options, { attributes: true, childList: true, subtree: true });
+  ui.select.options = [
+    { value: "", textContent: "请选择平台风格" },
+    { value: "warm", textContent: "温暖自然" },
+    { value: "hidden", textContent: "已下架", hidden: true },
+    { value: "grouped", textContent: "禁用分组", parentElement: { disabled: true } },
+  ];
+  ui.select.value = "warm";
+  ui.mutate();
+  assert.deepEqual(ui.renders.at(-1).catalog.map((option) => option.key), ["warm", "grouped"]);
+  assert.deepEqual(ui.renders.at(-1).keys, ["warm"]);
+  ui.binding.onChange(["grouped"]);
+  assert.equal(ui.select.changeEvents.length, 0);
+
+  ui.select.disabled = true;
+  ui.mutate();
+  assert.equal(ui.disabled.at(-1), true);
+  ui.binding.onChange(["warm"]);
+  assert.equal(ui.select.changeEvents.length, 0);
+  ui.select.disabled = false;
+  ui.select.value = "";
+  ui.select.dispatchEvent(new Event("change"));
+  assert.equal(ui.disabled.at(-1), false);
+  assert.deepEqual(ui.renders.at(-1).keys, []);
+  ui.classes.add("hidden");
+  ui.mutate();
+  assert.equal(ui.root.hidden, true);
+  assert.equal(ui.disabled.at(-1), true);
+  ui.classes.delete("hidden");
+  ui.select.hidden = true;
+  ui.mutate();
+  assert.equal(ui.root.hidden, true);
+});
 
 test("主指针按下时在 click 前固定目标选项焦点", () => {
   let prevented = 0;

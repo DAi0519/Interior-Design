@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖日常生成任务注册表、含风格转换与效果图氛围转换/美化的统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
- * [OUTPUT]: 对外提供任务入队和查询，在生图/扩图前阻断飞书 Schema 漂移，扩图按 Flux/Qwen/Sunburst 引擎准入并仅为 Flux 冻结默认模型，依据 Provider 区分 ComfyUI/API 编辑阶段，仅超分跳过飞书归档
+ * [INPUT]: 依赖日常生成任务注册表、模型目录、含风格转换与效果图氛围转换/美化的统一 generation-service、飞书同步合同/扩图能力预检、JSON 读写函数与浏览器生成任务请求
+ * [OUTPUT]: 对外提供任务入队和查询，普通生图不设模型数量上限且保留单模型 1–4 张或多模型各一张边界；生图/扩图前阻断飞书 Schema 漂移，扩图按 Flux/Qwen/Sunburst 引擎准入并仅为 Flux 冻结默认模型，依据 Provider 区分 ComfyUI/API 编辑阶段，仅超分跳过飞书归档
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { runGenerationJobBatch } from "./generation-jobs.mjs";
 import { imageOutpaintEngineKey, publicImageOutpaintConfig } from "./image-outpaint-service.mjs";
 import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
 import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
+import { MODEL_CONFIGS } from "./model-config.mjs";
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
@@ -61,8 +62,31 @@ export function createGenerationJobApiHandler({
       sendJson(response, 400, { error: "不支持的生成功能" });
       return true;
     }
-    if (items.length < 1 || items.length > 4) {
-      sendJson(response, 400, { error: "生成任务需要 1–4 个生成项" });
+    if (items.length < 1) {
+      sendJson(response, 400, { error: "生成任务至少需要 1 个生成项" });
+      return true;
+    }
+    if (!localImageRequest) {
+      const modelCounts = new Map();
+      for (const item of items) {
+        const modelKey = String(item?.input?.modelKey ?? sharedInput.modelKey ?? "");
+        if (!Object.hasOwn(MODEL_CONFIGS, modelKey)) {
+          sendJson(response, 400, { error: "生成任务包含不支持的出图模型" });
+          return true;
+        }
+        modelCounts.set(modelKey, (modelCounts.get(modelKey) || 0) + 1);
+      }
+      if (modelCounts.size === 1 && items.length > 4) {
+        sendJson(response, 400, { error: "单模型生成张数需要在 1–4 张之间" });
+        return true;
+      }
+      if (modelCounts.size > 1 && modelCounts.size !== items.length) {
+        sendJson(response, 400, { error: "多模型生成时每个模型只允许 1 个生成项" });
+        return true;
+      }
+    }
+    if (featureMode === "imageUpscale" && items.length > 4) {
+      sendJson(response, 400, { error: "图片超分每次只允许 1–4 个生成项" });
       return true;
     }
     if (featureMode === "imageOutpaint") {

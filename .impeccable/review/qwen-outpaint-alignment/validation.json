@@ -1,0 +1,115 @@
+{
+  "checkedAt": "2026-10-19T02:43:42.727Z",
+  "status": "single-case-visual-pass",
+  "source": {
+    "width": 864,
+    "height": 1184
+  },
+  "request": {
+    "source": {
+      "width": 996,
+      "height": 1365
+    },
+    "expansion": {
+      "left": 270,
+      "top": 342,
+      "right": 270,
+      "bottom": 341
+    },
+    "target": {
+      "width": 1536,
+      "height": 2048
+    },
+    "canvas": {
+      "ratio": "3:4",
+      "resolution": "2K",
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "scale": 0.6666666666666666
+    }
+  },
+  "inference": {
+    "width": 888,
+    "height": 1184,
+    "pixels": 1051392
+  },
+  "outputs": {
+    "before.png": {
+      "width": 1536,
+      "height": 2048,
+      "bytes": 1988143,
+      "sha256": "3a4b1dd060113954f45d9ae533185578a238e64971199b2eb103f69fe292bf11",
+      "preservedCenter": {
+        "region": {
+          "left": 302,
+          "top": 374,
+          "width": 932,
+          "height": 1301
+        },
+        "channelCount": 3637596,
+        "differingChannels": 0,
+        "maxAbsoluteDifference": 0,
+        "pixelIdentical": true
+      }
+    },
+    "after.png": {
+      "width": 1536,
+      "height": 2048,
+      "bytes": 1909191,
+      "sha256": "ffaf2dd5cefb1bb93b9cc53d5d818ee56266b0f8c3cfd356de6a2bc965da5cc2",
+      "preservedCenter": {
+        "region": {
+          "left": 302,
+          "top": 374,
+          "width": 932,
+          "height": 1301
+        },
+        "channelCount": 3637596,
+        "differingChannels": 0,
+        "maxAbsoluteDifference": 0,
+        "pixelIdentical": true
+      }
+    }
+  },
+  "runtimeOutputs": {
+    "output": {
+      "images": [
+        {
+          "filename": "CanvasLab_QwenOutpaint_25ccae30-5ab7-456a-875b-7f9be7ac9ada_00001_.png",
+          "subfolder": "",
+          "type": "output"
+        }
+      ]
+    }
+  },
+  "realGpu": true,
+  "seedBefore": 2406233342,
+  "seedAfter": 20261019,
+  "sameSourceAndGeometry": true,
+  "seedControlled": false,
+  "visualReview": "1536×2048修复后图窗框、吊灯、沙发、矮桌与地面连续，无失败图的矩形回贴断层；单场景通过，不代表多图稳定性或原生2K/4K推理。",
+  "workflowVersion": "2026-10-19.1",
+  "executionDurationMs": 66984,
+  "totalDurationMs": 76687,
+  "outputResampling": "lanczos",
+  "upscaleModel": null,
+  "feishuWrites": false,
+  "realGpuRuns": 1,
+  "runtime": {
+    "qwenAvailable": true,
+    "workflowVersion": "2026-10-19.1",
+    "setupReady": true
+  },
+  "regressions": {
+    "tests": 788,
+    "passed": 788,
+    "failed": 0
+  },
+  "export": {
+    "version": "2026-10-19.1",
+    "nodeCount": 24,
+    "sha256": "4312f5af52310acbfbae459e540d4ef5f537471a4e5dcd213a8f1fda449d4410"
+  }
+}

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供 Beta跑图默认 Flux、八功能目录兼容与美化强度色调配置往返、全景固定比例/4K 配置恢复、控制器恢复后落盘、非法存储降级与轻量状态边界回归保障
+ * [INPUT]: 依赖 node:test/assert、公开模型目录、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
+ * [OUTPUT]: 对外提供 Beta跑图默认 Flux、全部模型去重且不截断的配置往返、八功能目录兼容与美化强度色调配置往返、全景固定比例/4K 配置恢复、控制器恢复后落盘、非法存储降级与轻量状态边界回归保障
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,7 @@ import {
   saveBetaPageState,
 } from "../public/beta-page-state.js";
 import { createBetaConfigurationPersistence } from "../public/beta-configuration.js";
+import { publicModelCatalog } from "../src/model-config.mjs";
 
 function memoryStorage(initialValue = null) {
   const values = new Map(initialValue === null
@@ -32,6 +33,20 @@ test("Beta跑图首次进入默认选择 Flux2 Klein", () => {
   assert.deepEqual(state.selectedModelKeys, [DEFAULT_BETA_MODEL_KEY]);
   assert.equal(state.controls.effectBeautificationIntensity, "low");
   assert.equal(state.controls.effectBeautificationTone, "natural");
+});
+
+test("Beta 全部可用模型跨页和刷新恢复时去重且不截断", () => {
+  const storage = memoryStorage();
+  const modelKeys = publicModelCatalog().map((model) => model.key);
+  assert.ok(modelKeys.length > 4);
+  const saved = saveBetaPageState(storage, {
+    featureMode: "free",
+    selectedModelKeys: [modelKeys[0], modelKeys[0], ...modelKeys.slice(1), "", null],
+  });
+  assert.deepEqual(saved.selectedModelKeys, modelKeys);
+  assert.deepEqual(readBetaPageState(storage).selectedModelKeys, modelKeys);
+  saveBetaPageState(storage, readBetaPageState(storage));
+  assert.deepEqual(readBetaPageState(storage).selectedModelKeys, modelKeys);
 });
 
 test("效果图美化六组合和氛围转换样本集分别持久保存", () => {
@@ -62,9 +77,11 @@ test("效果图美化六组合和氛围转换样本集分别持久保存", () =>
 
 test("Beta恢复已保存美化控件，并把新选择落盘", () => {
   const storage = memoryStorage();
+  const modelKeys = publicModelCatalog().map((model) => model.key);
   const restoredPageState = saveBetaPageState(storage, {
     controls: { effectBeautificationIntensity: "high", effectBeautificationTone: "warm" },
     featureMode: "effectBeautification",
+    selectedModelKeys: modelKeys,
   });
   const elements = Object.fromEntries([
     "commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
@@ -96,6 +113,7 @@ test("Beta恢复已保存美化控件，并把新选择落盘", () => {
   const saved = readBetaPageState(storage);
   assert.equal(saved.controls.effectBeautificationIntensity, "low");
   assert.equal(saved.controls.effectBeautificationTone, "cool");
+  assert.deepEqual(saved.selectedModelKeys, modelKeys);
   assert.equal(elements.betaForm.dataset.configurationState, "saved");
 });
 

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、公开模型目录及设计配置/图片能力/生成输入/任务恢复纯函数
- * [OUTPUT]: 对外提供风格转换单主图、明确目标必选且无智能默认、平台/参考图独立 Agent 版本、互斥及删除参考图清空选择、图片共享载荷和任务隔离回归保障
+ * [INPUT]: 依赖 node:test/assert、公开模型目录、共享搜索单选下拉的内存 DOM 替身及设计配置/图片能力/生成输入/任务恢复纯函数
+ * [OUTPUT]: 对外提供风格转换单主图、可搜索且无自动目标的单选、平台/参考图独立 Agent 版本、互斥及删除参考图清空选择、图片共享载荷和任务隔离回归保障
  * [POS]: test 的风格转换浏览器合同测试，不调用付费模型或真实飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -88,54 +88,120 @@ test("无明确目标时阻断且不选首个平台风格，上传参考图切�
   assert.equal(platformStyleAvailability("whiteModel", 1).available, true);
 });
 
-test("按钮控制器不会继承白模默认或平台选择，上传参考图自动切换且删除后必须重选", () => {
-  const originalDocument = globalThis.document;
-  const element = () => ({
-    children: [], attributes: {}, classList: { toggle() {} }, dataset: {}, listeners: {},
-    addEventListener(type, listener) { this.listeners[type] = listener; },
-    append(...children) { this.children.push(...children); },
-    contains(child) { return this.children.includes(child); },
-    replaceChildren(...children) { this.children = children; },
-    setAttribute(name, value) { this.attributes[name] = value; },
-    closest() { return this; },
-  });
-  globalThis.document = { createElement: element };
-  try {
-    const root = element();
-    const controller = bindWhiteModelRenderMode({ root, availability: element(), note: element(), onChange() {} });
-    controller.setStyles([style]);
-    controller.setSmartDefault({ available: true, version: 3 });
-    root.listeners.click({ target: root.children[1] });
-    assert.equal(controller.current().styleCode, style.code);
-    controller.setDesignContext({ featureMode: "styleTransfer" });
-    assert.equal(controller.current().mode, null);
-    assert.equal(controller.current().available, false);
-    assert.equal(root.children.length, 1);
-    assert.equal(root.children[0].attributes["aria-checked"], "false");
-    assert.equal(root.children.some((button) => button.dataset.renderMode === "smart-default"), false);
-    root.listeners.click({ target: root.children[0] });
-    assert.equal(controller.current().styleCode, style.code);
-    const locked = platformStyleAvailability("styleTransfer", 1);
-    controller.setDesignContext({ featureMode: "styleTransfer", platformStyles: locked,
-      referenceCount: 1, reference: { available: true, version: 4 } });
-    assert.equal(controller.current().mode, "style-reference");
-    assert.equal(controller.current().label, "参考图风格");
-    assert.equal(controller.current().styleCode, null);
-    assert.equal(root.children[1].disabled, true);
-    assert.equal(root.children[1].attributes["aria-disabled"], "true");
-    assert.equal(root.children[0].attributes["aria-checked"], "true");
-    assert.match(root.children[1].title, /当前使用参考图风格/);
-    root.listeners.click({ target: root.children[1] });
-    assert.equal(controller.current().mode, "style-reference");
-    controller.setDesignContext({ featureMode: "styleTransfer", referenceCount: 0 });
-    assert.equal(root.children[0].disabled, false);
-    assert.equal(root.children[0].attributes["aria-checked"], "false");
-    assert.equal(controller.current().mode, null);
-    controller.setDesignContext({ featureMode: "whiteModel" });
-    assert.equal(controller.current().styleCode, style.code);
-    controller.setDesignContext({ featureMode: "styleTransfer" });
-    assert.equal(controller.current().mode, null);
-  } finally { globalThis.document = originalDocument; }
+test("搜索单选下拉保留风格隔离、明确目标、参考图互斥与选择回调", () => {
+  const doc = { activeElement: null, addEventListener() {} };
+  doc.defaultView = { innerWidth: 1280, innerHeight: 720, addEventListener() {},
+    requestAnimationFrame() { return 1; } };
+  const element = (tag = "div") => {
+    const node = {
+      tagName: tag, ownerDocument: doc, children: [], attributes: {}, dataset: {},
+      listeners: {}, style: {}, className: "", value: "", disabled: false, hidden: false,
+      addEventListener(type, listener) { this.listeners[type] = listener; },
+      emit(type, properties = {}) {
+        this.listeners[type]?.({ target: this, preventDefault() {}, ...properties });
+      },
+      append(...children) {
+        for (const child of children) {
+          if (child.parentNode) child.parentNode.children = child.parentNode.children.filter((item) => item !== child);
+          child.parentNode = this;
+          this.children.push(child);
+        }
+      },
+      contains(child) { return child === this || this.children.some((item) => item.contains(child)); },
+      replaceChildren(...children) {
+        this.children.forEach((child) => { child.parentNode = null; });
+        this.children = [];
+        this.append(...children);
+      },
+      setAttribute(name, value) { this.attributes[name] = String(value); },
+      focus(options) { doc.activeElement = this; this.focusOptions = options; },
+      click() { if (!this.disabled) { this.focus({ preventScroll: true }); this.emit("click", { detail: 1 }); } },
+      getBoundingClientRect() { return { left: 100, top: 340, right: 360, bottom: 378, width: 260, height: 38 }; },
+      showPopover() { this.popoverOpen = true; this.emit("toggle", { newState: "open" }); },
+      hidePopover() { this.popoverOpen = false; this.emit("toggle", { newState: "closed" }); },
+    };
+    const classes = () => new Set(node.className.split(/\s+/).filter(Boolean));
+    node.classList = {
+      add(name) { node.className = [...classes().add(name)].join(" "); },
+      remove(name) { const values = classes(); values.delete(name); node.className = [...values].join(" "); },
+      toggle(name, enabled) { this[enabled ? "add" : "remove"](name); },
+      contains(name) { return classes().has(name); },
+    };
+    return node;
+  };
+  doc.createElement = element;
+  doc.createElementNS = (_, tag) => element(tag);
+  doc.body = element("body");
+  const root = element();
+  doc.body.append(root);
+  const availability = element();
+  const note = element();
+  const changes = [];
+  const controller = bindWhiteModelRenderMode({ root, availability, note,
+    onChange(choice) { changes.push(choice); } });
+  const trigger = root.children[0];
+  const panel = doc.body.children.at(-1);
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  const byClass = (name) => walk(panel).find((node) => node.classList.contains(name));
+  const row = (mode, code = "") => walk(panel).find((node) => node.dataset.modelKey === `${mode}:${code}`);
+  const rows = () => walk(panel).filter((node) => node.attributes.role === "radio");
+  const selectStyle = () => { trigger.click(); row("style-dna", style.code).click(); };
+
+  assert.equal(trigger.children[0].textContent, "智能默认");
+  assert.equal(row("smart-default").disabled, true);
+  assert.equal(row("smart-default").attributes["aria-checked"], "true");
+  controller.setStyles([style]);
+  controller.setSmartDefault({ available: true, version: 3 });
+  assert.equal(byClass("model-picker-list").attributes.role, "radiogroup");
+  assert.equal(byClass("model-picker-search-wrap").children.length, 1);
+  assert.equal(trigger.children.length, 2);
+  trigger.click();
+  const search = byClass("model-picker-search");
+  search.value = "现代";
+  search.emit("input");
+  assert.equal(row("smart-default").hidden, true);
+  assert.equal(row("style-dna", style.code).hidden, false);
+  assert.equal(controller.current().mode, "smart-default");
+  search.value = "";
+  search.emit("input");
+  row("style-dna", style.code).click();
+  assert.equal(controller.current().styleCode, style.code);
+  assert.equal(trigger.children[0].textContent, "现代简约 · v2");
+  assert.equal(note.textContent, "现代简约 Style DNA 已就绪");
+  assert.equal(panel.popoverOpen, false);
+  assert.equal(doc.activeElement, trigger);
+  assert.deepEqual(trigger.focusOptions, { preventScroll: true });
+
+  controller.setDesignContext({ featureMode: "styleTransfer" });
+  assert.equal(controller.current().mode, null);
+  assert.equal(controller.current().available, false);
+  assert.equal(trigger.children[0].textContent, "请选择风格");
+  assert.equal(rows().length, 1);
+  assert.equal(row("style-dna", style.code).attributes["aria-checked"], "false");
+  assert.equal(row("smart-default"), undefined);
+  selectStyle();
+  assert.equal(controller.current().styleCode, style.code);
+  const locked = platformStyleAvailability("styleTransfer", 1);
+  controller.setDesignContext({ featureMode: "styleTransfer", platformStyles: locked,
+    referenceCount: 1, reference: { available: true, version: 4 } });
+  assert.equal(controller.current().mode, "style-reference");
+  assert.equal(controller.current().label, "参考图风格");
+  assert.equal(controller.current().styleCode, null);
+  assert.equal(row("style-dna", style.code).disabled, true);
+  assert.equal(row("style-reference").attributes["aria-checked"], "true");
+  assert.match(row("style-dna", style.code).title, /当前使用参考图风格/);
+  row("style-dna", style.code).click();
+  assert.equal(controller.current().mode, "style-reference");
+  controller.setDesignContext({ featureMode: "styleTransfer", referenceCount: 0 });
+  assert.equal(row("style-dna", style.code).disabled, false);
+  assert.equal(row("style-dna", style.code).attributes["aria-checked"], "false");
+  assert.equal(controller.current().mode, null);
+  controller.setDesignContext({ featureMode: "whiteModel" });
+  assert.equal(controller.current().styleCode, style.code);
+  controller.setDesignContext({ featureMode: "styleTransfer" });
+  assert.equal(controller.current().mode, null);
+  assert.equal(changes.length, 2);
+  assert.ok(changes.every((choice) => choice.mode === "style-dna" && choice.styleCode === style.code));
 });
 
 function inputFor(renderMode) {

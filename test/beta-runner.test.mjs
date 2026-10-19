@@ -1,12 +1,13 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供含风格转换/效果图氛围转换/美化/全景美化的八功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、两路并发单图隔离、生成/飞书同步阶段、回读后预览、瞬时重跑、全量归档与终态前忙碌守卫回归保障
+ * [OUTPUT]: 对外提供含风格转换/效果图氛围转换/美化/全景美化的八功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、全目录多模型无限结果的两路并发单图隔离/保序归档、生成/飞书同步阶段、回读后预览、瞬时重跑、全量归档与终态前忙碌守卫回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { publicModelCatalog } from "../src/model-config.mjs";
 
 import {
   BETA_FEATURE_MODES,
@@ -174,7 +175,11 @@ test("Beta 样本集按功能保存且样本数量不设上限", async () => {
   }), /缺少有效图片/);
 });
 
-test("超过 20 个 Run 仍以两路并发排队执行", async () => {
+test("全目录超过四模型且超过 20 个 Run 仍两路并发单图执行并保序归档", async () => {
+  const models = publicModelCatalog();
+  assert.ok(models.length > 4);
+  const executedModels = new Set();
+  const archived = [];
   let active = 0;
   let maxActive = 0;
   const service = createBetaRunnerService({
@@ -184,6 +189,7 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
         return { recordId: item.runId };
       },
       async completeRun(recordId) {
+        archived.push(recordId);
         return { recordId };
       },
       async failRun() {},
@@ -193,6 +199,7 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
         assert.equal("batchCount" in input, false);
         assert.equal("batchId" in input, false);
         assert.equal("batchIndex" in input, false);
+        executedModels.add(input.modelKey);
         active += 1;
         maxActive = Math.max(maxActive, active);
         await new Promise((resolve) => setTimeout(resolve, 1));
@@ -207,8 +214,10 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
       batchCount: 24,
       batchId: "legacy-batch-metadata",
       batchIndex: index + 1,
+      modelKey: models[index % models.length].key,
       prompt: `样本 ${index + 1}`,
     },
+    modelLabel: models[index % models.length].label,
     runId: `RUN-unlimited-${String(index + 1).padStart(2, "0")}`,
   }));
   const jobId = "beta-unlimited123";
@@ -223,7 +232,11 @@ test("超过 20 个 Run 仍以两路并发排队执行", async () => {
   assert.equal(job.status, "success");
   assert.equal(job.completed, 24);
   assert.deepEqual(job.stages, { generated: 24, synced: 24 });
-  assert.ok(maxActive <= 2);
+  assert.equal(maxActive, 2);
+  assert.deepEqual([...executedModels], models.map((model) => model.key));
+  assert.equal(archived.length, items.length);
+  assert.deepEqual(job.result.results.map((item) => item.runId), items.map((item) => item.runId));
+  assert.deepEqual(job.result.results.map((item) => item.modelLabel), items.map((item) => item.modelLabel));
 });
 
 test("单项失败会新建 Attempt 自动重跑，整批只在全部同步后成功", async () => {

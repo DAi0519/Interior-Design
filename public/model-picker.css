@@ -1,0 +1,272 @@
+/**
+ * [INPUT]: 依赖 model-multi-select.js 的模型多选/风格单选触发器、同宽原生 popover、搜索与小勾状态，依赖现有下拉控件的中性令牌
+ * [OUTPUT]: 对外提供 Main/Beta 模型与风格共用的 38px 摘要、同宽紧凑下拉、无选中底框的小勾反馈及无外圈的局部键盘焦点
+ * [POS]: public 的共享模型/风格下拉视觉层，沿用原下拉对齐和密度，不增加分组、工具栏或重复统计
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.model-picker {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+#modelOptions.model-picker {
+  width: calc((100% - 8px) / 2);
+}
+
+.model-picker + .compact-config-note {
+  color: var(--muted, #67676d);
+}
+
+.model-picker-trigger {
+  align-items: center;
+  background: rgb(255 255 255 / 74%);
+  border: 1px solid var(--line-strong, #d1d1d5);
+  border-radius: 6px;
+  box-shadow: var(--control-shadow, inset 0 1px 0 rgb(255 255 255 / 95%));
+  color: var(--text, #202024);
+  display: flex;
+  font-size: 11px;
+  font-weight: 400;
+  gap: 6px;
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 10px 0 11px;
+  text-align: left;
+  width: 100%;
+}
+
+.model-picker-primary {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-picker-extra {
+  color: var(--muted, #67676d);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-picker-chevron {
+  color: var(--muted, #67676d);
+  fill: none;
+  flex: 0 0 14px;
+  height: 14px;
+  margin-left: auto;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  width: 14px;
+}
+
+.model-picker-trigger[aria-expanded="true"] .model-picker-chevron {
+  transform: rotate(180deg);
+}
+
+.model-picker-trigger:focus-visible {
+  border-color: #77777e;
+  box-shadow: none;
+  outline: 0;
+}
+
+.model-picker-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.model-picker-popover {
+  background: rgb(252 252 253 / 98%);
+  border: 1px solid var(--line-strong, #d1d1d5);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgb(20 20 24 / 12%);
+  box-sizing: border-box;
+  color: var(--text, #202024);
+  display: none;
+  flex-direction: column;
+  inset: auto;
+  margin: 0;
+  max-height: min(330px, calc(100dvh - 24px));
+  max-width: calc(100vw - 24px);
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px;
+  position: fixed;
+  z-index: 80;
+}
+
+.model-picker-popover:popover-open {
+  display: flex;
+}
+
+.model-picker-popover.open {
+  display: flex;
+}
+
+.model-picker-popover::backdrop {
+  background: transparent;
+}
+
+.model-picker [hidden],
+.model-picker-popover [hidden] {
+  display: none;
+}
+
+.model-picker-search-wrap {
+  align-items: center;
+  border-bottom: 1px solid var(--line, #e2e2e5);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.model-picker-search,
+.model-picker-search:hover,
+.model-picker-search:focus,
+.model-picker-search:focus-visible {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text, #202024);
+  flex: 1 1 0;
+  font-size: 11px;
+  height: 32px;
+  min-width: 0;
+  outline: 0;
+  padding: 0 8px;
+  width: 0;
+}
+
+.model-picker-search:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: #9999a1;
+  text-underline-offset: 5px;
+}
+
+.model-picker-search::placeholder {
+  color: var(--muted, #67676d);
+  opacity: 1;
+}
+
+.model-picker-action {
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted, #67676d);
+  flex: 0 0 auto;
+  font-size: 10px;
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.model-picker-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.model-picker-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #c8c8ce transparent;
+  scrollbar-width: thin;
+}
+
+.model-picker-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text, #202024);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 400;
+  gap: 2px 8px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 7px 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.model-picker-option-label {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-picker-option-check {
+  color: #c54b09;
+  flex: 0 0 14px;
+  height: 14px;
+}
+
+.model-picker-option-check svg {
+  fill: none;
+  height: 14px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 14px;
+}
+
+.model-picker-option-reason {
+  color: var(--muted, #67676d);
+  flex: 0 0 100%;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.model-picker-option:disabled {
+  color: var(--muted, #67676d);
+  cursor: not-allowed;
+}
+
+.model-picker-action:focus-visible,
+.model-picker-option:focus-visible {
+  box-shadow: none;
+  outline: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.model-picker-empty {
+  color: var(--muted, #67676d);
+  font-size: 11px;
+  margin: 0;
+  padding: 16px 8px;
+  text-align: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .model-picker-trigger:hover:not(:disabled) {
+    background: #fff;
+    border-color: #a8a8ae;
+  }
+
+  .model-picker-action:hover:not(:disabled),
+  .model-picker-option:hover:not(:disabled) {
+    background: var(--panel-soft, #f0f0f2);
+  }
+}
+
+@media (max-width: 640px) {
+  #modelOptions.model-picker {
+    width: 100%;
+  }
+}

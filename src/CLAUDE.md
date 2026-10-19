@@ -5,7 +5,7 @@
 
 image-outpaint-service.mjs: AI 扩图 Flux/Qwen/Sunburst 三引擎应用边界，共享画幅/1K2K4K/位置/scale计划，EXIF后按真实等比缩放适配并记录原尺寸/缩放事实/用户scale，零扩展显式阻断且旧省略scale请求兼容；两款 Flux 候选与Qwen节点分别准入/缓存30秒/执行前复核，非Flux拒绝Flux模型参数；保留各引擎尺寸/Key合同，实际产物校验后复用飞书调度并返回同步身份，底层无调度可独立验证
 image-outpaint-archive.mjs: 三引擎共用飞书归档投影与独立模型标签目录，保留实际提交源图/输出/画布/原尺寸/缩放/模型/LoRA/种子/产物指纹/费用/耗时；Qwen固定及Sunburst动态Prompt复用执行真源，Flux Janus正文未返回时留空并记录来源事实，不扩展通用模型目录
-image-outpaint-qwen.mjs: 独立 Qwen Image Edit 2511 FP8 mixed 扩图真源，公开固定Prompt供执行与归档共用，对应Lightning4steps/CFG1/euler/simple/shift3.1；原生pad遮罩同时控制latent噪声与最终合成，保留原图中心与32px过渡；固定模型身份/节点能力准入、1K–4K与16px目标合同、请求级产物与实际尺寸/指纹元数据
+image-outpaint-qwen.mjs: 独立 Qwen Image Edit 2511 FP8 mixed 扩图真源，固定Prompt/Lightning4steps/CFG1/euler/simple/shift3.1；整张pad画布与mask统一约1MP/8px参考及采样尺度，动态恢复精确目标后用原mask回贴原图中心/32px接缝；节点/COMBO/INT槽位准入与请求级产物，分别记录推理/输出/插值恢复且不冒充AI超分
 image-outpaint-workflow.mjs: AI 扩图真实执行图真源，2026-10-15.4 适配 MaaS prod_test 参数 1082 的 18 节点图，输入准入统一放宽至每轴 4096px，受控选择 Flux Fill OneReward FP8/原版 Dev 与各自权重格式，固定 Janus-Pro-1B/20步/guidance30/feathering30，保留 LayerStyle 比例截断后 ceil32 预处理、8px 目标、唯一产物与尺寸/原始来源 SHA-256；643 仅截图线索
 image-outpaint-oneapi.mjs: GPT Image 2.5 Sunburst 编辑扩图适配器，按实际输入/四边构造动态Prompt供执行与归档共用，生成透明PNG/外围透明mask，复用模型真源27合法档位/16px对齐/8294400像素上限、固定medium/n1/png、实际尺寸/结果/画布/遮罩SHA-256、placement与真实费用身份
 image-tools-api.mjs: 独立图片工具只读配置 API，保留超分健康与目录，公开 Flux/Qwen/Sunburst 三引擎各自合同、动态可用性与准入原因
@@ -15,12 +15,12 @@ app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核�
 app-update-api.mjs: 共享版本检查与安装 HTTP 边界，按服务端最新正式版回执、安装政策及运行任务状态准入，流式返回安装进度/错误并保护待重启与恢复失败状态
 app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 与受信重定向/容量/ZIP 路径准入，无 shell 解压；含 .git 的源码工作区仅安装到持久新目录，无 .git 的 Release 目录原地事务替换发布运行根项、保留配置/依赖/数据并失败回滚；公开 getPolicy/isRestartRequired/isRecoveryRequired，成功后要求重启，恢复失败保留备份与操作指引并阻断再次安装，不自动重启
 model-config.mjs: 模型参数真源，维护七个 OneAPI 模型（含独立 Banana 2.1 十四比例/1K-4K、GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt、原有四模型 2:1 与 2.5 九比例/五质量档、GPT 按比例的 16px/655360–8294400像素/3840边长尺寸映射（1K 16:9 为1536x864）、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
-generation-batch.mjs: 单模型多张/多模型生成批次契约，严格校验最多四张结果的共同批次 ID、总数与序号
+generation-batch.mjs: 单模型多张/多模型生成批次契约，批次总数不受模型数量上限约束，严格校验共同批次 ID、正安全整数总数与批内序号；单模型张数由任务入口独立约束
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败保留、进程内任务查询、领域阶段快照透传及有界结果保留；只读 hasActiveJobs 持续守护 running 任务，供原地更新准入使用
-generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，含风格转换目录准入，需归档生图先校验飞书同步合同，独立图片工具按所选扩图引擎准入，仅为Flux校验/冻结Fill模型，Flux/Qwen能力或Sunburst当前Key权限未通过不入队，扩图同样需通过飞书Schema，依据Provider公开comfyUi/imageEdit阶段，仅超分豁免归档
+generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，普通生图按真实目录准入且不设模型数量上限，保留单模型1–4张/多模型各1张与既有两路并发，含风格转换目录准入，需归档生图先校验飞书同步合同；独立图片工具保留超分最多4项/扩图1项，按所选扩图引擎准入，仅为Flux校验/冻结Fill模型，Flux/Qwen能力或Sunburst当前Key权限未通过不入队，扩图同样需通过飞书Schema，依据Provider公开comfyUi/imageEdit阶段，仅超分豁免归档
 generation-service.mjs: 显式功能路由穿透生成输入，含风格转换、效果图氛围转换与独立效果图美化，阻止设计功能串用白模，统一生图与图片工具路由；扩图按所选引擎严格取Flux/Qwen专用ComfyUI或Sunburst编辑客户端、不进通用OneAPI目录、复用飞书调度并透传阶段；超分保持本机结果，保留Flux负向Prompt归档与脱离HTTP单项执行
 image-upscale-service.mjs: 图片超分应用服务，按真实单图尺寸校验逐工作流 4K/6K/8K 或 KS 原图2倍/每轴384–3200合同，传递源图追溯尺寸，分开 5 分钟排队时限与仅 8K 使用的 15 分钟执行时限，映射带 Prompt ID 的 ComfyUI 阶段并返回实际输出尺寸的本机结果
-image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固定五份 SeedVR2 JSON，默认攸行 3B 并保留两套7B预处理、新7B直入与KS0.75MP/源短边2倍/max0差异；公开逐工作流尺寸/输入范围，提供可独立提交或嵌入 Flux 的阶段、最小 ComfyUI 图、唯一产物与源图/目标/实际尺寸元数据
+image-upscale-workflow.mjs: 图片超分工作流真源，以来源 SHA-256 固定五份 SeedVR2 JSON，默认攸行 3B 并保留两套7B预处理，以“拆分版 · 7B原图超分”和“KS版 · 原图2倍”区分新工作流来源及原图直入/0.75MP预处理后2倍差异；公开逐工作流尺寸/输入范围，提供可独立提交或嵌入 Flux 的阶段、最小 ComfyUI 图、唯一产物与源图/目标/实际尺寸元数据
 beta-base.mjs: 三表实时 Schema verifier 与含风格转换/全景美化的八功能映射，组合逐张样本 Store；出图模型按目录解析单选标签，Prompt融合写实际图片输入Agent或明确null，逐字段回读兼容单选数组并拒绝多值；风格转换显式平台/参考图来源及所选独立Agent版本、强度色调/专属美化和全景版本保存到场景/配置 JSON，复用正式投影归档 Prompt/风格/家具/Agent/真实尺寸，回读全部实际写入普通字段及结果附件；风格转换额外核验输入/参考/结果三附件的数量、token与真实字节数且平台参考字段必须空，合同错误归一为不可重试 409，确认后返回轻量预览
 beta-sample-store.mjs: 草稿样本集显式清空默认可用状态并回读，样本按{id}对象数组写飞书关联并归一化双向回读，单图真实8MB/MIME/尺寸及全景2:1验证、稳定样本ID/内容幂等与附件回读，上传完成才发布；列表只含元数据，原图在执行项读取并再次核验全景比例，预览按需转轻量WebP，不设整集图片容量上限
 beta-base-schema.mjs: Beta 三表字段合同真源，实时分页读取并校验出图模型和Prompt融合的当前目录单选标签（允许历史附加项）、风格转换在内八功能/状态/房型选项、全部普通字段类型、单多选、附件 ID/名称/类型与关联表目标；风格转换复用设计方式、配置/场景快照、Agent版本与三图附件，不新增重复列，不读取旧生成记录或 Benchmark 表
