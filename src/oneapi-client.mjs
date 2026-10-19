@@ -1,14 +1,25 @@
 /**
- * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供固定 180 秒超时/主动取消的 OneAPI 客户端、Prompt Agent 单/双图输入、请求侧图片压缩、图生图、透明 PNG/遮罩原样编辑、4K-token 多图评审与多轮图片/PDF 请求构造、脱敏诊断、请求 ID/响应/真实费用归一化与错误脱敏
+ * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、undici Agent、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
+ * [OUTPUT]: 对外提供按目录/提示词/出图/分析/评审/风格反推独立限时的 OneAPI 客户端与超时策略、主动取消、Prompt Agent 单/双图输入、请求侧图片压缩、图生图、透明 PNG/遮罩原样编辑、4K-token 多图评审与多轮图片/PDF 请求构造、含阶段/模型的脱敏诊断、请求 ID/响应/真实费用归一化与错误脱敏
  * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图与遮罩编辑分别走 Images generations/edits，并集中记录不含 Key/Prompt/图片正文的失败诊断
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { fitImageDataUrlForRequest } from "./image-artifact.mjs";
+import { Agent } from "undici";
 
 const BASE_URL = "https://oneapi.qunhequnhe.com/v1";
-const REQUEST_TIMEOUT_MS = 180_000;
+export const ONEAPI_REQUEST_TIMEOUTS = Object.freeze({
+  catalog: Object.freeze({ label: "模型目录读取", timeoutMs: 30_000 }),
+  prompt: Object.freeze({ label: "提示词生成", timeoutMs: 300_000 }),
+  image: Object.freeze({ label: "图像生成", timeoutMs: 600_000 }),
+  analysis: Object.freeze({ label: "图像分析", timeoutMs: 180_000 }),
+  review: Object.freeze({ label: "图像评审", timeoutMs: 180_000 }),
+  styleDna: Object.freeze({ label: "风格反推", timeoutMs: 300_000 }),
+});
+
+// -------- 仅覆盖 OneAPI 连接的默认限时，各阶段由请求计时器统一截止 --------
+const ONEAPI_DISPATCHER = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
 
 function defaultDiagnosticSink(event) {
   process.stderr.write(`[OneAPI] ${JSON.stringify(event)}\n`);
@@ -389,9 +400,10 @@ export function createOneApiClient(
     }
   }
 
-  async function request(pathname, options = {}, context = {}) {
+  async function request(pathname, options, { model = null, stage }) {
+    const { label, timeoutMs } = ONEAPI_REQUEST_TIMEOUTS[stage];
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const signal = externalSignal
       ? AbortSignal.any([controller.signal, externalSignal])
       : controller.signal;
@@ -403,6 +415,7 @@ export function createOneApiClient(
       externalSignal?.throwIfAborted();
       const response = await fetch(`${BASE_URL}${pathname}`, {
         ...options,
+        dispatcher: ONEAPI_DISPATCHER,
         headers: {
           Authorization: authorization,
           "Content-Type": "application/json",
@@ -428,12 +441,14 @@ export function createOneApiClient(
         normalizedError = externalSignal.reason instanceof Error
           ? externalSignal.reason
           : new DOMException("用户已停止任务", "AbortError");
-      } else if (!(error instanceof OneApiError) && error.name === "AbortError") {
+      } else if (controller.signal.aborted) {
         normalizedError = new OneApiError(
-          "模型请求超过 180 秒，已停止等待；上游任务可能仍在处理，请勿立即重复提交",
+          `${label}超过 ${timeoutMs / 1000} 秒，已停止等待；上游任务可能仍在处理，请勿立即重复提交`,
           504,
           "timeout",
         );
+        normalizedError.stage = stage;
+        normalizedError.timeoutMs = timeoutMs;
       } else if (!(error instanceof OneApiError)) {
         normalizedError = new OneApiError(
           `无法连接公司 API：${error.message}`,
@@ -446,10 +461,12 @@ export function createOneApiClient(
         elapsedMs: Date.now() - startedAt,
         event: "request_failed",
         method: String(options.method || "GET").toUpperCase(),
-        model: context.model || null,
+        model,
         pathname,
         requestBytes,
         responseStatus,
+        stage,
+        timeoutMs,
       });
       throw normalizedError;
     } finally {
@@ -469,7 +486,7 @@ export function createOneApiClient(
           }),
         ),
         method: "POST",
-      });
+      }, { model, stage: "analysis" });
       const text = extractResponseText(body);
       if (!text) {
         throw new OneApiError(
@@ -505,7 +522,7 @@ export function createOneApiClient(
             userPrompt,
           })),
         method: "POST",
-      });
+      }, { model, stage: "review" });
       const text = extractResponseText(body);
       if (!text) {
         throw new OneApiError(
@@ -531,7 +548,7 @@ export function createOneApiClient(
           userPrompt,
         })),
         method: "POST",
-      });
+      }, { model, stage: "prompt" });
       const text = extractResponseText(body);
       if (!text) {
         throw new OneApiError(
@@ -564,7 +581,7 @@ export function createOneApiClient(
           }),
         ),
         method: "POST",
-      });
+      }, { model, stage: "styleDna" });
       const text = extractResponseText(body);
       if (!text) {
         throw new OneApiError(
@@ -604,7 +621,7 @@ export function createOneApiClient(
           body: JSON.stringify(requestBody),
           method: "POST",
         },
-        { model: generationRequest.model || null },
+        { model: generationRequest.model || null, stage: "image" },
       );
       return imageGenerationResult(body, generationRequest,
         useResponses ? "responses" : "images-generations");
@@ -615,12 +632,12 @@ export function createOneApiClient(
       const body = await request("/images/edits", {
         body: JSON.stringify(generationRequest),
         method: "POST",
-      }, { model: generationRequest.model || null });
+      }, { model: generationRequest.model || null, stage: "image" });
       return imageGenerationResult(body, generationRequest, "images-edits");
     },
 
     async listModels() {
-      const body = await request("/models", { method: "GET" });
+      const body = await request("/models", { method: "GET" }, { stage: "catalog" });
       return Array.isArray(body?.data) ? body.data : [];
     },
   };

@@ -31,7 +31,7 @@ empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十一个候选 ID（含 DeepSeek V4.1 Flash 与 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
-oneapi-client.mjs: 固定 180 秒/外部 AbortSignal 的 OneAPI HTTP 客户端，Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留请求身份/费用与脱敏诊断
+oneapi-client.mjs: 按阶段独立限时/外部 AbortSignal 的 OneAPI HTTP 客户端与 ONEAPI_REQUEST_TIMEOUTS 真源：目录 30 秒、提示词/Style DNA 300 秒、出图/编辑 600 秒、分析/评审 180 秒，每次 HTTP 请求至完整响应体独立计时，专用 undici Agent 避免底层默认 300 秒提前截断且不改全局连接；Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留阶段/模型/限时脱敏诊断及请求身份/费用
 ai-texture-workflow-config.mjs: Flux 工作流身份与参数合同真源，集中维护 9B FP8、7-step、节点标识、默认负向 Prompt 与归档元数据
 ai-texture-workflow.mjs: Flux2 Klein ComfyUI 执行图，统一使用 9B FP8/7 steps、`euler`、空 Latent 与原图 ReferenceLatent，按原图比例执行 1K/2K 推理；可选直连无 Prompt 攸行 SeedVR2 3B，并以唯一 SaveImage 收口
 comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行时限与工作流适配器的 ComfyUI HTTP/WebSocket 客户端，将 Base64 单图与工作流原子提交，以请求级唯一产物键隔离多实例同名旧图，通过同 client ID 的事件流区分排队/执行并保留 Prompt ID，WebSocket 丢失执行事件时以实时队列和 History 恢复阶段，即使 `completed=false` 也立即透传节点 OOM/中断，只对网关读取抖动做安全重试、保留节点校验详情、为最终输出提供最长约一分钟的暂不可见恢复，并归一为含真实尺寸/SHA-256 身份的 data URL 与耗时元数据

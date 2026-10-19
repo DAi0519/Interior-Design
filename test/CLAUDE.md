@@ -78,6 +78,7 @@ launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、�
 agent-model-config.test.mjs: 十一个 Prompt Agent 候选 ID、DeepSeek V4.1 Flash、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求
 lark-sync.test.mjs: 全部可写字段类型/单选值/附件 ID 的 409 阻断、真实产物尺寸与模型目录、Banana 2.1 独立模型单选准入及与 Prompt融合 分离、风格转换平台/参考图二选一归档与功能选项409阻断、独立效果图氛围转换/美化功能、房型/家具/设计/Agent/风格、原始/最终 Prompt、模型与融合及完整天气时段工作流映射；不调用 CLI 或写入真实 Base
 oneapi-client.test.mjs: OneAPI 主动取消、Prompt Agent 单/双图顺序、Responses 与 Claude Chat Completions 评审、图生图压缩/脱敏、Images edits 透明 PNG/mask 字节原样传输/真实费用/空响应/上游错误与收费 POST 不重试、Style DNA 多轮附件及费用归一化测试
+oneapi-timeout.test.mjs: OneAPI 各阶段独立预算、响应体读取限时、提示词转出图重置计时、阶段/模型诊断、主动取消优先、收费 POST 不重试与终态定时器清理的虚拟时钟测试，并以本机 HTTP 延迟头/正文对照验证真实 dispatcher 与取消链路，不调用真实模型
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
 image-artifact.test.mjs: 生成图片扩展名、data URL 解码、任务快照 WebP 预览、空响应与下载体积上限测试
 image-download.test.mjs: 内嵌大图浏览器本地 Blob、远程图片同源代理、文件名一致性、MIME、字节透传、附件响应头与非法输入测试，不访问网络

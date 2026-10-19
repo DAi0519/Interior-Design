@@ -1,19 +1,19 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
-Node.js 24+ + 原生 HTTP + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.5 + lark-cli 1.0.77
+Node.js 24+ + 原生 HTTP + undici 7.30.1 + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.5 + lark-cli 1.0.77
 
 <directory>
 .impeccable/ - Impeccable 项目级设计配置与验收证据（2 个子目录：live、review）
 public/ - 浏览器工作台界面（83 个业务与字体授权文件及 icons/ 图标资产模块：运营连接中心、三页共享版本检测与用户确认后安装、含可复用飞书样本库、默认 Flux、本机配置恢复、默认攸行 3B 的五套 SeedVR2 图片超分（含 7B 原图直入与 KS 2 倍）、默认 ComfyUI 参数 1082、可选 Qwen Image Edit 2511 原生遮罩及 Sunburst API 的三引擎单图扩图/兼容Flux Fill模型选择/目标比例与1K至4K分辨率/固定输出的主区域棋盘格构图/四角等比缩放/倍率设置/浮点transform连续构图与整数提交隔离/上传默认预览与结果切换/各自尺寸合同与动态准入、时间追溯 Run ID 与飞书回读结果预览的八功能 Beta跑图、效果图氛围转换当前上架 Prompt 版本及天气/时段选项、独立六预设的效果图美化强度/色调控件、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/风格转换/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或共享简洁搜索的单选风格与不限模型数批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
 src/ - GitHub 正式 Release 更新检测/受信安装与共享 HTTP 边界、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、含 Flux/Qwen ComfyUI 与 Sunburst 扩图/方向归一化/所选引擎节点或 Key 权限准入的独立图片工具、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图美化/氛围转换/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、空房房间类型真源、Style DNA/白模/空房设计/独立风格转换编排及 Benchmark 运行层（61 个模块）
 docs/ - 图片扩图目标分辨率与可交互构图的使用/维护说明（无子目录）
-test/ - Node 原生测试（94 个测试文件及共享交互夹具，覆盖版本检查/失败降级/更新提示与安装摘要/目录保护/完整进度终态、共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 五工作流与 4K/6K/8K 或 KS 原图两倍图片超分、三引擎扩图来源/EXIF/Qwen遮罩采样与中心合成/原生JSON导出/ComfyUI32与8规则/Sunburst27档位/透明PNG与mask/收费POST及产物合同、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt 上架准入与下架选择回退、空房必填房间类型、白模渲染方式、风格转换显式双来源与Beta版本冻结/三图归档、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
+test/ - Node 原生测试（95 个测试文件及共享交互夹具，覆盖版本检查/失败降级/更新提示与安装摘要/目录保护/完整进度终态、共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 五工作流与 4K/6K/8K 或 KS 原图两倍图片超分、三引擎扩图来源/EXIF/Qwen遮罩采样与中心合成/原生JSON导出/ComfyUI32与8规则/Sunburst27档位/透明PNG与mask/收费POST及产物合同、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 默认/自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模固定 Prompt 上架准入与下架选择回退、空房必填房间类型、白模渲染方式、风格转换显式双来源与Beta版本冻结/三图归档、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
 workflows/ - 可独立导入 ComfyUI 的 Qwen 扩图画布/API JSON 与使用说明，以及从用户附件提取的 SeedVR2 7B 普通图片独立超分画布、KS 来源画布与说明（无子目录）
 scripts/ - 独立工作流导出与源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
 PRD-Outputs/ - 私有产品文档，已由根目录 .gitignore 排除
 </directory>
 
 <config>
-package.json - 固定 Node 版本、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
+package.json - 固定 Node 版本、OneAPI 专用 undici 连接、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli/Pannellum 版本
 launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
 server.mjs - 本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立风格转换配置与双 Agent 连接校验、独立图片工具配置与共享扩图动态能力准入、ComfyUI 图片超分与 Flux/Qwen/Sunburst 三引擎扩图客户端、精模/白模/Style DNA、Beta跑图独立新 Base 与 Benchmark API 路由入口
@@ -57,6 +57,8 @@ Benchmark 法则：浏览器评测以样本集、可编辑实验计划、执行�
 GPT 尺寸法则：1K/2K/4K 是工作台档位，各比例尺寸以 src/model-config.mjs 为真源，三工作台公开摘要与实际请求使用同一映射；GPT Image 2/2.5 的宽高须为16倍数、边长不超过3840、总像素655360–8294400且长短边比不超过3。1K 16:9 使用1536x864，4K 非16:9画幅按总像素上限缩小并保持精确比例；其他模型继续按各自接口合同映射，禁止把1K统一解释成长边1024。
 
 归档法则：生成记录的“尺寸”必须从结果图真实字节读取，禁止用请求尺寸冒充实际产物。
+
+OneAPI限时法则：目录读取 30 秒、提示词生成与 Style DNA 反推 300 秒、出图与编辑 600 秒、分析与评审 180 秒，以 src/oneapi-client.mjs 的 ONEAPI_REQUEST_TIMEOUTS 为真源。每次请求从发送到完整响应体独立计时，前置步骤及本地批次排队不占后续请求预算，不另设全流程 180 秒上限；超时说明阶段并保留 stage/model/timeoutMs 脱敏诊断，OneAPI 专用 dispatcher 关闭底层响应头/正文的默认 300 秒限制，由阶段计时器统一截止；主动取消优先且 HTTP 客户端不因超时自动重试收费 POST。ComfyUI 保持自身排队、执行及产物读取规则。
 
 发布法则：对外发布先创建 GitHub 草稿 Release 并校验提交及全部制品摘要，转正式后才清理本地制品；已存在 Release 或远端 Tag 的版本禁止覆盖。
 
