@@ -1,15 +1,18 @@
 /**
- * [INPUT]: 依赖 Qwen Image Edit 2511/对应 Lightning 4步权重、原生等比缩放/扩边遮罩/采样/合成节点、单图 Base64、构图几何和请求级产物键
- * [OUTPUT]: 对外提供独立 Qwen 扩图身份、固定 Prompt 真源、参考编码同尺度推理尺寸、实时节点准入、执行图与实际输出/重采样元数据
- * [POS]: src 的 Qwen 扩图工作流真源，与 Flux Fill/Sunburst 并列；整张画布与遮罩在约 1MP 推理，恢复目标后回贴原图中心
+ * [INPUT]: 依赖共享固定2K产品合同、Janus-Pro-1B节点/实际正文捕获、Qwen Image Edit 2511/Lightning权重、原生文本/缩放/遮罩采样节点、单图Base64与构图几何
+ * [OUTPUT]: 对外提供独立Qwen扩图身份、Janus场景提示词原文透传、同尺度推理尺寸、实时节点准入、执行图及实际Prompt/产物/重采样元数据
+ * [POS]: src 的 Qwen 扩图工作流真源，与 Flux Fill/Sunburst 并列；整张画布与遮罩在约 1MP 推理，整图解码恢复目标尺寸，不再回贴原图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { JANUS_OUTPAINT_SETTINGS, capturedOutpaintPrompt, createOutpaintJanusNodes } from "./image-outpaint-janus.mjs";
+import { OUTPAINT_RESOLUTION } from "../public/image-outpaint-geometry.js";
 
 export const QWEN_OUTPAINT_ENGINE_KEY = "qwenImageEdit2511";
 export const QWEN_OUTPAINT_WORKFLOW = Object.freeze({
   key: "image-outpaint-qwen",
   label: "Qwen Image Edit 2511",
-  version: "2026-10-19.1",
+  version: "2026-10-20.1",
   model: "qwen_image_edit_2511_fp8mixed.safetensors",
   clip: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
   vae: "qwen_image_vae.safetensors",
@@ -25,16 +28,16 @@ const LIMITS = Object.freeze({
   minInputEdge: 32, maxInputEdge: 4096, inputAlignment: 1, sourceSizing: "original",
   outputAlignment: 16, maxEdge: 4096, maxPixels: 4096 * 4096, maxExpansion: 4096,
 });
-export const QWEN_OUTPAINT_PROMPT = "Extend the scene naturally into the blank gray canvas surrounding the original image. "
-  + "Continue the existing architecture, surfaces, objects and background with coherent perspective, geometry, lighting, colors and texture. "
-  + "Preserve the original composition, camera viewpoint, subject identity and visual style. "
-  + "Create a seamless continuation across every original image boundary. Only fill the newly extended areas; do not add frames, text, watermarks or duplicate subjects.";
+export const QWEN_OUTPAINT_JANUS_QUESTION = "Write one concise English outpainting prompt based on this original image. "
+  + "Describe the visible scene, architecture, furnishings, materials, colors, lighting, camera viewpoint and perspective. "
+  + "Describe a natural continuation of the same scene beyond its edges, keeping the existing style and atmosphere. "
+  + "Use only visual evidence from this image; do not invent new subjects, decorations, text or frames. Return only the English prompt without headings or Markdown.";
 
 function inputError(message) { return Object.assign(new Error(message), { statusCode: 400 }); }
 
 export function publicQwenOutpaintConfig({ available = false, reason = "Qwen 扩图客户端尚未配置" } = {}) {
   return {
-    ...LIMITS, key: QWEN_OUTPAINT_ENGINE_KEY, label: QWEN_OUTPAINT_WORKFLOW.label,
+    ...LIMITS, resolution: OUTPAINT_RESOLUTION, key: QWEN_OUTPAINT_ENGINE_KEY, label: QWEN_OUTPAINT_WORKFLOW.label,
     provider: "comfyui", available, reason: available ? null : reason,
     workflow: { key: QWEN_OUTPAINT_WORKFLOW.key, label: QWEN_OUTPAINT_WORKFLOW.label, version: QWEN_OUTPAINT_WORKFLOW.version },
   };
@@ -73,7 +76,7 @@ export function qwenOutpaintArtifactPrefix(artifactKey) {
   return `CanvasLab_QwenOutpaint_${artifactKey}`;
 }
 
-// -------- 条件、图像 latent 与噪声遮罩统一尺度；目标尺寸仅用于最后恢复与回贴 --------
+// -------- 条件、图像 latent 与噪声遮罩统一尺度；完整解码图恢复目标尺寸，不拼接两种色调 --------
 export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, imageBase64, seed, width, height }) {
   assertQwenOutpaintTarget({ width, height });
   const prefix = qwenOutpaintArtifactPrefix(artifactKey);
@@ -89,6 +92,8 @@ export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, ima
   const node = (class_type, inputs) => ({ class_type, inputs });
   return {
     input: node("easy loadImageBase64", { base64_data: imageBase64, image_output: "Hide", save_prefix: `CanvasLab_QwenInput_${artifactKey}` }),
+    ...createOutpaintJanusNodes({ image: ["input", 0], question: QWEN_OUTPAINT_JANUS_QUESTION }),
+    "prompt-output": node("SaveText", { text: ["describe", 0], filename_prefix: `${prefix}_prompt`, format: "txt" }),
     model: node("UNETLoader", { unet_name: settings.model, weight_dtype: "default" }),
     clip: node("CLIPLoader", { clip_name: settings.clip, type: "qwen_image", device: "default" }),
     vae: node("VAELoader", { vae_name: settings.vae }),
@@ -101,7 +106,7 @@ export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, ima
     maskImage: node("MaskToImage", { mask: ["pad", 1] }),
     inferenceMaskImage: node("ImageScale", { image: ["maskImage", 0], upscale_method: settings.maskResampling, width: ["inferenceSize", 0], height: ["inferenceSize", 1], crop: "disabled" }),
     inferenceMask: node("ImageToMask", { image: ["inferenceMaskImage", 0], channel: "red" }),
-    positive: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["inference", 0], prompt: QWEN_OUTPAINT_PROMPT }),
+    positive: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["inference", 0], prompt: ["prompt-output", 0] }),
     negative: node("TextEncodeQwenImageEditPlus", { clip: ["clip", 0], vae: ["vae", 0], image1: ["inference", 0], prompt: "" }),
     encode: node("VAEEncode", { pixels: ["inference", 0], vae: ["vae", 0] }),
     mask: node("SetLatentNoiseMask", { samples: ["encode", 0], mask: ["inferenceMask", 0] }),
@@ -112,15 +117,15 @@ export function createQwenOutpaintWorkflow({ artifactKey, generationRequest, ima
     decode: node("VAEDecode", { samples: ["sample", 0], vae: ["vae", 0] }),
     outputSize: node("GetImageSize", { image: ["pad", 0] }),
     restore: node("ImageScale", { image: ["decode", 0], upscale_method: settings.imageResampling, width: ["outputSize", 0], height: ["outputSize", 1], crop: "disabled" }),
-    composite: node("ImageCompositeMasked", { destination: ["pad", 0], source: ["restore", 0], x: 0, y: 0, resize_source: false, mask: ["pad", 1] }),
-    output: node("SaveImage", { images: ["composite", 0], filename_prefix: prefix }),
+    output: node("SaveImage", { images: ["restore", 0], filename_prefix: prefix }),
   };
 }
 
 export const QWEN_OUTPAINT_REQUIRED_NODES = Object.freeze([
   "easy loadImageBase64", "UNETLoader", "CLIPLoader", "VAELoader", "ModelSamplingAuraFlow", "CFGNorm", "LoraLoaderModelOnly",
-  "ImagePadForOutpaint", "TextEncodeQwenImageEditPlus", "VAEEncode", "SetLatentNoiseMask", "KSampler", "VAEDecode", "ImageCompositeMasked", "SaveImage",
+  "ImagePadForOutpaint", "TextEncodeQwenImageEditPlus", "VAEEncode", "SetLatentNoiseMask", "KSampler", "VAEDecode", "SaveImage",
   "ImageScaleToTotalPixels", "GetImageSize", "MaskToImage", "ImageScale", "ImageToMask",
+  "JanusModelLoader", "JanusImageUnderstanding", "SaveText",
 ]);
 
 // -------- 逐节点核对必填、枚举与标量范围，准入失败不得提交 GPU --------
@@ -155,7 +160,7 @@ export function verifyQwenOutpaintCapabilities(objectInfo = {}) {
 
 export function qwenOutpaintWorkflowMetadata({
   actualOutputHeight, actualOutputWidth, artifactKey, executionDurationMs, generationRequest, height,
-  outputFilename, outputSha256, promptId, queueDurationMs, seed, width,
+  outputFilename, outputSha256, promptId, queueDurationMs, seed, width, historyOutputs,
 }) {
   const settings = QWEN_OUTPAINT_WORKFLOW;
   const inference = qwenOutpaintInferenceDimensions({ width, height });
@@ -164,14 +169,17 @@ export function qwenOutpaintWorkflowMetadata({
     inputHeight: generationRequest?.sourceHeight, inputWidth: generationRequest?.sourceWidth,
     model: settings.model, lora: settings.lora, weightDtype: "default", steps: settings.steps, cfg: settings.cfg,
     sampler: settings.sampler, scheduler: settings.scheduler, shift: settings.shift, feathering: settings.feathering,
-    preservation: "original-center-masked-composite", outputFilename, outputHeight: actualOutputHeight, outputWidth: actualOutputWidth,
+    preservation: "latent-mask-vae-reconstruction", sourcePixelsPreserved: false,
+    outputFilename, outputHeight: actualOutputHeight, outputWidth: actualOutputWidth,
     outputSha256, promptId, queueDurationMs, seed, targetHeight: height, targetWidth: width,
     inferenceWidth: inference.width, inferenceHeight: inference.height, inferencePixels: inference.width * inference.height,
     inferenceMegapixels: settings.inferenceMegapixels, inferenceAlignment: settings.inferenceAlignment,
     inferenceResampling: settings.imageResampling, maskResampling: settings.maskResampling,
     outputResampling: settings.imageResampling, outputRestored: inference.width !== width || inference.height !== height,
-    outputSizeStrategy: "restore-target-then-original-mask-composite", upscaleModel: null,
+    outputSizeStrategy: "restore-target-from-masked-sampling", upscaleModel: null,
     workflowId: settings.key, workflowVersion: settings.version,
+    ...capturedOutpaintPrompt(historyOutputs), promptSource: "Janus-Pro-1B",
+    promptGenerator: { ...JANUS_OUTPAINT_SETTINGS, question: QWEN_OUTPAINT_JANUS_QUESTION, imageSource: "original-before-padding" },
   };
 }
 

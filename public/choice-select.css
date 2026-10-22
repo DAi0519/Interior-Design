@@ -1,9 +1,20 @@
 /**
- * [INPUT]: 依赖 model-multi-select.js 的模型多选/风格单选触发器、同宽原生 popover、搜索与小勾状态，依赖现有下拉控件的中性令牌
- * [OUTPUT]: 对外提供 Main/Beta 模型与风格共用的 38px 摘要、同宽紧凑下拉、无选中底框的小勾反馈及无外圈的局部键盘焦点
- * [POS]: public 的共享模型/风格下拉视觉层，沿用原下拉对齐和密度，不增加分组、工具栏或重复统计
+ * [INPUT]: 依赖 choice-select.js 唯一菜单结构、共享主题令牌及 selected/disabled/expanded 状态
+ * [OUTPUT]: 全站下拉组件视觉真源：38px控件和选项、4px选项行距、不透明菜单、黑底白字选中/橙勾/浅灰悬停、焦点/搜索/滚动/窄屏
+ * [POS]: public 共享下拉组件库样式，由 custom-select.css 统一引入，业务不得另写选中配色
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+:root {
+  --select-menu-bg: #fcfcfd;
+  --select-menu-shadow: 0 18px 44px rgb(20 20 24 / 18%), inset 0 1px 0 #fff;
+  --select-option-height: 38px;
+  --select-option-gap: 4px;
+  --select-selected-bg: #000;
+  --select-selected-ink: #fff;
+  --select-check: #f37021;
+  --select-focus: #888890;
+}
+
 
 .model-picker {
   display: block;
@@ -70,8 +81,8 @@
 }
 
 .model-picker-trigger:focus-visible {
-  border-color: #77777e;
-  box-shadow: none;
+  border-color: var(--select-focus);
+  box-shadow: 0 0 0 3px rgb(32 32 36 / 8%);
   outline: 0;
 }
 
@@ -81,10 +92,10 @@
 }
 
 .model-picker-popover {
-  background: rgb(252 252 253 / 98%);
+  background: var(--select-menu-bg);
   border: 1px solid var(--line-strong, #d1d1d5);
   border-radius: 6px;
-  box-shadow: 0 8px 20px rgb(20 20 24 / 12%);
+  box-shadow: var(--select-menu-shadow);
   box-sizing: border-box;
   color: var(--text, #202024);
   display: none;
@@ -173,7 +184,10 @@
 }
 
 .model-picker-list {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--select-option-gap);
   min-height: 0;
   min-width: 0;
   overflow-x: hidden;
@@ -190,11 +204,12 @@
   border-radius: 4px;
   color: var(--text, #202024);
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   font-size: 11px;
   font-weight: 400;
   gap: 2px 8px;
-  min-height: 32px;
+  min-height: var(--select-option-height);
   min-width: 0;
   padding: 7px 9px;
   text-align: left;
@@ -210,7 +225,7 @@
 }
 
 .model-picker-option-check {
-  color: #c54b09;
+  color: var(--select-check);
   flex: 0 0 14px;
   height: 14px;
 }
@@ -239,10 +254,8 @@
 
 .model-picker-action:focus-visible,
 .model-picker-option:focus-visible {
-  box-shadow: none;
-  outline: 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  outline: 2px solid var(--select-focus);
+  outline-offset: -3px;
 }
 
 .model-picker-empty {
@@ -260,7 +273,7 @@
   }
 
   .model-picker-action:hover:not(:disabled),
-  .model-picker-option:hover:not(:disabled) {
+  .model-picker-option:hover:not(:disabled):not(.selected) {
     background: var(--panel-soft, #f0f0f2);
   }
 }
@@ -269,4 +282,17 @@
   #modelOptions.model-picker {
     width: 100%;
   }
+}
+
+/* -------- 唯一选中态：普通单选、搜索单选与多选共用 -------- */
+.model-picker-option.selected {
+  background: var(--select-selected-bg);
+  color: var(--select-selected-ink);
+  box-shadow: var(--brand-selected-shadow, 0 3px 6px rgb(0 0 0 / 16%));
+}
+.model-picker-option.selected .model-picker-option-reason { color: #d6d6da; }
+.model-picker-option:disabled { opacity: 0.5; }
+.model-picker-trigger, .model-picker-chevron { transition: background-color 140ms ease, transform 140ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .model-picker-trigger, .model-picker-chevron { transition: none; }
 }

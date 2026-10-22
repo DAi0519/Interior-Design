@@ -1,0 +1,78 @@
+{
+  "status": "original-ratio-contract-and-browser-passed",
+  "date": "2026-10-19",
+  "tests": {
+    "total": 823,
+    "passed": 823,
+    "failed": 0
+  },
+  "browser": [
+    {
+      "engine": "ComfyUI · Flux Fill",
+      "error": "",
+      "output": "1496 × 2048",
+      "preview": "true",
+      "ratio": "原比例",
+      "resolutionOptions": 0
+    },
+    {
+      "engine": "Qwen Image Edit 2511",
+      "error": "",
+      "output": "1488 × 2048",
+      "preview": "true",
+      "ratio": "原比例",
+      "resolutionOptions": 0
+    },
+    {
+      "engine": "GPT Image 2.5 Sunburst",
+      "error": "",
+      "output": "1488 × 2048",
+      "preview": "true",
+      "ratio": "原比例",
+      "resolutionOptions": 0
+    }
+  ],
+  "layout": {
+    "columns": 3,
+    "rows": 2,
+    "horizontalOverflow": false,
+    "sourceLoaded": true
+  },
+  "source": {
+    "file": "../qwen-outpaint-alignment/source.jpg",
+    "width": 864,
+    "height": 1184
+  },
+  "defaults": {
+    "ratio": "original",
+    "resolution": "2K",
+    "longEdge": 2048,
+    "scale": 0.6666666666666666
+  },
+  "sunburst": {
+    "supportsOriginalRatio": true,
+    "outputAlignment": 16,
+    "maxAspectRatio": 3,
+    "minPixels": 655360,
+    "maxPixels": 8294400,
+    "paidGatewayVerification": false
+  },
+  "verification": [
+    "真实EXIF方向后重算原比例",
+    "Sunburst原比例超过3:1在取整前拦截",
+    "手选预设后换图保留意图",
+    "原比例参数进入原有归档JSON",
+    "预设切换和Home键返回原比例"
+  ],
+  "notPerformed": [
+    "新GPU出图",
+    "Sunburst收费API请求",
+    "飞书写入",
+    "修改2K尺寸口径",
+    "发布或提交"
+  ],
+  "sources": [
+    "https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options",
+    "https://ai.google.dev/gemini-api/docs/image-generation"
+  ]
+}

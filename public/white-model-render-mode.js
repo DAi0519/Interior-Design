@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { bindSearchableChoice } from "./model-multi-select.js?v=4";
+import { bindSearchableChoice } from "./model-multi-select.js?v=5";
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";

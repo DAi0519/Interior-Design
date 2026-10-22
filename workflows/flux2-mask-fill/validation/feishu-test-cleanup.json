@@ -1,0 +1,48 @@
+{
+  "at": "2026-10-21T10:23:23.805Z",
+  "reason": "Mock injection was not yet installed; only these three exact-marked synthetic test records were removed.",
+  "recordIds": [
+    "reczz28Q1eOzpfei",
+    "reczz28Q1eZ8Fgmr",
+    "reczz28Q1egPjEVX"
+  ],
+  "deleted": {
+    "record_id_list": [
+      "reczz28Q1eOzpfei",
+      "reczz28Q1eZ8Fgmr",
+      "reczz28Q1egPjEVX"
+    ],
+    "rev": 5623
+  },
+  "readback": {
+    "data": [],
+    "field_id_list": [
+      "fldZN136tk",
+      "fldC6yMCjr",
+      "fldqHQkgI8",
+      "fldFa7I59b"
+    ],
+    "field_type_list": [
+      "text",
+      "text",
+      "text",
+      "text"
+    ],
+    "fields": [
+      "原始 Prompt",
+      "最终 Prompt",
+      "尺寸",
+      "生成参数"
+    ],
+    "has_more": false,
+    "query_context": {
+      "field_scope": "selected_fields",
+      "record_scope": "all_records",
+      "search_scope": "fldZN136tk(原始 Prompt)"
+    },
+    "record_id_list": [],
+    "rev": 5623,
+    "timezone": "Asia/Shanghai"
+  },
+  "verified": true
+}

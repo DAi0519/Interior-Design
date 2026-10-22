@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Qwen 运行图/独立导出工厂、已保存画布/API JSON 与 Node 文件读取
- * [OUTPUT]: 对外提供真源一致、统一推理/恢复目标/原遮罩回贴、双向端口/类型/槽位/无环、控件顺序及无图片/凭据/服务地址的离线交付验证
+ * [OUTPUT]: 对外提供独立交付同版FP32与工作台BF16隔离、原生上传/显式flow适配后真源一致、Janus动态原文直连SaveText/无拼接固定前缀/25节点运行图与26节点独立图、统一推理/遮罩采样/整图恢复、双向端口/类型/槽位/无环、当前控件顺序及SaveImage输出声明的离线交付验证
  * [POS]: test 的独立 ComfyUI 导出交付测试，不重写导出文件、不访问网络或 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,11 +20,14 @@ const canvas = JSON.parse(canvasText);
 // -------- ComfyUI 原生控件顺序：KSampler 随机策略和 LoadImage 上传项不进入 API --------
 const widgetFields = {
   LoadImage: ["image", null],
+  JanusModelLoader: ["model_name"],
+  JanusImageUnderstanding: ["question", "seed", null, "temperature", "top_p", "max_new_tokens"],
+  SaveText: ["filename_prefix", "format"],
   ImageScaleToTotalPixels: ["upscale_method", "megapixels", "resolution_steps"],
   UNETLoader: ["unet_name", "weight_dtype"],
   CLIPLoader: ["clip_name", "type", "device"],
   VAELoader: ["vae_name"],
-  ModelSamplingAuraFlow: ["shift"],
+  ModelSamplingAuraFlow: ["shift", "sampling"],
   CFGNorm: ["strength", "pre_cfg"],
   LoraLoaderModelOnly: ["lora_name", "strength_model"],
   ImagePadForOutpaint: ["left", "top", "right", "bottom", "feathering"],
@@ -37,7 +40,6 @@ const widgetFields = {
   SetLatentNoiseMask: [],
   KSampler: ["seed", null, "steps", "cfg", "sampler_name", "scheduler", "denoise"],
   VAEDecode: [],
-  ImageCompositeMasked: ["x", "y", "resize_source"],
   SaveImage: ["filename_prefix"],
 };
 
@@ -61,16 +63,31 @@ test("两份保存产物与当前导出工厂完全一致，文件均保持可�
   assert.equal(canvas.extra.canvasLab.version, QWEN_OUTPAINT_WORKFLOW.version);
 });
 
-test("独立图仅增加原生上传和等比 16 对齐预处理，其余模型/采样/遮罩/合成沿用运行图", () => {
+test("独立图适配原生上传、同版 FP32 和显式 flow，其余模型/提示词/遮罩采样/恢复沿用运行图", () => {
   const runtime = createQwenOutpaintWorkflow({
     artifactKey: "standalone-export", imageBase64: "", seed: 20261015, width: 1024, height: 768,
     generationRequest: { sourceWidth: 768, sourceHeight: 512, expansion: { left: 128, top: 128, right: 128, bottom: 128 } },
   });
+  assert.equal(Object.keys(runtime).length, 25);
+  assert.equal(Object.keys(api).length, 26);
+  assert.equal(canvas.nodes.length, 26);
   assert.equal(runtime.input.class_type, "easy loadImageBase64");
+  assert.equal(QWEN_OUTPAINT_WORKFLOW.version, "2026-10-20.1");
+  for (const graph of [runtime, api]) {
+    assert.equal(Object.hasOwn(graph, "prompt"), false);
+    assert.equal(Object.values(graph).some((node) => node.class_type === "StringConcatenate"), false);
+    assert.doesNotMatch(JSON.stringify(graph), /Scene continuation:|gray canvas|grey canvas/i);
+  }
+  assert.equal(runtime.lightning.inputs.lora_name, "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "独立交付适配不得修改工作台 BF16 真源");
+  assert.equal(api.lightning.inputs.lora_name, "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-fp32.safetensors", "独立交付使用目标环境现有的同版 2511 4steps FP32");
+  assert.equal(api.lightning.inputs.strength_model, runtime.lightning.inputs.strength_model);
+  assert.equal("sampling" in runtime.shift.inputs, false, "工作台保留原有采样类型缺省行为");
+  assert.equal(api.shift.inputs.sampling, "flow");
   assert.deepEqual(api.input, { class_type: "LoadImage", inputs: { image: "input.png" } });
   assert.equal(api.prepare.class_type, "ImageScaleToTotalPixels");
   assert.deepEqual(api.prepare.inputs, { image: ["input", 0], upscale_method: "lanczos", megapixels: 0.39, resolution_steps: 16 });
   assert.deepEqual(api.pad.inputs.image, ["prepare", 0]);
+  assert.deepEqual(api.describe.inputs.image, ["input", 0], "Janus 分析上传原图，不分析补灰或缩放后画布");
   assert.deepEqual(api.inference.inputs, { image: ["pad", 0], upscale_method: "lanczos", megapixels: 1, resolution_steps: 8 });
   assert.deepEqual(api.inferenceSize.inputs.image, ["inference", 0]);
   assert.deepEqual(api.inferenceMaskImage.inputs.width, ["inferenceSize", 0]);
@@ -82,8 +99,16 @@ test("独立图仅增加原生上传和等比 16 对齐预处理，其余模型/
   projected.input = runtime.input;
   delete projected.prepare;
   projected.pad.inputs.image = ["input", 0];
+  projected.lightning.inputs.lora_name = runtime.lightning.inputs.lora_name;
+  delete projected.shift.inputs.sampling;
   assert.deepEqual(projected, runtime);
   assert.ok(Object.values(api).every((node) => node.class_type !== "easy loadImageBase64"));
+});
+
+test("画布保留当前 AuraFlow sampling 控件与 SaveImage 的未连接 IMAGE 输出", () => {
+  const keyed = keyedCanvas();
+  assert.deepEqual(keyed.get("shift").widgets_values, [3.1, "flow"]);
+  assert.deepEqual(keyed.get("output").outputs, [{ name: "images", type: "IMAGE", links: [], slot_index: 0 }]);
 });
 
 test("每条画布连线在源输出和目标输入双向登记且类型/槽位一致，无悬空引用", () => {
@@ -123,7 +148,7 @@ test("每条画布连线在源输出和目标输入双向登记且类型/槽位�
   }
 });
 
-test("画布与 API 依赖一一映射并形成有向无环图，结果必须经过 mask 合成", () => {
+test("画布与 API 依赖一一映射并形成有向无环图，结果仅经过遮罩采样与同一解码图恢复", () => {
   const keyed = keyedCanvas();
   const byId = new Map([...keyed].map(([key, node]) => [node.id, key]));
   const visited = new Set();
@@ -148,14 +173,17 @@ test("画布与 API 依赖一一映射并形成有向无环图，结果必须经
   for (const key of Object.keys(api)) visit(key);
   assert.equal(visited.size, Object.keys(api).length);
   assert.deepEqual(api.sample.inputs.latent_image, ["mask", 0]);
-  assert.deepEqual(api.output.inputs.images, ["composite", 0]);
+  assert.deepEqual(api.output.inputs.images, ["restore", 0]);
   assert.deepEqual(api.positive.inputs.image1, ["inference", 0]);
+  assert.deepEqual(api.positive.inputs.prompt, ["prompt-output", 0]);
+  assert.deepEqual(api["prompt-output"].inputs.text, ["describe", 0]);
   assert.deepEqual(api.negative.inputs.image1, ["inference", 0]);
   assert.deepEqual(api.encode.inputs.pixels, ["inference", 0]);
   assert.deepEqual(api.mask.inputs.mask, ["inferenceMask", 0]);
-  assert.deepEqual(api.composite.inputs.mask, ["pad", 1]);
-  assert.deepEqual(api.composite.inputs.source, ["restore", 0]);
-  assert.deepEqual(api.composite.inputs.destination, ["pad", 0]);
+  assert.deepEqual(api.restore.inputs.image, ["decode", 0]);
+  assert.deepEqual(api.decode.inputs.samples, ["sample", 0]);
+  assert.equal(Object.values(api).some((node) => node.class_type === "ImageCompositeMasked"), false);
+  assert.equal(canvas.nodes.some((node) => node.type === "ImageCompositeMasked"), false);
 });
 
 test("所有实际控件逐项匹配 API 标量，KSampler 随机策略不会错位覆盖步数", () => {
@@ -167,10 +195,11 @@ test("所有实际控件逐项匹配 API 标量，KSampler 随机策略不会错
     fields.forEach((field, index) => {
       if (field == null) return;
       if (Array.isArray(api[key].inputs[field])) {
-        assert.equal(node.widgets_values[index], 0, `${key}.${field} 连线控件应保留数值占位`);
         const input = node.inputs.find((value) => value.name === field);
+        const type = ["width", "height"].includes(field) ? "INT" : "STRING";
+        assert.equal(node.widgets_values[index], type === "INT" ? 0 : "", `${key}.${field} 连线控件须使用对应类型占位`);
         assert.deepEqual(input.widget, { name: field }, `${key}.${field} 必须注册已转输入的控件`);
-        assert.equal(input.type, "INT");
+        assert.equal(input.type, type);
         assert.ok(input.link != null);
       } else assert.deepEqual(node.widgets_values[index], api[key].inputs[field], `${key}.${field} 控件值漂移`);
       covered.add(field);
@@ -181,6 +210,8 @@ test("所有实际控件逐项匹配 API 标量，KSampler 随机策略不会错
   }
   const sampler = keyedCanvas().get("sample");
   assert.deepEqual(sampler.widgets_values, [api.sample.inputs.seed, "randomize", 4, 1, "euler", "simple", 1]);
+  const describe = keyedCanvas().get("describe");
+  assert.deepEqual(describe.widgets_values, [api.describe.inputs.question, 298596445848600, "fixed", 0.1, 0.95, 999]);
   assert.equal("control_after_generate" in api.sample.inputs, false);
   assert.deepEqual(keyedCanvas().get("input").widgets_values, ["input.png", "image"]);
 });

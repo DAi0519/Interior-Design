@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖房型/家具输入控制器、生图页面区块与当前功能
- * [OUTPUT]: 对外提供所有生成功能的图片上传置顶顺序、风格转换补充要求与主图/风格图输入，以及空房类型、家具请求合同、必填校验和直接显示的 Agent 配置
+ * [INPUT]: 依赖room-renovation 的旧房/空房模式判定、房型/家具输入控制器、生图页面区块与当前功能
+ * [OUTPUT]: 对外提供所有生成功能的图片上传置顶顺序、风格转换补充要求与主图/风格图输入，以及旧房改造/空房类型、家具请求合同、必填校验和直接显示的 Agent 配置
  * [POS]: public 的生成输入布局与空房输入组合层，保持主 app 编排器精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { isEmptyRoomDesign } from "./room-renovation.js";
 import { bindEmptyRoomType } from "./empty-room-type.js";
 import { bindEmptyRoomFurniture } from "./empty-room-furniture.js";
 
@@ -30,12 +31,14 @@ export function bindDesignInputs({ root, onChange }) {
       furniture.configure(catalog, otherMaxLength);
     },
     setFeatureMode(featureMode) {
-      const empty = featureMode === "emptyRoom";
+      const empty = isEmptyRoomDesign(featureMode);
+      const renovation = featureMode === "roomRenovation";
       const transfer = featureMode === "styleTransfer";
       // --- 每次先恢复稳定顺序，再统一把图片输入放到当前配置最前 ---
       parent.append(...originalOrder);
       if (empty) {
         let previous = originalOrder[0];
+        if (renovation) { parent.prepend(byId("roomRenovationSection")); previous = byId("roomRenovationSection"); }
         for (const section of emptyOrder) { previous.after(section); previous = section; }
         previous.after(agent);
       } else {
@@ -51,9 +54,10 @@ export function bindDesignInputs({ root, onChange }) {
       }
       if (empty) furniture.setRoomType(type.value());
       else byId("emptyRoomFurnitureSection").classList.add("hidden");
+      byId("emptyRoomFurnitureTitle").textContent = renovation ? "新方案家具" : "确认家具";
       byId("promptTitle").textContent = empty || transfer ? "补充要求（可选）" : "提示词";
-      label.textContent = transfer ? "风格转换补充要求" : empty ? "空房补充要求" : "图像提示词";
-      prompt.placeholder = transfer ? "例如：保留沙发与家具布局，使用深色木材和暖色灯光。"
+      label.textContent = renovation ? "旧房改造补充要求" : transfer ? "风格转换补充要求" : empty ? "空房补充要求" : "图像提示词";
+      prompt.placeholder = renovation ? "例如：改成适合双人居住的客厅，增加收纳；新家具请在上方选择。" : transfer ? "例如：保留沙发与家具布局，使用深色木材和暖色灯光。"
         : empty ? "例如：保留宽走道、需要双人办公、喜欢深色木材；家具增减请在上方选择。" : "";
     },
   };

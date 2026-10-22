@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node HTTP/静态文件、package.json 版本与 GitHub 正式 Release 更新检测/安装 HTTP 边界、固定版本浏览器资产、本机设置、飞书 Setup/生成记录实时 Schema、图片下载、模型/独立风格转换及效果图美化 Prompt/空房家具/图片工具目录、Flux/Qwen 专用扩图客户端与引擎准入、双 Provider、日常生成及 Beta/Benchmark 工作流
- * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新检测/受信安装进度、连接、配置、飞书合同与模型权限准入、生成和下载；Beta 逐张上传样本、按样本 ID 入队并提供轻量预览，JSON 单次请求保留 30MB 保护
+ * [INPUT]: 依赖Flux/Qwen/Sunburst遮罩服务、独立ComfyUI客户端与OneAPI实时权限目录、多角度/Qwen；依赖Node HTTP/静态文件、更新/安装、本机设置、飞书Schema、模型/Prompt/图片工具目录、双Provider与日常/Beta/Benchmark工作流
+ * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新/安装、连接、配置、飞书合同与模型权限准入、生成和下载；遮罩填充为本地测试任务和独立能力目录；Beta 十功能复用正式扩图/超分客户端与独立归档、逐张上传样本、按样本 ID 入队并提供轻量预览，超分独立复核ComfyUI节点且不依赖OneAPI，JSON 单次请求保留 30MB 保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,7 @@ import {
   EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
 } from "./src/empty-room-type.mjs";
 import { captureBetaGenerationArchive, createBetaBaseStore } from "./src/beta-base.mjs";
+import { readBetaUpscaleConfig } from "./src/beta-upscale.mjs";
 import {
   createBetaApiHandler,
   createBetaRunnerService,
@@ -32,7 +33,11 @@ import { readGenerationConfig } from "./src/generation-config.mjs";
 import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
+import { readMultiAngleConfig } from "./src/image-multi-angle-service.mjs";
+import { IMAGE_MASK_FILL_CLIENT_OPTIONS } from "./src/image-mask-fill-workflow.mjs";
+import { QWEN_MASK_FILL_CLIENT_OPTIONS } from "./src/image-mask-fill-qwen.mjs";
 import { createImageToolsApiHandler } from "./src/image-tools-api.mjs";
+import { MULTI_ANGLE, createMultiAngleWorkflow, multiAngleMetadata, multiAngleArtifactPrefix } from "./src/image-multi-angle-workflow.mjs";
 import { IMAGE_OUTPAINT_CLIENT_OPTIONS } from "./src/image-outpaint-workflow.mjs";
 import { QWEN_OUTPAINT_CLIENT_OPTIONS } from "./src/image-outpaint-qwen.mjs";
 import { createImageOutpaintConfigReader } from "./src/image-outpaint-service.mjs";
@@ -122,8 +127,13 @@ const generationJobs = createGenerationJobRegistry();
 const benchmarkJobs = createBenchmarkJobRegistry();
 const larkSetup = createLarkSetupService();
 const comfyUiClient = createComfyUiClient();
+const imageMultiAngleClient = createComfyUiClient({ artifactPrefix: multiAngleArtifactPrefix, outputNodeId: MULTI_ANGLE.outputNodeId, workflowFactory: createMultiAngleWorkflow, workflowMetadataFactory: multiAngleMetadata });
 const imageOutpaintClient = createComfyUiClient(IMAGE_OUTPAINT_CLIENT_OPTIONS);
 const qwenImageClient = createComfyUiClient(QWEN_OUTPAINT_CLIENT_OPTIONS);
+const imageMaskFillClient = createComfyUiClient(IMAGE_MASK_FILL_CLIENT_OPTIONS), qwenMaskFillClient = createComfyUiClient(QWEN_MASK_FILL_CLIENT_OPTIONS);
+const getImageMaskFillConfig = () => generationService.getImageMaskFillConfig();
+const getImageMultiAngleConfig = () => readMultiAngleConfig(imageMultiAngleClient,
+  { getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: true }) });
 const getImageOutpaintConfig = createImageOutpaintConfigReader(imageOutpaintClient,
   { qwenImageClient, getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey())) });
 const imageUpscaleClient = createComfyUiClient({
@@ -338,15 +348,16 @@ function scheduleGenerationSync(input) {
 const generationService = createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
-  imageUpscaleClient, imageOutpaintClient, qwenImageClient,
+  imageUpscaleClient, imageOutpaintClient, qwenImageClient, imageMultiAngleClient, imageMaskFillClient, qwenMaskFillClient,
   promptResultCache: whiteModelPromptResultCache,
   requireApiKey,
   scheduleGenerationSync,
 });
 const betaGenerationService = createGenerationService({
+  archiveImageUpscale: true,
   getSessionModelCatalog,
   imageClientForModel,
-  imageUpscaleClient,
+  imageUpscaleClient, imageOutpaintClient, qwenImageClient,
   promptResultCache: whiteModelPromptResultCache,
   requireApiKey,
   scheduleGenerationSync: captureBetaGenerationArchive,
@@ -354,6 +365,8 @@ const betaGenerationService = createGenerationService({
 const betaRunner = createBetaRunnerService({
   baseStore: createBetaBaseStore(),
   generationService: betaGenerationService,
+  getOutpaintConfig: getImageOutpaintConfig,
+  getUpscaleConfig: () => readBetaUpscaleConfig(imageUpscaleClient),
 });
 const handleBetaApi = createBetaApiHandler({
   getAgentModels: async () => checkAgentModelAvailability(
@@ -367,13 +380,14 @@ const handleBetaApi = createBetaApiHandler({
 const handleGenerationJobApi = createGenerationJobApiHandler({
   generationJobs,
   generationService,
+  getImageMultiAngleConfig,
+  getImageMaskFillConfig,
   getImageOutpaintConfig,
   readJson,
   sendJson,
   verifySyncContract: verifyLarkSyncSchema,
 });
-
-const handleImageToolsApi = createImageToolsApiHandler({ imageUpscaleClient, getImageOutpaintConfig, sendJson });
+const handleImageToolsApi = createImageToolsApiHandler({ imageMultiAngleClient, getImageMultiAngleConfig, getImageMaskFillConfig, imageUpscaleClient, getImageOutpaintConfig, sendJson });
 function safeStaticPath(pathname) {
   if (pathname === "/vendor/inter-variable-latin.woff2") return INTER_VARIABLE_LATIN_FONT;
   if (PANNELLUM_ASSETS[pathname]) return PANNELLUM_ASSETS[pathname];

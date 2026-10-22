@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Qwen 扩图工厂、能力准入与元数据合同、通用 ComfyUI 客户端及内存节点/HTTP 替身
- * [OUTPUT]: 对外提供 2511/专属 Lightning 隔离、统一推理尺度/遮罩同步缩放/高分辨率原遮罩合成、尺寸/来源/产物身份及 Schema 漂移阻断测试
+ * [OUTPUT]: 对外提供 Janus 原图动态正文直接保存/正向编码且无固定前缀、无拼接节点准入与执行正文原文捕获、2511/专属 Lightning 隔离、统一推理尺度/遮罩采样与单一路径整图重建、无原图回贴的来源/边界连续性及产物身份/Schema 漂移阻断测试
  * [POS]: test 的独立 Qwen 扩图合同回归，不访问远端、不提交 GPU、不读取用户工作流
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,9 +10,13 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import sharp from "sharp";
 import { createComfyUiClient } from "../src/comfyui-client.mjs";
+import { executeImageOutpaint } from "../src/image-outpaint-service.mjs";
+import { buildRecordFields } from "../src/lark-sync.mjs";
 import {
   QWEN_OUTPAINT_CLIENT_OPTIONS,
   QWEN_OUTPAINT_ENGINE_KEY,
+  QWEN_OUTPAINT_JANUS_QUESTION,
+  QWEN_OUTPAINT_REQUIRED_NODES,
   assertQwenOutpaintTarget,
   createQwenOutpaintWorkflow,
   publicQwenOutpaintConfig,
@@ -36,6 +40,9 @@ function objectInfo() {
   const integer = ["INT", { min: 0, max: 16384 }];
   return {
     "easy loadImageBase64": schema({ base64_data: ["STRING"], image_output: [["Hide", "Preview"]], save_prefix: ["STRING"] }, ["IMAGE", "MASK"]),
+    JanusModelLoader: schema({ model_name: [["deepseek-ai/Janus-Pro-1B"]] }, ["JANUS_MODEL", "JANUS_PROCESSOR"]),
+    JanusImageUnderstanding: schema({ model: link("JANUS_MODEL"), processor: link("JANUS_PROCESSOR"), image: link("IMAGE"), question: ["STRING"], seed: ["INT", { min: 0 }], temperature: ["FLOAT", { min: 0, max: 2 }], top_p: ["FLOAT", { min: 0, max: 1 }], max_new_tokens: ["INT", { min: 1, max: 4096 }] }, ["STRING"]),
+    SaveText: schema({ text: ["STRING"], filename_prefix: ["STRING"], format: [["txt", "json"]] }, ["STRING"]),
     UNETLoader: schema({ unet_name: [["qwen_image_edit_2511_fp8mixed.safetensors"]], weight_dtype: [["default", "fp8_e4m3fn"]] }, ["MODEL"]),
     CLIPLoader: schema({ clip_name: [["qwen_2.5_vl_7b_fp8_scaled.safetensors"]], type: [["qwen_image"]] }, ["CLIP"], { device: [["default", "cpu"]] }),
     VAELoader: schema({ vae_name: [["qwen_image_vae.safetensors"]] }, ["VAE"]),
@@ -53,7 +60,6 @@ function objectInfo() {
     SetLatentNoiseMask: schema({ samples: link("LATENT"), mask: link("MASK") }, ["LATENT"]),
     KSampler: schema({ model: link("MODEL"), positive: link("CONDITIONING"), negative: link("CONDITIONING"), latent_image: link("LATENT"), seed: ["INT", { min: 0 }], steps: ["INT", { min: 1, max: 10000 }], cfg: ["FLOAT", { min: 0, max: 100 }], sampler_name: [["euler"]], scheduler: [["simple"]], denoise: ["FLOAT", { min: 0, max: 1 }] }, ["LATENT"]),
     VAEDecode: schema({ samples: link("LATENT"), vae: link("VAE") }, ["IMAGE"]),
-    ImageCompositeMasked: schema({ destination: link("IMAGE"), source: link("IMAGE"), x: integer, y: integer, resize_source: ["BOOLEAN"] }, ["IMAGE"], { mask: link("MASK") }),
     SaveImage: schema({ images: link("IMAGE"), filename_prefix: ["STRING"] }, ["IMAGE"]),
   };
 }
@@ -83,10 +89,31 @@ test("Qwen 扩图绑定 2511 专属 4 步 LoRA，忽略请求中的跨模型与�
   assert.equal(sample.inputs.scheduler, "simple");
   assert.equal(nodeOf(graph, "CLIPLoader").inputs.type, "qwen_image");
   assert.equal(nodeOf(graph, "VAELoader").inputs.vae_name, "qwen_image_vae.safetensors");
-  assert.ok(!Object.values(graph).some((node) => /Goohai|Janus|lrzjason|FluxGuidance|EmptyLatent/.test(node.class_type)));
+  assert.ok(!Object.values(graph).some((node) => /Goohai|lrzjason|FluxGuidance|EmptyLatent/.test(node.class_type)));
 });
 
-test("条件与采样共用同尺度工作图、遮罩同步缩放，恢复目标后通过原遮罩保留原图中心", () => {
+test("Janus只分析未扩边原图，动态正文经SaveText直达正向编码且不拼接固定前缀", () => {
+  const graph = createQwenOutpaintWorkflow({ ...options, generationRequest: {
+    ...options.generationRequest, prompt: "whole image redraw", janusModel: "another-model", janusSeed: 123,
+  } });
+  assert.deepEqual(graph["janus-model"], { class_type: "JanusModelLoader", inputs: { model_name: "deepseek-ai/Janus-Pro-1B" } });
+  assert.deepEqual(graph.describe.inputs, {
+    model: ["janus-model", 0], processor: ["janus-model", 1], image: ["input", 0],
+    question: QWEN_OUTPAINT_JANUS_QUESTION, seed: 298596445848600, temperature: 0.1, top_p: 0.95, max_new_tokens: 999,
+  });
+  assert.match(QWEN_OUTPAINT_JANUS_QUESTION, /English/);
+  assert.equal(Object.keys(graph).length, 25);
+  assert.equal(Object.hasOwn(graph, "prompt"), false);
+  assert.doesNotMatch(JSON.stringify(graph), /StringConcatenate|Scene continuation:|gray canvas|grey canvas/i);
+  assert.deepEqual(graph["prompt-output"], { class_type: "SaveText", inputs: {
+    text: ["describe", 0], filename_prefix: `${qwenOutpaintArtifactPrefix(options.artifactKey)}_prompt`, format: "txt",
+  } });
+  assert.deepEqual(graph.positive.inputs.prompt, ["prompt-output", 0]);
+  assert.equal(graph.negative.inputs.prompt, "");
+  assert.equal(JSON.stringify(graph).includes("whole image redraw"), false);
+});
+
+test("条件与采样共用同尺度工作图、遮罩同步缩放，恢复目标后直接输出同一解码图", () => {
   const graph = createQwenOutpaintWorkflow(options);
   const input = nodeOf(graph, "easy loadImageBase64");
   const pad = nodeOf(graph, "ImagePadForOutpaint");
@@ -94,7 +121,6 @@ test("条件与采样共用同尺度工作图、遮罩同步缩放，恢复目�
   const masked = nodeOf(graph, "SetLatentNoiseMask");
   const sample = nodeOf(graph, "KSampler");
   const decode = nodeOf(graph, "VAEDecode");
-  const composite = nodeOf(graph, "ImageCompositeMasked");
   const output = nodeOf(graph, "SaveImage");
   assert.deepEqual(pad.inputs.image, [input.id, 0]);
   assert.ok(pad.inputs.feathering > 0 && pad.inputs.feathering < options.generationRequest.sourceWidth / 2);
@@ -110,17 +136,12 @@ test("条件与采样共用同尺度工作图、遮罩同步缩放，恢复目�
   assert.deepEqual(masked.inputs.mask, ["inferenceMask", 0]);
   assert.deepEqual(sample.inputs.latent_image, [masked.id, 0]);
   assert.deepEqual(decode.inputs.samples, [sample.id, 0]);
-  assert.deepEqual(composite.inputs.destination, [pad.id, 0]);
   assert.deepEqual(graph.restore.inputs.image, [decode.id, 0]);
   assert.deepEqual(graph.outputSize.inputs.image, [pad.id, 0]);
   assert.deepEqual(graph.restore.inputs.width, ["outputSize", 0]);
   assert.deepEqual(graph.restore.inputs.height, ["outputSize", 1]);
-  assert.deepEqual(composite.inputs.source, ["restore", 0]);
-  assert.deepEqual(composite.inputs.mask, [pad.id, 1]);
-  assert.notDeepEqual(composite.inputs.mask, masked.inputs.mask);
-  assert.equal(composite.inputs.resize_source, false);
-  assert.deepEqual([composite.inputs.x, composite.inputs.y], [0, 0]);
-  assert.deepEqual(output.inputs.images, [composite.id, 0]);
+  assert.deepEqual(output.inputs.images, ["restore", 0]);
+  assert.equal(Object.values(graph).some((node) => node.class_type === "ImageCompositeMasked"), false, "不得把VAE重建图与原图再次拼合");
   for (const node of Object.values(graph)) {
     for (const value of Object.values(node.inputs)) {
       if (Array.isArray(value)) assert.ok(graph[value[0]], `缺失依赖：${value[0]}`);
@@ -178,8 +199,8 @@ test("2K/4K 横竖画幅和偏心非16像素原图均使用约1MP共同推理坐
     assert.deepEqual(graph.restore.inputs.height, ["outputSize", 1]);
     assert.equal(graph.restore.inputs.crop, "disabled");
     assert.equal(graph.restore.inputs.upscale_method, "lanczos");
-    assert.deepEqual(graph.composite.inputs.destination, ["pad", 0]);
-    assert.deepEqual(graph.composite.inputs.mask, ["pad", 1]);
+    assert.deepEqual(graph.output.inputs.images, ["restore", 0]);
+    assert.equal("composite" in graph, false);
     for (const side of ["left", "right", "top", "bottom"]) assert.equal(graph.pad.inputs[side], fixture.expansion[side]);
   }
 });
@@ -197,7 +218,7 @@ test("工作尺寸独立于2K/4K输出，非法目标不能绕过16像素/4096�
   }
 });
 
-// -------- 原生图像节点语义替身：采样结果故意破坏中心，检验最终高分辨率原图回贴 --------
+// -------- 非GPU语义替身：完整解码图具有连续色调，最终不混入另一套原图像素 --------
 function sizeLink(graph, value, fixture) {
   const size = graph[value[0]];
   assert.equal(size.class_type, "GetImageSize");
@@ -207,7 +228,7 @@ function sizeLink(graph, value, fixture) {
   return [dimensions.width, dimensions.height][value[1]];
 }
 
-async function compositeFromGraph(graph, fixture) {
+async function reconstructedFromGraph(graph, fixture) {
   const { width, height, sourceWidth, sourceHeight, expansion: edge } = fixture;
   const work = qwenOutpaintInferenceDimensions(fixture);
   const pixels = Buffer.alloc(sourceWidth * sourceHeight * 3);
@@ -226,23 +247,47 @@ async function compositeFromGraph(graph, fixture) {
     return [metadata.width, metadata.height];
   }));
   assert.deepEqual(workSizes, Array.from({ length: 2 }, () => [work.width, work.height]));
-  const generated = await sharp({ create: { ...work, channels: 3, background: "#ee3322" } }).png().toBuffer();
-  const restored = await sharp(generated).resize(sizeLink(graph, graph.restore.inputs.width, fixture), sizeLink(graph, graph.restore.inputs.height, fixture), { fit: "fill", kernel: "lanczos3" }).removeAlpha().raw().toBuffer();
-  const alpha = await sharp(mask).extractChannel("red").raw().toBuffer();
-  const layer = await sharp(restored, { raw: { width, height, channels: 3 } }).joinChannel(alpha, { raw: { width, height, channels: 1 } }).png().toBuffer();
-  const result = await sharp(padded).composite([{ input: layer, left: graph.composite.inputs.x, top: graph.composite.inputs.y }]).png().toBuffer();
+  const maskBytes = await sharp(workingMask).extractChannel("red").raw().toBuffer();
+  const centerX = Math.floor((edge.left + sourceWidth / 2) * work.width / width);
+  const centerY = Math.floor((edge.top + sourceHeight / 2) * work.height / height);
+  assert.equal(maskBytes[centerY * work.width + centerX], 0, "原图中心仍受latent采样遮罩约束");
+  assert.equal(maskBytes[0], 255, "扩展区域仍参与采样");
+  const decoded = Buffer.alloc(work.width * work.height * 3);
+  for (let y = 0; y < work.height; y += 1) {
+    for (let x = 0; x < work.width; x += 1) {
+      const tone = Math.round(x * 40 / work.width + y * 30 / work.height);
+      const offset = (y * work.width + x) * 3;
+      decoded.set([40 + tone, 60 + tone, 80 + tone], offset);
+    }
+  }
+  const generated = await sharp(decoded, { raw: { ...work, channels: 3 } }).png().toBuffer();
+  const outputSource = graph[graph.output.inputs.images[0]];
+  assert.equal(outputSource.class_type, "ImageScale");
+  assert.deepEqual(outputSource.inputs.image, ["decode", 0]);
+  const result = await sharp(generated).resize(sizeLink(graph, outputSource.inputs.width, fixture), sizeLink(graph, outputSource.inputs.height, fixture), { fit: "fill", kernel: "lanczos3" }).png().toBuffer();
+  const expected = await sharp(generated).resize(width, height, { fit: "fill", kernel: "lanczos3" }).removeAlpha().raw().toBuffer();
+  const actual = await sharp(result).removeAlpha().raw().toBuffer();
+  assert.deepEqual(actual, expected, "最终每个像素必须来自完整解码图的同一次尺寸恢复");
   const protectedBytes = await sharp(result).extract(protectedCenter).removeAlpha().raw().toBuffer();
   const originalCenter = await sharp(original).extract({ left: 32, top: 32, width: sourceWidth - 64, height: sourceHeight - 64 }).removeAlpha().raw().toBuffer();
-  assert.deepEqual(protectedBytes, originalCenter, "采样破坏中心仍必须由原分辨率源图逐字节恢复");
-  assert.deepEqual([...(await sharp(result).extract({ left: 0, top: 0, width: 1, height: 1 }).removeAlpha().raw().toBuffer())], [238, 51, 34]);
+  assert.notDeepEqual(protectedBytes, originalCenter, "不能用原图中心像素覆盖VAE重建结果");
+  const pixel = (x, y, channel) => actual[(y * width + x) * 3 + channel];
+  for (let channel = 0; channel < 3; channel += 1) {
+    for (const x of [edge.left, edge.left + sourceWidth]) {
+      for (let y = 0; y < height; y += 1) assert.ok(Math.abs(pixel(x, y, channel) - pixel(x - 1, y, channel)) <= 2, "原图左右边界不得重新引入色调跳变");
+    }
+    for (const y of [edge.top, edge.top + sourceHeight]) {
+      for (let x = 0; x < width; x += 1) assert.ok(Math.abs(pixel(x, y, channel) - pixel(x, y - 1, channel)) <= 2, "原图上下边界不得重新引入色调跳变");
+    }
+  }
   const metadata = await sharp(result).metadata();
   assert.deepEqual([metadata.width, metadata.height], [width, height]);
 }
 
-test("非GPU图像语义验证：2K/4K恢复目标后保留32px接缝外原图中心字节，扩边采用采样内容", async () => {
+test("非GPU图像语义验证：2K/4K完整解码图恢复尺寸后不被原图回贴打断色调连续性", async () => {
   for (const fixture of [geometryCases[1], geometryCases[2]]) {
     const graph = createQwenOutpaintWorkflow({ ...options, ...fixture, generationRequest: fixture });
-    await compositeFromGraph(graph, fixture);
+    await reconstructedFromGraph(graph, fixture);
   }
 });
 
@@ -296,6 +341,28 @@ test("能力准入拒绝缺失节点、跨版本 LoRA、编码器类型及参数
   assert.throws(() => verifyQwenOutpaintCapabilities(rangeDrift), /KSampler.steps/);
 });
 
+test("Janus或SaveText缺失及STRING端口漂移拒绝准入，移除拼接节点不影响可用性", () => {
+  for (const className of ["JanusModelLoader", "JanusImageUnderstanding", "SaveText"]) {
+    const missing = objectInfo();
+    delete missing[className];
+    assert.throws(() => verifyQwenOutpaintCapabilities(missing), new RegExp(className));
+  }
+  assert.equal("StringConcatenate" in objectInfo(), false);
+  assert.equal(QWEN_OUTPAINT_REQUIRED_NODES.includes("StringConcatenate"), false);
+  assert.doesNotThrow(() => verifyQwenOutpaintCapabilities(objectInfo()));
+  const wrongModel = objectInfo();
+  wrongModel.JanusModelLoader.input.required.model_name[0] = ["deepseek-ai/Janus-Pro-7B"];
+  assert.throws(() => verifyQwenOutpaintCapabilities(wrongModel), /JanusModelLoader.model_name/);
+  for (const [className, field] of [["SaveText", "text"], ["TextEncodeQwenImageEditPlus", "prompt"]]) {
+    const wrongPort = objectInfo();
+    wrongPort[className].input.required[field] = ["IMAGE"];
+    assert.throws(() => verifyQwenOutpaintCapabilities(wrongPort), new RegExp(`${className}.${field}`));
+  }
+  const wrongDescription = objectInfo();
+  wrongDescription.JanusImageUnderstanding.output = ["IMAGE"];
+  assert.throws(() => verifyQwenOutpaintCapabilities(wrongDescription), /SaveText.text/);
+});
+
 test("能力准入兼容新版COMBO options，并拒绝枚举项漂移", () => {
   const modern = objectInfo();
   for (const schema of Object.values(modern)) {
@@ -337,15 +404,16 @@ test("元数据分别记录实测尺寸与目标尺寸，不用目标伪装真�
   assert.deepEqual([metadata.outputWidth, metadata.outputHeight], [496, 480]);
   assert.deepEqual([metadata.targetWidth, metadata.targetHeight], [512, 512]);
   assert.deepEqual([metadata.inputWidth, metadata.inputHeight], [480, 480]);
-  assert.equal(metadata.preservation, "original-center-masked-composite");
+  assert.equal(metadata.preservation, "latent-mask-vae-reconstruction");
+  assert.equal(metadata.sourcePixelsPreserved, false);
   assert.deepEqual([metadata.inferenceWidth, metadata.inferenceHeight], [1024, 1024]);
   assert.equal(metadata.inferencePixels, 1024 * 1024);
   assert.equal(metadata.inferenceMegapixels, 1);
-  assert.equal(metadata.outputSizeStrategy, "restore-target-then-original-mask-composite");
+  assert.equal(metadata.outputSizeStrategy, "restore-target-from-masked-sampling");
   assert.equal(metadata.outputResampling, "lanczos");
   assert.equal(metadata.outputRestored, true);
   assert.equal(metadata.upscaleModel, null, "尺寸恢复不可标记为AI超分");
-  assert.equal(metadata.workflowVersion, "2026-10-19.1");
+  assert.equal(metadata.workflowVersion, "2026-10-20.1");
   assert.equal(metadata.outputSha256, "a".repeat(64));
   assert.equal(metadata.promptId, "prompt-qwen-123");
   metadata.expansion.left = 500;
@@ -362,10 +430,38 @@ test("元数据分别记录实测尺寸与目标尺寸，不用目标伪装真�
   assert.equal(restored4k.outputRestored, true);
 });
 
+test("元数据只捕获实际文本输出，未返回/空/多条正文不得伪造最终 Prompt", () => {
+  const finalPrompt = "  A quiet room with warm pendant lighting.\nPreserve the room perspective.  ";
+  const metadata = qwenOutpaintWorkflowMetadata({ ...options,
+    historyOutputs: { "prompt-output": { text: [finalPrompt] } },
+  });
+  assert.equal(metadata.finalPrompt, finalPrompt);
+  assert.equal(metadata.finalPromptCaptured, true);
+  assert.equal(metadata.promptSource, "Janus-Pro-1B");
+  assert.deepEqual(metadata.promptGenerator, {
+    model: "deepseek-ai/Janus-Pro-1B", seed: 298596445848600, temperature: 0.1, topP: 0.95, maxNewTokens: 999,
+    question: QWEN_OUTPAINT_JANUS_QUESTION, imageSource: "original-before-padding",
+  });
+  for (const text of [undefined, [], [""], [" \n "], [null], [42], ["first", "second"], finalPrompt]) {
+    const missing = qwenOutpaintWorkflowMetadata({ ...options, historyOutputs: { "prompt-output": { text } } });
+    assert.equal(missing.finalPrompt, "");
+    assert.equal(missing.finalPromptCaptured, false);
+  }
+  const unrelated = qwenOutpaintWorkflowMetadata({ ...options,
+    generationRequest: { ...options.generationRequest, prompt: "伪造请求正文" },
+    historyOutputs: { describe: { text: ["Janus动态描述尚未经过SaveText确认"] } },
+  });
+  assert.equal(unrelated.finalPrompt, "");
+  assert.equal(unrelated.finalPromptCaptured, false);
+});
+
 // -------- 内存传输：实测输出尺寸/摘要与请求级唯一产物须同时成立 --------
-async function clientFixture({ filename = "CanvasLab_QwenOutpaint_qwen-request-123_00001_.png" } = {}) {
+async function clientFixture({ filename = "CanvasLab_QwenOutpaint_qwen-request-123_00001_.png",
+  promptText = ["  A quiet room with warm pendant lighting.\nPreserve the room perspective.  "],
+  outputWidth = 496, outputHeight = 480,
+} = {}) {
   const input = await sharp({ create: { width: 480, height: 480, channels: 3, background: "#506070" } }).png().toBuffer();
-  const output = await sharp({ create: { width: 496, height: 480, channels: 3, background: "#102030" } }).png().toBuffer();
+  const output = await sharp({ create: { width: outputWidth, height: outputHeight, channels: 3, background: "#102030" } }).png().toBuffer();
   const calls = [];
   let queued;
   const client = createComfyUiClient({ ...QWEN_OUTPAINT_CLIENT_OPTIONS,
@@ -379,7 +475,7 @@ async function clientFixture({ filename = "CanvasLab_QwenOutpaint_qwen-request-1
         return Response.json({ prompt_id: "prompt-qwen-123", node_errors: {} });
       }
       if (pathname === "/history/prompt-qwen-123") return Response.json({ "prompt-qwen-123": {
-        outputs: { output: { images: [{ filename, type: "output", subfolder: "" }] } },
+        outputs: { output: { images: [{ filename, type: "output", subfolder: "" }] }, "prompt-output": { text: promptText } },
         status: { completed: true, status_str: "success", messages: [] },
       } });
       if (pathname === "/view") return new Response(output, { headers: { "Content-Type": "image/png" } });
@@ -392,16 +488,49 @@ async function clientFixture({ filename = "CanvasLab_QwenOutpaint_qwen-request-1
   } };
 }
 
-test("专用客户端通过真实 PNG 字节归档尺寸与 SHA-256，结果仍经过最终保真合成", async () => {
+test("专用客户端通过真实 PNG 字节归档尺寸与 SHA-256，整图输出保留实际重建来源", async () => {
   const fixture = await clientFixture();
   const result = await fixture.client.generateImage(fixture.request);
   assert.equal(fixture.queued().output.inputs.filename_prefix, qwenOutpaintArtifactPrefix(options.artifactKey));
-  assert.deepEqual(fixture.queued().output.inputs.images, ["composite", 0]);
+  assert.deepEqual(fixture.queued().output.inputs.images, ["restore", 0]);
   assert.deepEqual([result.metadata.outputWidth, result.metadata.outputHeight], [496, 480]);
   assert.deepEqual([result.metadata.targetWidth, result.metadata.targetHeight], [512, 512]);
   assert.equal(result.metadata.outputSha256, createHash("sha256").update(fixture.output).digest("hex"));
   assert.equal(result.metadata.artifactKey, options.artifactKey);
   assert.equal(result.metadata.promptId, "prompt-qwen-123");
+  assert.equal(result.metadata.preservation, "latent-mask-vae-reconstruction");
+  assert.equal(result.metadata.sourcePixelsPreserved, false);
+  assert.equal(result.metadata.finalPrompt, "  A quiet room with warm pendant lighting.\nPreserve the room perspective.  ");
+  assert.equal(result.metadata.finalPromptCaptured, true);
+});
+
+test("客户端实际 History 未返回有效SaveText正文时明确记录未捕获", async () => {
+  for (const promptText of [[], [""], ["a", "b"], [42]]) {
+    const fixture = await clientFixture({ promptText });
+    const result = await fixture.client.generateImage({ ...fixture.request, prompt: "不要归档这个请求值" });
+    assert.equal(result.metadata.finalPrompt, "");
+    assert.equal(result.metadata.finalPromptCaptured, false);
+  }
+});
+
+test("同一次 History 的Janus原文经客户端和扩图服务进入飞书归档字段", async () => {
+  const fixture = await clientFixture({ outputWidth: 2048, outputHeight: 2048 });
+  let archived;
+  const result = await executeImageOutpaint({ outpaintEngine: QWEN_OUTPAINT_ENGINE_KEY,
+    referenceImages: [{ name: "source.png", dataUrl: fixture.request.images[0].image_url }],
+    outpaintCanvas: { ratio: "1:1", scale: 2 / 3 },
+    prompt: "未执行的用户请求值",
+  }, {
+    imageClient: { generateImage: (request) => fixture.client.generateImage(request) },
+    scheduleSync(payload) { archived = payload; return { generationId: "captured-prompt", status: "pending" }; },
+  });
+  assert.equal(result.upstream.metadata.finalPromptCaptured, true);
+  assert.equal(archived.finalPrompt, result.upstream.metadata.finalPrompt);
+  assert.equal(archived.workflow.promptId, "prompt-qwen-123");
+  assert.equal(archived.workflow.finalPromptCaptured, true);
+  assert.equal(archived.preview.resolution, "2K");
+  assert.equal(buildRecordFields({ ...archived, actualSize: "2048x2048" })["最终 Prompt"], result.upstream.metadata.finalPrompt);
+  assert.equal(JSON.stringify(archived).includes("未执行的用户请求值"), false);
 });
 
 test("专用客户端拒绝其他 Qwen 请求或 Flux 的旧产物且不下载错图", async () => {

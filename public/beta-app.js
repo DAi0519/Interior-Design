@@ -1,21 +1,23 @@
 /**
- * [INPUT]: 依赖 beta.html DOM、model-multi-select 已选摘要/简洁搜索多选控件、beta-model-rules 八功能/全景 2:1 与功能尺寸合同、beta-design-config 独立风格来源/版本与 beta-configuration/beta-page-state 本机持久配置状态、effect-beautification-controls 强度色调控制器、带飞书同步回执的 beta-sample-library、beta-results、beta-run-id、beta-assets 图片去重、custom-select/beta-upload/workbench-utils/image-ratio/generation-batch 共享合同，以及 /api/catalog、/api/styles、/api/session、/api/check-models、/api/beta 配置与任务接口
- * [OUTPUT]: 对外提供默认 Flux2 Klein、可跨工作台恢复的八功能（含明确平台/参考图风格转换）/样本集/不限数量且可简洁搜索的模型多选/美化强度色调/含 GPT Image 2.5 质量档的参数配置、仅已上架的精模 Prompt 选择、出图模型已选摘要及完整名称、同宽可搜索单选平台风格、全景固定 2:1/独立 Prompt 版本与不兼容模型禁选回退、当前 Key 未开放的提示词模型禁选、按飞书样本 ID 展开的不限数量批次、共享参考去重、单图 8MB 校验和新样本单张读取上传、独立测试时间与 Run ID、全宽 START、任务恢复及生成/同步双阶段监控
- * [POS]: public 的 Beta跑图配置与任务监控编排器，把可复用样本资产交给 beta-sample-library，并把服务端回读确认的轻量结果交给 beta-results；飞书保持结果真源
+ * [INPUT]: 依赖Beta DOM/共享选择、独立扩图/超分工作流、十功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
+ * [OUTPUT]: 提供十功能可恢复配置、独立扩图与AI超分工作流对照、普通模型和设计/美化参数、样本ID批次、冻结RETRY及生成/同步双阶段监控
+ * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import "./custom-select.js?v=8";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=5";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=5";
-import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=2";
+import "./custom-select.js?v=9";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=8";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=8";
+import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=5";
+import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
+import { createBetaUpscaleConfiguration } from "./beta-upscale.js?v=3";
 import { createBetaDesignConfiguration } from "./beta-design-config.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=1";
-import { bindModelMultiSelect } from "./model-multi-select.js?v=4";
+import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
-import { createBetaSampleLibrary } from "./beta-sample-library.js?v=7";
-import { renderBetaResults } from "./beta-results.js?v=1";
+import { createBetaSampleLibrary } from "./beta-sample-library.js?v=8";
+import { renderBetaWarnings } from "./beta-results.js?v=2";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 import { readImageDimensions } from "./image-ratio.js";
@@ -26,7 +28,7 @@ const JOB_STORAGE_KEY = "canvas-lab:beta-run-job";
 const restoredPageState = readBetaPageState(localStorage);
 
 const elements = Object.fromEntries([
-  "betaConnectionStatus", "betaFeatureOptions", "betaForm",
+  "betaConnectionStatus", "betaFeatureSelect", "betaForm",
   "betaGenerationActions",
   "commonPromptField", "commonPromptInput", "commonPromptLabel",
   "configStatus", "designFields", "effectFields", "effectTimeSelect", "effectBeautificationFields",
@@ -37,14 +39,17 @@ const elements = Object.fromEntries([
   "generationProgressCount", "generationProgressTrack", "jobProgress",
   "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
   "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
-  "monitorResults", "monitorResultsCount",
+  "monitorWarnings", "monitorWarningsCount",
   "negativePromptField", "negativePromptInput", "promptAgentAvailability", "promptAgentModelSelect",
+  "ordinaryOutputFields", "outpaintFields", "outpaintWorkflowOptions", "outpaintRatioSelect",
+  "outpaintMultipleSelect", "outpaintAvailability", "outputSettingsHint", "taskSettingsSection",
+  "upscaleFields", "upscaleWorkflowOptions", "upscaleResolutionField", "upscaleResolutionSelect", "upscaleResolutionNote", "upscaleAvailability",
   "panoramaFields",
   "promptAgentVersionField", "promptAgentVersionSelect", "qualityField",
   "qualitySelect", "ratioSelect", "refinedPromptField", "refinedPromptSelect",
   "renderModeSelect", "resolutionSelect", "roomTypeDetailField",
   "roomTypeDetailInput", "roomTypeSelect", "runButton", "runButtonLabel", "runHint",
-  "runSummary", "sampleCount", "sampleList", "sampleSetCreatePanel",
+  "runSummary", "newBatchButton", "sampleCount", "sampleList", "sampleSetCreatePanel",
   "sampleSetLibraryPanel", "sampleSetNameInput", "sampleSetSelect",
   "sampleSetSyncStatus",
   "saveSampleSetButton", "cancelSampleSetButton", "newSampleSetButton",
@@ -61,6 +66,7 @@ const state = {
   featureMode: restoredPageState.featureMode,
   freeReference: null,
   job: null,
+  submitting: false,
   modelAccess: new Map(),
   modelAccessChecked: false,
   agentAccess: new Map(),
@@ -93,6 +99,18 @@ const effectBeautificationControls = bindEffectBeautificationControls({
   toneGroup: elements.effectBeautificationToneOptions,
 });
 
+const outpaintConfiguration = createBetaOutpaintConfiguration({
+  elements,
+  initialState: restoredPageState.outpaint,
+  onChange() { renderRunSummary(); saveConfiguration(); },
+  onMessage(message) { elements.runHint.textContent = message; },
+});
+const upscaleConfiguration = createBetaUpscaleConfiguration({
+  elements, initialState: restoredPageState.upscale,
+  onChange() { renderRunSummary(); saveConfiguration(); },
+  onMessage(message) { elements.runHint.textContent = message; },
+});
+
 const sampleLibrary = createBetaSampleLibrary({
   api,
   elements,
@@ -112,6 +130,8 @@ const configuration = createBetaConfigurationPersistence({
     featureMode: state.featureMode,
     sampleSetIds: state.sampleSetIds,
     selectedModelKeys: state.selectedModelKeys,
+    outpaint: outpaintConfiguration.snapshot(),
+    upscale: upscaleConfiguration.snapshot(),
     stylesReady: Boolean(state.stylesConfig),
     designControls: designConfiguration.snapshot(),
   }),
@@ -175,12 +195,18 @@ function selectedModels() {
     .filter(Boolean);
 }
 
+function selectedCandidates() {
+  if (state.featureMode === "imageUpscale") return upscaleConfiguration.selectedWorkflows();
+  return state.featureMode === "imageOutpaint"
+    ? outpaintConfiguration.selectedWorkflows() : selectedModels();
+}
+
 function sampleCount() {
   return sampleLibrary.sampleCount();
 }
 
 function runCount() {
-  return sampleCount() * selectedModels().length;
+  return sampleCount() * selectedCandidates().length;
 }
 
 function showStatus(message, { error = false, ready = false } = {}) {
@@ -233,17 +259,19 @@ function renderReferenceInputs() {
 }
 
 function renderRunSummary() {
-  for (const button of elements.betaFeatureOptions.querySelectorAll("[data-feature-mode]")) {
-    button.disabled = sampleLibrary.isBusy();
-  }
+  elements.betaFeatureSelect.disabled = sampleLibrary.isBusy();
   const total = runCount();
   const samples = sampleCount();
-  const models = selectedModels().length;
+  const outpaint = state.featureMode === "imageOutpaint";
+  const upscale = state.featureMode === "imageUpscale";
+  const models = selectedCandidates().length;
+  const candidateLabel = outpaint || upscale ? "工作流" : "模型";
   elements.runSummary.textContent = samples && models
-    ? `${samples} 个样本 × ${models} 个模型 = ${total} 张结果`
-    : samples ? "请选择出图模型" : "请选择样本集";
+    ? `${samples} 个样本 × ${models} 个${candidateLabel} = ${total} 张结果`
+    : samples ? `请选择${upscale ? "超分工作流" : outpaint ? "扩图工作流" : "出图模型"}` : "请选择样本集";
   const failed = state.job?.status === "failed";
-  elements.runHint.textContent = failed ? "重新运行当前批次" : "结果自动同步飞书";
+  elements.newBatchButton.classList.toggle("hidden", !failed || state.submitting);
+  elements.runHint.textContent = failed ? "仅重试失败项，已成功结果保留" : "结果自动同步飞书";
   const monitoredTotal = Number(state.job?.total) || total;
   elements.monitorBatchSummary.textContent = state.job
     ? `${monitoredTotal} 张结果`
@@ -252,29 +280,33 @@ function renderRunSummary() {
     renderProgress(elements.generationProgressTrack, elements.generationProgressBar, elements.generationProgressCount, 0, total);
     renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, 0, total);
   }
-  const running = state.job?.status === "running";
+  const running = state.job?.status === "running" || state.submitting;
   const needsPromptAgent = ["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode);
   const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
   const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
   const effectPromptKey = FEATURE_COPY[state.featureMode].promptConfig;
   const effectReady = !effectPromptKey || state.stylesConfig?.[effectPromptKey]?.available;
   const targetReady = state.featureMode !== "styleTransfer" || designConfiguration.ready();
-  if (!agentReady && !running) {
+  const workflowConfiguration = upscale ? upscaleConfiguration : outpaintConfiguration;
+  const workflowsReady = !(outpaint || upscale) || workflowConfiguration.ready();
+  if (upscale) showStatus(workflowsReady ? "ComfyUI 已就绪" : "超分工作流未就绪", { ready: workflowsReady });
+  if (!failed && !agentReady && !running) {
     elements.runHint.textContent = state.agentAccessChecked
       ? "提示词模型不可用，请选择当前 Key 已开放的模型"
       : "正在检测提示词模型权限";
   }
-  if (!targetReady && agentReady && !running) elements.runHint.textContent = "请选择平台风格，或上传风格参考图";
-  elements.runButton.disabled = !state.connected
+  if (!failed && !targetReady && agentReady && !running) elements.runHint.textContent = "请选择平台风格，或上传风格参考图";
+  if (!failed && !workflowsReady && !running) elements.runHint.textContent = workflowConfiguration.unavailableReason() || `请选择${upscale ? "超分" : "扩图"}工作流`;
+  elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !state.connected)
     || !sampleLibrary.isReady()
     || total < 1
     || !agentReady
     || !effectReady
     || !targetReady
-    || running;
+    || !workflowsReady));
   elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
   elements.runButton.setAttribute("aria-busy", String(running));
-  elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "重新运行当前批次" : "开始批量运行");
+  elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "仅重试当前批次的失败项" : "开始批量运行");
   elements.betaGenerationActions.classList.toggle("is-busy", running);
 }
 
@@ -285,6 +317,7 @@ function modelAvailable(model) {
 }
 
 function renderModels() {
+  if (["imageOutpaint", "imageUpscale"].includes(state.featureMode)) { renderOutputControls(); return; }
   const runnable = state.catalog.models.filter((model) => modelAvailable(model));
   const selectable = runnable.filter((model) => betaModelSelectable(model, state.featureMode));
   state.selectedModelKeys = state.selectedModelKeys.filter((key) =>
@@ -299,6 +332,12 @@ function renderModels() {
 }
 
 function renderOutputControls() {
+  if (state.featureMode === "imageUpscale") { upscaleConfiguration.render(); renderRunSummary(); return; }
+  if (state.featureMode === "imageOutpaint") {
+    outpaintConfiguration.render();
+    renderRunSummary();
+    return;
+  }
   const models = selectedModels();
   const sizes = betaSizeOptions({ models, featureMode: state.featureMode,
     currentRatio: elements.ratioSelect.value, currentResolution: elements.resolutionSelect.value });
@@ -325,17 +364,21 @@ function renderDesignConfig() { designConfiguration.render(); }
 
 function renderFeature() {
   const copy = FEATURE_COPY[state.featureMode];
-  for (const button of elements.betaFeatureOptions.querySelectorAll("[data-feature-mode]")) {
-    const selected = button.dataset.featureMode === state.featureMode;
-    button.classList.toggle("selected", selected);
-    button.setAttribute("aria-checked", String(selected));
-  }
+  elements.betaFeatureSelect.value = state.featureMode;
   const free = state.featureMode === "free";
+  const outpaint = state.featureMode === "imageOutpaint";
+  const upscale = state.featureMode === "imageUpscale";
   const design = ["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode);
   const emptyRoom = state.featureMode === "emptyRoom";
   const effect = Boolean(copy.promptConfig);
   const refined = state.featureMode === "refinedModel";
-  elements.commonPromptField.classList.toggle("hidden", free || effect);
+  elements.taskSettingsSection.classList.toggle("hidden", outpaint || upscale);
+  elements.outpaintFields.classList.toggle("hidden", !outpaint);
+  elements.upscaleFields.classList.toggle("hidden", !upscale);
+  elements.ordinaryOutputFields.classList.toggle("hidden", outpaint || upscale);
+  elements.outputSettingsHint.textContent = upscale ? "对比超分工作流 · 保持原图比例" : outpaint ? "对比不同扩图工作流 · 固定 2K" : "可多选全部可用模型";
+  elements.commonPromptField.classList.toggle("hidden", free || effect || outpaint || upscale);
+  if (!upscale) showStatus(state.connected ? "服务已连接" : "请先连接 API", { ready: state.connected });
   elements.designFields.classList.toggle("hidden", !design);
   elements.styleReferenceField.classList.toggle("hidden", !design);
   elements.emptyRoomFields.classList.add("hidden");
@@ -373,7 +416,7 @@ function renderFeature() {
 
 function currentCases() {
   return sampleLibrary.currentCases({
-    commonPrompt: elements.commonPromptInput.value.trim(),
+    commonPrompt: ["imageOutpaint", "imageUpscale"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
     freeReference: state.freeReference,
   });
 }
@@ -399,6 +442,8 @@ function assertFeatureConfig() {
 function buildItems(startedAt = new Date()) {
   assertFeatureConfig();
   const cases = currentCases();
+  if (state.featureMode === "imageOutpaint") return outpaintConfiguration.buildItems(cases, startedAt);
+  if (state.featureMode === "imageUpscale") return upscaleConfiguration.buildItems(cases, startedAt);
   const models = selectedModels();
   if (!cases.length) throw new Error("请先添加批量样本");
   if (!models.length) throw new Error("请选择出图模型");
@@ -474,11 +519,7 @@ function renderProgress(track, bar, count, value, total) {
 
 function renderJob(job) {
   state.job = job;
-  renderBetaResults({
-    container: elements.monitorResults,
-    count: elements.monitorResultsCount,
-    results: job?.result?.results,
-  });
+  renderBetaWarnings({ container: elements.monitorWarnings, count: elements.monitorWarningsCount, job });
   const running = job?.status === "running";
   elements.jobStatus.textContent = running
     ? "运行中"
@@ -496,7 +537,7 @@ function renderJob(job) {
     const generated = Number(job.stages?.generated) || (job.status === "success" ? total : 0);
     const synced = Number(job.stages?.synced) || completed;
     elements.jobProgressLabel.textContent = job.status === "failed"
-      ? job.error || "自动重试后仍未同步飞书"
+      ? `${Math.max(total - synced, 0)} 项未完成，详见下方预警。`
       : job.status === "success"
         ? "全部结果已生成并同步飞书。"
         : job.message || "处理中";
@@ -524,7 +565,16 @@ async function followJob(jobId) {
   return job;
 }
 
-async function startBatch() {
+async function startBatch(previousJob = null) {
+  if (previousJob?.status === "failed" && previousJob.jobId) {
+    const { job } = await api("/api/beta/jobs", {
+      body: JSON.stringify({ retryOfJobId: previousJob.jobId, jobId: `beta-${crypto.randomUUID()}` }),
+      method: "POST",
+    });
+    sessionStorage.setItem(JOB_STORAGE_KEY, job.jobId);
+    renderJob(job);
+    return followJob(job.jobId);
+  }
   saveConfiguration();
   const startedAt = new Date();
   const batchId = `BETA-${crypto.randomUUID().replaceAll("-", "")}`;
@@ -553,20 +603,18 @@ async function restoreJob() {
     const { job } = await api(`/api/beta/jobs/${encodeURIComponent(jobId)}`);
     renderJob(job);
     if (job.status === "running") await followJob(jobId);
-  } catch {
-    sessionStorage.removeItem(JOB_STORAGE_KEY);
+  } catch (error) {
+    reportUploadError(error);
   }
 }
 
 function reportUploadError(error) {
-  state.job = null;
-  renderBetaResults({
-    container: elements.monitorResults,
-    count: elements.monitorResultsCount,
-  });
+  if (!state.job?.jobId) state.job = null;
+  renderBetaWarnings({ container: elements.monitorWarnings, count: elements.monitorWarningsCount, job: state.job, error: error.message });
   elements.jobStatus.textContent = error.message;
   elements.jobStatus.dataset.state = "error";
-  elements.jobProgressLabel.textContent = `配置未就绪：${error.message}`;
+  elements.jobProgressLabel.textContent = state.job?.jobId
+    ? `请求失败：${error.message}。可刷新页面继续查看任务状态。` : `配置未就绪：${error.message}`;
   renderRunSummary();
 }
 
@@ -588,10 +636,10 @@ async function setSingleReference(fileList, key) {
 function bindEvents() {
   sampleLibrary.bind();
   configuration.bindLifecycle();
-  elements.betaFeatureOptions.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-feature-mode]");
-    if (!button || sampleLibrary.isBusy()) return;
-    state.featureMode = button.dataset.featureMode;
+  elements.betaFeatureSelect.addEventListener("change", () => {
+    const featureMode = elements.betaFeatureSelect.value;
+    if (sampleLibrary.isBusy() || !Object.hasOwn(FEATURE_COPY, featureMode) || featureMode === state.featureMode) return;
+    state.featureMode = featureMode;
     renderFeature();
     sampleLibrary.setFeatureMode(
       state.featureMode,
@@ -641,10 +689,18 @@ function bindEvents() {
     if (select === elements.styleSelect) renderDesignConfig();
     renderRunSummary(); saveConfiguration();
   });
+  elements.newBatchButton.addEventListener("click", () => {
+    if (state.job?.status === "running" || state.submitting) return;
+    sessionStorage.removeItem(JOB_STORAGE_KEY);
+    renderJob(null);
+  });
   elements.betaForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (state.job?.status === "running") return;
-    renderJob({
+    if (state.job?.status === "running" || state.submitting) return;
+    const previousJob = state.job;
+    state.submitting = true;
+    renderRunSummary();
+    if (previousJob?.status !== "failed") renderJob({
       completed: 0,
       message: "正在创建任务…",
       stages: { generated: 0, synced: 0 },
@@ -652,14 +708,20 @@ function bindEvents() {
       total: runCount(),
     });
     try {
-      await startBatch();
+      await startBatch(previousJob);
     } catch (error) {
       reportUploadError(error);
+    } finally {
+      state.submitting = false;
+      renderRunSummary();
     }
   });
 }
 
 async function load() {
+  fillSelect(elements.betaFeatureSelect, Object.entries(FEATURE_COPY).map(([value, copy]) => ({
+    label: copy.label, value,
+  })), state.featureMode);
   bindEvents();
   try {
     const [catalog, session, betaConfig] = await Promise.all([
@@ -670,6 +732,8 @@ async function load() {
     state.catalog = catalog;
     state.connected = session.connected === true;
     state.betaConfig = betaConfig;
+    outpaintConfiguration.configure(betaConfig.outpaint);
+    upscaleConfiguration.configure(betaConfig.upscale);
     elements.monitorBaseLink.href = betaConfig.baseUrl;
     fillSelect(elements.roomTypeSelect, [
       { label: "请选择", value: "" },

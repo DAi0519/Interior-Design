@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖统一 API、结果摘要/安全图片 URL、任务原图、浏览器 Blob 与同源远程图片下载接口、全景预览器、结果区 DOM 与 Toast 回调
- * [OUTPUT]: 对外提供空态、加载态、错误态、单模型多张/多模型结果画廊、默认关闭且按需开启的原图/结果图 50% 轻量滑动对比、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
+ * [INPUT]: 依赖room-renovation 的三图选择器与两阶段回执、统一 API、结果摘要/安全图片 URL、任务原图、浏览器 Blob 与同源远程图片下载接口、全景预览器、结果区 DOM 与 Toast 回调
+ * [OUTPUT]: 对外提供空态、加载态、错误态、旧房原图/清空图/设计图切换与设计失败后的清空产物、单模型多张/多模型结果画廊、默认关闭且按需开启的原图/结果图 50% 轻量滑动对比、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
  * [POS]: public 的生成结果呈现层，承接单模型最多四张或任意数量模型的成功与部分失败结果，隔离下载传输并按功能限定滑动对比与沉浸式预览
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { resultMetadata, secureImageUrl } from "./workbench-utils.js";
+import { bindRenovationPreview } from "./room-renovation.js";
 import {
   bindPanoramaViewer,
   isPanoramaPreviewFeature,
@@ -235,6 +236,45 @@ export function bindGenerationResults({ api, showToast }) {
     }
   }
 
+  function clearanceStatus(sync) {
+    return `清空图归档 · ${({ pending: "同步中", success: "已同步飞书", failed: `同步失败：${sync?.error || "请检查飞书连接"}`, skipped: "未同步" })[sync?.status] || "等待同步"}`;
+  }
+
+  function clearanceRecord(card, pipeline, currentRenderId) {
+    const root = document.createElement("div");
+    const status = document.createElement("span");
+    const record = document.createElement("a");
+    record.className = "result-record-link";
+    record.target = "_blank";
+    record.rel = "noreferrer";
+    record.textContent = "清空记录";
+    root.className = "renovation-clearance-sync";
+    root.append(status, record);
+    function update(sync) {
+      status.textContent = clearanceStatus(sync);
+      record.classList.toggle("hidden", !sync?.recordUrl);
+      if (sync?.recordUrl) record.href = sync.recordUrl;
+    }
+    update(pipeline.clearanceSync);
+    card.append(root);
+    void (async () => {
+      let sync = pipeline.clearanceSync;
+      for (let attempt = 0; sync?.generationId && sync.status === "pending" && attempt < 40; attempt += 1) {
+        await wait(1500);
+        if (renderId !== currentRenderId) return;
+        try {
+          const body = await api(`/api/sync-jobs/${encodeURIComponent(sync.generationId)}`);
+          if (renderId !== currentRenderId) return;
+          sync = body.sync;
+          update(sync);
+          if (sync.status === "failed") showToast(`清空图归档失败：${sync.error}`);
+        } catch (error) {
+          if (attempt === 39) status.textContent = `清空图归档 · 查询失败：${error.message}`;
+        }
+      }
+    })();
+  }
+
   async function downloadImage(button, result, modelLabel) {
     if (button.disabled) return;
     button.disabled = true;
@@ -274,6 +314,25 @@ export function bindGenerationResults({ api, showToast }) {
       message.textContent = outcome.reason?.message || "生成失败";
       copy.append(model, message);
       card.append(icon, copy);
+      if (outcome.reason?.roomRenovation?.clearedImage) {
+        const result = { roomRenovation: outcome.reason.roomRenovation, images: [], request: { outputFormat: "png" } };
+        const image = document.createElement("img");
+        const preview = bindRenovationPreview({ result, comparisonImage, image, modelLabel: outcome.item.label });
+        const media = document.createElement("div");
+        media.className = "result-media";
+        media.append(image);
+        const download = document.createElement("button");
+        download.type = "button";
+        download.className = "result-download-button";
+        download.textContent = "下载";
+        download.addEventListener("click", () => {
+          const selected = preview.selection();
+          void downloadImage(download, selected.result, selected.label);
+        });
+        card.classList.remove("failed");
+        card.replaceChildren(preview.root, media, copy, download);
+        copy.className = "renovation-partial-note";
+      }
       return card;
     }
 
@@ -281,7 +340,8 @@ export function bindGenerationResults({ api, showToast }) {
     const image = document.createElement("img");
     image.alt = `${outcome.item.label} 生成结果`;
     image.src = secureImageUrl(result.images[0].url);
-    const comparison = comparisonMedia(image, comparisonImage, outcome.item.label);
+    const comparison = comparisonMedia(image, result.roomRenovation ? null : comparisonImage, outcome.item.label);
+    const renovationPreview = bindRenovationPreview({ result, comparisonImage, image, modelLabel: outcome.item.label });
     const caption = document.createElement("footer");
     const copy = document.createElement("div");
     const model = document.createElement("strong");
@@ -299,7 +359,8 @@ export function bindGenerationResults({ api, showToast }) {
     download.textContent = "下载";
     download.ariaLabel = `下载 ${outcome.item.label} 生成结果`;
     download.addEventListener("click", () => {
-      void downloadImage(download, result, outcome.item.label);
+      const selected = renovationPreview?.selection();
+      void downloadImage(download, selected?.result || result, selected?.label || outcome.item.label);
     });
     record.dataset.recordLink = "";
     record.className = "result-record-link hidden";
@@ -326,6 +387,7 @@ export function bindGenerationResults({ api, showToast }) {
     }
     actions.append(download, record);
     caption.append(copy, actions);
+    if (renovationPreview) card.append(renovationPreview.root);
     card.append(comparison.media, caption);
     updateCardSummary(card, result);
     return card;
@@ -357,6 +419,8 @@ export function bindGenerationResults({ api, showToast }) {
       elements.gallery.classList.toggle("multiple", outcomes.length > 1);
       setStage("gallery");
       outcomes.forEach((outcome, index) => {
+        const pipeline = outcome.value?.roomRenovation || outcome.reason?.roomRenovation;
+        if (pipeline?.clearedImage) clearanceRecord(cards[index], pipeline, currentRenderId);
         if (outcome.status === "fulfilled") {
           void followSync(cards[index], outcome.value, currentRenderId);
         }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图控制器的浮点视觉几何和固定基准图片、transform 四角/倍率控件、workspace 主画布/结果切换、index.html 与共享令牌
- * [OUTPUT]: 对外提供无选中框的文字页签/棋盘格画布、直接跟手的图片变换与四角缩放、原图大小浮层及单行尺寸/居中栏
+ * [OUTPUT]: 对外提供固定 2K 构图的引擎/模型控件、含原比例的两行三列画幅控件、无选中框的文字页签/棋盘格画布、直接跟手的图片变换与四角缩放、原图大小浮层及单行尺寸/居中栏
  * [POS]: public 的 AI扩图视觉层，沿用工作台银灰表面与纯黑选中按钮，独立适配桌面和窄屏
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -92,8 +92,7 @@
 }
 
 .image-outpaint-model-field select,
-.image-outpaint-model-field .custom-select-value,
-.image-outpaint-model-field .custom-select-value strong {
+.image-outpaint-model-field .model-picker-primary {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -113,17 +112,9 @@
   margin-bottom: 7px;
 }
 
-.image-outpaint-ratios,
-.image-outpaint-resolutions {
+.image-outpaint-ratios {
   display: grid;
   gap: 7px;
-}
-
-.image-outpaint-ratios {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.image-outpaint-resolutions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -140,7 +131,6 @@
 }
 
 .image-outpaint-ratio,
-.image-outpaint-resolution,
 .image-outpaint-engine {
   background: var(--brand-key-bg, #fff);
   border: 1px solid var(--brand-key-border, var(--line));
@@ -158,7 +148,6 @@
 }
 
 .image-outpaint-ratio.selected,
-.image-outpaint-resolution.selected,
 .image-outpaint-engine.selected {
   background: var(--brand-key-selected-bg, #000);
   border-color: var(--brand-key-selected-border, #000);
@@ -168,13 +157,11 @@
 }
 
 .image-outpaint-ratio:not(:disabled):active,
-.image-outpaint-resolution:not(:disabled):active,
 .image-outpaint-engine:not(:disabled):active {
   transform: scale(0.97);
 }
 
 .image-outpaint-ratio:focus-visible,
-.image-outpaint-resolution:focus-visible,
 .image-outpaint-position-reset:focus-visible,
 .image-outpaint-engine:focus-visible {
   outline: 2px solid var(--brand-key-focus, #6d6e75);
@@ -182,7 +169,6 @@
 }
 
 .image-outpaint-ratio:disabled,
-.image-outpaint-resolution:disabled,
 .image-outpaint-engine:disabled {
   background: var(--brand-key-disabled-bg, var(--panel-soft));
   box-shadow: none;
@@ -540,7 +526,6 @@
   }
 
   .image-outpaint-ratio:not(:disabled):not(.selected):hover,
-  .image-outpaint-resolution:not(:disabled):not(.selected):hover,
   .image-outpaint-position-reset:not(:disabled):hover,
   .image-outpaint-settings:not(:disabled):hover,
   .image-outpaint-scale-preset:not(:disabled):not([aria-pressed="true"]):hover,
@@ -552,7 +537,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .image-outpaint-ratio,
-  .image-outpaint-resolution,
   .image-outpaint-engine {
     transition: none;
   }

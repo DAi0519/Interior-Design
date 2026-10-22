@@ -1,0 +1,262 @@
+{
+  "at": "2026-10-21T10:56:02.640791+00:00",
+  "source": {
+    "path": "/Users/dai/Library/Containers/com.tencent.WeWorkMac/Data/Documents/Profiles/B121488FE59B52EB04B48EC26B2800ED/Caches/Files/2026-10/9918b2ae2a7b3452466d5c45a8417c52/FLUX.2_遮罩参考图填充_MAAS重建替换版.json",
+    "sha256": "22ca02d92db5ec6754100a723da9892a9529c4542d8d92a3f05c6f410a397389",
+    "nodes": 27,
+    "links": 36
+  },
+  "servers": {
+    "zw": {
+      "nodeCount": 3192,
+      "missingServerNodeTypes": [
+        "ImageBatchToList",
+        "Text"
+      ],
+      "editUtilsSchema": {
+        "input": {
+          "required": {
+            "clip": [
+              "CLIP"
+            ],
+            "vae": [
+              "VAE"
+            ],
+            "prompt": [
+              "STRING",
+              {
+                "multiline": true,
+                "dynamicPrompts": true
+              }
+            ]
+          },
+          "optional": {
+            "image1": [
+              "IMAGE"
+            ],
+            "image2": [
+              "IMAGE"
+            ],
+            "image3": [
+              "IMAGE"
+            ],
+            "ref_longest_edge": [
+              "INT",
+              {
+                "default": 1024,
+                "min": 8,
+                "max": 4096,
+                "step": 1,
+                "tooltip": "Longest edge of the output latent"
+              }
+            ],
+            "mask": [
+              "MASK"
+            ]
+          }
+        },
+        "input_order": {
+          "required": [
+            "clip",
+            "vae",
+            "prompt"
+          ],
+          "optional": [
+            "image1",
+            "image2",
+            "image3",
+            "ref_longest_edge",
+            "mask"
+          ]
+        },
+        "is_input_list": false,
+        "output": [
+          "CONDITIONING",
+          "LATENT",
+          "ANY",
+          "IMAGE",
+          "MASK"
+        ],
+        "output_is_list": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_name": [
+          "conditioning",
+          "latent",
+          "custom_output",
+          "main_image",
+          "mask"
+        ],
+        "name": "Flux2KleinEditTextEncode_EditUtils",
+        "display_name": "EditUtils: Flux2Klein Edit Text Encode lrzjason",
+        "description": "",
+        "python_module": "custom_nodes.ComfyUI-EditUtils",
+        "category": "advanced/conditioning",
+        "output_node": false,
+        "has_intermediate_output": false,
+        "search_aliases": []
+      },
+      "biRefChosenWeightSelectable": true,
+      "biRefCommonWeightSelectable": true,
+      "savedInputsPresent": {
+        "626": false,
+        "643": false
+      }
+    },
+    "eeds": {
+      "nodeCount": 3192,
+      "missingServerNodeTypes": [
+        "ImageBatchToList",
+        "Text"
+      ],
+      "editUtilsSchema": {
+        "input": {
+          "required": {
+            "clip": [
+              "CLIP"
+            ],
+            "vae": [
+              "VAE"
+            ],
+            "prompt": [
+              "STRING",
+              {
+                "multiline": true,
+                "dynamicPrompts": true
+              }
+            ]
+          },
+          "optional": {
+            "image1": [
+              "IMAGE"
+            ],
+            "image2": [
+              "IMAGE"
+            ],
+            "image3": [
+              "IMAGE"
+            ],
+            "ref_longest_edge": [
+              "INT",
+              {
+                "default": 1024,
+                "min": 8,
+                "max": 4096,
+                "step": 1,
+                "tooltip": "Longest edge of the output latent"
+              }
+            ],
+            "mask": [
+              "MASK"
+            ]
+          }
+        },
+        "input_order": {
+          "required": [
+            "clip",
+            "vae",
+            "prompt"
+          ],
+          "optional": [
+            "image1",
+            "image2",
+            "image3",
+            "ref_longest_edge",
+            "mask"
+          ]
+        },
+        "is_input_list": false,
+        "output": [
+          "CONDITIONING",
+          "LATENT",
+          "ANY",
+          "IMAGE",
+          "MASK"
+        ],
+        "output_is_list": [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_name": [
+          "conditioning",
+          "latent",
+          "custom_output",
+          "main_image",
+          "mask"
+        ],
+        "name": "Flux2KleinEditTextEncode_EditUtils",
+        "display_name": "EditUtils: Flux2Klein Edit Text Encode lrzjason",
+        "description": "",
+        "python_module": "custom_nodes.ComfyUI-EditUtils",
+        "category": "advanced/conditioning",
+        "output_node": false,
+        "has_intermediate_output": false,
+        "search_aliases": []
+      },
+      "biRefChosenWeightSelectable": false,
+      "biRefCommonWeightSelectable": true,
+      "savedInputsPresent": {
+        "626": false,
+        "643": false
+      }
+    }
+  },
+  "topology": {
+    "acyclic": true,
+    "allNodesReachSaveImage": true,
+    "bidirectionalLinksConsistent": true,
+    "serializedTypeMismatch": [
+      {
+        "linkId": 1258,
+        "stored": "BIREFNET_MODEL",
+        "bothSockets": "BiRefNetMODEL"
+      }
+    ],
+    "unusedSaveImageOutputCount": {
+      "serialized": 2,
+      "server": 1
+    }
+  },
+  "effectiveValues": {
+    "expand": 80,
+    "expandFromNode": 866,
+    "ignoredGrowWidgetValue": -184,
+    "batch": 2,
+    "batchFromNode": 617,
+    "ignoredRepeatWidgetValue": 1,
+    "crop": 1536,
+    "editRefLongestEdge": 1024,
+    "schedulerDimensionsFrom": "crop GetImageSize, not actual EditUtils latent",
+    "steps": 4,
+    "cfg": 1
+  },
+  "sourceBasedFindings": {
+    "editUtilsPublicCommit": "fd87e4c5fdb36032ff129c9d78ee5c1cd6ff30d9",
+    "installedEditUtilsCommit": "unknown",
+    "initialLatent": "VAE-encoded image1, not empty",
+    "referenceSizing": "independent aspect-preserving resize and padding",
+    "text": "raw prompt with custom system template; no auto imageN visual prefix in this Flux2 branch",
+    "negative": "ZeroOut preserves reference metadata; cfg1 normally omits negative diffusion branch",
+    "defaultScaleMismatch": "1536 crop and scheduler versus 1024 EditUtils main image; not necessarily tensor-shape error",
+    "stitchResize": "upstream implementation can resize decoded crop before pasting; not native 1536 detail"
+  },
+  "scope": {
+    "replaceWorkbench": false,
+    "changeOriginal": false,
+    "productionRelease": false,
+    "gpuEvidence": "rebuild-comparison-runs.json; controlled 1024 coding-chain comparison only"
+  },
+  "primarySources": [
+    "https://github.com/lrzjason/ComfyUI-EditUtils/blob/fd87e4c5fdb36032ff129c9d78ee5c1cd6ff30d9/nodes.py",
+    "https://github.com/Comfy-Org/ComfyUI/blob/v0.39.2/comfy_extras/nodes_flux.py",
+    "https://github.com/Comfy-Org/ComfyUI/blob/v0.39.2/comfy/samplers.py",
+    "https://github.com/lquesada/ComfyUI-Inpaint-CropAndStitch/blob/main/inpaint_cropandstitch.py"
+  ]
+}

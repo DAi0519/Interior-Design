@@ -40,7 +40,7 @@ test("功能与超分按钮保留原有选中态与键盘、指针反馈", async
   assert.match(themeCss, /\.feature-mode-option:focus-visible,\s*\.model-option-toggle:focus-visible\s*{[^}]*outline: 2px solid/s);
   assert.match(themeCss, /\.model-option-toggle:active\s*{[^}]*transform: scale\(0\.97\)/s);
   assert.match(interactionCss, /\.feature-mode-option:hover:not\(\.selected\):not\(:disabled\),\s*\.model-option-toggle:hover:not\(\.selected\):not\(:disabled\)/s);
-  assert.match(accentCss, /\.feature-mode-option\.selected,[^{]*\.custom-select-option\[aria-selected="true"\]\s*\{[^}]*background: var\(--brand-key-selected-bg\)[^}]*border-color: var\(--brand-key-selected-border\)[^}]*color: var\(--brand-key-selected-ink\)/s);
+  assert.match(accentCss, /\.feature-mode-option\.selected,[^{]*\.room-type-option\.selected\s*\{[^}]*background: var\(--brand-key-selected-bg\)[^}]*border-color: var\(--brand-key-selected-border\)[^}]*color: var\(--brand-key-selected-ink\)/s);
   assert.match(accentCss, /--brand-key-selected-bg: #000/);
   assert.match(accentCss, /--brand-key-selected-border: #000/);
   assert.match(accentCss, /--brand-key-selected-ink: #fff/);

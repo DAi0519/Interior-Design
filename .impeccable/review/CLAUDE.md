@@ -2,6 +2,23 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+cabinet-geometry/: 2026-10-21 空房双 Agent v34 上架回读、同图双模式实跑及柜体体积/结构保真分开验收，详见 cabinet-geometry/CLAUDE.md
+
+room-renovation/: 2026-10-21 主工作台旧房先清空再设计的两阶段包装、三图预览/下载、独立任务与两条飞书关联记录，详见 room-renovation/CLAUDE.md
+
+beta-upscale/: Beta AI超分六工作流与独立归档的初次接入证据；2026-10-21补充KS两套2X/4K/6K、4187运行目录与菜单预览、1013项测试，详见 beta-upscale/CLAUDE.md
+
+multi-angle-refinement/: 2026-10-19 用户否定demo质感后的拟真相机/银灰控件/连续交互重做，详见multi-angle-refinement/CLAUDE.md
+
+multi-angle-workbench/: 2026-10-19 多角度接入主工作台、共享任务/结果、2K直接推理、889项测试与桌面/窄屏证据，详见 multi-angle-workbench/CLAUDE.md
+
+beta-sample-reuse/: 2026-10-19 Beta跨功能复用飞书图片样本、新建当前功能归属及原ID/无重传校验，详见 beta-sample-reuse/CLAUDE.md
+
+beta-outpaint/: 2026-10-19 九功能Beta扩图入口、四工作流多选/独立归档合同、实时Schema、842项测试及桌面/窄屏验证，详见 beta-outpaint/CLAUDE.md
+
+qwen-outpaint-import/: 2026-10-19 当前ComfyUI真实文件导入、独立FP32匹配与824项回归，详见 qwen-outpaint-import/CLAUDE.md
+
+outpaint-original-ratio/: 2026-10-19 默认原比例/五预设、三引擎真实上传预览及823项测试，详见 outpaint-original-ratio/CLAUDE.md
 
 ai-edit/: 2026-10-16 AI编辑与五套超分工作流的目录/交互/测试验证，详见 ai-edit/CLAUDE.md
 banana21/: 2026-10-16 Banana 2.1 与 Beta 模型标签/历史记录保留验证，详见 banana21/CLAUDE.md
@@ -21,6 +38,9 @@ outpaint-scale/: 2026-10-15 四角等比缩放/倍率预设/连续大小与边�
 outpaint-workspace/: 2026-10-15 参考Figma只读稿的主区域棋盘格构图、桌面/窄屏/任务切换与647项测试证据，详见 outpaint-workspace/CLAUDE.md
 qwen-outpaint/: 2026-10-15 Qwen Image Edit 2511 原生遮罩扩图实跑、中心保留与产物证据，详见 qwen-outpaint/CLAUDE.md
 qwen-outpaint-alignment/: 2026-10-19 Qwen 2K/4K原图边缘断层的同尺度推理/遮罩/恢复修复与实跑记录，详见 qwen-outpaint-alignment/CLAUDE.md
+qwen-outpaint-seam/: 2026-10-19 Qwen仍有亮度缝后的同采样去回贴/32px与160px诊断合成对照，详见 qwen-outpaint-seam/CLAUDE.md
+janus-outpaint/: 2026-10-19 Qwen接Janus与Flux/Qwen实际Prompt保存/History回传/飞书最终字段归档核验，详见 janus-outpaint/CLAUDE.md
+outpaint-fixed-2k/: 2026-10-19 三引擎扩图固定2K、移除分辨率控件及非2K执行阻断/浏览器构图验证，详见 outpaint-fixed-2k/CLAUDE.md
 CLAUDE.md: 本目录历史界面证据与真实 API 实测来源地图
 
 时间与状态以各记录内容为准；接口、结果尺寸、原图区像素一致和质量验收分别判断，不能由截图或产物文件存在性推定通过。

@@ -1,0 +1,64 @@
+/**
+ * [INPUT]: 依赖遮罩填充语义控件、共享workspace主画布组合层与工作台银灰令牌
+ * [OUTPUT]: 对外提供分组20px/组内8px节奏、模型/方式/输出质量表单、参考图、大画布及触屏画笔/红色定位框样式
+ * [POS]: public 的遮罩填充视觉层，复用共享控件和黑白选中态
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.mask-fill-settings { display: grid; gap: 20px; min-width: 0; }
+.mask-fill-settings > .section-heading { margin-bottom: 0; }
+.mask-fill-settings .field { display: grid; gap: 8px; min-width: 0; }
+.mask-fill-settings .field > span { margin: 0; }
+.mask-fill-mode-field, .mask-fill-prompt-block { display: grid; gap: 8px; min-width: 0; }
+.mask-fill-field-label { color: var(--muted); font-size: 10px; font-weight: 600; }
+.mask-fill-settings .compact-config-note { margin: 0; }
+.mask-fill-settings .field-grid { gap: 12px; }
+.mask-fill-parameters:has([data-mask-tier-field][hidden]) { grid-template-columns: 1fr; }
+.mask-fill-settings [hidden] { display: none; }
+.mask-fill-modes, .mask-fill-drawing-actions { display: flex; gap: 8px; }
+.mask-fill-modes button, .mask-fill-drawing-actions button {
+  background: var(--panel-soft, #f5f5f7); border: 1px solid var(--line, #ddd);
+  border-radius: 6px; color: var(--text); cursor: pointer; font: inherit;
+  font-size: 12px; min-height: 38px; padding: 0 12px;
+}
+.mask-fill-modes button { flex: 1; padding: 0 5px; }
+.mask-fill-modes button.selected, .mask-fill-drawing-actions button.selected {
+  background: #000; border-color: #000; color: #fff;
+}
+.mask-fill-modes button:focus-visible, .mask-fill-drawing-actions button:focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px;
+}
+.mask-fill-drawing-actions button:disabled { cursor: default; opacity: .4; }
+.mask-fill-modes button:hover:not(.selected), .mask-fill-drawing-actions button:hover:not(:disabled):not(.selected) { background: #e9e9ed; }
+.mask-fill-instruction { display: grid; gap: 8px; font-size: 12px; font-weight: 600; }
+.mask-fill-instruction textarea { font-weight: 400; min-height: 128px; }
+.mask-fill-parameters input { width: 100%; min-height: 38px; }
+[data-mask-reference-section] h3 { font-size: 12px; font-weight: 600; margin: 0; }
+[data-mask-reference-section] .reference-drop-zone { display: grid; gap: 6px; grid-template-columns: 1fr; padding: 15px 10px; font-size: 12px; text-align: center; }
+[data-mask-reference-section] .reference-drop-zone:focus-within { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
+[data-mask-reference-section] small { color: var(--muted); font-size: 11px; }
+.mask-fill-preview { align-items: center; container-type: size; display: grid; flex: 1; height: 100%; justify-items: center; min-height: 0; width: 100%; }
+.mask-fill-empty { color: var(--muted); font-size: 13px; line-height: 1.7; max-width: 28ch; text-align: center; }
+.mask-fill-frame {
+  aspect-ratio: var(--mask-ratio, 1); isolation: isolate; overflow: hidden; position: relative;
+  width: min(100cqw, calc(100cqh * var(--mask-ratio, 1)));
+}
+.mask-fill-frame[hidden], .mask-fill-empty[hidden], [data-mask-reference-section][hidden] { display: none; }
+.mask-fill-frame img { display: block; height: 100%; object-fit: fill; pointer-events: none; width: 100%; }
+.mask-fill-frame canvas { cursor: crosshair; height: 100%; left: 0; opacity: .66; position: absolute; top: 0; touch-action: none; user-select: none; width: 100%; }
+.mask-fill-frame canvas.box-selection { opacity: 1; }
+.mask-fill-toolbar [hidden] { display: none; }
+.outpaint-workspace-footer:has(.mask-fill-toolbar) { display: block; }
+.mask-fill-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; width: 100%; }
+.mask-fill-brush { display: grid; flex: 1 1 160px; gap: 5px; max-width: 260px; font-size: 12px; }
+.mask-fill-brush > span { display: flex; justify-content: space-between; }
+.mask-fill-brush output { color: var(--muted); }
+.mask-fill-brush input { accent-color: #000; cursor: pointer; width: 100%; }
+.mask-fill-toolbar > p { flex: 1 1 100%; margin: 0; }
+.mask-fill-preview:has(.mask-fill-frame:not([hidden])) .mask-fill-empty { display: none; }
+@media (max-width: 560px) {
+  .mask-fill-toolbar { gap: 10px; }
+  .mask-fill-drawing-actions { width: 100%; }
+  .mask-fill-drawing-actions button { flex: 1; }
+  .mask-fill-brush { max-width: none; }
+}

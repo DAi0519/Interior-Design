@@ -1,0 +1,50 @@
+{
+  "status": "passed",
+  "scope": "Development harness using the production bindImageMaskFill and bindImageToolWorkspace modules with an inline source.png descriptor. Ordinary file chooser upload was not verified. No GPU request was submitted.",
+  "browser": "Microsoft Edge",
+  "source": {
+    "width": 512,
+    "height": 512
+  },
+  "displayCanvas": {
+    "width": 573.453125,
+    "height": 573.453125,
+    "x": 810.7734375,
+    "y": 190
+  },
+  "realPointerDrag": {
+    "from": [
+      1095,
+      405
+    ],
+    "to": [
+      1095,
+      580
+    ],
+    "paintedPixelCount": 5377,
+    "pixelBounds": {
+      "minX": 239,
+      "maxX": 268,
+      "minY": 177,
+      "maxY": 362
+    }
+  },
+  "undo": {
+    "paintedPixelCount": 0,
+    "undoDisabled": true
+  },
+  "erase": {
+    "pixelsAboveHalfAlpha": 0
+  },
+  "undoErase": {
+    "paintedPixelCount": 5383
+  },
+  "referenceMode": {
+    "defaultMaskExpand": 80,
+    "extraImageInputVisible": true,
+    "defaultInferenceSize": 1536
+  },
+  "screenshot": "harness-ui.jpg",
+  "cleanup": "Temporary public harness HTML and JS and temporary map entries were removed; test tab 678757772 was closed.",
+  "limitation": "Root browser file chooser automation failed due the browser extension file URL permission; native application access selected an unrelated Poe window, which was not modified. Extension permissions were not changed."
+}

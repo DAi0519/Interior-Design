@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary，管理已有飞书样本 ID 与轻量预览、不限整批容量的 File 草稿、逐张上传与稳定 ID 断点重试、房型配置及服务端完成回读后的同步回执
+ * [OUTPUT]: 对外提供 createBetaSampleLibrary，跨图像任务复用已有样本ID/轻量预览并隔离free提示词集、按目标功能校验元信息与记忆选集、防旧异步响应串功能、新建按当前功能逐张上传及稳定ID续传、仅本次房型补选与回读同步回执
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -51,6 +51,7 @@ export function createBetaSampleLibrary({
   const state = {
     activeSampleSetId: "",
     busy: false,
+    catalogLoading: false,
     draftSampleSetId: "",
     featureMode: "whiteModel",
     mode: "library",
@@ -60,6 +61,10 @@ export function createBetaSampleLibrary({
     syncMessage: "读取飞书中",
     syncState: "syncing",
   };
+  let mutationBusy = false;
+  let loadRevision = 0;
+  let catalogRevision = 0;
+  const rememberedSelections = new Map();
 
   function setSyncStatus(message, syncState, detail = "") {
     state.syncMessage = message;
@@ -72,12 +77,15 @@ export function createBetaSampleLibrary({
   }
 
   function setsForFeature() {
-    return state.sampleSets.filter((sampleSet) => sampleSet.featureMode === state.featureMode);
+    return state.sampleSets.filter((sampleSet) =>
+      (sampleSet.featureMode === "free") === (state.featureMode === "free"));
   }
 
-  function activeSet() {
-    return state.sampleSets.find((sampleSet) =>
-      sampleSet.sampleSetId === state.activeSampleSetId) || null;
+  function preferredSet(preferredSampleSetId = rememberedSelections.get(state.featureMode)) {
+    const sampleSets = setsForFeature();
+    return sampleSets.find((sampleSet) => sampleSet.sampleSetId === preferredSampleSetId)
+      || sampleSets.find((sampleSet) => sampleSet.featureMode === state.featureMode)
+      || sampleSets[0];
   }
 
   function sampleCount() {
@@ -93,7 +101,7 @@ export function createBetaSampleLibrary({
         value: sampleSet.sampleSetId,
       }))
       : [Object.assign(document.createElement("option"), {
-        textContent: "当前任务暂无样本集",
+        textContent: "暂无可用样本集",
         value: "",
       })]));
     elements.sampleSetSelect.disabled = state.busy || sampleSets.length === 0;
@@ -196,31 +204,56 @@ export function createBetaSampleLibrary({
     elements.freePromptsInput.value = "";
   }
 
+  function assertExistingSamples(sampleSet, targetFeatureMode) {
+    if ((sampleSet.featureMode === "free") !== (targetFeatureMode === "free")) {
+      throw new Error("样本集类型与当前任务不兼容");
+    }
+    if (!Array.isArray(sampleSet.samples) || !sampleSet.samples.length) {
+      throw new Error("样本集没有可用样本");
+    }
+    sampleSet.samples.forEach((sample, index) => {
+      if (!sample.sampleId) throw new Error(`第 ${index + 1} 条样本缺少稳定ID`);
+      if (targetFeatureMode === "free") {
+        if (typeof sample.prompt !== "string" || !sample.prompt.trim()) {
+          throw new Error(`第 ${index + 1} 条样本缺少提示词，不能用于自由生图`);
+        }
+        return;
+      }
+      const image = sample.image;
+      if (!image || typeof image !== "object" || Array.isArray(image)
+        || !["image/png", "image/jpeg", "image/webp"].includes(image.type)) {
+        throw new Error(`第 ${index + 1} 条样本缺少图片或图片类型无效，不能用于当前任务`);
+      }
+      // 旧集缺尺寸时留待服务端按原件校验，不为预览下载原图。
+      if (image.width !== undefined && image.height !== undefined) validateSourceImage(targetFeatureMode, image);
+    });
+  }
+
   function applySampleSet(sampleSet) {
+    assertExistingSamples(sampleSet, state.featureMode);
     state.sourceImages.forEach(releasePreview);
     state.activeSampleSetId = sampleSet.sampleSetId;
     state.draftSampleSetId = "";
-    state.prompts = sampleSet.samples
-      .filter((sample) => sample.prompt)
-      .map((sample) => ({ prompt: sample.prompt, sampleId: sample.sampleId }));
-    state.sourceImages = sampleSet.samples
-      .filter((sample) => sample.image)
-      .map((sample) => ({ ...sample.image, sampleId: sample.sampleId, roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail }));
+    state.prompts = state.featureMode === "free" ? sampleSet.samples
+      .map((sample) => ({ prompt: sample.prompt, sampleId: sample.sampleId })) : [];
+    state.sourceImages = state.featureMode !== "free" ? sampleSet.samples
+      .map((sample) => ({ ...sample.image, sampleId: sample.sampleId, roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail })) : [];
     state.mode = "library";
+    rememberedSelections.set(state.featureMode, state.activeSampleSetId);
     onSelectionChange(state.featureMode, state.activeSampleSetId);
   }
-
-  let loadRevision = 0;
 
   async function loadSampleSet(sampleSetId) {
     if (!sampleSetId) return;
     const revision = ++loadRevision;
+    const targetFeatureMode = state.featureMode;
+    state.activeSampleSetId = sampleSetId;
     state.busy = true;
     setSyncStatus("读取飞书中", "syncing");
     render();
     try {
       const { sampleSet } = await api(`/api/beta/sample-sets/${encodeURIComponent(sampleSetId)}`);
-      if (revision !== loadRevision || sampleSet.featureMode !== state.featureMode) return;
+      if (revision !== loadRevision || targetFeatureMode !== state.featureMode) return;
       applySampleSet(sampleSet);
       setSyncStatus("已同步飞书", "success");
     } catch (error) {
@@ -237,6 +270,7 @@ export function createBetaSampleLibrary({
   }
 
   function beginCreate() {
+    if (mutationBusy) return;
     loadRevision += 1;
     state.busy = false;
     clearSamples();
@@ -248,7 +282,7 @@ export function createBetaSampleLibrary({
   }
 
   async function cancelCreate() {
-    const first = setsForFeature()[0];
+    const first = preferredSet();
     if (first) await loadSampleSet(first.sampleSetId);
     else beginCreate();
   }
@@ -256,6 +290,7 @@ export function createBetaSampleLibrary({
   async function addSourceFiles(fileList) {
     if (state.busy || state.draftSampleSetId) return;
     state.busy = true;
+    mutationBusy = true;
     render();
     try {
       const files = Array.from(fileList);
@@ -275,6 +310,7 @@ export function createBetaSampleLibrary({
     } catch (error) {
       onError(error);
     } finally {
+      mutationBusy = false;
       state.busy = false;
       render();
     }
@@ -298,6 +334,7 @@ export function createBetaSampleLibrary({
     const featureMode = state.featureMode;
     const samples = featureMode === "free" ? state.prompts : state.sourceImages;
     state.busy = true;
+    mutationBusy = true;
     setSyncStatus("同步飞书中", "syncing");
     render();
     try {
@@ -340,26 +377,28 @@ export function createBetaSampleLibrary({
       setSyncStatus(`同步失败 · ${completed} / ${samples.length}`, "error", error.message);
       throw error;
     } finally {
+      mutationBusy = false;
       state.busy = false;
       render();
     }
   }
 
-  async function setFeatureMode(featureMode, preferredSampleSetId = "") {
-    if (state.busy) return;
+  async function setFeatureMode(featureMode, preferredSampleSetId = "", { reload = false } = {}) {
+    if (mutationBusy) return;
+    const sameTarget = state.featureMode === featureMode;
+    const previouslyBusy = state.busy;
     loadRevision += 1;
-    state.busy = false;
+    state.busy = state.catalogLoading;
     state.featureMode = featureMode;
-    const current = activeSet();
-    if (current?.featureMode === featureMode) {
+    if (preferredSampleSetId) rememberedSelections.set(featureMode, preferredSampleSetId);
+    const next = preferredSet();
+    if (!reload && sameTarget && !previouslyBusy && !state.catalogLoading
+      && state.mode === "library" && next?.sampleSetId === state.activeSampleSetId) {
       render();
       return;
     }
     clearSamples();
-    const sampleSets = setsForFeature();
-    const preferred = sampleSets.find((sampleSet) =>
-      sampleSet.sampleSetId === preferredSampleSetId);
-    const next = preferred || sampleSets[0];
+    if (state.catalogLoading) { render(); return; }
     if (next) await loadSampleSet(next.sampleSetId);
     else beginCreate();
   }
@@ -386,11 +425,22 @@ export function createBetaSampleLibrary({
   }
 
   async function load(featureMode, preferredSampleSetId = "") {
+    if (mutationBusy) return;
+    const revision = ++catalogRevision;
+    loadRevision += 1;
+    state.catalogLoading = true;
+    await setFeatureMode(featureMode, preferredSampleSetId);
     try {
       const { sampleSets } = await api("/api/beta/sample-sets");
+      if (revision !== catalogRevision) return;
       state.sampleSets = sampleSets || [];
-      await setFeatureMode(featureMode, preferredSampleSetId);
+      state.catalogLoading = false;
+      state.busy = false;
+      await setFeatureMode(state.featureMode, "", { reload: true });
     } catch (error) {
+      if (revision !== catalogRevision) return;
+      state.catalogLoading = false;
+      state.busy = false;
       setSyncStatus("读取失败", "error", error.message);
       render();
       throw error;

@@ -5,6 +5,45 @@
       "image": "input.png"
     }
   },
+  "janus-model": {
+    "class_type": "JanusModelLoader",
+    "inputs": {
+      "model_name": "deepseek-ai/Janus-Pro-1B"
+    }
+  },
+  "describe": {
+    "class_type": "JanusImageUnderstanding",
+    "inputs": {
+      "question": "Write one concise English outpainting prompt based on this original image. Describe the visible scene, architecture, furnishings, materials, colors, lighting, camera viewpoint and perspective. Describe a natural continuation of the same scene beyond its edges, keeping the existing style and atmosphere. Use only visual evidence from this image; do not invent new subjects, decorations, text or frames. Return only the English prompt without headings or Markdown.",
+      "seed": 298596445848600,
+      "temperature": 0.1,
+      "top_p": 0.95,
+      "max_new_tokens": 999,
+      "model": [
+        "janus-model",
+        0
+      ],
+      "processor": [
+        "janus-model",
+        1
+      ],
+      "image": [
+        "input",
+        0
+      ]
+    }
+  },
+  "prompt-output": {
+    "class_type": "SaveText",
+    "inputs": {
+      "text": [
+        "describe",
+        0
+      ],
+      "filename_prefix": "CanvasLab_QwenOutpaint_standalone-export_prompt",
+      "format": "txt"
+    }
+  },
   "model": {
     "class_type": "UNETLoader",
     "inputs": {
@@ -33,7 +72,8 @@
         "model",
         0
       ],
-      "shift": 3.1
+      "shift": 3.1,
+      "sampling": "flow"
     }
   },
   "norm": {
@@ -54,7 +94,7 @@
         "norm",
         0
       ],
-      "lora_name": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+      "lora_name": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-fp32.safetensors",
       "strength_model": 1
     }
   },
@@ -146,7 +186,10 @@
         "inference",
         0
       ],
-      "prompt": "Extend the scene naturally into the blank gray canvas surrounding the original image. Continue the existing architecture, surfaces, objects and background with coherent perspective, geometry, lighting, colors and texture. Preserve the original composition, camera viewpoint, subject identity and visual style. Create a seamless continuation across every original image boundary. Only fill the newly extended areas; do not add frames, text, watermarks or duplicate subjects."
+      "prompt": [
+        "prompt-output",
+        0
+      ]
     }
   },
   "negative": {
@@ -261,31 +304,11 @@
       "crop": "disabled"
     }
   },
-  "composite": {
-    "class_type": "ImageCompositeMasked",
-    "inputs": {
-      "destination": [
-        "pad",
-        0
-      ],
-      "source": [
-        "restore",
-        0
-      ],
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "mask": [
-        "pad",
-        1
-      ]
-    }
-  },
   "output": {
     "class_type": "SaveImage",
     "inputs": {
       "images": [
-        "composite",
+        "restore",
         0
       ],
       "filename_prefix": "CanvasLab_QwenOutpaint_standalone-export"

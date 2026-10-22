@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Qwen 统一推理/动态目标恢复执行图真源、原生节点端口/控件描述与 Node 文件写入
- * [OUTPUT]: 生成可拖入 ComfyUI 的画布 JSON 及 LoadImage API JSON，动态尺寸链接转为 INT 控件端口，不含服务地址、密钥或内嵌图片
+ * [INPUT]: 依赖 Qwen Janus动态提示词原文直通/遮罩采样/整图恢复执行图真源、当前独立导入环境的2511 Lightning FP32文件、原生节点端口/控件描述与 Node 文件写入
+ * [OUTPUT]: 生成支持文件打开或实体文件拖入的 ComfyUI 画布 JSON 及 LoadImage API JSON，独立图使用同版FP32 LoRA并兼容当前采样控件/图片输出，动态尺寸链接转为 INT 控件端口，不含地址、密钥或内嵌图片
  * [POS]: scripts 的独立工作流导出器，将运行真源投影为 workflows/ 中的人工可编辑交付物
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,6 +18,9 @@ export function standaloneQwenOutpaintGraph() {
   graph.input = { class_type: "LoadImage", inputs: { image: "input.png" } };
   graph.prepare = { class_type: "ImageScaleToTotalPixels", inputs: { image: ["input", 0], upscale_method: "lanczos", megapixels: 0.39, resolution_steps: 16 } };
   graph.pad.inputs.image = ["prepare", 0];
+  // -------- 独立导入环境已安装同版 FP32；工作台运行图继续使用自己的 BF16 合同 --------
+  graph.lightning.inputs.lora_name = "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-fp32.safetensors";
+  graph.shift.inputs.sampling = "flow";
   return graph;
 }
 
@@ -29,20 +32,22 @@ const INTERFACES = {
   MaskToImage: { inputs: { mask: "MASK" }, outputs: ["IMAGE"], widgets: [] },
   ImageScale: { inputs: { image: "IMAGE" }, outputs: ["IMAGE"], widgets: ["upscale_method", "width", "height", "crop"], widgetInputs: { width: "INT", height: "INT" } },
   ImageToMask: { inputs: { image: "IMAGE" }, outputs: ["MASK"], widgets: ["channel"] },
+  JanusModelLoader: { inputs: {}, outputs: ["JANUS_MODEL", "JANUS_PROCESSOR"], outputNames: ["model", "processor"], widgets: ["model_name"] },
+  JanusImageUnderstanding: { inputs: { model: "JANUS_MODEL", processor: "JANUS_PROCESSOR", image: "IMAGE" }, outputs: ["STRING"], outputNames: ["text"], widgets: ["question", "seed", () => "fixed", "temperature", "top_p", "max_new_tokens"] },
+  SaveText: { inputs: { text: "STRING" }, outputs: ["STRING"], outputNames: ["text"], widgets: ["filename_prefix", "format"] },
   UNETLoader: { inputs: {}, outputs: ["MODEL"], widgets: ["unet_name", "weight_dtype"] },
   CLIPLoader: { inputs: {}, outputs: ["CLIP"], widgets: ["clip_name", "type", "device"] },
   VAELoader: { inputs: {}, outputs: ["VAE"], widgets: ["vae_name"] },
-  ModelSamplingAuraFlow: { inputs: { model: "MODEL" }, outputs: ["MODEL"], widgets: ["shift"] },
+  ModelSamplingAuraFlow: { inputs: { model: "MODEL" }, outputs: ["MODEL"], widgets: ["shift", "sampling"] },
   CFGNorm: { inputs: { model: "MODEL" }, outputs: ["MODEL"], widgets: ["strength", "pre_cfg"] },
   LoraLoaderModelOnly: { inputs: { model: "MODEL" }, outputs: ["MODEL"], widgets: ["lora_name", "strength_model"] },
   ImagePadForOutpaint: { inputs: { image: "IMAGE" }, outputs: ["IMAGE", "MASK"], widgets: ["left", "top", "right", "bottom", "feathering"] },
-  TextEncodeQwenImageEditPlus: { inputs: { clip: "CLIP", vae: "VAE", image1: "IMAGE", image2: "IMAGE", image3: "IMAGE" }, outputs: ["CONDITIONING"], widgets: ["prompt"] },
+  TextEncodeQwenImageEditPlus: { inputs: { clip: "CLIP", vae: "VAE", image1: "IMAGE", image2: "IMAGE", image3: "IMAGE" }, outputs: ["CONDITIONING"], widgets: ["prompt"], widgetInputs: { prompt: "STRING" } },
   VAEEncode: { inputs: { pixels: "IMAGE", vae: "VAE" }, outputs: ["LATENT"], widgets: [] },
   SetLatentNoiseMask: { inputs: { samples: "LATENT", mask: "MASK" }, outputs: ["LATENT"], widgets: [] },
   KSampler: { inputs: { model: "MODEL", positive: "CONDITIONING", negative: "CONDITIONING", latent_image: "LATENT" }, outputs: ["LATENT"], widgets: ["seed", () => "randomize", "steps", "cfg", "sampler_name", "scheduler", "denoise"] },
   VAEDecode: { inputs: { samples: "LATENT", vae: "VAE" }, outputs: ["IMAGE"], widgets: [] },
-  ImageCompositeMasked: { inputs: { destination: "IMAGE", source: "IMAGE", mask: "MASK" }, outputs: ["IMAGE"], widgets: ["x", "y", "resize_source"] },
-  SaveImage: { inputs: { images: "IMAGE" }, outputs: [], widgets: ["filename_prefix"] },
+  SaveImage: { inputs: { images: "IMAGE" }, outputs: ["IMAGE"], outputNames: ["images"], widgets: ["filename_prefix"] },
 };
 
 const POSITIONS = {
@@ -52,14 +57,17 @@ const POSITIONS = {
   inferenceMaskImage: [1400, 950], inferenceMask: [1750, 950],
   positive: [1750, 230], negative: [1750, 600], encode: [1750, 1200], mask: [2100, 1000],
   sample: [2450, 230], decode: [2800, 230], outputSize: [2800, 600], restore: [3150, 230],
-  composite: [3500, 230], output: [3850, 230],
+  output: [3500, 230],
+  "janus-model": [0, 1500], describe: [350, 1500], "prompt-output": [700, 1500],
 };
 const TITLES = {
   input: "1. 上传原图", prepare: "2. 等比适配 / 16 像素对齐", pad: "3. 扩展画布 / 接缝融合",
   inference: "4. 统一到约 1MP 推理画布", inferenceSize: "读取推理画布尺寸", maskImage: "扩边遮罩转图像",
   inferenceMaskImage: "遮罩同步到推理尺寸", inferenceMask: "恢复推理遮罩", positive: "5. 扩图要求",
   negative: "负向条件（Lightning CFG=1）", mask: "仅扩展区与接缝参与采样", sample: "6. Qwen 2511 / Lightning 4 步",
-  outputSize: "读取原始扩图目标尺寸", restore: "7. 恢复目标尺寸（Lanczos）", composite: "8. 原遮罩合成 / 保留原图中心", output: "9. 保存结果",
+  outputSize: "读取原始扩图目标尺寸", restore: "7. 整图恢复目标尺寸（Lanczos）", output: "8. 保存整图（不回贴原图）",
+  "janus-model": "Janus-Pro-1B / 自动生成场景提示词", describe: "分析未扩边原图 / 英文扩图提示词",
+  "prompt-output": "保存Janus实际提示词原文 / 回传归档",
 };
 
 export function qwenOutpaintCanvas(graph) {
@@ -70,7 +78,7 @@ export function qwenOutpaintCanvas(graph) {
     if (!spec || !POSITIONS[key]) throw new Error(`导出节点缺少画布描述：${key} (${node.class_type})`);
     const widgetInputs = Object.entries(spec.widgetInputs || {}).filter(([field]) => Array.isArray(node.inputs[field]));
     return {
-      id: ids.get(key), type: node.class_type, pos: POSITIONS[key], size: [320, key === "positive" || key === "negative" ? 300 : key === "sample" ? 460 : 240],
+      id: ids.get(key), type: node.class_type, pos: POSITIONS[key], size: [320, ["describe", "positive", "negative"].includes(key) ? 360 : key === "sample" ? 460 : 240],
       flags: {}, order, mode: 0, title: TITLES[key] || node.class_type,
       inputs: [
         ...Object.entries(spec.inputs).map(([name, type]) => ({ name, type, link: null })),
@@ -78,8 +86,8 @@ export function qwenOutpaintCanvas(graph) {
       ],
       outputs: spec.outputs.map((type, slot_index) => ({ name: spec.outputNames?.[slot_index] || type, type, links: [], slot_index })),
       properties: { "Node name for S&R": node.class_type },
-      // -------- 已链接的数值控件保留占位值，实际尺寸由 INT 端口提供 --------
-      widgets_values: spec.widgets.map((field) => typeof field === "function" ? field() : Array.isArray(node.inputs[field]) ? 0 : node.inputs[field]),
+      // -------- 已链接控件保留同类型占位，实际尺寸或正文由对应端口提供 --------
+      widgets_values: spec.widgets.map((field) => typeof field === "function" ? field() : Array.isArray(node.inputs[field]) ? spec.widgetInputs?.[field] === "STRING" ? "" : 0 : node.inputs[field]),
     };
   });
   const links = [];

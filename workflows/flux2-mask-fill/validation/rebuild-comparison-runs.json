@@ -1,0 +1,188 @@
+{
+  "at": "2026-10-21T10:54:50.870Z",
+  "server": "http://maas-workflow-app-50-prodtestzwapp50.k8s-zhongwei.qunhequnhe.com",
+  "sourcePath": "/Users/dai/Library/Containers/com.tencent.WeWorkMac/Data/Documents/Profiles/B121488FE59B52EB04B48EC26B2800ED/Caches/Files/2026-10/9918b2ae2a7b3452466d5c45a8417c52/FLUX.2_遮罩参考图填充_MAAS重建替换版.json",
+  "sourceSha256": "22ca02d92db5ec6754100a723da9892a9529c4542d8d92a3f05c6f410a397389",
+  "scope": "isolated coding-chain smoke comparison; not original default-1536 workflow execution or production quality evaluation",
+  "controls": {
+    "seed": 432271050087470,
+    "batchSize": 2,
+    "steps": 4,
+    "cfg": 1,
+    "sampler": "euler_ancestral",
+    "inference": 1024,
+    "maskExpand": 80,
+    "model": "flux-2-klein-9b.safetensors",
+    "biRefModel": "General.safetensors",
+    "output": "512x512",
+    "prompt": "图2的小摆件填充到图1的遮罩区域",
+    "fixtureSha256": {
+      "source.png": "64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0",
+      "mask-rgb.png": "cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e",
+      "reference.png": "ec1d95b445bbbd76f7a6f3c87ca3f966265e7d9c86df9a79be814285dea36dfb"
+    }
+  },
+  "deviationsFromAttachment": [
+    "仅测试编码链；两边统一关闭整图预放大、1024裁剪与调度",
+    "两边统一General.safetensors，不评估附件的另一BiRefNet权重",
+    "共用当前工作台的先填孔再扩张与参考预处理",
+    "共用原比例输出512x512，附件原默认1536回贴未在本次执行"
+  ],
+  "runs": [
+    {
+      "name": "native",
+      "graphSha256": "f79dfd12fd59ec91a74fa210f9b6bd5d18d304f2660759c1a4fac575264afb53",
+      "nodeCount": 38,
+      "filenamePrefix": "CanvasLab_MaskAudit_native_2091dacd-91dd-4e46-aa4d-64dd0ae4fd7b",
+      "status": "success",
+      "outputs": [
+        {
+          "local": "rebuild-native-1.png",
+          "filename": "CanvasLab_MaskAudit_native_2091dacd-91dd-4e46-aa4d-64dd0ae4fd7b_00001_.png",
+          "bytes": 40867,
+          "width": 512,
+          "height": 512,
+          "sha256": "dbebddaf3982df31f917e82c939b2029ccec9d674238a57775e466ce11a54955"
+        },
+        {
+          "local": "rebuild-native-2.png",
+          "filename": "CanvasLab_MaskAudit_native_2091dacd-91dd-4e46-aa4d-64dd0ae4fd7b_00002_.png",
+          "bytes": 41189,
+          "width": 512,
+          "height": 512,
+          "sha256": "40a80a4b66616e1d2509df851b4e65868fa5de0e70be533080e49baa6a0f548f"
+        }
+      ],
+      "admission": {
+        "prompt_id": "c814b984-8726-4899-97a6-67bafd049303",
+        "number": 672,
+        "node_errors": {}
+      },
+      "elapsedMs": 67801,
+      "actualCrop": {
+        "width": [
+          "1024"
+        ],
+        "height": [
+          "1024"
+        ]
+      },
+      "actualEditMain": {
+        "width": null,
+        "height": null
+      },
+      "messages": [
+        [
+          "execution_start",
+          {
+            "prompt_id": "c814b984-8726-4899-97a6-67bafd049303",
+            "timestamp": 1792580091248
+          }
+        ],
+        [
+          "execution_cached",
+          {
+            "nodes": [],
+            "prompt_id": "c814b984-8726-4899-97a6-67bafd049303",
+            "timestamp": 1792580091250
+          }
+        ],
+        [
+          "execution_success",
+          {
+            "prompt_id": "c814b984-8726-4899-97a6-67bafd049303",
+            "timestamp": 1792580156823
+          }
+        ]
+      ],
+      "visualObservations": [
+        "蓝花瓶叠在原冰箱中央，门线和把手仍清楚可见，未完成干净替换。",
+        "花瓶和投影已出现，冰箱轮廓、门线及把手保留，未完成干净替换。"
+      ],
+      "cleanReplacementObserved": [
+        false,
+        false
+      ]
+    },
+    {
+      "name": "editutils",
+      "graphSha256": "7b5e4a7dcf4ffbbdde9b97afb809aa00e8433ea6b1e7299dd3a4d7a35cf3c24f",
+      "nodeCount": 33,
+      "filenamePrefix": "CanvasLab_MaskAudit_editutils_21eb2fe0-2b6d-4e60-8f5a-136f69428d76",
+      "status": "success",
+      "outputs": [
+        {
+          "local": "rebuild-editutils-1.png",
+          "filename": "CanvasLab_MaskAudit_editutils_21eb2fe0-2b6d-4e60-8f5a-136f69428d76_00001_.png",
+          "bytes": 33231,
+          "width": 512,
+          "height": 512,
+          "sha256": "572f969164ca2f9963620c244861a23766ff87b72a1a3501cf261a2c9082ec21"
+        },
+        {
+          "local": "rebuild-editutils-2.png",
+          "filename": "CanvasLab_MaskAudit_editutils_21eb2fe0-2b6d-4e60-8f5a-136f69428d76_00002_.png",
+          "bytes": 51792,
+          "width": 512,
+          "height": 512,
+          "sha256": "9f827bba698984cd1cd1df1eb3ea799e92ea81580c05ebb82ddd3131280e028a"
+        }
+      ],
+      "admission": {
+        "prompt_id": "16b7e39f-2daf-47a9-87d6-d277510a6a37",
+        "number": 673,
+        "node_errors": {}
+      },
+      "elapsedMs": 67701,
+      "actualCrop": {
+        "width": [
+          "1024"
+        ],
+        "height": [
+          "1024"
+        ]
+      },
+      "actualEditMain": {
+        "width": [
+          "1024"
+        ],
+        "height": [
+          "1024"
+        ]
+      },
+      "messages": [
+        [
+          "execution_start",
+          {
+            "prompt_id": "16b7e39f-2daf-47a9-87d6-d277510a6a37",
+            "timestamp": 1792580158995
+          }
+        ],
+        [
+          "execution_cached",
+          {
+            "nodes": [],
+            "prompt_id": "16b7e39f-2daf-47a9-87d6-d277510a6a37",
+            "timestamp": 1792580158998
+          }
+        ],
+        [
+          "execution_success",
+          {
+            "prompt_id": "16b7e39f-2daf-47a9-87d6-d277510a6a37",
+            "timestamp": 1792580223813
+          }
+        ]
+      ],
+      "visualObservations": [
+        "冰箱基本保留，未见参考花瓶。",
+        "花瓶明显偏大并前置，冰箱上部及右侧把手仍可见，未完成干净替换。"
+      ],
+      "cleanReplacementObserved": [
+        false,
+        false
+      ]
+    }
+  ],
+  "interpretation": "单一合成场景、每条编码链两张的冒烟对照；两边均未完整移除冰箱，不能据此建立真实业务图质量排名。新版未表现出明确改善，暂不建议据此切换工作台。"
+}

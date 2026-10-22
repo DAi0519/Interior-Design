@@ -3,12 +3,17 @@
 
 成员清单
 
-Qwen-Image-Edit-2511-Outpaint.json: 可拖入 ComfyUI 的原生节点画布，Qwen 2511 + 专用 Lightning 4 步，约1MP整图/参考/遮罩共同尺度推理、动态恢复输出后原mask中心合成，含原生上传和等比预处理
-Qwen-Image-Edit-2511-Outpaint.api.json: 同一动态图的API版本，上传后替换input.inputs.image，GetImageSize驱动mask与输出恢复，不硬编码独立输入宽高；无内嵌图片、地址或密钥
+flux2-mask-fill/ - 两份用户Flux2遮罩填充工作流的独立MaaS兼容版，原生条件/参考潜空间/噪声遮罩替代Painter，现有BiRefNet替代参考分割，含构建器、API/画布与验证证据
+Flux-Fill-OneReward-Outpaint.json: 当前2026-10-19.1执行图导出的19节点/26连线独立ComfyUI画布，原生上传、每轴32–4096px/32对齐、默认四边各128px、Janus自动英文提示词与SaveText透传，OneReward FP8/20步/CFG1/guidance30；无地址、密钥或内嵌图片
+Flux-Fill-OneReward-Outpaint说明.md: OneReward扩图导入方式、模型与自定义节点依赖、默认扩边/手工尺寸规则和导出核验边界
+Qwen-Image-Edit-2511-Outpaint.json: 2026-10-20.1可拖入ComfyUI的26节点画布（运行图25节点），Janus question不变、未扩边原图描述原文直连SaveText/positive，不拼固定前缀/Scene continuation且无StringConcatenate、2511专用Lightning4步、约1MP共同尺度/遮罩/整图动态恢复且不回贴，含原生上传/等比预处理、当前导入环境同版FP32 LoRA、显式flow及STRING空/INT零占位
+Qwen-Image-Edit-2511-Outpaint.api.json: 同一2026-10-20.1独立26节点图的API版本，上传后替换input.inputs.image，Janus直接分析上传图并将原文经SaveText传入positive，GetImageSize驱动mask与输出恢复，不硬编码独立输入宽高；独立同版FP32 LoRA/显式flow，无内嵌图片、地址或密钥
 SeedVR2-7B-独立超分.json: 普通任意比例图片的独立 ComfyUI 7B 超分画布，原图直入、原生短边目标/长边上限控制，5 节点并保存 PNG
 SeedVR2-7B-独立超分说明.md: 普通图片超分的模型依赖、原生尺寸控件、拆分边界和静态验证状态
 KS-超分.json: 用户 KS 附件的节点/连线/参数语义归档，保留 0.75MP 与原图短边两倍规则；原字节 SHA-256 存在 extra.canvasLabSource，运行参数由 src 工厂适配
-README.md: 模型依赖、独立工作台与原生画布的尺寸区别、重新导出方式和实际验证边界
-CLAUDE.md: 本模块地图；Qwen 两份 JSON 由 scripts/export-qwen-outpaint.mjs 从运行真源生成，SeedVR2 独立图以附件 SHA-256 追溯
+KS-原图直入2倍.json: 原 KS 移除0.75MP预缩放的独立9节点/10连线对照画布，上传原图每轴384–3200px，原图直入7B/FP16 VAE、动态短边×2与max_resolution=0，保留原KS推理参数及来源SHA-256
+KS-原图直入2倍说明.md: KS原图直入2倍的导入、节点/模型依赖、动态尺寸合同、同图同种子对照与静态验证边界
+README.md: Qwen/Janus模型与节点依赖、动态正文直通/无固定前缀与实际原文捕获和缺失事实、Ctrl+O/实体文件导入与模型目录差异、工作台原比例/固定2K/旧请求准入与原生手工画布的尺寸区别、运行25/独立26节点重新导出方式及保留历史固定段记录的分版本验证边界
+CLAUDE.md: 本模块地图；OneReward画布按当前object_info从Flux执行真源投影，Qwen两份JSON由scripts/export-qwen-outpaint.mjs生成，SeedVR2独立图以附件SHA-256追溯
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

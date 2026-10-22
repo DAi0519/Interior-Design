@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Qwen/Flux/Sunburst 扩图服务、Qwen 执行图、统一生成路由、HTTP 任务准入与 sharp 图片样本
- * [OUTPUT]: 对外提供 Qwen 原尺寸/EXIF与画幅适配、独立能力缓存/推理缩放节点缺失前置409阻断、真实模型身份与专用客户端/ComfyUI阶段/飞书归档测试
+ * [OUTPUT]: 对外提供 Qwen 固定2K/4K输入/EXIF与画幅适配、独立能力缓存/Janus及推理缩放节点缺失前置409阻断、Janus原文无前缀透传/无拼接节点准入、执行Prompt与整图重建来源/无回贴能力的飞书追溯及专用客户端隔离测试
  * [POS]: test 的 Qwen 扩图应用边界验证，使用内存替身，不启动 GPU 或收费任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,26 +12,29 @@ import {
   createImageOutpaintConfigReader, executeImageOutpaint, normalizeImageOutpaintInput,
 } from "../src/image-outpaint-service.mjs";
 import {
-  QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW, createQwenOutpaintWorkflow, publicQwenOutpaintConfig,
+  QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW, createQwenOutpaintWorkflow, publicQwenOutpaintConfig, qwenOutpaintWorkflowMetadata,
 } from "../src/image-outpaint-qwen.mjs";
 import { createGenerationService } from "../src/generation-service.mjs";
 import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
+import { buildRecordFields } from "../src/lark-sync.mjs";
 
 const bytes = await sharp({ create: { width: 403, height: 301, channels: 3, background: "#7693a4" } }).png().toBuffer();
 const source = { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "input.png", width: 9000, height: 9000 };
 const input = {
   outpaintEngine: QWEN_OUTPAINT_ENGINE_KEY, referenceImages: [source],
-  outpaintCanvas: { ratio: "16:9", resolution: "1K", position: { x: 0.2, y: 0.8 } },
+  outpaintCanvas: { ratio: "16:9", resolution: "2K", position: { x: 0.2, y: 0.8 } },
 };
 
 function capabilityFixture() {
   const outputs = {
     "easy loadImageBase64": ["IMAGE", "MASK"], UNETLoader: ["MODEL"], CLIPLoader: ["CLIP"], VAELoader: ["VAE"],
+    JanusModelLoader: ["JANUS_MODEL", "JANUS_PROCESSOR"], JanusImageUnderstanding: ["STRING"],
+    SaveText: ["STRING"],
     ModelSamplingAuraFlow: ["MODEL"], CFGNorm: ["MODEL"], LoraLoaderModelOnly: ["MODEL"], ImagePadForOutpaint: ["IMAGE", "MASK"],
     TextEncodeQwenImageEditPlus: ["CONDITIONING"], VAEEncode: ["LATENT"], SetLatentNoiseMask: ["LATENT"],
     ImageScaleToTotalPixels: ["IMAGE"], GetImageSize: ["INT", "INT", "INT"],
     ImageScale: ["IMAGE"], MaskToImage: ["IMAGE"], ImageToMask: ["MASK"],
-    KSampler: ["LATENT"], VAEDecode: ["IMAGE"], ImageCompositeMasked: ["IMAGE"], SaveImage: [],
+    KSampler: ["LATENT"], VAEDecode: ["IMAGE"], SaveImage: [],
   };
   const graph = createQwenOutpaintWorkflow({
     artifactKey: "qwen-fixture", generationRequest: {
@@ -52,16 +55,20 @@ function capabilityFixture() {
 }
 
 function generated(request) {
-  return { images: [{ url: "data:image/png;base64,fixture" }], outputFormat: "png", metadata: {
-    outputWidth: request.width, outputHeight: request.height,
-    workflowVersion: QWEN_OUTPAINT_WORKFLOW.version,
-  } };
+  return { images: [{ url: "data:image/png;base64,fixture" }], outputFormat: "png", metadata: qwenOutpaintWorkflowMetadata({
+    width: request.width, height: request.height, generationRequest: request,
+    actualOutputWidth: request.width, actualOutputHeight: request.height, artifactKey: "qwen-fixture", seed: 1,
+    historyOutputs: { "prompt-output": { text: ["A calm room with warm lighting."] } },
+  }) };
 }
 
 test("Qwen 按真实原尺寸构图且不套用 Flux ceil32，五种比例均保持目标16px对齐", async () => {
+  assert.equal(publicQwenOutpaintConfig().resolution, "2K");
   for (const ratio of ["1:1", "4:3", "16:9", "3:4", "9:16"]) {
     const normalized = await normalizeImageOutpaintInput({ ...input, outpaintCanvas: { ...input.outpaintCanvas, ratio } });
     assert.deepEqual(normalized.prepared, { width: 403, height: 301 });
+    assert.equal(Math.max(normalized.width, normalized.height), 2048);
+    assert.equal(normalized.outpaintCanvas.resolution, "2K");
     assert.equal(normalized.width % 16, 0);
     assert.equal(normalized.height % 16, 0);
     assert.equal(normalized.expansion.left + normalized.expansion.right + 403, normalized.width);
@@ -78,7 +85,7 @@ test("Qwen 在EXIF归一后计算原尺寸，超目标源图按需适配并记�
   const normalized = await normalizeImageOutpaintInput({ ...input, referenceImages: [{ dataUrl: `data:image/jpeg;base64,${rotated.toString("base64")}` }] });
   assert.deepEqual(normalized.originalSource, { width: 301, height: 403 });
   assert.deepEqual(normalized.prepared, normalized.originalSource);
-  const larger = await sharp({ create: { width: 2500, height: 1500, channels: 3, background: "#7693a4" } }).png().toBuffer();
+  const larger = await sharp({ create: { width: 4096, height: 3072, channels: 3, background: "#7693a4" } }).png().toBuffer();
   const result = await executeImageOutpaint({ ...input, referenceImages: [{ dataUrl: `data:image/png;base64,${larger.toString("base64")}` }] }, {
     imageClient: { async generateImage(request) {
       const metadata = await sharp(Buffer.from(request.images[0].image_url.split(",")[1], "base64")).metadata();
@@ -87,7 +94,7 @@ test("Qwen 在EXIF归一后计算原尺寸，超目标源图按需适配并记�
       return generated(request);
     } },
   });
-  assert.deepEqual([result.upstream.metadata.originalSourceWidth, result.upstream.metadata.originalSourceHeight], [2500, 1500]);
+  assert.deepEqual([result.upstream.metadata.originalSourceWidth, result.upstream.metadata.originalSourceHeight], [4096, 3072]);
   assert.equal(result.upstream.metadata.sourceResized, true);
 });
 
@@ -112,7 +119,8 @@ test("Qwen 能力失败不缓存且独立于 Flux/Sunburst，恢复后缓存成�
 test("Qwen 执行前复核依赖且零GPU阻断，成功结果归档真实模型并拒绝错尺寸", async () => {
   let calls = 0;
   const valid = capabilityFixture();
-  for (const className of ["UNETLoader", "ImageScaleToTotalPixels", "GetImageSize", "ImageScale", "MaskToImage", "ImageToMask"]) {
+  for (const className of ["UNETLoader", "ImageScaleToTotalPixels", "GetImageSize", "ImageScale", "MaskToImage", "ImageToMask",
+    "JanusModelLoader", "JanusImageUnderstanding", "SaveText"]) {
     const invalid = structuredClone(valid);
     delete invalid[className];
     await assert.rejects(executeImageOutpaint(input, { imageClient: { getObjectInfo: async () => invalid,
@@ -120,6 +128,7 @@ test("Qwen 执行前复核依赖且零GPU阻断，成功结果归档真实模型
     } }), (error) => error.statusCode === 409);
   }
   assert.equal(calls, 0);
+  assert.equal("StringConcatenate" in valid, false);
   const result = await executeImageOutpaint(input, { imageClient: {
     getObjectInfo: async () => valid,
     async generateImage(request) {
@@ -157,6 +166,40 @@ test("Qwen 使用专用客户端并绕过 OneAPI Key/通用模型后调度飞书
   const result = await service.executeForMode("imageOutpaint", input);
   assert.equal(result.workflow.key, QWEN_OUTPAINT_WORKFLOW.key);
   assert.equal(result.sync.status, "pending");
+});
+
+test("无原图回贴模式不依赖合成节点，遮罩约束与重建策略原样进入结果和飞书参数", async () => {
+  const capabilities = capabilityFixture();
+  assert.equal("ImageCompositeMasked" in capabilities, false);
+  let archived;
+  const result = await executeImageOutpaint(input, {
+    imageClient: { getObjectInfo: async () => capabilities, async generateImage(request) {
+      const graph = createQwenOutpaintWorkflow({ ...request, generationRequest: request, imageBase64: "", artifactKey: "qwen-fixture", seed: 1 });
+      assert.equal(Object.hasOwn(graph, "prompt"), false);
+      assert.deepEqual(graph["prompt-output"].inputs.text, ["describe", 0]);
+      assert.deepEqual(graph.positive.inputs.prompt, ["prompt-output", 0]);
+      assert.doesNotMatch(JSON.stringify(graph), /StringConcatenate|Scene continuation:|gray canvas|grey canvas/i);
+      assert.deepEqual(graph.output.inputs.images, ["restore", 0]);
+      assert.deepEqual(graph.sample.inputs.latent_image, ["mask", 0]);
+      assert.deepEqual(graph.mask.inputs.mask, ["inferenceMask", 0]);
+      return generated(request);
+    } },
+    scheduleSync(payload) { archived = payload; return { generationId: "qwen-single-source", status: "pending" }; },
+  });
+  const record = JSON.parse(buildRecordFields({ ...archived, actualSize: `${result.request.width}x${result.request.height}` })["生成参数"]);
+  for (const metadata of [result.upstream.metadata, archived.workflow, record.workflow]) {
+    assert.equal(metadata.preservation, "latent-mask-vae-reconstruction");
+    assert.equal(metadata.sourcePixelsPreserved, false);
+    assert.equal(metadata.outputSizeStrategy, "restore-target-from-masked-sampling");
+    assert.equal(metadata.workflowVersion, "2026-10-20.1");
+    assert.equal(metadata.upscaleModel, null);
+    assert.equal(metadata.outputResampling, "lanczos");
+    assert.equal(metadata.finalPromptCaptured, true);
+    assert.equal(metadata.finalPrompt, "A calm room with warm lighting.");
+    assert.equal(metadata.promptSource, "Janus-Pro-1B");
+    assert.equal(metadata.promptGenerator.imageSource, "original-before-padding");
+  }
+  assert.equal(archived.finalPrompt, result.upstream.metadata.finalPrompt);
 });
 
 test("HTTP Qwen 按自身可用性准入并采用 comfyUi 阶段，不携带 Flux 默认模型", async () => {

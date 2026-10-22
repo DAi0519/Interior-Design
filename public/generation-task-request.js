@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、风格转换/效果图氛围转换/美化及全景图美化、风格、参考图状态与后台任务批次元数据
- * [OUTPUT]: 对外提供不设模型数上限的单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含风格转换/效果图氛围转换/美化及全景图美化的分功能加载文案
+ * [OUTPUT]: 对外提供旧房改造映射为空房加包装参数、两步加载文案与不设模型数上限的单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含风格转换/效果图氛围转换/美化及全景图美化的分功能加载文案
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,6 +27,7 @@ export function generationItemsForSelection(models, generationCount = 1) {
 export function generationLoadingCopy({
   designPromptRequest,
   emptyRoomRequest,
+  roomRenovationRequest,
   effectBeautificationRequest,
   effectEnhancementRequest,
   forcePromptRegeneration,
@@ -39,6 +40,7 @@ export function generationLoadingCopy({
   styleReferenceCount,
   styleTransferRequest,
 }) {
+  if (roomRenovationRequest) return "第 1 / 2 步：正在清空旧房；完成后自动开始空房设计…";
   if (effectEnhancementRequest) {
     return "正在按时段与天气规则转换效果图氛围…";
   }
@@ -115,7 +117,7 @@ export function buildGenerationJobRequest({
   });
   return {
     batchId,
-    featureMode,
+    featureMode: featureMode === "roomRenovation" ? "emptyRoom" : featureMode,
     forcePromptRegeneration,
     items,
     jobId,

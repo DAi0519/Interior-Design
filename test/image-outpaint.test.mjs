@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图服务/真实工作流、图片工具 API、生成任务入口、通用客户端与 sharp 图片样本
- * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选独立能力探测/失败不缓存、模型选择透传/实时拒绝、HTTP入队前400/409阻断、原尺寸/旧四边兼容与图片工具五套超分公开目录合同测试
+ * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选能力/枚举及模型准入、HTTP前置400/409、扩图固定2K与旧四边兼容，以及图片工具六套超分目录和KS2X/4K/6K公开合同测试
  * [POS]: test 的扩图应用与 HTTP 合同验证，使用内存客户端，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,10 +21,10 @@ import { imageOutpaintPreparedDimensions as browserDimensions } from "../public/
 
 const bytes = await sharp({ create: { width: 1000, height: 751, channels: 3, background: "#ddd" } }).png().toBuffer();
 const source = { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "input.png", width: 9999, height: 9999 };
-const input = { referenceImages: [source], expansion: { left: 100, top: 20, right: 100, bottom: 20 } };
+const input = { referenceImages: [source], expansion: { left: 512, top: 20, right: 512, bottom: 20 } };
 
 function capabilityFixture() {
-  const graph = createImageOutpaintWorkflow({ artifactKey: "fixture-check", generationRequest: input, height: 808, imageBase64: "", seed: 1, width: 1224 });
+  const graph = createImageOutpaintWorkflow({ artifactKey: "fixture-check", generationRequest: input, height: 808, imageBase64: "", seed: 1, width: 2048 });
   const info = {};
   for (const node of Object.values(graph)) {
     info[node.class_type] ||= { input: { required: {} } };
@@ -35,9 +35,19 @@ function capabilityFixture() {
   return info;
 }
 
+test("Flux提示词保存仅接受运行环境支持的文本格式，兼容新旧枚举Schema", () => {
+  for (const modern of [true, false]) {
+    const info = capabilityFixture();
+    info.SaveText.input.required.format = modern ? ["COMBO", { options: ["txt", "md"] }] : [["txt", "md"]];
+    assert.doesNotThrow(() => verifyImageOutpaintCapabilities(info));
+    info.SaveText.input.required.format = modern ? ["COMBO", { options: ["json"] }] : [["json"]];
+    assert.throws(() => verifyImageOutpaintCapabilities(info), /SaveText.format/);
+  }
+});
+
 test("扩图用实际源尺寸并忠实预处理，忽略客户端伪造尺寸", async () => {
   const result = await normalizeImageOutpaintInput(input);
-  assert.equal(result.width, 1224);
+  assert.equal(result.width, 2048);
   assert.equal(result.height, 808);
   assert.deepEqual(result.prepared, { width: 1024, height: 768 });
   assert.deepEqual(result.expansion, input.expansion);
@@ -49,14 +59,14 @@ test("旋转 JPEG 按浏览器显示方向归一 PNG，尺寸与提交字节一�
     const jpeg = await sharp(bytes).jpeg().withMetadata({ orientation }).toBuffer();
     const orientedInput = {
       referenceImages: [{ dataUrl: `data:image/jpeg;base64,${jpeg.toString("base64")}`, name: "phone.jpg" }],
-      expansion: { left: 8, top: 0, right: 0, bottom: 0 },
+      expansion: { left: 8, top: 512, right: 0, bottom: 512 },
     };
     const normalized = await normalizeImageOutpaintInput(orientedInput);
     assert.equal(normalized.source.width, 751);
     assert.equal(normalized.source.height, 1000);
     assert.deepEqual(normalized.prepared, browserDimensions({ width: 751, height: 1000 }));
     assert.equal(normalized.width, 776);
-    assert.equal(normalized.height, 1024);
+    assert.equal(normalized.height, 2048);
     const payload = Buffer.from(normalized.source.imageUrl.split(",")[1], "base64");
     const metadata = await sharp(payload).metadata();
     assert.equal(metadata.format, "png");
@@ -83,30 +93,32 @@ test("扩图在图片解码与方向归一前拒绝超限尺寸", async () => {
   }), (error) => error.statusCode === 400 && /32–4096px/.test(error.message));
 });
 
-test("Flux扩图接受真实4K原图并保留字节与目标尺寸，输出保护不随输入上限扩大", async () => {
+test("Flux接受真实4K输入并重采样至2K构图，原始尺寸与提交字节事实分别保留", async () => {
   const largeBytes = await sharp({ create: { width: 4096, height: 3072, channels: 3, background: "#ddd" } }).png().toBuffer();
   const largeInput = {
     referenceImages: [{ dataUrl: `data:image/png;base64,${largeBytes.toString("base64")}`, name: "4k.png", width: 2048, height: 1536 }],
-    expansion: { left: 8, top: 0, right: 0, bottom: 0 },
+    outpaintCanvas: { ratio: "4:3", scale: 2 / 3 },
   };
   let submitted = false;
   const result = await executeImageOutpaint(largeInput, { imageClient: { generateImage: async (request) => {
     submitted = true;
-    assert.deepEqual([request.sourceWidth, request.sourceHeight], [4096, 3072]);
-    assert.deepEqual([request.preparedWidth, request.preparedHeight], [4096, 3072]);
-    assert.deepEqual([request.width, request.height], [4104, 3072]);
-    assert.deepEqual(request.expansion, largeInput.expansion);
-    assert.deepEqual(Buffer.from(request.images[0].image_url.split(",")[1], "base64"), largeBytes);
+    assert.deepEqual([request.width, request.height], [2048, 1536]);
+    assert.ok(request.sourceWidth < 4096 && request.sourceHeight < 3072);
+    const submittedBytes = Buffer.from(request.images[0].image_url.split(",")[1], "base64");
+    const actual = await sharp(submittedBytes).metadata();
+    assert.deepEqual([actual.width, actual.height], [request.sourceWidth, request.sourceHeight]);
+    assert.notDeepEqual(submittedBytes, largeBytes);
     return { images: [{ url: "data:image/png;base64,fixture" }], metadata: { outputWidth: request.width, outputHeight: request.height }, outputFormat: "png" };
   } } });
   assert.equal(submitted, true);
-  assert.equal(result.request.size, "4104x3072");
+  assert.equal(result.request.size, "2048x1536");
+  assert.equal(result.upstream.metadata.sourceResized, true);
+  assert.deepEqual([result.upstream.metadata.originalSourceWidth, result.upstream.metadata.originalSourceHeight], [4096, 3072]);
   const config = publicImageOutpaintConfig();
   assert.deepEqual([config.maxInputEdge, config.inputAlignment, config.outputAlignment], [4096, 32, 8]);
-  assert.deepEqual([config.maxEdge, config.maxPixels, config.maxExpansion], [16384, 32 * 1024 * 1024, 8192]);
-  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, expansion: { left: 4096, top: 4096, right: 0, bottom: 0 } }), /保护上限/);
-  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, expansion: { left: 8192, top: 0, right: 8192, bottom: 0 } }), /保护上限/);
-  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, expansion: { left: 1, top: 0, right: 0, bottom: 0 } }), /8px/);
+  assert.equal(config.resolution, "2K");
+  await assert.rejects(normalizeImageOutpaintInput({ ...largeInput, outpaintCanvas: undefined,
+    expansion: { left: 8, top: 0, right: 0, bottom: 0 } }), (error) => error.statusCode === 400);
   const oversized = await sharp({ create: { width: 4097, height: 32, channels: 3, background: "#ddd" } }).png().toBuffer();
   await assert.rejects(normalizeImageOutpaintInput({
     ...largeInput, referenceImages: [{ dataUrl: `data:image/png;base64,${oversized.toString("base64")}` }],
@@ -123,6 +135,30 @@ test("扩图拒绝非法边值、零扩展、不对齐画布和请求保护上�
   await assert.rejects(() => normalizeImageOutpaintInput({ ...input, referenceImages: [source, source] }), /最多上传 1 张/);
   await assert.rejects(() => normalizeImageOutpaintInput({ ...input, expansion: { left: 8192, right: 8192, top: 0, bottom: 0 } }), /保护上限/);
   await assert.rejects(() => normalizeImageOutpaintInput({ ...input, expansion: { left: 6000, right: 0, top: 6000, bottom: 0 } }), /保护上限/);
+});
+
+test("三引擎旧四边仅接受2K目标，1K和4K均在模型与归档调用前拒绝", async () => {
+  let generated = 0, archived = 0;
+  const imageClient = {
+    getObjectInfo() { generated += 1; },
+    generateImage() { generated += 1; },
+    editImage() { generated += 1; },
+  };
+  const targets = [
+    { outpaintEngine: "comfyui", prepared: { width: 1024, height: 768 }, sizes: [[1024, 1024], [4096, 2304]] },
+    { outpaintEngine: "qwenImageEdit2511", prepared: { width: 1000, height: 751 }, sizes: [[1024, 768], [4096, 2304]] },
+    { outpaintEngine: "gptImage25Sunburst", prepared: { width: 1000, height: 751 }, sizes: [[1024, 768], [3840, 2160]] },
+  ];
+  for (const { outpaintEngine, prepared, sizes } of targets) {
+    for (const [width, height] of sizes) {
+      const expansion = { left: 0, top: 0, right: width - prepared.width, bottom: height - prepared.height };
+      await assert.rejects(executeImageOutpaint({ ...input, outpaintEngine, expansion }, {
+        imageClient, scheduleSync() { archived += 1; },
+      }), (error) => error.statusCode === 400 && /2K/.test(error.message));
+    }
+  }
+  assert.equal(generated, 0);
+  assert.equal(archived, 0);
 });
 
 test("扩图节点或模型缺失时只读准入拒绝执行，失败不缓存成可用", async () => {
@@ -233,12 +269,12 @@ test("缺少扩图客户端时应用服务拒绝执行", async () => {
 test("扩图执行使用专用客户端和真实尺寸，透传阶段并调度飞书归档", async () => {
   const phases = [];
   const client = { generateImage: async (request, options) => {
-    assert.equal(request.width, 1224);
+    assert.equal(request.width, 2048);
     assert.equal(request.preparedWidth, 1024);
     assert.equal(request.sourceWidth, 1000);
     assert.equal(options.queueTimeoutMs, 300000);
     options.onProgress({ phase: "executing", promptId: "outpaint-prompt" });
-    return { images: [{ url: "data:image/png;base64,fixture" }], metadata: { outputWidth: 1224, outputHeight: 808, workflowVersion: "fixture" }, outputFormat: "png" };
+    return { images: [{ url: "data:image/png;base64,fixture" }], metadata: { outputWidth: 2048, outputHeight: 808, workflowVersion: "fixture" }, outputFormat: "png" };
   } };
   const service = createGenerationService({
     imageOutpaintClient: client,
@@ -250,7 +286,7 @@ test("扩图执行使用专用客户端和真实尺寸，透传阶段并调度�
     },
   });
   const result = await service.executeForMode("imageOutpaint", input, { onProgress: (phase) => phases.push(phase) });
-  assert.equal(result.request.size, "1224x808");
+  assert.equal(result.request.size, "2048x808");
   assert.equal(result.sync.status, "pending");
   assert.equal(phases[0].promptId, "outpaint-prompt");
   await assert.rejects(executeImageOutpaint(input, { imageClient: { generateImage: async () => ({ metadata: { outputWidth: 1000, outputHeight: 751 } }) } }), /实际输出尺寸/);
@@ -329,6 +365,36 @@ test("HTTP按实际选项入队前阻断未知400/不可用409，单项模型覆
   assert.deepEqual(enqueued[1].details.stages, { imageEdit: "submitting" });
 });
 
+test("HTTP三引擎从共享或单项传入1K/4K/null均在目录读取和入队前400", async () => {
+  let response, body;
+  let configured = 0, queued = 0, executed = 0, syncChecks = 0;
+  const handler = createGenerationJobApiHandler({
+    generationJobs: { enqueue() { queued += 1; } },
+    generationService: { executeForMode() { executed += 1; } },
+    getImageOutpaintConfig() { configured += 1; return publicImageOutpaintConfig({ available: true }); },
+    readJson: async () => body,
+    sendJson(_response, status, result) { response = { status, result }; },
+    verifySyncContract: async () => { syncChecks += 1; },
+  });
+  for (const outpaintEngine of ["comfyui", "qwenImageEdit2511", "gptImage25Sunburst"]) {
+    for (const resolution of ["1K", "4K", null]) {
+      for (const field of ["resolution", "outpaintCanvas"]) {
+        for (const shared of [true, false]) {
+          const invalid = field === "resolution" ? { resolution } : { outpaintCanvas: { ratio: "4:3", resolution } };
+          body = { featureMode: "imageOutpaint", jobId: "generation-fixed2k-123456789012",
+            sharedInput: { referenceImages: [source], ...(shared ? invalid : {}) },
+            items: [{ input: { outpaintEngine, ...(!shared ? invalid : {}) } }],
+          };
+          await handler({ method: "POST" }, {}, "/api/generation-jobs");
+          assert.equal(response.status, 400, `${outpaintEngine} ${field} ${resolution} shared=${shared}`);
+          assert.match(response.result.error, /2K/);
+        }
+      }
+    }
+  }
+  assert.deepEqual({ configured, queued, executed, syncChecks }, { configured: 0, queued: 0, executed: 0, syncChecks: 0 });
+});
+
 test("独立图片工具公开同一扩图配置，保留超分健康与目录", async () => {
   const responses = [];
   const handler = createImageToolsApiHandler({
@@ -342,12 +408,16 @@ test("独立图片工具公开同一扩图配置，保留超分健康与目录",
   assert.equal(responses[0].body.inputAlignment, 32);
   assert.equal(responses[1].body.comfyUi.available, true);
   assert.deepEqual(responses[1].body.workflows.map(({ key }) => key), [
-    "youxing_seedvr2_3b", "seedvr2_1mp", "seedvr2_075mp", "seedvr2_7b_direct", "ks_seedvr2_2x",
+    "youxing_seedvr2_3b", "seedvr2_1mp", "seedvr2_075mp", "seedvr2_7b_direct", "ks_seedvr2_2x", "ks_seedvr2_2x_direct",
   ]);
   assert.equal(responses[1].body.defaultWorkflowKey, "youxing_seedvr2_3b");
   const direct = responses[1].body.workflows.find(({ key }) => key === "seedvr2_7b_direct");
-  const ks = responses[1].body.workflows.find(({ key }) => key === "ks_seedvr2_2x");
+  const ksWorkflows = responses[1].body.workflows.filter(({ key }) => key === "ks_seedvr2_2x" || key === "ks_seedvr2_2x_direct");
   assert.deepEqual(direct.resolutions.map(({ key }) => key), ["4K", "6K", "8K"]);
-  assert.deepEqual(ks.resolutions, [{ key: "2X", label: "2× 原图尺寸", scale: 2 }]);
+  for (const ks of ksWorkflows) assert.deepEqual(ks.resolutions, [
+    { key: "2X", label: "原图2倍", scale: 2 },
+    { key: "4K", label: "4K", longEdge: 4096 },
+    { key: "6K", label: "6K", longEdge: 6144 },
+  ]);
   assert.equal(await handler({ method: "POST" }, {}, "/api/image-outpaint/config"), false);
 });

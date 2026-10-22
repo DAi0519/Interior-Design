@@ -1,0 +1,67 @@
+{
+  "id": "7bb191ce-9fd5-41d8-855b-3fc8140c0a8c",
+  "revision": 0,
+  "last_node_id": 9,
+  "last_link_id": 10,
+  "groups": [
+    {
+      "id": 1,
+      "title": "KS版 · 原图直入2倍 / 仅移除0.75MP预缩放",
+      "bounding": [
+        -30,
+        -180,
+        2080,
+        1000
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.65,
+      "offset": [
+        80,
+        230
+      ]
+    },
+    "workflowRendererVersion": "LG",
+    "canvasLabSource": {
+      "file": "KS-超分.json",
+      "sha256": "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
+      "derivedFile": "workflows/KS-原图直入2倍.json",
+      "workflowKey": "ks_seedvr2_2x_direct"
+    },
+    "contract": {
+      "[INPUT]": "单张普通图片，每轴384–3200px；原KS的7B/FP16 VAE/32块交换/CPU卸载及原图尺寸读取节点",
+      "[OUTPUT]": "原图直接进入SeedVR2；resolution动态取原图短边×2，max_resolution=0，PNG按原图比例输出；实际尺寸需实跑核验",
+      "[POS]": "workflows的KS无0.75MP预缩放独立对照画布，供与ks_seedvr2_2x同图同种子比较，不含MaaS URL或上报业务",
+      "[PROTOCOL]": "变更时更新此头部，然后检查 CLAUDE.md"
+    }
+  },
+  "version": 0.4,
+  "nodes": [
+    {"id":1,"type":"LoadImage","pos":[0,170],"size":[338.0973815917969,332.305908203125],"flags":{},"order":0,"mode":0,"inputs":[],"outputs":[{"label":"图像","name":"IMAGE","type":"IMAGE","links":[1]},{"label":"遮罩","name":"MASK","type":"MASK","links":[]}],"properties":{"Node name for S&R":"LoadImage","device_label":"","cnr_id":"comfy-core","ver":"0.3.50","ue_properties":{"widget_ue_connectable":{"image":true,"upload":true},"version":"7.0.1"}},"widgets_values":["","image"],"widgets_values_named":{"image":"","upload":"image"},"title":"1. 上传原图（每边 384–3200px）"},
+    {"id":2,"type":"MaaSCheckImageSize","pos":[380,220],"size":[270,130],"flags":{},"order":1,"mode":0,"inputs":[{"name":"image","type":"IMAGE","link":1}],"outputs":[{"name":"IMAGE","type":"IMAGE","links":[2,6]}],"properties":{"Node name for S&R":"MaaSCheckImageSize","device_label":""},"widgets_values":[384,3200,384,3200],"widgets_values_named":{"min_width":384,"max_width":3200,"min_height":384,"max_height":3200},"color":"#232","bgcolor":"#353","title":"2. 仅校验尺寸，不缩放"},
+    {"id":3,"type":"easy imageSize","pos":[380,-100],"size":[210,108],"flags":{},"order":2,"mode":0,"inputs":[{"label":"图像","name":"image","type":"IMAGE","link":2}],"outputs":[{"label":"宽度","name":"width_int","type":"INT","links":[3]},{"label":"高度","name":"height_int","type":"INT","links":[4]}],"properties":{"Node name for S&R":"easy imageSize","device_label":""},"widgets_values":[""],"widgets_values_named":{"info":""},"title":"读取原图宽高"},
+    {"id":4,"type":"SimpleMath+","pos":[660,-100],"size":[270,98],"flags":{},"order":3,"mode":0,"inputs":[{"name":"a","shape":7,"type":"*","link":3},{"name":"b","shape":7,"type":"*","link":4},{"name":"c","shape":7,"type":"*","link":null}],"outputs":[{"label":"整数","name":"INT","type":"INT","links":[]},{"label":"浮点","name":"FLOAT","type":"FLOAT","links":[5]}],"properties":{"Node name for S&R":"SimpleMath+","device_label":"","cnr_id":"comfyui_essentials","ver":"9d9f4bedfc9f0321c19faf71855e228c93bd0dc9"},"widgets_values":["min(a,b)"],"widgets_values_named":{"value":"min(a,b)"},"title":"原图短边 min(宽,高)"},
+    {"id":5,"type":"SimpleMath+","pos":[980,-100],"size":[270,98],"flags":{},"order":4,"mode":0,"inputs":[{"name":"a","shape":7,"type":"*","link":5},{"name":"b","shape":7,"type":"*","link":null},{"name":"c","shape":7,"type":"*","link":null}],"outputs":[{"label":"整数","name":"INT","type":"INT","links":[9]},{"label":"浮点","name":"FLOAT","type":"FLOAT","links":[]}],"properties":{"Node name for S&R":"SimpleMath+","device_label":"","cnr_id":"comfyui_essentials","ver":"9d9f4bedfc9f0321c19faf71855e228c93bd0dc9"},"widgets_values":["a*2"],"widgets_values_named":{"value":"a*2"},"title":"输出短边 = 原图短边 × 2"},
+    {"id":6,"type":"SeedVR2LoadDiTModel","pos":[700,150],"size":[304.1529541015625,203.3718719482422],"flags":{},"order":5,"mode":0,"inputs":[{"label":"torch_compile_args","name":"torch_compile_args","shape":7,"type":"TORCH_COMPILE_ARGS","link":null}],"outputs":[{"label":"SEEDVR2_DIT","name":"SEEDVR2_DIT","type":"SEEDVR2_DIT","links":[7]}],"properties":{"Node name for S&R":"SeedVR2LoadDiTModel","device_label":"","cnr_id":"seedvr2_videoupscaler","ver":"912ab4a5da8bb3590c4659f8f19160a7bd88a656","ue_properties":{"widget_ue_connectable":{},"input_ue_unconnectable":{},"version":"7.5.1"}},"widgets_values":["seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors","cuda:0",32,false,"cpu",false,"sdpa"],"widgets_values_named":{"model":"seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors","device":"cuda:0","blocks_to_swap":32,"swap_io_components":false,"offload_device":"cpu","cache_model":false,"attention_mode":"sdpa"},"title":"KS SeedVR2 7B / 32 块交换"},
+    {"id":7,"type":"SeedVR2LoadVAEModel","pos":[700,420],"size":[302.6608581542969,298],"flags":{},"order":6,"mode":0,"inputs":[{"label":"torch_compile_args","name":"torch_compile_args","shape":7,"type":"TORCH_COMPILE_ARGS","link":null}],"outputs":[{"label":"SEEDVR2_VAE","name":"SEEDVR2_VAE","type":"SEEDVR2_VAE","links":[8]}],"properties":{"Node name for S&R":"SeedVR2LoadVAEModel","device_label":"","cnr_id":"seedvr2_videoupscaler","ver":"912ab4a5da8bb3590c4659f8f19160a7bd88a656","ue_properties":{"widget_ue_connectable":{},"input_ue_unconnectable":{},"version":"7.5.1"}},"widgets_values":["ema_vae_fp16.safetensors","cuda:0",true,1024,128,true,1024,128,"false","cpu",false],"widgets_values_named":{"model":"ema_vae_fp16.safetensors","device":"cuda:0","encode_tiled":true,"encode_tile_size":1024,"encode_tile_overlap":128,"decode_tiled":true,"decode_tile_size":1024,"decode_tile_overlap":128,"tile_debug":"false","offload_device":"cpu","cache_model":false},"title":"KS FP16 VAE / 分块处理"},
+    {"id":8,"type":"SeedVR2VideoUpscaler","pos":[1300,170],"size":[277.0309753417969,386],"flags":{},"order":7,"mode":0,"inputs":[{"label":"image","name":"image","type":"IMAGE","link":6},{"label":"dit","name":"dit","type":"SEEDVR2_DIT","link":7},{"label":"vae","name":"vae","type":"SEEDVR2_VAE","link":8},{"name":"resolution","type":"INT","widget":{"name":"resolution"},"link":9}],"outputs":[{"label":"IMAGE","name":"IMAGE","type":"IMAGE","links":[10]}],"properties":{"Node name for S&R":"SeedVR2VideoUpscaler","device_label":"","cnr_id":"seedvr2_videoupscaler","ver":"912ab4a5da8bb3590c4659f8f19160a7bd88a656","ue_properties":{"widget_ue_connectable":{},"input_ue_unconnectable":{},"version":"7.5.1"}},"widgets_values":[2627526869,"randomize",16,0,1,false,"lab",0,0,0,0,"cpu",false],"widgets_values_named":{"seed":2627526869,"control_after_generate":"randomize","resolution":16,"max_resolution":0,"batch_size":1,"uniform_batch_size":false,"color_correction":"lab","temporal_overlap":0,"prepend_frames":0,"input_noise_scale":0,"latent_noise_scale":0,"offload_device":"cpu","enable_debug":false},"title":"3. KS 原图直入 · 2倍（无预缩放）"},
+    {"id":9,"type":"SaveImage","pos":[1680,210],"size":[339.0055236816406,292.73419189453125],"flags":{},"order":8,"mode":0,"inputs":[{"label":"图像","name":"images","type":"IMAGE","link":10}],"outputs":[{"name":"images","type":"IMAGE","links":[]}],"properties":{"Node name for S&R":"SaveImage","device_label":"","cnr_id":"comfy-core","ver":"0.3.68","ue_properties":{"widget_ue_connectable":{},"input_ue_unconnectable":{},"version":"7.5.1"}},"widgets_values":["KS_7B_Direct_2x"],"widgets_values_named":{"filename_prefix":"KS_7B_Direct_2x"},"title":"4. 保存 PNG"}
+  ],
+  "links": [
+    [1,1,0,2,0,"IMAGE"],
+    [2,2,0,3,0,"IMAGE"],
+    [3,3,0,4,0,"*"],
+    [4,3,1,4,1,"*"],
+    [5,4,1,5,0,"*"],
+    [6,2,0,8,0,"IMAGE"],
+    [7,6,0,8,1,"SEEDVR2_DIT"],
+    [8,7,0,8,2,"SEEDVR2_VAE"],
+    [9,5,0,8,3,"INT"],
+    [10,8,0,9,0,"IMAGE"]
+  ]
+}

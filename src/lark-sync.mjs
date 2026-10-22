@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、最终出图/Prompt Agent/独立扩图模型目录、空房真源、图片产物/尺寸/飞书 CLI、生图与三引擎扩图结果及可选风格图、已创建飞书 Base
- * [OUTPUT]: 对外提供原始/最终 Prompt、真实产物尺寸、风格转换的平台/参考图风格归档、生图与AI扩图功能投影、全部可写字段类型/单选值/附件 ID 的 409 准入、模型映射、记录 ID、三类附件及完整工作流 JSON 同步
+ * [INPUT]: 依赖 node:fs/os/path/crypto/util、模型/空房/遮罩归档真源、图片产物/尺寸/飞书 CLI、生图结果及独立遮罩/填充参考图/实际提交的GPT圈选标记原图、已创建飞书 Base
+ * [OUTPUT]: 原始/完整最终Prompt、真实尺寸与工作流同步；遮罩专属scope动态解析附件列ID、保留上传原图并独立校验归档框选原图、无mask/无框附件列留空、字段/token/字节两次回读后成功，不改变普通功能的Schema范围
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 import {
   decodeImageDataUrl,
@@ -23,7 +25,9 @@ import {
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 import { publicModelCatalog } from "./model-config.mjs";
+import { MULTI_ANGLE_ARCHIVE_FIELDS, MULTI_ANGLE_ARCHIVE_MODEL_LABELS, MULTI_ANGLE_FRAMING_LABELS, multiAngleRecordFields } from "./image-multi-angle-archive.mjs";
 import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "./image-outpaint-archive.mjs";
+import { IMAGE_MASK_FILL_ARCHIVE_FIELDS, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL, IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS, maskFillRecordFields } from "./image-mask-fill-archive.mjs";
 
 export const LARK_SYNC_CONFIG = Object.freeze({
   baseToken:
@@ -46,14 +50,16 @@ const FEATURE_LABELS = Object.freeze({
   "empty-room-design": "空房设计",
   "free-image-generation": "自由生图",
   "image-outpaint": "AI扩图",
+  "image-multi-angle": "多角度",
+  "image-mask-fill": "遮罩填充",
   "panorama-render-enhancement": "全景图美化",
   "refined-model-rendering": "精模渲染",
   "style-transfer": "风格转换",
   "white-model-rendering": "白模渲染",
 });
-const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS));
+const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS).filter((label) => label !== "遮罩填充"));
 const REQUIRED_MODEL_LABELS = Object.freeze(
-  [...new Set([...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS])],
+  [...new Set([...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS])],
 );
 const REQUIRED_AGENT_MODEL_LABELS = Object.freeze(
   publicAgentModelCatalog()
@@ -136,8 +142,12 @@ export function buildRecordFields({
   };
 
   return {
-    "标题": titleFromPrompt(finalPrompt || FEATURE_LABELS[workflow?.feature] || ""),
+    "标题": workflow?.roomRenovation
+      ? `旧房改造 · ${workflow.roomRenovation.stage === "clearance" ? "清空" : "设计"} · ${String(workflow.roomRenovation.pipelineId).slice(0, 8)}`
+      : titleFromPrompt(finalPrompt || FEATURE_LABELS[workflow?.feature] || ""),
     ...workflowRecordFields(workflow),
+    ...multiAngleRecordFields(workflow),
+    ...maskFillRecordFields(workflow),
     "生图模型": modelLabel,
     ...(workflow?.agentModelLabel
       ? { "Prompt融合": workflow.agentModelLabel }
@@ -164,6 +174,7 @@ export function recordIdFrom(body) {
 }
 
 const REQUIRED_FIELD_TYPES = Object.freeze({
+  ...MULTI_ANGLE_ARCHIVE_FIELDS,
   "Agent 编码": "text",
   "Agent 版本": "number",
   "Prompt融合": "select",
@@ -194,13 +205,16 @@ export function assertLarkSyncSchema(
     config = LARK_SYNC_CONFIG,
     requiredAgentModelLabels = REQUIRED_AGENT_MODEL_LABELS,
     requiredModelLabels = REQUIRED_MODEL_LABELS,
+    scope = null,
   } = {},
 ) {
   const fields = body?.data?.fields || body?.fields || [];
   const fieldsByName = new Map(fields.map((field) => [field.name, field]));
   const issues = [];
 
-  for (const [name, type] of Object.entries(REQUIRED_FIELD_TYPES)) {
+  const maskFill = scope === "imageMaskFill";
+  const requiredTypes = { ...REQUIRED_FIELD_TYPES, ...(maskFill ? IMAGE_MASK_FILL_ARCHIVE_FIELDS : {}) };
+  for (const [name, type] of Object.entries(requiredTypes)) {
     const field = fieldsByName.get(name);
     if (!field) issues.push(`缺少“${name}”字段`);
     else if (field.type !== type) {
@@ -210,12 +224,14 @@ export function assertLarkSyncSchema(
 
   const requiredOptions = new Map([
     ["Prompt融合", requiredAgentModelLabels],
-    ["功能", REQUIRED_FEATURE_LABELS],
+    ["功能", maskFill ? [...REQUIRED_FEATURE_LABELS, "遮罩填充"] : REQUIRED_FEATURE_LABELS],
+    ["景别", Object.values(MULTI_ANGLE_FRAMING_LABELS)],
     ["状态", ["成功", "同步失败"]],
-    ["生图模型", requiredModelLabels],
+    ["生图模型", maskFill ? [...requiredModelLabels, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL] : requiredModelLabels],
     ["空间类型", EMPTY_ROOM_TYPES],
     ["设计方式", Object.values(RENDER_MODE_LABELS)],
   ]);
+  if (maskFill) requiredOptions.set("遮罩填充模式", IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS);
   for (const [name, required] of requiredOptions) {
     const field = fieldsByName.get(name);
     if (field?.type !== "select") continue;
@@ -224,6 +240,16 @@ export function assertLarkSyncSchema(
     if (missing.length > 0) {
       issues.push(`“${name}”字段缺少选项：${missing.join("、")}`);
     }
+  }
+
+  const attachmentFieldIds = {};
+  if (maskFill) {
+    for (const name of ["参考图", "结果图", "遮罩图", "填充参考图", "框选原图"]) {
+      const field = fieldsByName.get(name);
+      if (!field?.id || field.type !== "attachment") issues.push(`“${name}”附件字段缺少有效 ID 或类型`);
+      else attachmentFieldIds[name] = field.id;
+    }
+    if (new Set(Object.values(attachmentFieldIds)).size !== Object.keys(attachmentFieldIds).length) issues.push("遮罩填充附件列 ID 不能重复");
   }
 
   for (const [name, fieldId] of [
@@ -249,11 +275,12 @@ export function assertLarkSyncSchema(
   return {
     featureOptions: [...optionNames(fieldsByName.get("功能"))],
     modelOptions: [...optionNames(fieldsByName.get("生图模型"))],
+    ...(maskFill ? { attachmentFieldIds } : {}),
   };
 }
 
-export async function verifyLarkSyncSchema(config = LARK_SYNC_CONFIG) {
-  const body = await runLarkCli(config, [
+export async function verifyLarkSyncSchema(config = LARK_SYNC_CONFIG, { scope = null, run = runLarkCli } = {}) {
+  const body = await run(config, [
     "base",
     "+field-list",
     "--as",
@@ -263,12 +290,12 @@ export async function verifyLarkSyncSchema(config = LARK_SYNC_CONFIG) {
     "--table-id",
     config.tableId,
   ]);
-  return assertLarkSyncSchema(body);
+  return assertLarkSyncSchema(body, { config, scope });
 }
 
-async function createRecord(config, fields) {
+async function createRecord(config, fields, run = runLarkCli) {
   const entries = Object.entries(fields);
-  return runLarkCli(config, [
+  return run(config, [
     "base",
     "+record-batch-create",
     "--as",
@@ -285,7 +312,7 @@ async function createRecord(config, fields) {
   ]);
 }
 
-async function upsertRecord(config, fields, recordId = null) {
+async function upsertRecord(config, fields, recordId = null, run = runLarkCli) {
   const args = [
     "base",
     "+record-upsert",
@@ -299,7 +326,7 @@ async function upsertRecord(config, fields, recordId = null) {
     JSON.stringify(fields),
   ];
   if (recordId) args.push("--record-id", recordId);
-  return runLarkCli(config, args);
+  return run(config, args);
 }
 
 function safeFileName(value, fallback) {
@@ -310,7 +337,7 @@ function safeFileName(value, fallback) {
   return name || fallback;
 }
 
-async function uploadAttachments(config, recordId, fieldId, fileNames, cwd) {
+async function uploadAttachments(config, recordId, fieldId, fileNames, cwd, run = runLarkCli) {
   if (fileNames.length === 0) return null;
   const args = [
     "base",
@@ -327,7 +354,7 @@ async function uploadAttachments(config, recordId, fieldId, fileNames, cwd) {
     fieldId,
   ];
   for (const fileName of fileNames) args.push("--file", fileName);
-  return runLarkCli(config, args, { cwd });
+  return run(config, args, { cwd });
 }
 
 async function materializeReferenceImages(
@@ -362,17 +389,108 @@ function recordUrl(config, recordId) {
   return url.toString();
 }
 
-export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
+// -------- 仅遮罩归档启用回读；普通同步保持既有字段与调用范围 --------
+async function readMaskFillRecord(config, recordId, run) {
+  const body = await run(config, ["base", "+record-get", "--as", "user", "--base-token", config.baseToken,
+    "--table-id", config.tableId, "--record-id", recordId, "--format", "json"]);
+  const record = body?.data?.record || body?.record;
+  if (record?.fields && !Array.isArray(record.fields)) {
+    if (record.record_id && record.record_id !== recordId) throw new Error("遮罩归档回读返回了另一条记录");
+    return record.fields;
+  }
+  const data = body?.data;
+  if (Array.isArray(data?.fields) && Array.isArray(data.data) && data.data.length === 1
+    && data.record_id_list?.[0] === recordId) {
+    return Object.fromEntries(data.fields.map((name, index) => [name, data.data[0][index]]));
+  }
+  throw new Error("遮罩归档记录回读格式不正确或记录身份不符");
+}
+
+function verifyMaskFillFields(actual, expected) {
+  for (const [name, value] of Object.entries(expected)) {
+    let found = actual[name];
+    if (Array.isArray(found)) {
+      if (found.length === 1 && typeof found[0] !== "object") found = found[0];
+      else if (found.every((part) => typeof part?.text === "string")) found = found.map((part) => part.text).join("");
+    }
+    if (value == null && (found == null || found === "")) continue;
+    if (name === "生成参数") {
+      try { if (isDeepStrictEqual(typeof found === "string" ? JSON.parse(found) : found, JSON.parse(value))) continue; } catch { /* 继续按字段拒绝。 */ }
+    } else if (typeof value === "number" && found != null && found !== "" && Number(found) === value) continue;
+    else if (String(found ?? "") === String(value ?? "")) continue;
+    throw new Error(`遮罩归档字段回读不一致：${name}`);
+  }
+}
+
+function verifyMaskFillAttachments(fields, manifest, identities = null) {
+  const current = {};
+  for (const [name, expected] of Object.entries(manifest)) {
+    const files = fields[name] ?? [];
+    if (!Array.isArray(files) || files.length !== expected.length || expected.some((file, index) =>
+      !String(files[index]?.file_token || "").trim() || Number(files[index]?.size) !== file.size)) {
+      throw new Error(`遮罩归档${name}附件数量、token 或字节数回读不一致`);
+    }
+    current[name] = files.map((file) => ({ file_token: file.file_token, size: Number(file.size) }));
+    if (identities && !isDeepStrictEqual(current[name], identities[name])) throw new Error(`遮罩归档${name}附件身份回读发生变化`);
+  }
+  return current;
+}
+
+async function maskFillManifest(input, resultBytes) {
+  const referenceMode = input.workflow.mode === "reference";
+  const maskOmitted = input.workflow.provider === "oneapi" && input.workflow.hasMask === false;
+  const boxSelected = input.workflow.provider === "oneapi" && Boolean(input.workflow.editRegion);
+  if (input.referenceImages?.length !== 1 || (maskOmitted ? Boolean(input.maskImage) : !input.maskImage) || (referenceMode && !input.fillReferenceImage)
+    || (!referenceMode && input.fillReferenceImage) || input.styleReferenceImages?.length || !input.finalPrompt?.trim()) {
+    throw new Error("遮罩归档需分别提供主图/结果及实际使用的遮罩，仅GPT可省略遮罩，且仅参考模式提供填充参考图");
+  }
+  if (Boolean(input.boxedSourceImage) !== boxSelected
+    || input.workflow.editRegion && !boxSelected || boxSelected && !maskOmitted) {
+    throw new Error("框选归档需独立提供实际提交的GPT圈选标记原图，且不能与遮罩同时使用");
+  }
+  const summarize = async (image) => {
+    const bytes = await loadImageBytes(image.imageUrl);
+    return { size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+  };
+  const outputSha256 = createHash("sha256").update(resultBytes).digest("hex");
+  if (input.workflow.outputSha256 && input.workflow.outputSha256 !== outputSha256) throw new Error("遮罩结果图 SHA-256 与生成回执不一致");
+  let boxedSource = null;
+  if (boxSelected) {
+    const bytes = await loadImageBytes(input.boxedSourceImage.imageUrl);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    if (input.boxedSourceImage.mimeType !== "image/png" || !readImageDimensions(bytes, "image/png")) {
+      throw new Error("框选原图必须为实际提交的PNG图片");
+    }
+    if (input.boxedSourceImage.size !== bytes.length) throw new Error("框选原图字节数与归档描述不一致");
+    if (!input.workflow.submittedSourceSha256 || input.workflow.submittedSourceSha256 !== sha256) {
+      throw new Error("框选原图 SHA-256 与实际提交回执不一致");
+    }
+    boxedSource = { size: bytes.length, sha256 };
+  }
+  return {
+    "参考图": [await summarize(input.referenceImages[0])],
+    "结果图": [{ size: resultBytes.length, sha256: outputSha256 }],
+    "遮罩图": input.maskImage ? [await summarize(input.maskImage)] : [],
+    "填充参考图": referenceMode ? [await summarize(input.fillReferenceImage)] : [],
+    "框选原图": boxedSource ? [boxedSource] : [],
+  };
+}
+
+export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG, { run = runLarkCli } = {}) {
   let recordId = null;
   let temporaryDirectory = null;
 
   try {
+    const maskFill = input.workflow?.feature === "image-mask-fill";
+    const schema = maskFill ? await verifyLarkSyncSchema(config, { scope: "imageMaskFill", run }) : null;
     const resultBytes = await loadImageBytes(input.resultImage.url);
+    const manifest = maskFill ? await maskFillManifest(input, resultBytes) : null;
     const fields = buildRecordFields({
       ...input,
+      ...(maskFill ? { workflow: { ...input.workflow, outputSha256: manifest["结果图"][0].sha256, attachmentManifest: manifest } } : {}),
       actualSize: actualImageSize(resultBytes),
     });
-    const created = await createRecord(config, fields);
+    const created = await createRecord(config, fields, run);
     recordId = recordIdFrom(created);
     if (!recordId) throw new Error("飞书已响应，但没有返回记录 ID");
 
@@ -388,6 +506,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
       config.resultFieldId,
       [resultFileName],
       temporaryDirectory,
+      run,
     );
 
     const referenceFileNames = await materializeReferenceImages(
@@ -400,6 +519,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
       config.referenceFieldId,
       referenceFileNames,
       temporaryDirectory,
+      run,
     );
     const styleReferenceFileNames = await materializeReferenceImages(
       input.styleReferenceImages,
@@ -412,9 +532,26 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
       config.styleReferenceFieldId,
       styleReferenceFileNames,
       temporaryDirectory,
+      run,
     );
 
-    await upsertRecord(config, { "状态": "成功", "错误信息": null }, recordId);
+    let attachmentIdentities = null;
+    if (maskFill) {
+      for (const [name, image, prefix] of [["遮罩图", input.maskImage, "mask"],
+        ["填充参考图", input.fillReferenceImage, "fill-reference"], ["框选原图", input.boxedSourceImage, "boxed-source"]]) {
+        const fileNames = await materializeReferenceImages(image ? [image] : [], temporaryDirectory, { prefix });
+        await uploadAttachments(config, recordId, schema.attachmentFieldIds[name], fileNames, temporaryDirectory, run);
+      }
+      const initial = await readMaskFillRecord(config, recordId, run);
+      verifyMaskFillFields(initial, fields);
+      attachmentIdentities = verifyMaskFillAttachments(initial, manifest);
+    }
+    await upsertRecord(config, { "状态": "成功", "错误信息": null }, recordId, run);
+    if (maskFill) {
+      const final = await readMaskFillRecord(config, recordId, run);
+      verifyMaskFillFields(final, { ...fields, "状态": "成功", "错误信息": null });
+      verifyMaskFillAttachments(final, manifest, attachmentIdentities);
+    }
     return {
       ok: true,
       recordId,
@@ -428,6 +565,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG) {
           config,
           { "状态": "同步失败", "错误信息": message.slice(0, 1000) },
           recordId,
+          run,
         );
       } catch {
         // 保留原始同步错误，避免状态回写失败覆盖根因。

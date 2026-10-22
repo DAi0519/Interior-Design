@@ -1,0 +1,368 @@
+[
+  {
+    "mode": "prompt",
+    "recordId": "reczz28Q1pyXjra7",
+    "readback": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "data": [
+          [
+            "image1: <|vision_start|><|image_pad|…",
+            null,
+            null,
+            null,
+            "image1: <|vision_start|><|image_pad|><|vision_end|> Remove the refrigerator completely. Fill the masked region with the same plain beige wall and floor as the surrounding area. Leave no refrigerator or other object. Preserve the surrounding room.",
+            null,
+            null,
+            10,
+            [
+              "提示词填充"
+            ],
+            null,
+            [
+              "遮罩填充"
+            ],
+            "{\"outputFormat\":\"png\",\"referenceImageCount\":1,\"resolution\":\"original\",\"sizeMode\":\"preset\",\"transport\":\"comfyui-workflow\",\"workflow\":{\"actualOutputHeight\":512,\"actualOutputWidth\":512,\"artifactKey\":\"5bbdc698-9036-495e-9e19-69ffe8d47b5d\",\"executionDurationMs\":53456,\"height\":512,\"negativePromptMode\":\"default\",\"outputFilename\":\"CanvasLab_MaskFill_5bbdc698-9036-495e-9e19-69ffe8d47b5d_00001_.png\",\"outputSha256\":\"49abc25fa8150a8b45a4e0c99d9329d89aba494013b78f9abf69f7b13cb0cc0f\",\"promptId\":\"4cf487d5-e669-453d-890c-3b3d69d1cb7a\",\"queueDurationMs\":462,\"resolution\":\"original\",\"seed\":3977268116,\"width\":512,\"key\":\"flux2-mask-fill\",\"label\":\"提示词填充\",\"version\":\"2026-10-21.local.2\",\"mode\":\"prompt\",\"sourceSha256\":\"0623d534cf16ace205f7facb71c3bd8e559de5a458eb8d43a96573872dee9519\",\"model\":\"flux-2-klein-9b.safetensors\",\"clip\":\"qwen_3_8b.safetensors\",\"vae\":\"flux2-vae.safetensors\",\"inferenceTier\":\"original\",\"requestedInferenceWidth\":null,\"requestedInferenceHeight\":null,\"inferenceWidth\":256,\"inferenceHeight\":352,\"inferenceSize\":352,\"inferenceDimensionSource\":\"history\",\"maskExpand\":10,\"sourceWidth\":512,\"sourceHeight\":512,\"originalSourceWidth\":512,\"originalSourceHeight\":512,\"sourceSha256Actual\":\"64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0\",\"maskSha256\":\"cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e\",\"originalSourceSha256\":\"64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0\",\"referenceSha256\":null,\"sourceOriented\":false,\"outputWidth\":512,\"outputHeight\":512,\"prompt\":\"image1: <|vision_start|><|image_pad|><|vision_end|> Remove the refrigerator completely. Fill the masked region with the same plain beige wall and floor as the surrounding area. Leave no refrigerator or other object. Preserve the surrounding room.\",\"sourcePrompt\":\"Remove the refrigerator completely. Fill the masked region with the same plain beige wall and floor as the surrounding area. Leave no refrigerator or other object. Preserve the surrounding room.\",\"steps\":4,\"cfg\":1,\"sampler\":\"euler_ancestral\",\"batchSize\":1,\"exactPixelPreservation\":false,\"syncMode\":\"lark\",\"feature\":\"image-mask-fill\",\"provider\":\"comfyui\",\"workflowId\":\"flux2-mask-fill\",\"workflowVersion\":\"2026-10-21.local.2\",\"promptSource\":\"submitted ComfyUI text condition\",\"finalPromptCaptured\":true,\"originalReferenceSha256\":null,\"generationId\":\"6ed8ef60-3d57-4b58-bf2c-aacedb7d27f3\",\"attachmentManifest\":{\"参考图\":[{\"size\":6322,\"sha256\":\"64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0\"}],\"结果图\":[{\"size\":21388,\"sha256\":\"49abc25fa8150a8b45a4e0c99d9329d89aba494013b78f9abf69f7b13cb0cc0f\"}],\"遮罩图\":[{\"size\":894,\"sha256\":\"cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e\"}],\"填充参考图\":[]}}}",
+            null,
+            null,
+            null,
+            [
+              {
+                "file_token": "YFwUbR7JVofP54xTALWcypIpnGg",
+                "name": "1-source.png",
+                "size": 6322
+              }
+            ],
+            [
+              "成功"
+            ],
+            [
+              {
+                "file_token": "UT6TbT3D2ocuvDxd2E2cdew8n8d",
+                "name": "mask-1-mask-rgb.png",
+                "size": 894
+              }
+            ],
+            [
+              "Flux2 Klein 9B · 遮罩填充"
+            ],
+            null,
+            null,
+            352,
+            "2026-10-21T18:32:21.000+08:00",
+            55.37,
+            "512x512",
+            null,
+            null,
+            null,
+            null,
+            "2026-10-21.local.2",
+            "Remove the refrigerator completely. Fill the masked region with the same plain beige wall and floor as the surrounding area. Leave no refrigerator or other object. Preserve the surrounding room.",
+            [
+              {
+                "file_token": "A71Sb8WmUonWw9xFfUycKUTknDd",
+                "name": "result.png",
+                "size": 21388
+              }
+            ]
+          ]
+        ],
+        "field_id_list": [
+          "fldC6057RG",
+          "fld4Ea69sd",
+          "fld4lYOiiq",
+          "fldBos4ORm",
+          "fldC6yMCjr",
+          "fldcI2tbY7",
+          "fldcKZPV6R",
+          "fldcqDvkUO",
+          "flddqjL9wJ",
+          "fldebCPxw0",
+          "fldEk1SSQH",
+          "fldFa7I59b",
+          "fldFHmAsEU",
+          "fldFxH3Sxj",
+          "fldHhGC7mK",
+          "fldhktY1vR",
+          "fldiAI0qXX",
+          "fldixadR57",
+          "fldIY0AFm9",
+          "fldk00xwg6",
+          "fldMUuRBfx",
+          "fldN3by7qP",
+          "fldOEbyVPH",
+          "fldPXjDPeM",
+          "fldqHQkgI8",
+          "flduo2YBRt",
+          "fldw8T8yZd",
+          "fldWGoQJ8R",
+          "fldyagIGmO",
+          "fldZdwpEiM",
+          "fldZN136tk",
+          "fldZPmZ1YY"
+        ],
+        "field_type_list": [
+          "text",
+          "text",
+          "text",
+          "attachment",
+          "text",
+          "text",
+          "number",
+          "number",
+          "select",
+          "text",
+          "select",
+          "text",
+          "select",
+          "attachment",
+          "select",
+          "attachment",
+          "select",
+          "attachment",
+          "select",
+          "select",
+          "text",
+          "number",
+          "created_at",
+          "number",
+          "text",
+          "text",
+          "number",
+          "select",
+          "number",
+          "text",
+          "text",
+          "attachment"
+        ],
+        "fields": [
+          "标题",
+          "镜头指令版本",
+          "其他空间类型",
+          "填充参考图",
+          "最终 Prompt",
+          "Agent 编码",
+          "Agent 版本",
+          "遮罩扩展（px）",
+          "遮罩填充模式",
+          "风格选择",
+          "功能",
+          "生成参数",
+          "设计方式",
+          "风格参考图",
+          "空间类型",
+          "参考图",
+          "状态",
+          "遮罩图",
+          "生图模型",
+          "Prompt融合",
+          "家具选择",
+          "局部推理尺寸（px）",
+          "创建时间",
+          "耗时（秒）",
+          "尺寸",
+          "错误信息",
+          "俯仰角度（°）",
+          "景别",
+          "水平角度（°）",
+          "遮罩工作流版本",
+          "原始 Prompt",
+          "结果图"
+        ],
+        "has_more": false,
+        "record_id_list": [
+          "reczz28Q1pyXjra7"
+        ],
+        "rev": 5635,
+        "timezone": "Asia/Shanghai"
+      }
+    }
+  },
+  {
+    "mode": "reference",
+    "recordId": "reczz28Q1rGGRLmA",
+    "readback": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "data": [
+          [
+            "image1: <|vision_start|><|image_pad|…",
+            null,
+            null,
+            [
+              {
+                "file_token": "WWmKbO1RuofJXYxPqgfcZZBWn8f",
+                "name": "fill-reference-1-reference.png",
+                "size": 11043
+              }
+            ],
+            "image1: <|vision_start|><|image_pad|><|vision_end|> image2: <|vision_start|><|image_pad|><|vision_end|> Replace the refrigerator in the masked region with the blue vase shown in the reference image. Remove the refrigerator completely. Preserve the surrounding room.",
+            null,
+            null,
+            80,
+            [
+              "参考图填充"
+            ],
+            null,
+            [
+              "遮罩填充"
+            ],
+            "{\"outputFormat\":\"png\",\"referenceImageCount\":2,\"resolution\":\"original\",\"sizeMode\":\"preset\",\"transport\":\"comfyui-workflow\",\"workflow\":{\"actualOutputHeight\":512,\"actualOutputWidth\":512,\"artifactKey\":\"c531e09f-d851-43d5-9db2-71929661caf1\",\"executionDurationMs\":55486,\"height\":512,\"negativePromptMode\":\"default\",\"outputFilename\":\"CanvasLab_MaskFill_c531e09f-d851-43d5-9db2-71929661caf1_00001_.png\",\"outputSha256\":\"e5ab8413674bc7656beb623d17481cdcf7dfc14eec8f86b8d58c36a91dd30dec\",\"promptId\":\"3a116f8a-ca71-4015-ad7d-db8cd914a0e4\",\"queueDurationMs\":485,\"resolution\":\"original\",\"seed\":2867161660,\"width\":512,\"key\":\"flux2-mask-fill\",\"label\":\"参考图填充\",\"version\":\"2026-10-21.local.2\",\"mode\":\"reference\",\"sourceSha256\":\"21c339fe84d9218b8b5bb78241e37e6d99fa043ac9bca073d5f74078a4394569\",\"model\":\"flux-2-klein-9b.safetensors\",\"clip\":\"qwen_3_8b.safetensors\",\"vae\":\"flux2-vae.safetensors\",\"inferenceTier\":\"original\",\"requestedInferenceWidth\":null,\"requestedInferenceHeight\":null,\"inferenceWidth\":416,\"inferenceHeight\":512,\"inferenceSize\":512,\"inferenceDimensionSource\":\"history\",\"maskExpand\":80,\"sourceWidth\":512,\"sourceHeight\":512,\"originalSourceWidth\":512,\"originalSourceHeight\":512,\"sourceSha256Actual\":\"64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0\",\"maskSha256\":\"cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e\",\"originalSourceSha256\":\"64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0\",\"referenceSha256\":\"ec1d95b445bbbd76f7a6f3c87ca3f966265e7d9c86df9a79be814285dea36dfb\",\"sourceOriented\":false,\"outputWidth\":512,\"outputHeight\":512,\"prompt\":\"image1: <|vision_start|><|image_pad|><|vision_end|> image2: <|vision_start|><|image_pad|><|vision_end|> Replace the refrigerator in the masked region with the blue vase shown in the reference image. Remove the refrigerator completely. Preserve the surrounding room.\",\"sourcePrompt\":\"Replace the refrigerator in the masked region with the blue vase shown in the reference image. Remove the refrigerator completely. Preserve the surrounding room.\",\"steps\":4,\"cfg\":1,\"sampler\":\"euler_ancestral\",\"batchSize\":1,\"exactPixelPreservation\":false,\"syncMode\":\"lark\",\"feature\":\"image-mask-fill\",\"provider\":\"comfyui\",\"workflowId\":\"flux2-mask-fill\",\"workflowVersion\":\"2026-10-21.local.2\",\"promptSource\":\"submitted ComfyUI text condition\",\"finalPromptCaptured\":true,\"originalReferenceSha256\":\"ec1d95b445bbbd76f7a6f3c87ca3f966265e7d9c86df9a79be814285dea36dfb\",\"generationId\":\"f3299879-f86a-4a02-abd5-da6447a969bd\",\"attachmentManifest\":{\"参考图\":[{\"size\":6322,\"sha256\":\"64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0\"}],\"结果图\":[{\"size\":52362,\"sha256\":\"e5ab8413674bc7656beb623d17481cdcf7dfc14eec8f86b8d58c36a91dd30dec\"}],\"遮罩图\":[{\"size\":894,\"sha256\":\"cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e\"}],\"填充参考图\":[{\"size\":11043,\"sha256\":\"ec1d95b445bbbd76f7a6f3c87ca3f966265e7d9c86df9a79be814285dea36dfb\"}]}}}",
+            null,
+            null,
+            null,
+            [
+              {
+                "file_token": "BXtVbp6pjohsifxYYz6cltZunOe",
+                "name": "1-source.png",
+                "size": 6322
+              }
+            ],
+            [
+              "成功"
+            ],
+            [
+              {
+                "file_token": "Mqn6byXSbomIASx30rGcuA9RnPh",
+                "name": "mask-1-mask-rgb.png",
+                "size": 894
+              }
+            ],
+            [
+              "Flux2 Klein 9B · 遮罩填充"
+            ],
+            null,
+            null,
+            512,
+            "2026-10-21T18:33:34.000+08:00",
+            57.39,
+            "512x512",
+            null,
+            null,
+            null,
+            null,
+            "2026-10-21.local.2",
+            "Replace the refrigerator in the masked region with the blue vase shown in the reference image. Remove the refrigerator completely. Preserve the surrounding room.",
+            [
+              {
+                "file_token": "JN3QbnOwyoYKIoxj4yscHP35nEc",
+                "name": "result.png",
+                "size": 52362
+              }
+            ]
+          ]
+        ],
+        "field_id_list": [
+          "fldC6057RG",
+          "fld4Ea69sd",
+          "fld4lYOiiq",
+          "fldBos4ORm",
+          "fldC6yMCjr",
+          "fldcI2tbY7",
+          "fldcKZPV6R",
+          "fldcqDvkUO",
+          "flddqjL9wJ",
+          "fldebCPxw0",
+          "fldEk1SSQH",
+          "fldFa7I59b",
+          "fldFHmAsEU",
+          "fldFxH3Sxj",
+          "fldHhGC7mK",
+          "fldhktY1vR",
+          "fldiAI0qXX",
+          "fldixadR57",
+          "fldIY0AFm9",
+          "fldk00xwg6",
+          "fldMUuRBfx",
+          "fldN3by7qP",
+          "fldOEbyVPH",
+          "fldPXjDPeM",
+          "fldqHQkgI8",
+          "flduo2YBRt",
+          "fldw8T8yZd",
+          "fldWGoQJ8R",
+          "fldyagIGmO",
+          "fldZdwpEiM",
+          "fldZN136tk",
+          "fldZPmZ1YY"
+        ],
+        "field_type_list": [
+          "text",
+          "text",
+          "text",
+          "attachment",
+          "text",
+          "text",
+          "number",
+          "number",
+          "select",
+          "text",
+          "select",
+          "text",
+          "select",
+          "attachment",
+          "select",
+          "attachment",
+          "select",
+          "attachment",
+          "select",
+          "select",
+          "text",
+          "number",
+          "created_at",
+          "number",
+          "text",
+          "text",
+          "number",
+          "select",
+          "number",
+          "text",
+          "text",
+          "attachment"
+        ],
+        "fields": [
+          "标题",
+          "镜头指令版本",
+          "其他空间类型",
+          "填充参考图",
+          "最终 Prompt",
+          "Agent 编码",
+          "Agent 版本",
+          "遮罩扩展（px）",
+          "遮罩填充模式",
+          "风格选择",
+          "功能",
+          "生成参数",
+          "设计方式",
+          "风格参考图",
+          "空间类型",
+          "参考图",
+          "状态",
+          "遮罩图",
+          "生图模型",
+          "Prompt融合",
+          "家具选择",
+          "局部推理尺寸（px）",
+          "创建时间",
+          "耗时（秒）",
+          "尺寸",
+          "错误信息",
+          "俯仰角度（°）",
+          "景别",
+          "水平角度（°）",
+          "遮罩工作流版本",
+          "原始 Prompt",
+          "结果图"
+        ],
+        "has_more": false,
+        "record_id_list": [
+          "reczz28Q1rGGRLmA"
+        ],
+        "rev": 5635,
+        "timezone": "Asia/Shanghai"
+      }
+    }
+  }
+]

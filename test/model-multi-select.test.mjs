@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、共享搜索单选/模型多选与全选/取消纯规则及内存 DOM/Popover 替身
- * [OUTPUT]: 对外提供模型至少一项、筛选全选/取消与首选保护、风格单选占位/禁选/点击关闭、浮层焦点和等宽定位回归保障
+ * [OUTPUT]: 对外提供模型至少一项、筛选全选/取消与首选保护、风格单选占位/禁选/点击关闭、普通单选/空值/键盘导航、模态抽屉内浮层迁移及焦点/等宽定位与销毁回归保障
  * [POS]: test 的 Main/Beta 模型与设计风格共享选择测试，不调用网络、真实浏览器或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -132,6 +132,13 @@ class FixtureElement {
     if (!this.listeners.has(name)) this.listeners.set(name, []);
     this.listeners.get(name).push(callback);
   }
+  removeEventListener(name, callback) {
+    this.listeners.set(name, (this.listeners.get(name) || []).filter(listener => listener !== callback));
+  }
+  remove() {
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this);
+    this.parentNode = null;
+  }
   emit(name, properties = {}) {
     const event = { target: this, preventDefault() { this.prevented = true; }, ...properties };
     for (const callback of this.listeners.get(name) || []) callback(event);
@@ -150,6 +157,18 @@ class FixtureElement {
     this.append(...children);
   }
   contains(node) { return this === node || this.children.some((child) => child.contains(node)); }
+  closest(selector) {
+    for (let node = this; node; node = node.parentNode) {
+      if (selector.split(",").some((part) => {
+        const tag = part.trim().match(/^[a-z][\w-]*/i)?.[0];
+        const attributes = [...part.matchAll(/\[([\w-]+)(?:="([^"]*)")?\]/g)];
+        return (!tag || tag === node.tagName)
+          && attributes.every(([, key, value]) => node.attributes.has(key)
+            && (value === undefined || node.attributes.get(key) === value));
+      })) return node;
+    }
+    return null;
+  }
   getBoundingClientRect() { return this.rect; }
   focus(options) { this.ownerDocument.activeElement = this; this.focusOptions = options; }
   click() {
@@ -163,6 +182,7 @@ function fixture({ nativePopover = true, presentOption, onChange, single = false
   const doc = {
     nativePopover, listeners: new Map(), activeElement: null,
     addEventListener: FixtureElement.prototype.addEventListener,
+    removeEventListener: FixtureElement.prototype.removeEventListener,
     emit: FixtureElement.prototype.emit,
     createElement(tag) { return new FixtureElement(tag, this); },
     createElementNS(namespace, tag) { return this.createElement(tag); },
@@ -171,8 +191,10 @@ function fixture({ nativePopover = true, presentOption, onChange, single = false
   doc.defaultView = {
     innerWidth: 1280, innerHeight: 720, listeners: new Map(),
     addEventListener: FixtureElement.prototype.addEventListener,
+    removeEventListener: FixtureElement.prototype.removeEventListener,
     emit: FixtureElement.prototype.emit,
     requestAnimationFrame(callback) { frames.push(callback); return frames.length; },
+    cancelAnimationFrame() { frames.length = 0; },
   };
   doc.body = doc.createElement("body");
   const container = doc.createElement("div");
@@ -225,6 +247,35 @@ test("共享浮层只保留搜索同行全选和平铺复选，摘要显示首�
   assert.deepEqual(ui.messages, ["至少保留 1 个出图模型"]);
   assert.equal(ui.changes.length, 8);
 });
+
+for (const { tag, attributes, nativePopover } of [
+  { tag: "dialog", attributes: { open: "" }, nativePopover: true },
+  { tag: "div", attributes: { role: "dialog", "aria-modal": "true" }, nativePopover: false },
+]) {
+  test(`${tag} 模态抽屉内复用原浮层并可选中，回到桌面时迁回 body`, () => {
+    const ui = fixture({ single: true, nativePopover });
+    const originalPanel = ui.panel;
+    const modal = ui.doc.createElement(tag);
+    for (const [key, value] of Object.entries(attributes)) modal.setAttribute(key, value);
+    const content = ui.doc.createElement("div");
+    modal.append(content);ui.doc.body.append(modal);content.append(ui.container);
+    ui.trigger.click();
+    assert.equal(ui.panel, originalPanel);
+    assert.equal(ui.panel.parentNode, modal, "菜单必须留在可交互的模态子树内");
+    ui.row("banana21").click();
+    assert.deepEqual(ui.changes, [["banana21"]]);
+    assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
+    assert.equal(ui.doc.activeElement, ui.trigger);
+    ui.doc.body.append(ui.container);
+    ui.trigger.click();
+    assert.equal(ui.panel, originalPanel);
+    assert.equal(ui.panel.parentNode, ui.doc.body);
+    assert.deepEqual(ui.controller.values(), ["banana21"]);
+    ui.doc.emit("keydown", { key: "Escape" });
+    assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
+    assert.equal(ui.doc.activeElement, ui.trigger);
+  });
+}
 
 test("搜索全选不会改变其他选择，禁选有说明且不加入选择", () => {
   const ui = fixture({ presentOption: (model) => ({ label: model.label,
@@ -476,4 +527,55 @@ test("共享选择器显式禁用后关闭浮层并保留值，恢复仍遵守�
   ui.controller.setDisabled(false);
   assert.equal(ui.trigger.disabled, true);
   assert.deepEqual(ui.controller.values(), []);
+});
+
+// -------- 普通参数与模型搜索复用同一组件 --------
+test("普通单选支持空值占位、禁选跳过、首尾导航、确认与归焦", () => {
+  const ui = fixture({ single: true, choiceOptions: { searchable: false, label: "生成张数", placement: "top" },
+    presentOption: model => ({ label: model.label, selectable: model.key !== "disabled" }) });
+  ui.controller.render([{ key: "", label: "请选择" }], [""]);
+  assert.equal(ui.row("").attributes.get("aria-selected"), "true");
+  assert.equal(ui.byClass("model-picker-search-wrap").hidden, true);
+  assert.equal(ui.panel.attributes.get("role"), "listbox");
+  ui.controller.render([{ key: "1", label: "1 张" }, { key: "disabled", label: "禁用" }, { key: "3", label: "3 张" }], ["1"]);
+  ui.trigger.click();
+  assert.equal(ui.doc.activeElement, ui.row("1"));
+  ui.panel.emit("keydown", { key: "ArrowDown" });
+  assert.equal(ui.doc.activeElement, ui.row("3"));
+  ui.panel.emit("keydown", { key: "Home" });
+  assert.equal(ui.doc.activeElement, ui.row("1"));
+  ui.panel.emit("keydown", { key: "End" });
+  ui.panel.emit("keydown", { key: " " });
+  assert.deepEqual(ui.changes.at(-1), ["3"]);
+  assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
+  assert.equal(ui.doc.activeElement, ui.trigger);
+});
+
+test("搜索后键盘只遍历匹配项，Escape不改变选择", () => {
+  const ui = fixture();
+  ui.trigger.click();
+  ui.search.value = "GPT";
+  ui.search.emit("input");
+  ui.search.focus();
+  ui.panel.emit("keydown", { key: "ArrowDown" });
+  assert.equal(ui.doc.activeElement, ui.row("gptImage2"));
+  ui.panel.emit("keydown", { key: "End" });
+  assert.equal(ui.doc.activeElement, ui.row("flare"));
+  ui.doc.emit("keydown", { key: "Escape" });
+  assert.deepEqual(ui.controller.values(), ["flux"]);
+  assert.equal(ui.doc.activeElement, ui.trigger);
+});
+
+test("动态控件销毁清除顶层菜单和全局事件，后续滚动不再触发定位", () => {
+  const ui = fixture();
+  ui.trigger.click();
+  ui.controller.render(catalog, ["flux"]);
+  assert.ok([...ui.doc.listeners.values()].some(listeners => listeners.length));
+  ui.controller.destroy();
+  assert.equal(ui.panel.parentNode, null);
+  assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
+  assert.ok([...ui.doc.listeners.values()].every(listeners => !listeners.length));
+  assert.ok([...ui.doc.defaultView.listeners.values()].every(listeners => !listeners.length));
+  ui.doc.emit("scroll");
+  ui.flushFrames();
 });

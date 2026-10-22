@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、Beta Store/runner 与三表字段响应内存替身
- * [OUTPUT]: 对外提供含风格转换的功能选项、两类模型单选标签与当前目录选项、设计/版本/三图附件复用，缺字段、类型/附件/关联漂移在入队与样本写入前阻断、实时分页读取和晚遇合同错误不重生成的回归保障
+ * [INPUT]: 依赖 node:test/assert、Beta Store/runner、独立扩图/超分模型目录与三表字段响应内存替身
+ * [OUTPUT]: 对外提供含AI扩图/超分与风格转换的功能选项、稳定归档单选标签及公开显示名不可替代合同、设计/版本/三图附件复用，Schema漂移前置阻断、实时分页读取和晚遇合同错误不重生成的回归保障
  * [POS]: test 的 Beta 归档 Schema 合同集成测试，不读写真实 Base 或调用模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,8 @@ import { EMPTY_ROOM_TYPES } from "../src/empty-room-type.mjs";
 import { normalizeBetaBaseError } from "../src/beta-base-schema.mjs";
 import { publicAgentModelCatalog } from "../src/agent-model-config.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
+import { IMAGE_UPSCALE_WORKFLOWS, publicImageUpscaleConfig } from "../src/image-upscale-workflow.mjs";
+import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "../src/image-outpaint-archive.mjs";
 
 function schemaFixture() {
   const textFields = (names) => names.map((name) => ({ id: `field-${name}`, name, type: "text" }));
@@ -24,7 +26,7 @@ function schemaFixture() {
       { id: config.testTimeFieldId, name: "测试时间", type: "text" },
       ...["Attempt", "Agent 版本", "时延（ms）", "费用（USD）"].map((name) => ({ name, type: "number" })),
       select("功能", features), select("状态", ["运行中", "成功", "失败"]), select("场景标签", EMPTY_ROOM_TYPES, true),
-      select("出图模型", publicModelCatalog().map((model) => model.label)),
+      select("出图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map(({ label }) => label)]),
       select("Prompt融合", publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label)),
       ...[["输入图", config.inputFieldId], ["风格参考图", config.styleReferenceFieldId], ["结果图", config.resultFieldId]].map(([name, id]) => ({ name, id, type: "attachment" })),
     ],
@@ -91,6 +93,49 @@ test("风格转换复用现有归档字段，并要求跑图明细和样本集�
     await assert.rejects(storeForSchema(drifted, []).verifySchema(),
       (error) => error.statusCode === 409 && error.retryable === false
         && error.message.includes(`${name}“功能”缺少选项：风格转换`));
+  }
+});
+
+test("AI扩图复用三表现有字段，缺少功能或任一独立扩图模型选项时拒绝入队", async () => {
+  assert.equal(betaFeatureLabel("imageOutpaint"), "AI扩图");
+  const mutations = [
+    ...[config.tableId, config.sampleSetTableId].map((tableId) => [tableId, "功能", "AI扩图"]),
+    ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS.map((label) => [config.tableId, "出图模型", label]),
+  ];
+  for (const [tableId, fieldName, label] of mutations) {
+    const schemas = schemaFixture();
+    const field = schemas[tableId].find((entry) => entry.name === fieldName);
+    field.options = field.options.filter((option) => option.name !== label);
+    await assert.rejects(storeForSchema(schemas, []).verifySchema(), (error) =>
+      error.statusCode === 409 && error.retryable === false && error.message.includes(label));
+  }
+});
+
+test("AI超分缺少功能或任一真实工作流标签时在生成前阻断", async () => {
+  const mutations = [
+    ...[config.tableId, config.sampleSetTableId].map((tableId) => [tableId, "功能", "AI超分"]),
+    ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map(({ label }) => [config.tableId, "出图模型", label]),
+  ];
+  for (const [tableId, fieldName, label] of mutations) {
+    const schemas = schemaFixture();
+    const field = schemas[tableId].find((entry) => entry.name === fieldName);
+    field.options = field.options.filter((option) => option.name !== label);
+    const commands = [];
+    const store = storeForSchema(schemas, commands);
+    const runner = createBetaRunnerService({ baseStore: store,
+      generationService: { async executeForMode() { assert.fail("Schema 缺项不能提交模型"); } } });
+    await assert.rejects(runner.start(batch()), (error) =>
+      error.statusCode === 409 && error.retryable === false && error.message.includes(label));
+    assert.ok(commands.every((args) => args.includes("+field-list")));
+  }
+  for (const workflow of Object.values(IMAGE_UPSCALE_WORKFLOWS).filter(entry => entry.displayLabel)) {
+    const schemas = schemaFixture();
+    const displayed = publicImageUpscaleConfig().workflows.find(entry => entry.key === workflow.key).label;
+    assert.notEqual(displayed, workflow.label);
+    const field = schemas[config.tableId].find(entry => entry.name === "出图模型");
+    field.options.find(option => option.name === workflow.label).name = displayed;
+    await assert.rejects(storeForSchema(schemas, []).verifySchema(), error =>
+      error.statusCode === 409 && error.message.includes(workflow.label), "公开显示名不能替代稳定归档标签");
   }
 });
 

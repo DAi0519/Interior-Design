@@ -1,0 +1,20 @@
+{
+  "model": "gpt-image-2.5-sunburst",
+  "images": [
+    {
+      "image_url": "data:image/png;base64,{{SOURCE_PNG_BASE64}}"
+    },
+    {
+      "image_url": "data:image/png;base64,{{REFERENCE_PNG_BASE64}}"
+    }
+  ],
+  "mask": {
+    "image_url": "data:image/png;base64,{{ALPHA_MASK_PNG_BASE64}}"
+  },
+  "prompt": "Edit image 1 only in the transparent area of the supplied mask. Preserve its composition, perspective, lighting and all protected areas.\nImage 2 is an object reference. Use the requested object from image 2 inside the masked region of image 1, matching the original scene's scale and lighting. Do not copy image 2's background.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image, without borders, labels or a collage.",
+  "size": "1536x1024",
+  "quality": "medium",
+  "n": 1,
+  "output_format": "png",
+  "response_format": "b64_json"
+}

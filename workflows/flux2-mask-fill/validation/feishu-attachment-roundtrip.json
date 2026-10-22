@@ -1,0 +1,59 @@
+{
+  "at": "2026-10-21T10:34:58.158Z",
+  "records": [
+    {
+      "recordId": "reczz28Q1pyXjra7",
+      "mode": "prompt",
+      "attachments": [
+        {
+          "field": "参考图",
+          "bytes": 6322,
+          "sha256": "64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0",
+          "verified": true
+        },
+        {
+          "field": "结果图",
+          "bytes": 21388,
+          "sha256": "49abc25fa8150a8b45a4e0c99d9329d89aba494013b78f9abf69f7b13cb0cc0f",
+          "verified": true
+        },
+        {
+          "field": "遮罩图",
+          "bytes": 894,
+          "sha256": "cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "recordId": "reczz28Q1rGGRLmA",
+      "mode": "reference",
+      "attachments": [
+        {
+          "field": "参考图",
+          "bytes": 6322,
+          "sha256": "64b156e7192906ea5b1c83c867f9661d1c93ad5172e6b2e39ff239cb9b42fcf0",
+          "verified": true
+        },
+        {
+          "field": "结果图",
+          "bytes": 52362,
+          "sha256": "e5ab8413674bc7656beb623d17481cdcf7dfc14eec8f86b8d58c36a91dd30dec",
+          "verified": true
+        },
+        {
+          "field": "遮罩图",
+          "bytes": 894,
+          "sha256": "cf983fd9cbf9cb330b565abdace935686acb64c67d49fdc8b873b90aabd3c83e",
+          "verified": true
+        },
+        {
+          "field": "填充参考图",
+          "bytes": 11043,
+          "sha256": "ec1d95b445bbbd76f7a6f3c87ca3f966265e7d9c86df9a79be814285dea36dfb",
+          "verified": true
+        }
+      ]
+    }
+  ]
+}

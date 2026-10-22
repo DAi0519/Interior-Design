@@ -1,15 +1,21 @@
 /**
- * [INPUT]: 依赖可信原图尺寸、目标画幅/分辨率/构图位置/可选等比缩放与服务端公开的引擎尺寸合同
- * [OUTPUT]: 对外提供共用的 outpaintCanvasPlan 与 outpaintScaleBounds，统一目标尺寸、可用缩放范围、按比例适配与整数四边定位
+ * [INPUT]: 依赖可信原图尺寸、原比例/预设画幅/构图位置/可选等比缩放与服务端公开的引擎2K尺寸合同
+ * [OUTPUT]: 对外提供固定2K真源OUTPAINT_RESOLUTION/OUTPAINT_LONG_EDGE与准入、outpaintCanvasPlan及outpaintScaleBounds，分离原图/适配图边界，按真实原比例或预设统一目标尺寸、Sunburst超比例最小补边事实、缩放范围和整数四边定位
  * [POS]: public 的纯几何边界，被扩图控制器与 src/image-outpaint-service.mjs 共用，不依赖 DOM 或图片解码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 const RATIOS = Object.freeze({ "1:1": [1, 1], "4:3": [4, 3], "16:9": [16, 9], "3:4": [3, 4], "9:16": [9, 16] });
-const RESOLUTIONS = Object.freeze({ "1K": 1024, "2K": 2048, "4K": 4096 });
+export const OUTPAINT_RESOLUTION = "2K";
+export const OUTPAINT_LONG_EDGE = 2048;
 
 function inputError(message) {
   return Object.assign(new Error(message), { statusCode: 400 });
+}
+
+export function assertOutpaintResolution(resolution = OUTPAINT_RESOLUTION) {
+  if (resolution !== OUTPAINT_RESOLUTION) throw inputError("AI扩图固定使用2K，请刷新页面后重试");
+  return OUTPAINT_RESOLUTION;
 }
 
 function validDimensions(value) {
@@ -35,14 +41,35 @@ function prepare(source, alignment, original) {
   };
 }
 
-function targetDimensions(ratio, resolution, limits, alignment) {
+// -------- 原比例沿真实源尺寸对齐；Sunburst必要时仅补足目标短边，保全源图 --------
+function originalTargetDimensions(source, limits, alignment) {
+  if (Number.isFinite(limits.maxAspectRatio)
+    && Math.max(source.width, source.height) / Math.min(source.width, source.height) > limits.maxAspectRatio
+    && !limits.adaptOriginalRatio) {
+    throw inputError(`当前模型的原比例不能超过${limits.maxAspectRatio}:1，请选择预设画幅或切换扩图模型`);
+  }
+  const landscape = source.width >= source.height;
+  const sourceLong = Math.max(source.width, source.height);
+  const sourceShort = Math.min(source.width, source.height);
+  const shortEdge = (longEdge) => Math.max(alignment, Math.round(longEdge * sourceShort / sourceLong / alignment) * alignment);
+  if (Array.isArray(limits.targetSizes) && !limits.supportsOriginalRatio) {
+    throw inputError("当前模型暂不支持原比例，请选择预设画幅或切换扩图模型");
+  }
+  const minimumShort = limits.adaptOriginalRatio && Number.isFinite(limits.maxAspectRatio)
+    ? Math.ceil(OUTPAINT_LONG_EDGE / limits.maxAspectRatio / alignment) * alignment : alignment;
+  const short = Math.max(shortEdge(OUTPAINT_LONG_EDGE), minimumShort);
+  return landscape ? { width: OUTPAINT_LONG_EDGE, height: short } : { width: short, height: OUTPAINT_LONG_EDGE };
+}
+
+function targetDimensions(source, ratio, resolution, limits, alignment) {
+  if (ratio === "original") return originalTargetDimensions(source, limits, alignment);
   if (Array.isArray(limits.targetSizes)) {
     const target = limits.targetSizes.find((entry) => entry.ratio === ratio && entry.resolution === resolution);
     if (!validDimensions(target)) throw inputError("当前模型不支持所选画幅与分辨率");
     return { width: target.width, height: target.height };
   }
   const [width, height] = RATIOS[ratio];
-  const unit = Math.floor(RESOLUTIONS[resolution] / Math.max(width, height) / alignment) * alignment;
+  const unit = Math.floor(OUTPAINT_LONG_EDGE / Math.max(width, height) / alignment) * alignment;
   return { width: width * unit, height: height * unit };
 }
 
@@ -51,27 +78,31 @@ function assertTarget(target, limits, alignment) {
     throw inputError("所选扩图尺寸不符合模型对齐要求，请刷新页面后重试");
   }
   if ((Number.isSafeInteger(limits.maxEdge) && Math.max(target.width, target.height) > limits.maxEdge)
-    || (Number.isSafeInteger(limits.maxPixels) && target.width * target.height > limits.maxPixels)) {
+    || (Number.isSafeInteger(limits.maxPixels) && target.width * target.height > limits.maxPixels)
+    || (Number.isSafeInteger(limits.minPixels) && target.width * target.height < limits.minPixels)
+    || (Number.isFinite(limits.maxAspectRatio)
+      && Math.max(target.width, target.height) / Math.min(target.width, target.height) > limits.maxAspectRatio)) {
     throw inputError("所选扩图分辨率超过当前引擎的画布上限");
   }
 }
 
-function canvasContract({ source, ratio, resolution, limits = {} } = {}) {
+function canvasContract({ source, ratio, resolution = OUTPAINT_RESOLUTION, limits = {} } = {}) {
   if (!limits || typeof limits !== "object") throw inputError("扩图尺寸合同无效，请刷新页面后重试");
   const minInputEdge = contractInteger(limits.minInputEdge, 32);
   const maxInputEdge = contractInteger(limits.maxInputEdge, 4096);
+  const maxSourceEdge = contractInteger(limits.maxSourceEdge, maxInputEdge);
   const inputAlignment = contractInteger(limits.inputAlignment, 32);
   const outputAlignment = contractInteger(limits.outputAlignment, 8);
   if (!validDimensions(source)) throw inputError("请上传一张可读取尺寸的图片");
-  if (Math.min(source.width, source.height) < minInputEdge || Math.max(source.width, source.height) > maxInputEdge) {
-    throw inputError(`原图宽高均需在 ${minInputEdge}–${maxInputEdge}px 之间，请调整原图后重新上传`);
+  if (Math.min(source.width, source.height) < minInputEdge || Math.max(source.width, source.height) > maxSourceEdge) {
+    throw inputError(`原图宽高均需在 ${minInputEdge}–${maxSourceEdge}px 之间，请调整原图后重新上传`);
   }
-  if (!Object.hasOwn(RATIOS, ratio)) throw inputError("请选择支持的扩图画幅");
-  if (!Object.hasOwn(RESOLUTIONS, resolution)) throw inputError("请选择 1K、2K 或 4K 扩图分辨率");
-  const target = targetDimensions(ratio, resolution, limits, outputAlignment);
+  if (ratio !== "original" && !Object.hasOwn(RATIOS, ratio)) throw inputError("请选择支持的扩图画幅");
+  assertOutpaintResolution(resolution);
+  const target = targetDimensions(source, ratio, resolution, limits, outputAlignment);
   assertTarget(target, limits, outputAlignment);
   const original = limits.sourceSizing === "original";
-  return { source, target, original, inputAlignment, minInputEdge, maxInputEdge, limits };
+  return { source, target, original, inputAlignment, outputAlignment, minInputEdge, maxInputEdge, limits };
 }
 
 // -------- 固定输出画布；缩放以最大 contain 尺寸为 1，始终保留原图完整比例 --------
@@ -105,7 +136,7 @@ function scaledSource(contract, scale) {
   return bounds.landscape ? { width: longEdge, height: shortEdge } : { width: shortEdge, height: longEdge };
 }
 
-export function outpaintCanvasPlan({ source, ratio, resolution, position = { x: 0.5, y: 0.5 }, scale, limits = {} } = {}) {
+export function outpaintCanvasPlan({ source, ratio, resolution = OUTPAINT_RESOLUTION, position = { x: 0.5, y: 0.5 }, scale, limits = {} } = {}) {
   const contract = canvasContract({ source, ratio, resolution, limits });
   const { target, original, inputAlignment, minInputEdge } = contract;
   if (!position || ![position.x, position.y].every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1)) {
@@ -147,5 +178,11 @@ export function outpaintCanvasPlan({ source, ratio, resolution, position = { x: 
   if (Number.isSafeInteger(limits.maxExpansion) && Object.values(expansion).some((value) => value > limits.maxExpansion)) {
     throw inputError("扩图范围超过当前引擎的单边上限");
   }
-  return { prepared, target, expansion, ratio, resolution, resize, ...(scale === undefined ? {} : { scale }) };
+  const requestedTarget = ratio === "original" && limits.adaptOriginalRatio
+    ? originalTargetDimensions(source, { ...limits, maxAspectRatio: null, adaptOriginalRatio: false }, contract.outputAlignment) : target;
+  const targetAdaptation = requestedTarget.width !== target.width || requestedTarget.height !== target.height
+    ? { policy: "contain-source-pad-target", requestedRatio: ratio, requestedTargetWidth: requestedTarget.width,
+      requestedTargetHeight: requestedTarget.height, effectiveTargetWidth: target.width, effectiveTargetHeight: target.height } : null;
+  return { prepared, target, expansion, ratio, resolution, resize, ...(targetAdaptation ? { targetAdaptation } : {}),
+    ...(scale === undefined ? {} : { scale }) };
 }

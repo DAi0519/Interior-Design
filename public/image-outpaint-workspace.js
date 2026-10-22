@@ -1,11 +1,13 @@
 /**
  * [INPUT]: 依赖已绑定的扩图预览/定位/尺寸节点、共享结果面板、上传原图、生成任务阶段/身份及可选的隐藏回调
- * [OUTPUT]: 对外提供 bindImageOutpaintWorkspace，以 setActive/setSource/setStage 组合大画布/结果页签；新图保持构图直至新任务开始，离开预览时关闭设置并保留结果
- * [POS]: public 的扩图工作区呈现层，由 image-tools 在扩图控制器初始化后绑定，不接触几何或生成请求
+ * [OUTPUT]: 对外提供可配置的bindImageToolWorkspace及兼容bindImageOutpaintWorkspace，以 setActive/setSource/setStage 组合大画布/结果页签；新图保持构图直至新任务开始，离开预览时关闭设置并保留结果
+ * [POS]: public 的扩图/多角度/遮罩填充共享工作区呈现层，由 image-tools 在功能控制器初始化后绑定，不接触几何或生成请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-export function bindImageOutpaintWorkspace({ root, onHide = () => {}, now = Date.now }) {
+export function bindImageToolWorkspace({ root, onHide = () => {}, now = Date.now, prefix = "imageOutpaint",
+  label = "扩图工作区", previewLabel = "构图预览", previewSelector = ".image-outpaint-preview",
+  footerSelectors = [".image-outpaint-output", ".image-outpaint-position"] }) {
   const document = root.ownerDocument;
   const panel = document.querySelector(".result-panel");
   const resultStage = document.querySelector("#resultStage");
@@ -19,20 +21,20 @@ export function bindImageOutpaintWorkspace({ root, onHide = () => {}, now = Date
   };
   const tabs = create("div", "outpaint-workspace-tabs hidden");
   tabs.setAttribute("role", "tablist");
-  tabs.setAttribute("aria-label", "扩图工作区");
+  tabs.setAttribute("aria-label", label);
   const workspace = create("section", "outpaint-workspace hidden");
-  workspace.id = "imageOutpaintWorkspace";
+  workspace.id = `${prefix}Workspace`;
   workspace.setAttribute("role", "tabpanel");
-  workspace.setAttribute("aria-labelledby", "imageOutpaintPreviewTab");
+  workspace.setAttribute("aria-labelledby", `${prefix}PreviewTab`);
   const canvas = create("div", "outpaint-workspace-canvas");
   const footer = create("div", "outpaint-workspace-footer");
-  canvas.append(root.querySelector(".image-outpaint-preview"));
-  footer.append(root.querySelector(".image-outpaint-output"), root.querySelector(".image-outpaint-position"));
+  canvas.append(root.querySelector(previewSelector));
+  footer.append(...footerSelectors.map(selector => root.querySelector(selector)));
   workspace.append(canvas, footer);
 
   const choices = [
-    { key: "preview", id: "imageOutpaintPreviewTab", label: "构图预览", controls: workspace.id },
-    { key: "result", id: "imageOutpaintResultTab", label: "生成结果", controls: resultStage.id },
+    { key: "preview", id: `${prefix}PreviewTab`, label: previewLabel, controls: workspace.id },
+    { key: "result", id: `${prefix}ResultTab`, label: "生成结果", controls: resultStage.id },
   ].map((choice) => {
     const button = create("button", "outpaint-workspace-tab");
     button.type = "button";
@@ -70,7 +72,7 @@ export function bindImageOutpaintWorkspace({ root, onHide = () => {}, now = Date
     });
     if (active) {
       resultStage.setAttribute("role", "tabpanel");
-      resultStage.setAttribute("aria-labelledby", "imageOutpaintResultTab");
+      resultStage.setAttribute("aria-labelledby", `${prefix}ResultTab`);
     } else {
       for (const [name, value] of [["role", originalRole], ["aria-labelledby", originalLabel]]) {
         if (value === null) resultStage.removeAttribute(name);
@@ -102,6 +104,7 @@ export function bindImageOutpaintWorkspace({ root, onHide = () => {}, now = Date
   render();
   return {
     setActive(value) {
+      if (active === Boolean(value)) return;
       active = Boolean(value);
       render();
     },
@@ -137,3 +140,5 @@ export function bindImageOutpaintWorkspace({ root, onHide = () => {}, now = Date
     },
   };
 }
+
+export function bindImageOutpaintWorkspace(options) { return bindImageToolWorkspace(options); }

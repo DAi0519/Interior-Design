@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 model-capabilities 的按功能尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
- * [OUTPUT]: 对外提供八功能文案、风格转换空间图/补充要求、全景 2:1 模型准入与源图校验、包含全景实验档的共享输出控件状态
+ * [OUTPUT]: 对外提供按任务选择顺序排列且含完整名称的十功能文案目录、独立AI超分图像任务、风格转换空间图/补充要求、全景2:1准入与普通输出控件状态
  * [POS]: public 的 Beta 功能与模型纯规则层，供页面编排、持久配置和测试复用，不读取 DOM 或图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,14 +8,16 @@
 import { sizeControlState } from "./model-capabilities.js";
 
 export const BETA_FEATURE_COPY = Object.freeze({
-  effectBeautification: { label: "效果图美化", prompt: "", promptConfig: "effectBeautificationPrompt", source: "待美化效果图" },
-  effectEnhancement: { label: "效果图氛围转换", prompt: "", promptConfig: "effectEnhancementPrompt", source: "待转换效果图" },
-  emptyRoom: { prompt: "补充要求（可选）", source: "空房图" },
-  free: { prompt: "提示词", source: "" },
-  panoramaEnhancement: { label: "全景图美化", prompt: "", promptConfig: "panoramaEnhancementPrompt", source: "待美化全景图" },
-  refinedModel: { prompt: "自定义要求（可选）", source: "带材质精模图" },
+  whiteModel: { label: "白模渲染", prompt: "补充要求（可选）", source: "白模图" },
+  emptyRoom: { label: "空房设计", prompt: "补充要求（可选）", source: "空房图" },
   styleTransfer: { label: "风格转换", prompt: "补充要求（可选）", source: "待转换空间图" },
-  whiteModel: { prompt: "补充要求（可选）", source: "白模图" },
+  refinedModel: { label: "精模渲染", prompt: "自定义要求（可选）", source: "带材质精模图" },
+  effectEnhancement: { label: "效果图氛围转换", prompt: "", promptConfig: "effectEnhancementPrompt", source: "待转换效果图" },
+  effectBeautification: { label: "效果图美化", prompt: "", promptConfig: "effectBeautificationPrompt", source: "待美化效果图" },
+  panoramaEnhancement: { label: "全景图美化", prompt: "", promptConfig: "panoramaEnhancementPrompt", source: "待美化全景图" },
+  free: { label: "自由生图", prompt: "提示词", source: "" },
+  imageOutpaint: { label: "AI扩图", prompt: "", source: "待扩图图片" },
+  imageUpscale: { label: "AI超分", prompt: "", source: "待超分图片" },
 });
 
 export function betaModelSelectable(model, featureMode) {

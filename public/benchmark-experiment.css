@@ -136,8 +136,7 @@
 }
 
 .experiment-variable-picker .custom-select-trigger,
-.experiment-variable-picker .custom-select-value strong,
-.experiment-variable-picker .custom-select-option strong {
+.experiment-variable-picker .model-picker-primary {
   font-size: 12px;
 }
 

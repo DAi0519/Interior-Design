@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、Beta 设计配置控制器、八功能目录、轻量页面状态及共享参考图资产打包器
- * [OUTPUT]: 对外提供 Beta 风格转换明确目标/两路独立版本、真实下拉切换与参考图互斥/删除重选、八功能恢复和多样本共享参考图去重回归保障
+ * [INPUT]: 依赖 node:test/assert、Beta 设计配置控制器、十功能目录、轻量页面状态及共享参考图资产打包器
+ * [OUTPUT]: 对外提供 Beta 风格转换明确目标/两路独立版本、真实下拉切换与参考图互斥/删除重选、十功能恢复和多样本共享参考图去重回归保障
  * [POS]: test 的 Beta 风格转换浏览器合同测试，使用内存 DOM/配置替身，不调用模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,8 +39,8 @@ function fixture(restoredPageState = { featureMode: "whiteModel", controls: {} }
   return { controller, elements, state };
 }
 
-test("Beta 第八功能提供空间图和补充要求，缺目标及旧智能默认均不可入队", () => {
-  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 8);
+test("Beta 十功能目录保留风格转换空间图和补充要求，缺目标及旧智能默认均不可入队", () => {
+  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 10);
   assert.equal(BETA_FEATURE_COPY.styleTransfer.source, "待转换空间图");
   assert.equal(BETA_FEATURE_COPY.styleTransfer.prompt, "补充要求（可选）");
   for (const renderMode of ["", "smart-default", "style-dna"]) {
@@ -104,7 +104,7 @@ test("Beta 下拉不继承白模风格或自动首项，参考图上传锁平台
   assert.equal(elements.styleSelect.value, style.code);
 });
 
-test("Beta 恢复参考图模式但不保存图片，重新上传前阻断，八功能样本选择完整往返", () => {
+test("Beta 恢复参考图模式但不保存图片，重新上传前阻断，十功能样本选择完整往返", () => {
   const values = new Map();
   const storage = { getItem: (key) => values.get(key), setItem: (key, value) => values.set(key, value) };
   const sampleSetIds = Object.fromEntries(Object.keys(BETA_FEATURE_COPY).map((feature) => [feature, `SET-${feature}`]));

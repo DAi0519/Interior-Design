@@ -1,11 +1,12 @@
 /**
  * [INPUT]: 依赖真实 MaaS 扩图工作流适配器、来源身份、几何规则与通用 ComfyUI 客户端选项
- * [OUTPUT]: 对外提供 4K 输入准入/原图预处理取整、OneReward FP8/Flux Fill dev 选择与身份追溯、其余采样链路保真、MaaS 传输替换和请求隔离测试
+ * [OUTPUT]: 对外提供 4K 输入准入/原图预处理取整、模型选择与身份追溯、原 Janus/采样链路保真、实际 Prompt 输出捕获、MaaS 传输替换和请求隔离测试
  * [POS]: test 的 AI 扩图执行图契约验证，不访问远端或提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   IMAGE_OUTPAINT_CLIENT_OPTIONS,
@@ -35,7 +36,7 @@ test("扩图来源保持 prod_test 参数身份，策略 ID 仅作为截图线�
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.maasParameterId, 1082);
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.maasStrategyHint, 643);
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourceStage, "prod_test");
-  assert.equal(IMAGE_OUTPAINT_WORKFLOW.version, "2026-10-15.3");
+  assert.equal(IMAGE_OUTPAINT_WORKFLOW.version, "2026-10-19.1");
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourceUpdatedAt, "2026-09-10");
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourceSha256, "64684baf682a0a744a03c788928507859bc14160954751a6f3d78c626be47ce1");
   assert.equal(IMAGE_OUTPAINT_WORKFLOW.sourcePromptSha256, "2a68c653f0074da5a68324d0dbbdd2801b2b5792d955dca27765fedbd420d37f");
@@ -92,7 +93,9 @@ test("扩图保留 Janus 自动描述、Flux Fill OneReward 与原采样参数",
   assert.equal(graph.describe.inputs.top_p, 0.95);
   assert.equal(graph.describe.inputs.max_new_tokens, 999);
   assert.match(graph.describe.inputs.question, /用于AI扩图（Outpainting）/);
-  assert.deepEqual(graph["positive-encode"].inputs.text, ["describe", 0]);
+  assert.equal(createHash("sha256").update(graph.describe.inputs.question).digest("hex"), "95dbfb3ae3149d040f42de50d48ee04f4bdd699d4cda4519a455b0d27fb13c6c");
+  assert.deepEqual(graph["positive-encode"].inputs.text, ["prompt-output", 0]);
+  assert.deepEqual(graph["prompt-output"].inputs.text, ["describe", 0]);
   assert.equal(graph.model.inputs.unet_name, "flux1-fill-dev-OneReward-fp8.safetensors");
   assert.equal(graph.model.inputs.weight_dtype, "fp8_e4m3fn");
   assert.equal(graph.differential.inputs.strength, 1);
@@ -122,7 +125,7 @@ test("扩图模型只切换UNET文件与dtype，默认保持OneReward FP8且请�
     assert.equal(metadata.model, fileName);
     assert.equal(metadata.outpaintModel, key);
     assert.equal(metadata.weightDtype, weightDtype);
-    assert.equal(metadata.workflowVersion, "2026-10-15.3");
+    assert.equal(metadata.workflowVersion, "2026-10-19.1");
   }
   assert.deepEqual(createImageOutpaintWorkflow(options).model, baseline.model);
   assert.throws(() => createImageOutpaintWorkflow({ ...options, generationRequest: { expansion, outpaintModel: "unknown" } }), (error) => error.statusCode === 400);
@@ -130,7 +133,7 @@ test("扩图模型只切换UNET文件与dtype，默认保持OneReward FP8且请�
 
 test("扩图适配替换 MaaS 传输与4K准入，所有结果依赖闭合且逐请求隔离", () => {
   const graph = createImageOutpaintWorkflow(options);
-  assert.equal(Object.keys(graph).length, 18);
+  assert.equal(Object.keys(graph).length, 19);
   assert.deepEqual(graph.input, {
     class_type: "easy loadImageBase64",
     inputs: { base64_data: options.imageBase64, image_output: "Hide", save_prefix: "CanvasLab_Outpaint_Input_outpaint-request-123" },
@@ -139,6 +142,10 @@ test("扩图适配替换 MaaS 传输与4K准入，所有结果依赖闭合且逐
     class_type: "SaveImage",
     inputs: { filename_prefix: imageOutpaintArtifactPrefix(options.artifactKey), images: ["decode", 0] },
   });
+  assert.deepEqual(graph["prompt-output"], {
+    class_type: "SaveText",
+    inputs: { text: ["describe", 0], filename_prefix: "CanvasLab_Outpaint_outpaint-request-123_prompt", format: "txt" },
+  });
   for (const node of Object.values(graph)) {
     assert.ok(!["MaaSInputInt", "MaaSInputString", "MaaSUrlLoader", "MaaSReportImage", "easy showAnything"].includes(node.class_type));
     for (const value of Object.values(node.inputs)) {
@@ -146,6 +153,7 @@ test("扩图适配替换 MaaS 传输与4K准入，所有结果依赖闭合且逐
     }
   }
   assert.ok(IMAGE_OUTPAINT_REQUIRED_NODES.includes("JanusImageUnderstanding"));
+  assert.ok(IMAGE_OUTPAINT_REQUIRED_NODES.includes("SaveText"));
   assert.ok(IMAGE_OUTPAINT_REQUIRED_NODES.includes("LayerUtility: ImageScaleByAspectRatio V2"));
   assert.ok(IMAGE_OUTPAINT_REQUIRED_MODELS.some((model) => model.inputName === "unet_name" && model.value === graph.model.inputs.unet_name));
   graph.model.inputs.unet_name = "不得污染下一请求";
@@ -156,6 +164,7 @@ test("扩图适配替换 MaaS 传输与4K准入，所有结果依赖闭合且逐
   assert.equal(next["check-size"].inputs.max_height, 4096);
   assert.equal(next.sample.inputs.seed, 456);
   assert.equal(next.output.inputs.filename_prefix, "CanvasLab_Outpaint_outpaint-request-456");
+  assert.equal(next["prompt-output"].inputs.filename_prefix, "CanvasLab_Outpaint_outpaint-request-456_prompt");
 });
 
 test("扩图工作流拒绝非法输入身份、边值与随机种子", () => {
@@ -190,4 +199,25 @@ test("扩图元数据保留实际尺寸、请求目标与来源指纹，禁止�
   const unknown = imageOutpaintWorkflowMetadata(options);
   assert.equal(unknown.outputWidth, undefined);
   assert.equal(unknown.outputHeight, undefined);
+});
+
+test("Flux归档元数据只捕获当前History唯一实际文本，缺失或非法时不伪造", () => {
+  const finalPrompt = "  A warm room with windows, extending the existing view.\n";
+  const metadata = imageOutpaintWorkflowMetadata({ ...options,
+    historyOutputs: { "prompt-output": { text: [finalPrompt] } },
+  });
+  assert.equal(metadata.finalPrompt, finalPrompt);
+  assert.equal(metadata.finalPromptCaptured, true);
+  assert.equal(metadata.promptSource, "Janus-Pro-1B");
+  assert.equal(metadata.promptGenerator.model, "deepseek-ai/Janus-Pro-1B");
+  assert.equal(metadata.promptGenerator.seed, 298596445848600);
+  assert.equal(metadata.promptGenerator.imageSource, "original-before-padding");
+  for (const text of [undefined, null, [], [""], [" \n "], [null], [42], ["a", "b"], "raw string"]) {
+    const absent = imageOutpaintWorkflowMetadata({ ...options,
+      generationRequest: { ...options.generationRequest, prompt: "不能冒充实际生成正文" },
+      historyOutputs: { "prompt-output": { text } },
+    });
+    assert.equal(absent.finalPrompt, "");
+    assert.equal(absent.finalPromptCaptured, false);
+  }
 });

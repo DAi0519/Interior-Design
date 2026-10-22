@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-21T10:37:51.569Z",
+  "recordId": "reczz28Q1sQWPsYh",
+  "checks": [
+    {
+      "field": "参考图",
+      "bytes": 78681,
+      "sha256": "a0e80ee1489c0a74f18b52cb83e95f8fd01c434ebfc3a7b0fb03dc7c7bd77f68",
+      "verified": true
+    },
+    {
+      "field": "结果图",
+      "bytes": 1599803,
+      "sha256": "ed66212fa2d518cfc9d5a64fb59f43588e7daf16461372b9e3a5cd321b969e09",
+      "verified": true
+    },
+    {
+      "field": "遮罩图",
+      "bytes": 33175,
+      "sha256": "c9726df25fcf0be9c1329e4ee98155d36989aa361717b33f0ebdab35768b09b2",
+      "verified": true
+    }
+  ],
+  "verified": true
+}

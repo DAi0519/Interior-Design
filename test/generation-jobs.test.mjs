@@ -62,7 +62,8 @@ test("飞书同步合同未通过时不创建付费生成任务", async () => {
     sendJson(_rawResponse, statusCode, body) {
       response = { body, statusCode };
     },
-    verifySyncContract: async () => {
+    verifySyncContract: async (...args) => {
+      assert.deepEqual(args, [], "普通生图保持原有合同范围，不要求遮罩字段");
       throw new Error("“生图模型”字段缺少选项：Seedream 5.0 Pro");
     },
   });

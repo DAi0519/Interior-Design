@@ -1,64 +1,35 @@
 /**
- * [INPUT]: 依赖 .compact-config-field 与 .field 内的原生 select 选项、可选 data-dropdown-placement/data-searchable、model-multi-select 的共享搜索单选控件、禁用/change 语义与浏览器指针/焦点生命周期
- * [OUTPUT]: 对外提供与原生值同步的常规下拉及声明式搜索单选增强、向上/向下菜单定位、跨浏览器稳定指针选择和完整键盘操作，并导出指针焦点稳定器与搜索单选适配器
- * [POS]: public 的表单渐进增强层，统一 Style DNA、场景融合 Agent、风格、反推模型、参数与 Benchmark 下拉视觉；搜索分支保留原生表单值与 change 合同
+ * [INPUT]: 依赖原生 select 的值/change/禁用/动态选项，以及 choice-select 共享组件库
+ * [OUTPUT]: 原生 select 渐进增强、搜索/普通单选共用渲染器，保持表单值和变更事件合同
+ * [POS]: public 表单适配层；所有页面及动态插入 select 统一接入组件，不维护第二套下拉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { bindChoiceSelect } from "./choice-select.js?v=1";
+export { stabilizePointerFocus } from "./choice-select.js?v=1";
 
-import { bindSearchableChoice } from "./model-multi-select.js?v=4";
-
-function optionCopy(option) {
-  const [label, ...details] = option.textContent.split(" · ");
-  return { detail: details.join(" · "), label };
-}
-
-function renderOptionCopy(container, text) {
-  const label = document.createElement("strong");
-  const detail = document.createElement("small");
-  label.textContent = text.label;
-  detail.textContent = text.detail;
-  detail.hidden = !text.detail;
-  container.replaceChildren(label, detail);
-}
-
-function checkIcon() {
-  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  icon.setAttribute("aria-hidden", "true");
-  icon.setAttribute("viewBox", "0 0 16 16");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "m3.5 8.2 2.7 2.7 6.3-6.3");
-  icon.append(path);
-  return icon;
-}
-
-export function stabilizePointerFocus(event, item) {
-  if (event.isPrimary === false || event.button !== 0) return false;
-  event.preventDefault();
-  item.focus({ preventScroll: true });
-  return true;
-}
-
-export function enhanceSearchableSelect(select, bindChoice = bindSearchableChoice) {
+export function enhanceSearchableSelect(select, bindChoice = bindChoiceSelect, { searchable = true } = {}) {
   const doc = select.ownerDocument || document;
   const root = doc.createElement("div");
   select.insertAdjacentElement("afterend", root);
   const picker = bindChoice({
     container: root,
-    label: select.getAttribute("aria-label") || "选择选项",
+    label: select.getAttribute("aria-label") || select.labels?.[0]?.querySelector?.("span")?.textContent.trim()
+      || [...(select.labels?.[0]?.childNodes || [])].filter(node => node.nodeType === 3).map(node => node.textContent).join("").trim() || "选择选项",
+    searchable, placement: select.dataset.dropdownPlacement || "auto",
     multiple: false,
     placeholder: select.dataset.placeholder || "请选择",
     searchPlaceholder: select.dataset.searchPlaceholder || "搜索选项名称",
     presentOption: (option) => ({ label: option.label, selectable: !option.disabled }),
     onChange(keys) {
       const option = [...select.options].find((entry) => entry.value === keys[0]);
-      if (!option || !option.value || option.disabled || option.parentElement?.disabled === true || select.disabled) return;
+      if (!option || (searchable && !option.value) || option.disabled || option.parentElement?.disabled === true || select.disabled) return;
       select.value = option.value;
       select.dispatchEvent(new Event("change", { bubbles: true }));
     },
   });
 
   function sync() {
-    const catalog = [...select.options].filter((option) => option.value && !option.hidden)
+    const catalog = [...select.options].filter((option) => (!searchable || option.value) && !option.hidden)
       .map((option) => ({ key: option.value, label: option.textContent,
         disabled: option.disabled || option.parentElement?.disabled === true }));
     root.hidden = select.hidden || select.classList.contains("hidden");
@@ -68,165 +39,43 @@ export function enhanceSearchableSelect(select, bindChoice = bindSearchableChoic
 
   select.addEventListener("change", sync);
   const Observer = doc.defaultView?.MutationObserver || MutationObserver;
-  new Observer(sync).observe(select, { attributes: true, childList: true, subtree: true });
+  const observer = new Observer(sync);
+  observer.observe(select, { attributes: true, childList: true, subtree: true });
   sync();
-  return picker;
+  return { ...picker, destroy() {
+    observer.disconnect();
+    select.removeEventListener("change", sync);
+    picker.destroy();
+    root.remove();
+    delete select.dataset.enhanced;
+  } };
 }
 
-function enhanceSelect(select) {
+const enhancedSelects = new Map();
+
+export function enhanceSelect(select) {
   if (select.dataset.enhanced === "true") return;
   select.dataset.enhanced = "true";
   select.classList.add("custom-select-native");
-  if (select.dataset.searchable === "true") {
-    enhanceSearchableSelect(select);
-    return;
-  }
-
-  const root = document.createElement("div");
-  const trigger = document.createElement("button");
-  const value = document.createElement("span");
-  const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  const chevronPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  const menu = document.createElement("div");
-  const menuId = `${select.id}-menu`;
-
-  root.className = "custom-select";
-  root.classList.toggle(
-    "custom-select--top",
-    select.dataset.dropdownPlacement === "top",
-  );
-  trigger.className = "custom-select-trigger";
-  trigger.type = "button";
-  trigger.setAttribute("aria-controls", menuId);
-  trigger.setAttribute("aria-expanded", "false");
-  trigger.setAttribute("aria-haspopup", "listbox");
-  trigger.setAttribute("role", "combobox");
-  value.className = "custom-select-value";
-  chevron.classList.add("custom-select-chevron");
-  chevron.setAttribute("aria-hidden", "true");
-  chevron.setAttribute("viewBox", "0 0 16 16");
-  chevronPath.setAttribute("d", "m4 6 4 4 4-4");
-  chevron.append(chevronPath);
-  trigger.append(value, chevron);
-  menu.className = "custom-select-menu";
-  menu.hidden = true;
-  menu.id = menuId;
-  menu.setAttribute("role", "listbox");
-  root.append(trigger, menu);
-  select.insertAdjacentElement("afterend", root);
-
-  function enabledItems() {
-    return [...menu.querySelectorAll(".custom-select-option:not(:disabled)")];
-  }
-
-  function close({ focusTrigger = false } = {}) {
-    root.classList.remove("open");
-    trigger.setAttribute("aria-expanded", "false");
-    menu.hidden = true;
-    if (focusTrigger) trigger.focus();
-  }
-
-  function focusItem(direction = 0) {
-    const items = enabledItems();
-    if (items.length === 0) return;
-    const currentIndex = items.indexOf(document.activeElement);
-    const selectedIndex = items.findIndex(
-      (item) => item.getAttribute("aria-selected") === "true",
-    );
-    const baseIndex = currentIndex >= 0 ? currentIndex : selectedIndex;
-    const nextIndex = baseIndex < 0
-      ? direction < 0 ? items.length - 1 : 0
-      : (baseIndex + direction + items.length) % items.length;
-    items[nextIndex].focus();
-  }
-
-  function open() {
-    if (trigger.disabled) return;
-    root.classList.add("open");
-    trigger.setAttribute("aria-expanded", "true");
-    menu.hidden = false;
-    window.requestAnimationFrame(() => focusItem());
-  }
-
-  function sync() {
-    const selected = select.selectedOptions[0] || select.options[0];
-    if (selected) renderOptionCopy(value, optionCopy(selected));
-    else value.textContent = "请选择";
-    trigger.disabled = select.disabled;
-    trigger.setAttribute("aria-label", select.getAttribute("aria-label") || value.textContent);
-    menu.replaceChildren(
-      ...[...select.options].map((option) => {
-        const item = document.createElement("button");
-        const copy = document.createElement("span");
-        const text = optionCopy(option);
-        item.className = "custom-select-option";
-        item.type = "button";
-        item.disabled = option.disabled;
-        item.setAttribute("aria-selected", String(option.selected));
-        item.setAttribute("role", "option");
-        renderOptionCopy(copy, text);
-        item.append(copy, checkIcon());
-        item.addEventListener("pointerdown", (event) => {
-          stabilizePointerFocus(event, item);
-        });
-        item.addEventListener("click", () => {
-          select.value = option.value;
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-          sync();
-          close({ focusTrigger: true });
-        });
-        return item;
-      }),
-    );
-  }
-
-  trigger.addEventListener("click", () => {
-    if (root.classList.contains("open")) close();
-    else open();
-  });
-  trigger.addEventListener("keydown", (event) => {
-    if (!["ArrowDown", "ArrowUp", "Escape"].includes(event.key)) return;
-    event.preventDefault();
-    if (event.key === "Escape") close();
-    else open();
-  });
-  menu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close({ focusTrigger: true });
-    } else if (event.key === "Enter" || event.key === " ") {
-      const item = document.activeElement;
-      if (!item?.classList.contains("custom-select-option")) return;
-      event.preventDefault();
-      item.click();
-    } else if (["ArrowDown", "ArrowUp"].includes(event.key)) {
-      event.preventDefault();
-      focusItem(event.key === "ArrowDown" ? 1 : -1);
-    } else if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      const items = enabledItems();
-      items[event.key === "Home" ? 0 : items.length - 1]?.focus();
-    }
-  });
-  root.addEventListener("focusout", () => {
-    window.requestAnimationFrame(() => {
-      if (!root.contains(document.activeElement)) close();
-    });
-  });
-  document.addEventListener("pointerdown", (event) => {
-    if (!root.contains(event.target)) close();
-  });
-  select.addEventListener("change", sync);
-  new MutationObserver(sync).observe(select, {
-    attributes: true,
-    childList: true,
-    subtree: true,
-  });
-  sync();
+  select.tabIndex = -1;
+  select.setAttribute("aria-hidden", "true");
+  const picker = enhanceSearchableSelect(select, bindChoiceSelect, { searchable: select.dataset.searchable === "true" });
+  enhancedSelects.set(select, picker);
+  return picker;
 }
 
 if (typeof document !== "undefined") {
-  document
-    .querySelectorAll(".compact-config-field select, .field select")
-    .forEach(enhanceSelect);
+  const enhanceWithin = (root) => {
+    if (root.matches?.("select")) enhanceSelect(root);
+    root.querySelectorAll?.("select").forEach(enhanceSelect);
+  };
+  enhanceWithin(document);
+  new MutationObserver(records => {
+    for (const record of records) for (const node of record.addedNodes) enhanceWithin(node);
+    if (records.some(record => record.removedNodes.length)) {
+      for (const [select, picker] of enhancedSelects) {
+        if (!select.isConnected) { picker.destroy(); enhancedSelects.delete(select); }
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
 }

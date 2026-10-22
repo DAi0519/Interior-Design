@@ -1,0 +1,176 @@
+{
+  "ok": true,
+  "identity": "user",
+  "data": {
+    "data": [
+      [
+        "image1: <|vision_start|><|image_pad|…",
+        null,
+        null,
+        null,
+        "image1: <|vision_start|><|image_pad|><|vision_end|> 这个灯换一个造型",
+        null,
+        null,
+        10,
+        [
+          "提示词填充"
+        ],
+        null,
+        [
+          "遮罩填充"
+        ],
+        "{\"outputFormat\":\"png\",\"referenceImageCount\":1,\"resolution\":\"1536px-crop\",\"sizeMode\":\"preset\",\"transport\":\"comfyui-workflow\",\"workflow\":{\"promptId\":\"6115b435-0e18-4850-8dea-e92d563443a5\",\"mode\":\"prompt\",\"inferenceSize\":1536,\"maskExpand\":10,\"version\":\"2026-10-21.local.1\",\"sourceWidth\":864,\"sourceHeight\":1184,\"sourceSha256Actual\":\"a0e80ee1489c0a74f18b52cb83e95f8fd01c434ebfc3a7b0fb03dc7c7bd77f68\",\"maskSha256\":\"c9726df25fcf0be9c1329e4ee98155d36989aa361717b33f0ebdab35768b09b2\",\"referenceSha256\":null,\"outputWidth\":1536,\"outputHeight\":2105,\"outputSha256\":\"ed66212fa2d518cfc9d5a64fb59f43588e7daf16461372b9e3a5cd321b969e09\",\"model\":\"flux-2-klein-9b.safetensors\",\"clip\":\"qwen_3_8b.safetensors\",\"vae\":\"flux2-vae.safetensors\",\"seed\":4123860889,\"steps\":4,\"cfg\":1,\"sampler\":\"euler_ancestral\",\"workflowId\":\"flux2-mask-fill\",\"workflowVersion\":\"2026-10-21.local.1\",\"feature\":\"image-mask-fill\",\"provider\":\"comfyui\",\"sourcePrompt\":\"这个灯换一个造型\",\"prompt\":\"image1: <|vision_start|><|image_pad|><|vision_end|> 这个灯换一个造型\",\"promptSource\":\"same completed MaaS prompt history\",\"finalPromptCaptured\":true,\"inferenceTier\":\"legacy-1536\",\"inferenceWidth\":1536,\"inferenceHeight\":1536,\"inferenceDimensionSource\":\"configured-target\",\"preresize\":true,\"outputPolicy\":\"legacy complete stitched frame; predates 2K output contract\",\"durationSource\":\"same-history execution_start to execution_success; excludes workbench upload/download overhead\",\"inputProvenance\":\"executed input bytes recovered from same prompt history; original upload file not independently retained\",\"backfilled\":true,\"syncMode\":\"lark\",\"generationId\":\"history-backfill-e54faebf-4e58-41a6-a684-faf8b346a228\",\"attachmentManifest\":{\"参考图\":[{\"size\":78681,\"sha256\":\"a0e80ee1489c0a74f18b52cb83e95f8fd01c434ebfc3a7b0fb03dc7c7bd77f68\"}],\"结果图\":[{\"size\":1599803,\"sha256\":\"ed66212fa2d518cfc9d5a64fb59f43588e7daf16461372b9e3a5cd321b969e09\"}],\"遮罩图\":[{\"size\":33175,\"sha256\":\"c9726df25fcf0be9c1329e4ee98155d36989aa361717b33f0ebdab35768b09b2\"}],\"填充参考图\":[]}}}",
+        null,
+        null,
+        null,
+        [
+          {
+            "file_token": "Rrlfb57xRoCnyWxzl0FcSH0qnff",
+            "name": "1-Japandi Living Room at Dusk with Hashira Pendant.jpg",
+            "size": 78681
+          }
+        ],
+        [
+          "成功"
+        ],
+        [
+          {
+            "file_token": "CFzobPHkDo83cvxHUl4cJ7XWnSd",
+            "name": "mask-1-lamp-edit-mask.png",
+            "size": 33175
+          }
+        ],
+        [
+          "Flux2 Klein 9B · 遮罩填充"
+        ],
+        null,
+        null,
+        1536,
+        "2026-10-21T18:34:40.000+08:00",
+        65.18,
+        "1536x2105",
+        null,
+        null,
+        null,
+        null,
+        "2026-10-21.local.1",
+        "这个灯换一个造型",
+        [
+          {
+            "file_token": "GCTRbp5qwoSVvQx7WsBcrnOxnec",
+            "name": "result.png",
+            "size": 1599803
+          }
+        ]
+      ]
+    ],
+    "field_id_list": [
+      "fldC6057RG",
+      "fld4Ea69sd",
+      "fld4lYOiiq",
+      "fldBos4ORm",
+      "fldC6yMCjr",
+      "fldcI2tbY7",
+      "fldcKZPV6R",
+      "fldcqDvkUO",
+      "flddqjL9wJ",
+      "fldebCPxw0",
+      "fldEk1SSQH",
+      "fldFa7I59b",
+      "fldFHmAsEU",
+      "fldFxH3Sxj",
+      "fldHhGC7mK",
+      "fldhktY1vR",
+      "fldiAI0qXX",
+      "fldixadR57",
+      "fldIY0AFm9",
+      "fldk00xwg6",
+      "fldMUuRBfx",
+      "fldN3by7qP",
+      "fldOEbyVPH",
+      "fldPXjDPeM",
+      "fldqHQkgI8",
+      "flduo2YBRt",
+      "fldw8T8yZd",
+      "fldWGoQJ8R",
+      "fldyagIGmO",
+      "fldZdwpEiM",
+      "fldZN136tk",
+      "fldZPmZ1YY"
+    ],
+    "field_type_list": [
+      "text",
+      "text",
+      "text",
+      "attachment",
+      "text",
+      "text",
+      "number",
+      "number",
+      "select",
+      "text",
+      "select",
+      "text",
+      "select",
+      "attachment",
+      "select",
+      "attachment",
+      "select",
+      "attachment",
+      "select",
+      "select",
+      "text",
+      "number",
+      "created_at",
+      "number",
+      "text",
+      "text",
+      "number",
+      "select",
+      "number",
+      "text",
+      "text",
+      "attachment"
+    ],
+    "fields": [
+      "标题",
+      "镜头指令版本",
+      "其他空间类型",
+      "填充参考图",
+      "最终 Prompt",
+      "Agent 编码",
+      "Agent 版本",
+      "遮罩扩展（px）",
+      "遮罩填充模式",
+      "风格选择",
+      "功能",
+      "生成参数",
+      "设计方式",
+      "风格参考图",
+      "空间类型",
+      "参考图",
+      "状态",
+      "遮罩图",
+      "生图模型",
+      "Prompt融合",
+      "家具选择",
+      "局部推理尺寸（px）",
+      "创建时间",
+      "耗时（秒）",
+      "尺寸",
+      "错误信息",
+      "俯仰角度（°）",
+      "景别",
+      "水平角度（°）",
+      "遮罩工作流版本",
+      "原始 Prompt",
+      "结果图"
+    ],
+    "has_more": false,
+    "record_id_list": [
+      "reczz28Q1sQWPsYh"
+    ],
+    "rev": 5640,
+    "timezone": "Asia/Shanghai"
+  }
+}

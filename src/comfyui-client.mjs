@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Node fetch/WebSocket/crypto、可注入的 ComfyUI 工作流/输出节点/产物命名/元数据适配器、单张已校验图片、可覆盖服务地址/排队时限/执行时限与可选取消信号，默认适配 Flux2 Klein 1K/2K 工作流
- * [OUTPUT]: 对外提供 ComfyUI 健康/节点与模型目录读取、Base64 单图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、最终输出读取恢复与含真实尺寸/SHA-256 身份的统一 generateImage 结果
+ * [OUTPUT]: 对外提供 ComfyUI 健康/节点与模型目录读取、Base64 单图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、最终输出读取恢复与含真实尺寸/SHA-256身份的generateImage结果，并向元数据适配器传递当前History输出以捕获实际Prompt
  * [POS]: src 的通用 ComfyUI 传输边界，与 oneapi-client.mjs 并列并让 Flux 生图、SeedVR2 超分及 AI 扩图复用同一异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -609,6 +609,7 @@ export function createComfyUiClient({
           created: times.created,
           images: [{ url: downloaded.url }],
           metadata: workflowMetadataFactory({
+            historyOutputs: history.outputs,
             actualOutputHeight: downloaded.height,
             actualOutputWidth: downloaded.width,
             artifactKey,

@@ -1,0 +1,85 @@
+{
+  "checkedAt": "2026-10-19T04:12:46.660Z",
+  "status": "actual-prompt-and-feishu-readback-passed",
+  "gpuRuns": 2,
+  "tests": {
+    "passed": 812,
+    "failed": 0
+  },
+  "engines": {
+    "qwen": {
+      "promptId": "038c12ef-9b96-4fcd-aca2-621a708dedf7",
+      "artifactKey": "7b400861-7303-4e44-a4e5-283253b57648",
+      "workflowVersion": "2026-10-19.3",
+      "inferenceSize": [
+        888,
+        1184
+      ],
+      "outputSize": [
+        1536,
+        2048
+      ],
+      "executionDurationMs": 81452,
+      "queueDurationMs": 932,
+      "bytes": 2042338,
+      "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28P8G9gC4Vt",
+      "recordId": "reczz28P8G9gC4Vt",
+      "promptLength": 1353,
+      "finalPromptMatches": true,
+      "finalPromptCaptured": true,
+      "promptSource": "Janus-Pro-1B + QWEN_OUTPAINT_PROMPT",
+      "promptSha256": "7feb650f3ca43bb70c90142087beab3f27ec04f2234b3332623b2f679c5938d6",
+      "outputSha256": "87ba234d5be8898b986628089bab2e909728160d0e9727d14e0b13e0686c9805"
+    },
+    "flux": {
+      "promptId": "c3e82fb5-5404-4fdf-b917-d7d57b4c54c3",
+      "artifactKey": "b2f91999-260b-42e8-8715-c677a5cd6896",
+      "workflowVersion": "2026-10-19.1",
+      "inferenceSize": null,
+      "outputSize": [
+        1024,
+        768
+      ],
+      "executionDurationMs": 40238,
+      "queueDurationMs": 50162,
+      "bytes": 716558,
+      "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28P8HvQWyYl",
+      "recordId": "reczz28P8HvQWyYl",
+      "promptLength": 422,
+      "finalPromptMatches": true,
+      "finalPromptCaptured": true,
+      "promptSource": "Janus-Pro-1B",
+      "promptSha256": "c00ebf9bd781c2181a95bdf0f8bc6e5491611688a7b89522a1827218987c25a0",
+      "outputSha256": "044981916a7ab39363bb3c1629c8ee5a466215a3c0fbef6e4ccb51a614059b83"
+    }
+  },
+  "runtime": [
+    {
+      "key": "comfyui",
+      "available": true,
+      "workflow": {
+        "key": "image-outpaint",
+        "label": "AI 扩图",
+        "version": "2026-10-19.1"
+      }
+    },
+    {
+      "key": "qwenImageEdit2511",
+      "available": true,
+      "workflow": {
+        "key": "image-outpaint-qwen",
+        "label": "Qwen Image Edit 2511",
+        "version": "2026-10-19.3"
+      }
+    }
+  ],
+  "visual": {
+    "qwen": "本样本窗框/吊灯/沙发结构连续，天花边缘仍可见轻微软过渡；接入Janus不构成全场景无缝保证。",
+    "flux": "本次1K样本扩展了窗帘、侧桌、墙面与地板，未见明显原矩形回贴边界。",
+    "notValidated": [
+      "4K GPU生成",
+      "多场景稳定性",
+      "历史空白Prompt恢复"
+    ]
+  }
+}

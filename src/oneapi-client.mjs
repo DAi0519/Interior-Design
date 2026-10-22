@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、undici Agent、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
+ * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、oneapi-image-async 的后台提交/轮询、undici Agent、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
  * [OUTPUT]: 对外提供按目录/提示词/出图/分析/评审/风格反推独立限时的 OneAPI 客户端与超时策略、主动取消、Prompt Agent 单/双图输入、请求侧图片压缩、图生图、透明 PNG/遮罩原样编辑、4K-token 多图评审与多轮图片/PDF 请求构造、含阶段/模型的脱敏诊断、请求 ID/响应/真实费用归一化与错误脱敏
- * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，其余分析/多模态链路走 Responses，文生图与遮罩编辑分别走 Images generations/edits，并集中记录不含 Key/Prompt/图片正文的失败诊断
+ * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，分析/多模态及无mask异步编辑走 Responses，文生图与透明遮罩编辑走 Images generations/edits，并集中记录不含 Key/Prompt/图片正文的失败诊断
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { fitImageDataUrlForRequest } from "./image-artifact.mjs";
+import { runAsyncImageEdit } from "./oneapi-image-async.mjs";
 import { Agent } from "undici";
 
 const BASE_URL = "https://oneapi.qunhequnhe.com/v1";
@@ -400,19 +401,21 @@ export function createOneApiClient(
     }
   }
 
-  async function request(pathname, options, { model = null, stage }) {
-    const { label, timeoutMs } = ONEAPI_REQUEST_TIMEOUTS[stage];
+  async function request(pathname, options, {
+    model = null, stage, signal: requestSignal = null, timeoutMs: requestTimeoutMs,
+  }) {
+    const { label, timeoutMs: defaultTimeoutMs } = ONEAPI_REQUEST_TIMEOUTS[stage];
+    const timeoutMs = requestTimeoutMs ?? defaultTimeoutMs;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const signal = externalSignal
-      ? AbortSignal.any([controller.signal, externalSignal])
-      : controller.signal;
+    const signal = AbortSignal.any([controller.signal, externalSignal, requestSignal].filter(Boolean));
     const startedAt = Date.now();
     const requestBytes = Buffer.byteLength(String(options.body || ""), "utf8");
     let responseStatus = null;
 
     try {
       externalSignal?.throwIfAborted();
+      requestSignal?.throwIfAborted();
       const response = await fetch(`${BASE_URL}${pathname}`, {
         ...options,
         dispatcher: ONEAPI_DISPATCHER,
@@ -441,6 +444,10 @@ export function createOneApiClient(
         normalizedError = externalSignal.reason instanceof Error
           ? externalSignal.reason
           : new DOMException("用户已停止任务", "AbortError");
+      } else if (requestSignal?.aborted) {
+        normalizedError = requestSignal.reason instanceof Error
+          ? requestSignal.reason
+          : new DOMException("请求已停止", "AbortError");
       } else if (controller.signal.aborted) {
         normalizedError = new OneApiError(
           `${label}超过 ${timeoutMs / 1000} 秒，已停止等待；上游任务可能仍在处理，请勿立即重复提交`,
@@ -634,6 +641,14 @@ export function createOneApiClient(
         method: "POST",
       }, { model: generationRequest.model || null, stage: "image" });
       return imageGenerationResult(body, generationRequest, "images-edits");
+    },
+
+    async editImageAsync(generationRequest, { onSubmitted } = {}) {
+      const body = await runAsyncImageEdit(generationRequest, {
+        request, signal: externalSignal, onSubmitted,
+        timeoutMs: ONEAPI_REQUEST_TIMEOUTS.image.timeoutMs,
+      });
+      return imageGenerationResult(body, generationRequest, "responses-background");
     },
 
     async listModels() {

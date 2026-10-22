@@ -107,7 +107,7 @@ test("Beta 风格转换样本草稿及逐张上传复用主图校验，不要求
     async createSampleSet(value) { saved.push(value); return value; },
     async addSample(_id, value) { saved.push(value); return value; },
   }), generationService: {} });
-  assert.ok(service.config().features.includes(FEATURE));
+  assert.ok((await service.config()).features.includes(FEATURE));
   const draft = await service.createSampleSet({ featureMode: FEATURE, name: "风格转换" });
   assert.equal(draft.featureMode, FEATURE);
   const sample = await service.addSample(SET_ID, { sampleId: SAMPLE_ID, image: { ...source, width: 1, height: 1 } });
@@ -147,11 +147,11 @@ test("Beta 风格转换缺来源、旧智能默认、混合来源、无参考图
   }
 });
 
-test("Beta 风格转换在入队前检查样本功能、成员与 Prompt 基模权限", async () => {
-  for (const changed of [{ featureMode: "whiteModel" }, { samples: [] }]) {
+test("Beta 风格转换在入队前检查样本可用状态、成员与 Prompt 基模权限", async () => {
+  for (const changed of [{ status: "草稿" }, { samples: [] }]) {
     const queue = controlledQueue();
     const service = createBetaRunnerService({ baseStore: fakeStore({ async getSampleSet() { return { ...sampleSet, ...changed }; } }), generationService: {}, jobs: queue.jobs });
-    await assert.rejects(service.start(batch()), /功能.*不一致|不属于/);
+    await assert.rejects(service.start(batch()), /尚未上传完成|不属于/);
     assert.equal(queue.enqueues, 0);
   }
   const models = [{ key: "gemini3pro", label: "Gemini 3.1 Pro", selectable: false }];

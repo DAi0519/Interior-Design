@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 依赖单图安全校验、sharp 方向归一化与等比缩放、共享画幅/分辨率/缩放计划、三引擎工作流合同、归档投影、异步缓存及扩图客户端/阶段回调/同步调度
- * [OUTPUT]: 对外提供三引擎独立准入与脱敏配置、Flux 模型选择、固定画布与真实等比缩放/构图、旧四边校验及真实尺寸通过后附带飞书同步状态的单图结果服务
+ * [INPUT]: 依赖单图安全校验、sharp方向归一化与等比缩放、共享原比例/预设固定2K画幅与缩放计划、三引擎合同、归档投影及扩图客户端/同步调度
+ * [OUTPUT]: 对外提供三引擎独立准入与固定2K脱敏配置、Flux模型选择/枚举校验、Sunburst大图单次等比适配及狭长原比例最小目标补边追溯、真实构图与旧四边2K目标校验、实际尺寸通过后的飞书同步结果
  * [POS]: src 的 AI 扩图应用边界，真实工作流适配器与浏览器任务之间的单一校验入口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import sharp from "sharp";
-import { outpaintCanvasPlan } from "../public/image-outpaint-geometry.js";
+import { OUTPAINT_LONG_EDGE, OUTPAINT_RESOLUTION, assertOutpaintResolution, outpaintCanvasPlan } from "../public/image-outpaint-geometry.js";
 import { createAsyncTtlCache } from "./runtime-cache.mjs";
 import { buildImageOutpaintArchive } from "./image-outpaint-archive.mjs";
 import {
@@ -48,6 +48,7 @@ export function publicImageOutpaintConfig({
     || candidates.find((model) => model.available)?.key || IMAGE_OUTPAINT_DEFAULT_MODEL_KEY;
   return {
     ...IMAGE_OUTPAINT_LIMITS,
+    resolution: OUTPAINT_RESOLUTION,
     available,
     reason: available ? null : reason,
     defaultModelKey,
@@ -80,8 +81,8 @@ export function verifyImageOutpaintCapabilities(objectInfo = {}, outpaintModel =
       const specification = schema.required?.[field] || schema.optional?.[field];
       if (!specification) throw new Error(`扩图节点接口不兼容：${node.class_type}.${field}`);
       if (Array.isArray(value)) continue;
-      const choices = specification[0];
-      if (Array.isArray(choices) && !choices.includes(value)) {
+      const choices = Array.isArray(specification[0]) ? specification[0] : specification[0] === "COMBO" ? specification[1]?.options : null;
+      if (choices && !choices.includes(value)) {
         throw new Error(`扩图节点缺少配置项：${node.class_type}.${field} = ${value}`);
       }
     }
@@ -168,9 +169,11 @@ async function resizeOutpaintSource(source, resize, proportional = false) {
 
 function sourceAdaptationMetadata(normalized) {
   return {
+    resolution: OUTPAINT_RESOLUTION,
     originalSourceWidth: normalized.originalSource.width,
     originalSourceHeight: normalized.originalSource.height,
     sourceResized: normalized.sourceResized,
+    ...(normalized.targetAdaptation ? { targetAdaptation: normalized.targetAdaptation } : {}),
     ...(normalized.outpaintCanvas ? { outpaintCanvas: normalized.outpaintCanvas } : {}),
   };
 }
@@ -185,6 +188,8 @@ export function imageOutpaintEngineKey(input = {}) {
 }
 
 export async function normalizeImageOutpaintInput(input = {}) {
+  assertOutpaintResolution(input.resolution);
+  assertOutpaintResolution(input.outpaintCanvas?.resolution);
   const engineKey = imageOutpaintEngineKey(input);
   const oneApi = engineKey === ONEAPI_OUTPAINT_ENGINE_KEY;
   const qwen = engineKey === QWEN_OUTPAINT_ENGINE_KEY;
@@ -193,7 +198,7 @@ export async function normalizeImageOutpaintInput(input = {}) {
   const limits = oneApi ? publicOneApiOutpaintConfig() : qwen ? publicQwenOutpaintConfig() : publicImageOutpaintConfig();
   let [source] = normalizeReferenceImages(input.referenceImages, { maxCount: 1 });
   if (!source?.width || !source?.height) throw inputError("AI 扩图需要 1 张可读取尺寸的图片");
-  dimensions(source);
+  if (!oneApi || input.outpaintCanvas === undefined) dimensions(source);
   const bytes = Buffer.from(source.imageUrl.split(",")[1], "base64");
   let metadata;
   try {
@@ -211,7 +216,7 @@ export async function normalizeImageOutpaintInput(input = {}) {
     throw inputError("AI 扩图无法读取图片，请重新导出 PNG/JPEG/WebP");
   }
   const originalSource = { width: source.width, height: source.height };
-  let prepared = dimensions(source);
+  let prepared = oneApi && input.outpaintCanvas !== undefined ? { width: source.width, height: source.height } : dimensions(source);
   if (input.outpaintCanvas !== undefined) {
     const canvas = input.outpaintCanvas;
     if (!canvas || typeof canvas !== "object" || Array.isArray(canvas)) throw inputError("扩图画布设置无效");
@@ -231,6 +236,7 @@ export async function normalizeImageOutpaintInput(input = {}) {
     return {
       expansion: plan.expansion, height, prepared, source, width,
       originalSource, sourceResized: plan.resize !== null,
+      ...(plan.targetAdaptation ? { targetAdaptation: plan.targetAdaptation } : {}),
       outpaintCanvas: { ratio: plan.ratio, resolution: plan.resolution, position: { x: position.x, y: position.y }, ...(plan.scale === undefined ? {} : { scale: plan.scale }) },
     };
   }
@@ -249,6 +255,9 @@ export async function normalizeImageOutpaintInput(input = {}) {
     throw inputError("目标画布超过本机请求保护上限，请减少扩展尺寸");
   }
   assertTarget({ width, height });
+  if (engineKey !== ONEAPI_OUTPAINT_ENGINE_KEY && Math.max(width, height) !== OUTPAINT_LONG_EDGE) {
+    throw inputError(`AI扩图固定使用${OUTPAINT_RESOLUTION}，旧四边请求的输出长边必须为${OUTPAINT_LONG_EDGE}px`);
+  }
   return { expansion, height, prepared, source, width, originalSource, sourceResized: false };
 }
 
@@ -288,6 +297,7 @@ export async function executeImageOutpaint(input, { imageClient = null, onProgre
     phase, promptId,
   }) : null;
   const result = await imageClient.generateImage({
+    resolution: OUTPAINT_RESOLUTION,
     expansion,
     ...(!qwen ? { outpaintModel: model.key } : {}),
     height,
@@ -303,6 +313,7 @@ export async function executeImageOutpaint(input, { imageClient = null, onProgre
     durationMs: Date.now() - startedAt,
     images: result.images,
     request: {
+      resolution: OUTPAINT_RESOLUTION,
       expansion, outputFormat: result.outputFormat, referenceImageCount: 1, size: `${width}x${height}`, syncMode: "local-only",
       ...modelIdentity,
       ...(normalized.outpaintCanvas ? { outpaintCanvas: normalized.outpaintCanvas } : {}),

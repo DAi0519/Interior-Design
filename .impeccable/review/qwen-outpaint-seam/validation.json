@@ -1,0 +1,66 @@
+{
+  "checkedAt": "2026-10-19T03:06:49.210Z",
+  "status": "single-scene-seam-improved",
+  "productionWorkflowVersion": "2026-10-19.2",
+  "actualOutput": {
+    "width": 1536,
+    "height": 2048,
+    "sha256": "de3509006be1eed8b5adcb999ce7034362510f886e6bf9ef22370efabb015f01",
+    "promptId": "09995cc4-a73f-46d9-9533-03705fc945df"
+  },
+  "comparison": {
+    "gpuRuns": 1,
+    "cacheHit": false,
+    "sameSeedAsPrevious": 20261019,
+    "sameProductionGraphExceptArtifactNamingAndUnexecutedNodes": true,
+    "source": "../qwen-outpaint-alignment/source.jpg",
+    "normalizedSource": "/tmp/qwen-alignment-normalized.png",
+    "sourceSize": [
+      996,
+      1365
+    ],
+    "expansion": {
+      "left": 270,
+      "top": 342,
+      "right": 270,
+      "bottom": 341
+    },
+    "inferenceSize": [
+      888,
+      1184
+    ],
+    "cpuPasteFeathers": [
+      32,
+      160
+    ],
+    "cpuQuantizationLimit": "8bit重建与浮点合成可能相差1色阶"
+  },
+  "centerChange": {
+    "channels": 3637596,
+    "changedChannels": 2140799,
+    "meanAbsoluteChannelDifference": 1.438992950289147,
+    "note": "证明不回贴有实际变化，不作为主观画质评分"
+  },
+  "visual": {
+    "observer": "root",
+    "result": "取消回贴后本样本原矩形边界的色调缝明显减轻；160px仅柔化过渡仍保留不同色调；完整输出更统一。",
+    "remaining": "窗框左上转角和阴影仍依赖模型生成的自然性，不宣称完全无缝；约1MP恢复会有中心纹理和细节变化。"
+  },
+  "tests": {
+    "focused": 27,
+    "full": 789,
+    "failed": 0
+  },
+  "feishuWrites": 0,
+  "notValidated": [
+    "4K GPU执行",
+    "多场景/多种子稳定性",
+    "逐像素原图保真"
+  ],
+  "runtime": {
+    "workflowVersion": "2026-10-19.2",
+    "available": true,
+    "setupReady": true,
+    "checkedAt": "2026-10-19T03:09:07.269Z"
+  }
+}

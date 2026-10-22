@@ -101,11 +101,8 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /\.result-download-button:disabled\s*\{[^}]*background: var\(--brand-key-disabled-bg\)[^}]*border-color: var\(--brand-key-disabled-border\)[^}]*box-shadow: none[^}]*color: var\(--brand-key-muted-ink\)[^}]*opacity: 1/s);
   assert.match(css, /\.feature-mode-option:hover:not\(\.selected\):not\(:disabled\),[^{]*\.result-download-button:hover:not\(:disabled\),[^}]*\.step:hover:not\(\.active\)\s*\{[^}]*background: var\(--brand-key-hover-bg\)[^}]*border-color: var\(--brand-key-hover-border\)[^}]*var\(--brand-key-hover-shadow\)[^}]*translateY\(-1px\)/s);
   assert.match(css, /\.feature-mode-option:active:not\(:disabled\),[^{]*\.result-download-button:active:not\(:disabled\),[^}]*\.step:active:not\(:disabled\)\s*\{[^}]*scale\(0\.985\)/s);
-  assert.match(css, /\.feature-mode-option\.selected,[^{]*\.custom-select-option\[aria-selected="true"\]\s*{[^}]*background: var\(--brand-key-selected-bg\)[^}]*border-color: var\(--brand-key-selected-border\)[^}]*var\(--brand-selected-shadow\)[^}]*var\(--brand-key-selected-ink\)/s);
+  assert.match(css, /\.feature-mode-option\.selected,[^{]*\.room-type-option\.selected\s*{[^}]*background: var\(--brand-key-selected-bg\)[^}]*border-color: var\(--brand-key-selected-border\)[^}]*var\(--brand-selected-shadow\)[^}]*var\(--brand-key-selected-ink\)/s);
   assert.match(css, /\.model-option-toggle\.selected i\s*\{[^}]*background: var\(--functional-action-bg\)[^}]*color: var\(--functional-action-ink\)/s);
-  assert.match(css, /\.style-choice-option\.selected small\s*\{[^}]*background: var\(--functional-action-bg\)[^}]*color: var\(--functional-action-ink\)/s);
-  assert.match(css, /\.custom-select-option\[aria-selected="true"\] small\s*\{[^}]*rgb\(255 255 255 \/ 72%\)/s);
-  assert.match(css, /\.custom-select-option\[aria-selected="true"\] svg\s*\{[^}]*color: var\(--functional-action-bg\)/s);
   assert.match(css, /\.config-option:has\(input:checked\)\s*\{[^}]*background: var\(--brand-key-selected-bg\)[^}]*border-color: var\(--brand-key-selected-border\)[^}]*var\(--brand-selected-shadow\)[^}]*var\(--brand-key-selected-ink\)/s);
   assert.match(css, /\.config-option:has\(input:checked\) input\s*\{[^}]*accent-color: var\(--functional-action-bg\)/s);
   assert.match(css, /\.step\.active span\s*\{[^}]*color: var\(--functional-action-bg\)[^}]*font-weight: 700/s);
@@ -166,7 +163,6 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition-duration: 0\.01ms !important[\s\S]*transform: none !important/s);
   assert.match(css, /@media \(prefers-reduced-transparency: reduce\)[\s\S]*backdrop-filter: none[\s\S]*background: #fcfcfd/s);
   assert.match(css, /@media \(prefers-contrast: more\)[\s\S]*background: #fff[\s\S]*border-color: #8f9097/s);
-  assert.match(css, /\.custom-select-trigger:focus-visible\s*\{[^}]*border-color: var\(--brand-key-focus\)[^}]*var\(--brand-key-focus-ring\)/s);
   assert.match(css, /\.config-option input,[^{]*\.remember-control input\s*\{[^}]*accent-color: var\(--brand-check-bg\)/s);
   assert.match(css, /progress\s*{[^}]*accent-color: var\(--functional-action-bg\)/s);
   assert.doesNotMatch(css, /body::before/);

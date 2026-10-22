@@ -1,0 +1,606 @@
+/**
+ * [INPUT]: 依赖主工作台面板/dialog结构、连续面板/目录/实际参数宽度、短目录标签、参数容器适配样式，以及共享银灰主题和下拉组件
+ * [OUTPUT]: 提供连续配置布局、80px纯目录、全部功能右面板44px表头及与左侧同字体行盒的文字/分割线对齐、局部grip焦点和900px以内原生dialog配置抽屉
+ * [POS]: public 主工作台主题后的布局覆盖层，仅约束workspace-panel结构，不修改Beta或动态业务控件
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+/* -------- 工作台高度由外壳分配，配置与结果分别滚动 -------- */
+body:has(.workspace-panel-layout) {
+  overflow: hidden;
+}
+
+.app-shell:has(> .workspace-panel-layout) {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  min-width: 0;
+}
+
+.app-shell:has(> .workspace-panel-layout) > .topbar {
+  flex: 0 0 auto;
+  top: auto;
+}
+
+.workspace.workspace-panel-layout {
+  --workspace-header-height: 44px;
+  display: grid;
+  flex: 1 1 auto;
+  gap: 16px;
+  grid-template-columns: var(--workspace-panel-width, clamp(448px, 33vw, 490px)) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: auto;
+  margin: 16px 0 0;
+  max-width: none;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  transition: none;
+  width: 100%;
+}
+
+.workspace-panel-layout > .result-panel,
+.workspace-panel-layout > .result-panel:has(.style-dna-chat:not(.hidden)) {
+  align-self: stretch;
+  grid-column: 2;
+  grid-row: 1;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.workspace-panel-layout > .result-panel .result-stage {
+  min-height: 0;
+  min-width: 0;
+}
+
+/* -------- 全部功能共享标题高度与行盒，文字和分割线同时对齐 -------- */
+.workspace-panel-layout > .result-panel {
+  padding-top: 0;
+}
+
+.workspace-panel-layout > .result-panel > :is(.result-toolbar, .outpaint-workspace-tabs) {
+  align-items: center;
+  border-bottom: 1px solid var(--line, #e2e2e5);
+  flex: 0 0 var(--workspace-header-height);
+  height: var(--workspace-header-height);
+  margin: 0 0 16px;
+  min-height: 0;
+}
+
+.workspace-panel-layout > .result-panel :is(.result-toolbar h2, .outpaint-workspace-tabs button, .style-dna-chat-header h2) {
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.workspace-panel-layout > .result-panel :is(.result-toolbar h2, .style-dna-chat-header h2) {
+  font-weight: 600;
+}
+
+.workspace-panel-layout > .result-panel > .outpaint-workspace-tabs button:not(:disabled) {
+  align-items: center;
+  align-self: stretch;
+  display: flex;
+  min-height: 0;
+  padding-block: 0;
+}
+
+/* -------- 反推说明独占下一行，标题/新对话仍沿用同一表头 -------- */
+.workspace-panel-layout > .result-panel .style-dna-chat-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: calc(var(--workspace-header-height) - 1px) auto;
+  min-height: 0;
+  padding: 0 20px 16px;
+  position: relative;
+}
+
+.workspace-panel-layout > .result-panel .style-dna-chat-header::after {
+  border-bottom: 1px solid var(--line, #e2e2e5);
+  content: "";
+  inset: calc(var(--workspace-header-height) - 1px) 20px auto;
+  pointer-events: none;
+  position: absolute;
+}
+
+.workspace-panel-layout > .result-panel .style-dna-chat-header > div {
+  display: contents;
+}
+
+.workspace-panel-layout > .result-panel .style-dna-chat-header h2 {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.workspace-panel-layout > .result-panel .style-dna-chat-header > button {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.workspace-panel-layout > .result-panel .style-dna-chat-header p {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-top: 17px;
+}
+
+/* -------- 参数使用实际余宽并触发容器适配，只在非法尾段临时裁剪 -------- */
+#configurationPanel.workspace-configuration-panel {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  display: grid;
+  filter: none;
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: var(--workspace-navigation-width, 144px) minmax(0, 1fr);
+  grid-template-rows: var(--workspace-header-height) minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  transform: none;
+  transition: none;
+}
+
+#configurationPanel > .workspace-panel-header {
+  align-items: center;
+  background: #fcfcfd;
+  border-bottom: 1px solid var(--line, #e2e2e5);
+  display: grid;
+  gap: 0;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-columns: var(--workspace-navigation-width, 144px) minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.workspace-panel-header :is(.workspace-navigation-title, .workspace-panel-title) {
+  color: var(--text, #202024);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  grid-row: 1;
+  line-height: 1.3;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding-inline: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-panel-header .workspace-navigation-title {
+  align-items: center;
+  align-self: stretch;
+  border-right: 1px solid var(--line, #e2e2e5);
+  display: flex;
+  grid-column: 1;
+}
+
+.workspace-panel-header .workspace-panel-title {
+  grid-column: 2;
+  padding-inline: 12px;
+}
+
+.workspace-panel-header .workspace-panel-feature-field {
+  display: none;
+  min-width: 0;
+}
+
+#configurationPanel > #featureModeList {
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 6px;
+  scrollbar-gutter: auto;
+}
+
+#configurationPanel #featureModeList .feature-mode-option {
+  min-height: 38px;
+  padding-inline: 8px;
+  text-align: left;
+}
+
+#configurationPanel > .control-panel-scroll {
+  container-name: workspace-parameters;
+  container-type: inline-size;
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: relative;
+  scroll-padding-block: 18px;
+  scrollbar-gutter: stable;
+  width: 100%;
+}
+
+/* -------- 参数可用时START跨整栏，80px纯目录与过渡尾段隐藏执行区 -------- */
+#configurationPanel > .action-section {
+  align-self: end;
+  background: linear-gradient(180deg, rgb(252 252 253 / 94%), #fcfcfd);
+  border: 0;
+  border-top: 1px solid var(--line, #e2e2e5);
+  box-shadow: 0 -8px 20px rgb(25 26 28 / 4%);
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin: 0;
+  min-height: 78px;
+  min-width: 0;
+  padding: 12px clamp(6px, calc(var(--workspace-panel-width, 448px) / 32), 12px);
+  position: relative;
+  width: var(--workspace-panel-width, 448px);
+  z-index: 4;
+}
+
+#configurationPanel > .action-section::before {
+  display: none;
+}
+
+#configurationPanel .generate-button .button-label {
+  font-size: 21px;
+}
+
+/* -------- 分割线在最窄状态仍可抓取，不对宽度或网格做补间 -------- */
+#workspacePanelClose,
+#workspacePanelOpen {
+  align-items: center;
+  background: var(--brand-key-bg, #fff);
+  border: 1px solid var(--brand-key-border, #e3e3e6);
+  border-radius: 6px;
+  box-shadow: var(--control-shadow, 0 1px 2px rgb(20 20 24 / 5%));
+  color: var(--text, #202024);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 500;
+  gap: 6px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 30px;
+  min-width: 0;
+  padding: 0 9px;
+  touch-action: manipulation;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+#workspacePanelClose,
+#workspacePanelOpen.workspace-panel-launcher {
+  display: none;
+}
+
+#workspacePanelClose svg,
+#workspacePanelOpen svg {
+  fill: none;
+  flex: 0 0 17px;
+  height: 17px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  width: 17px;
+}
+
+#workspacePanelClose:focus-visible,
+#workspacePanelOpen:focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75);
+  outline-offset: 2px;
+}
+
+#workspacePanelClose:active,
+#workspacePanelOpen:active {
+  background: var(--brand-key-active-bg, #dedfe3);
+  transform: none;
+}
+
+#workspacePanelResize.workspace-panel-resize {
+  bottom: 0;
+  cursor: col-resize;
+  left: calc(var(--workspace-panel-width, clamp(448px, 33vw, 490px)) + 2px);
+  box-shadow: none !important;
+  outline: none !important;
+  position: absolute;
+  top: 0;
+  touch-action: none;
+  width: 12px;
+  z-index: 6;
+}
+
+#workspacePanelResize:is(:focus, :focus-visible) {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+#workspacePanelResize::before {
+  background: #c8c9cf;
+  border-radius: 2px;
+  content: "";
+  height: 32px;
+  left: 5px;
+  pointer-events: none;
+  position: absolute;
+  top: calc(50% - 16px);
+  transition: background-color 140ms ease;
+  width: 2px;
+}
+
+#workspacePanelResize:is(:hover, :focus-visible)::before,
+.workspace-panel-layout.is-panel-resizing #workspacePanelResize::before {
+  background: #85868e;
+}
+
+#workspacePanelResize:focus-visible::before {
+  box-shadow: 0 0 0 3px rgb(109 110 117 / 16%);
+}
+
+body:has(.workspace-panel-layout.is-panel-resizing),
+body:has(.workspace-panel-layout.is-panel-resizing) * {
+  cursor: col-resize !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+@media (min-width: 901px) {
+  #configurationPanel .generate-button {
+    padding-inline: clamp(0px, calc((var(--workspace-panel-width, 448px) - 160px) / 12), 15px);
+  }
+
+  #configurationPanel .generate-button .button-label {
+    letter-spacing: clamp(.44px, calc((var(--workspace-panel-width, 448px) - 80px) / 60), 3.78px);
+    text-indent: clamp(.44px, calc((var(--workspace-panel-width, 448px) - 80px) / 60), 3.78px);
+  }
+
+  #configurationPanel .generation-actions.is-busy .generate-button .button-label {
+    font-size: clamp(13px, calc(var(--workspace-panel-width, 448px) / 10), 21px);
+    letter-spacing: 0;
+    text-indent: 0;
+  }
+
+  #configurationPanel.is-navigation-collapsed .feature-mode-option {
+    font-size: 0;
+    overflow: hidden;
+    padding-inline-end: 4px;
+    white-space: nowrap;
+  }
+
+  #configurationPanel.is-navigation-collapsed .feature-mode-option::after {
+    content: attr(data-compact-label);
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  #configurationPanel:is(.is-parameters-clipping, .is-panel-collapsed) > .action-section {
+    display: none;
+  }
+
+  #configurationPanel:is(.is-parameters-clipping, .is-panel-collapsed) > #featureModeList {
+    grid-row: 2 / -1;
+  }
+
+  #configurationPanel.is-parameters-clipping > .control-panel-scroll {
+    min-width: 224px;
+  }
+
+  #configurationPanel.is-panel-collapsed > .control-panel-scroll,
+  #configurationPanel.is-panel-collapsed .workspace-panel-title {
+    visibility: hidden;
+  }
+}
+
+/* -------- 原生dialog承载同一面板，固定菜单不经过transform/filter容器 -------- */
+#workspacePanelDialog.workspace-panel-dialog {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #fcfcfd;
+  border: 1px solid var(--line-strong, #d1d1d5);
+  border-radius: 12px;
+  box-shadow: var(--brand-modal-shadow, 0 28px 100px rgb(25 26 28 / 24%));
+  color: var(--text, #202024);
+  filter: none;
+  height: calc(100vh - 24px);
+  height: calc(100dvh - 24px);
+  inset: 12px auto 12px 12px;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+  position: fixed;
+  transform: none;
+  width: min(520px, calc(100vw - 24px));
+}
+
+#workspacePanelDialog:not([open]) {
+  display: none;
+}
+
+#workspacePanelDialog[open] {
+  display: block;
+}
+
+#workspacePanelDialog::backdrop {
+  background: rgb(25 26 28 / 30%);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+@media (max-width: 900px) {
+  .workspace.workspace-panel-layout {
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 44px minmax(0, 1fr);
+    margin-top: 12px;
+  }
+
+  .workspace-panel-layout > .result-panel,
+  .workspace-panel-layout > .result-panel:has(.style-dna-chat:not(.hidden)) {
+    grid-column: 1;
+    grid-row: 2;
+    height: auto;
+    min-height: 0;
+  }
+
+  #workspacePanelResize.workspace-panel-resize {
+    display: none;
+  }
+
+  #workspacePanelOpen.workspace-panel-launcher {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    justify-content: flex-start;
+    min-height: 44px;
+    padding-inline: 13px;
+    width: 100%;
+  }
+
+  #workspacePanelOpen [data-active-feature] {
+    flex: 1 1 auto;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #workspacePanelDialog > #configurationPanel.workspace-configuration-panel {
+    background: #fcfcfd;
+    border: 0;
+    border-radius: 11px;
+    box-shadow: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 52px minmax(0, 1fr) auto;
+    height: 100%;
+    width: 100%;
+  }
+
+  #workspacePanelDialog #configurationPanel > .workspace-panel-header {
+    display: flex;
+    gap: 8px;
+    padding: 0 4px 0 12px;
+  }
+
+  #workspacePanelDialog :is(.workspace-navigation-title, .workspace-panel-title),
+  #workspacePanelDialog #configurationPanel > #featureModeList {
+    display: none;
+  }
+
+  #workspacePanelDialog .workspace-panel-feature-field {
+    display: block;
+    flex: 1 1 auto;
+    margin: 0;
+  }
+
+  #workspacePanelDialog .workspace-panel-feature-field select:not(.custom-select-native),
+  #workspacePanelDialog .workspace-panel-feature-field .model-picker-trigger {
+    font-size: 12px;
+    min-height: 36px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  #workspacePanelDialog #workspacePanelClose {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    display: inline-flex;
+    flex: 0 0 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    width: 44px;
+  }
+
+  #workspacePanelDialog #configurationPanel > .control-panel-scroll {
+    grid-column: 1;
+    grid-row: 2;
+    opacity: 1;
+    width: 100%;
+  }
+
+  #workspacePanelDialog #configurationPanel > .action-section {
+    grid-column: 1;
+    grid-row: 3;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell:has(> .workspace-panel-layout) {
+    padding: 0;
+  }
+
+  .workspace.workspace-panel-layout {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  #workspacePanelOpen.workspace-panel-launcher {
+    justify-self: stretch;
+    margin-inline: 8px;
+    width: calc(100% - 16px);
+  }
+
+  .workspace-panel-layout > .result-panel {
+    padding: 0 12px 12px;
+  }
+
+  .workspace-panel-layout > .result-panel:has(.style-dna-chat:not(.hidden)) {
+    padding: 0;
+  }
+
+  #workspacePanelDialog #configurationPanel > .control-panel-scroll .panel-section {
+    padding-inline: 16px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #workspacePanelClose:hover,
+  #workspacePanelOpen:hover {
+    background: var(--brand-key-hover-bg, #fafafa);
+    border-color: var(--brand-key-hover-border, #d7d8dc);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #workspacePanelClose,
+  #workspacePanelOpen,
+  #workspacePanelResize::before {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  #workspacePanelDialog::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  #workspacePanelClose,
+  #workspacePanelOpen,
+  #workspacePanelDialog {
+    border-color: #7f8088;
+  }
+
+  #workspacePanelResize::before {
+    background: #7f8088;
+  }
+}

@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖共享提交画布/缩放边界规划、image-outpaint-transform.js 的连续浮点预览与合帧交互、三引擎能力与 Flux 目录、上传图及构图 DOM
- * [OUTPUT]: 对外提供三引擎/模型、1K/2K/4K、固定图片基准尺寸的 transform 连续移动/缩放、原图变更通知与可取消手势、冲刷后严格规划的 scale/位置请求；保留旧几何导出
+ * [INPUT]: 依赖共享固定 2K 输出合同及提交画布/缩放边界规划、image-outpaint-transform.js 的连续浮点预览与合帧交互、三引擎能力与 Flux 目录、上传图及构图 DOM
+ * [OUTPUT]: 对外提供三引擎/模型、默认原比例及五预设的固定 2K 构图、Sunburst原图/适配图上限分离校验、固定图片基准尺寸的 transform 连续移动/缩放、原图变更通知与可取消手势、冲刷后严格规划的 scale/位置请求；保留旧几何导出
  * [POS]: public 的 AI扩图交互边界，与 image-upscale.js 并列并由主编排器配置和激活
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { outpaintCanvasPlan, outpaintScaleBounds } from "./image-outpaint-geometry.js";
+import { OUTPAINT_RESOLUTION, outpaintCanvasPlan, outpaintScaleBounds } from "./image-outpaint-geometry.js?v=2";
 import { bindImageOutpaintTransform, createOutpaintFrameQueue, outpaintVisualPlan } from "./image-outpaint-transform.js";
 
 const SIDES = ["left", "top", "right", "bottom"];
@@ -35,7 +35,7 @@ export function imageOutpaintPreparedDimensions(source, inputAlignment = INPUT_A
   }
   if (!validSource(source) || !Number.isSafeInteger(inputAlignment) || inputAlignment <= 0) return null;
   if (Math.min(source.width, source.height) < (limits.minInputEdge ?? MIN_INPUT_EDGE)
-    || Math.max(source.width, source.height) > (limits.maxInputEdge ?? MAX_INPUT_EDGE)) return null;
+    || Math.max(source.width, source.height) > (limits.maxSourceEdge ?? limits.maxInputEdge ?? MAX_INPUT_EDGE)) return null;
   if (limits.sourceSizing === "original") return { width: source.width, height: source.height };
   const ratio = source.width / source.height;
   const rawWidth = ratio > 1 ? source.width : Math.trunc(source.height * ratio);
@@ -94,7 +94,7 @@ function centeredExpansion(prepared, target) {
 export function outpaintExpansionValidation({ source, expansion, limits = {} }) {
   if (!validSource(source)) return { field: "image", message: "请上传一张图片后设置扩展尺寸" };
   const minInputEdge = limits.minInputEdge ?? MIN_INPUT_EDGE;
-  const maxInputEdge = limits.maxInputEdge ?? MAX_INPUT_EDGE;
+  const maxInputEdge = limits.maxSourceEdge ?? limits.maxInputEdge ?? MAX_INPUT_EDGE;
   if (Math.min(source.width, source.height) < minInputEdge || Math.max(source.width, source.height) > maxInputEdge) {
     return { field: "image", message: `原图宽高均需在 ${minInputEdge}–${maxInputEdge}px 之间，请调整原图后重新上传` };
   }
@@ -149,14 +149,12 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
   const modelSelect = byId("ModelSelect");
   const modelStatus = byId("ModelStatus");
   const ratioButtons = [...root.querySelectorAll("[data-outpaint-ratio]")];
-  const resolutionButtons = [...root.querySelectorAll("[data-outpaint-resolution]")];
   const engineButtons = [...root.querySelectorAll("[data-outpaint-engine]")];
   let config = { available: false, reason: "正在读取扩图工作流配置", workflow: null };
   let engines = [];
   let engineKey = "comfyui";
   let selectedModelKey = "";
-  let selectedRatio = "16:9";
-  let selectedResolution = "2K";
+  let selectedRatio = "original";
   let position = { x: 0.5, y: 0.5 };
   let scale = 2 / 3;
   let lastSource = null;
@@ -172,8 +170,8 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
     return model.available ? null : { field: "model", message: model.reason || "所选扩图模型当前不可用，请选择其他模型" };
   };
   const availabilityReason = () => !config.available ? config.reason || "尚未配置扩图工作流" : modelValidation()?.message || "";
-  const canvasSelection = () => ({ ratio: selectedRatio, resolution: selectedResolution, position: { ...position }, scale });
-  const boundsFor = (source) => outpaintScaleBounds({ source, ratio: selectedRatio, resolution: selectedResolution, limits: config });
+  const canvasSelection = () => ({ ratio: selectedRatio, resolution: OUTPAINT_RESOLUTION, position: { ...position }, scale });
+  const boundsFor = (source) => outpaintScaleBounds({ source, ratio: selectedRatio, resolution: OUTPAINT_RESOLUTION, limits: config });
   const planFor = (source) => {
     const bounds = boundsFor(source);
     scale = Math.max(bounds.min, Math.min(bounds.max, scale));
@@ -296,7 +294,6 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
     transform?.render({ plan: canPreview ? visualPlanFor(source, plan.target) : null, scale,
       bounds: plan ? boundsFor(source) : { min: 1 / 3, max: 1 } });
     renderChoices(ratioButtons, "outpaintRatio", selectedRatio);
-    renderChoices(resolutionButtons, "outpaintResolution", selectedResolution);
     renderModelState();
   }
 
@@ -336,12 +333,6 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
   bindRadioGroup(ratioButtons, (button) => {
     cancelInteractions();
     selectedRatio = button.dataset.outpaintRatio;
-    transform?.reset();
-    changed();
-  });
-  bindRadioGroup(resolutionButtons, (button) => {
-    cancelInteractions();
-    selectedResolution = button.dataset.outpaintResolution;
     transform?.reset();
     changed();
   });
@@ -486,7 +477,7 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
       const limits = config;
       const plan = submittedPlan ? visualPlanFor(source, submittedPlan.target) : null;
       return { plan, scale, bounds: plan ? boundsFor(source) : { min: 1 / 3, max: 1 },
-        isCurrent: () => getSourceImage() === source && config === limits && selectedRatio === selection.ratio && selectedResolution === selection.resolution,
+        isCurrent: () => getSourceImage() === source && config === limits && selectedRatio === selection.ratio,
         visualPlanForScale: (nextScale, nextPosition = selection.position) =>
           visualPlanFor(source, submittedPlan.target, nextScale, nextPosition, limits) };
     },
