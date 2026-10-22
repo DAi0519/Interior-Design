@@ -1,0 +1,96 @@
+{
+  "verifiedAt": "2026-10-21T07:34:50.498Z",
+  "promptId": "8f401e58-75b4-47c6-9f67-b77e73dfea35",
+  "source": {
+    "width": 864,
+    "height": 1184
+  },
+  "requestedTarget": {
+    "width": 4484,
+    "height": 6144,
+    "megapixels": 27.549696
+  },
+  "workflow": "ks_seedvr2_2x_direct",
+  "error": {
+    "type": "torch.OutOfMemoryError",
+    "node": "SeedVR2VideoUpscaler",
+    "phase": "DiT inference",
+    "sourceFile": "dit_7b/normalization.py",
+    "sourceLine": 82,
+    "timestamp": "2026-10-21T07:18:49.378Z"
+  },
+  "inferenceParameters": {
+    "dit": {
+      "attention_mode": "sdpa",
+      "blocks_to_swap": 32,
+      "cache_model": false,
+      "device": "cuda:0",
+      "model": "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
+      "offload_device": "cpu",
+      "swap_io_components": false
+    },
+    "vae": {
+      "cache_model": false,
+      "decode_tile_overlap": 128,
+      "decode_tile_size": 1024,
+      "decode_tiled": true,
+      "device": "cuda:0",
+      "encode_tile_overlap": 128,
+      "encode_tile_size": 1024,
+      "encode_tiled": true,
+      "model": "ema_vae_fp16.safetensors",
+      "offload_device": "cpu",
+      "tile_debug": "false"
+    },
+    "upscaler": {
+      "batch_size": 1,
+      "color_correction": "lab",
+      "dit": [
+        "73",
+        0
+      ],
+      "enable_debug": false,
+      "image": [
+        "71",
+        0
+      ],
+      "input_noise_scale": 0,
+      "latent_noise_scale": 0,
+      "max_resolution": 6144,
+      "offload_device": "cpu",
+      "prepend_frames": 0,
+      "resolution": 4484,
+      "seed": 4130510212,
+      "temporal_overlap": 0,
+      "uniform_batch_size": false,
+      "vae": [
+        "74",
+        0
+      ]
+    }
+  },
+  "priorReference": {
+    "testId": "SR17",
+    "source": {
+      "width": 2848,
+      "height": 1600
+    },
+    "actualOutput": {
+      "width": 5696,
+      "height": 3200,
+      "megapixels": 18.2272
+    },
+    "promptId": "1588af35-cc39-48fc-990c-3cc7dbd0e365",
+    "notConfirmedAsUsersExactPriorExample": true
+  },
+  "conclusions": {
+    "sizeParametersMatchOfficialSemantics": true,
+    "sameRatio2XVersus6KGraphDifference": "max_resolution 0 versus 6144 only",
+    "vaeTilingAndBlockswapRetained": true,
+    "targetPixelsGreaterThanPriorReferenceByPercent": 51.14606741573033,
+    "outputPixelBudgetLikelyRelevant": true,
+    "gpuOccupancyAtFailureUnknown": true
+  },
+  "gpuTasksSubmittedByDiagnosis": 0,
+  "codeChanged": false
+}

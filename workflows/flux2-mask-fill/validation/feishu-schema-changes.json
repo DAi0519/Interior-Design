@@ -1,0 +1,346 @@
+{
+  "at": "2026-10-21T10:20:48.033Z",
+  "actions": [
+    {
+      "action": "create",
+      "name": "遮罩填充模式",
+      "data": {
+        "created": true,
+        "field": {
+          "default_value": null,
+          "description": "遮罩填充任务实际执行的输入模式；其他功能留空",
+          "id": "flddqjL9wJ",
+          "multiple": false,
+          "name": "遮罩填充模式",
+          "options": [
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "提示词填充"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "参考图填充"
+            }
+          ],
+          "type": "select"
+        },
+        "field_get_recommended": false,
+        "next_step": "done",
+        "verification_hint": "simple field create returned successfully; use +field-get only when extra properties or explicit verification are needed"
+      }
+    },
+    {
+      "action": "create",
+      "name": "局部推理尺寸（px）",
+      "data": {
+        "created": true,
+        "field": {
+          "default_value": null,
+          "description": "遮罩裁剪区域的推理尺寸，512/1024/1536；结果完整画幅尺寸另见尺寸列",
+          "id": "fldN3by7qP",
+          "name": "局部推理尺寸（px）",
+          "style": {
+            "percentage": false,
+            "precision": 0,
+            "thousands_separator": false,
+            "type": "plain"
+          },
+          "type": "number"
+        },
+        "field_get_recommended": false,
+        "next_step": "done",
+        "verification_hint": "simple field create returned successfully; use +field-get only when extra properties or explicit verification are needed"
+      }
+    },
+    {
+      "action": "create",
+      "name": "遮罩扩展（px）",
+      "data": {
+        "created": true,
+        "field": {
+          "default_value": null,
+          "description": "本次任务实际提交的遮罩扩展像素；0表示不扩展",
+          "id": "fldcqDvkUO",
+          "name": "遮罩扩展（px）",
+          "style": {
+            "percentage": false,
+            "precision": 0,
+            "thousands_separator": false,
+            "type": "plain"
+          },
+          "type": "number"
+        },
+        "field_get_recommended": false,
+        "next_step": "done",
+        "verification_hint": "simple field create returned successfully; use +field-get only when extra properties or explicit verification are needed"
+      }
+    },
+    {
+      "action": "create",
+      "name": "遮罩工作流版本",
+      "data": {
+        "created": true,
+        "field": {
+          "default_value": null,
+          "description": "遮罩填充执行工作流的确切版本，完整图与参数摘要另见生成参数",
+          "id": "fldZdwpEiM",
+          "name": "遮罩工作流版本",
+          "style": {
+            "type": "plain"
+          },
+          "type": "text"
+        },
+        "field_get_recommended": false,
+        "next_step": "done",
+        "verification_hint": "simple field create returned successfully; use +field-get only when extra properties or explicit verification are needed"
+      }
+    },
+    {
+      "action": "create",
+      "name": "遮罩图",
+      "data": {
+        "created": true,
+        "field": {
+          "description": "本次任务实际提交的原图尺寸遮罩PNG；白色编辑、黑色保留",
+          "id": "fldixadR57",
+          "name": "遮罩图",
+          "style": {
+            "type": "plain"
+          },
+          "type": "attachment"
+        },
+        "field_get_recommended": false,
+        "next_step": "done",
+        "verification_hint": "simple field create returned successfully; use +field-get only when extra properties or explicit verification are needed"
+      }
+    },
+    {
+      "action": "create",
+      "name": "填充参考图",
+      "data": {
+        "created": true,
+        "field": {
+          "description": "参考图填充模式实际提交的对象参考图；提示词填充模式留空",
+          "id": "fldBos4ORm",
+          "name": "填充参考图",
+          "style": {
+            "type": "plain"
+          },
+          "type": "attachment"
+        },
+        "field_get_recommended": false,
+        "next_step": "done",
+        "verification_hint": "simple field create returned successfully; use +field-get only when extra properties or explicit verification are needed"
+      }
+    },
+    {
+      "action": "appendOption",
+      "name": "功能",
+      "option": "遮罩填充",
+      "data": {
+        "field": {
+          "default_value": null,
+          "description": "生成任务所属产品链路；由服务端按实际执行工作流回写",
+          "id": "fldEk1SSQH",
+          "multiple": false,
+          "name": "功能",
+          "options": [
+            {
+              "hue": "Gray",
+              "lightness": "Light",
+              "name": "自由生图"
+            },
+            {
+              "hue": "Wathet",
+              "lightness": "Light",
+              "name": "白模渲染"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Light",
+              "name": "空房设计"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "精模渲染"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "效果图美化"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "效果图氛围转换"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "全景图美化"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "AI扩图"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "风格转换"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "多角度"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "遮罩填充"
+            }
+          ],
+          "type": "select"
+        },
+        "field_get_recommended": true,
+        "next_step": "field_get",
+        "updated": true,
+        "verification_hint": "field update request succeeded for type \"select\", but +field-update cannot determine the previous type; run +field-get and sample record values if the type changed before declaring completion"
+      }
+    },
+    {
+      "action": "appendOption",
+      "name": "生图模型",
+      "option": "Flux2 Klein 9B · 遮罩填充",
+      "data": {
+        "field": {
+          "default_value": null,
+          "description": "实际调用的最终出图模型；当前工作台模型必须全部存在于此单选字段，历史模型选项保留用于旧记录展示",
+          "id": "fldIY0AFm9",
+          "multiple": false,
+          "name": "生图模型",
+          "options": [
+            {
+              "hue": "Yellow",
+              "lightness": "Light",
+              "name": "Banana Pro"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Banana 2"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Light",
+              "name": "GPT Image 2"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "Seedream 4.5"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "Seedream 5.0"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "Seedream 5.0 Pro"
+            },
+            {
+              "hue": "Lime",
+              "lightness": "Light",
+              "name": "Flux2 Klein"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Light",
+              "name": "GPT Image 2.5 Sunburst"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Light",
+              "name": "GPT Image 2.5 Flare"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "Flux Fill OneReward（FP8）"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "Flux Fill Dev（原版）"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "Qwen Image Edit 2511"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Banana 2.1"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Qwen 多角度"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "Flux2 Klein 9B · 遮罩填充"
+            }
+          ],
+          "type": "select"
+        },
+        "field_get_recommended": true,
+        "next_step": "field_get",
+        "updated": true,
+        "verification_hint": "field update request succeeded for type \"select\", but +field-update cannot determine the previous type; run +field-get and sample record values if the type changed before declaring completion"
+      }
+    }
+  ],
+  "verified": true,
+  "fields": [
+    {
+      "id": "fldixadR57",
+      "name": "遮罩图",
+      "type": "attachment"
+    },
+    {
+      "id": "fldZdwpEiM",
+      "name": "遮罩工作流版本",
+      "type": "text"
+    },
+    {
+      "id": "fldBos4ORm",
+      "name": "填充参考图",
+      "type": "attachment"
+    },
+    {
+      "id": "fldcqDvkUO",
+      "name": "遮罩扩展（px）",
+      "type": "number"
+    },
+    {
+      "id": "flddqjL9wJ",
+      "name": "遮罩填充模式",
+      "type": "select"
+    },
+    {
+      "id": "fldN3by7qP",
+      "name": "局部推理尺寸（px）",
+      "type": "number"
+    }
+  ],
+  "oldFieldsPreserved": true,
+  "total": 32
+}

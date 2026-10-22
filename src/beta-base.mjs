@@ -1,13 +1,15 @@
 /**
- * [INPUT]: 依赖模型/图片输入 Agent 真源、Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
- * [OUTPUT]: 对外提供三表 Schema 准入、真实目录模型单选标签及无 Agent 时清空 Prompt融合、八功能映射与风格转换显式来源/独立版本及强度色调/全景版本快照、全部实际写入字段及结果附件归档回读，风格转换另核验输入/参考/结果三附件数量及 token/真实字节数、样本草稿/单图保存/元数据/按需图片读取、Run 建档与轻量预览；合同错误不可重试
+ * [INPUT]: 依赖模型/图片输入 Agent/独立扩图与超分工作流真源、Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
+ * [OUTPUT]: 对外提供三表Schema/稳定模型单选标签及十功能快照，归档实际Prompt/工作流/尺寸/费用并回读；超分按冻结档位核验2X或长边节点/元数据并兼容历史2X，三类附件核验token/字节；已有附件验证后仅恢复状态，合同错误不可重试
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import {
   createImagePreviewDataUrl,
@@ -19,7 +21,11 @@ import { createBetaSampleStore } from "./beta-sample-store.mjs";
 import { betaBaseContractError, normalizeBetaBaseError, verifyBetaBaseSchema } from "./beta-base-schema.mjs";
 import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
-import { publicModelCatalog } from "./model-config.mjs";
+import { MODEL_CONFIGS, publicModelCatalog } from "./model-config.mjs";
+import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
+import { QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW } from "./image-outpaint-qwen.mjs";
+import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
+import { imageUpscaleTargetDimensions, imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
 
 export const BETA_BASE_CONFIG = Object.freeze({
   baseToken: process.env.BETA_BASE_TOKEN || "ORwJbt5EYauNORsrhqJcpetLnEb",
@@ -43,6 +49,8 @@ const FEATURE_LABELS = Object.freeze({
   panoramaEnhancement: "全景图美化",
   emptyRoom: "空房设计",
   free: "自由生图",
+  imageOutpaint: "AI扩图",
+  imageUpscale: "AI超分",
   refinedModel: "精模渲染",
   styleTransfer: "风格转换",
   whiteModel: "白模渲染",
@@ -87,6 +95,8 @@ export function betaSceneParameters(input = {}) {
     roomTypeDetail: input.roomTypeDetail,
     styleCode: input.featureMode !== "styleTransfer" || input.renderMode === "style-dna" ? input.styleCode : undefined,
     styleReferenceUsed: input.featureMode === "styleTransfer" ? Boolean(input.styleReferenceImages?.length) : undefined,
+    outpaintCanvas: input.featureMode === "imageOutpaint" ? input.outpaintCanvas : undefined,
+    upscaleWorkflowKey: input.featureMode === "imageUpscale" ? input.upscaleWorkflowKey : undefined,
   });
 }
 
@@ -95,6 +105,11 @@ export function betaConfigSnapshot(input = {}) {
     emptyRoomPromptAgentVersion: input.emptyRoomPromptAgentVersion,
     emptyRoomSmartDefaultVersion: input.emptyRoomSmartDefaultVersion,
     modelKey: input.modelKey,
+    outpaintEngine: input.featureMode === "imageOutpaint" ? input.outpaintEngine : undefined,
+    outpaintModel: input.featureMode === "imageOutpaint" ? input.outpaintModel : undefined,
+    outpaintWorkflowKey: input.featureMode === "imageOutpaint" ? input.outpaintWorkflowKey : undefined,
+    outpaintCanvas: input.featureMode === "imageOutpaint" ? input.outpaintCanvas : undefined,
+    upscaleWorkflowKey: input.featureMode === "imageUpscale" ? input.upscaleWorkflowKey : undefined,
     outputFormat: input.outputFormat,
     promptAgentModelKey: input.promptAgentModelKey,
     promptAgentVersion: input.promptAgentVersion,
@@ -112,7 +127,10 @@ export function betaConfigSnapshot(input = {}) {
 }
 
 export function betaResultVersion(result = {}) {
+  const workflowVersion = result.upstream?.metadata?.workflowVersion || result.workflow?.version;
+  const workflowKey = result.upstream?.metadata?.workflowId || result.workflow?.key;
   const values = [
+    workflowKey && workflowVersion ? `${workflowKey}@${workflowVersion}` : null,
     result.prompt?.code && result.prompt?.version
       ? `${result.prompt.code}@v${result.prompt.version}`
       : null,
@@ -125,10 +143,11 @@ export function betaResultVersion(result = {}) {
 }
 
 export function betaResultCostUsd(result = {}) {
-  const value = Number(
-    result.upstream?.metadata?.costUsd
-      ?? result.upstream?.metadata?.usageCost?.costUsd,
-  );
+  const raw = result.upstream?.metadata?.costUsd
+      ?? result.upstream?.metadata?.usageCost?.costUsd
+      ?? result.upstream?.usageCost?.costUsd;
+  if (raw == null || raw === "") return null;
+  const value = Number(raw);
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
@@ -138,7 +157,7 @@ export function captureBetaGenerationArchive(input) {
   return {
     generationId: null,
     status: "skipped",
-    archiveFields: compactObject({
+    archiveFields: { ...compactObject({
       "场景标签": [fields["空间类型"], fields["其他空间类型"]].filter(Boolean),
       "最终 Prompt": fields["最终 Prompt"],
       "设计方式": fields["设计方式"],
@@ -148,11 +167,28 @@ export function captureBetaGenerationArchive(input) {
       "Agent 编码": fields["Agent 编码"],
       "Agent 版本": fields["Agent 版本"],
       "生成参数": fields["生成参数"],
-    }),
+    }), ...(input.workflow?.feature === "image-upscale" ? { "最终 Prompt": "" } : {}) },
   };
 }
 
-function runModelLabel(item) {
+function runModelLabel(item, featureMode) {
+  if (featureMode === "imageUpscale") {
+    try {
+      const workflow = imageUpscaleWorkflow(item.input?.upscaleWorkflowKey);
+      if (item.input.modelKey != null && item.input.modelKey !== workflow.key) throw new Error("模型与工作流不一致");
+      return workflow.label;
+    } catch (cause) { throw betaBaseContractError("Beta 超分工作流缺少合法的目录标签", cause); }
+  }
+  if (featureMode === "imageOutpaint") {
+    const engine = item.input?.outpaintEngine ?? "comfyui";
+    if (engine === QWEN_OUTPAINT_ENGINE_KEY) return QWEN_OUTPAINT_WORKFLOW.label;
+    if (engine === ONEAPI_OUTPAINT_ENGINE_KEY) return MODEL_CONFIGS[engine].label;
+    if (engine === "comfyui") {
+      try { return resolveImageOutpaintModel(item.input?.outpaintModel).label; }
+      catch (cause) { throw betaBaseContractError("Beta 扩图模型缺少合法的目录标签", cause); }
+    }
+    throw betaBaseContractError("Beta 扩图引擎缺少合法的目录标签");
+  }
   const catalog = publicModelCatalog();
   const model = catalog.find((entry) => entry.key === item.input?.modelKey)
     || catalog.find((entry) => entry.label === item.modelLabel);
@@ -173,6 +209,7 @@ function promptModelLabel(value) {
 
 export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
   const attempt = Number(item.attempt || 1);
+  const input = featureMode === "imageUpscale" ? { ...item.input, featureMode } : item.input;
   return {
     "Run ID": String(item.runId || ""),
     "批次 ID": String(batchId || ""),
@@ -181,9 +218,9 @@ export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
     "样本 ID": String(item.caseId || ""),
     "状态": "运行中",
     "输入文本": String(item.input?.prompt || "").trim(),
-    "场景参数": JSON.stringify(betaSceneParameters(item.input)),
-    "配置快照": JSON.stringify(betaConfigSnapshot(item.input)),
-    "出图模型": runModelLabel(item),
+    "场景参数": JSON.stringify(betaSceneParameters(input)),
+    "配置快照": JSON.stringify(betaConfigSnapshot(input)),
+    "出图模型": runModelLabel(item, featureMode),
     "Prompt / 工作流版本": "",
     "Attempt": Number.isInteger(attempt) && attempt > 0 ? attempt : 1,
     "错误信息": "",
@@ -308,11 +345,73 @@ function assertAttachmentReadback(fields, name, expectedSizes) {
   }
 }
 
+function verifyMetadata(fields, expected) {
+  for (const [field, value] of Object.entries(expected)) {
+    const actual = fields?.[field];
+    if (["状态", "出图模型", "Prompt融合"].includes(field) && Array.isArray(actual) && actual.length > 1) {
+      throw betaBaseContractError(`飞书标签回读不是单选：${field}`);
+    }
+    if (["场景参数", "配置快照", "生成参数"].includes(field)) {
+      try { if (isDeepStrictEqual(JSON.parse(actual), JSON.parse(value))) continue; } catch { /* 非 JSON 仍按原值拒绝。 */ }
+    }
+    if (typeof value === "number" && actual != null && actual !== "") {
+      const number = Number(actual);
+      if (Number.isFinite(number) && Math.abs(number - value) <= Number.EPSILON * Math.max(1, Math.abs(value)) * 8) continue;
+    }
+    if (String(actual ?? "") !== String(value ?? "")) throw betaBaseContractError(`飞书生成信息回读不一致：${field}`);
+  }
+}
+
+// -------- 超分没有最终 Prompt；工作流身份和实际产物仍须完整可追溯 --------
+function verifyUpscaleArchive(fields, snapshot, bytes = null) {
+  let parameters;
+  try { parameters = JSON.parse(fields["生成参数"]); }
+  catch { throw betaBaseContractError("已有超分缺少可信的生成参数"); }
+  const workflow = parameters?.workflow;
+  const key = snapshot.upscaleWorkflowKey;
+  const positiveInteger = value => Number.isInteger(value) && value > 0;
+  if (!workflow || workflow.feature !== "image-upscale" || workflow.workflowId !== key
+    || (snapshot.modelKey != null && snapshot.modelKey !== key)
+    || !String(workflow.workflowVersion || "").trim()
+    || workflow.resolution !== snapshot.resolution || parameters.resolution !== snapshot.resolution
+    || !String(workflow.model || "").trim() || !Object.hasOwn(workflow, "inputMegapixels")
+    || !/^[a-f0-9]{64}$/.test(workflow.sourceSha256 || "")
+    || !/^[a-f0-9]{64}$/.test(workflow.outputSha256 || "")
+    || ![workflow.sourceWidth, workflow.sourceHeight, workflow.requestedOutputWidth,
+      workflow.requestedOutputHeight, workflow.outputWidth, workflow.outputHeight].every(positiveInteger)) {
+    throw betaBaseContractError("超分工作流身份、版本、来源、尺寸或产物元数据不完整");
+  }
+  let target;
+  let definition;
+  try {
+    definition = imageUpscaleWorkflow(key);
+    target = imageUpscaleTargetDimensions({ width: workflow.sourceWidth, height: workflow.sourceHeight },
+      snapshot.resolution, key);
+  } catch (cause) { throw betaBaseContractError("超分冻结工作流或源图尺寸合同不一致", cause); }
+  const selectedResolution = definition.resolutions.find((resolution) => resolution.key === snapshot.resolution);
+  if (workflow.model !== definition.model || workflow.inputMegapixels !== definition.inputMegapixels
+    || workflow.sourceSha256 !== definition.sourceSha256
+    || workflow.outputScale !== selectedResolution.scale
+    || workflow.requestedOutputWidth !== target.width || workflow.requestedOutputHeight !== target.height
+    || workflow.seedVrResolution !== Math.min(target.width, target.height)
+    || workflow.seedVrMaxResolution !== (selectedResolution.scale ? 0 : target.longEdge)) {
+    throw betaBaseContractError("超分源图、目标尺寸或 SeedVR2 参数回读不一致");
+  }
+  verifyMetadata(fields, { "Prompt / 工作流版本": `${key}@${workflow.workflowVersion}`,
+    "尺寸": `${workflow.outputWidth}x${workflow.outputHeight}` });
+  if (bytes && (actualImageSize(bytes) !== fields["尺寸"]
+    || createHash("sha256").update(bytes).digest("hex") !== workflow.outputSha256)) {
+    throw betaBaseContractError("超分实际结果尺寸或 SHA-256 与工作流不一致");
+  }
+  return workflow;
+}
+
 export function createBetaBaseStore({
   config = BETA_BASE_CONFIG,
   run: executeCli = runLarkCli,
 } = {}) {
   const runArchives = new Map();
+  const recoveryRecords = new Map();
   const run = async (...args) => {
     try { return await executeCli(...args); }
     catch (error) { throw normalizeBetaBaseError(error); }
@@ -331,6 +430,8 @@ export function createBetaBaseStore({
     ...createBetaSampleStore({ config, run, featureLabels: FEATURE_LABELS, createRecord, updateRecord,
       listRecords, getRecord, uploadAttachments }),
     async beginRun({ batchId, featureMode, item, testTime }) {
+      if (featureMode === "imageUpscale" && (item.input?.referenceImages?.length !== 1
+        || item.input?.styleReferenceImages?.length)) throw betaBaseContractError("AI超分归档需要唯一原图且不使用风格参考图");
       const fields = buildBetaRunFields({ batchId, featureMode, item, testTime });
       const recordId = await createRecord(
         run,
@@ -366,7 +467,7 @@ export function createBetaBaseStore({
           styleFiles.files,
           directory,
         );
-        if (featureMode === "styleTransfer") {
+        if (["styleTransfer", "imageOutpaint", "imageUpscale"].includes(featureMode)) {
           inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
         }
       } finally {
@@ -391,17 +492,29 @@ export function createBetaBaseStore({
           "Prompt融合": promptModelLabel(result.sync?.archiveFields?.["Prompt融合"]),
           "尺寸": actualImageSize(resultBytes),
         };
+        const frozen = runArchives.get(recordId)?.fields;
+        if (frozen?.["功能"] === "AI超分") {
+          if (result.images.length !== 1) throw betaBaseContractError("AI超分结果必须是唯一图片");
+          verifyUpscaleArchive({ ...generatedFields, "Prompt / 工作流版本": betaResultVersion(result) },
+            JSON.parse(frozen["配置快照"]), resultBytes);
+        }
         await updateRecord(run, config, recordId, generatedFields);
         previewUrl = await createImagePreviewDataUrl(resultBytes);
         await writeFile(join(directory, file), resultBytes);
-        await uploadAttachments(
-          run,
-          config,
-          recordId,
-          config.resultFieldId,
-          [file],
-          directory,
-        );
+        const uploadIdentity = { name: file, size: resultBytes.length,
+          sha256: createHash("sha256").update(resultBytes).digest("hex") };
+        const previousUpload = runArchives.get(recordId)?.resultUpload;
+        let uploaded = false;
+        if (previousUpload?.sha256 === uploadIdentity.sha256) {
+          const previous = await getRecord(run, config, config.tableId, recordId, ["结果图"]);
+          const files = previous?.fields?.["结果图"];
+          uploaded = Array.isArray(files) && files.length === 1 && files[0]?.file_token
+            && files[0].name === file && Number(files[0].size) === resultBytes.length;
+        }
+        const context = runArchives.get(recordId) || {};
+        context.resultUpload = uploadIdentity;
+        runArchives.set(recordId, context);
+        if (!uploaded) await uploadAttachments(run, config, recordId, config.resultFieldId, [file], directory);
       } finally {
         await rm(directory, { force: true, recursive: true });
       }
@@ -423,15 +536,7 @@ export function createBetaBaseStore({
         recordId,
         ["结果图", ...Object.keys(runArchive?.inputAttachments || {}), ...Object.keys(expectedFields)],
       );
-      for (const [field, value] of Object.entries(expectedFields)) {
-        const actual = archived?.fields?.[field];
-        if (["出图模型", "Prompt融合"].includes(field) && Array.isArray(actual) && actual.length > 1) {
-          throw betaBaseContractError(`飞书模型标签回读不是单选：${field}`);
-        }
-        if (String(actual ?? "") !== String(value ?? "")) {
-          throw betaBaseContractError(`飞书生成信息回读不一致：${field}`);
-        }
-      }
+      verifyMetadata(archived?.fields, expectedFields);
       if (runArchive?.inputAttachments) {
         for (const [name, sizes] of Object.entries(runArchive.inputAttachments)) {
           assertAttachmentReadback(archived?.fields, name, sizes);
@@ -456,8 +561,88 @@ export function createBetaBaseStore({
         recordUrl: recordUrl(config, recordId),
       };
     },
-    async failRun(recordId, error) {
-      runArchives.delete(recordId);
+    async recoverRun({ batchId, featureMode, item, testTime }) {
+      if (!recoveryRecords.has(batchId)) {
+        recoveryRecords.set(batchId, listRecords(run, config, config.tableId,
+          ["Run ID", "批次 ID", "Attempt", "结果图"]).catch((error) => {
+          recoveryRecords.delete(batchId);
+          throw error;
+        }));
+      }
+      const records = await recoveryRecords.get(batchId);
+      const candidate = records.filter(({ fields }) => fields["批次 ID"] === batchId
+        && (fields["Run ID"] === item.runId || String(fields["Run ID"]).startsWith(`${item.runId}-A`))
+        && fields["结果图"]?.length).sort((a, b) => Number(b.fields["Attempt"]) - Number(a.fields["Attempt"]))[0];
+      if (!candidate) return null;
+      const runId = String(candidate.fields["Run ID"]);
+      const attempt = Number(candidate.fields["Attempt"]);
+      const frozen = buildBetaRunFields({ batchId, featureMode, testTime, item: { ...item, runId, attempt } });
+      delete frozen["状态"];
+      delete frozen["错误信息"];
+      delete frozen["Prompt / 工作流版本"];
+      const fieldsToRead = [...new Set([...Object.keys(frozen), "状态", "错误信息", "结果图", "输入图", "风格参考图",
+        "生成参数", "最终 Prompt", "尺寸", "时延（ms）", "费用（USD）", "Prompt融合", "Prompt / 工作流版本"])];
+      const archived = await getRecord(run, config, config.tableId, candidate.recordId, fieldsToRead);
+      const fields = archived?.fields || {};
+      verifyMetadata(fields, frozen);
+      const attachments = fields["结果图"];
+      if (!Array.isArray(attachments) || attachments.length !== 1 || !attachments[0]?.file_token
+        || !(Number(attachments[0].size) > 0)) throw betaBaseContractError("已有结果附件不可恢复：缺少唯一 token 或字节数");
+      if (featureMode !== "free") {
+        const inputs = fields["输入图"];
+        if (!Array.isArray(inputs) || inputs.length !== 1 || !inputs[0]?.file_token || !(Number(inputs[0].size) > 0)) {
+          throw betaBaseContractError("已有结果的输入附件不可恢复");
+        }
+      }
+      const styleAttachments = fields["风格参考图"] || [];
+      const styleCount = item.input.styleReferenceImages?.length || 0;
+      if (styleAttachments.length !== styleCount || styleAttachments.some((file) => !file.file_token || !(Number(file.size) > 0))) {
+        throw betaBaseContractError("已有结果的风格参考附件不可恢复");
+      }
+      let parameters;
+      try { parameters = JSON.parse(fields["生成参数"]); }
+      catch { throw betaBaseContractError("已有结果缺少可信的生成参数"); }
+      const workflow = parameters.workflow || {};
+      if ((featureMode !== "imageUpscale" && !fields["最终 Prompt"])
+        || !fields["Prompt / 工作流版本"] || !(Number(fields["时延（ms）"]) > 0)) {
+        throw betaBaseContractError("已有结果缺少最终 Prompt、版本或时延");
+      }
+      if (featureMode === "imageUpscale") verifyUpscaleArchive(fields, JSON.parse(frozen["配置快照"]));
+      if (featureMode === "imageOutpaint") {
+        if (!/^[a-f0-9]{64}$/.test(workflow.outputSha256 || "")) throw betaBaseContractError("已有扩图缺少产物 SHA-256");
+        verifyMetadata(fields, { "Prompt / 工作流版本": `${workflow.workflowId}@${workflow.workflowVersion}`,
+          "尺寸": `${workflow.outputWidth}x${workflow.outputHeight}` });
+        if (workflow.usageCost?.costUsd != null) verifyMetadata(fields, { "费用（USD）": Number(workflow.usageCost.costUsd) });
+      }
+      const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-recover-"));
+      try {
+        await run(config, ["base", "+record-download-attachment", "--as", "user", "--base-token", config.baseToken,
+          "--table-id", config.tableId, "--record-id", candidate.recordId, "--file-token", attachments[0].file_token,
+          "--output", "result-image", "--overwrite", "--format", "json"], { cwd: directory });
+        const bytes = await readFile(join(directory, "result-image"));
+        if (bytes.length !== Number(attachments[0].size) || actualImageSize(bytes) !== fields["尺寸"]
+          || (workflow.outputSha256 && createHash("sha256").update(bytes).digest("hex") !== workflow.outputSha256)) {
+          throw betaBaseContractError("已有结果附件字节数、尺寸或 SHA-256 不一致");
+        }
+      } finally { await rm(directory, { force: true, recursive: true }); }
+      const completion = { "状态": "成功", "错误信息": "" };
+      await updateRecord(run, config, candidate.recordId, completion);
+      const confirmed = await getRecord(run, config, config.tableId, candidate.recordId, fieldsToRead);
+      const expected = { ...fields, ...completion };
+      delete expected["结果图"];
+      delete expected["输入图"];
+      delete expected["风格参考图"];
+      verifyMetadata(confirmed?.fields, expected);
+      for (const name of ["结果图", "输入图", "风格参考图"]) {
+        assertAttachmentReadback(confirmed?.fields, name, (fields[name] || []).map((file) => Number(file.size)));
+        if ((fields[name] || []).some((file, index) => file.file_token !== confirmed?.fields?.[name]?.[index]?.file_token)) {
+          throw betaBaseContractError(`已有结果恢复后${name}附件 token 改变`);
+        }
+      }
+      return { attempt, recordId: candidate.recordId, recordUrl: recordUrl(config, candidate.recordId), runId };
+    },
+    async failRun(recordId, error, { retainArchive = false } = {}) {
+      if (!retainArchive) runArchives.delete(recordId);
       await updateRecord(run, config, recordId, {
         "状态": "失败",
         "错误信息": String(error?.message || "跑图失败").slice(0, 1000),

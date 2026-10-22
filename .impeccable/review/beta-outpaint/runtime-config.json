@@ -1,0 +1,73 @@
+{
+  "status": 200,
+  "featureCount": 9,
+  "features": [
+    "whiteModel",
+    "emptyRoom",
+    "styleTransfer",
+    "refinedModel",
+    "effectEnhancement",
+    "effectBeautification",
+    "panoramaEnhancement",
+    "free",
+    "imageOutpaint"
+  ],
+  "outpaint": {
+    "workflows": [
+      {
+        "key": "outpaint-flux-onereward",
+        "label": "Flux Fill OneReward（FP8）",
+        "provider": "comfyui",
+        "engine": "comfyui",
+        "model": "oneRewardFp8",
+        "available": true,
+        "reason": null
+      },
+      {
+        "key": "outpaint-flux-dev",
+        "label": "Flux Fill Dev（原版）",
+        "provider": "comfyui",
+        "engine": "comfyui",
+        "model": "fluxFillDev",
+        "available": true,
+        "reason": null
+      },
+      {
+        "key": "outpaint-qwen-2511",
+        "label": "Qwen Image Edit 2511",
+        "provider": "comfyui",
+        "engine": "qwenImageEdit2511",
+        "model": "qwenImageEdit2511",
+        "available": true,
+        "reason": null
+      },
+      {
+        "key": "outpaint-sunburst",
+        "label": "GPT Image 2.5 Sunburst",
+        "provider": "oneapi",
+        "engine": "gptImage25Sunburst",
+        "model": "gptImage25Sunburst",
+        "available": true,
+        "reason": null
+      }
+    ],
+    "resolution": "2K",
+    "ratios": [
+      "original",
+      "1:1",
+      "4:3",
+      "16:9",
+      "3:4",
+      "9:16"
+    ],
+    "scales": [
+      0.6666666666666666,
+      0.5,
+      0.3333333333333333
+    ],
+    "defaultWorkflowKeys": [
+      "outpaint-flux-onereward",
+      "outpaint-qwen-2511"
+    ]
+  }
+}

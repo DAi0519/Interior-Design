@@ -1,0 +1,56 @@
+/*
+[INPUT]: 依赖摄影机球控件及本地试跑服务
+[OUTPUT]: 摄影机球及三档景别选中态、原图/实际结果对比
+[POS]: public/prototypes/multi-angle 的独立测试页，不接入生产入口
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+*/
+
+#camera-sphere-v2{padding:20px 0;color-scheme:dark;font:13px/1.5 system-ui,sans-serif;color:#e5e5e6}
+#camera-sphere-v2 *{box-sizing:border-box}
+#camera-sphere-v2 .cs-panel{max-width:790px;margin:auto;background:#202022;border:1px solid #303033;border-radius:22px;padding:16px}
+#camera-sphere-v2 .cs-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:20px}
+#camera-sphere-v2 .cs-title{font-weight:500;font-size:14px}
+#camera-sphere-v2 button,#camera-sphere-v2 input{font:inherit}
+#camera-sphere-v2 button{color:inherit}
+#camera-sphere-v2 .cs-reset{background:transparent;border:0;padding:4px 2px;font-size:12px;color:#a9a9af;display:flex;gap:6px;align-items:center}
+#camera-sphere-v2 .cs-reset svg{width:13px;height:13px}
+#camera-sphere-v2 .cs-layout{display:grid;grid-template-columns:1.05fr 1fr;gap:22px;align-items:stretch}
+#camera-sphere-v2 .cs-stage{position:relative;min-width:0;min-height:380px;background:#28282a;border:1px solid #343437;border-radius:10px;touch-action:none;cursor:grab;overflow:hidden}
+#camera-sphere-v2 .cs-stage:active{cursor:grabbing}
+#camera-sphere-v2 canvas{display:block;width:100%;height:100%;position:absolute;inset:0}
+#camera-sphere-v2 .cs-camera-front{z-index:2;pointer-events:none}
+#camera-sphere-v2 .cs-camera-handle{position:absolute;z-index:3;width:36px;height:32px;padding:0;border:0;background:transparent;transform:translate(-50%,-50%);cursor:grab;touch-action:none}
+#camera-sphere-v2 .cs-camera-handle:active{cursor:grabbing}
+#camera-sphere-v2 .cs-photo{z-index:1}
+#camera-sphere-v2 .cs-photo{position:absolute;left:50%;top:52%;width:66px;height:88px;transform:translate(-50%,-50%);border:1px solid #66666c;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;background:#343436;color:#c4c4ca;font-size:12px;overflow:hidden;padding:0;box-shadow:0 2px 9px #0005}
+#camera-sphere-v2 .cs-photo svg{width:19px;height:19px;color:#b7b7bd}
+#camera-sphere-v2 .cs-photo img{width:100%;height:100%;object-fit:cover;display:block}
+#camera-sphere-v2 .cs-photo.has-image>*:not(img){display:none}
+#camera-sphere-v2 .cs-stage-label{position:absolute;bottom:13px;left:10px;right:10px;text-align:center;color:#8c8c94;font-size:11px;pointer-events:none}
+#camera-sphere-v2 .cs-nudge{position:absolute;border:0;background:transparent;padding:4px;color:#7c7c84;width:28px;height:28px;display:grid;place-items:center;font-size:20px}
+#camera-sphere-v2 .cs-up{left:calc(50% - 14px);top:22px}#camera-sphere-v2 .cs-down{left:calc(50% - 14px);bottom:36px}#camera-sphere-v2 .cs-left{left:8px;top:calc(52% - 14px)}#camera-sphere-v2 .cs-right{right:8px;top:calc(52% - 14px)}
+#camera-sphere-v2 .cs-controls{min-width:0;display:flex;flex-direction:column;padding:2px 0}
+#camera-sphere-v2 .cs-label{margin-bottom:9px;color:#dedee2}
+#camera-sphere-v2 .cs-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+#camera-sphere-v2 .cs-presets button{min-width:0;min-height:32px;border:1px solid #39393d;border-radius:8px;background:transparent;display:flex;gap:5px;justify-content:center;align-items:center;padding:6px 4px;white-space:nowrap;color:#b9b9c0}
+#camera-sphere-v2 .cs-presets .cs-arrow{color:#73737c;min-width:15px}
+#camera-sphere-v2 .cs-presets button[aria-pressed=true]{background:#38383e;border-color:#686871;color:#f0f0f3}
+#camera-sphere-v2 .cs-slider{margin-top:23px}
+#camera-sphere-v2 .cs-slider-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:3px}
+#camera-sphere-v2 output{font-size:12px;color:#b1b1ba;font-variant-numeric:tabular-nums}
+#camera-sphere-v2 input[type=range]{width:100%;height:24px;display:block;margin:0;appearance:none;background:transparent;accent-color:#fff}
+#camera-sphere-v2 input[type=range]::-webkit-slider-runnable-track{height:9px;border-radius:3px;background:linear-gradient(to right,#636368 0 var(--pct),#363639 var(--pct) 100%)}
+#camera-sphere-v2 input[type=range]::-webkit-slider-thumb{appearance:none;background:#f7f7f8;width:4px;height:16px;border-radius:3px;margin-top:-3.5px}
+#camera-sphere-v2 input[type=range]::-moz-range-track{height:9px;border-radius:3px;background:#363639}#camera-sphere-v2 input[type=range]::-moz-range-progress{height:9px;background:#636368}#camera-sphere-v2 input[type=range]::-moz-range-thumb{width:4px;height:16px;border:0;border-radius:3px;background:#f7f7f8}
+#camera-sphere-v2 .cs-ticks{display:flex;justify-content:space-between;gap:2px;color:#898992;font-size:11px;user-select:none}
+#camera-sphere-v2 .cs-ticks span{position:relative}#camera-sphere-v2 .cs-ticks span:before{content:'';position:absolute;width:1px;height:4px;background:#73737b;left:50%;top:-13px;pointer-events:none}
+#camera-sphere-v2 .cs-footer{margin-top:auto;padding-top:28px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#camera-sphere-v2 .cs-status{color:#8c8c96;font-size:11px}
+#camera-sphere-v2 .cs-generate{background:#ececee;color:#242427;border:0;border-radius:8px;min-width:74px;padding:8px 15px;opacity:.55}
+#camera-sphere-v2 .cs-file{display:none}
+@media(max-width:600px){#camera-sphere-v2{padding:12px 0}#camera-sphere-v2 .cs-layout{grid-template-columns:1fr;gap:20px}#camera-sphere-v2 .cs-stage{min-height:310px}#camera-sphere-v2 .cs-panel{padding:14px;border-radius:18px}#camera-sphere-v2 .cs-footer{padding-top:22px}#camera-sphere-v2 .cs-slider{margin-top:20px}}
+@media(pointer:coarse){#camera-sphere-v2 .cs-presets button{min-height:44px}#camera-sphere-v2 .cs-nudge{width:44px;height:44px}#camera-sphere-v2 .cs-left,#camera-sphere-v2 .cs-right{top:calc(52% - 22px)}#camera-sphere-v2 .cs-up,#camera-sphere-v2 .cs-down{left:calc(50% - 22px)}}
+
+body{margin:0;background:#171719;padding:32px 20px;color:#e5e5e6;font:13px/1.5 system-ui,sans-serif}button,a,input{outline-offset:4px}button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #d1b79a}button{cursor:pointer}button:disabled{cursor:wait}h1{font-size:18px;font-weight:500;margin:0}main{max-width:790px;margin:auto}.page-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.tag,.note{color:#9999a3;font-size:12px}.note{margin:0 0 24px}#camera-sphere-v2 .cs-generate:not(:disabled){opacity:1}#camera-sphere-v2 .cs-panel{margin:0}#camera-sphere-v2 .cs-status{max-width:230px;overflow-wrap:anywhere}#camera-sphere-v2 .cs-status.error{color:#ffc6ad}.results{border-top:1px solid #37373b;padding-top:20px;margin-top:10px}.results[hidden]{display:none}.result-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.result-head h2{font-size:14px;font-weight:500}.result-head a{color:#eee}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:16px}figure{margin:0}figure img{width:100%;display:block;border-radius:9px;background:#252527}figcaption{color:#aaaab3;margin-bottom:9px}.run-meta{color:#9999a3;font-size:12px;overflow-wrap:anywhere}.is-busy .cs-stage{pointer-events:none}@media(max-width:600px){body{padding:18px 12px}.comparison{gap:8px}.page-head{gap:12px}}
+
+#camera-sphere-v2 .cs-framing{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}#camera-sphere-v2 .cs-framing button{min-height:40px;border:1px solid #39393d;border-radius:8px;background:transparent;color:#b9b9c0}#camera-sphere-v2 .cs-framing button[aria-pressed=true]{background:#38383e;border-color:#86868e;color:#fff}

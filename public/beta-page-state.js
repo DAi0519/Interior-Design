@@ -1,12 +1,14 @@
 /**
- * [INPUT]: 依赖 localStorage 兼容存储、beta-model-rules 八功能目录、effect-beautification-controls 的强度色调归一化与模型和轻量表单配置
- * [OUTPUT]: 对外提供默认 Flux2 Klein 的 Beta 页面配置归一化、安全读取与持久化，保留不限数量且去重的模型选择、style-reference 与风格转换独立路线/版本及八功能样本集引用
+ * [INPUT]: 依赖localStorage、功能目录、beta-outpaint/beta-upscale独立工作流状态、美化强度色调归一化及模型和轻量表单配置
+ * [OUTPUT]: 提供默认Flux的Beta页面状态归一化与持久化，兼容KS缺省2X及显式长边，隔离扩图/超分尺寸、普通模型、风格转换路线/版本和十功能样本集
  * [POS]: public 的 Beta跑图持久配置边界，只保存可重建配置与样本集引用，不保存图片、生成结果或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
 import { BETA_FEATURE_COPY } from "./beta-model-rules.js";
+import { normalizeBetaOutpaintState } from "./beta-outpaint.js?v=1";
+import { normalizeBetaUpscaleState } from "./beta-upscale.js?v=3";
 
 export const BETA_PAGE_STATE_STORAGE_KEY = "canvas-lab:beta-page-state:v1";
 export const DEFAULT_BETA_MODEL_KEY = "aiTextureEnhancement";
@@ -62,6 +64,8 @@ export function normalizeBetaPageState(input = {}) {
   return {
     controls,
     featureMode,
+    outpaint: normalizeBetaOutpaintState(input.outpaint),
+    upscale: normalizeBetaUpscaleState(input.upscale),
     sampleSetIds,
     selectedModelKeys: selectedModelKeys.length
       ? selectedModelKeys

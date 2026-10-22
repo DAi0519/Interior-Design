@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
- * [OUTPUT]: 对外提供生图及扩图的前台飞书同步合同阻断与仅超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、效果图美化六组合/非法值缺省/Prompt隔离、分功能加载文案与批任务只传一份图片载荷的回归保障
+ * [OUTPUT]: 对外提供生图/遮罩填充及扩图的前台飞书同步合同阻断与仅本机超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、效果图美化六组合/非法值缺省/Prompt隔离、分功能加载文案与批任务只传一份图片载荷的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -28,7 +28,7 @@ test("工作台默认使用空白提示词与 Flux2 Klein", async () => {
   assert.doesNotMatch(app, /modelKeys:\s*\["seedream5"\]/);
 });
 
-test("前台生图及扩图只在飞书实时 Schema 就绪后提交，仅超分除外", async () => {
+test("前台生图/遮罩填充及扩图只在飞书实时 Schema 就绪后提交，仅本机超分除外", async () => {
   const [app, connectionCenter] = await Promise.all([
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
     readFile(new URL("../public/connection-center.js", import.meta.url), "utf8"),

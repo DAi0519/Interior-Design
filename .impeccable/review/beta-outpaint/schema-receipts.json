@@ -1,0 +1,823 @@
+[
+  {
+    "tableId": "tblrue5KUj7VNDD2",
+    "fieldId": "fldPAqJ4yn",
+    "before": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "field": {
+          "default_value": null,
+          "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+          "id": "fldPAqJ4yn",
+          "multiple": false,
+          "name": "功能",
+          "options": [
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "白模渲染"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "空房设计"
+            },
+            {
+              "hue": "Carmine",
+              "lightness": "Lighter",
+              "name": "精模渲染"
+            },
+            {
+              "hue": "Wathet",
+              "lightness": "Lighter",
+              "name": "效果图美化"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "效果图氛围转换"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "自由生图"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "全景图美化"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "风格转换"
+            }
+          ],
+          "type": "select"
+        }
+      }
+    },
+    "body": {
+      "default_value": null,
+      "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+      "multiple": false,
+      "name": "功能",
+      "options": [
+        {
+          "hue": "Green",
+          "lightness": "Lighter",
+          "name": "白模渲染"
+        },
+        {
+          "hue": "Green",
+          "lightness": "Lighter",
+          "name": "空房设计"
+        },
+        {
+          "hue": "Carmine",
+          "lightness": "Lighter",
+          "name": "精模渲染"
+        },
+        {
+          "hue": "Wathet",
+          "lightness": "Lighter",
+          "name": "效果图美化"
+        },
+        {
+          "hue": "Orange",
+          "lightness": "Light",
+          "name": "效果图氛围转换"
+        },
+        {
+          "hue": "Purple",
+          "lightness": "Lighter",
+          "name": "自由生图"
+        },
+        {
+          "hue": "Blue",
+          "lightness": "Lighter",
+          "name": "全景图美化"
+        },
+        {
+          "hue": "Purple",
+          "lightness": "Lighter",
+          "name": "风格转换"
+        },
+        {
+          "name": "AI扩图",
+          "hue": "Blue",
+          "lightness": "Lighter"
+        }
+      ],
+      "type": "select"
+    },
+    "preview": {
+      "ok": true,
+      "identity": "user",
+      "dry_run": true,
+      "data": {
+        "api": [
+          {
+            "method": "PUT",
+            "url": "/open-apis/base/v3/bases/ORwJbt5EYauNORsrhqJcpetLnEb/tables/tblrue5KUj7VNDD2/fields/fldPAqJ4yn",
+            "body": {
+              "default_value": null,
+              "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+              "multiple": false,
+              "name": "功能",
+              "options": [
+                {
+                  "hue": "Green",
+                  "lightness": "Lighter",
+                  "name": "白模渲染"
+                },
+                {
+                  "hue": "Green",
+                  "lightness": "Lighter",
+                  "name": "空房设计"
+                },
+                {
+                  "hue": "Carmine",
+                  "lightness": "Lighter",
+                  "name": "精模渲染"
+                },
+                {
+                  "hue": "Wathet",
+                  "lightness": "Lighter",
+                  "name": "效果图美化"
+                },
+                {
+                  "hue": "Orange",
+                  "lightness": "Light",
+                  "name": "效果图氛围转换"
+                },
+                {
+                  "hue": "Purple",
+                  "lightness": "Lighter",
+                  "name": "自由生图"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "全景图美化"
+                },
+                {
+                  "hue": "Purple",
+                  "lightness": "Lighter",
+                  "name": "风格转换"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "AI扩图"
+                }
+              ],
+              "type": "select"
+            }
+          }
+        ],
+        "base_token": "ORwJbt5EYauNORsrhqJcpetLnEb",
+        "context": {
+          "app_id": "cli_aad3445360381cc0",
+          "user_open_id": "ou_0f3c5fdfa9f2b11a6f464fa095bdc268"
+        },
+        "field_id": "fldPAqJ4yn",
+        "table_id": "tblrue5KUj7VNDD2"
+      }
+    },
+    "args": [
+      "base",
+      "+field-update",
+      "--as",
+      "user",
+      "--base-token",
+      "ORwJbt5EYauNORsrhqJcpetLnEb",
+      "--table-id",
+      "tblrue5KUj7VNDD2",
+      "--field-id",
+      "fldPAqJ4yn",
+      "--json",
+      "{\"default_value\":null,\"description\":\"Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路\",\"multiple\":false,\"name\":\"功能\",\"options\":[{\"hue\":\"Green\",\"lightness\":\"Lighter\",\"name\":\"白模渲染\"},{\"hue\":\"Green\",\"lightness\":\"Lighter\",\"name\":\"空房设计\"},{\"hue\":\"Carmine\",\"lightness\":\"Lighter\",\"name\":\"精模渲染\"},{\"hue\":\"Wathet\",\"lightness\":\"Lighter\",\"name\":\"效果图美化\"},{\"hue\":\"Orange\",\"lightness\":\"Light\",\"name\":\"效果图氛围转换\"},{\"hue\":\"Purple\",\"lightness\":\"Lighter\",\"name\":\"自由生图\"},{\"hue\":\"Blue\",\"lightness\":\"Lighter\",\"name\":\"全景图美化\"},{\"hue\":\"Purple\",\"lightness\":\"Lighter\",\"name\":\"风格转换\"},{\"name\":\"AI扩图\",\"hue\":\"Blue\",\"lightness\":\"Lighter\"}],\"type\":\"select\"}",
+      "--format",
+      "json"
+    ],
+    "after": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "field": {
+          "default_value": null,
+          "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+          "id": "fldPAqJ4yn",
+          "multiple": false,
+          "name": "功能",
+          "options": [
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "白模渲染"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "空房设计"
+            },
+            {
+              "hue": "Carmine",
+              "lightness": "Lighter",
+              "name": "精模渲染"
+            },
+            {
+              "hue": "Wathet",
+              "lightness": "Lighter",
+              "name": "效果图美化"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "效果图氛围转换"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "自由生图"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "全景图美化"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "风格转换"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "AI扩图"
+            }
+          ],
+          "type": "select"
+        }
+      }
+    }
+  },
+  {
+    "tableId": "tblrue5KUj7VNDD2",
+    "fieldId": "fldSzn0aMZ",
+    "before": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "field": {
+          "default_value": null,
+          "id": "fldSzn0aMZ",
+          "multiple": false,
+          "name": "出图模型",
+          "options": [
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Banana 2"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Banana 2.1"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "GPT Image 2"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "GPT Image 2.5 Sunburst"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "GPT Image 2.5 Flare"
+            },
+            {
+              "hue": "Lime",
+              "lightness": "Light",
+              "name": "Flux2 Klein"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "Seedream 5.0"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "Seedream 5.0 Pro"
+            }
+          ],
+          "type": "select"
+        }
+      }
+    },
+    "body": {
+      "default_value": null,
+      "multiple": false,
+      "name": "出图模型",
+      "options": [
+        {
+          "hue": "Purple",
+          "lightness": "Light",
+          "name": "Banana 2"
+        },
+        {
+          "hue": "Purple",
+          "lightness": "Light",
+          "name": "Banana 2.1"
+        },
+        {
+          "hue": "Blue",
+          "lightness": "Light",
+          "name": "GPT Image 2"
+        },
+        {
+          "hue": "Blue",
+          "lightness": "Light",
+          "name": "GPT Image 2.5 Sunburst"
+        },
+        {
+          "hue": "Blue",
+          "lightness": "Light",
+          "name": "GPT Image 2.5 Flare"
+        },
+        {
+          "hue": "Lime",
+          "lightness": "Light",
+          "name": "Flux2 Klein"
+        },
+        {
+          "hue": "Orange",
+          "lightness": "Light",
+          "name": "Seedream 5.0"
+        },
+        {
+          "hue": "Orange",
+          "lightness": "Light",
+          "name": "Seedream 5.0 Pro"
+        },
+        {
+          "name": "Flux Fill OneReward（FP8）",
+          "hue": "Blue",
+          "lightness": "Lighter"
+        },
+        {
+          "name": "Flux Fill Dev（原版）",
+          "hue": "Blue",
+          "lightness": "Lighter"
+        },
+        {
+          "name": "Qwen Image Edit 2511",
+          "hue": "Blue",
+          "lightness": "Lighter"
+        }
+      ],
+      "type": "select"
+    },
+    "preview": {
+      "ok": true,
+      "identity": "user",
+      "dry_run": true,
+      "data": {
+        "api": [
+          {
+            "method": "PUT",
+            "url": "/open-apis/base/v3/bases/ORwJbt5EYauNORsrhqJcpetLnEb/tables/tblrue5KUj7VNDD2/fields/fldSzn0aMZ",
+            "body": {
+              "default_value": null,
+              "multiple": false,
+              "name": "出图模型",
+              "options": [
+                {
+                  "hue": "Purple",
+                  "lightness": "Light",
+                  "name": "Banana 2"
+                },
+                {
+                  "hue": "Purple",
+                  "lightness": "Light",
+                  "name": "Banana 2.1"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Light",
+                  "name": "GPT Image 2"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Light",
+                  "name": "GPT Image 2.5 Sunburst"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Light",
+                  "name": "GPT Image 2.5 Flare"
+                },
+                {
+                  "hue": "Lime",
+                  "lightness": "Light",
+                  "name": "Flux2 Klein"
+                },
+                {
+                  "hue": "Orange",
+                  "lightness": "Light",
+                  "name": "Seedream 5.0"
+                },
+                {
+                  "hue": "Orange",
+                  "lightness": "Light",
+                  "name": "Seedream 5.0 Pro"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "Flux Fill OneReward（FP8）"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "Flux Fill Dev（原版）"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "Qwen Image Edit 2511"
+                }
+              ],
+              "type": "select"
+            }
+          }
+        ],
+        "base_token": "ORwJbt5EYauNORsrhqJcpetLnEb",
+        "context": {
+          "app_id": "cli_aad3445360381cc0",
+          "user_open_id": "ou_0f3c5fdfa9f2b11a6f464fa095bdc268"
+        },
+        "field_id": "fldSzn0aMZ",
+        "table_id": "tblrue5KUj7VNDD2"
+      }
+    },
+    "args": [
+      "base",
+      "+field-update",
+      "--as",
+      "user",
+      "--base-token",
+      "ORwJbt5EYauNORsrhqJcpetLnEb",
+      "--table-id",
+      "tblrue5KUj7VNDD2",
+      "--field-id",
+      "fldSzn0aMZ",
+      "--json",
+      "{\"default_value\":null,\"multiple\":false,\"name\":\"出图模型\",\"options\":[{\"hue\":\"Purple\",\"lightness\":\"Light\",\"name\":\"Banana 2\"},{\"hue\":\"Purple\",\"lightness\":\"Light\",\"name\":\"Banana 2.1\"},{\"hue\":\"Blue\",\"lightness\":\"Light\",\"name\":\"GPT Image 2\"},{\"hue\":\"Blue\",\"lightness\":\"Light\",\"name\":\"GPT Image 2.5 Sunburst\"},{\"hue\":\"Blue\",\"lightness\":\"Light\",\"name\":\"GPT Image 2.5 Flare\"},{\"hue\":\"Lime\",\"lightness\":\"Light\",\"name\":\"Flux2 Klein\"},{\"hue\":\"Orange\",\"lightness\":\"Light\",\"name\":\"Seedream 5.0\"},{\"hue\":\"Orange\",\"lightness\":\"Light\",\"name\":\"Seedream 5.0 Pro\"},{\"name\":\"Flux Fill OneReward（FP8）\",\"hue\":\"Blue\",\"lightness\":\"Lighter\"},{\"name\":\"Flux Fill Dev（原版）\",\"hue\":\"Blue\",\"lightness\":\"Lighter\"},{\"name\":\"Qwen Image Edit 2511\",\"hue\":\"Blue\",\"lightness\":\"Lighter\"}],\"type\":\"select\"}",
+      "--format",
+      "json"
+    ],
+    "after": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "field": {
+          "default_value": null,
+          "id": "fldSzn0aMZ",
+          "multiple": false,
+          "name": "出图模型",
+          "options": [
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Banana 2"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Light",
+              "name": "Banana 2.1"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "GPT Image 2"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "GPT Image 2.5 Sunburst"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Light",
+              "name": "GPT Image 2.5 Flare"
+            },
+            {
+              "hue": "Lime",
+              "lightness": "Light",
+              "name": "Flux2 Klein"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "Seedream 5.0"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "Seedream 5.0 Pro"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "Flux Fill OneReward（FP8）"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "Flux Fill Dev（原版）"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "Qwen Image Edit 2511"
+            }
+          ],
+          "type": "select"
+        }
+      }
+    }
+  },
+  {
+    "tableId": "tblQmKbAHOCPcct7",
+    "fieldId": "fld9KStnJ7",
+    "before": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "field": {
+          "default_value": null,
+          "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+          "id": "fld9KStnJ7",
+          "multiple": false,
+          "name": "功能",
+          "options": [
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "白模渲染"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "空房设计"
+            },
+            {
+              "hue": "Carmine",
+              "lightness": "Lighter",
+              "name": "精模渲染"
+            },
+            {
+              "hue": "Wathet",
+              "lightness": "Lighter",
+              "name": "效果图美化"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "效果图氛围转换"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "自由生图"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "全景图美化"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "风格转换"
+            }
+          ],
+          "type": "select"
+        }
+      }
+    },
+    "body": {
+      "default_value": null,
+      "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+      "multiple": false,
+      "name": "功能",
+      "options": [
+        {
+          "hue": "Green",
+          "lightness": "Lighter",
+          "name": "白模渲染"
+        },
+        {
+          "hue": "Green",
+          "lightness": "Lighter",
+          "name": "空房设计"
+        },
+        {
+          "hue": "Carmine",
+          "lightness": "Lighter",
+          "name": "精模渲染"
+        },
+        {
+          "hue": "Wathet",
+          "lightness": "Lighter",
+          "name": "效果图美化"
+        },
+        {
+          "hue": "Orange",
+          "lightness": "Light",
+          "name": "效果图氛围转换"
+        },
+        {
+          "hue": "Purple",
+          "lightness": "Lighter",
+          "name": "自由生图"
+        },
+        {
+          "hue": "Blue",
+          "lightness": "Lighter",
+          "name": "全景图美化"
+        },
+        {
+          "hue": "Purple",
+          "lightness": "Lighter",
+          "name": "风格转换"
+        },
+        {
+          "name": "AI扩图",
+          "hue": "Blue",
+          "lightness": "Lighter"
+        }
+      ],
+      "type": "select"
+    },
+    "preview": {
+      "ok": true,
+      "identity": "user",
+      "dry_run": true,
+      "data": {
+        "api": [
+          {
+            "method": "PUT",
+            "url": "/open-apis/base/v3/bases/ORwJbt5EYauNORsrhqJcpetLnEb/tables/tblQmKbAHOCPcct7/fields/fld9KStnJ7",
+            "body": {
+              "default_value": null,
+              "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+              "multiple": false,
+              "name": "功能",
+              "options": [
+                {
+                  "hue": "Green",
+                  "lightness": "Lighter",
+                  "name": "白模渲染"
+                },
+                {
+                  "hue": "Green",
+                  "lightness": "Lighter",
+                  "name": "空房设计"
+                },
+                {
+                  "hue": "Carmine",
+                  "lightness": "Lighter",
+                  "name": "精模渲染"
+                },
+                {
+                  "hue": "Wathet",
+                  "lightness": "Lighter",
+                  "name": "效果图美化"
+                },
+                {
+                  "hue": "Orange",
+                  "lightness": "Light",
+                  "name": "效果图氛围转换"
+                },
+                {
+                  "hue": "Purple",
+                  "lightness": "Lighter",
+                  "name": "自由生图"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "全景图美化"
+                },
+                {
+                  "hue": "Purple",
+                  "lightness": "Lighter",
+                  "name": "风格转换"
+                },
+                {
+                  "hue": "Blue",
+                  "lightness": "Lighter",
+                  "name": "AI扩图"
+                }
+              ],
+              "type": "select"
+            }
+          }
+        ],
+        "base_token": "ORwJbt5EYauNORsrhqJcpetLnEb",
+        "context": {
+          "app_id": "cli_aad3445360381cc0",
+          "user_open_id": "ou_0f3c5fdfa9f2b11a6f464fa095bdc268"
+        },
+        "field_id": "fld9KStnJ7",
+        "table_id": "tblQmKbAHOCPcct7"
+      }
+    },
+    "args": [
+      "base",
+      "+field-update",
+      "--as",
+      "user",
+      "--base-token",
+      "ORwJbt5EYauNORsrhqJcpetLnEb",
+      "--table-id",
+      "tblQmKbAHOCPcct7",
+      "--field-id",
+      "fld9KStnJ7",
+      "--json",
+      "{\"default_value\":null,\"description\":\"Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路\",\"multiple\":false,\"name\":\"功能\",\"options\":[{\"hue\":\"Green\",\"lightness\":\"Lighter\",\"name\":\"白模渲染\"},{\"hue\":\"Green\",\"lightness\":\"Lighter\",\"name\":\"空房设计\"},{\"hue\":\"Carmine\",\"lightness\":\"Lighter\",\"name\":\"精模渲染\"},{\"hue\":\"Wathet\",\"lightness\":\"Lighter\",\"name\":\"效果图美化\"},{\"hue\":\"Orange\",\"lightness\":\"Light\",\"name\":\"效果图氛围转换\"},{\"hue\":\"Purple\",\"lightness\":\"Lighter\",\"name\":\"自由生图\"},{\"hue\":\"Blue\",\"lightness\":\"Lighter\",\"name\":\"全景图美化\"},{\"hue\":\"Purple\",\"lightness\":\"Lighter\",\"name\":\"风格转换\"},{\"name\":\"AI扩图\",\"hue\":\"Blue\",\"lightness\":\"Lighter\"}],\"type\":\"select\"}",
+      "--format",
+      "json"
+    ],
+    "after": {
+      "ok": true,
+      "identity": "user",
+      "data": {
+        "field": {
+          "default_value": null,
+          "description": "Beta 跑图所属功能；样本集与跑图明细一致，风格转换复用现有八功能链路",
+          "id": "fld9KStnJ7",
+          "multiple": false,
+          "name": "功能",
+          "options": [
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "白模渲染"
+            },
+            {
+              "hue": "Green",
+              "lightness": "Lighter",
+              "name": "空房设计"
+            },
+            {
+              "hue": "Carmine",
+              "lightness": "Lighter",
+              "name": "精模渲染"
+            },
+            {
+              "hue": "Wathet",
+              "lightness": "Lighter",
+              "name": "效果图美化"
+            },
+            {
+              "hue": "Orange",
+              "lightness": "Light",
+              "name": "效果图氛围转换"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "自由生图"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "全景图美化"
+            },
+            {
+              "hue": "Purple",
+              "lightness": "Lighter",
+              "name": "风格转换"
+            },
+            {
+              "hue": "Blue",
+              "lightness": "Lighter",
+              "name": "AI扩图"
+            }
+          ],
+          "type": "select"
+        }
+      }
+    }
+  }
+]

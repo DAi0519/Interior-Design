@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 sharp、模型目录按官方 16px 网格/像素/边长约束映射的 Sunburst 尺寸真源、图片字节读取、服务层按比例适配后的真实输入尺寸/四边定位和注入的 OneAPI 编辑客户端
- * [OUTPUT]: 对外提供 Sunburst 扩图公开合同、提交输入尺寸/27个合法目标档位校验、透明画布/编辑遮罩、动态 Prompt 真源及真实产物/费用元数据
+ * [INPUT]: 依赖固定2K扩图合同、sharp、模型目录的Sunburst尺寸真源、图片字节读取、真实输入尺寸/四边定位和注入的OneAPI编辑客户端
+ * [OUTPUT]: 对外提供Sunburst固定2K公开合同、原图16384px与API适配图3840px独立边界、9个预设与16px原比例目标/超3:1最小补边政策、透明画布/编辑遮罩、动态Prompt真源及真实产物/费用元数据
  * [POS]: src 的 API 扩图适配器，与 MaaS/ComfyUI 工作流并列，沿用单图工具结果边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,14 +10,17 @@ import sharp from "sharp";
 import { loadImageBytes } from "./image-artifact.mjs";
 import { readImageDimensions } from "./image-dimensions.mjs";
 import { MODEL_CONFIGS } from "./model-config.mjs";
+import { OUTPAINT_LONG_EDGE, OUTPAINT_RESOLUTION } from "../public/image-outpaint-geometry.js";
 
 export const ONEAPI_OUTPAINT_ENGINE_KEY = "gptImage25Sunburst";
 const MODEL = MODEL_CONFIGS[ONEAPI_OUTPAINT_ENGINE_KEY];
-const VERSION = "2026-10-15.2";
+const VERSION = "2026-10-19.1";
+const MAX_SOURCE_EDGE = 16384;
 const MAX_IMAGE_URL_LENGTH = 20 * 1024 * 1024;
 const MAX_MASK_BYTES = 4 * 1024 * 1024;
+const DIMENSION_LIMITS = Object.freeze({ maxEdge: 3840, minPixels: 655360, maxPixels: 8294400, maxAspectRatio: 3, outputAlignment: 16 });
 const TARGET_SIZES = Object.entries(MODEL.sizes).flatMap(([ratio, sizes]) =>
-  Object.entries(sizes).map(([resolution, size]) => {
+  Object.entries(sizes).filter(([resolution]) => resolution === OUTPAINT_RESOLUTION).map(([resolution, size]) => {
     const [width, height] = size.split("x").map(Number);
     return { height, ratio, resolution, width };
   }),
@@ -37,20 +40,22 @@ function pngDataUrl(bytes) {
 
 export function publicOneApiOutpaintConfig({ available = false, reason = "请先连接有 Sunburst 权限的 OneAPI Key" } = {}) {
   return {
+    ...DIMENSION_LIMITS,
     available,
     inputAlignment: 1,
     key: ONEAPI_OUTPAINT_ENGINE_KEY,
     label: MODEL.label,
-    maxEdge: 3840,
     maxExpansion: 8192,
-    maxInputEdge: 3840,
-    maxPixels: 8294400,
+    maxInputEdge: DIMENSION_LIMITS.maxEdge,
+    maxSourceEdge: MAX_SOURCE_EDGE,
+    adaptOriginalRatio: true,
     minInputEdge: 32,
-    outputAlignment: 16,
     provider: "oneapi",
     quality: "medium",
+    resolution: OUTPAINT_RESOLUTION,
     reason: available ? null : reason,
     sourceSizing: "original",
+    supportsOriginalRatio: true,
     targetSizes: TARGET_SIZES,
     workflow: { key: "image-outpaint-sunburst", label: MODEL.label, version: VERSION },
   };
@@ -66,8 +71,14 @@ export function oneApiOutpaintPreparedDimensions(source) {
 }
 
 export function assertOneApiOutpaintTarget({ width, height }) {
-  if (!TARGET_SIZES.some((size) => size.width === width && size.height === height)) {
-    throw inputError("Sunburst 目标尺寸需匹配支持的 1K/2K/4K 档位，请选择快捷比例后调整四边位置");
+  const validDimensions = [width, height].every((value) => Number.isSafeInteger(value)
+    && value >= 32 && value <= DIMENSION_LIMITS.maxEdge && value % DIMENSION_LIMITS.outputAlignment === 0);
+  const listed = TARGET_SIZES.some((size) => size.width === width && size.height === height);
+  const original2k = Math.max(width, height) === OUTPAINT_LONG_EDGE;
+  const pixels = width * height;
+  if (!validDimensions || (!listed && !original2k) || pixels < DIMENSION_LIMITS.minPixels
+    || pixels > DIMENSION_LIMITS.maxPixels || Math.max(width, height) / Math.min(width, height) > DIMENSION_LIMITS.maxAspectRatio) {
+    throw inputError("Sunburst扩图固定使用2K，目标需为支持的画幅或16px对齐且比例不超过3:1的原比例尺寸");
   }
   return { width, height };
 }

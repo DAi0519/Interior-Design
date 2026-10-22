@@ -1,7 +1,7 @@
 <!--
-  [INPUT]: 依赖 beta.css/beta-app.js/beta-results/beta-configuration/beta-page-state/beta-sample-library、model-picker.css 与共享模型多选控件、工作台公开模型/Prompt 配置、独立 /api/beta 样本集与任务接口，以及共享导航、更新检查 app-update.css/js、下拉、上传、动作控件系统
-  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、名为“Beta跑图”的无步骤编号四分区可恢复配置、默认 Flux2 Klein 与不限数量的已选摘要/简洁搜索模型多选、同宽可搜索的单选平台风格、顶部对齐的设计配置与提示词模型实时权限说明、按飞书样本 ID 复用与单张上传保存的不限整批容量样本库、单图 8MB 说明、八场景及明确平台/参考图两路的风格转换、独立全景 Prompt/2:1 模型门槛/效果图美化强度色调配置、38px 中性保存动作、START，以及归档回读后的缩略图与生成/同步双进度监控
-  [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和已归档结果预览可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
+  [INPUT]: 依赖Beta编排/独立扩图和超分配置/结果/持久化/样本库、共享单多选控件、脱敏模型/工作流/Prompt目录及独立样本任务接口
+  [OUTPUT]: 提供可搜索十任务、普通模型/扩图/AI超分独立配置、按工作流交集选择输出尺寸的KS2X/4K/6K对照、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
+  [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 <!doctype html>
@@ -12,13 +12,12 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · Beta跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=21" />
+    <link rel="stylesheet" href="/beta.css?v=24" />
     <link rel="stylesheet" href="/effect-beautification.css?v=1" />
     <link rel="stylesheet" href="/generation-actions.css?v=15" />
-    <link rel="stylesheet" href="/custom-select.css?v=9" />
+    <link rel="stylesheet" href="/custom-select.css?v=10" />
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
     <link rel="stylesheet" href="/app-update.css?v=1" />
-    <link rel="stylesheet" href="/model-picker.css?v=2" />
     <link rel="stylesheet" href="/raycast-accent.css?v=42" />
   </head>
   <body>
@@ -54,16 +53,7 @@
               <div class="section-heading">
                 <h2>选择任务</h2>
               </div>
-              <div id="betaFeatureOptions" class="feature-options" role="radiogroup" aria-label="Beta跑图功能">
-                <button class="feature-mode-option selected" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="true">白模渲染</button>
-                <button class="feature-mode-option" data-feature-mode="emptyRoom" type="button" role="radio" aria-checked="false">空房设计</button>
-                <button class="feature-mode-option" data-feature-mode="styleTransfer" type="button" role="radio" aria-checked="false">风格转换</button>
-                <button class="feature-mode-option" data-feature-mode="refinedModel" type="button" role="radio" aria-checked="false">精模渲染</button>
-                <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图氛围转换</button>
-                <button class="feature-mode-option" data-feature-mode="effectBeautification" type="button" role="radio" aria-checked="false">效果图美化</button>
-                <button class="feature-mode-option" data-feature-mode="panoramaEnhancement" type="button" role="radio" aria-checked="false">全景图美化</button>
-                <button class="feature-mode-option" data-feature-mode="free" type="button" role="radio" aria-checked="false">自由生图</button>
-              </div>
+              <select id="betaFeatureSelect" aria-label="选择任务" data-searchable="true" data-search-placeholder="搜索任务名称"></select>
             </section>
 
             <section class="beta-section">
@@ -115,7 +105,7 @@
               <div id="freePromptList" class="sample-list hidden" aria-live="polite"></div>
             </section>
 
-            <section class="beta-section">
+            <section id="taskSettingsSection" class="beta-section">
               <div class="section-heading">
                 <h2>任务设置</h2>
                 <small id="configStatus">读取中</small>
@@ -192,8 +182,24 @@
             <section class="beta-section">
               <div class="section-heading">
                 <h2>输出设置</h2>
-                <small>可多选全部可用模型</small>
+                <small id="outputSettingsHint">可多选全部可用模型</small>
               </div>
+              <div id="outpaintFields" class="beta-outpaint-fields hidden">
+                <div class="field"><span>扩图工作流</span><div id="outpaintWorkflowOptions" role="group" aria-label="扩图工作流"></div></div>
+                <div class="field-grid">
+                  <label class="field"><span>画幅比例</span><select id="outpaintRatioSelect" data-dropdown-placement="top"><option value="original">原比例</option><option value="1:1">1:1</option><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="3:4">3:4</option><option value="9:16">9:16</option></select></label>
+                  <label class="field"><span>扩图倍率</span><select id="outpaintMultipleSelect" data-dropdown-placement="top"><option value="1.5">1.5 倍</option><option value="2">2 倍</option><option value="3">3 倍</option></select></label>
+                </div>
+                <small class="beta-outpaint-hint">整批共用画幅与倍率，原图居中，固定 2K 输出。Sunburst 超限图等比缩小，超宽画幅保全图补边。</small>
+                <small id="outpaintAvailability" class="beta-outpaint-availability hidden" role="status"></small>
+              </div>
+              <div id="upscaleFields" class="beta-upscale-fields hidden">
+                <div class="field"><span>超分工作流</span><div id="upscaleWorkflowOptions" role="group" aria-label="超分工作流"></div></div>
+                <label id="upscaleResolutionField" class="field"><span>输出尺寸</span><select id="upscaleResolutionSelect" aria-label="超分输出尺寸" data-dropdown-placement="top"></select></label>
+                <small id="upscaleResolutionNote" class="beta-upscale-hint">按所选工作流的共同尺寸输出，保持每张原图比例。</small>
+                <small id="upscaleAvailability" class="beta-upscale-availability hidden" role="status"></small>
+              </div>
+              <div id="ordinaryOutputFields" class="beta-ordinary-output">
               <div id="modelOptions" class="model-options" role="group" aria-label="出图模型"></div>
               <div class="field-grid output-grid">
                 <label class="field"><span>输出比例</span><select id="ratioSelect" data-dropdown-placement="top"></select></label>
@@ -201,13 +207,14 @@
                 <label id="qualityField" class="field"><span>质量档</span><select id="qualitySelect" data-dropdown-placement="top"></select></label>
               </div>
               <label id="negativePromptField" class="field hidden"><span>Flux 负向提示词（可选）</span><textarea id="negativePromptInput" rows="2" placeholder="留空使用系统默认"></textarea></label>
+              </div>
             </section>
             </div>
 
             <div class="run-bar">
               <div class="run-meta">
                 <div><strong id="runSummary">请选择样本集</strong></div>
-                <span id="runHint">结果自动同步飞书</span>
+                <div class="run-meta-actions"><span id="runHint">结果自动同步飞书</span><button id="newBatchButton" class="quiet-button new-batch-button hidden" type="button">新批次</button></div>
               </div>
               <div id="betaGenerationActions" class="generation-actions">
                 <button id="runButton" class="generate-button functional-accent-button" type="submit" aria-label="开始批量运行" aria-busy="false">
@@ -257,13 +264,13 @@
               <p id="jobProgressLabel">运行后，这里会持续显示生成与同步进度。</p>
             </div>
 
-            <section class="monitor-results" aria-labelledby="monitorResultsTitle">
-              <div class="monitor-results-heading">
-                <span id="monitorResultsTitle">本批结果</span>
-                <small id="monitorResultsCount">0 张</small>
+            <section class="monitor-warnings" aria-labelledby="monitorWarningsTitle">
+              <div class="monitor-warnings-heading">
+                <span id="monitorWarningsTitle">异常预警</span>
+                <small id="monitorWarningsCount">暂无异常</small>
               </div>
-              <div id="monitorResults" class="monitor-results-grid" aria-live="polite">
-                <p class="monitor-results-empty">结果同步飞书后将在这里显示。</p>
+              <div id="monitorWarnings" class="monitor-warnings-list" aria-live="polite">
+                <p class="monitor-warnings-empty">生成失败、同步失败等问题将在这里提示。</p>
               </div>
             </section>
 
@@ -275,6 +282,6 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=29"></script>
+    <script type="module" src="/beta-app.js?v=36"></script>
   </body>
 </html>

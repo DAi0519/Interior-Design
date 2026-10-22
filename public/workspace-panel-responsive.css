@@ -1,0 +1,199 @@
+/**
+ * [INPUT]: 依赖workspace-panel.css的workspace-parameters内联尺寸容器，以及各功能既有表单、上传、单选、共享下拉和镜头控件类名
+ * [OUTPUT]: 按真实参数栏宽度重排字段、标题、上传信息、模型和机位按钮，保留字体/38px点击区/共享选择配色及完整可读文本
+ * [POS]: public 主工作台参数容器适配层，紧随workspace-panel.css加载，覆盖所有功能并与移动dialog共用原表单
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+#configurationPanel .control-panel-scroll [hidden] {
+  display: none !important;
+}
+
+/* -------- 先允许子项真实收缩，不让原生表单的内在宽度撑破参数栏 -------- */
+#configurationPanel .control-panel-scroll :is(
+  .panel-section, .field, .field-grid, .compact-config-field,
+  .compact-config-stack, .style-choice-list, .model-picker,
+  .reference-list, .reference-item, .reference-drop-zone,
+  .image-outpaint-model-field, .room-type-detail,
+  .room-type-detail-label, .cs-quality-group, #styleDnaControls
+) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+#configurationPanel .control-panel-scroll :is(
+  textarea, select:not(.custom-select-native),
+  input:not([type="checkbox"]):not([type="radio"])
+) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* -------- 280px参数栏：所有功能的双列字段、模型与上传改成完整单列 -------- */
+@container workspace-parameters (max-width: 280px) {
+  #configurationPanel .control-panel-scroll .panel-section {
+    padding-inline: 14px;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.field-grid, .model-option-list, .reference-list) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #configurationPanel .control-panel-scroll :is(.section-heading, .section-heading-actions) {
+    flex-wrap: wrap;
+    gap: 7px;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  #configurationPanel .control-panel-scroll .section-heading h2 {
+    line-height: 1.5;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.section-heading-actions, .compact-config-label) {
+    flex-wrap: wrap;
+    line-height: 1.5;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.micro-status, .size-badge) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll .model-picker,
+  #configurationPanel .control-panel-scroll #modelOptions.model-picker {
+    width: 100%;
+  }
+
+  #configurationPanel .control-panel-scroll .model-picker-trigger {
+    height: auto;
+    min-height: 38px;
+    padding-block: 8px;
+  }
+
+  #configurationPanel .control-panel-scroll .model-picker-primary {
+    line-height: 1.45;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll .model-option-toggle {
+    min-height: 38px;
+    padding: 8px 10px;
+  }
+
+  #configurationPanel .control-panel-scroll .model-option-toggle > span {
+    line-height: 1.45;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll .model-option-toggle > i {
+    flex-shrink: 0;
+  }
+
+  #configurationPanel .control-panel-scroll .reference-item > div {
+    min-width: 0;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.reference-item strong, .reference-item span) {
+    line-height: 1.5;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll .reference-drop-zone {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  #configurationPanel .control-panel-scroll :is(.reference-drop-zone span, .reference-drop-zone small) {
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.room-type-list, .effect-beautification-options) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #configurationPanel .control-panel-scroll :is(.room-type-option, .feature-choice-option) {
+    min-height: 38px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding-block: 7px;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.image-outpaint-engine, .image-outpaint-ratio) {
+    min-height: 38px;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    padding-block: 7px;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.image-outpaint-position, .image-outpaint-output, .multi-angle-output) {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  #configurationPanel .control-panel-scroll :is(.image-outpaint-output output, .multi-angle-output span) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  #configurationPanel .control-panel-scroll .compact-config-note {
+    -webkit-line-clamp: unset;
+    display: block;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
+  #configurationPanel .control-panel-scroll #imageMultiAngleSection .cs-models {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #configurationPanel .control-panel-scroll #imageMultiAngleSection :is(.cs-presets, .cs-framing) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #configurationPanel .control-panel-scroll #imageMultiAngleSection :is(.cs-presets, .cs-framing, .cs-models) button {
+    min-height: 38px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding-block: 7px;
+    white-space: normal;
+  }
+}
+
+/* -------- 250px以下参数栏：保留正文大小，用折行替代挤字和裁字 -------- */
+@container workspace-parameters (max-width: 250px) {
+  #configurationPanel .control-panel-scroll .panel-section {
+    padding-inline: 12px;
+  }
+
+  #configurationPanel .control-panel-scroll .section-heading-actions {
+    margin-left: 0;
+  }
+
+  #configurationPanel .control-panel-scroll .effect-beautification-options,
+  #configurationPanel .control-panel-scroll #imageMultiAngleSection .cs-framing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #configurationPanel .control-panel-scroll .image-outpaint-preview {
+    padding-inline: 10px;
+  }
+}

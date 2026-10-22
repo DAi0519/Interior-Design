@@ -1,0 +1,77 @@
+{
+  "version": "2026-10-21.1",
+  "validatedAt": "2026-10-21T09:42:25.142Z",
+  "execution": "recorded_separately",
+  "executionEvidence": "validation/runs.json",
+  "workflows": [
+    {
+      "file": "FLUX.2_遮罩提示词填充_MaaS兼容",
+      "sourceSha256": "0623d534cf16ace205f7facb71c3bd8e559de5a458eb8d43a96573872dee9519",
+      "originalNodes": 47,
+      "objectInfoAbsentTypes": [
+        "GetNode",
+        "SetNode",
+        "LayerMask: LoadBiRefNetModelV2",
+        "ImageBatchToList",
+        "MaskFillHoles",
+        "PainterFluxImageEdit",
+        "LayerMask: BiRefNetUltraV2",
+        "Text"
+      ],
+      "frontendVirtualTypes": [
+        "GetNode",
+        "SetNode"
+      ],
+      "missingServerTypes": [
+        "LayerMask: LoadBiRefNetModelV2",
+        "ImageBatchToList",
+        "MaskFillHoles",
+        "PainterFluxImageEdit",
+        "LayerMask: BiRefNetUltraV2",
+        "Text"
+      ],
+      "nodes": 24,
+      "links": 32,
+      "missingTypes": [],
+      "schemaValidation": "passed",
+      "uploadPlaceholders": [
+        "input.png"
+      ]
+    },
+    {
+      "file": "FLUX.2_遮罩参考图填充_MaaS兼容",
+      "sourceSha256": "21c339fe84d9218b8b5bb78241e37e6d99fa043ac9bca073d5f74078a4394569",
+      "originalNodes": 47,
+      "objectInfoAbsentTypes": [
+        "GetNode",
+        "SetNode",
+        "LayerMask: LoadBiRefNetModelV2",
+        "LayerMask: BiRefNetUltraV2",
+        "PainterFluxImageEdit",
+        "ImageBatchToList",
+        "MaskFillHoles",
+        "Text"
+      ],
+      "frontendVirtualTypes": [
+        "GetNode",
+        "SetNode"
+      ],
+      "missingServerTypes": [
+        "LayerMask: LoadBiRefNetModelV2",
+        "LayerMask: BiRefNetUltraV2",
+        "PainterFluxImageEdit",
+        "ImageBatchToList",
+        "MaskFillHoles",
+        "Text"
+      ],
+      "nodes": 33,
+      "links": 47,
+      "missingTypes": [],
+      "schemaValidation": "passed",
+      "uploadPlaceholders": [
+        "input.png",
+        "reference.png"
+      ]
+    }
+  ]
+}

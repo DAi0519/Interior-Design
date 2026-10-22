@@ -11,7 +11,7 @@ import { configs, fixture, renderedImageRect, source } from "./image-outpaint-fi
 
 const geometry = (ui) => renderedImageRect(ui.image);
 const selectionWrites = (ui) => ui.document.writes.filter(({ kind, node }) => kind === "attribute" && (
-  ["outpaintEngine", "outpaintRatio", "outpaintResolution"].some((key) => Object.hasOwn(node.dataset, key))
+  ["outpaintEngine", "outpaintRatio"].some((key) => Object.hasOwn(node.dataset, key))
   || node.id === "imageOutpaintModelSelect" || node.id === "imageOutpaintModelStatus"
 ));
 const mouse = (ui, name, x, y) => ui.document.dispatch(name, { clientX: x, clientY: y });
@@ -144,11 +144,10 @@ test("touchend 使用 changedTouches 最后坐标，touchcancel 丢弃待处理�
   }
 });
 
-test("换图、切比例/分辨率/引擎、刷新配置或隐藏预览都不会应用旧拖拽帧", () => {
+test("换图、切比例/引擎、刷新配置或隐藏预览都不会应用旧拖拽帧", () => {
   const resetters = [
     (ui) => ui.setSource({ ...source, name: "replacement.png" }),
     (ui) => ui.root.querySelector('[data-outpaint-ratio="3:4"]').dispatch("click"),
-    (ui) => ui.root.querySelector('[data-outpaint-resolution="4K"]').dispatch("click"),
     (ui) => ui.root.querySelector('[data-outpaint-engine="qwenImageEdit2511"]').dispatch("click"),
     (ui) => ui.binding.configure({ ...configs[0], engines: [{ ...configs[0], key: "comfyui" }, ...configs.slice(1)] }),
     (ui) => ui.binding.closeSettings(),

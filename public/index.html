@@ -1,7 +1,7 @@
 <!--
-  [INPUT]: 依赖 effect-beautification-controls.js/css 的美化语义骨架/单选/异常提示与氛围状态换行，依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、image-outpaint.js/css 的 Flux/Qwen/Sunburst 三引擎扩图及隔离的 Flux 模型/比例/分辨率选择与含四角等比缩放/倍率设置的主区域构图画布、image-outpaint-workspace.js 的上传默认预览/任务身份与结果切换、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、内嵌 Smiley Sans 及 app.js 浏览器控制器
-  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI编辑/AI创作分组且将图片超分与AI扩图归入AI编辑、不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化低/高强度与自然/暖/冷调单选控件、效果图氛围转换当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/风格转换/图片超分/AI扩图/自由生图/风格反推入口、Flux/Qwen/Sunburst 扩图引擎、独立 Flux 模型、目标比例/1K至4K分辨率、主区域棋盘格构图与贴近画布的输出尺寸/居中栏、默认攸行 3B 的图片超分五工作流、SeedVR2 7B 原图直入与KS原图2倍选项、各工作流独立合法尺寸目录及说明、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同宽可搜索单选下拉承载的白模/空房智能默认和平台风格、风格转换明确平台或参考图风格及已选摘要/简洁搜索且不设数量上限的出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
-  [POS]: public 的单页入口，被 server.mjs 作为根页面提供
+  [INPUT]: 依赖image-mask-fill.js/css的提示词/参考图遮罩填充与原图等尺寸画布；依赖workspace-panel.js/css和workspace-panel-responsive.css的分隔线连续伸缩/可用中间态/参数容器重排与原生抽屉；依赖choice-select共享下拉组件及custom-select原生表单适配；依赖共享摄影机球与多角度单图控制器； 依赖 effect-beautification-controls.js/css 的美化语义骨架/单选/异常提示与氛围状态换行，依赖生成、连接中心、按功能及跨页恢复的后台生成任务、效果图/全景图美化、精模、空房家具、白模、Flux、Style DNA、SeedVR2 图片超分控件、image-outpaint.js/css 的 Flux/Qwen/Sunburst 三引擎扩图及隔离的 Flux 模型/原比例及预设画幅选择与固定 2K 输出与含四角等比缩放/倍率设置的主区域构图画布、image-outpaint-workspace.js 的上传默认预览/任务身份与结果切换、本地 Pannellum 360°预览资产、theme.css/theme-interactions.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、内嵌 Smiley Sans 及 app.js 浏览器控制器
+  [OUTPUT]: 对外提供AI编辑遮罩填充入口与两种模式共用大画布/START/飞书同步及记录入口；旧房改造两步入口与三图结果切换、共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI编辑/AI创作分组且将图片超分、AI扩图与多角度归入AI编辑、不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化低/高强度与自然/暖/冷调单选控件、效果图氛围转换当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立 Prompt、复用普通 Flux 工作流的全景图美化入口及专属 360°结果预览、精模预设 Prompt 版本与自定义要求、白模/空房设计/风格转换/图片超分/AI扩图/自由生图/风格反推入口、Flux/Qwen/Sunburst 扩图引擎、独立 Flux 模型、默认原比例及五预设画幅与固定 2K 输出、主区域棋盘格构图与贴近画布的输出尺寸/居中栏、默认攸行 3B 的图片超分六工作流、SeedVR2 7B 原图直入与KS预缩放/原图直入的2X/4K/6K对照选项、各工作流独立合法尺寸目录及说明、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同宽可搜索单选下拉承载的白模/空房智能默认和平台风格、风格转换明确平台或参考图风格及已选摘要/简洁搜索且不设数量上限的出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
+  [POS]: public 的单页入口，被 server.mjs 作为根页面提供；workspace-panel.js/css 管理同一配置 DOM 的分隔线连续伸缩与窄屏抽屉
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 <!doctype html>
@@ -25,15 +25,19 @@
     <link rel="stylesheet" href="/effect-beautification.css?v=1" />
     <link rel="stylesheet" href="/theme-interactions.css?v=1" />
     <link rel="stylesheet" href="/generation-actions.css?v=16" />
-    <link rel="stylesheet" href="/custom-select.css?v=9" />
+    <link rel="stylesheet" href="/custom-select.css?v=10" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=10" />
     <link rel="stylesheet" href="/connection-center.css?v=5" />
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=5" />
     <link rel="stylesheet" href="/empty-room-type.css?v=2" />
-    <link rel="stylesheet" href="/image-outpaint.css?v=10" />
+    <link rel="stylesheet" href="/room-renovation.css" />
+    <link rel="stylesheet" href="/image-outpaint.css?v=12" />
+    <link rel="stylesheet" href="/image-multi-angle.css" />
+    <link rel="stylesheet" href="/image-mask-fill.css" />
     <link rel="stylesheet" href="/app-update.css?v=1" />
-    <link rel="stylesheet" href="/model-picker.css?v=2" />
+    <link rel="stylesheet" href="/workspace-panel.css?v=4" />
+    <link rel="stylesheet" href="/workspace-panel-responsive.css?v=1" />
     <link rel="stylesheet" href="/raycast-accent.css?v=42" />
   </head>
   <body>
@@ -63,12 +67,23 @@
         </div>
       </header>
       <main class="workspace">
-        <aside class="control-panel" aria-label="生成配置">
+        <aside id="configurationPanel" class="control-panel workspace-configuration-panel" aria-label="生成配置">
+          <header class="workspace-panel-header">
+            <span class="workspace-navigation-title">功能</span>
+            <span class="workspace-panel-title">参数配置</span>
+            <label class="workspace-panel-feature-field">
+              <select id="workspaceFeatureSelect" aria-label="选择AI功能" data-searchable="true" data-search-placeholder="搜索功能名称"></select>
+            </label>
+            <button id="workspacePanelClose" class="workspace-panel-close" type="button" aria-label="关闭配置面板">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8" /></svg>
+            </button>
+          </header>
           <nav id="featureModeList" class="feature-directory" aria-label="AI 功能" role="radiogroup">
             <section class="feature-directory-group" aria-labelledby="aiDesignTitle">
               <h2 id="aiDesignTitle">AI设计</h2>
               <button class="feature-mode-option selected" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="true">白模渲染</button>
               <button class="feature-mode-option" data-feature-mode="emptyRoom" type="button" role="radio" aria-checked="false">空房设计</button>
+              <button class="feature-mode-option" data-feature-mode="roomRenovation" type="button" role="radio" aria-checked="false">旧房改造</button>
               <button class="feature-mode-option" data-feature-mode="styleTransfer" type="button" role="radio" aria-checked="false">风格转换</button>
               <button class="feature-mode-option" data-feature-mode="refinedModel" type="button" role="radio" aria-checked="false">精模渲染</button>
             </section>
@@ -82,6 +97,8 @@
               <h2 id="aiEditTitle">AI编辑</h2>
               <button class="feature-mode-option" data-feature-mode="imageUpscale" type="button" role="radio" aria-checked="false">图片超分</button>
               <button class="feature-mode-option" data-feature-mode="imageOutpaint" type="button" role="radio" aria-checked="false">AI扩图</button>
+              <button class="feature-mode-option" data-feature-mode="imageMultiAngle" type="button" role="radio" aria-checked="false">多角度</button>
+              <button class="feature-mode-option" data-feature-mode="imageMaskFill" type="button" role="radio" aria-checked="false">遮罩填充</button>
             </section>
             <section class="feature-directory-group" aria-labelledby="aiCreationTitle">
               <h2 id="aiCreationTitle">AI创作</h2>
@@ -89,8 +106,8 @@
               <button class="feature-mode-option" data-feature-mode="free" type="button" role="radio" aria-checked="false">自由生图</button>
             </section>
           </nav>
-
           <div class="control-panel-scroll">
+          <section id="roomRenovationSection" class="panel-section generation-control hidden" aria-label="旧房改造流程"></section>
           <section id="effectBeautificationSection" class="panel-section generation-control hidden" aria-labelledby="effectBeautificationTitle"></section>
           <section id="effectEnhancementSection" class="panel-section generation-control hidden" aria-labelledby="effectEnhancementTitle">
             <div class="section-heading">
@@ -131,7 +148,6 @@
             </div>
             <p id="effectPromptNote" class="compact-config-note">正在读取当前上架 Prompt 版本；环境效果可单选或组合，组合时时段优先。</p>
           </section>
-
           <section id="emptyRoomTypeSection" class="panel-section generation-control hidden" aria-labelledby="emptyRoomTypeTitle">
             <div class="section-heading">
               <h2 id="emptyRoomTypeTitle">选择房间类型</h2>
@@ -145,7 +161,6 @@
               aria-required="true"
             ></div>
           </section>
-
           <section id="emptyRoomFurnitureSection" class="panel-section generation-control hidden" aria-labelledby="emptyRoomFurnitureTitle">
             <div class="section-heading"><h2 id="emptyRoomFurnitureTitle">确认家具</h2><span class="optional">可多选</span></div>
             <div class="room-type-list" data-furniture-list role="group" aria-label="空房家具选择"></div>
@@ -154,7 +169,6 @@
             </label>
             <p class="compact-config-note" data-furniture-note></p>
           </section>
-
           <section id="refinedPromptSection" class="panel-section generation-control hidden" aria-labelledby="refinedPromptTitle">
             <div class="section-heading">
               <h2 id="refinedPromptTitle">精模 Prompt</h2>
@@ -194,7 +208,6 @@
               placeholder="例如：增加一盏暖光落地灯，窗外改为傍晚氛围…"
             ></textarea>
           </section>
-
           <div id="styleDnaControls" class="hidden">
             <section class="panel-section" aria-labelledby="styleDnaModelTitle">
               <div class="section-heading">
@@ -206,7 +219,6 @@
                 <select id="styleDnaModelSelect" aria-label="Style DNA 反推模型"></select>
               </div>
             </section>
-
             <section class="panel-section" aria-labelledby="styleDnaPromptVersionTitle">
               <div class="section-heading">
                 <h2 id="styleDnaPromptVersionTitle">Prompt 版本</h2>
@@ -239,7 +251,6 @@
               </p>
             </section>
           </div>
-
           <section id="styleSection" class="panel-section generation-control hidden" aria-labelledby="styleTitle">
             <div class="section-heading">
               <h2 id="styleTitle">风格选择</h2>
@@ -265,7 +276,6 @@
             ></div>
             <p id="styleNote" class="compact-config-note">正在读取白模渲染配置…</p>
           </section>
-
           <section id="promptAgentSection" class="panel-section generation-control hidden" aria-labelledby="promptAgentTitle">
             <div class="section-heading">
               <h2 id="promptAgentTitle">场景融合 Agent</h2>
@@ -304,7 +314,6 @@
             </div>
             <p id="promptAgentNote" class="compact-config-note">用于理解白模并整合最终提示词。</p>
           </section>
-
           <section id="imageUpscaleSection" class="panel-section generation-control hidden" aria-labelledby="imageUpscaleTitle">
             <div class="section-heading">
               <h2 id="imageUpscaleTitle">超分工作流</h2>
@@ -313,6 +322,8 @@
             <div id="imageUpscaleWorkflowList" class="model-option-list" role="radiogroup" aria-describedby="imageUpscaleNote"></div>
             <p id="imageUpscaleNote" class="compact-config-note" aria-live="polite">正在读取超分工作流…</p>
           </section>
+          <section id="imageMultiAngleSection" class="panel-section generation-control hidden" aria-labelledby="imageMultiAngleTitle"></section>
+          <section id="imageMaskFillSection" class="panel-section generation-control hidden" aria-labelledby="imageMaskFillTitle"></section>
           <section id="imageOutpaintSection" class="panel-section generation-control hidden" aria-labelledby="imageOutpaintTitle">
             <div class="section-heading">
               <h2 id="imageOutpaintTitle">扩图设置</h2>
@@ -333,19 +344,12 @@
             <div class="image-outpaint-setting">
               <span id="imageOutpaintRatioLabel" class="image-outpaint-setting-label">画幅比例</span>
               <div class="image-outpaint-ratios" role="radiogroup" aria-labelledby="imageOutpaintRatioLabel">
+                <button class="image-outpaint-ratio selected" data-outpaint-ratio="original" type="button" role="radio" aria-checked="true">原比例</button>
                 <button class="image-outpaint-ratio" data-outpaint-ratio="1:1" type="button" role="radio" aria-checked="false">1:1</button>
                 <button class="image-outpaint-ratio" data-outpaint-ratio="4:3" type="button" role="radio" aria-checked="false">4:3</button>
-                <button class="image-outpaint-ratio selected" data-outpaint-ratio="16:9" type="button" role="radio" aria-checked="true">16:9</button>
+                <button class="image-outpaint-ratio" data-outpaint-ratio="16:9" type="button" role="radio" aria-checked="false">16:9</button>
                 <button class="image-outpaint-ratio" data-outpaint-ratio="3:4" type="button" role="radio" aria-checked="false">3:4</button>
                 <button class="image-outpaint-ratio" data-outpaint-ratio="9:16" type="button" role="radio" aria-checked="false">9:16</button>
-              </div>
-            </div>
-            <div class="image-outpaint-setting">
-              <span id="imageOutpaintResolutionLabel" class="image-outpaint-setting-label">扩图分辨率</span>
-              <div class="image-outpaint-resolutions" role="radiogroup" aria-labelledby="imageOutpaintResolutionLabel">
-                <button class="image-outpaint-resolution" data-outpaint-resolution="1K" type="button" role="radio" aria-checked="false">1K</button>
-                <button class="image-outpaint-resolution selected" data-outpaint-resolution="2K" type="button" role="radio" aria-checked="true">2K</button>
-                <button class="image-outpaint-resolution" data-outpaint-resolution="4K" type="button" role="radio" aria-checked="false">4K</button>
               </div>
             </div>
             <figure class="image-outpaint-preview" aria-label="原图在所选引擎扩展画布中的位置预览">
@@ -360,7 +364,7 @@
             </div>
             <div class="image-outpaint-output"><span class="sr-only">输出尺寸</span><output id="imageOutpaintOutputSize" aria-live="polite">上传图片后计算</output></div>
             <p id="imageOutpaintError" class="image-outpaint-error hidden" role="alert"></p>
-            <p id="imageOutpaintNote" class="compact-config-note">选择画幅和分辨率，原图会按比例适配画布。</p>
+            <p id="imageOutpaintNote" class="compact-config-note">选择画幅，原图会按比例适配 2K 画布。</p>
           </section>
           <section id="modelSection" class="panel-section generation-control" aria-labelledby="modelTitle">
             <div class="section-heading">
@@ -370,7 +374,6 @@
             <div id="modelSelect" class="model-option-list" role="group" aria-describedby="modelNote"></div>
             <p id="modelNote" class="compact-config-note">可选择多个模型，每个模型各生成 1 张。</p>
           </section>
-
           <section class="panel-section generation-control" aria-labelledby="referenceTitle">
             <div class="section-heading">
               <h2 id="referenceTitle"><span id="referenceTitleCopy">参考图</span> <span id="referenceOptional" class="optional">可选</span></h2>
@@ -391,10 +394,9 @@
                 <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
               </svg>
               <span id="referenceDropLabel">添加或拖入参考图</span>
-              <small>PNG / JPEG / WebP · 单张 8MB</small>
+              <small id="referenceFileHint">PNG / JPEG / WebP · 单张 8MB</small>
             </div>
           </section>
-
           <section id="styleReferenceSection" class="panel-section generation-control" aria-labelledby="styleReferenceTitle">
             <div class="section-heading">
               <h2 id="styleReferenceTitle">风格参考图 <span class="optional">可选 · 最多1张</span></h2>
@@ -417,7 +419,6 @@
               <small>只提取材质、色彩与光线 · PNG / JPEG / WebP · 单张 8MB</small>
             </div>
           </section>
-
           <section id="promptSection" class="panel-section generation-control" aria-labelledby="promptTitle">
             <div class="section-heading">
               <h2 id="promptTitle">提示词</h2>
@@ -429,7 +430,6 @@
               maxlength="8000"
             ></textarea>
           </section>
-
           <section
             id="negativePromptSection"
             class="panel-section generation-control hidden"
@@ -450,13 +450,11 @@
               当前使用系统默认；填写后整段覆盖，仅影响 Flux2 Klein。
             </p>
           </section>
-
           <section id="parameterSection" class="panel-section generation-control" aria-labelledby="parameterTitle">
             <div class="section-heading">
               <h2 id="parameterTitle">参数</h2>
               <span id="exactSize" class="size-badge">—</span>
             </div>
-
             <div class="field-grid">
               <label id="ratioField" class="field">
                 <span>画幅比例</span>
@@ -482,7 +480,6 @@
             </div>
           </section>
           </div>
-
           <section class="action-section generation-control">
             <div id="generationActions" class="generation-actions">
               <button id="generateButton" class="generate-button functional-accent-button" type="button" aria-label="开始生成">
@@ -504,14 +501,18 @@
             </div>
           </section>
         </aside>
-
+        <div id="workspacePanelResize" class="workspace-panel-resize" role="separator" tabindex="0" aria-label="调整功能面板宽度" aria-orientation="vertical" aria-controls="configurationPanel" title="拖动调整目录和参数宽度；可停留在中间宽度；双击恢复默认"></div>
+        <button id="workspacePanelOpen" class="workspace-panel-launcher" type="button" aria-haspopup="dialog" aria-controls="workspacePanelDialog" aria-expanded="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M8 3v14m4-7h2m-2 4h2" /></svg>
+          <span>功能与配置</span><span data-active-feature>白模渲染</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5" /></svg>
+        </button>
         <section class="result-panel" aria-label="生成结果">
           <div class="result-toolbar generation-result">
             <div class="result-heading">
               <h2>生成结果</h2>
             </div>
           </div>
-
           <div id="resultStage" class="result-stage generation-result">
             <div id="emptyState" class="empty-state">
               <div class="empty-icon" aria-hidden="true">
@@ -528,7 +529,6 @@
                 <span id="emptySize">2400 × 1792</span>
               </div>
             </div>
-
             <div id="loadingState" class="loading-state hidden" aria-live="polite">
               <div class="loading-canvas">
                 <span class="scan-line"></span>
@@ -790,11 +790,14 @@
       </div>
     </dialog>
 
+    <dialog id="workspacePanelDialog" class="workspace-panel-dialog" aria-label="功能与生成配置"></dialog>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="/vendor/pannellum.js"></script>
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/app.js?v=66"></script>
+    <script type="module" src="/app.js?v=70"></script>
+    <script type="module" src="/workspace-panel.js?v=3"></script>
   </body>
 </html>

@@ -1,0 +1,110 @@
+/**
+ * [INPUT]: 依赖工作台银灰/选择控件令牌、摄影机球语义结构与绘制位置
+ * [OUTPUT]: 三模型选择与Sunburst质量下拉、机位编辑区、统一SVG/滑杆/选择态、前后球网间的球心原图/轻量空态、完整焦点/拖动与窄屏布局
+ * [POS]: public 的AI编辑多角度局部视觉，仅作用于多角度配置和预览，不覆盖其他图片工具
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+#imageMultiAngleSection { padding-top:16px; }
+:is(#imageMultiAngleSection,#imageMultiAngleWorkspace) {
+  --camera-border: #d9dade;
+  --camera-muted: #6b6d74;
+  --camera-surface: #f2f3f5;
+}
+:is(#imageMultiAngleSection,#imageMultiAngleWorkspace) button { font:inherit; color:var(--text); cursor:pointer; }
+:is(#imageMultiAngleSection,#imageMultiAngleWorkspace) svg { flex:none; vertical-align:middle; pointer-events:none; }
+#imageMultiAngleSection .section-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+#imageMultiAngleSection .cs-reset { display:inline-flex; align-items:center; gap:5px; border:0; background:transparent; padding:4px 0 4px 8px; color:var(--camera-muted); font-size:12px; }
+#imageMultiAngleSection .cs-reset svg { width:13px; height:13px; }
+#imageMultiAngleSection .cs-label { margin-bottom:8px; color:var(--text); font-size:12px; font-weight:500; }
+#imageMultiAngleSection :is(.cs-presets,.cs-framing,.cs-models) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+#imageMultiAngleSection :is(.cs-presets,.cs-framing,.cs-models) button {
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  min-height:32px; border:1px solid var(--camera-border); border-radius:var(--choice-control-radius);
+  background:#f8f8fa; padding:5px 4px; font-size:12px; line-height:1.3;
+  box-shadow:inset 0 1px 0 #fff;
+  transition:background-color 140ms ease-out,border-color 140ms ease-out,color 140ms ease-out,box-shadow 140ms ease-out;
+}
+#imageMultiAngleSection .cs-presets svg { width:14px; height:14px; color:var(--camera-muted); }
+#imageMultiAngleSection button[aria-pressed="true"] { color:#fff; background:#202024; border-color:#202024; box-shadow:inset 0 1px 0 rgb(255 255 255 / 12%),0 2px 4px rgb(20 20 24 / 12%); }
+#imageMultiAngleSection button[aria-pressed="true"] svg { color:inherit; }
+#imageMultiAngleSection .cs-slider { margin-top:15px; }
+#imageMultiAngleSection .cs-slider-head { display:flex; justify-content:space-between; align-items:center; min-height:19px; font-size:12px; }
+#imageMultiAngleSection .cs-slider-head output { min-width:38px; font-size:12px; font-weight:500; text-align:right; font-variant-numeric:tabular-nums; color:var(--text); }
+#imageMultiAngleSection input[type="range"] {
+  --pct:0%; appearance:none; display:block; width:100%; height:24px; margin:2px 0 0;
+  border:0; border-radius:0; padding:0; background:transparent; box-shadow:none; cursor:pointer;
+}
+#imageMultiAngleSection input[type="range"]::-webkit-slider-runnable-track { height:3px; border-radius:2px; background:linear-gradient(to right,#4c4f57 var(--pct),#dcdde2 var(--pct)); }
+#imageMultiAngleSection input[type="range"]::-webkit-slider-thumb { appearance:none; width:12px; height:16px; margin-top:-6.5px; border:1px solid #c4c6cc; border-radius:4px; background:#fff; box-shadow:0 1px 3px rgb(20 20 24 / 18%); }
+#imageMultiAngleSection input[type="range"]::-moz-range-track { height:3px; border-radius:2px; background:#dcdde2; }
+#imageMultiAngleSection input[type="range"]::-moz-range-progress { height:3px; background:#4c4f57; }
+#imageMultiAngleSection input[type="range"]::-moz-range-thumb { width:12px; height:16px; border:1px solid #c4c6cc; border-radius:4px; background:#fff; box-shadow:0 1px 3px rgb(20 20 24 / 18%); }
+#imageMultiAngleSection .cs-ticks { display:flex; justify-content:space-between; color:var(--camera-muted); font-size:10px; font-variant-numeric:tabular-nums; }
+#imageMultiAngleSection .cs-framing-group { margin-top:15px; }
+#imageMultiAngleSection .cs-framing button { min-height:36px; gap:6px; }
+#imageMultiAngleSection .compact-config-note { margin-top:13px; font-size:11px; line-height:1.6; color:var(--camera-muted); }
+#imageMultiAngleSection .error { color:var(--danger); }
+#imageMultiAngleSection [hidden] { display:none; }
+:is(#imageMultiAngleSection,#imageMultiAngleWorkspace) :is(button,input):focus-visible { outline:2px solid #555b67; outline-offset:3px; }
+:is(#imageMultiAngleSection,#imageMultiAngleWorkspace) button:disabled { opacity:.5; cursor:not-allowed; }
+
+/* -------- 舞台自带空间感，摄影机/原图/视锥承担主要视觉层级 -------- */
+#imageMultiAngleWorkspace .outpaint-workspace-canvas { padding:0; }
+#imageMultiAngleWorkspace .cs-stage {
+  position:relative; flex:1; width:100%; height:auto; min-height:350px; overflow:hidden;
+  touch-action:none; cursor:grab; isolation:isolate;
+  background:radial-gradient(ellipse at 50% 44%,#fff 0%,#f7f8fa 58%,#f0f1f4 100%);
+  border-radius:8px;
+}
+#imageMultiAngleWorkspace .cs-stage.is-dragging { cursor:grabbing; }
+#imageMultiAngleWorkspace canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+#imageMultiAngleWorkspace [data-scene] { z-index:0; }
+#imageMultiAngleWorkspace .cs-camera-front { z-index:2; }
+#imageMultiAngleWorkspace .cs-camera-handle { position:absolute; z-index:3; width:80px; height:66px; border:0; border-radius:12px; background:transparent; padding:0; touch-action:none; cursor:grab; }
+#imageMultiAngleWorkspace .is-dragging .cs-camera-handle { cursor:grabbing; }
+#imageMultiAngleWorkspace .cs-camera-handle:focus-visible { outline-offset:2px; }
+#imageMultiAngleWorkspace .cs-photo {
+  position:absolute; z-index:1; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:var(--photo-width,112px); height:var(--photo-height,140px); max-width:29%; max-height:32%;
+  padding:0; border:1px solid rgb(255 255 255 / 90%); border-radius:3px; overflow:hidden; background:#eef0f3;
+  box-shadow:0 1px 2px rgb(30 35 45 / 10%),0 5px 12px rgb(30 35 45 / 10%);
+  transition:box-shadow 160ms ease-out;
+}
+#imageMultiAngleWorkspace .cs-photo:not(.has-image) { border:1px dashed #c5c8cf; background:rgb(230 233 239 / 40%); box-shadow:none; }
+#imageMultiAngleWorkspace .cs-photo img { display:block; width:100%; height:100%; object-fit:contain; }
+#imageMultiAngleWorkspace .cs-photo > span { display:flex; height:100%; flex-direction:column; justify-content:center; align-items:center; gap:9px; color:#5f6470; font-size:12px; }
+#imageMultiAngleWorkspace .cs-photo.has-image > span { display:none; }
+#imageMultiAngleWorkspace .cs-photo > span svg { width:24px; height:24px; }
+#imageMultiAngleWorkspace .cs-stage-meta { position:absolute; z-index:4; top:18px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; gap:10px; pointer-events:none; font-size:12px; color:#555a65; font-variant-numeric:tabular-nums; }
+#imageMultiAngleWorkspace .cs-reference-label { font-size:11px; color:var(--camera-muted); }
+#imageMultiAngleWorkspace .cs-nudge { position:absolute; z-index:3; display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; color:#555c68; transition:background-color 140ms ease-out,color 140ms ease-out; }
+#imageMultiAngleWorkspace .cs-nudge svg { width:24px; height:24px; stroke-width:1.8; }
+#imageMultiAngleWorkspace .cs-up { top:calc(50% - var(--orbit-radius,150px) - 46px); left:calc(50% - 20px); }
+#imageMultiAngleWorkspace .cs-down { top:calc(50% + var(--orbit-radius,150px) + 8px); left:calc(50% - 20px); }
+#imageMultiAngleWorkspace .cs-left { top:calc(50% - 20px); left:calc(50% - var(--orbit-radius,150px) - 58px); }
+#imageMultiAngleWorkspace .cs-right { top:calc(50% - 20px); left:calc(50% + var(--orbit-radius,150px) + 18px); }
+#imageMultiAngleWorkspace .cs-stage-label { position:absolute; bottom:17px; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:7px; font-size:11px; color:var(--camera-muted); pointer-events:none; }
+#imageMultiAngleWorkspace .cs-key-hint { margin-left:-3px; }
+#imageMultiAngleWorkspace .multi-angle-output { display:flex; width:100%; justify-content:space-between; align-items:center; gap:12px; color:var(--camera-muted); font-size:11px; }
+#imageMultiAngleWorkspace .multi-angle-output output { margin-left:12px; font-size:12px; font-variant-numeric:tabular-nums; color:var(--text); }
+@media (hover:hover) {
+  #imageMultiAngleSection :is(.cs-presets,.cs-framing,.cs-models) button:not([aria-pressed="true"]):hover { background:#eceef1; border-color:#bfc2ca; }
+  #imageMultiAngleSection .cs-reset:hover { color:var(--text); }
+  #imageMultiAngleWorkspace .cs-nudge:hover { background:#e5e7ec; color:var(--text); }
+  #imageMultiAngleWorkspace .cs-photo.has-image:hover { box-shadow:0 2px 4px rgb(30 35 45 / 12%),0 7px 14px rgb(30 35 45 / 12%); }
+}
+#imageMultiAngleSection :is(.cs-presets,.cs-framing,.cs-models) button:active { box-shadow:inset 0 1px 3px rgb(20 20 24 / 15%); }
+@media (pointer:coarse) { #imageMultiAngleSection :is(.cs-presets,.cs-framing,.cs-models) button { min-height:44px; } #imageMultiAngleWorkspace .cs-nudge { width:40px; height:40px; } }
+@media (max-width:760px) {
+  #imageMultiAngleWorkspace .cs-stage { min-height:380px; }
+  #imageMultiAngleWorkspace .cs-stage-meta { top:14px; left:14px; right:14px; font-size:11px; }
+  #imageMultiAngleWorkspace .cs-reference-label { display:none; }
+  #imageMultiAngleWorkspace .multi-angle-output { flex-wrap:wrap; row-gap:6px; }
+}
+@media (prefers-reduced-motion:reduce) { :is(#imageMultiAngleSection,#imageMultiAngleWorkspace) * { transition:none!important; } }
+
+/* -------- 模型选择沿用镜头控件状态，完整名称通过title/ARIA保留 -------- */
+#imageMultiAngleSection .cs-model-group { margin-bottom:18px; }
+#imageMultiAngleSection .cs-quality-group:not([hidden]) { display:block; margin-bottom:18px; }
+#imageMultiAngleSection .cs-quality-group .cs-label { display:block; }
+#imageMultiAngleSection .cs-models button { min-height:36px; font-size:11px; padding:5px 3px; }

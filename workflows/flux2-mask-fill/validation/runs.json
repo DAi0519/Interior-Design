@@ -1,0 +1,206 @@
+{
+  "capturedAt": "2026-10-21T09:35:25.125Z",
+  "endpoint": "http://maas-workflow-app-50-prodtestzwapp50.k8s-zhongwei.qunhequnhe.com",
+  "purpose": "512px synthetic pipeline smoke test; not original-image quality evaluation",
+  "runs": [
+    {
+      "mode": "提示词",
+      "prefix": "flux2-mask-canary-prompt-f4b4ef8c-65ce-4bfd-8d3d-06252fe7087a",
+      "startedAt": "2026-10-21T09:35:25.127Z",
+      "overrides": {
+        "prereMinWidth": 512,
+        "prereMinHeight": 512,
+        "targetWidth": 512,
+        "targetHeight": 512
+      },
+      "model": "flux-2-klein-9b.safetensors",
+      "clip": "qwen_3_8b.safetensors",
+      "batch": 2,
+      "admission": {
+        "prompt_id": "d6859b3b-1a3c-4c8b-80a2-bfe491eadc90",
+        "number": 651,
+        "node_errors": {}
+      },
+      "httpStatus": 200,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          [
+            "execution_start",
+            {
+              "prompt_id": "d6859b3b-1a3c-4c8b-80a2-bfe491eadc90",
+              "timestamp": 1792575325277
+            }
+          ],
+          [
+            "execution_cached",
+            {
+              "nodes": [],
+              "prompt_id": "d6859b3b-1a3c-4c8b-80a2-bfe491eadc90",
+              "timestamp": 1792575325278
+            }
+          ],
+          [
+            "execution_success",
+            {
+              "prompt_id": "d6859b3b-1a3c-4c8b-80a2-bfe491eadc90",
+              "timestamp": 1792575388677
+            }
+          ]
+        ]
+      },
+      "elapsedMs": 67565,
+      "outputs": [
+        {
+          "filename": "flux2-mask-canary-prompt-f4b4ef8c-65ce-4bfd-8d3d-06252fe7087a_00001_.png",
+          "local": "prompt-1.png",
+          "width": 512,
+          "height": 512,
+          "format": "png",
+          "sha256": "0a86f0d836256ddaa0fd5214472266d5a8a5134b5332b6a4a2187f50ae293989"
+        },
+        {
+          "filename": "flux2-mask-canary-prompt-f4b4ef8c-65ce-4bfd-8d3d-06252fe7087a_00002_.png",
+          "local": "prompt-2.png",
+          "width": 512,
+          "height": 512,
+          "format": "png",
+          "sha256": "914d0426c247d7bf0f711d00cdde5af90154e230540e71e8139dc7a6537a4f9f"
+        }
+      ],
+      "visualObservation": "两张均保留冰箱，移除未生效"
+    },
+    {
+      "mode": "参考图",
+      "prefix": "flux2-mask-canary-ref-a28776fd-5c0e-4d8c-8b32-fe23d7361624",
+      "startedAt": "2026-10-21T09:36:33.393Z",
+      "overrides": {
+        "prereMinWidth": 512,
+        "prereMinHeight": 512,
+        "targetWidth": 512,
+        "targetHeight": 512
+      },
+      "model": "flux-2-klein-9b.safetensors",
+      "clip": "qwen_3_8b.safetensors",
+      "batch": 2,
+      "admission": {
+        "prompt_id": "8dd1b045-978d-4398-adc8-eb4b90f90911",
+        "number": 652,
+        "node_errors": {}
+      },
+      "httpStatus": 200,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          [
+            "execution_start",
+            {
+              "prompt_id": "8dd1b045-978d-4398-adc8-eb4b90f90911",
+              "timestamp": 1792575393582
+            }
+          ],
+          [
+            "execution_cached",
+            {
+              "nodes": [],
+              "prompt_id": "8dd1b045-978d-4398-adc8-eb4b90f90911",
+              "timestamp": 1792575393584
+            }
+          ],
+          [
+            "execution_success",
+            {
+              "prompt_id": "8dd1b045-978d-4398-adc8-eb4b90f90911",
+              "timestamp": 1792575452480
+            }
+          ]
+        ]
+      },
+      "elapsedMs": 62314,
+      "outputs": [
+        {
+          "filename": "flux2-mask-canary-ref-a28776fd-5c0e-4d8c-8b32-fe23d7361624_00001_.png",
+          "local": "reference-1.png",
+          "width": 512,
+          "height": 512,
+          "format": "png",
+          "sha256": "6d111ee7aadccf218b1f1a41c30d4a049a1bcfa372e5a8079368ed57ac85801f"
+        },
+        {
+          "filename": "flux2-mask-canary-ref-a28776fd-5c0e-4d8c-8b32-fe23d7361624_00002_.png",
+          "local": "reference-2.png",
+          "width": 512,
+          "height": 512,
+          "format": "png",
+          "sha256": "bbc6420fdc09c95e6f6e71df13fbda5bad12a48b2cd1820d7c07a294fcdf81fe"
+        }
+      ],
+      "visualObservation": "两张均替换为花瓶",
+      "matchesDeliveredGraphWithDocumentedSmokeOverrides": true
+    },
+    {
+      "mode": "提示词英文指令回归",
+      "prefix": "flux2-mask-canary-english-ba7cd990-9411-4821-ba61-e147d0996d3a",
+      "admission": {
+        "prompt_id": "ae31f690-8201-489f-aa48-620d66c9dd7c",
+        "number": 653,
+        "node_errors": {}
+      },
+      "promptOverride": "image1: <|vision_start|><|image_pad|><|vision_end|> Remove the refrigerator completely. Fill the masked region with the same plain beige wall and floor as the surrounding area. Leave no refrigerator or other object. Preserve the surrounding room.",
+      "target": 512,
+      "batch": 2,
+      "model": "flux-2-klein-9b.safetensors",
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          [
+            "execution_start",
+            {
+              "prompt_id": "ae31f690-8201-489f-aa48-620d66c9dd7c",
+              "timestamp": 1792575536174
+            }
+          ],
+          [
+            "execution_cached",
+            {
+              "nodes": [],
+              "prompt_id": "ae31f690-8201-489f-aa48-620d66c9dd7c",
+              "timestamp": 1792575536176
+            }
+          ],
+          [
+            "execution_success",
+            {
+              "prompt_id": "ae31f690-8201-489f-aa48-620d66c9dd7c",
+              "timestamp": 1792575589986
+            }
+          ]
+        ]
+      },
+      "elapsedMs": 57300,
+      "outputs": [
+        {
+          "filename": "flux2-mask-canary-english-ba7cd990-9411-4821-ba61-e147d0996d3a_00001_.png",
+          "local": "prompt-english-1.png",
+          "width": 512,
+          "height": 512,
+          "format": "png",
+          "sha256": "ba869538f3f9717aa480570ebbb607bcdeb847d55599fefd9e5cff6198d25f37"
+        },
+        {
+          "filename": "flux2-mask-canary-english-ba7cd990-9411-4821-ba61-e147d0996d3a_00002_.png",
+          "local": "prompt-english-2.png",
+          "width": 512,
+          "height": 512,
+          "format": "png",
+          "sha256": "a7f9b07ff95e879318eae5464c807a6b58341618677b5512b6e7055b06651853"
+        }
+      ],
+      "visualObservation": "两张均移除冰箱并补齐墙地背景",
+      "matchesDeliveredGraphWithDocumentedSmokeOverrides": true
+    }
+  ]
+}

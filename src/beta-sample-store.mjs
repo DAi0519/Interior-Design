@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖飞书记录/附件及 {id} 对象关联 CellValue、参考图真实单图/全景2:1校验与轻量预览，接收样本集 ID 和逐张样本上传
- * [OUTPUT]: 对外提供草稿样本集、单样本幂等保存、完成回读、无原图的元数据与按需单图读取，上传与原图读取均核验全景实际2:1
+ * [INPUT]: 依赖飞书记录/附件及 {id} 对象关联 CellValue、参考图真实字节/MIME/尺寸/8MB与全景2:1校验和轻量预览，接收样本集 ID 和逐张样本上传
+ * [OUTPUT]: 对外提供按来源功能创建的草稿样本集、单样本幂等保存、完成回读、无原图元数据与跨功能按需读取；执行时由目标功能决定真实图片/全景2:1准入，省略目标时沿用来源合同，保留ID关联/8MB保护及扩图真实源尺寸
  * [POS]: src 的 Beta 样本资产边界，被 beta-base.mjs 组合；可用状态只在全部选定样本确认后写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -200,11 +200,13 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
         return store.getSampleSet(setId);
       });
     },
-    async resolveSample(setId, sampleId, { recordId, sampleSetRecordId } = {}) {
+    async resolveSample(setId, sampleId, { recordId, sampleSetRecordId, targetFeatureMode } = {}) {
       const setRow = sampleSetRecordId
         ? await getRecord(run, config, config.sampleSetTableId, sampleSetRecordId, SET_FIELDS) : null;
       const set = setRow ? setMetadata(setRow) : await findSet(setId);
       if (!set || set.sampleSetId !== setId || set.status !== "可用") throw inputError("样本集不存在或已归档", 404);
+      const targetMode = targetFeatureMode ?? set.featureMode;
+      if (targetFeatureMode !== undefined && !Object.hasOwn(featureLabels, targetFeatureMode)) throw inputError("样本目标功能不受支持");
       const row = recordId ? await getRecord(run, config, config.sampleTableId, recordId, SAMPLE_FIELDS)
         : (await sampleRows(set)).find(({ fields }) => fields["样本 ID"] === sampleId);
       if (!row || row.fields["样本 ID"] !== sampleId || selectValue(row.fields["状态"]) !== "可用"
@@ -212,7 +214,7 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
         throw inputError("样本不属于所选样本集或尚未上传确认", 409);
       }
       return { ...metadata(set, row), featureMode: set.featureMode,
-        image: set.featureMode === "free" ? null : await download(row, set.featureMode) };
+        image: targetMode === "free" ? null : await download(row, targetMode) };
     },
     async getSampleImage(setId, sampleId) {
       const sample = await store.resolveSample(setId, sampleId);

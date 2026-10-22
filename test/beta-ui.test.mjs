@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta跑图 HTML/CSS/样本库/结果组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供八功能可恢复配置、共享已选摘要/简洁搜索模型选择器接线、可多选全部可用模型文案、风格转换明确目标、全景独立版本与 2:1 准入、飞书样本 ID 批次及共享参考资产传输行为、单图上传文案与同步进度、START/RETRY、双阶段监控及可访问布局的静态回归保障
+ * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十功能目录、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
+ * [OUTPUT]: 对外提供十功能任务/可恢复配置、超分交集输出尺寸语义与版本化接线、共享模型选择器、风格转换明确目标、全景2:1准入、样本ID与去重资产、同步进度/失败项RETRY/预警及可访问布局回归保障
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,8 +9,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { packBatchAssets } from "../public/beta-assets.js";
+import { BETA_FEATURE_COPY } from "../public/beta-model-rules.js";
+import { betaJobWarnings, renderBetaWarnings } from "../public/beta-results.js";
 
-test("Beta跑图是独立第三工作台且提供八个出图功能", async () => {
+test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索下拉并保留配置与监控", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -26,15 +28,25 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
 
   assert.match(html, /<title>Canvas Lab · Beta跑图<\/title>/);
   assert.match(html, /href="\/beta\.html" aria-current="page">Beta跑图/);
-  assert.match(html, /data-feature-mode="whiteModel"/);
-  assert.match(html, /data-feature-mode="emptyRoom"/);
-  assert.match(html, /data-feature-mode="styleTransfer"[^>]*>风格转换/);
-  assert.match(html, /data-feature-mode="refinedModel"/);
-  assert.match(html, /data-feature-mode="effectEnhancement"[^>]*>效果图氛围转换/);
-  assert.match(html, /data-feature-mode="effectBeautification"[^>]*>效果图美化/);
-  assert.match(html, /data-feature-mode="panoramaEnhancement"[^>]*>全景图美化/);
-  assert.equal((html.match(/data-feature-mode="/g) || []).length, 8);
-  assert.match(html, /data-feature-mode="free"/);
+  const featureSelect = html.match(/<select\b[^>]*id="betaFeatureSelect"[^>]*>/)?.[0] || "";
+  assert.match(featureSelect, /data-searchable="true"/);
+  assert.match(featureSelect, /aria-label="选择任务"/);
+  assert.doesNotMatch(html, /betaFeatureOptions|data-feature-mode=/);
+  assert.deepEqual(Object.entries(BETA_FEATURE_COPY).map(([key, copy]) => [key, copy.label]), [
+    ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["styleTransfer", "风格转换"],
+    ["refinedModel", "精模渲染"], ["effectEnhancement", "效果图氛围转换"],
+    ["effectBeautification", "效果图美化"], ["panoramaEnhancement", "全景图美化"],
+    ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageUpscale", "AI超分"],
+  ]);
+  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=5"/);
+  assert.match(source, /fillSelect\(elements\.betaFeatureSelect,\s*Object\.entries\(FEATURE_COPY\)\.map/);
+  assert.match(source, /elements\.betaFeatureSelect\.value = state\.featureMode/);
+  assert.match(source, /elements\.betaFeatureSelect\.disabled = sampleLibrary\.isBusy\(\)/);
+  const featureChange = source.match(/elements\.betaFeatureSelect\.addEventListener\("change", \(\) => \{([\s\S]*?)\n  \}\);/)?.[1] || "";
+  assert.match(featureChange, /const featureMode = elements\.betaFeatureSelect\.value/);
+  assert.match(featureChange, /if \(sampleLibrary\.isBusy\(\) \|\| !Object\.hasOwn\(FEATURE_COPY, featureMode\) \|\| featureMode === state\.featureMode\) return/);
+  assert.match(featureChange, /state\.featureMode = featureMode;\s*renderFeature\(\);\s*sampleLibrary\.setFeatureMode\(\s*state\.featureMode,\s*state\.sampleSetIds\[state\.featureMode\],\s*\)\.then\(saveConfiguration\)\.catch\(reportUploadError\)/);
+  assert.doesNotMatch(source, /betaFeatureOptions|button\.dataset\.featureMode/);
   assert.doesNotMatch(html, /styleDnaReverse|风格反推/);
   assert.match(html, /id="sourceFilesInput"[^>]*multiple/);
   assert.doesNotMatch(html, /class="beta-hero"|选择样本集，设置后运行。/);
@@ -48,11 +60,15 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.doesNotMatch(html, /id="sampleSetStatus"|添加样本后保存|正在读取飞书样本集/);
   assert.doesNotMatch(html, /整批共用 · 仅智能默认|整批提示词共用/);
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
-  assert.match(html, /custom-select\.css\?v=9/);
+  assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=29/);
-  assert.match(html, /model-picker\.css\?v=2[^]*raycast-accent\.css\?v=42/);
-  assert.match(source, /import \{ bindModelMultiSelect \} from "\.\/model-multi-select\.js\?v=4"/);
+  assert.match(html, /beta-app\.js\?v=36/);
+  assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
+  assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
+  assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
+  assert.match(source, /createBetaUpscaleConfiguration[^\n]+"\.\/beta-upscale\.js\?v=3"/);
+  assert.doesNotMatch(html, /model-picker\.css/);
+  assert.match(source, /import \{ bindModelMultiSelect \} from "\.\/model-multi-select\.js\?v=5"/);
   assert.match(source, /const modelSelection = bindModelMultiSelect\(\{/);
   assert.match(source, /modelSelection\.render\(runnable, state\.selectedModelKeys\)/);
   assert.match(source, /state\.selectedModelKeys = keys;\s*renderOutputControls\(\);\s*saveConfiguration\(\);/);
@@ -76,20 +92,20 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.match(html, />生成进度<\/span>/);
   assert.match(html, />飞书同步<\/span>/);
   assert.match(html, /id="monitorBaseLink" class="quiet-button monitor-base-button"[^>]*>在飞书查看结果<\/a>/);
-  assert.match(html, /id="monitorResults" class="monitor-results-grid"[^>]*aria-live="polite"/);
-  assert.match(html, /id="monitorResultsCount">0 张/);
+  assert.match(html, /id="monitorWarnings" class="monitor-warnings-list"[^>]*aria-live="polite"/);
+  assert.match(html, /id="monitorWarningsCount">暂无异常/);
   assert.doesNotMatch(html, /id="betaBaseLink"|class="section-link"|>打开飞书<\/a>/);
   assert.match(source, /\/api\/beta\/jobs/);
   assert.match(source, /adaptGenerationInputForModel/);
   assert.match(source, /packBatchAssets\(buildItems\(startedAt\), state\.featureMode\)/);
   assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
   assert.match(assetSource, /referenceAssetKey/);
-  assert.match(source, /import "\.\/custom-select\.js\?v=8"/);
-  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=7"/);
+  assert.match(source, /import "\.\/custom-select\.js\?v=9"/);
+  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=8"/);
   assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
   assert.match(source, /sampleId: currentCase\.caseId/);
   assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
-  assert.match(source, /import \{ renderBetaResults \} from "\.\/beta-results\.js\?v=1"/);
+  assert.match(source, /import \{ renderBetaWarnings \} from "\.\/beta-results\.js\?v=2"/);
   assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=2"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
   assert.match(source, /DEFAULT_BETA_MODEL_KEY/);
@@ -104,15 +120,18 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.match(source, /bindImageDrop/);
   assert.match(source, /createBetaSampleLibrary/);
   assert.match(source, /runButtonLabel\.textContent = running \? "RUNNING…" : failed \? "RETRY" : "START"/);
-  assert.match(source, /failed \? "重新运行当前批次" : "结果自动同步飞书"/);
+  assert.match(source, /failed \? "仅重试失败项，已成功结果保留" : "结果自动同步飞书"/);
   assert.match(source, /job\.stages\?\.generated/);
   assert.match(source, /job\.stages\?\.synced/);
   assert.match(source, /全部结果已生成并同步飞书/);
-  assert.match(source, /results: job\?\.result\?\.results/);
-  assert.match(resultSource, /export function renderBetaResults/);
-  assert.match(resultSource, /result\?\.recordUrl/);
-  assert.match(resultSource, /result\?\.previewUrl/);
-  assert.match(resultSource, /已同步/);
+  assert.match(source, /retryOfJobId: previousJob\.jobId/);
+  assert.match(source, /state\.submitting/);
+  assert.match(html, /id="newBatchButton"[^>]*type="button">新批次/);
+  assert.match(source, /newBatchButton\.addEventListener\("click"[^]*sessionStorage\.removeItem\(JOB_STORAGE_KEY\);\s*renderJob\(null\)/);
+  assert.match(resultSource, /export function renderBetaWarnings/);
+  assert.match(resultSource, /warning\.recordUrl/);
+  assert.doesNotMatch(resultSource, /createElement\("img"\)|previewUrl|innerHTML/);
+  assert.match(resultSource, /飞书同步失败/);
   assert.match(sampleLibrary, /\/api\/beta\/sample-sets/);
   assert.match(sampleLibrary, /function beginCreate\(\)/);
   assert.match(sampleLibrary, /preferredSampleSetId/);
@@ -154,8 +173,8 @@ test("Beta跑图是独立第三工作台且提供八个出图功能", async () =
   assert.match(css, /\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(288px, 336px\)/s);
   assert.match(css, /@media \(max-width: 960px\)\s*\{[^}]*html, body\s*\{\s*overflow:\s*auto;/s);
   assert.match(css, /\.sync-progress-track span\s*\{\s*background:\s*#f37021;/s);
-  assert.match(css, /\.monitor-results-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);[^}]*overflow:\s*auto;/s);
-  assert.match(css, /\.monitor-result-card\s*\{/);
+  assert.match(css, /\.monitor-warnings-list\s*\{[^}]*overflow:\s*auto;/s);
+  assert.match(css, /\.monitor-warning\s*\{/);
   assert.match(css, /\.reference-drop-zone\s*\{/);
   assert.doesNotMatch(css, /\.model-options \+ \.output-grid|\.field-grid \+ \.field|\.compact-upload\s*\{[^}]*margin-top/s);
   assert.match(css, /\.run-bar \.generation-actions \.generate-button\s*\{[^}]*min-height:\s*54px/s);
@@ -224,4 +243,36 @@ test("自由生图的共享主图和风格图各传一份", () => {
   assert.deepEqual(packed.assets, { "shared-source": [source], "shared-style": [style] });
   assert.ok(packed.items.every((item) => item.referenceAssetKey === "shared-source"));
   assert.ok(packed.items.every((item) => !item.input.referenceImages && !item.input.styleReferenceImages));
+});
+
+
+test("预警保留逐项阶段与原始原因，旧批次错误和连接错误均可见", () => {
+  const warnings = [{ runId: "failed-1", stage: "sync", message: "费用回读不一致", label: "样本 · Flux" }];
+  const job = { status: "failed", error: "1 张失败", result: { warnings } };
+  const actual = betaJobWarnings(job, "网络断开");
+  assert.equal(actual.length, 2);
+  assert.equal(actual[0].stage, "connection");
+  assert.deepEqual(actual[1], warnings[0]);
+  assert.notEqual(actual[1], warnings[0]);
+  assert.equal(betaJobWarnings({ status: "failed", error: "旧任务失败" })[0].message, "旧任务失败");
+  assert.deepEqual(betaJobWarnings({ status: "success", result: { warnings: [] } }), []);
+});
+
+test("预警渲染使用安全文本且不渲染图片，非法记录链接不可执行", () => {
+  const previous = globalThis.document;
+  const node = (tag) => ({ tag, dataset: {}, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  globalThis.document = { createElement: node };
+  try {
+    const container = node("div");
+    const count = node("small");
+    renderBetaWarnings({ container, count, job: { status: "failed", result: { warnings: [{
+      stage: "sync", label: "<img onerror=alert(1)>", message: "附件校验失败", recordUrl: "javascript:alert(1)",
+    }] } } });
+    assert.equal(count.textContent, "1 项");
+    assert.deepEqual(container.children[0].children.map((child) => child.tag), ["strong", "span", "p"]);
+    assert.equal(container.children[0].children[1].textContent, "<img onerror=alert(1)>");
+    renderBetaWarnings({ container, count, job: { status: "success" } });
+    assert.equal(count.textContent, "暂无异常");
+    assert.match(container.children[0].textContent, /全部结果已同步/);
+  } finally { globalThis.document = previous; }
 });

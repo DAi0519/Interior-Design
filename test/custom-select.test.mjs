@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 指针焦点稳定器/搜索单选适配器/定位增强与 custom-select.css 文字及向上菜单布局契约
- * [OUTPUT]: 验证主指针焦点、辅助按键、真实宽度和声明式向上展开，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
+ * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 原生适配器、choice-select 指针稳定器及共享视觉入口
+ * [OUTPUT]: 验证主指针焦点、辅助按键、共享视觉真源和无独立菜单实现，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
  * [POS]: test 的跨浏览器自定义下拉竞态与搜索单选原生适配回归测试，不启动浏览器或真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -158,34 +158,21 @@ test("辅助按键不会抢占下拉选项焦点", () => {
   assert.equal(touched, false);
 });
 
-test("下拉文案使用真实剩余宽度而不是内容宽度的固定百分比", async () => {
-  const stylesheet = await readFile(
-    new URL("../public/custom-select.css", import.meta.url),
-    "utf8",
-  );
-
-  assert.doesNotMatch(stylesheet, /max-width:\s*55%/);
-  assert.match(stylesheet, /\.custom-select-value\s*\{[^}]*flex:\s*1 1 auto/s);
-  assert.match(stylesheet, /\.custom-select-option\s*>\s*span\s*\{[^}]*flex:\s*1 1 auto/s);
-});
-
-test("底部参数下拉可声明向上展开以避开粘性动作区", async () => {
-  const [script, stylesheet] = await Promise.all([
-    readFile(new URL("../public/custom-select.js", import.meta.url), "utf8"),
+test("下拉统一加载组件视觉真源并保持完整标签与单行省略", async () => {
+  const [entry, css] = await Promise.all([
     readFile(new URL("../public/custom-select.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/choice-select.css", import.meta.url), "utf8"),
   ]);
-
-  assert.match(script, /select\.dataset\.dropdownPlacement === "top"/);
-  assert.match(script, /"custom-select--top"/);
-  assert.match(stylesheet, /\.custom-select--top \.custom-select-menu\s*{[^}]*bottom: calc\(100% \+ 4px\)[^}]*top: auto/s);
+  assert.match(entry, /@import url\(".\/choice-select.css/);
+  assert.doesNotMatch(css, /max-width:\s*55%/);
+  assert.match(css, /text-overflow: ellipsis/);
+  assert.match(css, /\.model-picker-option.selected\s*\{[^}]*background: var\(--select-selected-bg\)[^}]*color: var\(--select-selected-ink\)/s);
+  assert.match(css, /--select-menu-bg: #fcfcfd/);
 });
 
-test("列表焦点可用 Enter 或 Space 显式提交当前选项", async () => {
-  const script = await readFile(
-    new URL("../public/custom-select.js", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(script, /event\.key === "Enter" \|\| event\.key === " "/);
-  assert.match(script, /item\.click\(\)/);
+test("普通单选也委托共享组件，不再持有独立菜单渲染", async () => {
+  const script = await readFile(new URL("../public/custom-select.js", import.meta.url), "utf8");
+  assert.match(script, /placement: select.dataset.dropdownPlacement/);
+  assert.match(script, /searchable: select.dataset.searchable === "true"/);
+  assert.doesNotMatch(script, /createElement\("button"\)|function open\(/);
 });

@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-21",
+  "scope": "主工作台旧房改造两步包装，非正式发布",
+  "promptVersion": "room-clearance-2026-10-21.2",
+  "tests": {
+    "fullRegression": {
+      "passed": 989,
+      "failed": 0,
+      "log": "/tmp/room-renovation-full-tests.log"
+    },
+    "afterPromptFix": {
+      "passed": 44,
+      "failed": 0
+    },
+    "finalRoomAndUi": {
+      "passed": 22,
+      "failed": 0,
+      "log": "/tmp/room-renovation-v2-tests.log"
+    }
+  },
+  "canary": {
+    "jobId": "generation-9eb7f10b-9f0c-4f89-9514-01bf45b4eb57",
+    "pipelineId": "e24bd7f6-a25e-482a-a043-3947fdedcbb3",
+    "model": "Flux2 Klein",
+    "durationMs": 144190,
+    "input": {
+      "width": 960,
+      "height": 1200
+    },
+    "cleared": {
+      "width": 1824,
+      "height": 2288
+    },
+    "design": {
+      "width": 1824,
+      "height": 2288
+    },
+    "records": [
+      {
+        "recordId": "reczz28PvDC1QOmr",
+        "title": "旧房改造 · 清空 · e24bd7f6",
+        "feature": [
+          "空房设计"
+        ],
+        "status": [
+          "成功"
+        ],
+        "referenceCount": 1,
+        "resultCount": 1,
+        "referenceBytes": 1826086,
+        "resultBytes": 4647964,
+        "pipelineId": "e24bd7f6-a25e-482a-a043-3947fdedcbb3",
+        "stage": "clearance",
+        "promptVersion": "room-clearance-2026-10-21.2",
+        "originalSha256": "7a87c262f26ddadf7cabae77f79cfeab3501ea278e5754e155193534c541d64a",
+        "clearedSha256": "e3e4a30457b13e25bb4ef1ccd8ac277dfa23579ab63423aa6285447706bcee03",
+        "clearedSize": "1824x2288",
+        "durationMs": 64855,
+        "modelKey": "aiTextureEnhancement"
+      },
+      {
+        "recordId": "reczz28PvEZrhL5o",
+        "title": "旧房改造 · 设计 · e24bd7f6",
+        "feature": [
+          "空房设计"
+        ],
+        "status": [
+          "成功"
+        ],
+        "referenceCount": 1,
+        "resultCount": 1,
+        "referenceBytes": 583503,
+        "resultBytes": 5816481,
+        "pipelineId": "e24bd7f6-a25e-482a-a043-3947fdedcbb3",
+        "stage": "design",
+        "promptVersion": "room-clearance-2026-10-21.2",
+        "originalSha256": "7a87c262f26ddadf7cabae77f79cfeab3501ea278e5754e155193534c541d64a",
+        "clearedSha256": "e3e4a30457b13e25bb4ef1ccd8ac277dfa23579ab63423aa6285447706bcee03",
+        "clearedSize": "1824x2288",
+        "durationMs": 64855,
+        "modelKey": "aiTextureEnhancement",
+        "designSourceSha256": "eba7c919dc742574b586664b4389b64df79976a61b81050b8360c5d99ee1e10f",
+        "clearanceGenerationId": "9604c5e5-9839-4ad6-946f-8bf06a6bc44d"
+      }
+    ]
+  },
+  "visualChecks": {
+    "desktop": "1280x800",
+    "mobile": "390x844",
+    "consoleErrors": 0,
+    "views": [
+      "原图",
+      "清空图",
+      "设计图"
+    ],
+    "defaultView": "设计图",
+    "downloadFollowsView": true,
+    "firstCanaryDownloadByteIdentical": true,
+    "reloadRestoresActualServerJob": true,
+    "clearanceAirConditionerRemoved": true
+  },
+  "firstCanary": {
+    "promptVersion": "room-clearance-2026-10-21.1",
+    "finding": "壁挂空调未移除，固定家电未纳入移除范围",
+    "status": "已修正为.2并真实重跑"
+  },
+  "review": {
+    "initialDisposition": "fix",
+    "verdict": "ship",
+    "scope": "首轮壁挂空调残留修复已resolved，非批量画质认证",
+    "verified": "对照原图、.2真实清空产物及最终桌面/窄屏截图；空调与管线移除，结构和机位未见明显改变"
+  },
+  "evidence": {
+    "canaryDirectory": "/Users/dai/Work_qunhe/Interior Design/outputs/room-renovation/2026-10-21-canary-v2",
+    "screenshots": [
+      "desktop.png",
+      "mobile.png",
+      "mobile-result.png",
+      "clearance.png"
+    ],
+    "detector": "退化regex；仅两个既存动态图片src警告"
+  },
+  "limits": [
+    "同一张卧室图两次试跑，不能作为覆盖性质量评测",
+    "生成模型仍可能在遮挡补全和门窗结构上漂移",
+    "每个结果独立两次出图；失败不自动重跑"
+  ]
+}

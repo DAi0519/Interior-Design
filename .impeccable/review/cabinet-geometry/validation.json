@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-21",
+  "scope": "Published empty-room smart-default and style-fusion System Prompt; shared by ordinary empty-room and room-renovation design stage. No executable source changes in this prompt revision.",
+  "version": 34,
+  "publication": {
+    "source": "Feishu Base exact record readback",
+    "agents": [
+      {
+        "code": "empty-room-smart-default",
+        "oldRecordId": "reczz28PxoCNyAL6",
+        "version": 34,
+        "sha256": "77e1e6cbcbfcc49f8b6b2b02ca31ced5b610a9258811de91755d493eb0bd5615",
+        "chars": 21709,
+        "changedAreas": 3,
+        "newRecordId": "reczz28PyyXa9agu"
+      },
+      {
+        "code": "empty-room-fusion",
+        "oldRecordId": "reczz28Pxyo1d3Xa",
+        "version": 34,
+        "sha256": "4b1b4bbdc5cf0f0fa50bde3aceb1551dbf5ad417a0b64ef11b1df686547210f5",
+        "chars": 21623,
+        "changedAreas": 3,
+        "newRecordId": "reczz28PyyZ5RYBV"
+      }
+    ],
+    "catalogRecords": 31,
+    "hasMore": false,
+    "activeAgents": [
+      {
+        "recordId": "reczz28PyyXa9agu",
+        "Agent 编码": "empty-room-smart-default",
+        "版本": 34,
+        "上架状态": [
+          "上架"
+        ]
+      },
+      {
+        "recordId": "reczz28PyyZ5RYBV",
+        "Agent 编码": "empty-room-fusion",
+        "版本": 34,
+        "上架状态": [
+          "上架"
+        ]
+      }
+    ],
+    "runtime": {
+      "promptAgent": {
+        "defaultVersion": 34,
+        "versions": [
+          {
+            "code": "empty-room-fusion",
+            "name": "空房风格融合 Agent",
+            "version": 34,
+            "published": true,
+            "validPrompt": true
+          }
+        ]
+      },
+      "smartDefault": {
+        "available": true,
+        "description": "AI 根据空间自主确定整体风格，统筹墙地顶、材质与灯光，并满足家具需求；有参考图时遵循参考风格",
+        "name": "空房智能默认 Agent",
+        "version": 34
+      }
+    }
+  },
+  "evaluation": {
+    "jobId": "generation-0136a2f3-9d59-40cc-bda6-fd031a1665ed",
+    "sourceSha256": "eba7c919dc742574b586664b4389b64df79976a61b81050b8360c5d99ee1e10f",
+    "inputPath": "/Users/dai/Work_qunhe/Interior Design/outputs/room-renovation/2026-10-21-canary-v2/cleared-0.png",
+    "samePreparedJpegAsV32": true,
+    "forcePromptRegeneration": true,
+    "v33SuccessfulImages": 2,
+    "v34SuccessfulImages": 2,
+    "v34": [
+      {
+        "mode": "smart-default",
+        "promptAgent": {
+          "durationMs": 27136,
+          "inputImageCount": 1,
+          "model": "gemini-3.1-pro-preview",
+          "name": "空房智能默认 Agent",
+          "reused": false,
+          "version": 34
+        },
+        "generationId": "300ee563-a8e0-486a-bb7f-c837cd5d6c8c",
+        "archiveRecordId": "reczz28Pz4BI5Pyt",
+        "archiveUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28Pz4BI5Pyt",
+        "archiveStatus": "success",
+        "attachments": {
+          "input": 1,
+          "output": 1
+        },
+        "output": {
+          "path": "/Users/dai/Work_qunhe/Interior Design/outputs/cabinet-geometry/2026-10-21/v34-result-0.png",
+          "width": 1824,
+          "height": 2288,
+          "sha256": "4eaf76ddb6c6e4362a450932cf50f576530a6c3358c05a4bbcbb9828a2fe7afa"
+        },
+        "engine": {
+          "model": "flux-2-klein-9b-fp8.safetensors",
+          "steps": 7,
+          "seed": 218302676,
+          "workflowId": "ai-texture-enhancement",
+          "workflowVersion": "2026-09-16.1"
+        },
+        "durationMs": 108131,
+        "finalPrompt": {
+          "validJson": true,
+          "projectsIntoRoom": true,
+          "geometryRulesFullyTransmitted": false
+        },
+        "visualReview": {
+          "cabinetVolume": "partial",
+          "originalStructurePreservation": "failed"
+        }
+      },
+      {
+        "mode": "style-fusion",
+        "promptAgent": {
+          "durationMs": 24388,
+          "inputImageCount": 1,
+          "model": "gemini-3.1-pro-preview",
+          "name": "空房风格融合 Agent",
+          "reused": false,
+          "version": 34
+        },
+        "generationId": "26a6e445-d969-4af6-a7ee-a498ee01bbb3",
+        "archiveRecordId": "reczz28Pz5jIS2fg",
+        "archiveUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28Pz5jIS2fg",
+        "archiveStatus": "success",
+        "attachments": {
+          "input": 1,
+          "output": 1
+        },
+        "output": {
+          "path": "/Users/dai/Work_qunhe/Interior Design/outputs/cabinet-geometry/2026-10-21/v34-result-1.png",
+          "width": 1824,
+          "height": 2288,
+          "sha256": "894de541e47ee5aecb1b15998fa16b890a6580c1dd74a24923ef1cad0e998311"
+        },
+        "engine": {
+          "model": "flux-2-klein-9b-fp8.safetensors",
+          "steps": 7,
+          "seed": 579532444,
+          "workflowId": "ai-texture-enhancement",
+          "workflowVersion": "2026-09-16.1"
+        },
+        "durationMs": 88099,
+        "finalPrompt": {
+          "validJson": true,
+          "projectsIntoRoom": true,
+          "geometryRulesFullyTransmitted": false
+        },
+        "visualReview": {
+          "cabinetVolume": "resolved-in-this-image",
+          "originalStructurePreservation": "failed"
+        }
+      }
+    ],
+    "qualityPassed": false,
+    "limits": [
+      "One image per mode and version; different random seeds; no stability or causal claim.",
+      "Smart-default cabinet depth remains partially obscured.",
+      "Both v34 samples drift window or wall proportions and fail original-structure fidelity.",
+      "Actual final prompts state outward cabinet volume but do not fully transmit all wall-plane and no-new-recess rules."
+    ],
+    "review": "Independent visual review of input, v32, v33 and v34 outputs; volume and structure evaluated separately."
+  },
+  "evidence": {
+    "privateCaseDirectory": "/Users/dai/Work_qunhe/Interior Design/outputs/cabinet-geometry/2026-10-21",
+    "publicationReadback": "v34-published-readback.json",
+    "fullCatalog": "catalog-v34.json",
+    "runtime": "runtime-v34.json",
+    "initialSnapshot": "evaluation-v34-snapshot.json",
+    "archiveSync": [
+      "v34-sync-0.json",
+      "v34-sync-1.json"
+    ],
+    "archiveReadback": "evaluation-v34-readback.json",
+    "note": "Initial generation snapshot predates async archive completion; sync receipts establish generationId-to-recordId mapping, archive readback confirms status and attachments.",
+    "workbenchScreenshot": "workbench-v34.png"
+  }
+}

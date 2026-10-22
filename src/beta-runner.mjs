@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖任务批处理、generation-service、风格转换显式来源/冻结版本合同、模型2:1矩阵、实时三表 Schema/逐张资产 Store、参考图/全景比例/房型校验和当前 Key 的 Prompt Agent 可用性
- * [OUTPUT]: 对外提供草稿/逐张保存/完成回读与 ID 批次 Schema/Agent/全景模型准入、按执行项读取原图、八功能两路并发单图执行、冻结全景及风格转换独立版本、共用参考图去重、生成/同步双阶段快照、回读后预览、瞬时重跑及合同错误不重试、只读批次忙碌检查
+ * [INPUT]: 依赖任务批处理、generation-service、Beta扩图/六工作流超分真源与只读能力、真实源图尺寸准入、风格转换显式来源/冻结版本合同、模型2:1矩阵、实时三表 Schema/逐张资产 Store、参考图/全景比例/房型校验和当前 Key 的 Prompt Agent 可用性
+ * [OUTPUT]: 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/全景/扩图/超分准入、逐项原图读取和十功能两路并发执行、冻结真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；Sunburst扩图最多一次收费提交
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,9 @@ import { normalizeBetaSampleImage } from "./beta-sample-store.mjs";
 import { normalizeReferenceImages, REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
 import { MODEL_CONFIGS } from "./model-config.mjs";
 import { normalizeStyleTransferSelection } from "./white-model-workflow.mjs";
+import { normalizeImageOutpaintInput } from "./image-outpaint-service.mjs";
+import { BETA_OUTPAINT_WORKFLOWS, normalizeBetaOutpaintInput, publicBetaOutpaintConfig, verifyBetaOutpaintBatch } from "./beta-outpaint.mjs";
+import { normalizeBetaUpscaleInput, publicBetaUpscaleConfig, validateBetaUpscaleSource, verifyBetaUpscaleBatch } from "./beta-upscale.mjs";
 
 import {
   createGenerationJobRegistry,
@@ -25,6 +28,8 @@ export const BETA_FEATURE_MODES = Object.freeze([
   "effectBeautification",
   "panoramaEnhancement",
   "free",
+  "imageOutpaint",
+  "imageUpscale",
 ]);
 export const BETA_MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429]);
@@ -160,12 +165,11 @@ function singleSharedImages(images, fieldName) {
   });
 }
 
-async function bindBatchSamples(batch, baseStore) {
+async function bindBatchSamples(batch, baseStore, { preserveInput = false } = {}) {
   if (!baseStore.getSampleSet) return batch;
   if (!batch.sampleSetId) throw inputError("请选择已保存的飞书样本集");
   const set = await baseStore.getSampleSet(batch.sampleSetId);
   if (!set || set.status !== "可用") throw inputError("样本集不存在或尚未上传完成");
-  if (set.featureMode !== batch.featureMode) throw inputError("样本集功能与跑图功能不一致");
   const samples = new Map(set.samples.map((sample) => [sample.sampleId, sample]));
   const sharedAssets = new Map();
   const sharedImages = (images, label) => {
@@ -176,14 +180,19 @@ async function bindBatchSamples(batch, baseStore) {
   for (const item of batch.items) {
     const sample = samples.get(item.sampleId);
     if (!sample) throw inputError("样本不属于所选样本集或尚未上传确认");
+    if (preserveInput && ((item.sourceRecordId && item.sourceRecordId !== sample.recordId)
+      || (item.sourceSetRecordId && item.sourceSetRecordId !== set.recordId))) throw inputError("原冻结样本关联已改变");
     if (batch.featureMode !== "free") {
       if (item.input.referenceImages?.length) throw inputError("图像样本请仅提交飞书样本 ID");
       if (!sample.image || !REFERENCE_IMAGE_POLICY.accept.includes(sample.image.type)) throw inputError("飞书样本缺少有效原图");
       if (Number(sample.image.size) > REFERENCE_IMAGE_POLICY.maxBytesPerImage) throw inputError("样本图不能超过 8MB");
     } else {
-      item.input.prompt = sample.prompt;
+      const prompt = preserveInput ? item.input.prompt : sample.prompt;
+      if (typeof prompt !== "string" || !prompt.trim()) throw inputError("自由生图需要含有效提示词的样本");
+      if (!preserveInput) item.input.prompt = prompt.trim();
       item.input.referenceImages = sharedImages(item.input.referenceImages, "共用源图");
     }
+    if (preserveInput) continue;
     item.caseId = sample.sampleId;
     item.sourceRecordId = sample.recordId;
     item.sourceSetRecordId = set.recordId;
@@ -265,13 +274,18 @@ function normalizeBatch(body = {}) {
       input = { ...input, renderMode: selection.renderMode, [selection.versionField]: selection.version };
       if (selection.renderMode === "style-reference") delete input.styleCode;
     }
+    if (featureMode === "imageOutpaint") input = normalizeBetaOutpaintInput(input);
+    if (featureMode === "imageUpscale") input = normalizeBetaUpscaleInput(input);
+    const outpaintWorkflow = featureMode === "imageOutpaint"
+      ? BETA_OUTPAINT_WORKFLOWS.find((workflow) => workflow.key === input.outpaintWorkflowKey) : null;
     return {
       attempt: Number.isInteger(item.attempt) && item.attempt > 0 ? item.attempt : 1,
       caseId,
       input: featureMode === "panoramaEnhancement" ? normalizePanoramaInput(input) : input,
       key: runId,
       label: String(item.label || caseId).slice(0, 160),
-      modelLabel: String(item.modelLabel || item.input.modelKey || "").slice(0, 120),
+      modelLabel: outpaintWorkflow?.label || String(item.modelLabel || item.input.modelKey || "").slice(0, 120),
+      ...(outpaintWorkflow ? { outpaintWorkflowKey: outpaintWorkflow.key } : {}),
       runId,
       sampleId: String(item.sampleId || "").trim(),
     };
@@ -283,6 +297,8 @@ function normalizeBatch(body = {}) {
 export function createBetaRunnerService({
   baseStore,
   generationService,
+  getOutpaintConfig = null,
+  getUpscaleConfig = null,
   jobs = createGenerationJobRegistry({ maxJobs: 12 }),
   maxAttempts = BETA_MAX_ATTEMPTS,
   sleep = delay,
@@ -294,12 +310,177 @@ export function createBetaRunnerService({
     ? Promise.resolve(baseStore.verifySchema()).then(operation)
     : operation();
 
+  const batches = new Map();
+  const requireRetrySource = (jobId) => {
+    const job = jobs.get?.(jobId);
+    if (!job) throw Object.assign(inputError("Beta跑图任务不存在或已过期"), { statusCode: 404 });
+    if (job.status !== "failed") throw Object.assign(inputError("仅失败批次可以重试；请等待当前批次结束"), { statusCode: 409 });
+    return job;
+  };
+  const enqueueBatch = (batch, previous = null) => {
+    for (const key of batches.keys()) if (!jobs.get?.(key)) batches.delete(key);
+    const existing = jobs.get?.(batch.jobId);
+    if (existing) return existing;
+    if (previous?.retryJobId) {
+      const successor = jobs.get?.(previous.retryJobId);
+      if (successor) return successor;
+    }
+    const states = previous ? previous.states.map((state) => ({ ...state }))
+      : batch.items.map((item, index) => ({ item, index, attempt: item.attempt - 1,
+        generated: false, synced: false, archive: null, result: null, error: null, stage: "generation" }));
+    const context = { batch, states };
+    batches.set(batch.jobId, context);
+    if (previous) previous.retryJobId = batch.jobId;
+    const count = (key) => states.filter((state) => state[key]).length;
+    const warnings = () => states.filter((state) => !state.synced && state.error).map((state) => ({
+      attempt: state.attempt,
+      caseId: state.item.caseId,
+      label: state.item.label,
+      message: betaErrorMessage(state.error),
+      modelLabel: state.item.modelLabel,
+      recordUrl: state.archive?.recordUrl || null,
+      retryable: isRetryableBetaError(state.error),
+      runId: state.currentItem?.runId || state.item.runId,
+      stage: state.stage,
+    }));
+    const publicResults = () => states.filter((state) => state.synced).map((state) => state.publicResult)
+      .sort((left, right) => left.index - right.index);
+    const snapshot = () => ({ batchId: batch.batchId, results: publicResults(), warnings: warnings(),
+      ...(batch.retryOfJobId ? { retryOfJobId: batch.retryOfJobId } : {}) });
+    const accepted = jobs.enqueue(batch.jobId, {
+      featureMode: batch.featureMode,
+      stages: { generated: count("generated"), synced: count("synced") },
+      total: batch.items.length,
+    }, async (update) => {
+      const updateStages = (message) => update({ completed: count("synced"), message,
+        result: snapshot(), stages: { generated: count("generated"), synced: count("synced") } });
+      updateStages(`保留已同步 ${count("synced")} / ${batch.items.length}，正在处理未完成结果`);
+      const outcomes = await runGenerationJobBatch({ concurrency: 2, items: states.map((state) => state.item),
+        async execute(item, index) {
+          const state = states[index];
+          if (state.synced) return { archive: state.archive, attempt: state.attempt };
+          let source = null;
+          if (state.recoverArchived && baseStore.recoverRun) {
+            state.stage = "sync";
+            try {
+              const recovered = await baseStore.recoverRun({ batchId: batch.batchId,
+                featureMode: batch.featureMode, item, testTime: batch.testTime });
+              state.recoverArchived = false;
+              if (recovered) {
+                state.archive = recovered;
+                state.attempt = recovered.attempt;
+                state.generated = true;
+                state.synced = true;
+                state.error = null;
+                state.publicResult = { attempt: state.attempt, caseId: item.caseId, index, label: item.label,
+                  modelLabel: item.modelLabel, originalRunId: item.runId, previewUrl: null,
+                  recordUrl: recovered.recordUrl, runId: recovered.runId };
+                updateStages(`复用已归档结果 · 已同步 ${count("synced")} / ${batch.items.length}`);
+                return { archive: recovered, attempt: state.attempt };
+              }
+            } catch (error) {
+              state.error = error;
+              updateStages(`${item.label} · 已有结果恢复失败：${betaErrorMessage(error)}`);
+              throw error;
+            }
+          }
+          const attempts = batch.featureMode === "imageOutpaint" && item.input.outpaintEngine === "gptImage25Sunburst"
+            ? 1 : maxAttempts;
+          try {
+            for (let attempt = 1; attempt <= attempts; attempt += 1) {
+              try {
+                if (!state.result) {
+                  state.stage = "generation";
+                  state.attempt += 1;
+                  state.currentItem = attemptItem(item, state.attempt - item.attempt + 1);
+                  const currentItem = state.currentItem;
+                  state.archive = null;
+                  if (batch.sampleSetId && baseStore.resolveSample && batch.featureMode !== "free") {
+                    source ||= await baseStore.resolveSample(batch.sampleSetId, item.sampleId,
+                      { recordId: item.sourceRecordId, sampleSetRecordId: item.sourceSetRecordId, targetFeatureMode: batch.featureMode });
+                    currentItem.input = { ...currentItem.input,
+                      referenceImages: [normalizeBetaSampleImage(source.image, batch.featureMode)] };
+                  }
+                  if (batch.featureMode === "imageOutpaint") {
+                    verifyBetaOutpaintBatch({ ...batch, items: [currentItem] }, getOutpaintConfig ? await getOutpaintConfig() : {});
+                    await normalizeImageOutpaintInput(currentItem.input);
+                  }
+                  if (batch.featureMode === "imageUpscale") {
+                    verifyBetaUpscaleBatch({ ...batch, items: [currentItem] }, getUpscaleConfig ? await getUpscaleConfig() : {});
+                    validateBetaUpscaleSource(currentItem.input);
+                  }
+                  state.stage = "archive";
+                  state.archive = await baseStore.beginRun({ batchId: batch.batchId,
+                    featureMode: batch.featureMode, item: currentItem, testTime: batch.testTime });
+                  state.stage = "generation";
+                  state.result = await generationService.executeForMode(batch.featureMode, singleRunGenerationInput(currentItem.input));
+                  state.generated = true;
+                  state.stage = "sync";
+                  updateStages(`已生成 ${count("generated")} / ${batch.items.length} · 正在同步飞书`);
+                }
+                state.stage = "sync";
+                const completedArchive = await baseStore.completeRun(state.archive.recordId, state.result);
+                state.archive = completedArchive;
+                state.synced = true;
+                state.error = null;
+                state.result = null;
+                state.publicResult = { attempt: state.attempt, caseId: item.caseId, index, label: item.label,
+                  modelLabel: item.modelLabel, originalRunId: item.runId,
+                  previewUrl: completedArchive.previewUrl || null, recordUrl: completedArchive.recordUrl,
+                  runId: state.currentItem.runId };
+                updateStages(`已同步 ${count("synced")} / ${batch.items.length}`);
+                return { archive: completedArchive, attempt: state.attempt };
+              } catch (error) {
+                state.error = error;
+                if (state.archive?.recordId) {
+                  try { await baseStore.failRun(state.archive.recordId, error, { retainArchive: Boolean(state.result) }); }
+                  catch { /* 保留首个生成或归档错误，避免失败回写覆盖根因。 */ }
+                }
+                updateStages(`${item.label} · ${betaErrorMessage(error)}`);
+                if (!isRetryableBetaError(error)) {
+                  throw new Error(`${item.label} · ${betaErrorMessage(error)}（不可重试错误，已停止）`);
+                }
+                if (attempt >= attempts) break;
+                updateStages(`${item.label} · ${betaErrorMessage(error)} · 自动重试${state.result ? "同步" : "生成"} ${attempt + 1}/${attempts}`);
+                await sleep(500 * (2 ** (attempt - 1)));
+              }
+            }
+            throw new Error(`${item.label} 共尝试 ${attempts} 次后仍未同步飞书：${betaErrorMessage(state.error)}`);
+          } finally { source = null; }
+        },
+      });
+      const failed = outcomes.filter((outcome) => outcome.status === "rejected");
+      if (failed.length) throw new Error(`${failed.length} 张结果失败；${failed[0]?.reason?.message || "未知错误"}`);
+      return { ...snapshot(), outcomes };
+    });
+    return { ...accepted, completed: count("synced"), result: snapshot() };
+  };
+  const admitBatch = (batch, previous = null) => afterSchemaVerification(() => {
+    const bindAndEnqueue = () => baseStore.getSampleSet
+      ? bindBatchSamples(batch, baseStore, { preserveInput: Boolean(previous) }).then(() => enqueueBatch(batch, previous)) : enqueueBatch(batch, previous);
+    if (!["imageOutpaint", "imageUpscale"].includes(batch.featureMode)) return bindAndEnqueue();
+    const capabilityBatch = batch.featureMode === "imageUpscale" && previous
+      ? { ...batch, items: batch.items.filter((_item, index) => {
+        const state = previous.states[index];
+        return !state.synced && !state.result && !state.recoverArchived;
+      }) } : batch;
+    if (!capabilityBatch.items.length) return bindAndEnqueue();
+    const readConfig = batch.featureMode === "imageUpscale" ? getUpscaleConfig : getOutpaintConfig;
+    return Promise.resolve(readConfig ? readConfig() : {}).then((config) => {
+      if (batch.featureMode === "imageUpscale") verifyBetaUpscaleBatch(capabilityBatch, config);
+      else verifyBetaOutpaintBatch(batch, config);
+      return bindAndEnqueue();
+    });
+  });
+
   return {
-    config() {
+    async config() {
       return {
         baseUrl: baseStore.config.baseUrl,
         features: BETA_FEATURE_MODES,
         tableId: baseStore.config.tableId,
+        outpaint: publicBetaOutpaintConfig(getOutpaintConfig ? await getOutpaintConfig() : {}),
+        upscale: publicBetaUpscaleConfig(getUpscaleConfig ? await getUpscaleConfig() : {}),
       };
     },
     createSampleSet(body) {
@@ -327,7 +508,7 @@ export function createBetaRunnerService({
       return baseStore.getSampleSet(String(sampleSetId || "").trim());
     },
     getJob(jobId) {
-      return jobs.get(jobId);
+      return jobs.get?.(jobId);
     },
     hasActiveJobs() {
       return jobs.hasActiveJobs();
@@ -336,124 +517,39 @@ export function createBetaRunnerService({
       return baseStore.listSampleSets();
     },
     start(body) {
+      if (body.retryOfJobId && !body.items) return this.retry(String(body.retryOfJobId), body);
       const batch = normalizeBatch(body);
-      const enqueue = () => jobs.enqueue(
-        batch.jobId,
-        {
-          featureMode: batch.featureMode,
-          stages: { generated: 0, synced: 0 },
-          total: batch.items.length,
-        },
-        async (update) => {
-          const generatedItems = new Set();
-          const syncedItems = new Set();
-          const syncedResults = [];
-          const publicResults = () => [...syncedResults]
-            .sort((left, right) => left.index - right.index);
-          const updateStages = (message) => update({
-            completed: syncedItems.size,
-            message,
-            result: {
-              batchId: batch.batchId,
-              results: publicResults(),
-            },
-            stages: {
-              generated: generatedItems.size,
-              synced: syncedItems.size,
-            },
-          });
-          const outcomes = await runGenerationJobBatch({
-            concurrency: 2,
-            items: batch.items,
-            async execute(item, index) {
-              let lastError = null;
-              let source = null;
-              try {
-                for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-                  const currentItem = attemptItem(item, attempt);
-                  let archive = null;
-                  try {
-                    if (batch.sampleSetId && baseStore.resolveSample && batch.featureMode !== "free") {
-                      source ||= await baseStore.resolveSample(batch.sampleSetId, item.sampleId,
-                      { recordId: item.sourceRecordId, sampleSetRecordId: item.sourceSetRecordId });
-                      if (source.featureMode && source.featureMode !== batch.featureMode) {
-                        throw inputError("样本集功能已变化，请重新选择样本集");
-                      }
-                      currentItem.input = { ...currentItem.input,
-                        referenceImages: [normalizeBetaSampleImage(source.image, batch.featureMode)] };
-                    }
-                    archive = await baseStore.beginRun({
-                      batchId: batch.batchId,
-                      featureMode: batch.featureMode,
-                      item: currentItem,
-                      testTime: batch.testTime,
-                    });
-                    const result = await generationService.executeForMode(
-                      batch.featureMode,
-                      singleRunGenerationInput(currentItem.input),
-                    );
-                    generatedItems.add(item.key);
-                    updateStages(`已生成 ${generatedItems.size} / ${batch.items.length} · 正在同步飞书`);
-                    const completedArchive = await baseStore.completeRun(
-                      archive.recordId,
-                      result,
-                    );
-                    syncedResults.push({
-                      attempt: currentItem.attempt,
-                      caseId: item.caseId,
-                      index,
-                      label: item.label,
-                      modelLabel: item.modelLabel,
-                      previewUrl: completedArchive.previewUrl || null,
-                      recordUrl: completedArchive.recordUrl,
-                      runId: currentItem.runId,
-                    });
-                    syncedItems.add(item.key);
-                    updateStages(`已同步 ${syncedItems.size} / ${batch.items.length}`);
-                    return { archive: completedArchive, attempt };
-                  } catch (error) {
-                    lastError = error;
-                    if (archive?.recordId) {
-                      try {
-                        await baseStore.failRun(archive.recordId, error);
-                      } catch {
-                        // 保留生成或首次归档错误，不用二次回写失败覆盖根因。
-                      }
-                    }
-                    const reason = betaErrorMessage(error);
-                    const retryable = isRetryableBetaError(error);
-                    if (!retryable) {
-                      throw new Error(`${item.label} · ${reason}（不可重试错误，已停止）`);
-                    }
-                    if (attempt >= maxAttempts) break;
-                    update({
-                      message: `${item.label} · ${reason} · 自动重试 ${attempt + 1}/${maxAttempts}`,
-                    });
-                    await sleep(500 * (2 ** (attempt - 1)));
-                  }
-                }
-                throw new Error(
-                  `${item.label} 共尝试 ${maxAttempts} 次后仍未同步飞书：${betaErrorMessage(lastError)}`,
-                );
-              } finally { source = null; }
-            },
-          });
-          const failed = outcomes.filter((outcome) => outcome.status === "rejected");
-          if (failed.length) {
-            const firstFailure = failed[0]?.reason?.message || "未知错误";
-            throw new Error(
-              `${failed.length} 张结果失败；${firstFailure}`,
-            );
-          }
-          return {
-            batchId: batch.batchId,
-            outcomes,
-            results: publicResults(),
-          };
-        },
-      );
-      return afterSchemaVerification(() => baseStore.getSampleSet
-        ? bindBatchSamples(batch, baseStore).then(enqueue) : enqueue());
+      if (!body.retryOfJobId) return admitBatch(batch);
+      const previousJob = requireRetrySource(String(body.retryOfJobId));
+      const previous = batches.get(String(body.retryOfJobId));
+      if (previous) {
+        return this.retry(String(body.retryOfJobId), { jobId: batch.jobId });
+      }
+      if (previousJob.result?.batchId !== batch.batchId || previousJob.featureMode !== batch.featureMode) {
+        throw inputError("重试批次与原任务不一致");
+      }
+      if (previousJob.total !== batch.items.length) throw inputError("重试必须保留原批次全部 Run");
+      const successful = new Map((previousJob.result?.results || []).map((result) => [result.index, result]));
+      const states = batch.items.map((item, index) => {
+        const result = successful.get(index);
+        if (result && result.runId !== item.runId && !result.runId?.startsWith(`${item.runId}-A`)) {
+          throw inputError("重试 Run 与原成功记录不一致");
+        }
+        return { item, index, attempt: result?.attempt || Math.max(item.attempt - 1,
+          batch.featureMode === "imageOutpaint" && item.input.outpaintEngine === "gptImage25Sunburst" ? 1 : maxAttempts),
+          generated: Boolean(result), synced: Boolean(result), archive: null, result: null,
+          error: null, stage: "generation", publicResult: result, recoverArchived: !result };
+      });
+      batch.retryOfJobId = String(body.retryOfJobId);
+      return admitBatch(batch, { states });
+    },
+    retry(jobId, body = {}) {
+      requireRetrySource(jobId);
+      const previous = batches.get(jobId);
+      if (!previous) throw Object.assign(inputError("原批次执行上下文已过期；请使用原冻结批次恢复重试"), { statusCode: 409 });
+      const batch = { ...previous.batch, jobId: String(body.jobId || "").trim(), retryOfJobId: jobId };
+      if (!/^beta-[A-Za-z0-9-]{12,80}$/.test(batch.jobId) || batch.jobId === jobId) throw inputError("请为重试创建新的 Beta任务 ID");
+      return admitBatch(batch, previous);
     },
   };
 }
@@ -461,7 +557,7 @@ export function createBetaRunnerService({
 export function createBetaApiHandler({ getAgentModels, readJson, sendImage, sendJson, service }) {
   return async function handleBetaApi(request, response, pathname) {
     if (request.method === "GET" && pathname === "/api/beta/config") {
-      sendJson(response, 200, service.config());
+      sendJson(response, 200, await service.config());
       return true;
     }
     if (request.method === "GET" && pathname === "/api/beta/sample-sets") {
@@ -497,6 +593,11 @@ export function createBetaApiHandler({ getAgentModels, readJson, sendImage, send
         sampleSet ? 200 : 404,
         sampleSet ? { sampleSet } : { error: "样本集不存在或已归档" },
       );
+      return true;
+    }
+    const retryRoute = pathname.match(/^\/api\/beta\/jobs\/([^/]+)\/retry$/);
+    if (request.method === "POST" && retryRoute) {
+      sendJson(response, 202, { job: await service.retry(decodeURIComponent(retryRoute[1]), await readJson(request)) });
       return true;
     }
     if (request.method === "GET" && pathname.startsWith("/api/beta/jobs/")) {

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖五个 SeedVR2 编辑器工作流的核心节点参数、单张图片 Base64、4K/6K/8K 或原图 2 倍目标宽高、运行时随机种子与请求级产物键
- * [OUTPUT]: 对外提供默认工作流键、含拆分版/KS版来源的显示名称、逐工作流分辨率/输入尺寸合同、保持原图比例的目标尺寸计算、可嵌入其他执行图的 SeedVR2 阶段、五套 ComfyUI API 工作流工厂及可追溯元数据
+ * [INPUT]: 依赖六个 SeedVR2 编辑器工作流的核心节点参数、单张图片 Base64、4K/6K/8K 或原图 2 倍目标宽高、运行时随机种子与请求级产物键
+ * [OUTPUT]: 对外提供默认工作流键、稳定归档标签/独立显示名、普通4K–8K与KS原图2倍/4K/6K逐档合同、比例尺寸、可嵌入SeedVR2阶段及按所选档位生成的可追溯元数据
  * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,8 +18,9 @@ const LONG_EDGE_RESOLUTIONS = Object.freeze(
     key, label: key, longEdge,
   })),
 );
-const DOUBLE_SOURCE_RESOLUTIONS = Object.freeze([
-  Object.freeze({ key: "2X", label: "2× 原图尺寸", scale: 2 }),
+const KS_RESOLUTIONS = Object.freeze([
+  Object.freeze({ key: "2X", label: "原图2倍", scale: 2 }),
+  ...LONG_EDGE_RESOLUTIONS.filter((resolution) => resolution.key !== "8K"),
 ]);
 
 export const IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY = "youxing_seedvr2_3b";
@@ -92,20 +93,38 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
   ks_seedvr2_2x: Object.freeze({
     blocksToSwap: 32,
     cacheModel: false,
-    description: "对应 KS-超分，0.75MP 预处理后按原图尺寸放大 2 倍",
+    description: "对应 KS-超分，0.75MP 预处理后输出原图2倍或4K/6K长边",
+    displayLabel: "KS版 · 7B",
     ditOffloadDevice: "cpu",
-    helpText: "先以 0.75MP 预处理，再按原图宽高放大 2 倍；输入每边需为 384–3200px。",
+    helpText: "先以 0.75MP 预处理，再输出原图2倍或所选4K/6K长边，保持原图比例；输入每边需为 384–3200px。",
     inputMegapixels: 0.75,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x",
     label: "KS版 · 原图2倍",
     model: "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
-    outputScale: 2,
-    resolutions: DOUBLE_SOURCE_RESOLUTIONS,
-    shortLabel: "KS版 · 2倍",
+    resolutions: KS_RESOLUTIONS,
+    shortLabel: "KS版 · 7B",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
-    version: "2026-10-16.1",
+    version: "2026-10-21.1",
+  }),
+  ks_seedvr2_2x_direct: Object.freeze({
+    blocksToSwap: 32,
+    cacheModel: false,
+    description: "对应 KS 原图直入对照版，移除 0.75MP 预处理后输出原图2倍或4K/6K长边",
+    displayLabel: "KS直入 · 7B",
+    ditOffloadDevice: "cpu",
+    helpText: "原图直接进入7B，不做0.75MP预缩放，输出原图2倍或所选4K/6K长边，保持原图比例；输入每边需为384–3200px。",
+    inputMegapixels: null,
+    inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
+    key: "ks_seedvr2_2x_direct",
+    label: "KS版 · 原图直入2倍",
+    model: "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
+    resolutions: KS_RESOLUTIONS,
+    shortLabel: "KS直入 · 7B",
+    sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
+    vaeOffloadDevice: "cpu",
+    version: "2026-10-21.1",
   }),
 });
 
@@ -121,19 +140,22 @@ export function imageUpscaleWorkflow(workflowKey) {
   return workflow;
 }
 
+function resolutionForWorkflow(workflow, resolution) {
+  const selected = workflow.resolutions.find((entry) => entry.key === String(resolution || ""));
+  if (!selected) throw validationError(workflow.resolutions.some((entry) => entry.scale)
+    ? "KS 超分只支持原图2倍、4K 或 6K"
+    : "图片超分只支持 4K、6K 或 8K");
+  return selected;
+}
+
 export function imageUpscaleTargetDimensions(source, resolution, workflowKey = IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY) {
   const width = Number(source?.width);
   const height = Number(source?.height);
   const workflow = imageUpscaleWorkflow(workflowKey);
-  const selectedResolution = workflow.resolutions.find((entry) => entry.key === String(resolution || ""));
   if (![width, height].every((value) => Number.isInteger(value) && value > 0)) {
     throw validationError("无法读取待超分图片尺寸");
   }
-  if (!selectedResolution) {
-    throw validationError(workflow.outputScale
-      ? "KS 超分只支持 2× 原图尺寸"
-      : "图片超分只支持 4K、6K 或 8K");
-  }
+  const selectedResolution = resolutionForWorkflow(workflow, resolution);
   if (workflow.inputSize) {
     const { minWidth, maxWidth, minHeight, maxHeight } = workflow.inputSize;
     if (width < minWidth || width > maxWidth || height < minHeight || height > maxHeight) {
@@ -174,8 +196,7 @@ export function publicImageUpscaleConfig() {
       helpText: workflow.helpText || workflow.description,
       ...(workflow.inputSize ? { inputSize: { ...workflow.inputSize } } : {}),
       key: workflow.key,
-      label: workflow.label,
-      ...(workflow.outputScale ? { outputScale: workflow.outputScale } : {}),
+      label: workflow.displayLabel || workflow.label,
       resolutions: workflow.resolutions.map((resolution) => ({ ...resolution })),
       shortLabel: workflow.shortLabel,
       version: workflow.version,
@@ -197,11 +218,12 @@ export function createSeedVrUpscaleStage({
   if (![width, height].every((value) => Number.isInteger(value) && value > 0)) {
     throw validationError("图片超分目标尺寸必须是正整数");
   }
-  if (workflow.outputScale && generationRequest.resolution !== "2X") {
-    throw validationError("KS 超分只支持 2× 原图尺寸");
-  }
-  if (!workflow.outputScale && !Object.values(IMAGE_UPSCALE_RESOLUTIONS).includes(targetLongEdge)) {
-    throw validationError("图片超分目标长边必须是 4K、6K 或 8K");
+  // 普通Flux嵌入阶段的旧调用没有resolution，继续按目标长边识别；KS三档必须显式选择。
+  const resolution = generationRequest?.resolution ?? (workflow.resolutions.some((entry) => entry.scale)
+    ? undefined : workflow.resolutions.find((entry) => entry.longEdge === targetLongEdge)?.key);
+  const selectedResolution = resolutionForWorkflow(workflow, resolution);
+  if (selectedResolution.longEdge && targetLongEdge !== selectedResolution.longEdge) {
+    throw validationError(`图片超分所选${selectedResolution.key}目标长边必须为${selectedResolution.longEdge}px`);
   }
   const ids = {
     dit: nodeIds.dit || "73",
@@ -248,7 +270,7 @@ export function createSeedVrUpscaleStage({
         image: workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
         input_noise_scale: 0,
         latent_noise_scale: 0,
-        max_resolution: workflow.outputScale ? 0 : targetLongEdge,
+        max_resolution: selectedResolution.scale ? 0 : selectedResolution.longEdge,
         offload_device: "cpu",
         prepend_frames: 0,
         resolution: targetShortEdge,
@@ -326,6 +348,13 @@ export function imageUpscaleWorkflowMetadata({
   width,
 }) {
   const workflow = imageUpscaleWorkflow(generationRequest?.upscaleWorkflowKey);
+  if (generationRequest?.resolution && resolution && generationRequest.resolution !== resolution) {
+    throw validationError("图片超分请求与产物档位不一致");
+  }
+  const selectedResolution = resolutionForWorkflow(workflow, resolution ?? generationRequest?.resolution);
+  if (selectedResolution.longEdge && Math.max(width, height) !== selectedResolution.longEdge) {
+    throw validationError(`图片超分所选${selectedResolution.key}目标长边必须为${selectedResolution.longEdge}px`);
+  }
   return {
     artifactKey,
     engine: "comfyui",
@@ -334,16 +363,16 @@ export function imageUpscaleWorkflowMetadata({
     model: workflow.model,
     outputFilename,
     outputHeight: actualOutputHeight || height,
-    ...(workflow.outputScale ? { outputScale: workflow.outputScale } : {}),
+    ...(selectedResolution.scale ? { outputScale: selectedResolution.scale } : {}),
     outputSha256,
     outputWidth: actualOutputWidth || width,
     promptId,
     queueDurationMs,
     requestedOutputHeight: height,
     requestedOutputWidth: width,
-    resolution,
+    resolution: selectedResolution.key,
     seed,
-    seedVrMaxResolution: workflow.outputScale ? 0 : Math.max(width, height),
+    seedVrMaxResolution: selectedResolution.scale ? 0 : selectedResolution.longEdge,
     seedVrResolution: Math.min(width, height),
     sourceSha256: workflow.sourceSha256,
     sourceHeight: generationRequest?.sourceHeight || null,

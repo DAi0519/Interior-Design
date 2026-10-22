@@ -1,15 +1,17 @@
 /**
- * [INPUT]: 依赖 MaaS prod_test 参数 1082 的真实 prompt 执行图、可选Flux Fill模型键、单图 Base64、四边扩展、随机采样种子与唯一产物键
- * [OUTPUT]: 对外提供两款 Flux Fill 模型目录与严格解析、支持 32–4096px 输入的扩图执行图、来源身份、能力需求、几何规则与真实模型产物元数据
- * [POS]: src 的 AI 扩图工作流真源，适配本机传输、4K 输入准入与输出，仅切换兼容 Flux Fill 的模型及权重格式，保留原提示词和采样参数
+ * [INPUT]: 依赖 MaaS prod_test 参数 1082 的真实执行图、共享 Janus 节点及 History Prompt 读取、可选 Flux Fill 模型键、单图 Base64、四边扩展、随机种子与唯一产物键
+ * [OUTPUT]: 对外提供两款 Flux Fill 模型目录与严格解析、支持 32–4096px 输入的扩图图、来源身份、能力需求、几何规则及真实模型/产物/已捕获 Prompt 元数据
+ * [POS]: src 的 Flux 扩图工作流真源，适配本机传输、4K 准入与图文输出，保留原 Janus/采样链路并为飞书归档输出实际提示词
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { JANUS_OUTPAINT_SETTINGS, capturedOutpaintPrompt, createOutpaintJanusNodes } from "./image-outpaint-janus.mjs";
 
 export const IMAGE_OUTPAINT_OUTPUT_NODE_ID = "output";
 export const IMAGE_OUTPAINT_WORKFLOW = Object.freeze({
   key: "image-outpaint",
   label: "AI 扩图",
-  version: "2026-10-15.3",
+  version: "2026-10-19.1",
   sourceStage: "prod_test",
   sourceUpdatedAt: "2026-09-10",
   maasParameterId: 1082,
@@ -52,12 +54,7 @@ const SOURCE_GRAPH = {
       "device": "default"
     }
   },
-  "janus-model": {
-    "class_type": "JanusModelLoader",
-    "inputs": {
-      "model_name": "deepseek-ai/Janus-Pro-1B"
-    }
-  },
+  ...createOutpaintJanusNodes(),
   "model": {
     "class_type": "UNETLoader",
     "inputs": {
@@ -125,28 +122,6 @@ const SOURCE_GRAPH = {
       ]
     }
   },
-  "describe": {
-    "class_type": "JanusImageUnderstanding",
-    "inputs": {
-      "question": "请根据以下对一张图片的结构化分析，为我生成一段用于AI扩图（Outpainting）的、高质量、详细的英文提示词。要求生成的提示词能够引导AI模型在保持原始风格和氛围的前提下，无缝、逻辑地扩展画面内容。\n\n**图片结构化分析:**\n*   **核心主体分析 (Core Subject Analysis):** [请在这里填入对图片主要内容的客观描述]\n*   **艺术风格与媒介 (Art Style & Medium):** [请在这里填入对图片风格的分析]\n*   **构图与取景 (Composition & Framing):** [请在这里填入对构图的描述]\n*   **光影与氛围 (Lighting & Atmosphere):** [请在这里填入对光线和感觉的描述]\n*   **扩图方向与目标 (Outpainting Goal & Direction):** [请在这里填入扩图的目标，对于自动化流程，这可以是一个通用指令]\n\n请严格按照分析结果，生成扩图提示词。```",
-      "seed": 298596445848600,
-      "temperature": 0.1,
-      "top_p": 0.95,
-      "max_new_tokens": 999,
-      "model": [
-        "janus-model",
-        0
-      ],
-      "processor": [
-        "janus-model",
-        1
-      ],
-      "image": [
-        "prepare",
-        0
-      ]
-    }
-  },
   "expand": {
     "class_type": "ImagePadForOutpaintMasked",
     "inputs": {
@@ -169,7 +144,7 @@ const SOURCE_GRAPH = {
     "class_type": "CLIPTextEncode",
     "inputs": {
       "text": [
-        "describe",
+        "prompt-output",
         0
       ],
       "clip": [
@@ -264,6 +239,14 @@ const SOURCE_GRAPH = {
       ]
     }
   },
+  "prompt-output": {
+    "class_type": "SaveText",
+    "inputs": {
+      "text": ["describe", 0],
+      "filename_prefix": "",
+      "format": "txt"
+    }
+  },
   "input": {
     "class_type": "easy loadImageBase64",
     "inputs": {
@@ -348,12 +331,13 @@ export function createImageOutpaintWorkflow({ artifactKey, generationRequest, im
   Object.assign(graph.expand.inputs, Object.fromEntries(sides.map((side) => [side, expansion[side]])));
   graph.sample.inputs.seed = seed;
   graph.output.inputs.filename_prefix = prefix;
+  graph["prompt-output"].inputs.filename_prefix = `${prefix}_prompt`;
   return graph;
 }
 
 export function imageOutpaintWorkflowMetadata({
   actualOutputHeight, actualOutputWidth, artifactKey, executionDurationMs,
-  generationRequest, height, outputFilename, outputSha256, promptId,
+  generationRequest, height, historyOutputs, outputFilename, outputSha256, promptId,
   queueDurationMs, seed, width,
 }) {
   const model = resolveImageOutpaintModel(generationRequest?.outpaintModel);
@@ -373,6 +357,9 @@ export function imageOutpaintWorkflowMetadata({
     outputWidth: actualOutputWidth,
     preparedHeight: generationRequest?.preparedHeight ?? null,
     preparedWidth: generationRequest?.preparedWidth ?? null,
+    promptGenerator: { ...JANUS_OUTPAINT_SETTINGS, imageSource: "original-before-padding" },
+    promptSource: "Janus-Pro-1B",
+    ...capturedOutpaintPrompt(historyOutputs),
     promptId,
     queueDurationMs,
     seed,

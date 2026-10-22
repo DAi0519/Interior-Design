@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖服务端公开的默认项、SeedVR2/KS 工作流完整/紧凑名称及尺寸目录与说明、单张上传图、共享分辨率控件和 sessionStorage
- * [OUTPUT]: 对外提供工作流选择与合法档位记忆/恢复、长边或原图倍率的尺寸预览、任务项与不重复图片载荷的后台任务请求
+ * [OUTPUT]: 对外提供工作流合法档位记忆/恢复、KS的2X/4K/6K切换与合法长边保留、原生/增强尺寸同步、尺寸预览及单份图片后台请求
  * [POS]: public 的图片超分交互边界，让主编排器无需理解 SeedVR2 工作流细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,7 +47,7 @@ export function bindImageUpscale({
   let config = { comfyUi: { available: false }, resolutions: [], workflows: [] };
   const remembered = readSelection();
   let workflowKey = remembered.workflowKey || "";
-  let resolutionKey = remembered.resolution || "";
+  let resolutionKey = typeof remembered.resolution === "string" ? remembered.resolution.toUpperCase() : "";
 
   function resolutions() {
     return selectedWorkflow()?.resolutions || config.resolutions;
@@ -101,6 +101,7 @@ export function bindImageUpscale({
       option.value = resolution.key;
       option.textContent = resolution.longEdge
         ? `${resolution.label} · 长边 ${resolution.longEdge}px` : resolution.label;
+      if (resolution.key === resolutionKey) option.setAttribute("selected", "");
       return option;
     }));
     resolutionSelect.value = resolutionKey;

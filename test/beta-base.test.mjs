@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置与字段映射纯函数
- * [OUTPUT]: 对外提供新 Base 隔离、目录模型单选标签与无 Agent 清空、默认可用状态在创建后清空/草稿回读与对象关联、八功能映射、场景/配置快照、全部实际写入元数据漂移与附件身份回读拒绝成功的回归保障
+ * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置/字段映射与独立扩图真源
+ * [OUTPUT]: 对外提供新 Base 隔离、目录模型单选标签与无 Agent 清空、默认可用状态在创建后清空/草稿回读与对象关联、十功能映射、扩图场景/配置/版本/费用、全部实际写入元数据漂移与附件身份回读拒绝成功的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,6 +21,7 @@ import {
   createBetaBaseStore,
 } from "../src/beta-base.mjs";
 import { LARK_SYNC_CONFIG } from "../src/lark-sync.mjs";
+import { normalizeBetaSampleImage } from "../src/beta-sample-store.mjs";
 
 const onePixelPngBytes = await sharp({
   create: { background: "#f37021", channels: 3, height: 8, width: 8 },
@@ -101,7 +102,7 @@ test("Beta跑图只指向新 Base 的样本集、样本和跑图明细三表", (
   assert.notEqual(BETA_BASE_CONFIG.tableId, LARK_SYNC_CONFIG.tableId);
 });
 
-test("Beta跑图接受八个工作台出图功能，风格转换及新旧美化和全景独立映射", () => {
+test("Beta跑图接受十个工作台出图功能，扩图/风格转换/新旧美化和全景独立映射", () => {
   assert.deepEqual([
     betaFeatureLabel("whiteModel"),
     betaFeatureLabel("emptyRoom"),
@@ -111,7 +112,9 @@ test("Beta跑图接受八个工作台出图功能，风格转换及新旧美化�
     betaFeatureLabel("effectBeautification"),
     betaFeatureLabel("panoramaEnhancement"),
     betaFeatureLabel("free"),
-  ], ["白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "自由生图"]);
+    betaFeatureLabel("imageOutpaint"),
+    betaFeatureLabel("imageUpscale"),
+  ], ["白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "自由生图", "AI扩图", "AI超分"]);
   assert.throws(() => betaFeatureLabel("styleDnaReverse"), /不受支持/);
 });
 
@@ -181,6 +184,44 @@ test("Beta 模型标签由目录解析，忽略伪造展示名并保留合法历
   assert.throws(() => build({ input: { modelKey: "unsupported" }, modelLabel: "未知标签" }), /合法的目录标签/);
 });
 
+test("AI扩图冻结真实引擎和画布，四候选按真源区分且忽略客户端模型标签", () => {
+  const canvas = { ratio: "16:9", resolution: "2K", scale: 1.5, x: 0.25, y: 0.5 };
+  for (const [engine, model, label] of [
+    ["comfyui", "oneRewardFp8", "Flux Fill OneReward（FP8）"],
+    ["comfyui", "fluxFillDev", "Flux Fill Dev（原版）"],
+    ["qwenImageEdit2511", undefined, "Qwen Image Edit 2511"],
+    ["gptImage25Sunburst", undefined, "GPT Image 2.5 Sunburst"],
+  ]) {
+    const input = { featureMode: "imageOutpaint", outpaintCanvas: canvas,
+      outpaintEngine: engine, outpaintModel: model, outpaintWorkflowKey: `workflow-${engine}` };
+    const fields = buildBetaRunFields({ featureMode: "imageOutpaint", item: { input, modelLabel: "假标签" } });
+    assert.equal(fields["功能"], "AI扩图");
+    assert.equal(fields["出图模型"], label);
+    assert.deepEqual(JSON.parse(fields["配置快照"]), { outpaintCanvas: canvas,
+      outpaintEngine: engine, ...(model ? { outpaintModel: model } : {}), outpaintWorkflowKey: `workflow-${engine}` });
+    assert.deepEqual(JSON.parse(fields["场景参数"]).outpaintCanvas, canvas);
+  }
+  assert.throws(() => buildBetaRunFields({ featureMode: "imageOutpaint", item: {
+    input: { outpaintEngine: "comfyui", outpaintModel: "not-a-model" }, modelLabel: "Flux Fill Dev（原版）",
+  } }), (error) => error.statusCode === 409);
+});
+
+test("AI扩图样本仅信实际字节和尺寸，8MB容量保护保留且尺寸由执行引擎再准入", async () => {
+  const bytes = await sharp({ create: { width: 4200, height: 32, channels: 3, background: "white" } }).png().toBuffer();
+  const image = { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, type: "image/png",
+    size: bytes.length, name: "outpaint.png", width: 1, height: 1 };
+  const normalized = normalizeBetaSampleImage(image, "imageOutpaint");
+  assert.equal(normalized.width, 4200);
+  assert.equal(normalized.height, 32);
+  assert.throws(() => normalizeBetaSampleImage({ ...image, size: 1 }, "imageOutpaint"), /字节数/);
+  assert.throws(() => normalizeBetaSampleImage({ ...image, type: "image/jpeg" }, "imageOutpaint"), /MIME/);
+  assert.throws(() => normalizeBetaSampleImage({ ...image, dataUrl: "data:image/png;base64,ZmFrZQ==", size: 4 }, "imageOutpaint"), /内容或 MIME/);
+  const oversized = Buffer.alloc(8 * 1024 * 1024 + 1);
+  bytes.copy(oversized);
+  assert.throws(() => normalizeBetaSampleImage({ ...image,
+    dataUrl: `data:image/png;base64,${oversized.toString("base64")}`, size: 1 }, "imageOutpaint"), /8MB/);
+});
+
 test("完成结果提取 Prompt 版本与非负费用", () => {
   const result = {
     prompt: { code: "effect_render_enhancement", version: 11 },
@@ -194,6 +235,10 @@ test("完成结果提取 Prompt 版本与非负费用", () => {
   );
   assert.equal(betaResultCostUsd(result), 0.031);
   assert.equal(betaResultCostUsd({ upstream: { metadata: { costUsd: -1 } } }), null);
+  assert.equal(betaResultCostUsd({ upstream: { usageCost: { costUsd: 0.047 } } }), 0.047);
+  assert.equal(betaResultCostUsd({ upstream: { usageCost: { costUsd: null } } }), null);
+  assert.equal(betaResultVersion({ workflow: { key: "image-outpaint", version: "2026-10-19.1" },
+    upstream: { metadata: { workflowVersion: "actual-version" } } }), "image-outpaint@actual-version");
 });
 
 test("完成 Run 必须回读到飞书成功状态与结果附件", async () => {
@@ -391,5 +436,60 @@ test("场景/配置快照、版本、真实尺寸、时延与费用必须逐字�
     if (!driftedField) await store.completeRun("rec-full", result);
     else await assert.rejects(store.completeRun("rec-full", result), (error) =>
       error.statusCode === 409 && error.retryable === false && error.message.endsWith(driftedField));
+  }
+});
+
+test("AI扩图只在独立Beta表归档真实Prompt/工作流/费用与源图结果附件回读后展示预览", async () => {
+  for (const drift of [null, "source-size", "source-count", "result-count", "workflow"]) {
+    const written = {};
+    const store = createBetaBaseStore({ run: async (config, args) => {
+      assert.equal(config.baseToken, BETA_BASE_CONFIG.baseToken);
+      assert.equal(args[args.indexOf("--table-id") + 1], BETA_BASE_CONFIG.tableId);
+      assert.notEqual(config.baseToken, LARK_SYNC_CONFIG.baseToken);
+      if (args.includes("+record-batch-create")) {
+        const body = JSON.parse(args[args.indexOf("--json") + 1]);
+        Object.assign(written, Object.fromEntries(body.fields.map((name, index) => [name, body.rows[0][index]])));
+        return { ok: true, data: { record_id_list: ["rec-outpaint"] } };
+      }
+      if (args.includes("+record-upsert")) Object.assign(written, JSON.parse(args[args.indexOf("--json") + 1]));
+      if (args.includes("+record-get")) {
+        const fields = { ...written, "输入图": [{ file_token: "source-token", size: onePixelPngBytes.length }],
+          "风格参考图": [], "结果图": [{ file_token: "result-token", size: onePixelPngBytes.length }] };
+        if (drift === "source-size") fields["输入图"][0].size = 1;
+        if (drift === "source-count") fields["输入图"] = [];
+        if (drift === "result-count") fields["结果图"].push({ file_token: "extra", size: onePixelPngBytes.length });
+        if (drift === "workflow") fields["生成参数"] = "{}";
+        return recordEnvelope("rec-outpaint", fields);
+      }
+      return { ok: true, data: {} };
+    } });
+    await store.beginRun({ batchId: "BETA-outpaint", featureMode: "imageOutpaint", item: {
+      caseId: "SOURCE-1", runId: "RUN-outpaint", input: { featureMode: "imageOutpaint",
+        outpaintEngine: "qwenImageEdit2511", outpaintWorkflowKey: "qwen2511",
+        outpaintCanvas: { ratio: "original", resolution: "2K", scale: 1.5 },
+        referenceImages: [{ dataUrl: onePixelPng, name: "source.png", type: "image/png" }] },
+    } });
+    const sync = captureBetaGenerationArchive({ durationMs: 123, modelLabel: "Qwen Image Edit 2511",
+      finalPrompt: "Actual Janus prompt\nwith exact whitespace.",
+      preview: { outputFormat: "png", resolution: "2K", ratio: "original" },
+      workflow: { feature: "image-outpaint", engine: "qwenImageEdit2511", workflowVersion: "actual-v3",
+        model: "qwen_image_edit_2511_fp8mixed.safetensors", outputWidth: 8, outputHeight: 8,
+        outpaintCanvas: { ratio: "original", scale: 1.5 }, outputSha256: "actual-sha" },
+    });
+    const result = { images: [{ url: onePixelPng }], request: { outputFormat: "png" }, sync, durationMs: 123,
+      workflow: { key: "qwen-image-edit-2511-outpaint", version: "actual-v3" },
+      upstream: { usageCost: { costUsd: 0.025 } } };
+    if (drift) await assert.rejects(store.completeRun("rec-outpaint", result), (error) => error.statusCode === 409);
+    else {
+      const archived = await store.completeRun("rec-outpaint", result);
+      assert.match(archived.previewUrl, /^data:image\/webp;base64,/);
+      assert.equal(written["最终 Prompt"], "Actual Janus prompt\nwith exact whitespace.");
+      assert.equal(written["Prompt / 工作流版本"], "qwen-image-edit-2511-outpaint@actual-v3");
+      assert.equal(written["费用（USD）"], 0.025);
+      assert.equal(written["尺寸"], "8x8");
+      assert.equal(written["出图模型"], "Qwen Image Edit 2511");
+      assert.equal(written["Prompt融合"], null);
+      assert.equal(JSON.parse(written["生成参数"]).workflow.outputSha256, "actual-sha");
+    }
   }
 });

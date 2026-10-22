@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、图片超分前后端目录/尺寸/工作流/服务、ComfyUI 客户端适配器与内存图片客户端
- * [OUTPUT]: 对外提供五份源工作流映射与攸行 3B 默认项、7B 直入及 KS 的原图 2 倍/尺寸准入、可独立或嵌入 Flux 的 SeedVR2 阶段、4K/6K/8K 保持比例、时限、Prompt ID、真实输出尺寸及无 OneAPI/飞书依赖的回归保障
+ * [OUTPUT]: 对外提供六份源工作流映射与攸行 3B 默认项、KS 两版2X/4K/6K仅预处理差异及尺寸准入/模式元数据、可独立或嵌入 Flux 的 SeedVR2 阶段、保持比例、时限、Prompt ID、真实输出尺寸及无 OneAPI/飞书依赖的回归保障
  * [POS]: test 的图片超分专项测试，不提交真实 ComfyUI 任务、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -34,8 +34,12 @@ import {
 
 const onePixelPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
+const KS_WORKFLOWS = [
+  { key: "ks_seedvr2_2x", inputMegapixels: 0.75, version: "2026-10-21.1" },
+  { key: "ks_seedvr2_2x_direct", inputMegapixels: null, version: "2026-10-21.1" },
+];
 
-test("图片超分公开五份 SeedVR2 工作流、逐工作流尺寸合同与攸行默认项", () => {
+test("图片超分公开六份 SeedVR2 工作流、逐工作流尺寸合同与攸行默认项", () => {
   const config = publicImageUpscaleConfig();
   assert.deepEqual(config.resolutions.map((entry) => [entry.key, entry.longEdge]), [
     ["4K", 4096],
@@ -48,6 +52,7 @@ test("图片超分公开五份 SeedVR2 工作流、逐工作流尺寸合同与�
     "seedvr2_075mp",
     "seedvr2_7b_direct",
     "ks_seedvr2_2x",
+    "ks_seedvr2_2x_direct",
   ]);
   assert.equal(config.defaultWorkflowKey, "youxing_seedvr2_3b");
   assert.equal(config.defaultWorkflowKey, IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY);
@@ -59,18 +64,26 @@ test("图片超分公开五份 SeedVR2 工作流、逐工作流尺寸合同与�
   assert.match(config.workflows[1].description, /SeedVR2无损高清放大-新2\.0/);
   assert.match(config.workflows[2].description, /Unsaved Workflow \(3\)/);
   assert.deepEqual(config.workflows[3].resolutions, config.resolutions);
-  assert.deepEqual(config.workflows[4].resolutions, [{ key: "2X", label: "2× 原图尺寸", scale: 2 }]);
-  assert.equal(config.workflows[4].outputScale, 2);
-  assert.deepEqual(config.workflows[4].inputSize, {
-    minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200,
-  });
-  assert.equal(config.workflows[4].model, undefined);
+  for (const workflow of config.workflows.slice(4)) {
+    assert.deepEqual(workflow.resolutions, [{ key: "2X", label: "原图2倍", scale: 2 }, ...config.resolutions.slice(0, 2)]);
+    assert.equal(workflow.outputScale, undefined, "倍率由当前档位决定，不能把整套工作流标为固定2X");
+    assert.deepEqual(workflow.inputSize, {
+      minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200,
+    });
+    assert.equal(workflow.model, undefined);
+  }
+  assert.equal(config.workflows[5].label, IMAGE_UPSCALE_WORKFLOWS.ks_seedvr2_2x_direct.displayLabel);
+  assert.equal(IMAGE_UPSCALE_WORKFLOWS.ks_seedvr2_2x_direct.label, "KS版 · 原图直入2倍", "归档标签保留历史身份");
+  assert.equal(IMAGE_UPSCALE_WORKFLOWS.ks_seedvr2_2x.label, "KS版 · 原图2倍");
+  assert.equal(config.workflows[5].version, "2026-10-21.1");
+  assert.equal(config.workflows[4].version, "2026-10-21.1");
 });
 
 test("新增工作流来源哈希与核心参数保持对应 JSON，不带全景补边和裁剪", async () => {
   for (const [fileName, workflowKey] of [
     ["SeedVR2-7B-独立超分.json", "seedvr2_7b_direct"],
     ["KS-超分.json", "ks_seedvr2_2x"],
+    ["KS-原图直入2倍.json", "ks_seedvr2_2x_direct"],
   ]) {
     const bytes = await readFile(new URL(`../workflows/${fileName}`, import.meta.url));
     const source = JSON.parse(bytes);
@@ -78,7 +91,7 @@ test("新增工作流来源哈希与核心参数保持对应 JSON，不带全景
     assert.equal(source.extra?.canvasLabSource?.sha256 || createHash("sha256").update(bytes).digest("hex"), definition.sourceSha256);
     const nodes = createImageUpscaleWorkflow({
       artifactKey: "source-upscale-1",
-      generationRequest: { resolution: workflowKey === "ks_seedvr2_2x" ? "2X" : "4K", upscaleWorkflowKey: workflowKey },
+      generationRequest: { resolution: definition.resolutions[0].key, upscaleWorkflowKey: workflowKey },
       height: 2304,
       imageBase64: "example-base64",
       seed: 42,
@@ -95,48 +108,124 @@ test("新增工作流来源哈希与核心参数保持对应 JSON，不带全景
     }
     assert.deepEqual(new Set(Object.values(nodes).map((node) => node.class_type)), new Set([
       "easy loadImageBase64", "SeedVR2LoadDiTModel", "SeedVR2LoadVAEModel", "SeedVR2VideoUpscaler", "SaveImage",
-      ...(workflowKey === "ks_seedvr2_2x" ? ["ImageScaleToTotalPixels"] : []),
+      ...(definition.inputMegapixels === null ? [] : ["ImageScaleToTotalPixels"]),
     ]));
   }
 });
 
-test("KS 依原图尺寸而非 0.75MP 预处理尺寸放大两倍，且保留附件输入范围", () => {
-  assert.deepEqual(imageUpscaleTargetDimensions({ width: 716, height: 1294 }, "2X", "ks_seedvr2_2x"), {
-    height: 2588, longEdge: 2588, width: 1432,
-  });
-  assert.deepEqual(imageUpscaleTargetDimensions({ width: 3200, height: 384 }, "2X", "ks_seedvr2_2x"), {
-    height: 768, longEdge: 6400, width: 6400,
-  });
-  for (const dimensions of [{ width: 383, height: 1000 }, { width: 1000, height: 3201 }]) {
-    assert.throws(() => imageUpscaleTargetDimensions(dimensions, "2X", "ks_seedvr2_2x"), /384–3200px/);
-  }
-  assert.throws(() => imageUpscaleTargetDimensions({ width: 1000, height: 1000 }, "4K", "ks_seedvr2_2x"), /只支持 2× 原图尺寸/);
-  assert.throws(() => imageUpscaleTargetDimensions({ width: 1000, height: 1000 }, "2X", "seedvr2_7b_direct"), /只支持 4K、6K 或 8K/);
-  const nodes = createImageUpscaleWorkflow({
-    artifactKey: "ks-upscale-request-1",
-    generationRequest: { resolution: "2X", upscaleWorkflowKey: "ks_seedvr2_2x" },
-    height: 2588,
-    imageBase64: "example-base64",
-    seed: 42,
-    width: 1432,
-  });
-  assert.equal(nodes["72"].inputs.megapixels, 0.75);
-  assert.equal(nodes["72"].inputs.resolution_steps, 1);
-  assert.equal(nodes["72"].inputs.upscale_method, "lanczos");
-  assert.equal(nodes["75"].inputs.resolution, 1432);
-  assert.equal(nodes["75"].inputs.max_resolution, 0);
-  const metadata = imageUpscaleWorkflowMetadata({
-    generationRequest: { sourceHeight: 1294, sourceWidth: 716, upscaleWorkflowKey: "ks_seedvr2_2x" },
-    height: 2588, resolution: "2X", width: 1432,
-  });
-  assert.equal(metadata.seedVrResolution, 1432);
-  assert.equal(metadata.seedVrMaxResolution, 0);
-  assert.equal(metadata.sourceWidth, 716);
-  assert.equal(metadata.sourceHeight, 1294);
-  assert.equal(metadata.outputScale, 2);
-  assert.equal(metadata.requestedOutputWidth, 1432);
-  assert.equal(metadata.requestedOutputHeight, 2588);
+for (const resolution of ["2X", "4K", "6K"]) test(`KS ${resolution}直入版仅移除预处理节点并改变 IMAGE 接线，推理与输出参数保持一致`, () => {
+  const dimensions = imageUpscaleTargetDimensions({ width: 716, height: 1294 }, resolution, KS_WORKFLOWS[0].key);
+  const common = {
+    artifactKey: "ks-same-input-1", height: dimensions.height, imageBase64: "same-original-base64", seed: 42, width: dimensions.width,
+  };
+  const [preprocessed, direct] = KS_WORKFLOWS.map(({ key }) => createImageUpscaleWorkflow({
+    ...common,
+    generationRequest: { resolution, sourceHeight: 1294, sourceWidth: 716, upscaleWorkflowKey: key },
+  }));
+  assert.equal(preprocessed["72"].class_type, "ImageScaleToTotalPixels");
+  assert.deepEqual(preprocessed["75"].inputs.image, ["72", 0]);
+  assert.equal(direct["72"], undefined);
+  assert.deepEqual(direct["75"].inputs.image, ["71", 0]);
+  assert.equal(Object.values(direct).some((node) => node.class_type === "ImageScaleToTotalPixels"), false);
+  const expectedDirect = structuredClone(preprocessed);
+  delete expectedDirect["72"];
+  expectedDirect["75"].inputs.image = ["71", 0];
+  assert.deepEqual(direct, expectedDirect);
+  assert.equal(IMAGE_UPSCALE_WORKFLOWS.ks_seedvr2_2x_direct.sourceSha256,
+    IMAGE_UPSCALE_WORKFLOWS.ks_seedvr2_2x.sourceSha256);
 });
+
+for (const { key, inputMegapixels, version } of KS_WORKFLOWS) {
+  test(`${key} 依原图尺寸放大两倍，保持每轴输入范围与预处理/版本元数据`, () => {
+    assert.deepEqual(imageUpscaleTargetDimensions({ width: 716, height: 1294 }, "2X", key), {
+      height: 2588, longEdge: 2588, width: 1432,
+    });
+    assert.deepEqual(imageUpscaleTargetDimensions({ width: 3200, height: 384 }, "2X", key), {
+      height: 768, longEdge: 6400, width: 6400,
+    });
+    assert.deepEqual(imageUpscaleTargetDimensions({ width: 384, height: 3200 }, "2X", key), {
+      height: 6400, longEdge: 6400, width: 768,
+    });
+    for (const dimensions of [
+      { width: 383, height: 1000 }, { width: 3201, height: 1000 },
+      { width: 1000, height: 383 }, { width: 1000, height: 3201 },
+    ]) {
+      assert.throws(() => imageUpscaleTargetDimensions(dimensions, "2X", key), /384–3200px/);
+    }
+    assert.throws(() => imageUpscaleTargetDimensions({ width: 1000, height: 1000 }, "8K", key), /不支持|只支持/);
+    assert.throws(() => imageUpscaleTargetDimensions({ width: 1000, height: 1000 }, "2X", "seedvr2_7b_direct"), /只支持 4K、6K 或 8K/);
+    const nodes = createImageUpscaleWorkflow({
+      artifactKey: "ks-upscale-request-1",
+      generationRequest: { resolution: "2X", upscaleWorkflowKey: key },
+      height: 2588,
+      imageBase64: "example-base64",
+      seed: 42,
+      width: 1432,
+    });
+    if (inputMegapixels === null) {
+      assert.equal(nodes["72"], undefined);
+      assert.deepEqual(nodes["75"].inputs.image, ["71", 0]);
+    } else {
+      assert.equal(nodes["72"].inputs.megapixels, inputMegapixels);
+      assert.equal(nodes["72"].inputs.resolution_steps, 1);
+      assert.equal(nodes["72"].inputs.upscale_method, "lanczos");
+    }
+    assert.equal(nodes["75"].inputs.resolution, 1432);
+    assert.equal(nodes["75"].inputs.max_resolution, 0);
+    const metadata = imageUpscaleWorkflowMetadata({
+      generationRequest: { sourceHeight: 1294, sourceWidth: 716, upscaleWorkflowKey: key },
+      height: 2588, resolution: "2X", width: 1432,
+    });
+    assert.equal(metadata.seedVrResolution, 1432);
+    assert.equal(metadata.seedVrMaxResolution, 0);
+    assert.equal(metadata.sourceWidth, 716);
+    assert.equal(metadata.sourceHeight, 1294);
+    assert.equal(metadata.outputScale, 2);
+    assert.equal(metadata.inputMegapixels, inputMegapixels);
+    assert.equal(metadata.workflowId, key);
+    assert.equal(metadata.workflowVersion, version);
+    assert.equal(metadata.requestedOutputWidth, 1432);
+    assert.equal(metadata.requestedOutputHeight, 2588);
+  });
+}
+
+for (const { key, inputMegapixels } of KS_WORKFLOWS) {
+  test(`${key} 4K/6K按长边保持原比例，节点与元数据不冒称2倍且输入边界不放宽`, () => {
+    for (const [resolution, longEdge, shortEdge] of [["4K", 4096, 2304], ["6K", 6144, 3456]]) {
+      for (const portrait of [false, true]) {
+        const source = portrait ? { width: 900, height: 1600 } : { width: 1600, height: 900 };
+        const expected = portrait ? { width: shortEdge, height: longEdge, longEdge } : { width: longEdge, height: shortEdge, longEdge };
+        const dimensions = imageUpscaleTargetDimensions(source, resolution, key);
+        assert.deepEqual(dimensions, expected);
+        const generationRequest = { resolution, upscaleWorkflowKey: key, sourceWidth: source.width, sourceHeight: source.height };
+        const graph = createImageUpscaleWorkflow({ artifactKey: "ks-long-edge", generationRequest,
+          imageBase64: "same-source", seed: 42, ...dimensions });
+        assert.equal(graph["75"].inputs.resolution, shortEdge);
+        assert.equal(graph["75"].inputs.max_resolution, longEdge);
+        assert.equal(graph["72"]?.inputs.megapixels ?? null, inputMegapixels);
+        assert.deepEqual(graph["75"].inputs.image, [inputMegapixels === null ? "71" : "72", 0]);
+        const metadata = imageUpscaleWorkflowMetadata({ generationRequest, resolution, ...dimensions });
+        assert.equal(metadata.resolution, resolution);
+        assert.equal(metadata.outputScale, undefined);
+        assert.equal(Object.hasOwn(metadata, "outputScale"), false);
+        assert.equal(metadata.seedVrResolution, shortEdge);
+        assert.equal(metadata.seedVrMaxResolution, longEdge);
+        assert.equal(metadata.inputMegapixels, inputMegapixels);
+        assert.equal(metadata.requestedOutputWidth, expected.width);
+        assert.equal(metadata.requestedOutputHeight, expected.height);
+        assert.equal(metadata.workflowId, key);
+      }
+      for (const source of [{ width: 383, height: 900 }, { width: 900, height: 3201 }]) {
+        assert.throws(() => imageUpscaleTargetDimensions(source, resolution, key), /384–3200px/);
+      }
+    }
+    assert.throws(() => createImageUpscaleWorkflow({ artifactKey: "wrong-size", imageBase64: "source", seed: 1,
+      generationRequest: { resolution: "4K", upscaleWorkflowKey: key }, width: 6144, height: 3456 }), /4K.*4096/);
+    assert.throws(() => imageUpscaleWorkflowMetadata({
+      generationRequest: { resolution: "4K", upscaleWorkflowKey: key }, resolution: "6K", width: 6144, height: 3456,
+    }), /档位不一致/);
+  });
+}
 
 test("4K/6K/8K 以长边为上限并在前后端保持原图比例", () => {
   assert.deepEqual(imageUpscaleTargetDimensions({ width: 1600, height: 900 }, "4K"), {
@@ -268,39 +357,61 @@ test("图片超分服务只调用专用图片客户端并返回实际输出尺�
   ]);
 });
 
-test("KS 服务按真实上传尺寸准入并传递 2X 目标与源图追溯信息", async () => {
-  const bytes = await sharp({ create: { width: 716, height: 1294, channels: 3, background: "#888" } }).png().toBuffer();
-  const source = { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "source.png", size: bytes.length, type: "image/png" };
-  let request = null;
-  const imageClient = {
-    async generateImage(input) {
-      request = input;
-      return {
-        images: [{ url: onePixelPng }],
-        metadata: { outputHeight: 2588, outputWidth: 1430 },
-        outputFormat: "png",
-      };
-    },
-  };
-  const result = await executeImageUpscale({
-    referenceImages: [{ ...source, width: 3000, height: 3000 }],
-    resolution: "2X",
-    upscaleWorkflowKey: "ks_seedvr2_2x",
-  }, { imageClient });
-  assert.equal(request.width, 1432);
-  assert.equal(request.height, 2588);
-  assert.equal(request.sourceWidth, 716);
-  assert.equal(request.sourceHeight, 1294);
-  assert.equal(request.resolution, "2X");
-  assert.equal(result.request.size, "1430x2588");
-  request = null;
-  await assert.rejects(() => executeImageUpscale({
-    referenceImages: [{ dataUrl: onePixelPng, height: 1000, width: 1000 }],
-    resolution: "2X",
-    upscaleWorkflowKey: "ks_seedvr2_2x",
-  }, { imageClient }), /384–3200px/);
-  assert.equal(request, null);
-});
+for (const { key } of KS_WORKFLOWS) for (const [resolution, width, height] of [
+  ["2X", 1432, 2588], ["4K", 2266, 4096], ["6K", 3400, 6144],
+]) {
+  test(`${key} 服务按真实上传尺寸准入并传递${resolution}目标与原始字节`, async () => {
+    const bytes = await sharp({ create: { width: 716, height: 1294, channels: 3, background: "#888" } })
+      .composite([{ input: Buffer.from('<svg width="137" height="53"><rect width="137" height="53" fill="#fa8230"/></svg>'), top: 19, left: 37 }])
+      .png().toBuffer();
+    const source = { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "source.png", size: bytes.length, type: "image/png" };
+    let request = null;
+    let workflow = null;
+    const imageClient = {
+      async generateImage(input) {
+        request = input;
+        workflow = createImageUpscaleWorkflow({
+          artifactKey: "ks-service-source-1", generationRequest: input,
+          height: input.height, imageBase64: input.images[0].image_url.split(",")[1], seed: 42, width: input.width,
+        });
+        return {
+          images: [{ url: onePixelPng }],
+          metadata: { outputHeight: height, outputWidth: width - 2 },
+          outputFormat: "png",
+        };
+      },
+    };
+    const result = await executeImageUpscale({
+      referenceImages: [{ ...source, width: 3000, height: 3000 }],
+      resolution,
+      upscaleWorkflowKey: key,
+    }, { imageClient });
+    assert.equal(request.width, width);
+    assert.equal(request.height, height);
+    assert.equal(request.sourceWidth, 716);
+    assert.equal(request.sourceHeight, 1294);
+    assert.equal(request.resolution, resolution);
+    assert.equal(workflow["75"].inputs.resolution, width);
+    assert.equal(workflow["75"].inputs.max_resolution, resolution === "2X" ? 0 : height);
+    assert.equal(request.upscaleWorkflowKey, key);
+    assert.equal(request.images[0].image_url, source.dataUrl);
+    const graphInputBytes = Buffer.from(workflow["71"].inputs.base64_data, "base64");
+    assert.deepEqual(graphInputBytes, bytes);
+    assert.equal(createHash("sha256").update(graphInputBytes).digest("hex"), createHash("sha256").update(bytes).digest("hex"));
+    if (key === "ks_seedvr2_2x_direct") {
+      assert.deepEqual(workflow["75"].inputs.image, ["71", 0]);
+      assert.equal(workflow["72"], undefined);
+    }
+    assert.equal(result.request.size, `${width - 2}x${height}`);
+    request = null;
+    await assert.rejects(() => executeImageUpscale({
+      referenceImages: [{ dataUrl: onePixelPng, height: 1000, width: 1000 }],
+      resolution,
+      upscaleWorkflowKey: key,
+    }, { imageClient }), /384–3200px/);
+    assert.equal(request, null);
+  });
+}
 
 test("通用 ComfyUI 传输层接受图片超分工作流适配器并读取真实像素", async () => {
   let queuedWorkflow = null;
@@ -364,8 +475,8 @@ test("生图页公开图片超分入口且不把它绑定到 OneAPI 或飞书准
   ]);
   assert.match(html, /data-feature-mode="imageUpscale"[\s\S]*图片超分/);
   assert.match(html, /id="imageUpscaleWorkflowList"/);
-  assert.match(app, /!state\.larkReady && featureMode !== "imageUpscale"/);
-  assert.match(jobApi, /const localImageRequest = \["imageUpscale", "imageOutpaint"\]\.includes\(featureMode\)/);
+  assert.match(app, /!state\.larkReady && !\[[^\]]*"imageUpscale"[^\]]*\]\.includes\(featureMode\)/);
+  assert.match(jobApi, /const localImageRequest = \[[^\]]*"imageUpscale"[^\]]*\]\.includes\(featureMode\)/);
   assert.doesNotMatch(html, /图片超分[\s\S]{0,160}OneAPI/);
 });
 

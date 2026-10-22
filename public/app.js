@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖页面 DOM、sessionStorage 任务引用、app-config-controls 配置展示、可查询后台生成任务、效果图氛围转换天气/时段与独立效果图美化强度/色调、全景 2:1 模型门槛与 Seedream 5.0 Pro 4K 实验档、SeedVR2/KS 图片超分五工作流与各自尺寸目录/选择恢复、三引擎扩图及大画布/结果切换与各自几何/目标档位/动态权限合同、design-inputs 的空房类型/家具/布局合同、精模预设 Prompt、白模/空房/风格转换双模式 Agent、双参考图上传、Flux 模型多选/生成张数/结果画廊与原图滑动对比、连接中心、生成动作与 Style DNA 对话
- * [OUTPUT]: 对外提供默认 Flux2 Klein、生图与三引擎扩图的飞书同步合同阻断、仅超分保留本机路径、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房/风格转换同宽搜索单选与参考图互斥风格选择、Flux 负向 Prompt、共享已选摘要/简洁搜索模型多选、单模型多张或不设模型数上限的多模型生成与独立飞书反馈
+ * [INPUT]: 依赖Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
+ * [OUTPUT]: 对外提供遮罩填充两模式与URL功能直达、按功能任务恢复与飞书记录、生图/遮罩填充与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房改造独立入口/任务与空房配置复用、默认 Flux2 Klein、多角度生成与飞书同步、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房/风格转换同宽搜索单选与参考图互斥风格选择、Flux 负向 Prompt、共享已选摘要/简洁搜索模型多选、单模型多张或不设模型数上限的多模型生成与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { isEmptyRoomDesign, renderRenovationIntro } from "./room-renovation.js";
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js?v=2";
@@ -17,7 +18,7 @@ import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
-import { bindImageTools } from "./image-tools.js?v=2";
+import { bindImageTools } from "./image-tools.js?v=3";
 import {
   buildGenerationJobRequest,
   generationItemsForSelection,
@@ -25,7 +26,7 @@ import {
 } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
-import { bindModelMultiSelect } from "./model-multi-select.js?v=4";
+import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
@@ -33,7 +34,7 @@ import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
-import "./custom-select.js?v=8";
+import "./custom-select.js?v=9";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
@@ -79,7 +80,7 @@ const refinedPromptVersionSelect = bindRefinedPromptVersionSelect({
   select: elements.refinedPromptVersionSelect,
 });
 const imageTools = bindImageTools({ api, elements, getSourceImage: () => selectedSourceImage(),
-  onChange: () => generationActions.refresh() });
+  onChange: () => generationActions.refresh(), showToast });
 const { upscale: imageUpscale, outpaint: imageOutpaint } = imageTools;
 function selectedModels() { return state.modelKeys.map((key) =>
   state.catalog.find((model) => model.key === key)).filter(Boolean); }
@@ -87,7 +88,7 @@ function selectedModel() { return selectedModels()[0]; }
 function referenceImages() { return referenceUpload?.images() || []; }
 function styleReferenceImages() { return styleReferenceUpload?.images() || []; }
 function selectedSourceImage() { return state.featureMode === "styleDna" ? null : referenceImages()[0]; }
-function isDesignPromptFlow() { return ["emptyRoom", "styleTransfer", "whiteModel"].includes(state.featureMode); }
+function isDesignPromptFlow() { return (isEmptyRoomDesign(state.featureMode) || ["styleTransfer", "whiteModel"].includes(state.featureMode)); }
 function activeDesignPromptConfig() { return designPromptConfiguration(state).smartDefault; }
 function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
   designPromptConfiguration(state).promptAgent); }
@@ -124,8 +125,8 @@ function updateReferenceRequirements() {
 }
 function selectFeatureMode(featureMode) {
   const supported = [
-    "effectEnhancement", "effectBeautification", "emptyRoom", "free",
-    "imageUpscale", "imageOutpaint", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
+    "effectEnhancement", "effectBeautification", "emptyRoom", "roomRenovation", "free",
+    "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
   state.featureMode = featureMode;
@@ -136,7 +137,7 @@ function selectFeatureMode(featureMode) {
     if (!state.modelKeys.length) state.modelKeys = ["aiTextureEnhancement"];
   }
   const isWhiteModel = featureMode === "whiteModel";
-  const isEmptyRoom = featureMode === "emptyRoom";
+  const isEmptyRoom = isEmptyRoomDesign(featureMode);
   const isStyleTransfer = featureMode === "styleTransfer";
   const isDesignModel = isWhiteModel || isEmptyRoom || isStyleTransfer;
   const isEffectEnhancement = featureMode === "effectEnhancement";
@@ -158,6 +159,7 @@ function selectFeatureMode(featureMode) {
   for (const result of elements.generationResults) {
     result.classList.toggle("hidden", isStyleDna);
   }
+  renderRenovationIntro(document.querySelector("#roomRenovationSection"), featureMode === "roomRenovation");
   styleDnaChat.setVisible(isStyleDna);
   generationActions.setFeatureMode(featureMode);
   if (isStyleDna) {
@@ -176,9 +178,11 @@ function selectFeatureMode(featureMode) {
   }
   elements.styleSection.classList.toggle("hidden", !isDesignModel);
   elements.imageUpscaleSection.classList.toggle("hidden", !isImageUpscale);
+  elements.imageMultiAngleSection.classList.toggle("hidden", featureMode !== "imageMultiAngle");
+  elements.imageMaskFillSection.classList.toggle("hidden", featureMode !== "imageMaskFill");
   elements.imageOutpaintSection.classList.toggle("hidden", featureMode !== "imageOutpaint");
-  elements.parameterSection.classList.toggle("hidden", featureMode === "imageOutpaint");
-  elements.resolutionField.classList.toggle("hidden", featureMode === "imageOutpaint");
+  elements.parameterSection.classList.toggle("hidden", ["imageOutpaint", "imageMultiAngle", "imageMaskFill"].includes(featureMode));
+  elements.resolutionField.classList.toggle("hidden", ["imageOutpaint", "imageMultiAngle", "imageMaskFill"].includes(featureMode));
   elements.modelSection.classList.toggle("hidden", Boolean(imageTool));
   elements.effectEnhancementSection.classList.toggle("hidden", !isEffectEnhancement);
   elements.effectBeautificationSection.classList.toggle("hidden", !isEffectBeautification);
@@ -435,7 +439,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   }
   const models = localImageRequest ? [imageTool.currentItem()] : selectedModels();
   const whiteModelRequest = featureMode === "whiteModel";
-  const emptyRoomRequest = featureMode === "emptyRoom";
+  const emptyRoomRequest = isEmptyRoomDesign(featureMode);
   const styleTransferRequest = featureMode === "styleTransfer";
   const designPromptRequest = whiteModelRequest || emptyRoomRequest || styleTransferRequest;
   const refinedModelRequest = featureMode === "refinedModel";
@@ -539,7 +543,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     : null;
   const loadingCopy = localImageRequest ? imageTool.loadingCopy() : generationLoadingCopy({
     designPromptRequest,
-    emptyRoomRequest,
+    roomRenovationRequest: featureMode === "roomRenovation", emptyRoomRequest,
     styleTransferRequest,
     effectEnhancementRequest,
     effectBeautificationRequest,
@@ -585,12 +589,12 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
     const outcomes = job.result?.outcomes || [];
     const completed = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
-    if (designPromptRequest && completed > 0) {
+    if (designPromptRequest && featureMode !== "roomRenovation" && completed > 0) {
       generationActions.markReusable(promptIdentity);
     }
     showToast(completed === generationItems.length
       ? localImageRequest
-        ? `${completed} 张图片${featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成`
+        ? `${completed} 张图片${featureMode === "imageMaskFill" ? "遮罩填充" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${featureMode === "imageMaskFill" ? "，正在同步飞书" : ""}`
         : `${completed} 张图已完成，正在分别同步飞书`
       : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
@@ -607,7 +611,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
 const generationActions = bindGenerationActions({
   getPromptIdentity: () => JSON.stringify([
     state.featureMode,
-    state.featureMode === "emptyRoom" ? emptyRoomType.requestFields() : null,
+    isEmptyRoomDesign(state.featureMode) ? emptyRoomType.requestFields() : null,
     referenceImages().map((image) => image.id),
     styleReferenceImages().map((image) => image.id),
     whiteModelRenderMode.current().mode,
@@ -638,8 +642,8 @@ const styleDnaChat = bindStyleDnaChat({
 });
 const connectionCenter = bindConnectionCenter({
   api,
-  onApiConnected: async () => { await Promise.all([checkAvailableModels(), imageTools.refreshOutpaint()]); },
-  onApiDisconnected: () => { resetModelAvailability(); void imageTools.refreshOutpaint(); },
+  onApiConnected: async () => { await Promise.all([checkAvailableModels(), imageTools.refreshOutpaint(), imageTools.refreshMultiAngle(), imageTools.refreshMaskFill()]); },
+  onApiDisconnected: () => { resetModelAvailability(); void imageTools.refreshOutpaint(); void imageTools.refreshMultiAngle(); void imageTools.refreshMaskFill(); },
   onApiStateChange(session) {
     setApiConnectionState(session.connected);
   },
@@ -653,21 +657,26 @@ const connectionCenter = bindConnectionCenter({
 });
 
 async function initialize() {
-  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig] = await Promise.all([
+  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig] = await Promise.all([
     api("/api/catalog"),
     connectionCenter.load(),
     api("/api/image-upscale/config"),
     api("/api/image-outpaint/config"),
+    api("/api/image-multi-angle/config"),
+    api("/api/image-mask-fill/config").catch(() => ({ available: false, reason: "遮罩填充配置读取失败，请重新启动本机工作台", modes: [] })),
   ]);
   state.catalog = catalogBody.models;
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
   imageUpscale.configure(imageUpscaleConfig);
   imageOutpaint.configure(imageOutpaintConfig);
+  imageTools.multiAngle.configure(multiAngleConfig);
+  imageTools.maskFill.configure(maskFillConfig);
   emptyRoomType.setOptions(catalogBody.emptyRoomTypes, catalogBody.emptyRoomTypeDetailMaxLength, catalogBody.emptyRoomFurniture, catalogBody.otherFurnitureMaxLength);
   styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
-  selectFeatureMode(state.featureMode);
+  const initialFeature = new URLSearchParams(window.location.search).get("feature");
+  selectFeatureMode(elements.featureModeButtons.some(button => button.dataset.featureMode === initialFeature) ? initialFeature : state.featureMode);
   generationTasks.resume();
   await loadConfiguration();
   referenceUpload.render();
@@ -688,9 +697,9 @@ const loadConfiguration = bindConfigRefresh({
   onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
   onEmptyRoom(config) {
     state.emptyRoomConfig = config;
-    if (state.featureMode === "emptyRoom") {
+    if (isEmptyRoomDesign(state.featureMode)) {
       whiteModelRenderMode.setSmartDefault(config.smartDefault);
-      selectFeatureMode("emptyRoom");
+      selectFeatureMode(state.featureMode);
     }
     generationActions.clearReusable();
   },
@@ -725,7 +734,7 @@ referenceUpload = bindReferenceUpload({
   count: elements.referenceCount,
   dropZone: elements.referenceDropZone,
   getLimit: referenceLimit,
-  getPolicy: () => state.referencePolicy,
+  getPolicy: () => imageTools.forMode(state.featureMode)?.inputPolicy?.(state.referencePolicy) || state.referencePolicy,
   getSubject: () => referenceSubject(state.featureMode),
   input: elements.referenceInput,
   list: elements.referenceList,
@@ -749,7 +758,7 @@ styleReferenceUpload = bindReferenceUpload({
   input: elements.styleReferenceInput,
   list: elements.styleReferenceList,
   onChange() {
-    if (["emptyRoom", "styleTransfer"].includes(state.featureMode)) selectFeatureMode(state.featureMode);
+    if ((isEmptyRoomDesign(state.featureMode) || state.featureMode === "styleTransfer")) selectFeatureMode(state.featureMode);
     generationActions.refresh();
   },
   showToast,

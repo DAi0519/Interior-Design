@@ -36,9 +36,9 @@ function validSyncSchemaFields() {
     selectField("Prompt融合", publicAgentModelCatalog()
       .filter((model) => model.imageInput)
       .map((model) => model.label)),
-    selectField("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "AI扩图"]),
+    selectField("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "AI扩图", "多角度"]),
     selectField("状态", ["成功", "生成失败", "同步失败"]),
-    selectField("生图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS]),
+    selectField("生图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, "Qwen 多角度"]),
     selectField("空间类型", EMPTY_ROOM_TYPES),
     selectField("设计方式", ["智能默认", "平台风格", "参考图风格"]),
     ...[
@@ -53,6 +53,10 @@ function validSyncSchemaFields() {
       "错误信息",
       "风格选择",
     ].map((name) => ({ name, type: "text" })),
+    { name: "水平角度（°）", type: "number" },
+    { name: "俯仰角度（°）", type: "number" },
+    { name: "镜头指令版本", type: "text" },
+    selectField("景别", ["特写", "标准", "远景"]),
     { name: "Agent 版本", type: "number" },
     { name: "耗时（秒）", type: "number" },
   ];
@@ -395,4 +399,23 @@ test("从批量创建返回体提取首个飞书记录 ID", () => {
     recordIdFrom({ data: { record: { record_id: "recLegacy" } } }),
     "recLegacy",
   );
+});
+
+
+test("多角度字段保存零角度与实际版本，字段缺失或景别选项漂移阻断", () => {
+  const fields = buildRecordFields({ actualSize: "1536x2048", durationMs: 1000,
+    finalPrompt: "Actual submitted reverse-angle instruction", modelLabel: "Qwen 多角度",
+    preview: { outputFormat: "png", referenceImageCount: 1 },
+    workflow: { feature: "image-multi-angle", pose: { azimuth: 0, elevation: 0, distance: 50 }, promptVersion: "test-v2" } });
+  assert.equal(fields["功能"], "多角度");
+  assert.equal(fields["水平角度（°）"], 0);
+  assert.equal(fields["俯仰角度（°）"], 0);
+  assert.equal(fields["景别"], "标准");
+  assert.equal(fields["镜头指令版本"], "test-v2");
+  for (const name of ["水平角度（°）", "俯仰角度（°）", "景别", "镜头指令版本"]) {
+    assert.throws(() => assertLarkSyncSchema({ fields: validSyncSchemaFields().filter(f => f.name !== name) }), /缺少/);
+  }
+  const schema = validSyncSchemaFields();
+  schema.find(f => f.name === "景别").options.pop();
+  assert.throws(() => assertLarkSyncSchema({ fields: schema }), /景别.*远景/);
 });

@@ -1,71 +1,64 @@
 /**
- * [INPUT]: 依赖 Beta 任务快照中仅在飞书附件回读成功后公开的轻量预览、Run/样本/模型标签与记录链接
- * [OUTPUT]: 对外提供右侧任务监控面板的安全结果缩略图、同步计数、空态与逐条飞书记录跳转渲染
- * [POS]: public 的 Beta跑图结果呈现组件，只消费服务端确认已归档的轻量结果，不持久化原始生成图
+ * [INPUT]: 依赖 Beta 任务快照的逐项异常、阶段、样本/模型标签、飞书记录链接与页面请求错误
+ * [OUTPUT]: 对外提供 betaJobWarnings 异常归一化与 renderBetaWarnings 预警列表渲染，不展示结果图片
+ * [POS]: public 的 Beta跑图监控预警组件，以安全文本呈现生成/归档/连接问题，结果继续在飞书查看
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-function previewUrl(value) {
-  const normalized = String(value || "");
-  return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(normalized)
-    ? normalized
-    : "";
+export function betaJobWarnings(job, error = "") {
+  const warnings = Array.isArray(job?.result?.warnings) ? job.result.warnings : [];
+  const normalized = warnings.filter((warning) => warning?.message).map((warning) => ({ ...warning }));
+  if (!normalized.length && job?.status === "failed" && job.error) {
+    normalized.push({ stage: "generation", label: "批次执行失败", message: job.error });
+  }
+  if (error) normalized.unshift({ stage: "connection", label: "请求未完成", message: String(error) });
+  return normalized;
 }
 
 function recordUrl(value) {
   try {
-    const url = new URL(String(value || ""), window.location.origin);
+    const url = new URL(String(value || ""));
     return /^https?:$/.test(url.protocol) ? url.href : "";
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
-function resultCard(result, index) {
-  const href = recordUrl(result?.recordUrl);
-  const card = document.createElement(href ? "a" : "article");
-  card.className = "monitor-result-card";
+function warningRow(warning) {
+  const row = document.createElement("article");
+  row.className = "monitor-warning";
+  row.dataset.stage = warning.stage || "generation";
+  const heading = document.createElement("strong");
+  heading.textContent = warning.stage === "sync" || warning.stage === "archive"
+    ? "飞书同步失败"
+    : warning.stage === "connection" ? "连接或请求异常" : "生成异常";
+  const label = document.createElement("span");
+  label.className = "monitor-warning-label";
+  label.textContent = warning.label || warning.caseId || "当前批次";
+  const message = document.createElement("p");
+  message.textContent = warning.message;
+  row.append(heading, label, message);
+  const href = recordUrl(warning.recordUrl);
   if (href) {
-    card.href = href;
-    card.target = "_blank";
-    card.rel = "noreferrer";
-    card.ariaLabel = `在飞书查看 ${result?.label || `结果 ${index + 1}`}`;
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "在飞书查看明细";
+    row.append(link);
   }
-
-  const imageUrl = previewUrl(result?.previewUrl);
-  if (imageUrl) {
-    const image = document.createElement("img");
-    image.alt = result?.label || `结果 ${index + 1}`;
-    image.loading = "lazy";
-    image.src = imageUrl;
-    card.append(image);
-  } else {
-    const unavailable = document.createElement("span");
-    unavailable.className = "monitor-result-unavailable";
-    unavailable.textContent = "预览不可用";
-    card.append(unavailable);
-  }
-
-  const copy = document.createElement("span");
-  copy.className = "monitor-result-copy";
-  const title = document.createElement("strong");
-  title.textContent = result?.label || `结果 ${index + 1}`;
-  const meta = document.createElement("small");
-  meta.textContent = `${result?.caseId || "样本"} · 已同步`;
-  copy.append(title, meta);
-  card.append(copy);
-  return card;
+  return row;
 }
 
-export function renderBetaResults({ container, count, results = [] }) {
-  const normalized = Array.isArray(results) ? results : [];
-  count.textContent = `${normalized.length} 张`;
-  if (normalized.length === 0) {
+export function renderBetaWarnings({ container, count, job = null, error = "" }) {
+  const warnings = betaJobWarnings(job, error);
+  count.textContent = warnings.length ? `${warnings.length} 项` : "暂无异常";
+  if (!warnings.length) {
     const empty = document.createElement("p");
-    empty.className = "monitor-results-empty";
-    empty.textContent = "结果同步飞书后将在这里显示。";
+    empty.className = "monitor-warnings-empty";
+    empty.textContent = job?.status === "success"
+      ? "全部结果已同步，可在飞书查看。"
+      : job?.status === "running" ? "暂未发现异常，正在生成与同步。" : "生成失败、同步失败等问题将在这里提示。";
     container.replaceChildren(empty);
     return;
   }
-  container.replaceChildren(...normalized.map(resultCard));
+  container.replaceChildren(...warnings.map(warningRow));
 }

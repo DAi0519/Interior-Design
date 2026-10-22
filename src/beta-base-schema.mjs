@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖出图/图片输入 Agent/空房房型真源、Beta 三表实时字段响应、含风格转换/全景图美化的八功能标签与配置中的表/附件 ID
- * [OUTPUT]: 对外提供三表字段类型/模型单选标签/单多选/附件/关联目标准入，风格转换复用设计方式/版本快照/Agent/三图附件，实时 Schema 读取与不可重试合同错误归一化
+ * [INPUT]: 依赖出图/独立扩图模型/六套超分工作流/图片输入 Agent/空房房型真源、Beta 三表实时字段响应、含 AI超分的十功能标签与配置中的表/附件 ID
+ * [OUTPUT]: 对外提供三表字段类型/扩图模型及真实超分工作流单选标签/附件/关联目标准入，超分/扩图/风格转换复用配置、版本、生成参数和附件字段，实时 Schema 读取与不可重试合同错误归一化
  * [POS]: src 的 Beta 独立归档合同边界，被 beta-base Store 和批量入队前检查消费，不访问旧生成记录或 Benchmark 表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,8 @@
 import { EMPTY_ROOM_TYPES } from "./empty-room-type.mjs";
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { publicModelCatalog } from "./model-config.mjs";
+import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "./image-outpaint-archive.mjs";
+import { IMAGE_UPSCALE_WORKFLOWS } from "./image-upscale-workflow.mjs";
 
 const RUN_FIELD_TYPES = Object.freeze({
   "Run ID": "text", "批次 ID": "text", "测试时间": "text", "功能": "select",
@@ -45,7 +47,8 @@ function tableContracts(config, featureLabels) {
   return [
     { name: "跑图明细", tableId: config.tableId, types: RUN_FIELD_TYPES,
       options: { "功能": featureLabels, "状态": ["运行中", "成功", "失败"], "场景标签": EMPTY_ROOM_TYPES,
-        "出图模型": publicModelCatalog().map((model) => model.label),
+        "出图模型": [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS,
+          ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map((workflow) => workflow.label)],
         "Prompt融合": publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label) },
       attachments: { "输入图": config.inputFieldId, "风格参考图": config.styleReferenceFieldId, "结果图": config.resultFieldId },
       fieldIds: { "测试时间": config.testTimeFieldId } },

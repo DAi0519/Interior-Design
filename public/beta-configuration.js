@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖 beta-page-state 持久化函数、Beta 表单 DOM、效果图美化强度色调控制器、含风格转换路线/独立版本快照的页面状态读取器与配置重渲染回调
- * [OUTPUT]: 对外提供 createBetaConfigurationPersistence，统一配置采集、不截断模型多选的落盘、跳过已禁用模型选项的分阶段恢复、快速切页落盘与可见保存状态
+ * [INPUT]: 依赖持久化函数、Beta表单、美化控制器、独立扩图/超分及风格转换快照和重渲染回调
+ * [OUTPUT]: 提供普通表单与独立扩图/超分选择落盘、不截断工作流/模型多选、分阶段恢复、快速切页落盘及保存状态
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { saveBetaPageState } from "./beta-page-state.js?v=5";
+import { saveBetaPageState } from "./beta-page-state.js?v=8";
 
 function restoreTextValue(input, value) {
   if (typeof value === "string") input.value = value;
@@ -67,6 +67,8 @@ export function createBetaConfigurationPersistence({
     saveBetaPageState(storage, {
       controls: controls(),
       featureMode: pageState.featureMode,
+      outpaint: pageState.outpaint,
+      upscale: pageState.upscale,
       sampleSetIds: pageState.sampleSetIds,
       selectedModelKeys: pageState.selectedModelKeys,
     });

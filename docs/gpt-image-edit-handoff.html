@@ -1,0 +1,110 @@
+<!doctype html>
+<!--
+[INPUT]: 依据 src/image-mask-fill-oneapi.mjs 的 2026-10-22.sunburst.10、模型尺寸真源与业务准入规则
+[OUTPUT]: 固定1K/medium的15行开发交接表，含无mask异步Responses/有mask同步Images edits、输入限制、蓝色圈选目标物体与统一提示词
+[POS]: docs/ 的开发交接快照，不依赖项目运行环境或外部资源
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPT 局部编辑接口交接表</title>
+<style>
+:root{color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:#202936;background:#f5f6f8;font-synthesis:none}
+*{box-sizing:border-box}body{margin:0;padding:40px 24px}main{max-width:1180px;margin:auto}header{margin-bottom:24px}h1{font-size:26px;line-height:1.4;margin:0 0 9px;letter-spacing:-.5px;font-weight:650}.meta{margin:0;color:#667080;font-size:13px;line-height:1.8}.lead{font-size:14px;line-height:1.8;margin:12px 0 0;color:#465365}table{border-collapse:collapse;table-layout:fixed;width:100%;background:#fff;border:1px solid #dce1e7;font-size:14px;line-height:1.8}col.group-col{width:102px}col.item-col{width:176px}thead th{text-align:left;background:#eef1f5;color:#374151;font-weight:600;padding:13px 18px;border:1px solid #dce1e7}tbody td,tbody th{border:1px solid #e0e4e9;padding:16px 18px;vertical-align:top;overflow-wrap:anywhere;text-align:left}tbody th{font-size:14px;font-weight:600;color:#354154}.group{color:#6a7585;font-size:12px;background:#fafbfc;letter-spacing:.2px}p{margin:9px 0 0}strong{font-weight:650}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{font-size:.9em;background:#f1f4f7;border-radius:3px;padding:2px 4px;overflow-wrap:anywhere}pre{font-size:12px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;background:#f6f8fa;border:1px solid #e4e8ee;border-radius:4px;margin:0;padding:13px 15px;tab-size:2}p+pre,pre+pre{margin-top:10px}.note{color:#717b89;font-size:12px}footer{margin-top:14px;color:#7c8593;font-size:12px;line-height:1.7}
+@media(max-width:640px){body{padding:22px 10px}h1{font-size:22px}col.group-col{width:58px}col.item-col{width:92px}thead th,tbody td,tbody th{padding:10px 8px}table{font-size:12px;line-height:1.8}tbody th{font-size:12px}.group{font-size:11px}pre{font-size:11px;padding:9px 8px}header{margin-bottom:16px}}
+@media print{@page{size:A4;margin:12mm}body{background:#fff;padding:0}main{max-width:none}table{font-size:10px;line-height:1.65}thead{display:table-header-group}thead th,tbody td,tbody th{padding:7px 8px}tbody th{font-size:10px}col.group-col{width:60px}col.item-col{width:115px}.group{font-size:9px}pre{font-size:8.5px;line-height:1.6;padding:8px;box-decoration-break:clone}h1{font-size:21px}header{margin-bottom:15px}tr{break-inside:avoid}footer{font-size:9px}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>GPT 局部编辑接口交接表</h1><p class="meta">模型：GPT Image 2.5 Sunburst　·　核对日期：2026-10-22　·　交接约定：1K／medium　·　参考实现：2026-10-22.sunburst.10</p><p class="lead">适用范围：业务后端接公司 OneAPI 的图像编辑接口。字段转换、圈选与遮罩、输入输出和统一提示词拼接方式均在下表。</p></header>
+<table aria-label="GPT 局部编辑接口开发交接表"><colgroup><col class="group-col"><col class="item-col"><col></colgroup><thead><tr><th scope="col">模块</th><th scope="col">交接项</th><th scope="col">约定与示例</th></tr></thead><tbody>
+<tr><td class="group">接口</td><th scope="row">目标与范围</th><td>GPT 图像编辑：原图＋用户指令＋可选物体参考图＋可选框选、自由圈选或涂抹，返回 <strong>1 张完整 PNG</strong>。提示词／参考图是内容模式，框选／圈选／涂抹是定位方式，两者自由组合。</td></tr>
+<tr><td class="group">业务输入</td><th scope="row">模型、模式与指令</th><td><code>maskFillModel: &quot;gptImage25Sunburst&quot;</code><br><code>maskFillMode: &quot;prompt&quot; | &quot;reference&quot;</code>：提示词模式／参考图模式。<br><code>prompt</code>：用户编辑指令，必填，去除首尾空白后 1–8000 字符。下面英文模板由后端拼接，不要求用户手写。</td></tr>
+<tr><td class="group">业务输入</td><th scope="row">原图与参考图</th><td><code>referenceImages: [原图描述]</code>：必填且仅 1 张；这个字段虽然叫 referenceImages，装的是<strong>待编辑底图</strong>。<br><code>fillReferenceImage</code>：参考图模式必填 1 张物体参考图；提示词模式不传。图2尺寸可与图1不同。<p>图片描述结构：</p><pre>{
+  &quot;dataUrl&quot;: &quot;data:image/png;base64,&lt;图片Base64&gt;&quot;,
+  &quot;name&quot;: &quot;source.png&quot;,
+  &quot;type&quot;: &quot;image/png&quot;,
+  &quot;size&quot;: 12345
+}</pre><p class="note">size 是真实文件字节数，示例数字仅作结构说明；服务端仍需解码核验真实图片。</p></td></tr>
+<tr><td class="group">业务输入</td><th scope="row">圈选区域（坐标示例）</th><td>“圈选”按住拖动画轮廓，松开自动闭合；提交归一化轮廓点（0–1）：<pre>{
+  &quot;editRegion&quot;: {
+    &quot;type&quot;: &quot;polygon&quot;,
+    &quot;points&quot;: [
+      { &quot;x&quot;: 0.2, &quot;y&quot;: 0.3 },
+      { &quot;x&quot;: 0.6, &quot;y&quot;: 0.3 },
+      { &quot;x&quot;: 0.5, &quot;y&quot;: 0.7 }
+    ]
+  }
+}</pre><p>矩形框选仍提交 <code>editRegion: { x, y, width, height }</code>。后端按实际轮廓在完整底图上画蓝线，作为第一个 <code>input_image</code>；不把轮廓转成外接矩形，不向 OneAPI 传 editRegion，不与 maskImage 同时提交。</p></td></tr>
+<tr><td class="group">业务输入</td><th scope="row">涂抹遮罩 maskImage</th><td><code>maskImage</code>：与方向归一后的原图同宽高的黑白 PNG，图片描述结构同上。<strong>白色＝编辑区，黑色＝保护意图</strong>，不能全黑。<br><code>maskExpand</code>：0–256 整数，按原图像素扩展白区；提示词模式默认 10，参考图模式默认 80。无遮罩时有效值为 0。</td></tr>
+<tr><td class="group">业务输入</td><th scope="row">输出档位与质量</th><td>固定 <strong>1K／medium</strong>：<code>outputResolution: &quot;1K&quot;</code>，<code>quality: &quot;medium&quot;</code>。<p>后端按原图比例换算为实际输出宽高，传入上游 <code>size</code>。</p></td></tr>
+<tr><td class="group">定位区别</td><th scope="row">蓝色圈选</th><td>框选、画笔圈选、套索圈选统一使用<strong>蓝色线条圈出的区域</strong>，用于定位<strong>目标物体</strong>，具体操作由用户指令决定，可替换、移除、添加或修改。<p>把蓝色轮廓画进完整底图，使用同一圈选提示词；<strong>不因此生成或上传 mask</strong>。圈选边界不作为编辑的硬裁切范围。最终由模型去除全部圈选标记。</p></td></tr>
+<tr><td class="group">定位区别</td><th scope="row">涂抹</th><td>前端提交 <code>maskImage</code> → 后端先扩展白区，再生成同尺寸 RGBA PNG，<code>alpha = 255 - red</code>：<strong>alpha 0＝编辑，255＝保护意图</strong> → 独立放入上游 <code>mask.image_url</code>。原图不叠加界面的灰白可视蒙版。mask 作用于图1，图2仍是物体参考。</td></tr>
+<tr><td class="group">图片处理</td><th scope="row">图序与圈选标记</th><td>图1是完整底图，圈选模式下带蓝色轮廓；图2是独立物体参考图。无 mask 时依次放入 <code>input</code> 消息中的第一个、第二个 <code>input_image</code>；涂抹同步请求仍对应 <code>images[0]</code>、<code>images[1]</code>。通过<strong>图片顺序＋提示词</strong>区分用途，不拼图。<p>原图／参考图转为PNG，保留未标记原件；蓝色轮廓仅用于送模副本。当前工作台示例颜色 <code>#3b82f6</code>，开发可使用自身的蓝色线条。不要把界面上的半透明可视蒙版当成独立的透明mask。</p></td></tr>
+<tr><td class="group">上游请求</td><th scope="row">JSON 示例</th><td>无 mask 的蓝色圈选＋参考图示例，<strong>3:2 原图、1K／medium</strong>。<code>POST https://oneapi.qunhequnhe.com/v1/responses</code>：<pre>{
+  "model": "gpt-image-2.5-sunburst",
+  "background": true,
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "&lt;后端统一拼接后的完整Prompt，见下方统一拼接方式&gt;"
+        },
+        {
+          "type": "input_image",
+          "image_url": "data:image/png;base64,&lt;完整底图，已标记蓝色圈选轮廓&gt;"
+        },
+        {
+          "type": "input_image",
+          "image_url": "data:image/png;base64,&lt;物体参考图&gt;"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "image_generation",
+      "size": "1536x1024",
+      "quality": "medium",
+      "n": 1,
+      "image_format": "png",
+      "response_format": "b64_json"
+    }
+  ]
+}</pre><p>提交返回 <code>202</code> 与 <code>resp_...</code> 后，每 1.5 秒 <code>GET /v1/responses/{id}</code>，直到 completed；总等待 600 秒，不重复 POST。提示词模式省略第二个 input_image；纯指令仍传完整底图。业务字段不原样透传。</p><p><strong>涂抹带独立透明 mask 时仍同步 POST /v1/images/edits</strong>，使用 images、mask、prompt、size、quality、n、output_format、response_format；不能向 Responses 添加 mask。</p></td></tr>
+<tr><td class="group">尺寸</td><th scope="row">size 换算</th><td>固定 <strong>1K</strong>，按原图比例选择输出尺寸：<pre>1:1    1024x1024
+3:2    1536x1024
+2:3    1024x1536
+3:4    768x1024
+4:3    1024x768
+16:9   1536x864
+9:16   864x1536
+21:9   1568x672
+9:21   672x1568</pre><p>其他比例按原图比例适配，输出宽高取16的倍数。</p></td></tr>
+<tr><td class="group">业务输入</td><th scope="row">输入图片限制</th><td>单张图片最大 <strong>4096 × 4096 像素</strong>，文件大小不超过 <strong>6 MiB</strong>。</td></tr>
+<tr><td class="group">上游输出</td><th scope="row">返回结构与解析</th><td>异步 completed 结果示例：<pre>{
+  "id": "resp_...",
+  "status": "completed",
+  "output": [
+    {
+      "type": "image_generation_call",
+      "result": "&lt;完整PNG的Base64或图片URL&gt;"
+    }
+  ]
+}</pre><p>读取 <code>output</code> 中 <code>image_generation_call.result</code>（URL 或 Base64）。queued／in_progress 继续查询；failed／cancelled／incomplete 报错。本地超时不等于上游取消，不自动重发。</p><p>有 mask 的同步结果仍读取 <code>data[0].b64_json</code>，兼容 url／result；两条路径均交付完整 PNG。如有任务 ID、创建时间及真实费用则保留，缺失不伪造。</p></td></tr>
+<tr><td class="group">提示词</td><th scope="row">统一拼接方式</th><td><strong>固定提示词＋用户提示词</strong>，由后端统一维护和拼接。调用方在业务字段 <code>prompt</code> 中只提交用户原文，图片、模式和区域仍按前述字段传入，不用维护六套提示词。<pre>最终 prompt = 固定规则 + "\nUser instruction: " + 用户提示词 + "\n" + 固定输出要求</pre><p>固定规则负责图1／图2身份、定位方式、透视光照与场景保持。后端根据是否有蓝色圈选、是否使用独立透明遮罩、是否传图2，自动补入对应约束；不需要额外调用模型编写提示词。</p></td></tr>
+<tr data-prompt="box-reference"><td class="group">提示词</td><th scope="row">完整拼接示例</th><td>下面以<strong>蓝色圈选＋参考图</strong>为例，只有 <code>{用户提示词}</code> 替换成用户输入，其余为后端固定规则。其他场景沿用同一生成逻辑，按参数补约束。<pre>Image 1 contains a selected region marked by a temporary blue outline of any shape. The outline is an annotation, not part of the scene. Use the selected region to identify the target object for the user instruction. Follow the requested action, including replacing, removing, adding or modifying the object. The selection identifies the target and is not a hard boundary for editing. Preserve the scene's composition, perspective and lighting, and keep unrelated objects and background unchanged. Remove all blue selection guide marks from the final image and restore the scene beneath them.
+Image 2 is an object reference. If the user instruction calls for using the reference object, use the requested object from image 2 for the selected target in image 1, matching the scene's scale, perspective and lighting. Do not copy image 2's background.
+User instruction: {用户提示词}
+Return one complete image without blue selection outlines, guide marks, labels or a collage.</pre></td></tr>
+</tbody></table>
+<footer>本交接表固定使用 1K／medium；示例为占位结构。当前 Key 的腾讯 Sunburst 路由尚未确认，未完成真实异步出图验证。单文件，可离线打开或打印。</footer>
+</main>
+</body>
+</html>

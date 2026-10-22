@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供含风格转换/效果图氛围转换/美化/全景美化的八功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、全目录多模型无限结果的两路并发单图隔离/保序归档、生成/飞书同步阶段、回读后预览、瞬时重跑、全量归档与终态前忙碌守卫回归保障
+ * [OUTPUT]: 对外提供含AI扩图/风格转换/效果图氛围转换/美化/全景美化的十功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、全目录多模型无限结果的两路并发单图隔离/保序归档、生成/飞书同步阶段、回读后预览、瞬时生成重试与仅同步重试、全量归档与终态前忙碌守卫回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -84,7 +84,7 @@ test("Beta 批次入队及飞书同步期间保持忙碌，成功或失败终态
   assert.equal(service.hasActiveJobs(), false);
 });
 
-test("Beta跑图公开八个场景且不发布结果数量上限", () => {
+test("Beta跑图公开十个场景且不发布结果数量上限", () => {
   assert.deepEqual(BETA_FEATURE_MODES, [
     "whiteModel",
     "emptyRoom",
@@ -94,6 +94,8 @@ test("Beta跑图公开八个场景且不发布结果数量上限", () => {
     "effectBeautification",
     "panoramaEnhancement",
     "free",
+    "imageOutpaint",
+    "imageUpscale",
   ]);
   assert.equal(BETA_MAX_ATTEMPTS, 3);
 });
@@ -167,7 +169,7 @@ test("Beta 样本集按功能保存且样本数量不设上限", async () => {
     samples: Array.from({ length: 25 }, (_, index) => ({ prompt: `样本 ${index + 1}` })),
   });
   assert.equal(largeSampleSet.samples.length, 25);
-  assert.equal("maxRuns" in service.config(), false);
+  assert.equal("maxRuns" in await service.config(), false);
   assert.throws(() => service.createSampleSet({
     featureMode: "whiteModel",
     name: "缺图",
@@ -317,7 +319,7 @@ test("单项失败会新建 Attempt 自动重跑，整批只在全部同步后�
   ]));
 });
 
-test("飞书归档失败同样触发重跑，耗尽后整批不能假完成", async () => {
+test("飞书归档失败只重试同步，耗尽后整批不能假完成", async () => {
   let generationCount = 0;
   const runIds = [];
   const service = createBetaRunnerService({
@@ -350,8 +352,8 @@ test("飞书归档失败同样触发重跑，耗尽后整批不能假完成", as
   });
 
   await assert.rejects(waitForJob(service, jobId), /仍未同步飞书/);
-  assert.equal(generationCount, BETA_MAX_ATTEMPTS);
-  assert.deepEqual(runIds, ["RUN-retry123-A", "RUN-retry123-A-A2", "RUN-retry123-A-A3"]);
+  assert.equal(generationCount, 1);
+  assert.deepEqual(runIds, ["RUN-retry123-A"]);
   assert.equal(service.getJob(jobId).status, "failed");
   assert.equal(service.getJob(jobId).completed, 0);
   assert.deepEqual(service.getJob(jobId).stages, { generated: 1, synced: 0 });

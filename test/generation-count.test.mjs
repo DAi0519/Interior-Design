@@ -25,11 +25,11 @@ test("生成张数只接受 1–4 并对非法值回退到一张", () => {
 test("生成张数使用向上展开的四项下拉菜单", async () => {
   const [html, customSelectCss] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/custom-select.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/choice-select.js", import.meta.url), "utf8"),
   ]);
   const field = html.match(/<label id="generationCountField"[\s\S]*?<\/label>/)?.[0] || "";
   assert.match(field, /<select id="generationCountSelect"[^>]*data-dropdown-placement="top"/);
   assert.equal((field.match(/<option value="[1-4]">[1-4] 张<\/option>/g) || []).length, 4);
   assert.doesNotMatch(field, /data-generation-count=|role="radio"/);
-  assert.match(customSelectCss, /\.custom-select--top \.custom-select-menu\s*{[^}]*bottom: calc\(100% \+ 4px\)[^}]*top: auto[^}]*transform-origin: bottom center/s);
+  assert.match(customSelectCss, /placement === "top"/);
 });

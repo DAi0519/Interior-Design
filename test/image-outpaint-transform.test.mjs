@@ -168,7 +168,7 @@ test("角点触摸与键盘缩放不移动画布，touchcancel停止后续变更
   assert.equal(ui.node("OutputSize").textContent, "2048 × 1152");
 });
 
-test("居中只复位位置，模型/引擎/比例/分辨率与权限刷新保留缩放，换图恢复1.5倍", () => {
+test("居中只复位位置，模型/引擎/比例与权限刷新保留缩放，换图恢复1.5倍", () => {
   const ui = fixture();
   ui.preset(2).dispatch("click");
   ui.canvas.dispatch("keydown", { key: "ArrowLeft", shiftKey: true });
@@ -178,7 +178,7 @@ test("居中只复位位置，模型/引擎/比例/分辨率与权限刷新保�
   assert.equal(ui.request().items[0].input.outpaintCanvas.scale, 0.5);
   ui.node("ModelSelect").value = "fluxFillDev";
   ui.node("ModelSelect").dispatch("change");
-  for (const [attribute, value] of [["engine", "qwenImageEdit2511"], ["ratio", "3:4"], ["resolution", "4K"], ["engine", "gptImage25Sunburst"]]) {
+  for (const [attribute, value] of [["engine", "qwenImageEdit2511"], ["ratio", "3:4"], ["engine", "gptImage25Sunburst"]]) {
     ui.root.querySelector(`[data-outpaint-${attribute}="${value}"]`).dispatch("click");
     assert.equal(ui.request().items[0].input.outpaintCanvas.scale, 0.5);
   }

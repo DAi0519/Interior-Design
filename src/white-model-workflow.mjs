@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖白模/空房/风格转换的独立 Prompt Agent 配置、空房必填房间类型、“其他”详情及最终家具选择、Style DNA、必填主图与可选风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供白模/空房智能默认或平台融合、日常及 Beta 共用的风格转换显式来源/冻结版本校验与独立 Agent 分流，空房类型/家具校验及需求注入、风格转换空间保护/来源互斥、按功能隔离的缓存和响应/归档、最终模型仅接收主图
+ * [OUTPUT]: 对外提供白模/空房智能默认或平台融合、日常及 Beta 共用的风格转换显式来源/冻结版本校验与独立 Agent 分流；完整准入后可注入主图预处理供旧房先清空，处理后的主图进入 Agent、缓存、最终出图及归档
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -321,6 +321,7 @@ export async function executeWhiteModelWorkflow(
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
     promptResultCache = null,
+    prepareSourceImage = null,
     refreshModels = null,
     scheduleSync = null,
   },
@@ -363,7 +364,7 @@ export async function executeWhiteModelWorkflow(
     : null;
   const furnitureSelection = emptyRoom
     ? normalizeFurnitureSelection(input.furnitureSelection, roomType) : null;
-  const sourceImages = normalizeReferenceImages(input.referenceImages);
+  let sourceImages = normalizeReferenceImages(input.referenceImages);
   if (sourceImages.length !== 1) {
     throw workflowError(
       emptyRoom
@@ -442,6 +443,18 @@ export async function executeWhiteModelWorkflow(
   }
   if (!availableIds.has(promptModel.id)) {
     throw workflowError(`${promptModel.label} 当前未向这个 API Key 开放`, 409);
+  }
+
+  // -------- 旧房预处理须晚于配置准入，早于 Agent 读取与缓存指纹 --------
+  let generationInput = input;
+  if (prepareSourceImage) {
+    createGenerationRequest({ ...input, prompt: "Validate design parameters" }, {
+      preferSourceAspect: input.ratioMode !== "manual",
+    });
+    const referenceImages = await prepareSourceImage(sourceImages[0]);
+    sourceImages = normalizeReferenceImages(referenceImages, { maxCount: 1 });
+    if (sourceImages.length !== 1) throw workflowError("主图预处理必须返回 1 张有效图片", 502);
+    generationInput = { ...input, referenceImages };
   }
 
   const startedAt = Date.now();
@@ -525,7 +538,7 @@ export async function executeWhiteModelWorkflow(
   const promptReused = Boolean(promptResultCache && !promptGenerated);
   const generation = createGenerationRequest(
     {
-      ...input,
+      ...generationInput,
       prompt: finalPrompt,
     },
     {

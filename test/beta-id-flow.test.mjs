@@ -172,12 +172,11 @@ test("ID 批次执行最多两路逐图读取，归档保留美化参数并在�
   assert.doesNotMatch(JSON.stringify(result), /data:image\/png|保留空间结构/);
 });
 
-test("入队拒绝不存在、其他样本集及功能不匹配的样本 ID，保持零取图零模型", async () => {
+test("入队拒绝不存在或其他样本集的样本ID，保持零取图零模型", async () => {
   const sample = sampleMetadata(`${SET_ID}-1`);
   for (const mutation of [
     (body) => { body.sampleSetId = "SET-MISSING123"; },
     (body) => { body.items[0].sampleId = "SET-FOREIGN123-1"; },
-    (body) => { body.featureMode = "effectEnhancement"; },
   ]) {
     let downloads = 0;
     let generations = 0;

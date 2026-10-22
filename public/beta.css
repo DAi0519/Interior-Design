@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 beta.html 的八功能样本集/批量配置/双阶段任务监控与已归档结果预览语义、DESIGN.md 的 Raycast Light Command Center 令牌、generation-actions/custom-select 共享控件与 raycast-accent 最终颜色层
- * [OUTPUT]: 对外提供逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动双列结果缩略图
- * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、飞书确认后结果预览和窄屏自然单栏为边界
+ * [INPUT]: 依赖beta.html的十功能样本集/独立扩图和超分工作流/双阶段监控语义、Raycast银灰令牌与共享动作/下拉控件
+ * [OUTPUT]: 对外提供共享任务下拉的页面布局与逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动逐项异常预警
+ * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、生成/同步异常可见和窄屏自然单栏为边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -54,6 +54,9 @@ body::before {
 button, input, select, textarea { color: inherit; font: inherit; }
 button { cursor: pointer; }
 .hidden { display: none !important; }
+.beta-ordinary-output, .beta-outpaint-fields, .beta-upscale-fields { display: grid; gap: 16px; min-width: 0; }
+.beta-outpaint-hint, .beta-outpaint-availability, .beta-upscale-hint, .beta-upscale-availability { color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.beta-outpaint-availability, .beta-upscale-availability { color: var(--danger); }
 .visually-hidden {
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
@@ -170,12 +173,12 @@ button { cursor: pointer; }
 .section-heading-meta .sample-set-sync-status { color: var(--muted); font-weight: 500; }
 .section-heading-meta .sample-set-sync-status[data-state="success"] { color: var(--ink); }
 .section-heading-meta .sample-set-sync-status[data-state="error"] { color: var(--danger); }
-.feature-options, .model-options {
+.model-options {
   display: grid;
   gap: var(--choice-control-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.feature-mode-option, .model-option-toggle {
+.model-option-toggle {
   align-items: center;
   background: var(--choice-control-bg);
   border: 1px solid var(--choice-control-border);
@@ -391,7 +394,9 @@ button { cursor: pointer; }
   z-index: 4;
 }
 .run-bar::before { background: linear-gradient(180deg, transparent, rgb(252 252 253 / 76%)); content: ""; height: 18px; left: 0; pointer-events: none; position: absolute; right: 0; top: -18px; }
-.run-meta { align-items: baseline; display: flex; gap: 12px; justify-content: space-between; }
+.run-meta { align-items: baseline; display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; }
+.run-meta-actions { justify-content: flex-end; margin-left: auto; }
+.quiet-button.new-batch-button { font-size: 10px; min-height: 24px; padding: 0 7px; }
 .run-meta > div { align-items: baseline; display: flex; gap: 8px; min-width: 0; }
 .run-meta strong { font-size: 12px; }
 .run-meta span { color: var(--muted); font-size: 10px; }
@@ -482,82 +487,33 @@ button { cursor: pointer; }
   margin: 0;
   overflow-wrap: anywhere;
 }
-.monitor-results {
+.monitor-warnings {
   display: grid;
   gap: 9px;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
-.monitor-results-heading {
-  align-items: baseline;
-  display: flex;
-  justify-content: space-between;
-}
-.monitor-results-heading span {
-  color: var(--quiet);
-  font-size: 10px;
-  font-weight: 600;
-}
-.monitor-results-heading small {
-  color: var(--muted);
-  font-size: 10px;
-}
-.monitor-results-grid {
+.monitor-warnings-heading { align-items: baseline; display: flex; gap: 12px; justify-content: space-between; }
+.monitor-warnings-heading span { color: var(--muted); font-size: 11px; font-weight: 600; }
+.monitor-warnings-heading small { color: var(--muted); font-size: 11px; }
+.monitor-warnings-list {
   align-content: start;
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding-right: 2px;
+  padding-right: 4px;
 }
-.monitor-results-empty {
-  color: var(--quiet);
-  font-size: 11px;
-  grid-column: 1 / -1;
-  margin: 0;
-}
-.monitor-result-card {
-  background: #f4f4f5;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  color: inherit;
-  display: grid;
-  min-width: 0;
-  overflow: hidden;
-  text-decoration: none;
-}
-.monitor-result-card:hover { border-color: var(--line-strong); }
-.monitor-result-card:focus-visible {
-  outline: 2px solid #77777e;
-  outline-offset: 2px;
-}
-.monitor-result-card > img,
-.monitor-result-unavailable {
-  aspect-ratio: 4 / 3;
-  background: #e8e8ea;
-  display: block;
-  object-fit: cover;
-  width: 100%;
-}
-.monitor-result-unavailable {
-  align-items: center;
-  color: var(--quiet);
-  display: flex;
-  font-size: 10px;
-  justify-content: center;
-}
-.monitor-result-copy { display: grid; gap: 2px; padding: 7px 8px 8px; }
-.monitor-result-copy strong,
-.monitor-result-copy small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.monitor-result-copy strong { font-size: 10px; font-weight: 600; }
-.monitor-result-copy small { color: var(--quiet); font-size: 8px; }
+.monitor-warnings-empty { color: var(--muted); font-size: 11px; line-height: 1.65; margin: 0; }
+.monitor-warning { border-bottom: 1px solid var(--line); display: grid; gap: 5px; min-width: 0; padding: 12px 0; }
+.monitor-warning:first-child { padding-top: 0; }
+.monitor-warning:last-child { border-bottom: 0; }
+.monitor-warning strong { color: var(--danger); font-size: 11px; font-weight: 600; }
+.monitor-warning-label { color: var(--ink); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.monitor-warning p { color: var(--muted); font-size: 11px; line-height: 1.65; margin: 0; overflow-wrap: anywhere; }
+.monitor-warning a { color: var(--ink); font-size: 11px; justify-self: start; text-underline-offset: 3px; }
+.monitor-warning a:hover { color: var(--danger); }
+.monitor-warning a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .monitor-base-button {
   min-height: 38px;
   font-weight: 600;
@@ -571,13 +527,12 @@ button { cursor: pointer; }
   .beta-config-card { height: auto; max-height: none; }
   .beta-config-scroll { overflow: visible; }
   .beta-monitor-card { min-height: 320px; }
-  .monitor-results-grid { max-height: 420px; }
+  .monitor-warnings-list { max-height: 420px; }
 }
 @media (max-width: 700px) {
   .app-shell { padding: 10px; }
   .topbar { top: 10px; }
   .field-grid { grid-template-columns: 1fr; }
-  .feature-options { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .beta-section { padding: 15px; }

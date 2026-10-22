@@ -1,0 +1,107 @@
+{
+  "engine": "qwen",
+  "metadata": {
+    "artifactKey": "7b400861-7303-4e44-a4e5-283253b57648",
+    "engine": "qwenImageEdit2511",
+    "executionDurationMs": 81452,
+    "expansion": {
+      "left": 270,
+      "top": 342,
+      "right": 270,
+      "bottom": 341
+    },
+    "inputHeight": 1365,
+    "inputWidth": 996,
+    "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+    "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+    "weightDtype": "default",
+    "steps": 4,
+    "cfg": 1,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "shift": 3.1,
+    "feathering": 32,
+    "preservation": "latent-mask-vae-reconstruction",
+    "sourcePixelsPreserved": false,
+    "outputFilename": "CanvasLab_QwenOutpaint_7b400861-7303-4e44-a4e5-283253b57648_00001_.png",
+    "outputHeight": 2048,
+    "outputWidth": 1536,
+    "outputSha256": "87ba234d5be8898b986628089bab2e909728160d0e9727d14e0b13e0686c9805",
+    "promptId": "038c12ef-9b96-4fcd-aca2-621a708dedf7",
+    "queueDurationMs": 932,
+    "seed": 20261019,
+    "targetHeight": 2048,
+    "targetWidth": 1536,
+    "inferenceWidth": 888,
+    "inferenceHeight": 1184,
+    "inferencePixels": 1051392,
+    "inferenceMegapixels": 1,
+    "inferenceAlignment": 8,
+    "inferenceResampling": "lanczos",
+    "maskResampling": "bilinear",
+    "outputResampling": "lanczos",
+    "outputRestored": true,
+    "outputSizeStrategy": "restore-target-from-masked-sampling",
+    "upscaleModel": null,
+    "workflowId": "image-outpaint-qwen",
+    "workflowVersion": "2026-10-19.3",
+    "finalPrompt": "Extend the scene naturally into the blank gray canvas surrounding the original image. Continue the existing architecture, surfaces, objects and background with coherent perspective, geometry, lighting, colors and texture. Preserve the original composition, camera viewpoint, subject identity and visual style. Create a seamless continuation across every original image boundary. Only fill the newly extended areas; do not add frames, text, watermarks or duplicate subjects.\n\nScene continuation:\nThe image depicts a modern living room with a cozy and minimalist design. The room features a light-colored sofa with a throw blanket draped over it, a wooden coffee table with books and a teapot, and a tall, cylindrical pendant lamp hanging from the ceiling. The room is illuminated by natural light coming through large floor-to-ceiling windows, offering a view of a cityscape at dusk. The windows frame a serene and slightly misty urban landscape. The room is decorated with simple yet elegant decor, including a small shelf with books and a couple of vases, and a soft, neutral color palette that complements the overall ambiance. The lighting is warm and inviting, with the pendant lamp casting a gentle glow over the space. The camera is positioned at a slight angle, capturing the room from the side, providing a view of the interior and the exterior.",
+    "finalPromptCaptured": true,
+    "promptSource": "Janus-Pro-1B + QWEN_OUTPAINT_PROMPT",
+    "promptGenerator": {
+      "model": "deepseek-ai/Janus-Pro-1B",
+      "seed": 298596445848600,
+      "temperature": 0.1,
+      "topP": 0.95,
+      "maxNewTokens": 999,
+      "question": "Write one concise English outpainting prompt based on this original image. Describe the visible scene, architecture, furnishings, materials, colors, lighting, camera viewpoint and perspective. Describe a natural continuation of the same scene beyond its edges, keeping the existing style and atmosphere. Use only visual evidence from this image; do not invent new subjects, decorations, text or frames. Return only the English prompt without headings or Markdown.",
+      "imageSource": "original-before-padding"
+    },
+    "originalSourceWidth": 864,
+    "originalSourceHeight": 1184,
+    "sourceResized": true,
+    "outpaintCanvas": {
+      "ratio": "3:4",
+      "resolution": "2K",
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "scale": 0.6666666666666666
+    }
+  },
+  "workflow": {
+    "key": "image-outpaint-qwen",
+    "label": "Qwen Image Edit 2511",
+    "version": "2026-10-19.3"
+  },
+  "request": {
+    "expansion": {
+      "left": 270,
+      "top": 342,
+      "right": 270,
+      "bottom": 341
+    },
+    "outputFormat": "png",
+    "referenceImageCount": 1,
+    "size": "1536x2048",
+    "syncMode": "lark",
+    "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+    "outpaintCanvas": {
+      "ratio": "3:4",
+      "resolution": "2K",
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "scale": 0.6666666666666666
+    },
+    "provider": "comfyui",
+    "ratio": "3:4",
+    "resolution": "2K",
+    "sizeMode": "preset",
+    "transport": "comfyui-workflow"
+  },
+  "totalMs": 86981,
+  "source": ".impeccable/review/qwen-outpaint-alignment/source.jpg"
+}

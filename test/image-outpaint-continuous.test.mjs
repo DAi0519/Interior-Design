@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖三引擎真实扩图控制器/共享 DOM fixture、连续变换模块及服务端共用的整数画布规划
- * [OUTPUT]: 对外提供亚像素逐帧拖动/四角缩放无冻结、固定比例与对角、结束/重绘无回弹、4K图像仅合成变换及提交网格误差界限回归保障
+ * [OUTPUT]: 对外提供亚像素逐帧拖动/四角缩放无冻结、固定比例与对角、结束/重绘无回弹、4K源图按2K目标仅合成变换及提交网格误差界限回归保障
  * [POS]: test 的扩图可见轨迹验证，保存旧整数算法的确定性对照，不以事件或函数计数代替连续性，不调用网络或 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -168,7 +168,8 @@ test("视觉保留浮点，提交只携带归一化构图且真实执行几何�
 test("4K源图高频移动和缩放仅写transform，源图布局宽高固定且不重传图片", () => {
   for (const operation of ["move", "resize"]) {
     const ui = fixture({ ...source, width: 4096, height: 3072 });
-    ui.root.querySelector('[data-outpaint-resolution="4K"]').dispatch("click");
+    assert.equal(ui.node("OutputSize").textContent, "2048 × 1152");
+    assert.equal(ui.request().items[0].input.outpaintCanvas.resolution, "2K");
     const target = operation === "move" ? ui.canvas : ui.handle("se");
     target.dispatch("mousedown", { clientX: 500, clientY: 500 });
     const base = { width: ui.image.style.width, height: ui.image.style.height };

@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖 image-ratio.js，接收公开模型能力、功能模式、参考图、Seedream 5.0 Pro 全景 4K 实验档、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
- * [OUTPUT]: 对外提供参考图主题与数量文案、含风格转换/美化/氛围转换的单图合同、按功能合并的比例分辨率选项，以及 Flux 推理/超分尺寸摘要
+ * [INPUT]: 依赖room-renovation 的旧房/空房模式判定、 image-ratio.js，接收公开模型能力、功能模式、参考图、Seedream 5.0 Pro 全景 4K 实验档、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
+ * [OUTPUT]: 含遮罩填充/旧房改造单张照片与多角度单图上传语义； 对外提供参考图主题与数量文案、含风格转换/美化/氛围转换的单图合同、按功能合并的比例分辨率选项，以及 Flux 推理/超分尺寸摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { isEmptyRoomDesign } from "./room-renovation.js";
 import { nearestSupportedRatio, sourceAspectLabel } from "./image-ratio.js";
 
 function modelResolutionKeys(model, ratio) {
@@ -25,22 +26,22 @@ function sizesForFeature(model, featureMode) {
 }
 
 export function referenceSubject(featureMode) {
-  return ({ whiteModel: "白模图", emptyRoom: "空房图", styleTransfer: "待转换空间图", refinedModel: "精模图",
+  return ({ whiteModel: "白模图", emptyRoom: "空房图", roomRenovation: "旧房照片", styleTransfer: "待转换空间图", refinedModel: "精模图",
     effectEnhancement: "待转换效果图", effectBeautification: "待美化效果图",
     panoramaEnhancement: "待美化全景图", imageOutpaint: "待扩图图片",
-    imageUpscale: "待超分图片" })[featureMode] || "参考图";
+    imageMultiAngle: "多角度原图", imageMaskFill: "待填充原图", imageUpscale: "待超分图片" })[featureMode] || "参考图";
 }
 
 export function referenceCapability({ featureMode, model, policy }) {
   const isWhiteModel = featureMode === "whiteModel";
-  const isEmptyRoom = featureMode === "emptyRoom";
+  const isEmptyRoom = isEmptyRoomDesign(featureMode);
   const isStyleTransfer = featureMode === "styleTransfer";
   const isRefinedModel = featureMode === "refinedModel";
   const isEffectEnhancement = featureMode === "effectEnhancement";
   const isEffectBeautification = featureMode === "effectBeautification";
   const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const fixedSingleImage = isWhiteModel || isEmptyRoom || isStyleTransfer || isRefinedModel
-    || isEffectEnhancement || isEffectBeautification || isPanoramaEnhancement;
+    || isEffectEnhancement || isEffectBeautification || isPanoramaEnhancement || featureMode === "imageMultiAngle";
   const subject = referenceSubject(featureMode);
   const requiresSingleImage =
     fixedSingleImage || model?.requiresReferenceImage === true;

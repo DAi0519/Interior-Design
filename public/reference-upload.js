@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖图片文件读取、可信尺寸探测、浏览器上传 DOM、服务端公开参考图策略与调用方数量/名称规则
- * [OUTPUT]: 对外提供可复用的单/多参考图上传控制器，统一预览、删除、拖放、单图原位替换、格式容量校验与变更通知
+ * [OUTPUT]: 对外提供可复用的单/多参考图上传控制器，统一预览、删除、拖放、单图文件选择/拖入原位替换、按当前功能策略的格式容量校验与变更通知
  * [POS]: public 的参考图上传交互层，被主白模/精模图与白模风格参考图两个独立输入位复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -54,7 +54,7 @@ export function bindReferenceUpload({
 
   function render() {
     const limit = getLimit();
-    const replaceEnabled = limit === 1 && images.length === 1;
+    const replaceEnabled = canReplaceImage();
     count.textContent = `${images.length} / ${limit}`;
     dropZone.classList.toggle("hidden", images.length >= limit);
     list.classList.toggle("replace-enabled", replaceEnabled);
@@ -94,14 +94,14 @@ export function bindReferenceUpload({
         return;
       }
       if (file.size > policy.maxBytesPerImage) {
-        showToast(`${file.name} 超过单张 8MB 限制`);
+        showToast(`${file.name} 超过单张 ${Math.floor(policy.maxBytesPerImage / 1024 / 1024)}MB 限制`);
         return;
       }
     }
     const currentBytes = baseImages.reduce((total, image) => total + image.size, 0);
     const incomingBytes = accepted.reduce((total, file) => total + file.size, 0);
     if (currentBytes + incomingBytes > policy.maxTotalBytes) {
-      showToast(`${subject}合计不能超过 20MB`);
+      showToast(`${subject}合计不能超过 ${Math.floor(policy.maxTotalBytes / 1024 / 1024)}MB`);
       return;
     }
 
@@ -130,7 +130,7 @@ export function bindReferenceUpload({
   }
 
   input.addEventListener("change", async (event) => {
-    await addFiles(event.target.files);
+    await addFiles(event.target.files, { replace: canReplaceImage() });
     event.target.value = "";
   });
   for (const eventName of ["dragenter", "dragover"]) {
@@ -149,13 +149,13 @@ export function bindReferenceUpload({
     await addFiles(event.dataTransfer.files);
   });
 
-  function canReplaceByDrop() {
+  function canReplaceImage() {
     return getLimit() === 1 && images.length === 1;
   }
 
   for (const eventName of ["dragenter", "dragover"]) {
     list.addEventListener(eventName, (event) => {
-      if (!canReplaceByDrop()) return;
+      if (!canReplaceImage()) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
       list.classList.add("dragging");
@@ -165,7 +165,7 @@ export function bindReferenceUpload({
     if (!list.contains(event.relatedTarget)) list.classList.remove("dragging");
   });
   list.addEventListener("drop", async (event) => {
-    if (!canReplaceByDrop()) return;
+    if (!canReplaceImage()) return;
     event.preventDefault();
     list.classList.remove("dragging");
     await addFiles(event.dataTransfer.files, { replace: true });

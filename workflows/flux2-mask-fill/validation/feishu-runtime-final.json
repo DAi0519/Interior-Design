@@ -1,0 +1,84 @@
+{
+  "at": "2026-10-21T10:38:40.245764+00:00",
+  "baseUrl": "http://127.0.0.1:4190",
+  "config": {
+    "available": true,
+    "reason": null,
+    "modes": [
+      {
+        "key": "prompt",
+        "label": "提示词填充",
+        "defaultMaskExpand": 10,
+        "available": true,
+        "reason": null
+      },
+      {
+        "key": "reference",
+        "label": "参考图填充",
+        "defaultMaskExpand": 80,
+        "available": true,
+        "reason": null
+      }
+    ],
+    "defaultMode": "prompt",
+    "inferenceTiers": [
+      {
+        "key": "2k",
+        "label": "2K",
+        "maxEdge": 2048
+      },
+      {
+        "key": "4k",
+        "label": "4K",
+        "maxEdge": 4096
+      },
+      {
+        "key": "original",
+        "label": "原图",
+        "maxEdge": null
+      }
+    ],
+    "defaultInferenceTier": "2k",
+    "maxOutputEdge": 2048,
+    "maxMaskExpand": 256,
+    "imagePolicy": {
+      "accept": [
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+      ],
+      "maskAccept": [
+        "image/png"
+      ],
+      "maxBytesPerImage": 6291456,
+      "maxEdge": 4096,
+      "maxPixels": 16777216
+    },
+    "syncMode": "lark",
+    "maxCount": 1,
+    "version": "2026-10-21.local.2"
+  },
+  "staticHttp": {
+    "/": 200,
+    "/image-mask-fill.js": 200,
+    "/image-mask-fill-geometry.js": 200,
+    "/image-mask-fill.css": 200
+  },
+  "legacyRejection": {
+    "status": 400,
+    "body": {
+      "error": "推理尺寸已改为推理档位，请刷新后选择2K、4K或原图"
+    }
+  },
+  "sourceSha256": {
+    "src/image-mask-fill-workflow.mjs": "2d12c2b71f015451579ebaa877f02b1a1545f6cce9d1651bdd5742788ee0106c",
+    "src/image-mask-fill-service.mjs": "ff44d8864571de85fc88535d4e2734b10a557cb1f0f9362af0c39aa27d2c92cd",
+    "src/image-mask-fill-archive.mjs": "24f9aa887d24bac6e88191f3f7529f2ba49c68910a76db74d394452a69b1056c",
+    "src/lark-sync.mjs": "7cf4fc4b614e35ad41cd35f4c16bae14d168a295bc66caf6124c344ec1dbd0fd",
+    "src/generation-job-api.mjs": "228f4c95edb366aecf6b159e2691aad5b23da01b29102354fce63cffc21fd070",
+    "src/generation-service.mjs": "7206d604446a017d9eb7b48cc1b85766cea77f1518fdf0da1b93002afbc17c79",
+    "public/image-mask-fill-geometry.js": "3d672795563a15ad83ef9f5c21ba6c1b190900fd095a050f275f4a08c0786c17",
+    "public/image-mask-fill.js": "129a5000f67a250760b35fd44f904d5dbc708892852bc408498990daf97f5c91"
+  },
+  "generationAttempted": false
+}

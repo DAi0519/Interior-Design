@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 white-model-render-mode.js 绑定的 style-choice-list/model-picker 容器与 model-picker.css 的同宽搜索单选视觉
- * [OUTPUT]: 对外提供设计风格下拉的全宽容器约束，搜索、选中小勾、禁用与键盘反馈由共享选择控件承接
+ * [INPUT]: 依赖 white-model-render-mode.js 绑定的 style-choice-list/model-picker 容器与 choice-select.css 的同宽搜索单选视觉
+ * [OUTPUT]: 对外提供设计风格下拉的全宽容器约束，搜索、黑底白字选中与橙勾、禁用与键盘反馈由共享选择控件承接
  * [POS]: public 的设计风格布局补充层，不再单独定义风格按钮或选中皮肤
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

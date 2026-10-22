@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图控制器、三引擎公开合同，以及由测试显式推进的浏览器动画帧
- * [OUTPUT]: 对外提供三引擎构图内存 DOM fixture、source/configs、可控 RAF 与合成变换后的浮点图像矩形，用于真实绑定连续交互及每帧绘制/全页写入计数
+ * [OUTPUT]: 对外提供含原比例的固定2K三引擎构图内存 DOM fixture、source/configs、显式旧轨迹16:9基线与可选真实默认、可控 RAF及浮点矩形/写入计数
  * [POS]: test 的扩图交互共享测试替身，不访问浏览器、网络或 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -112,7 +112,7 @@ export function renderedImageRect(image, target = { width: 2048, height: 1152 })
     width: base.width * scale, height: base.height * scale };
 }
 
-export function fixture(nextSource = source) {
+export function fixture(nextSource = source, { ratio = "16:9" } = {}) {
   const document = new Element("document");
   document.ownerDocument = document;
   document.writes = [];
@@ -131,7 +131,7 @@ export function fixture(nextSource = source) {
   const positionRoot = add("div", "");
   positionRoot.className = "image-outpaint-position";
   add("button", "imageOutpaintPositionReset", positionRoot);
-  for (const [key, values] of Object.entries({ outpaintRatio: ["1:1", "4:3", "16:9", "3:4", "9:16"], outpaintResolution: ["1K", "2K", "4K"], outpaintEngine: ["comfyui", "qwenImageEdit2511", "gptImage25Sunburst"] })) {
+  for (const [key, values] of Object.entries({ outpaintRatio: ["original", "1:1", "4:3", "16:9", "3:4", "9:16"], outpaintEngine: ["comfyui", "qwenImageEdit2511", "gptImage25Sunburst"] })) {
     for (const value of values) { const button = add("button", ""); button.dataset[key] = value; }
   }
   let current = nextSource;
@@ -139,6 +139,9 @@ export function fixture(nextSource = source) {
   const binding = bindImageOutpaint({ root, getSourceImage: () => current,
     emptyModel: document.createElement("span"), emptySize: document.createElement("span"), exactSize: document.createElement("span"), onChange() { changes += 1; } });
   binding.configure({ ...configs[0], engines: [{ ...configs[0], key: "comfyui", label: "Flux Fill" }, ...configs.slice(1)] });
+  // -------- 旧交互轨迹显式选择16:9；ratio:null用于验证控制器的真实初始值 --------
+  if (ratio) root.querySelector(`[data-outpaint-ratio="${ratio}"]`).dispatch("click");
+  changes = 0;
   return { root, document, canvas, image, binding, frames, node: (id) => root.querySelector(`#imageOutpaint${id}`),
     handle: (corner) => root.querySelector(`[data-outpaint-corner="${corner}"]`),
     preset: (multiple) => root.querySelector(`[data-outpaint-scale="${multiple}"]`),
