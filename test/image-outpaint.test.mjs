@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图服务/真实工作流、图片工具 API、生成任务入口、通用客户端与 sharp 图片样本
- * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选能力准入、HTTP前置400/409、扩图固定2K与旧四边兼容，图片工具六套超分目录/尺寸及主Beta缺节点目录同因阻断测试
+ * [OUTPUT]: 提供扩图尺寸/模型/HTTP合同，超分整图/后置恢复能力、保留VAE编解码槽位且无需外部切块及主Beta同因阻断测试
  * [POS]: test 的扩图应用与 HTTP 合同验证，使用内存客户端，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -458,4 +458,33 @@ test("只有健康接口而缺节点目录时主工作台与Beta均不可用且�
     beta.workflows.map(({ available, reason }) => ({ available, reason })));
   assert.equal(response.body.comfyUi.reason, beta.workflows[0].reason);
   assert.equal(healthReads, 0, "缺节点读取能力时健康回执不能代替能力准入");
+});
+
+test("整图KS无需外部切块节点，缺最终尺寸恢复节点时仅禁两KS且主Beta一致", async () => {
+  for (const missingPostResize of [false, true]) {
+    const info = upscaleCapabilityFixture(), requested = new Set();
+    assert.equal(info.SplitImageToTileList, undefined);
+    assert.equal(info.ImageMergeTileList, undefined);
+    const vae = info.SeedVR2LoadVAEModel.input.required;
+    assert.ok(vae.encode_tiled && vae.decode_tiled, "VAE保留已验证的内部编解码分块槽位");
+    assert.equal(vae.encode_areaCap, undefined);
+    assert.equal(vae.decode_areaCap, undefined);
+    assert.ok(info.ImageScale, "必须覆盖限面积后的最终尺寸恢复路径");
+    if (missingPostResize) delete info.ImageScale;
+    let main;
+    const imageUpscaleClient = { async checkHealth() { return { available: true }; },
+      async getObjectInfo([type]) { requested.add(type); return info[type] ? { [type]: info[type] } : {}; } };
+    const handler = createImageToolsApiHandler({ imageUpscaleClient,
+      sendJson(_response, status, body) { assert.equal(status, 200); main = body; } });
+    await handler({ method: "GET" }, {}, "/api/image-upscale/config");
+    const beta = await readBetaUpscaleConfig(imageUpscaleClient);
+    assert.equal(requested.has("SplitImageToTileList"), false);
+    assert.equal(requested.has("ImageMergeTileList"), false);
+    assert.equal(requested.has("ImageScale"), true);
+    assert.deepEqual(main.workflows.map(({ key, available, reason }) => ({ key, available, reason })),
+      beta.workflows.map(({ key, available, reason }) => ({ key, available, reason })));
+    assert.equal(main.workflows.filter(workflow => workflow.available).length, missingPostResize ? 4 : 6);
+    if (missingPostResize) assert.ok(main.workflows.filter(workflow => !workflow.available)
+      .every(workflow => workflow.key.startsWith("ks_") && /ImageScale/.test(workflow.reason)));
+  }
 });

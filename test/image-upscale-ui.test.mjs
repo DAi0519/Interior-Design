@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、图片超分浏览器控制器、服务端公开目录与内存 DOM/sessionStorage 替身
- * [OUTPUT]: 提供六工作流/逐项节点能力、KS2X/4K/6K与缓存恢复、输入范围、尺寸一致和单份图片/冻结版本请求保障
+ * [OUTPUT]: 提供六工作流/节点能力、KS最终2X/4K/6K与缓存、目录驱动整图限面积说明、输入范围及单份图片/冻结版本请求保障
  * [POS]: test 的图片超分交互测试，不提交 ComfyUI 任务或访问网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -147,16 +147,31 @@ test("失效工作流与档位回退到服务端默认", (t) => {
   assert.deepEqual(stale.remembered(), { resolution: "4K", workflowKey: stale.config.defaultWorkflowKey });
 });
 
-test("服务缺分块节点时只阻断对应KS并显示原因，其他工作流保持可用", (t) => {
+test("服务缺最终尺寸恢复节点时只阻断对应KS并显示原因，其他工作流保持可用", (t) => {
   const ui = fixture(t);
   ui.controller.configure({ ...ui.config, workflows: ui.config.workflows.map(workflow => ({ ...workflow,
-    available: workflow.key !== KS_KEY, reason: workflow.key === KS_KEY ? "缺少超分节点：ImageMergeTileList" : null })) });
+    available: workflow.key !== KS_KEY, reason: workflow.key === KS_KEY ? "缺少超分节点：ImageScale" : null })) });
   ui.choose(KS_KEY);
   assert.equal(ui.controller.isAvailable(), false);
-  assert.match(ui.note.textContent, /ImageMergeTileList/);
-  assert.throws(() => ui.controller.jobRequest({ image: { width: 1280, height: 720 }, jobId: "generation-not-submitted" }), /ImageMergeTileList/);
+  assert.match(ui.note.textContent, /ImageScale/);
+  assert.throws(() => ui.controller.jobRequest({ image: { width: 1280, height: 720 }, jobId: "generation-not-submitted" }), /ImageScale/);
   ui.choose(ui.config.defaultWorkflowKey);
   assert.equal(ui.controller.isAvailable(), true);
+});
+
+test("整图推理面积说明跟随目录，6K最终尺寸和请求不被改成推理尺寸", (t) => {
+  const ui = fixture(t, { source: { width: 3200, height: 3200 } });
+  const helpText = "整图推理面积小于20MP，超限时降低推理尺寸并等比恢复最终6K。";
+  ui.controller.configure({ ...ui.config, workflows: ui.config.workflows.map(workflow => ({ ...workflow,
+    helpText: workflow.key === KS_KEY ? helpText : workflow.helpText })) });
+  ui.choose(KS_KEY);
+  ui.resolution("6K");
+  assert.equal(ui.note.textContent, helpText);
+  assert.equal(ui.exactSize.textContent, "6144 × 6144");
+  const request = ui.controller.jobRequest({ image: { width: 3200, height: 3200 }, jobId: "generation-final-6k" });
+  assert.equal(request.items[0].input.resolution, "6K");
+  assert.equal(request.items[0].input.upscaleWorkflowVersion,
+    ui.config.workflows.find(workflow => workflow.key === KS_KEY).version);
 });
 
 for (const key of KS_KEYS) {

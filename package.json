@@ -1,13 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "两套 KS 超分在原图2倍、4K和6K全部使用重叠分块策略，取消按面积分流。",
-    "按目标画布自动适配小图和窄图块尺寸，融合后核验完整PNG宽高，保留原图比例。",
-    "统一分块执行时限、冻结工作流版本与逐项节点准入；分块异常不自动重复提交，历史结果继续按原版本恢复归档。"
+    "两套KS改为整图推理，取消外部切图和拼接；按SeedVR2内部补齐后的画布面积严格限制在20MP以下。",
+    "超过面积上限时等比缩小推理，并插值恢复所选原图2倍、4K或6K交付尺寸；分别记录推理与最终尺寸。",
+    "保留VAE省显存分块及36层/I/O卸载，兼容已有分块版本归档恢复，异常保留Prompt身份且不自动重复提交GPU。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

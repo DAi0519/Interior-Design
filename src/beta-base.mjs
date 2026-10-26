@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型/图片输入 Agent/独立扩图与超分工作流真源、Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
- * [OUTPUT]: 对外提供三表Schema/稳定模型单选标签及十功能快照，归档实际Prompt/工作流/尺寸/费用并回读；KS全档分块按冻结版本核验，历史整图/面积策略仅恢复原有产物，三类附件核验token/字节；已有附件验证后仅恢复状态，合同错误不可重试
+ * [OUTPUT]: 对外提供三表Schema/十功能归档回读；KS26.3整图ceil16补齐面积严格低于20MP，核验规划推理/最终成品/恢复插值；20.1/21.1整图、26.1面积策略与26.2分块仅按原合同恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -365,10 +365,19 @@ function verifyMetadata(fields, expected) {
   }
 }
 
-// -------- 旧KS整图及25MP分流只用于历史恢复，不改变当前全档分块策略 --------
+// -------- 历史整图/面积分流/全档分块只用于恢复；当前为受限面积整图 --------
 function isLegacyKsArchive(key, version, resolution) {
-  return key?.startsWith("ks_") && (["2026-10-21.1", "2026-10-26.1"].includes(version)
+  return key?.startsWith("ks_") && (["2026-10-21.1", "2026-10-26.1", "2026-10-26.2"].includes(version)
     || (version === "2026-10-20.1" && resolution === "2X"));
+}
+
+function legacyKsTiledPlan(target) {
+  const width = Math.min(2048, target.width), height = Math.min(2048, target.height);
+  const count = (length, size) => 1 + Math.ceil(Math.max(0, length - size) / Math.round(Math.max(size * 0.25, size - 256)));
+  return { strategy: "tiled", policyVersion: "ks-always-tiled-v2", tileWidth: width, tileHeight: height,
+    tileOverlap: 256, tileRows: count(target.height, height), tileColumns: count(target.width, width),
+    tileCount: count(target.height, height) * count(target.width, width), blocksToSwap: 36, swapIoComponents: true,
+    seedVrResolution: Math.min(width, height), seedVrMaxResolution: Math.max(width, height) };
 }
 
 function legacyKsAreaPlan(target, selectedResolution) {
@@ -409,7 +418,8 @@ function verifyUpscaleArchive(fields, snapshot, bytes = null, { recovering = fal
   const selectedResolution = definition.resolutions.find((resolution) => resolution.key === snapshot.resolution);
   const legacyKs = recovering && isLegacyKsArchive(key, workflow.workflowVersion, snapshot.resolution);
   const legacyArea = legacyKs && workflow.workflowVersion === "2026-10-26.1";
-  const legacyWhole = legacyKs && !legacyArea;
+  const legacyTiled = legacyKs && workflow.workflowVersion === "2026-10-26.2";
+  const legacyWhole = legacyKs && !legacyArea && !legacyTiled;
   if ((!legacyKs && workflow.workflowVersion !== definition.version)
     || (snapshot.upscaleWorkflowVersion && snapshot.upscaleWorkflowVersion !== workflow.workflowVersion)
     || (key.startsWith("ks_") && !legacyWhole && snapshot.upscaleWorkflowVersion !== workflow.workflowVersion)) {
@@ -424,7 +434,8 @@ function verifyUpscaleArchive(fields, snapshot, bytes = null, { recovering = fal
   const plan = legacyWhole ? { strategy: "whole", seedVrResolution: Math.min(target.width, target.height),
     seedVrMaxResolution: selectedResolution.scale ? 0 : target.longEdge }
     : legacyArea ? legacyKsAreaPlan(target, selectedResolution)
-      : imageUpscaleExecutionPlan({ ...target, resolution: snapshot.resolution, workflowKey: key });
+      : legacyTiled ? legacyKsTiledPlan(target)
+        : imageUpscaleExecutionPlan({ ...target, resolution: snapshot.resolution, workflowKey: key });
   if (workflow.seedVrResolution !== plan.seedVrResolution || workflow.seedVrMaxResolution !== plan.seedVrMaxResolution) {
     throw betaBaseContractError("超分实际 SeedVR2 推理尺寸回读不一致");
   }
@@ -436,7 +447,19 @@ function verifyUpscaleArchive(fields, snapshot, bytes = null, { recovering = fal
       || workflow.blocksToSwap !== plan.blocksToSwap || workflow.swapIoComponents !== plan.swapIoComponents
       || !isDeepStrictEqual(workflow.tiling, tiling)
       || (plan.strategy === "tiled" && (workflow.outputWidth !== target.width || workflow.outputHeight !== target.height))) {
-      throw betaBaseContractError("超分分块策略、实际参数或合并尺寸回读不一致");
+      throw betaBaseContractError("超分执行策略、实际参数或交付尺寸回读不一致");
+    }
+    if (!legacyKs) {
+      const inference = { inferenceWidth: plan.inferenceWidth, inferenceHeight: plan.inferenceHeight,
+        inferencePixelLimit: 20000000, paddedInferencePixels: plan.paddedInferencePixels, deliveryPostResize: plan.deliveryPostResize };
+      const padded = Math.ceil(workflow.inferenceWidth / 16) * 16 * Math.ceil(workflow.inferenceHeight / 16) * 16;
+      if (Object.entries(inference).some(([field, value]) => workflow[field] !== value)
+        || ![workflow.inferenceWidth, workflow.inferenceHeight, workflow.paddedInferencePixels].every(positiveInteger)
+        || padded !== workflow.paddedInferencePixels || padded >= 20000000
+        || workflow.deliveryPostResize !== (workflow.inferenceWidth !== target.width || workflow.inferenceHeight !== target.height)
+        || workflow.outputWidth !== target.width || workflow.outputHeight !== target.height) {
+        throw betaBaseContractError("超分整图推理面积、画布或交付恢复参数回读不一致");
+      }
     }
   } else if (legacyWhole && (workflow.executionStrategy && workflow.executionStrategy !== "whole"
     || workflow.tiling || workflow.executionPolicyVersion)) {

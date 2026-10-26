@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖真实 PNG/SeedVR2 工作流元数据、Beta独立三表 Store/归档投影、正式生成服务与内存 CLI/超分客户端
- * [OUTPUT]: 验证六套稳定标签/版本冻结、两KS始终分块4K/6K实际推理及最终尺寸回读、无Prompt恢复、旧20.1的2X历史合同及同步失败仅重归档
+ * [OUTPUT]: 验证六套稳定标签/版本冻结、两KS整图受限推理与4K/6K成品回读、恢复插值标记、无Prompt恢复及旧20.1的2X合同
  * [POS]: test 的 Beta AI超分归档合同测试，不提交 GPU、收费请求或真实飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -184,7 +184,8 @@ test("同步失败只重归档并复用已上传结果，恢复无Prompt记录�
   historical.workflow.workflowVersion = "2026-10-20.1";
   historical.workflow.seedVrResolution = 768;
   historical.workflow.seedVrMaxResolution = 0;
-  for (const field of ["executionStrategy", "executionPolicyVersion", "blocksToSwap", "swapIoComponents", "tiling"]) {
+  for (const field of ["executionStrategy", "executionPolicyVersion", "blocksToSwap", "swapIoComponents", "tiling",
+    "inferenceWidth", "inferenceHeight", "paddedInferencePixels", "inferencePixelLimit", "deliveryPostResize"]) {
     delete historical.workflow[field];
   }
   const oldSnapshot = JSON.parse(ui.fields["配置快照"]);
@@ -237,15 +238,19 @@ for (const workflowKey of ["ks_seedvr2_2x", "ks_seedvr2_2x_direct"]) {
       assert.equal(workflow.workflowId, workflowKey);
       assert.equal(workflow.workflowVersion, IMAGE_UPSCALE_WORKFLOWS[workflowKey].version);
       assert.equal(workflow.outputScale, undefined);
-      assert.equal(workflow.executionStrategy, "tiled");
-      assert.equal(workflow.executionPolicyVersion, "ks-always-tiled-v2");
-      assert.equal(workflow.seedVrMaxResolution, 2048);
-      assert.equal(workflow.seedVrResolution, 2048);
+      const [inferenceWidth, inferenceHeight] = resolution === "6K" ? [3864, 5152] : [width, height];
+      assert.equal(workflow.executionStrategy, "whole");
+      assert.equal(workflow.executionPolicyVersion, "ks-whole-area-cap-v3");
+      assert.equal(workflow.seedVrMaxResolution, inferenceHeight);
+      assert.equal(workflow.seedVrResolution, inferenceWidth);
       assert.equal(workflow.blocksToSwap, 36);
       assert.equal(workflow.swapIoComponents, true);
-      assert.deepEqual(workflow.tiling, { tileWidth: 2048, tileHeight: 2048,
-        overlap: 256, rows: resolution === "6K" ? 4 : 3, columns: resolution === "6K" ? 3 : 2,
-        tileCount: resolution === "6K" ? 12 : 6 });
+      assert.equal(workflow.tiling, undefined);
+      assert.deepEqual([workflow.inferenceWidth, workflow.inferenceHeight], [inferenceWidth, inferenceHeight]);
+      assert.equal(workflow.inferencePixelLimit, 20000000);
+      assert.equal(workflow.paddedInferencePixels, Math.ceil(inferenceWidth / 16) * 16 * Math.ceil(inferenceHeight / 16) * 16);
+      assert.ok(workflow.paddedInferencePixels < 20000000);
+      assert.equal(workflow.deliveryPostResize, resolution === "6K");
       assert.deepEqual([workflow.requestedOutputWidth, workflow.requestedOutputHeight], [width, height]);
       assert.deepEqual([workflow.outputWidth, workflow.outputHeight], [width, height]);
       assert.equal(workflow.inputMegapixels, IMAGE_UPSCALE_WORKFLOWS[workflowKey].inputMegapixels);

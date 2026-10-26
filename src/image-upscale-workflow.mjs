@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 依赖六套SeedVR2参数、原生切块/融合节点合同、单张Base64、目标宽高、冻结版本与请求级产物键
- * [OUTPUT]: 对外提供目录/比例尺寸、KS全部档位统一分块计划、可嵌入执行图及区分最终画布与tile推理的版本化元数据
+ * [INPUT]: 依赖六套SeedVR2参数、整图面积预算与精确缩放节点合同、单张Base64、目标宽高、冻结版本与请求级产物键
+ * [OUTPUT]: 对外提供目录/比例尺寸、KS全部档位严格20MP以下整图推理计划、可嵌入执行图及区分模型推理与插值交付的版本化元数据
  * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export const IMAGE_UPSCALE_OUTPUT_NODE_ID = "76";
-export const KS_UPSCALE_TILING_POLICY = Object.freeze({
-  version: "ks-always-tiled-v2", tileSize: 2048, overlap: 256,
+export const KS_UPSCALE_AREA_POLICY = Object.freeze({
+  version: "ks-whole-area-cap-v3", pixelLimit: 20_000_000, paddingMultiple: 16,
 });
 
 export const IMAGE_UPSCALE_RESOLUTIONS = Object.freeze({
@@ -94,13 +94,13 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     version: "2026-10-16.1",
   }),
   ks_seedvr2_2x: Object.freeze({
-    tiled: true,
+    areaCap: true,
     blocksToSwap: 36,
     cacheModel: false,
-    description: "对应KS-超分，0.75MP预处理后输出2倍或4K/6K，全部尺寸统一分块",
+    description: "对应KS-超分，0.75MP预处理后整图推理，面积严格低于20MP，保持2倍或4K/6K交付",
     displayLabel: "KS版 · 7B",
     ditOffloadDevice: "cpu",
-    helpText: "全图先以0.75MP预处理，输出原图2倍或4K/6K；全部尺寸统一分块，保持输出尺寸与比例。输入每边需为384–3200px。",
+    helpText: "全图先以0.75MP预处理，整图推理面积严格低于20MP；超限时缩小推理，再等比插值恢复所选2倍或4K/6K尺寸。输入每边需为384–3200px。",
     inputMegapixels: 0.75,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x",
@@ -110,16 +110,16 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     shortLabel: "KS版 · 7B",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
-    version: "2026-10-26.2",
+    version: "2026-10-26.3",
   }),
   ks_seedvr2_2x_direct: Object.freeze({
-    tiled: true,
+    areaCap: true,
     blocksToSwap: 36,
     cacheModel: false,
-    description: "KS原图直入，输出2倍或4K/6K，全部尺寸统一分块",
+    description: "KS原图直入整图推理，面积严格低于20MP，保持2倍或4K/6K交付",
     displayLabel: "KS直入 · 7B",
     ditOffloadDevice: "cpu",
-    helpText: "保留原图细节，不做0.75MP预缩放，输出原图2倍或4K/6K；全部尺寸统一分块，保持输出尺寸与比例。输入每边需为384–3200px。",
+    helpText: "不做0.75MP预缩放，整图推理面积严格低于20MP；超限时缩小推理，再等比插值恢复所选2倍或4K/6K尺寸。输入每边需为384–3200px。",
     inputMegapixels: null,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x_direct",
@@ -129,7 +129,7 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     shortLabel: "KS直入 · 7B",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
-    version: "2026-10-26.2",
+    version: "2026-10-26.3",
   }),
 });
 
@@ -153,7 +153,29 @@ function resolutionForWorkflow(workflow, resolution) {
   return selected;
 }
 
-// -------- KS统一分块；来源画布SHA不作为执行图指纹 --------
+// -------- 模型补齐后的整图面积预算；整数尺寸保留比例到最近偶数 --------
+function paddedInferencePixels(width, height) {
+  const unit = KS_UPSCALE_AREA_POLICY.paddingMultiple;
+  return Math.ceil(width / unit) * unit * Math.ceil(height / unit) * unit;
+}
+
+function cappedInferenceDimensions(width, height) {
+  const limit = KS_UPSCALE_AREA_POLICY.pixelLimit;
+  if (paddedInferencePixels(width, height) < limit) return { width, height };
+  const portrait = height > width, long = Math.max(width, height), short = Math.min(width, height);
+  let low = 1, high = Math.floor(long / 2), best = null;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2), longEdge = middle * 2;
+    const shortEdge = Math.max(2, Math.round(short * longEdge / long / 2) * 2);
+    if (paddedInferencePixels(longEdge, shortEdge) < limit) {
+      best = portrait ? { width: shortEdge, height: longEdge } : { width: longEdge, height: shortEdge };
+      low = middle + 1;
+    } else high = middle - 1;
+  }
+  if (!best) throw validationError("无法规划20MP以下的整图推理尺寸");
+  return best;
+}
+
 export function imageUpscaleExecutionPlan({ width, height, resolution, workflowKey }) {
   const workflow = imageUpscaleWorkflow(workflowKey);
   const selected = resolutionForWorkflow(workflow, resolution);
@@ -163,23 +185,22 @@ export function imageUpscaleExecutionPlan({ width, height, resolution, workflowK
   if (selected.longEdge && Math.max(width, height) !== selected.longEdge) {
     throw validationError(`图片超分所选${selected.key}目标长边必须为${selected.longEdge}px`);
   }
-  const policy = KS_UPSCALE_TILING_POLICY;
-  const tiled = workflow.tiled === true;
-  const tileWidth = tiled ? Math.min(policy.tileSize, width) : null;
-  const tileHeight = tiled ? Math.min(policy.tileSize, height) : null;
-  const count = (length, size) => 1 + Math.ceil(Math.max(0, length - size)
-    / Math.round(Math.max(size * 0.25, size - policy.overlap)));
-  const tileColumns = tiled ? count(width, tileWidth) : 1;
-  const tileRows = tiled ? count(height, tileHeight) : 1;
+  const controlled = workflow.areaCap === true;
+  if (controlled && [width, height].some(value => value % 2 !== 0)) {
+    throw validationError("KS超分目标宽高必须是偶数");
+  }
+  const inference = controlled ? cappedInferenceDimensions(width, height) : { width, height };
   return {
-    strategy: tiled ? "tiled" : "whole",
-    ...(workflow.tiled ? { policyVersion: policy.version } : {}),
-    tileWidth, tileHeight, tileOverlap: tiled ? policy.overlap : 0, tileColumns, tileRows,
-    tileCount: tileColumns * tileRows,
-    seedVrResolution: tiled ? Math.min(tileWidth, tileHeight) : Math.min(width, height),
-    seedVrMaxResolution: tiled ? Math.max(tileWidth, tileHeight) : selected.scale ? 0 : selected.longEdge,
-    blocksToSwap: tiled ? 36 : workflow.blocksToSwap,
-    swapIoComponents: tiled,
+    strategy: "whole",
+    ...(controlled ? { policyVersion: KS_UPSCALE_AREA_POLICY.version,
+      inferenceWidth: inference.width, inferenceHeight: inference.height,
+      paddedInferencePixels: paddedInferencePixels(inference.width, inference.height),
+      inferencePixelLimit: KS_UPSCALE_AREA_POLICY.pixelLimit,
+      deliveryPostResize: inference.width !== width || inference.height !== height } : {}),
+    seedVrResolution: Math.min(inference.width, inference.height),
+    seedVrMaxResolution: controlled ? Math.max(inference.width, inference.height) : selected.scale ? 0 : selected.longEdge,
+    blocksToSwap: workflow.blocksToSwap,
+    swapIoComponents: controlled,
   };
 }
 
@@ -271,8 +292,7 @@ export function createSeedVrUpscaleStage({
     upscaler: nodeIds.upscaler || "75",
     vae: nodeIds.vae || "74",
     canvas: nodeIds.canvas || (nodeIds.upscaler ? `${nodeIds.upscaler}-Canvas` : "77"),
-    tiles: nodeIds.tiles || (nodeIds.upscaler ? `${nodeIds.upscaler}-Tiles` : "78"),
-    merge: nodeIds.merge || (nodeIds.upscaler ? `${nodeIds.upscaler}-Merge` : "79"),
+    restore: nodeIds.restore || (nodeIds.upscaler ? `${nodeIds.upscaler}-Restore` : "78"),
   };
   const nodes = {
     [ids.dit]: {
@@ -310,7 +330,7 @@ export function createSeedVrUpscaleStage({
         color_correction: "lab",
         dit: [ids.dit, 0],
         enable_debug: false,
-        image: plan.strategy === "tiled" ? [ids.tiles, 0]
+        image: workflow.areaCap ? [ids.canvas, 0]
           : workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
         input_noise_scale: 0,
         latent_noise_scale: 0,
@@ -336,20 +356,17 @@ export function createSeedVrUpscaleStage({
       },
     };
   }
-  if (plan.strategy === "tiled") {
-    // 全图仅一次预处理，然后建立精确目标画布；每块保持尺寸，不能各自再次放大。
+  if (workflow.areaCap) {
+    // 只建立受限推理画布；Seed以1x处理整图，不把原目标再次带入模型。
     nodes[ids.canvas] = { class_type: "ImageScale", inputs: {
       image: workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
-      upscale_method: "lanczos", width, height, crop: "disabled",
+      upscale_method: "lanczos", width: plan.inferenceWidth, height: plan.inferenceHeight, crop: "disabled",
     } };
-    nodes[ids.tiles] = { class_type: "SplitImageToTileList", inputs: {
-      image: [ids.canvas, 0], tile_width: plan.tileWidth, tile_height: plan.tileHeight, overlap: plan.tileOverlap,
-    } };
-    nodes[ids.merge] = { class_type: "ImageMergeTileList", inputs: {
-      image_list: [ids.upscaler, 0], final_width: width, final_height: height, overlap: plan.tileOverlap,
+    if (plan.deliveryPostResize) nodes[ids.restore] = { class_type: "ImageScale", inputs: {
+      image: [ids.upscaler, 0], upscale_method: "lanczos", width, height, crop: "disabled",
     } };
   }
-  return { nodes, output: [plan.strategy === "tiled" ? ids.merge : ids.upscaler, 0], workflow };
+  return { nodes, output: [plan.deliveryPostResize ? ids.restore : ids.upscaler, 0], workflow };
 }
 
 export function createImageUpscaleWorkflow({
@@ -432,15 +449,16 @@ export function imageUpscaleWorkflowMetadata({
     seed,
     seedVrMaxResolution: plan.seedVrMaxResolution,
     seedVrResolution: plan.seedVrResolution,
-    ...(workflow.tiled ? {
+    ...(workflow.areaCap ? {
       executionStrategy: plan.strategy,
       executionPolicyVersion: plan.policyVersion,
       blocksToSwap: plan.blocksToSwap,
       swapIoComponents: plan.swapIoComponents,
-      ...(plan.strategy === "tiled" ? { tiling: {
-        tileWidth: plan.tileWidth, tileHeight: plan.tileHeight,
-        overlap: plan.tileOverlap, rows: plan.tileRows, columns: plan.tileColumns, tileCount: plan.tileCount,
-      } } : {}),
+      inferenceWidth: plan.inferenceWidth,
+      inferenceHeight: plan.inferenceHeight,
+      paddedInferencePixels: plan.paddedInferencePixels,
+      inferencePixelLimit: plan.inferencePixelLimit,
+      deliveryPostResize: plan.deliveryPostResize,
     } : {}),
     sourceSha256: workflow.sourceSha256,
     sourceHeight: generationRequest?.sourceHeight || null,

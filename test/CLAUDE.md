@@ -2,7 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
-image-upscale-tiling.test.mjs: 两KS全档位始终分块、单小块/横竖窄图真实块尺寸与网格、单次预处理/唯一输出、实际元数据/15分钟/版本漂移及失败不重提；无GPU
+image-upscale-area-cap.test.mjs: 两KS全档位整图/严格padding后20MP、最大偶数比例尺寸、无外部分块、推理/插值交付分离、非KS隔离、15分钟与异常不重提；无GPU
 image-mask-fill-qwen.test.mjs: Qwen双模式条件/遮罩同尺度、4步完整重绘/恢复回贴、独立目录/路由/零GPU阻断、真实尺寸及模型附件归档
 image-mask-fill-qwen-fixture.mjs: 2026-10-21 MaaS节点端口/模型固定快照，独立于执行图供Qwen离线合同验证
 image-mask-fill-ui.test.mjs: 框选/圈选入口常显且非GPT禁用并明确模型提示/GPT可用，画笔/矩形/自由圈选三历史独立/触屏闭合/取消保旧轮廓/换图清除/长轨迹简化≤2048、多边形归一化深拷贝及坏点退化准入、逐工具旧目录能力阻断/恢复、两模式mask互斥/推荐占位/手写保留/档位质量任务回归
@@ -33,7 +33,7 @@ beta-sample-library.test.mjs: 跨图像功能复用原样本ID/零重传、提�
 
 effect-beautification-ui.test.mjs: 效果图美化浏览器合同，六组合与失效缺省、独立单图主题、脱敏版本/就绪无常驻说明/失败原因及不携带环境控件的挂载语义骨架，使用纯函数/静态源码不触发真实生成
 
-image-outpaint.test.mjs: 扩图源图真实尺寸/EXIF、双UNET候选/枚举准入、固定2K与HTTP400/409合同；图片工具超分完整节点目录准入及主工作台/Beta缺节点同因阻断，均用内存替身
+image-outpaint.test.mjs: 扩图真实尺寸/EXIF/双UNET/固定2K与HTTP合同；超分整图保留VAE编解码槽位且无需外部分块节点、后置ImageScale准入及主/Beta缺节点同因阻断，均用内存替身
 image-outpaint-workflow.test.mjs: AI扩图1082来源/643线索、4K输入/32与8对齐、OneReward FP8默认与原版Flux Fill UNET/dtype唯一变化及metadata身份、原Janus/采样参数保真与19节点含SaveText实际正文透传/History捕获、传输适配/请求隔离及实际尺寸追溯测试，不提交GPU任务
 image-outpaint-oneapi.test.mjs: Sunburst 与 Flux 独立的16384原图/3840适配图边界、4000源图单次等比缩放与狭长源图完整内容/目标短边最小补边及归档事实、原尺寸/透明画布/不透明矩形 mask、九个2K预设及原比例16px/像素/长边/3:1边界、普通生图1K/4K目录隔离、产物身份/费用/权限/HTTP路由及错尺寸多图零重试合同测试，使用假客户端
 image-outpaint-canvas.test.mjs: 三引擎原比例与五预设的固定2K目标、可信源比例/8及16网格误差/缩放保持目标、Sunburst原比例超3:1只最小扩大目标短边、省略档位默认2K与显式1K/4K/null拒绝、4K源图适配/定位总和、非法400、EXIF真实方向重算与实际resize字节、透明遮罩及合法旧2K四边兼容测试，不提交GPU或付费任务
@@ -76,9 +76,9 @@ beta-recovery.test.mjs: 已上传结果按冻结配置/样本/模型/测试时�
 beta-runner.test.mjs: 含AI扩图的十功能目录、异步配置及普通Beta批次回归，覆盖空房逐样本房型、当前Key Agent权限/409阻断、测试时间、无限结果、去重资产、两路并发、单Run单图、生成/同步双阶段、回读后预览、瞬时生成三次Attempt、同步失败仅重试归档及全部归档前的忙碌守卫
 beta-upscale.test.mjs: 六工作流目录/真实身份/档位和版本冻结、共享执行图能力准入、按ID惰性取图及真实尺寸建档前校验、双进度/仅同步失败重试，不调用GPU或飞书
 beta-upscale-ui.test.mjs: 超分多选与可用性、普通/KS/混选尺寸交集、6K全候选同档位请求、动态目录缩减/空交集阻断、缓存迁移及真实增强下拉不递归的DOM测试
-beta-upscale-archive.test.mjs: 六工作流稳定归档标签与冻结版本，两KS始终分块4K/6K经正式服务到Base核验实际tile参数和最终PNG尺寸；无Prompt/旧20.1的2X恢复及同步失败只重归档
-beta-upscale-integration.test.mjs: 页面六工作流同档位请求经Runner/正式服务到独立归档，区分KS全档tile与最终尺寸，验证版本/SHA及主工作台local-only隔离，不提交GPU或Base写入
-beta-upscale-tiling.test.mjs: KS全档分块能力/冻结版本及Base实际参数合同，小图单tile/窄tile精确归档、旧21.1整图与26.1面积策略只读恢复，拒绝新策略漂移；正式Runner冷恢复旧26.1附件、缺原结果/冻结篡改/伪造恢复开关均零GPU守卫
+beta-upscale-archive.test.mjs: 六工作流稳定标签/版本，两KS26.3整图实际推理/ceil16面积上限与4K/6K最终PNG、交付插值经正式服务到Base逐项回读；无Prompt/旧20.1的2X恢复及同步失败只重归档
+beta-upscale-integration.test.mjs: 页面六工作流同档位请求经Runner/正式服务到独立归档，验证KS26.3整图20MP上限/最终尺寸/恢复标记、版本/SHA及主工作台local-only隔离，无GPU或Base写入
+beta-upscale-area-cap.test.mjs: KS26.3整图受限面积及成品恢复归档，拒绝20MP等号/伪造推理参数/旧分块元数据；21.1整图、26.1面积与26.2分块仅按原合同恢复；Runner受信旧任务有附件恢复，无附件/篡改零建档零GPU
 beta-outpaint.test.mjs: 四工作流真源/脱敏能力与固定2K原比例/预设/居中/三倍率合同，客户端身份冲突/非2K/四边/资产重传零入队、不可用候选及排队后失效阻断、同样本四工作流lazy读取/真实标签、建档前真实尺寸400与4000px源适配、Comfy无Prompt Agent Key、Sunburst生成/归档失败不重复收费提交；内存替身无外部调用
 beta-outpaint-integration.test.mjs: 页面样本乘四工作流经Runner与真实generationService/扩图适配器到captureBetaGenerationArchive的跨层测试，验证两Flux模型/Qwen/Sunburst单次路由、实际Prompt/版本/2K画布及独立Beta归档、生成同步4/4、普通模型/4K配置与扩图状态隔离；模型和Base全部mock
 beta-panorama.test.mjs: 全景样本真实2:1/伪尺寸/8MB保护、ID元数据零原图入队、执行时原图比例校验、GPT2.5/Banana2.1非2:1模型阻断、独立冻结Prompt版本归档及Seedream全景4K/普通Flux工作流的内存合同测试
@@ -97,7 +97,7 @@ image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合�
 generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与忙碌态、内嵌 Smiley Sans、版本化主题引用、精密键帽反馈、761px 起禁止外面板焦点滚动的独立配置区、不遮挡控件的底部动作栏及窄屏自然流布局
 generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离、带版本的入口与页面内存边界，不提交真实生图任务
 feature-directory.test.mjs: 桌面外面板禁止焦点滚动与隐藏下拉定位边界、生图工作台信息架构静态合同测试，覆盖AI设计/AI渲染/AI编辑/AI创作四组、十三功能唯一入口/旧房改造与风格转换归属AI设计/图片超分与AI扩图归属AI编辑、黑色粗体分类、144px目录与11/12px字号、图片上传置顶、桌面双面板及窄屏两列分组
-image-upscale-ui.test.mjs: 六工作流真实控制器、KS2X/4K/6K尺寸与两条输入路径、4K/6K切换保留和8K回退/旧倍率缓存、增强select同步、前后端几何一致及单份图片请求；无网络或GPU
+image-upscale-ui.test.mjs: 六工作流真实控制器、KS最终2X/4K/6K选择和缓存/输入范围、目录驱动整图面积说明及最终尺寸与请求不缩档、缺后置节点阻断、单份原图与冻结版本；无网络/GPU
 empty-room-furniture.test.mjs: 空房家具跨层合同测试，覆盖线上目录推荐合法性、剥离“其他”入口、已选正向需求、未选及空条件省略、明确排除原文保留、其他家具/非法输入、浏览器请求、两条 Agent 路由、缓存隔离和飞书可读归档
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
