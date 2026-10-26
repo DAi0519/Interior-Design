@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+image-upscale-tiling.test.mjs: 两KS全档位始终分块、单小块/横竖窄图真实块尺寸与网格、单次预处理/唯一输出、实际元数据/15分钟/版本漂移及失败不重提；无GPU
 image-mask-fill-qwen.test.mjs: Qwen双模式条件/遮罩同尺度、4步完整重绘/恢复回贴、独立目录/路由/零GPU阻断、真实尺寸及模型附件归档
 image-mask-fill-qwen-fixture.mjs: 2026-10-21 MaaS节点端口/模型固定快照，独立于执行图供Qwen离线合同验证
 image-mask-fill-ui.test.mjs: 框选/圈选入口常显且非GPT禁用并明确模型提示/GPT可用，画笔/矩形/自由圈选三历史独立/触屏闭合/取消保旧轮廓/换图清除/长轨迹简化≤2048、多边形归一化深拷贝及坏点退化准入、逐工具旧目录能力阻断/恢复、两模式mask互斥/推荐占位/手写保留/档位质量任务回归
@@ -32,7 +33,7 @@ beta-sample-library.test.mjs: 跨图像功能复用原样本ID/零重传、提�
 
 effect-beautification-ui.test.mjs: 效果图美化浏览器合同，六组合与失效缺省、独立单图主题、脱敏版本/就绪无常驻说明/失败原因及不携带环境控件的挂载语义骨架，使用纯函数/静态源码不触发真实生成
 
-image-outpaint.test.mjs: AI扩图EXIF/真实4K输入按固定2K适配与合法旧2K四边原字节合同、新旧COMBO SaveText格式前置阻断、旧四边与保护上限、OneReward FP8/Flux Fill dev候选独立文件/dtype能力探测及失败不缓存、执行前实时模型复核与身份透传、HTTP未知400/不可用409零入队及专用客户端/OneAPI隔离、图片工具六套超分目录与逐项尺寸合同、扩图飞书Schema入队阻断与pending归档测试，不提交GPU任务
+image-outpaint.test.mjs: 扩图源图真实尺寸/EXIF、双UNET候选/枚举准入、固定2K与HTTP400/409合同；图片工具超分完整节点目录准入及主工作台/Beta缺节点同因阻断，均用内存替身
 image-outpaint-workflow.test.mjs: AI扩图1082来源/643线索、4K输入/32与8对齐、OneReward FP8默认与原版Flux Fill UNET/dtype唯一变化及metadata身份、原Janus/采样参数保真与19节点含SaveText实际正文透传/History捕获、传输适配/请求隔离及实际尺寸追溯测试，不提交GPU任务
 image-outpaint-oneapi.test.mjs: Sunburst 与 Flux 独立的16384原图/3840适配图边界、4000源图单次等比缩放与狭长源图完整内容/目标短边最小补边及归档事实、原尺寸/透明画布/不透明矩形 mask、九个2K预设及原比例16px/像素/长边/3:1边界、普通生图1K/4K目录隔离、产物身份/费用/权限/HTTP路由及错尺寸多图零重试合同测试，使用假客户端
 image-outpaint-canvas.test.mjs: 三引擎原比例与五预设的固定2K目标、可信源比例/8及16网格误差/缩放保持目标、Sunburst原比例超3:1只最小扩大目标短边、省略档位默认2K与显式1K/4K/null拒绝、4K源图适配/定位总和、非法400、EXIF真实方向重算与实际resize字节、透明遮罩及合法旧2K四边兼容测试，不提交GPU或付费任务
@@ -73,10 +74,11 @@ beta-run-id.test.mjs: Beta跑图人工分组时间、技术 Run ID 本地日期�
 beta-retry.test.mjs: 手动重试仅失败项/成功项保留、free文本与空房元数据冻结、生成Attempt续号、仅同步失败零生成、重复点击幂等、旧registry冻结批次迁移/已有附件恢复优先与逐Run脱敏预警；内存模型/飞书替身
 beta-recovery.test.mjs: 已上传结果按冻结配置/样本/模型/测试时间与真实下载bytes/尺寸/SHA-256恢复原记录，禁止生图/重传、真实费用漂移阻断、浮点尾差容忍及归档重试上传幂等；本地真实PNG/CLI替身
 beta-runner.test.mjs: 含AI扩图的十功能目录、异步配置及普通Beta批次回归，覆盖空房逐样本房型、当前Key Agent权限/409阻断、测试时间、无限结果、去重资产、两路并发、单Run单图、生成/同步双阶段、回读后预览、瞬时生成三次Attempt、同步失败仅重试归档及全部归档前的忙碌守卫
-beta-upscale.test.mjs: 六工作流目录/真实身份/档位、Comfy无Key准入与候选失效、按ID惰性取图及真实尺寸建档前校验、两路并发/冻结配置/仅同步失败重试合同测试，不调用GPU或飞书
+beta-upscale.test.mjs: 六工作流目录/真实身份/档位和版本冻结、共享执行图能力准入、按ID惰性取图及真实尺寸建档前校验、双进度/仅同步失败重试，不调用GPU或飞书
 beta-upscale-ui.test.mjs: 超分多选与可用性、普通/KS/混选尺寸交集、6K全候选同档位请求、动态目录缩减/空交集阻断、缓存迁移及真实增强下拉不递归的DOM测试
-beta-upscale-archive.test.mjs: 六工作流Schema与稳定归档标签、两KS4K/6K实际PNG经服务到Base逐字段回读、无Prompt历史恢复及旧2X兼容，伪造倍率/max阻断；仅CLI和图片替身
-beta-upscale-integration.test.mjs: 页面六工作流同档位展开经Runner/真实generationService到独立归档，验证源/目标/结果尺寸及两KS2X/4K/6K、双阶段与主工作台local-only隔离，不提交GPU或Base写入
+beta-upscale-archive.test.mjs: 六工作流稳定归档标签与冻结版本，两KS始终分块4K/6K经正式服务到Base核验实际tile参数和最终PNG尺寸；无Prompt/旧20.1的2X恢复及同步失败只重归档
+beta-upscale-integration.test.mjs: 页面六工作流同档位请求经Runner/正式服务到独立归档，区分KS全档tile与最终尺寸，验证版本/SHA及主工作台local-only隔离，不提交GPU或Base写入
+beta-upscale-tiling.test.mjs: KS全档分块能力/冻结版本及Base实际参数合同，小图单tile/窄tile精确归档、旧21.1整图与26.1面积策略只读恢复，拒绝新策略漂移；正式Runner冷恢复旧26.1附件、缺原结果/冻结篡改/伪造恢复开关均零GPU守卫
 beta-outpaint.test.mjs: 四工作流真源/脱敏能力与固定2K原比例/预设/居中/三倍率合同，客户端身份冲突/非2K/四边/资产重传零入队、不可用候选及排队后失效阻断、同样本四工作流lazy读取/真实标签、建档前真实尺寸400与4000px源适配、Comfy无Prompt Agent Key、Sunburst生成/归档失败不重复收费提交；内存替身无外部调用
 beta-outpaint-integration.test.mjs: 页面样本乘四工作流经Runner与真实generationService/扩图适配器到captureBetaGenerationArchive的跨层测试，验证两Flux模型/Qwen/Sunburst单次路由、实际Prompt/版本/2K画布及独立Beta归档、生成同步4/4、普通模型/4K配置与扩图状态隔离；模型和Base全部mock
 beta-panorama.test.mjs: 全景样本真实2:1/伪尺寸/8MB保护、ID元数据零原图入队、执行时原图比例校验、GPT2.5/Banana2.1非2:1模型阻断、独立冻结Prompt版本归档及Seedream全景4K/普通Flux工作流的内存合同测试

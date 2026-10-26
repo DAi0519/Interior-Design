@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、图片超分浏览器控制器、服务端公开目录与内存 DOM/sessionStorage 替身
- * [OUTPUT]: 对外提供六工作流选择、KS两版2X/4K/6K合法尺寸切换与旧2X缓存恢复、输入范围、前后端尺寸一致及单份图片请求的回归保障
+ * [OUTPUT]: 提供六工作流/逐项节点能力、KS2X/4K/6K与缓存恢复、输入范围、尺寸一致和单份图片/冻结版本请求保障
  * [POS]: test 的图片超分交互测试，不提交 ComfyUI 任务或访问网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -147,6 +147,18 @@ test("失效工作流与档位回退到服务端默认", (t) => {
   assert.deepEqual(stale.remembered(), { resolution: "4K", workflowKey: stale.config.defaultWorkflowKey });
 });
 
+test("服务缺分块节点时只阻断对应KS并显示原因，其他工作流保持可用", (t) => {
+  const ui = fixture(t);
+  ui.controller.configure({ ...ui.config, workflows: ui.config.workflows.map(workflow => ({ ...workflow,
+    available: workflow.key !== KS_KEY, reason: workflow.key === KS_KEY ? "缺少超分节点：ImageMergeTileList" : null })) });
+  ui.choose(KS_KEY);
+  assert.equal(ui.controller.isAvailable(), false);
+  assert.match(ui.note.textContent, /ImageMergeTileList/);
+  assert.throws(() => ui.controller.jobRequest({ image: { width: 1280, height: 720 }, jobId: "generation-not-submitted" }), /ImageMergeTileList/);
+  ui.choose(ui.config.defaultWorkflowKey);
+  assert.equal(ui.controller.isAvailable(), true);
+});
+
 for (const key of KS_KEYS) {
   for (const resolution of ["2X", "4K", "6K"]) test(`${key}提交显式${resolution}且只传一份图片正文`, (t) => {
     const ui = fixture(t, { remembered: JSON.stringify({ workflowKey: key, resolution }) });
@@ -154,7 +166,8 @@ for (const key of KS_KEYS) {
       type: "image/png", width: 1280, height: 720 };
     const request = ui.controller.jobRequest({ image, jobId: "generation-fixture" });
     assert.equal(request.featureMode, "imageUpscale");
-    assert.deepEqual(request.items[0].input, { resolution, upscaleWorkflowKey: key });
+    assert.deepEqual(request.items[0].input, { resolution, upscaleWorkflowKey: key,
+      upscaleWorkflowVersion: ui.config.workflows.find(workflow => workflow.key === key).version });
     assert.equal(request.items[0].key, key);
     assert.ok(request.items[0].label.includes(resolution === "2X" ? "原图2倍" : resolution));
     assert.equal(request.sharedInput.referenceImages[0].dataUrl, image.dataUrl);

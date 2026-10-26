@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖真实 PNG/SeedVR2 工作流元数据、Beta独立三表 Store/归档投影、正式生成服务与内存 CLI/超分客户端
- * [OUTPUT]: 验证六套稳定归档标签与冻结配置、两KS新4K/6K真实请求/尺寸/参数逐字段回读、无Prompt恢复、旧2X历史兼容及同步失败仅重归档
+ * [OUTPUT]: 验证六套稳定标签/版本冻结、两KS始终分块4K/6K实际推理及最终尺寸回读、无Prompt恢复、旧20.1的2X历史合同及同步失败仅重归档
  * [POS]: test 的 Beta AI超分归档合同测试，不提交 GPU、收费请求或真实飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -101,7 +101,7 @@ test("AI超分六个稳定工作流按真源标签冻结，客户端展示名和
     const fields = buildBetaRunFields({ ...request(), item: { ...request().item, input, modelLabel: "伪造标签" } });
     assert.equal(fields["功能"], "AI超分");assert.equal(fields["出图模型"], workflow.label);
     assert.deepEqual(JSON.parse(fields["配置快照"]), { modelKey: workflow.key,
-      upscaleWorkflowKey: workflow.key, resolution: input.resolution });
+      upscaleWorkflowKey: workflow.key, upscaleWorkflowVersion: workflow.version, resolution: input.resolution });
     assert.equal(JSON.parse(fields["场景参数"]).upscaleWorkflowKey, workflow.key);
   }
   for (const patch of [{ upscaleWorkflowKey: "missing" }, { modelKey: "banana21" }]) {
@@ -182,6 +182,14 @@ test("同步失败只重归档并复用已上传结果，恢复无Prompt记录�
   delete ui.fields["最终 Prompt"];
   const historical = JSON.parse(ui.fields["生成参数"]);
   historical.workflow.workflowVersion = "2026-10-20.1";
+  historical.workflow.seedVrResolution = 768;
+  historical.workflow.seedVrMaxResolution = 0;
+  for (const field of ["executionStrategy", "executionPolicyVersion", "blocksToSwap", "swapIoComponents", "tiling"]) {
+    delete historical.workflow[field];
+  }
+  const oldSnapshot = JSON.parse(ui.fields["配置快照"]);
+  delete oldSnapshot.upscaleWorkflowVersion;
+  ui.fields["配置快照"] = JSON.stringify(oldSnapshot);
   ui.fields["生成参数"] = JSON.stringify(historical);
   ui.fields["Prompt / 工作流版本"] = `${key}@2026-10-20.1`;
   const before = ui.uploads.length;
@@ -189,7 +197,9 @@ test("同步失败只重归档并复用已上传结果，恢复无Prompt记录�
   assert.equal(recovered.recordId, run.recordId);assert.equal(ui.fields["状态"], "成功");
   assert.equal(ui.uploads.length, before);
   assert.equal(ui.commands.filter(args => args.includes("+record-download-attachment")).length, 1);
-  assert.deepEqual(JSON.parse(ui.fields["生成参数"]).workflow, { ...metadata(), workflowVersion: "2026-10-20.1" });
+  assert.deepEqual(JSON.parse(ui.fields["生成参数"]).workflow, historical.workflow);
+  assert.equal(JSON.parse(ui.fields["生成参数"]).workflow.workflowVersion, "2026-10-20.1");
+  assert.equal(Object.hasOwn(JSON.parse(ui.fields["配置快照"]), "upscaleWorkflowVersion"), false);
 });
 
 for (const workflowKey of ["ks_seedvr2_2x", "ks_seedvr2_2x_direct"]) {
@@ -219,15 +229,25 @@ for (const workflowKey of ["ks_seedvr2_2x", "ks_seedvr2_2x_direct"]) {
       assert.equal(submitted.images[0].image_url, source.dataUrl);
       assert.equal(ui.fields["出图模型"], IMAGE_UPSCALE_WORKFLOWS[workflowKey].label, "公开新名称不迁移稳定归档单选");
       assert.equal(ui.fields["尺寸"], `${width}x${height}`);
-      assert.deepEqual(JSON.parse(ui.fields["配置快照"]), { modelKey: workflowKey, upscaleWorkflowKey: workflowKey, resolution, outputFormat: "png" });
+      assert.deepEqual(JSON.parse(ui.fields["配置快照"]), { modelKey: workflowKey, upscaleWorkflowKey: workflowKey,
+        upscaleWorkflowVersion: IMAGE_UPSCALE_WORKFLOWS[workflowKey].version, resolution, outputFormat: "png" });
       const parameters = JSON.parse(ui.fields["生成参数"]), workflow = parameters.workflow;
       assert.equal(parameters.resolution, resolution);
       assert.equal(workflow.resolution, resolution);
       assert.equal(workflow.workflowId, workflowKey);
-      assert.equal(workflow.workflowVersion, "2026-10-21.1");
+      assert.equal(workflow.workflowVersion, IMAGE_UPSCALE_WORKFLOWS[workflowKey].version);
       assert.equal(workflow.outputScale, undefined);
-      assert.equal(workflow.seedVrMaxResolution, height);
-      assert.equal(workflow.seedVrResolution, width);
+      assert.equal(workflow.executionStrategy, "tiled");
+      assert.equal(workflow.executionPolicyVersion, "ks-always-tiled-v2");
+      assert.equal(workflow.seedVrMaxResolution, 2048);
+      assert.equal(workflow.seedVrResolution, 2048);
+      assert.equal(workflow.blocksToSwap, 36);
+      assert.equal(workflow.swapIoComponents, true);
+      assert.deepEqual(workflow.tiling, { tileWidth: 2048, tileHeight: 2048,
+        overlap: 256, rows: resolution === "6K" ? 4 : 3, columns: resolution === "6K" ? 3 : 2,
+        tileCount: resolution === "6K" ? 12 : 6 });
+      assert.deepEqual([workflow.requestedOutputWidth, workflow.requestedOutputHeight], [width, height]);
+      assert.deepEqual([workflow.outputWidth, workflow.outputHeight], [width, height]);
       assert.equal(workflow.inputMegapixels, IMAGE_UPSCALE_WORKFLOWS[workflowKey].inputMegapixels);
       assert.equal(workflow.outputSha256, digest(bytes));
       assert.deepEqual([workflow.sourceWidth, workflow.sourceHeight], [384, 512]);

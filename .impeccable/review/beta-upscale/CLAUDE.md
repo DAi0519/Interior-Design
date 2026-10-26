@@ -12,6 +12,7 @@ ks-output-size-options.png: 2026-10-21 Beta原图2倍/4K/6K菜单与6K选中态
 ks-output-size-validation.json: 2026-10-21尺寸改造的运行目录、浏览器、自动化及真实跑图验收边界
 ks-output-size-tests.log: 2026-10-21尺寸改造后1013项全量测试通过日志
 ks-6k-oom-diagnosis.json: 2026-10-21真实864×1184输入到4484×6144目标的KS直入DiT显存不足；节点参数/旧成功样本/同目标图差分及因果边界，未重新提交GPU
+ks-always-tiled-validation-20261026.json: v0.1.18/KS26.2全档统一分块、1118测试与4项真实HTTP边界/PNG/History核验，受信旧批次恢复及发布前边界回执
 CLAUDE.md: 本次AI超分接入的验证证据地图
 
 初次接入验证（历史）：六工作流目录真实ComfyUI只读能力全部可用；独立Beta三表Schema及新增功能/模型标签完成实时回读；浏览器验证多选、当时KS固定2X、混选长边与刷新恢复、桌面/窄屏布局。未替用户启动真实批次，画质与真实任务归档仍需实际跑图验收。

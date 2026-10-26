@@ -1,16 +1,16 @@
 /**
- * [INPUT]: 依赖六套图片超分执行图/安全目录/真实尺寸真源、参考图字节校验与专用 ComfyUI 只读健康及节点接口
- * [OUTPUT]: 对外提供 Beta 超分安全目录、无缓存能力读取、普通长边与KS原图2倍/4K/6K逐档冻结输入、显示标签与建档前真实尺寸核验
+ * [INPUT]: 依赖六套超分尺寸/安全目录、image-upscale-service共用的整图/分块能力读取及参考图真实字节校验
+ * [OUTPUT]: 对外提供 Beta 超分目录/版本冻结与执行前阻断；仅受信失败批次可保留白名单旧KS版本进入已有附件恢复，不能重新生成
  * [POS]: src 的 Beta AI超分合同边界，复用正式超分执行图与尺寸规则，不复制推理或归档逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import {
-  createImageUpscaleWorkflow,
   imageUpscaleTargetDimensions,
   imageUpscaleWorkflow,
   publicImageUpscaleConfig,
 } from "./image-upscale-workflow.mjs";
+import { readImageUpscaleConfig } from "./image-upscale-service.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 
 function inputError(message) {
@@ -38,61 +38,18 @@ export function publicBetaUpscaleConfig(rawConfig = {}) {
   };
 }
 
-// -------- 直接从执行图推导节点合同，所选模型失效不影响其他候选 --------
-function capabilityGraph(workflow) {
-  const resolution = workflow.resolutions[0];
-  const width = resolution.scale ? 1024 : resolution.longEdge;
-  return createImageUpscaleWorkflow({ artifactKey: "beta-capability", imageBase64: "", seed: 4,
-    generationRequest: { upscaleWorkflowKey: workflow.key, resolution: resolution.key },
-    width, height: resolution.scale ? 1024 : width / 2 });
-}
-
-function verifyGraphCapabilities(graph, objectInfo) {
-  for (const node of Object.values(graph)) {
-    const schema = objectInfo[node.class_type]?.input;
-    if (!schema) throw new Error(`缺少超分节点：${node.class_type}`);
-    for (const field of Object.keys(schema.required || {})) {
-      if (!(field in node.inputs)) throw new Error(`超分节点接口不兼容：${node.class_type}.${field}`);
-    }
-    for (const [field, value] of Object.entries(node.inputs)) {
-      const specification = schema.required?.[field] || schema.optional?.[field];
-      if (!specification) throw new Error(`超分节点接口不兼容：${node.class_type}.${field}`);
-      if (Array.isArray(value)) continue;
-      const choices = Array.isArray(specification[0]) ? specification[0]
-        : specification[0] === "COMBO" ? specification[1]?.options : null;
-      if (choices && !choices.includes(value)) {
-        throw new Error(`超分节点配置尚未就绪：${node.class_type}.${field}`);
-      }
-    }
-  }
-}
-
+// -------- 主工作台与Beta共用同一套执行图能力门禁 --------
 export async function readBetaUpscaleConfig(imageClient) {
-  const config = publicImageUpscaleConfig();
   if (!imageClient?.checkHealth || !imageClient?.getObjectInfo) return publicBetaUpscaleConfig();
-  const graphs = config.workflows.map((workflow) => capabilityGraph(workflow));
-  const classTypes = [...new Set(graphs.flatMap((graph) => Object.values(graph).map((node) => node.class_type)))];
-  try {
-    const [health, schemas] = await Promise.all([imageClient.checkHealth(),
-      Promise.allSettled(classTypes.map((type) => imageClient.getObjectInfo([type])))]);
-    if (!health?.available) return publicBetaUpscaleConfig();
-    const objectInfo = Object.assign({}, ...schemas.filter((result) => result.status === "fulfilled").map((result) => result.value));
-    const workflows = config.workflows.map((workflow, index) => {
-      try {
-        verifyGraphCapabilities(graphs[index], objectInfo);
-        return { key: workflow.key, available: true };
-      } catch (error) {
-        return { key: workflow.key, available: false, reason: error.message };
-      }
-    });
-    return publicBetaUpscaleConfig({ workflows });
-  } catch {
-    return publicBetaUpscaleConfig({ comfyUi: { available: false, reason: "ComfyUI 超分连接或能力读取失败，请检查连接后重试" } });
-  }
+  return publicBetaUpscaleConfig(await readImageUpscaleConfig(imageClient));
 }
 
-export function normalizeBetaUpscaleInput(input = {}) {
+export function normalizeBetaUpscaleInput(input = {}, { recoveringLegacy = false } = {}) {
   const workflow = resolveWorkflow(input.upscaleWorkflowKey);
+  const legacyVersion = recoveringLegacy && workflow.key.startsWith("ks_")
+    && (["2026-10-21.1", "2026-10-26.1"].includes(input.upscaleWorkflowVersion)
+      || input.upscaleWorkflowVersion === "2026-10-20.1" && input.resolution === "2X");
+  if (!legacyVersion) verifyFrozenVersion(input, workflow);
   if (input.modelKey !== undefined && input.modelKey !== workflow.key) {
     throw inputError("出图模型与所选超分工作流不一致");
   }
@@ -105,7 +62,14 @@ export function normalizeBetaUpscaleInput(input = {}) {
     throw inputError("Beta超分请仅提交飞书样本ID，不接受重传原图或风格参考图");
   }
   return { featureMode: "imageUpscale", modelKey: workflow.key,
-    upscaleWorkflowKey: workflow.key, resolution };
+    upscaleWorkflowKey: workflow.key,
+    upscaleWorkflowVersion: legacyVersion ? input.upscaleWorkflowVersion : workflow.version, resolution };
+}
+
+function verifyFrozenVersion(input, workflow) {
+  if (input.upscaleWorkflowVersion !== undefined && input.upscaleWorkflowVersion !== workflow.version) {
+    throw Object.assign(new Error("超分工作流版本已变化，请重新确认配置后运行"), { statusCode: 409, retryable: false });
+  }
 }
 
 export function verifyBetaUpscaleBatch(batch, rawConfig) {
@@ -113,6 +77,7 @@ export function verifyBetaUpscaleBatch(batch, rawConfig) {
   const workflows = publicBetaUpscaleConfig(rawConfig).workflows;
   for (const item of batch.items) {
     const workflow = resolveWorkflow(item.input.upscaleWorkflowKey);
+    verifyFrozenVersion(item.input, workflow);
     const status = workflows.find((candidate) => candidate.key === workflow.key);
     if (!status?.available) throw Object.assign(new Error(`${workflow.displayLabel || workflow.label} 暂不可用：${status?.reason || "目录不可用"}`),
       { statusCode: 409, retryable: false });
@@ -122,6 +87,7 @@ export function verifyBetaUpscaleBatch(batch, rawConfig) {
 }
 
 export function validateBetaUpscaleSource(input) {
+  verifyFrozenVersion(input, resolveWorkflow(input.upscaleWorkflowKey));
   const [source] = normalizeReferenceImages(input.referenceImages, { maxCount: 1 });
   if (!source) throw inputError("图片超分需要且只允许 1 张待处理图片");
   return imageUpscaleTargetDimensions(source, input.resolution, input.upscaleWorkflowKey);

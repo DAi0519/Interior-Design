@@ -1,11 +1,14 @@
 /**
- * [INPUT]: 依赖六个 SeedVR2 编辑器工作流的核心节点参数、单张图片 Base64、4K/6K/8K 或原图 2 倍目标宽高、运行时随机种子与请求级产物键
- * [OUTPUT]: 对外提供默认工作流键、稳定归档标签/独立显示名、普通4K–8K与KS原图2倍/4K/6K逐档合同、比例尺寸、可嵌入SeedVR2阶段及按所选档位生成的可追溯元数据
+ * [INPUT]: 依赖六套SeedVR2参数、原生切块/融合节点合同、单张Base64、目标宽高、冻结版本与请求级产物键
+ * [OUTPUT]: 对外提供目录/比例尺寸、KS全部档位统一分块计划、可嵌入执行图及区分最终画布与tile推理的版本化元数据
  * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export const IMAGE_UPSCALE_OUTPUT_NODE_ID = "76";
+export const KS_UPSCALE_TILING_POLICY = Object.freeze({
+  version: "ks-always-tiled-v2", tileSize: 2048, overlap: 256,
+});
 
 export const IMAGE_UPSCALE_RESOLUTIONS = Object.freeze({
   "4K": 4096,
@@ -91,12 +94,13 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     version: "2026-10-16.1",
   }),
   ks_seedvr2_2x: Object.freeze({
-    blocksToSwap: 32,
+    tiled: true,
+    blocksToSwap: 36,
     cacheModel: false,
-    description: "对应 KS-超分，0.75MP 预处理后输出原图2倍或4K/6K长边",
+    description: "对应KS-超分，0.75MP预处理后输出2倍或4K/6K，全部尺寸统一分块",
     displayLabel: "KS版 · 7B",
     ditOffloadDevice: "cpu",
-    helpText: "先以 0.75MP 预处理，再输出原图2倍或所选4K/6K长边，保持原图比例；输入每边需为 384–3200px。",
+    helpText: "全图先以0.75MP预处理，输出原图2倍或4K/6K；全部尺寸统一分块，保持输出尺寸与比例。输入每边需为384–3200px。",
     inputMegapixels: 0.75,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x",
@@ -106,15 +110,16 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     shortLabel: "KS版 · 7B",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
-    version: "2026-10-21.1",
+    version: "2026-10-26.2",
   }),
   ks_seedvr2_2x_direct: Object.freeze({
-    blocksToSwap: 32,
+    tiled: true,
+    blocksToSwap: 36,
     cacheModel: false,
-    description: "对应 KS 原图直入对照版，移除 0.75MP 预处理后输出原图2倍或4K/6K长边",
+    description: "KS原图直入，输出2倍或4K/6K，全部尺寸统一分块",
     displayLabel: "KS直入 · 7B",
     ditOffloadDevice: "cpu",
-    helpText: "原图直接进入7B，不做0.75MP预缩放，输出原图2倍或所选4K/6K长边，保持原图比例；输入每边需为384–3200px。",
+    helpText: "保留原图细节，不做0.75MP预缩放，输出原图2倍或4K/6K；全部尺寸统一分块，保持输出尺寸与比例。输入每边需为384–3200px。",
     inputMegapixels: null,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x_direct",
@@ -124,7 +129,7 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     shortLabel: "KS直入 · 7B",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
-    version: "2026-10-21.1",
+    version: "2026-10-26.2",
   }),
 });
 
@@ -146,6 +151,36 @@ function resolutionForWorkflow(workflow, resolution) {
     ? "KS 超分只支持原图2倍、4K 或 6K"
     : "图片超分只支持 4K、6K 或 8K");
   return selected;
+}
+
+// -------- KS统一分块；来源画布SHA不作为执行图指纹 --------
+export function imageUpscaleExecutionPlan({ width, height, resolution, workflowKey }) {
+  const workflow = imageUpscaleWorkflow(workflowKey);
+  const selected = resolutionForWorkflow(workflow, resolution);
+  if (![width, height].every(value => Number.isInteger(value) && value > 0)) {
+    throw validationError("图片超分目标尺寸必须是正整数");
+  }
+  if (selected.longEdge && Math.max(width, height) !== selected.longEdge) {
+    throw validationError(`图片超分所选${selected.key}目标长边必须为${selected.longEdge}px`);
+  }
+  const policy = KS_UPSCALE_TILING_POLICY;
+  const tiled = workflow.tiled === true;
+  const tileWidth = tiled ? Math.min(policy.tileSize, width) : null;
+  const tileHeight = tiled ? Math.min(policy.tileSize, height) : null;
+  const count = (length, size) => 1 + Math.ceil(Math.max(0, length - size)
+    / Math.round(Math.max(size * 0.25, size - policy.overlap)));
+  const tileColumns = tiled ? count(width, tileWidth) : 1;
+  const tileRows = tiled ? count(height, tileHeight) : 1;
+  return {
+    strategy: tiled ? "tiled" : "whole",
+    ...(workflow.tiled ? { policyVersion: policy.version } : {}),
+    tileWidth, tileHeight, tileOverlap: tiled ? policy.overlap : 0, tileColumns, tileRows,
+    tileCount: tileColumns * tileRows,
+    seedVrResolution: tiled ? Math.min(tileWidth, tileHeight) : Math.min(width, height),
+    seedVrMaxResolution: tiled ? Math.max(tileWidth, tileHeight) : selected.scale ? 0 : selected.longEdge,
+    blocksToSwap: tiled ? 36 : workflow.blocksToSwap,
+    swapIoComponents: tiled,
+  };
 }
 
 export function imageUpscaleTargetDimensions(source, resolution, workflowKey = IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY) {
@@ -214,7 +249,6 @@ export function createSeedVrUpscaleStage({
 }) {
   const workflow = imageUpscaleWorkflow(generationRequest?.upscaleWorkflowKey);
   const targetLongEdge = Math.max(width, height);
-  const targetShortEdge = Math.min(width, height);
   if (![width, height].every((value) => Number.isInteger(value) && value > 0)) {
     throw validationError("图片超分目标尺寸必须是正整数");
   }
@@ -225,23 +259,32 @@ export function createSeedVrUpscaleStage({
   if (selectedResolution.longEdge && targetLongEdge !== selectedResolution.longEdge) {
     throw validationError(`图片超分所选${selectedResolution.key}目标长边必须为${selectedResolution.longEdge}px`);
   }
+  if (generationRequest?.upscaleWorkflowVersion && generationRequest.upscaleWorkflowVersion !== workflow.version) {
+    const error = validationError("超分工作流版本已变化，请刷新配置后重新运行");
+    error.statusCode = 409;
+    throw error;
+  }
+  const plan = imageUpscaleExecutionPlan({ width, height, resolution, workflowKey: workflow.key });
   const ids = {
     dit: nodeIds.dit || "73",
     preprocess: nodeIds.preprocess || "72",
     upscaler: nodeIds.upscaler || "75",
     vae: nodeIds.vae || "74",
+    canvas: nodeIds.canvas || (nodeIds.upscaler ? `${nodeIds.upscaler}-Canvas` : "77"),
+    tiles: nodeIds.tiles || (nodeIds.upscaler ? `${nodeIds.upscaler}-Tiles` : "78"),
+    merge: nodeIds.merge || (nodeIds.upscaler ? `${nodeIds.upscaler}-Merge` : "79"),
   };
   const nodes = {
     [ids.dit]: {
       class_type: "SeedVR2LoadDiTModel",
       inputs: {
         attention_mode: "sdpa",
-        blocks_to_swap: workflow.blocksToSwap,
+        blocks_to_swap: plan.blocksToSwap,
         cache_model: workflow.cacheModel,
         device: "cuda:0",
         model: workflow.model,
         offload_device: workflow.ditOffloadDevice,
-        swap_io_components: false,
+        swap_io_components: plan.swapIoComponents,
       },
     },
     [ids.vae]: {
@@ -267,13 +310,14 @@ export function createSeedVrUpscaleStage({
         color_correction: "lab",
         dit: [ids.dit, 0],
         enable_debug: false,
-        image: workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
+        image: plan.strategy === "tiled" ? [ids.tiles, 0]
+          : workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
         input_noise_scale: 0,
         latent_noise_scale: 0,
-        max_resolution: selectedResolution.scale ? 0 : selectedResolution.longEdge,
+        max_resolution: plan.seedVrMaxResolution,
         offload_device: "cpu",
         prepend_frames: 0,
-        resolution: targetShortEdge,
+        resolution: plan.seedVrResolution,
         seed,
         temporal_overlap: 0,
         uniform_batch_size: false,
@@ -292,7 +336,20 @@ export function createSeedVrUpscaleStage({
       },
     };
   }
-  return { nodes, output: [ids.upscaler, 0], workflow };
+  if (plan.strategy === "tiled") {
+    // 全图仅一次预处理，然后建立精确目标画布；每块保持尺寸，不能各自再次放大。
+    nodes[ids.canvas] = { class_type: "ImageScale", inputs: {
+      image: workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
+      upscale_method: "lanczos", width, height, crop: "disabled",
+    } };
+    nodes[ids.tiles] = { class_type: "SplitImageToTileList", inputs: {
+      image: [ids.canvas, 0], tile_width: plan.tileWidth, tile_height: plan.tileHeight, overlap: plan.tileOverlap,
+    } };
+    nodes[ids.merge] = { class_type: "ImageMergeTileList", inputs: {
+      image_list: [ids.upscaler, 0], final_width: width, final_height: height, overlap: plan.tileOverlap,
+    } };
+  }
+  return { nodes, output: [plan.strategy === "tiled" ? ids.merge : ids.upscaler, 0], workflow };
 }
 
 export function createImageUpscaleWorkflow({
@@ -355,6 +412,7 @@ export function imageUpscaleWorkflowMetadata({
   if (selectedResolution.longEdge && Math.max(width, height) !== selectedResolution.longEdge) {
     throw validationError(`图片超分所选${selectedResolution.key}目标长边必须为${selectedResolution.longEdge}px`);
   }
+  const plan = imageUpscaleExecutionPlan({ width, height, resolution: selectedResolution.key, workflowKey: workflow.key });
   return {
     artifactKey,
     engine: "comfyui",
@@ -372,8 +430,18 @@ export function imageUpscaleWorkflowMetadata({
     requestedOutputWidth: width,
     resolution: selectedResolution.key,
     seed,
-    seedVrMaxResolution: selectedResolution.scale ? 0 : selectedResolution.longEdge,
-    seedVrResolution: Math.min(width, height),
+    seedVrMaxResolution: plan.seedVrMaxResolution,
+    seedVrResolution: plan.seedVrResolution,
+    ...(workflow.tiled ? {
+      executionStrategy: plan.strategy,
+      executionPolicyVersion: plan.policyVersion,
+      blocksToSwap: plan.blocksToSwap,
+      swapIoComponents: plan.swapIoComponents,
+      ...(plan.strategy === "tiled" ? { tiling: {
+        tileWidth: plan.tileWidth, tileHeight: plan.tileHeight,
+        overlap: plan.tileOverlap, rows: plan.tileRows, columns: plan.tileColumns, tileCount: plan.tileCount,
+      } } : {}),
+    } : {}),
     sourceSha256: workflow.sourceSha256,
     sourceHeight: generationRequest?.sourceHeight || null,
     sourceWidth: generationRequest?.sourceWidth || null,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖任务批处理、generation-service、Beta扩图/六工作流超分真源与只读能力、真实源图尺寸准入、风格转换显式来源/冻结版本合同、模型2:1矩阵、实时三表 Schema/逐张资产 Store、参考图/全景比例/房型校验和当前 Key 的 Prompt Agent 可用性
- * [OUTPUT]: 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/全景/扩图/超分准入、逐项原图读取和十功能两路并发执行、冻结真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；Sunburst扩图最多一次收费提交
+ * [OUTPUT]: 对外提供十功能样本/Schema/版本准入、两路生成/同步与逐Run预警；受信旧KS失败批次仅恢复已有附件，缺结果仍在建档/GPU前拒旧版本，其他重试合同不变
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -209,7 +209,7 @@ async function bindBatchSamples(batch, baseStore, { preserveInput = false } = {}
   return batch;
 }
 
-function normalizeBatch(body = {}) {
+function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
   const batchId = String(body.batchId || "").trim();
   const featureMode = String(body.featureMode || "").trim();
   const jobId = String(body.jobId || "").trim();
@@ -275,7 +275,8 @@ function normalizeBatch(body = {}) {
       if (selection.renderMode === "style-reference") delete input.styleCode;
     }
     if (featureMode === "imageOutpaint") input = normalizeBetaOutpaintInput(input);
-    if (featureMode === "imageUpscale") input = normalizeBetaUpscaleInput(input);
+    if (featureMode === "imageUpscale") input = normalizeBetaUpscaleInput(input,
+      { recoveringLegacy: recoveringLegacyUpscale });
     const outpaintWorkflow = featureMode === "imageOutpaint"
       ? BETA_OUTPAINT_WORKFLOWS.find((workflow) => workflow.key === input.outpaintWorkflowKey) : null;
     return {
@@ -518,9 +519,9 @@ export function createBetaRunnerService({
     },
     start(body) {
       if (body.retryOfJobId && !body.items) return this.retry(String(body.retryOfJobId), body);
-      const batch = normalizeBatch(body);
+      const previousJob = body.retryOfJobId ? requireRetrySource(String(body.retryOfJobId)) : null;
+      const batch = normalizeBatch(body, { recoveringLegacyUpscale: Boolean(previousJob) });
       if (!body.retryOfJobId) return admitBatch(batch);
-      const previousJob = requireRetrySource(String(body.retryOfJobId));
       const previous = batches.get(String(body.retryOfJobId));
       if (previous) {
         return this.retry(String(body.retryOfJobId), { jobId: batch.jobId });

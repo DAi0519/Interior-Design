@@ -8,7 +8,7 @@ oneapi-image-edit-mask-request.json: 涂抹加参考图的OneAPI完整JSON请求
 gpt-image-edit-handoff.html: sunburst.10固定1K/medium单文件交接表，业务输入/矩形与自由圈选坐标/异步提交查询JSON及透明mask同步分流/完整PNG返回、圈选与涂抹区别、统一Prompt及一个完整例子、简明输入像素文件限制，离线转发打印
 gpt-image-mask-fill-contract.md: GPT局部重绘尺寸容量/默认1K-medium，sunburst.10无mask原生异步/透明mask同步、600秒总等待/即时任务ID和未完成腾讯真实出图证据边界、画笔/矩形/自由闭合圈选并存、多边形归一化与像素合同/能力准入、形状中立Prompt与实际送模蓝线PNG独立归档、完整原生字节直出及历史证据
 image-mask-fill.md: 无mask后台任务/透明mask同步及Tencent真实路由待验；三模型双模式入口/版本错配排查、分模型档位、GPT画笔/矩形/自由闭合圈选三历史互斥提交、推荐占位与异常提示、实际遮罩/五附件归档及测试发布证据边界
-image-upscale-output-size.md: KS两套原图2倍/4K/6K目标、输入预处理区别、Beta输出交集、缓存/历史归档兼容及请求与实际尺寸分离
+image-upscale-output-size.md: 两KS26.2全档位统一分块、单小块/窄图精确块与画布尺寸、混选/冻结版本、15分钟与历史20.1/21.1/26.1恢复边界
 room-renovation.md: 空房Agent v34柜体实体体积/原墙面/落地及壁挂分类规则、旧房改造两阶段范围、主工作台使用、API包装参数、三图恢复/失败保留、两条飞书关联记录及真实效果验收边界
 
 ui-selects.md: 共享下拉组件库入口、普通/搜索/多选变体与示例、含4px选项行距的唯一视觉真源、模态内挂载、键盘与动态销毁合同
