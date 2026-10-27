@@ -1,0 +1,179 @@
+{
+  "validatedAt": "2026-10-26T13:49:31.994088+00:00",
+  "status": "candidate_verified_before_release_gate",
+  "packageVersion": "0.1.18",
+  "baseCommit": "e60c5e2ab8910c5ca14a2af91e83e60f78ce97c6",
+  "workflowVersion": "2026-10-26.2",
+  "policyVersion": "ks-always-tiled-v2",
+  "strategy": "Both KS use Split/SeedVR2/Merge for every 2X, 4K and 6K target; no area route.",
+  "tests": {
+    "passed": 1118,
+    "failed": 0,
+    "logSha256": "db1c101534af3cd43b1274d17e338cb4f28c511544535d731974aac89e727098"
+  },
+  "realCanary": {
+    "passed": 4,
+    "total": 4,
+    "uniquePrompts": 4,
+    "gpuPostAttemptsPerItem": 1,
+    "automaticGpuRetries": 0,
+    "feishuWrites": 0,
+    "validationFile": "outputs/ks-always-tiled-20261026/validation.json",
+    "validationSha256": "87a9305e578d0692b83d35305cd1c554b1db1d9944e6b460b181dd33421f1428",
+    "runs": [
+      {
+        "id": "SMALL384-2X-direct",
+        "workflowKey": "ks_seedvr2_2x_direct",
+        "resolution": "2X",
+        "jobId": "generation-efc81ec0-95a4-4475-b959-0f02bde3f304",
+        "promptId": "49b64809-95b4-45ec-8247-7dfe86729bff",
+        "inputSha256": "7006b4fe338af84db1a0cc50f61f2e83392cb2b0045a239a0d4241db854b2848",
+        "tileWidth": 768,
+        "tileHeight": 768,
+        "tileCount": 1,
+        "executionDurationMs": 12167,
+        "output": {
+          "file": "runs/SMALL384-2X-direct-result.png",
+          "width": 768,
+          "height": 768,
+          "bytes": 762384,
+          "sha256": "592ea4ffeb7e5c9b364be3eab19c8d7ee3eb86c4fa52e095f064796ece2ce335"
+        },
+        "validation": {
+          "truePngDecoded": true,
+          "exactDimensions": true,
+          "outputShaMatchesMetadata": true,
+          "sourceShaMatchesSubmittedBytes": true,
+          "historyGraphMatchesPlan": true,
+          "seedVr75NotCached": true,
+          "splitMergePresentEvenForSingleTile": true,
+          "feishuSkipped": true,
+          "actualSeedVrResolution": 768,
+          "actualSeedVrMaxResolution": 768,
+          "cachedNodes": []
+        }
+      },
+      {
+        "id": "NARROW3200-4K-ks",
+        "workflowKey": "ks_seedvr2_2x",
+        "resolution": "4K",
+        "jobId": "generation-1a70cd9e-627a-4261-8772-38f8807c7db2",
+        "promptId": "e9ab85f8-ee2e-4571-a630-aeec961d7278",
+        "inputSha256": "84497fcbdb478576c2627836db4a07defaae22ed52e5518eb9f5191c5a1b8dd8",
+        "tileWidth": 2048,
+        "tileHeight": 492,
+        "tileCount": 3,
+        "executionDurationMs": 38014,
+        "output": {
+          "file": "runs/NARROW3200-4K-ks-result.png",
+          "width": 4096,
+          "height": 492,
+          "bytes": 2954965,
+          "sha256": "fc57f6dad64765cbc3e94cf78400243c46f481db677d6c509fabcbf58dcfe788"
+        },
+        "validation": {
+          "truePngDecoded": true,
+          "exactDimensions": true,
+          "outputShaMatchesMetadata": true,
+          "sourceShaMatchesSubmittedBytes": true,
+          "historyGraphMatchesPlan": true,
+          "seedVr75NotCached": true,
+          "splitMergePresentEvenForSingleTile": true,
+          "feishuSkipped": true,
+          "actualSeedVrResolution": 492,
+          "actualSeedVrMaxResolution": 2048,
+          "cachedNodes": []
+        }
+      },
+      {
+        "id": "NARROW3200-6K-direct",
+        "workflowKey": "ks_seedvr2_2x_direct",
+        "resolution": "6K",
+        "jobId": "generation-a731057f-7800-46fa-92ef-15f9e2a96803",
+        "promptId": "e18e1167-d704-4181-abe0-b8c78b8cc5ce",
+        "inputSha256": "84497fcbdb478576c2627836db4a07defaae22ed52e5518eb9f5191c5a1b8dd8",
+        "tileWidth": 2048,
+        "tileHeight": 738,
+        "tileCount": 4,
+        "executionDurationMs": 53062,
+        "output": {
+          "file": "runs/NARROW3200-6K-direct-result.png",
+          "width": 6144,
+          "height": 738,
+          "bytes": 6514640,
+          "sha256": "b7a178c9fd6d24100083288a1d4def128e79c21b4fd4ee7eac55670080ca7eea"
+        },
+        "validation": {
+          "truePngDecoded": true,
+          "exactDimensions": true,
+          "outputShaMatchesMetadata": true,
+          "sourceShaMatchesSubmittedBytes": true,
+          "historyGraphMatchesPlan": true,
+          "seedVr75NotCached": true,
+          "splitMergePresentEvenForSingleTile": true,
+          "feishuSkipped": true,
+          "actualSeedVrResolution": 738,
+          "actualSeedVrMaxResolution": 2048,
+          "cachedNodes": []
+        }
+      },
+      {
+        "id": "SR18-4K-direct",
+        "workflowKey": "ks_seedvr2_2x_direct",
+        "resolution": "4K",
+        "jobId": "generation-ee71d5fe-58c2-4657-a763-fe8cddead847",
+        "promptId": "e56ad72c-4012-48f6-8403-5d6f78054732",
+        "inputSha256": "6164430b6485b843fdc8dcc006edf434ef573064369b752b7efd38a6ec1df2e2",
+        "tileWidth": 2048,
+        "tileHeight": 2048,
+        "tileCount": 9,
+        "executionDurationMs": 153597,
+        "output": {
+          "file": "runs/SR18-4K-direct-result.png",
+          "width": 4096,
+          "height": 4096,
+          "bytes": 19867891,
+          "sha256": "d2bd0d19be592c624893631e09cd485b2d71848cb136e4518e4693f7f5af0dc5"
+        },
+        "validation": {
+          "truePngDecoded": true,
+          "exactDimensions": true,
+          "outputShaMatchesMetadata": true,
+          "sourceShaMatchesSubmittedBytes": true,
+          "historyGraphMatchesPlan": true,
+          "seedVr75NotCached": true,
+          "splitMergePresentEvenForSingleTile": true,
+          "feishuSkipped": true,
+          "actualSeedVrResolution": 2048,
+          "actualSeedVrMaxResolution": 2048,
+          "cachedNodes": []
+        }
+      }
+    ]
+  },
+  "compatibility": {
+    "legacyArchiveVersions": [
+      "2026-10-20.1 2X only",
+      "2026-10-21.1 whole",
+      "2026-10-26.1 area whole/tiled"
+    ],
+    "trustedColdRetry": "Known failed source job required; existing archive only; missing/mutated archive rejects before beginRun/GPU.",
+    "normalFourUnchangedFromV17": true
+  },
+  "sourceSha256": {
+    "src/image-upscale-workflow.mjs": "99d9b9e0e05010cd59e0943cbb28ca8e3a6ed6f97a77435aeca610eed79d37e1",
+    "src/image-upscale-service.mjs": "b58b495e321b789f2eb49b2c18b63f4b46cc43894fd0d5f35a7dca69c2e8bf88",
+    "src/beta-upscale.mjs": "329560b3a6a0435812b6b7858aa3a5d35fd41f089e7b9bed49c0a7d7c5c1cb76",
+    "src/beta-base.mjs": "20ee7d5d68fa0f6e6a5695bf08999e374a7235317b5c03afe58e0b6a0d26be5c",
+    "src/beta-runner.mjs": "47133f57c5064c2c6aee49bc084e5e9e93411e1c147236766e0bf61c7e1a2a0d",
+    "src/image-tools-api.mjs": "219bdc797641b113fb20fd8606e9afe3fd86139707a6a2d5a7e2d347237227e7",
+    "public/image-upscale.js": "ab3f21ea017978595e8e04e077568bb8ff3f74d3ad044d6692ffe00a7ad4d82c"
+  },
+  "runtime": "http://127.0.0.1:4198/",
+  "boundaries": [
+    "No measured per-prompt VRAM peak or exclusive GPU.",
+    "Four boundary executions are not full image-quality acceptance.",
+    "Unrelated dirty main-checkout features are excluded.",
+    "GitHub release/asset verification is recorded after publication separately."
+  ]
+}

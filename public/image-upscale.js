@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖服务端公开的默认项、SeedVR2/KS 工作流完整/紧凑名称及尺寸目录与说明、单张上传图、共享分辨率控件和 sessionStorage
- * [OUTPUT]: 对外提供工作流合法档位记忆/恢复、KS的2X/4K/6K切换与合法长边保留、原生/增强尺寸同步、尺寸预览及单份图片后台请求
+ * [OUTPUT]: 提供合法档位恢复、KS的2X/4K/6K最终尺寸选择、目录驱动的整图面积限制说明、逐项能力阻断及冻结版本单图请求
  * [POS]: public 的图片超分交互边界，让主编排器无需理解 SeedVR2 工作流细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -80,6 +80,7 @@ export function bindImageUpscale({
   function availabilityReason() {
     if (!config.comfyUi?.available) return "ComfyUI 当前不可用，请检查工作流服务";
     if (!selectedWorkflow() || !selectedResolution()) return "超分工作流未就绪，请刷新页面后重试";
+    if (selectedWorkflow().available === false) return selectedWorkflow().reason || "当前超分工作流所需节点不可用";
     return sourceIssue();
   }
 
@@ -116,7 +117,7 @@ export function bindImageUpscale({
     exactSize.textContent = target ? `${target.width} × ${target.height}` : `${resolution?.label || "待选择"} · 保持原图比例`;
     emptyModel.textContent = selectedWorkflow()?.label || "SeedVR2";
     emptySize.textContent = target ? `${target.width} × ${target.height}` : sourceIssue() ? "请调整输入图片尺寸" : "上传图片后计算";
-    if (note) note.textContent = sourceIssue() || selectedWorkflow()?.helpText || "输出保持原图比例。";
+    if (note) note.textContent = availabilityReason() || selectedWorkflow()?.helpText || "输出保持原图比例。";
     remember();
   }
 
@@ -167,6 +168,7 @@ export function bindImageUpscale({
     availabilityReason,
     isAvailable: () => !availabilityReason(),
     jobRequest({ image, jobId }) {
+      if (availabilityReason()) throw new Error(availabilityReason());
       if (sourceIssue(image)) throw new Error(sourceIssue(image));
       const item = currentItem();
       return {
@@ -177,6 +179,7 @@ export function bindImageUpscale({
           input: {
             resolution: selectedResolution()?.key,
             upscaleWorkflowKey: item.key,
+            ...(selectedWorkflow()?.version ? { upscaleWorkflowVersion: selectedWorkflow().version } : {}),
           },
           key: item.key,
           label: item.label,

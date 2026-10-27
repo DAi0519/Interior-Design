@@ -13,6 +13,10 @@
 
 调用关系固定为 `release:publish → release:pack → release:check`；任一内层步骤失败，外层立即停止。
 
+## v0.1.17 发布范围
+
+本版收录当前工作区的遮罩填充、矩形/自由圈选与原生异步编辑、多角度、旧房改造、Beta 扩图/超分、统一下拉及面板布局。无 mask 的 GPT 编辑使用后台 Responses；独立透明 mask 仍走同步 Images edits。腾讯 Sunburst 路由和真实异步出图尚未完成联调，发布代码不代表该渠道已验证可用。
+
 ## 一次发布
 
 1. 在独立 worktree/功能分支完成修改和验收。

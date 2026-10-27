@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta超分页面请求、Runner、正式生成服务、工作流元数据真源、Beta归档投影及 sharp 真实图片
- * [OUTPUT]: 对外提供六工作流统一长边从样本ID到执行/独立归档的跨层保障，KS不暗改2X，以及主工作台旧2X保持本机结果的回归验证
+ * [OUTPUT]: 对外提供六工作流从样本ID到独立归档的跨层保障，KS整图推理20MP上限与最终尺寸/恢复插值，以及主工作台2X本机结果隔离
  * [POS]: test 的 Beta超分跨层合同测试，ComfyUI和Base全部使用内存替身，不提交真实GPU任务或飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -70,7 +70,15 @@ test("Beta超分六工作流经正式执行保留真实尺寸/版本/来源和�
       assert.match(parameters.workflow.sourceSha256, /^[a-f0-9]{64}$/);
       assert.equal(parameters.workflow.resolution, "4K");
       assert.equal(parameters.workflow.outputScale, undefined);
+      const ks = parameters.workflow.workflowId.startsWith("ks_");
       assert.equal(parameters.workflow.seedVrMaxResolution, 4096);
+      if (ks) {
+        assert.equal(parameters.workflow.executionStrategy, "whole");
+        assert.equal(parameters.workflow.executionPolicyVersion, "ks-whole-area-cap-v3");
+        assert.equal(parameters.workflow.workflowVersion, "2026-10-26.3");
+        assert.ok(parameters.workflow.paddedInferencePixels < 20000000);
+        assert.equal(parameters.workflow.deliveryPostResize, false);
+      }
       assert.match(betaResultVersion(result), /@/);
       assert.equal(result.request.size, `${parameters.workflow.outputWidth}x${parameters.workflow.outputHeight}`);
       assert.equal(result.images.length, 1);

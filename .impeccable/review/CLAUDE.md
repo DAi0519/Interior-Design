@@ -6,7 +6,7 @@ cabinet-geometry/: 2026-10-21 空房双 Agent v34 上架回读、同图双模式
 
 room-renovation/: 2026-10-21 主工作台旧房先清空再设计的两阶段包装、三图预览/下载、独立任务与两条飞书关联记录，详见 room-renovation/CLAUDE.md
 
-beta-upscale/: Beta AI超分六工作流与独立归档的初次接入证据；2026-10-21补充KS两套2X/4K/6K、4187运行目录与菜单预览、1013项测试，详见 beta-upscale/CLAUDE.md
+beta-upscale/: 六工作流超分/Beta归档与尺寸历史验证；v0.1.18分块及v0.1.19整图严格20MP预算、推理原件/交付恢复与旧任务兼容验收，详见beta-upscale/CLAUDE.md
 
 multi-angle-refinement/: 2026-10-19 用户否定demo质感后的拟真相机/银灰控件/连续交互重做，详见multi-angle-refinement/CLAUDE.md
 

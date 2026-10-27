@@ -19,7 +19,7 @@ image-outpaint-janus.mjs: Flux/Qwen共享Janus-Pro-1B固定配置与节点工厂
 image-outpaint-qwen.mjs: 独立 Qwen Image Edit 2511 FP8 mixed 扩图真源，2026-10-20.1的25节点运行图，Janus question不变，动态正文原文直连SaveText再到positive，不含固定前缀/Scene continuation或StringConcatenate，并归档同次实际原文，Lightning4steps/CFG1/euler/simple/shift3.1；整张pad画布与mask统一约1MP/8px参考及采样尺度，保留latent遮罩后整图解码恢复目标、不回贴原图，原区允许编解码变化；节点/COMBO/INT槽位准入与请求级产物，分别记录推理/输出/插值恢复/非像素保真且不冒充AI超分
 image-outpaint-workflow.mjs: AI 扩图真实执行图真源，2026-10-19.1适配MaaS prod_test参数1082原18节点并增加SaveText实际提示词透传，输入准入统一放宽至每轴 4096px，受控选择 Flux Fill OneReward FP8/原版 Dev 与各自权重格式，固定 Janus-Pro-1B/20步/guidance30/feathering30，保留 LayerStyle 比例截断后 ceil32 预处理、8px 目标、唯一产物与尺寸/原始来源 SHA-256；643 仅截图线索
 image-outpaint-oneapi.mjs: GPT Image 2.5 Sunburst 编辑扩图适配器（2026-10-19.1），原图最高16384px/适配图最高3840px独立合同及原比例超3:1最小目标补边政策，按实际输入/四边构造动态Prompt供执行与归档共用，生成透明PNG/外围透明mask，开放模型真源9个2K预设与原比例长边2048/16px对齐/3:1限制及655360–8294400像素范围、固定medium/n1/png、实际尺寸/结果/画布/遮罩SHA-256、placement与真实费用身份
-image-tools-api.mjs: 独立图片工具只读配置 API，提供本地遮罩填充分模式能力/输入合同及多角度脱敏目录/实时准入，保留超分健康与目录，公开Flux/Qwen/Sunburst三引擎固定2K与各自输入合同、动态可用性和准入原因
+image-tools-api.mjs: 独立图片工具只读配置API，提供本地遮罩填充分模式合同、多角度实时准入及三引擎扩图目录；超分与Beta共用执行图节点/模型能力门禁及逐工作流可用原因
 
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
 app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及无说明正文的版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
@@ -31,14 +31,14 @@ generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的�
 generation-job-api.mjs: 日常生成后台任务 HTTP 适配层，普通生图按真实目录准入、单模型1–4张/多模型各1张及两路并发；旧房逐项主图与独立阶段；需归档先验飞书Schema；超分最多4项/扩图1项，扩图固定2K且按引擎权限准入，多角度单图机位准入；遮罩填充仅单项、真实主图/遮罩及GPT归一化矩形或多边形前验、分模式能力与圈选参数冻结、透传上游后台任务ID/状态并以独立imageMaskFill scope校验飞书新增字段，仅超分豁免飞书
 generation-service.mjs: 显式功能路由穿透生成输入，含风格转换、旧房包装、氛围转换及美化；旧房只允许emptyRoom并透传两步阶段；扩图取Flux/Qwen或Sunburst编辑客户端并归档；日常超分本机结果/Beta独立归档，遮罩填充独立客户端/配置、GPU前专属Schema复核与飞书同步，多角度按冻结模型分流并重查权限
 room-renovation-workflow.mjs: 旧房改造包装与room-clearance-2026-10-21.2清空指令，先通过空房参数/Agent版本/权限/出图配置准入，再移除可移动家具/全部家电含壁挂空调与嵌入式/杂物，保留硬装固定柜体和机位，固定安装不能豁免家电移除；真实下载清空图、读取尺寸/SHA且仅该图进入空房Agent与最终出图，原图/清空图/两步关联归档保留，第二步失败仍返回清空产物，不自动重跑收费请求
-image-upscale-service.mjs: 图片超分应用服务，按真实单图尺寸校验常规4K/6K/8K或KS两套2X/4K/6K及每轴384–3200合同，传递源图追溯尺寸，分开5分钟排队与仅8K的15分钟执行时限，返回Prompt ID与实际产物尺寸的本机结果
-image-upscale-workflow.mjs: 六套SeedVR2执行与尺寸真源，默认攸行3B；KS预缩放/原图直入均提供2X/4K/6K，按所选分辨率定义生成短边/max及真实倍率元数据；显示名去固定2倍且归档标签/键/来源SHA不变，保留旧2X与Flux嵌入阶段、源/目标/实际尺寸追溯
-beta-base.mjs: 独立三表归档与含AI扩图/超分的十功能映射，按真源解析普通/扩图/六超分工作流标签、无Agent明确清空Prompt融合，冻结超分工作流/档位、扩图引擎/工作流/画布及风格转换/美化/全景配置；captureBetaGenerationArchive复用正式Prompt投影且不写旧表，实际工作流版本/尺寸/费用逐字段回读，扩图、超分和风格转换额外核验源图/参考/结果附件数量、token及字节数，合同错误不可重试409，浮点机器精度容差与结果附件上传幂等，已有结果下载核验字节/尺寸/SHA-256后仅恢复状态并逐字段回读，确认后展示轻量预览
+image-upscale-service.mjs: 主/Beta共享整图/后置尺寸恢复节点准入，缺节点目录能力即不可用；KS按策略保留15分钟执行/5分钟排队、冻结版本/Prompt追踪、精确最终输出与所有异常不自动重提；普通四套保持原合同
+image-upscale-workflow.mjs: 六套SeedVR2目录/尺寸与图真源，两KS26.3/ks-whole-area-cap-v3按16px补齐后严格20MP预算做一次整图推理，最大合法偶数比例尺寸、必要时Lanczos恢复成品并区分推理/交付元数据；普通四套及来源身份不变
+beta-base.mjs: 独立三表归档与十功能映射，冻结KS26.3整图策略/档位，重算ceil16推理面积严格低于20MP并核验推理尺寸/最终成品/交付插值及SHA；20.1旧2X、21.1整图、26.1面积策略、26.2分块仅按原参数恢复，附件token/字节逐项回读，归档失败不重跑GPU
 beta-sample-store.mjs: 新建按当前功能归属、已有样本跨功能按目标功能读取的草稿样本集、{id}对象关联、逐张真实8MB/MIME/尺寸校验、稳定ID/内容幂等及附件回读，全部确认才发布；列表仅元数据，执行时按需读单张原图，全景再次核验2:1，扩图保留真实源尺寸交执行引擎准入，预览按需WebP，不设整集图片容量上限
 beta-base-schema.mjs: Beta三表字段合同真源，实时分页校验含AI扩图的十功能、普通/独立扩图/六超分工作流模型及图片输入Agent单选标签、全部字段类型/附件ID/关联目标；扩图与风格转换复用配置/场景/版本/生成参数及附件字段，允许历史附加选项，合同错误不可重试，不读取旧生成记录或Benchmark表
-beta-upscale.mjs: Beta超分六工作流与脱敏目录，默认攸行3B，按所选2X或长边档位准入与真实输入检查，进度使用通用显示名，入队/执行能力复核；复用正式执行及独立Beta归档
+beta-upscale.mjs: Beta六套超分脱敏目录与真实尺寸合同，默认攸行3B；复用共享整图能力门禁，入队冻结当前26.3版本/档位、执行前阻断漂移；受信失败任务仅白名单20.1/21.1/26.1/26.2可进入Base恢复，缺原结果仍在建档/GPU前拒旧
 beta-outpaint.mjs: Beta扩图四稳定工作流与脱敏能力目录，复用两款Flux Fill/Qwen2511/Sunburst模型真源；严格映射引擎/模型并冻结真实标签，固定2K、原比例或五预设、居中和1.5/2/3倍，拒绝身份冲突/四边参数/重传图片，入队及执行前独立核验所选候选可用性，不复制推理或归档
-beta-runner.mjs: 十功能样本草稿/逐张保存/完成回读与ID批次三表Schema准入，真实成员/目标输入内容及Agent/全景/风格转换冻结版本校验；来源功能不阻断跨功能复用，原样本不复制/重传或改写，两路并发逐项lazy读取原图；扩图/超分异步配置、零重传、真实尺寸在beginRun前预检及候选能力执行前复核，Comfy扩图/超分不依赖Prompt Agent Key；共享生成服务与独立Beta归档保持生成/同步双阶段，逐Run结构化预警，手动RETRY保留成功项与原冻结输入、只续失败Attempt，旧任务可携冻结批次恢复并先复用已上传附件；仅同步失败保留原结果/记录且零重新生成，普通瞬时生成错误最多三次新Attempt、400/409不自动重试，Sunburst扩图最多一次执行，重复点击复用重试任务，全部生成同步结算前hasActiveJobs持续忙碌
+beta-runner.mjs: 十功能样本草稿/逐张保存/完成回读与ID批次三表Schema准入，真实成员/目标输入内容及Agent/全景/风格转换冻结版本校验；来源功能不阻断跨功能复用，原样本不复制/重传或改写，两路并发逐项lazy读取原图；扩图/超分异步配置、零重传、真实尺寸在beginRun前预检及候选能力执行前复核，Comfy扩图/超分不依赖Prompt Agent Key；共享生成服务与独立Beta归档保持生成/同步双阶段，逐Run结构化预警，手动RETRY保留成功项与原冻结输入、只续失败Attempt，旧任务可携冻结批次恢复并先复用已上传附件；仅同步失败保留原结果/记录且零重新生成，普通瞬时生成错误最多三次新Attempt、400/409不自动重试，Sunburst扩图最多一次执行，重复点击复用重试任务，全部生成同步结算前hasActiveJobs持续忙碌；冷恢复先核验旧失败任务，再保留历史KS版本进入已有附件恢复，无原结果在建档/GPU前拒旧
 effect-render-enhancement-prompt.mjs: 效果图氛围转换/全景图美化 Prompt 资产边界，原效果图表 ID 与 effect-render-enhancement 编码保持兼容，分别公开脱敏可用性/当前上架版本；氛围严格校验 BASE/DEFAULT/CONTRACT/TIME/WEATHER 并按环境拼接，全景接受纯文本/开放 MAIN JSON 与根级尾逗号，禁止跨表回退
 effect-render-enhancement-workflow.mjs: 效果图氛围转换/六预设美化/全景图美化共享双 Provider 单图服务，各自独立上架 Prompt；美化按专属版本原样注入且只归档强度色调，全景按panoramaPromptVersion读取冻结资产，氛围继续天气时段，Flux 全景只替换独立 Prompt，其余复用普通工作流与现有负向机制
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项

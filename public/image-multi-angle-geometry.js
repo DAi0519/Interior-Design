@@ -28,4 +28,3 @@ export function planMultiAngleImage(sourceWidth, sourceHeight) {
     outputResizeMethod: "none",
   };
 }
-

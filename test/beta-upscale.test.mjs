@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 真实图字节、六超分真源、Beta 超分合同/Runner/生成服务与内存健康/归档替身
- * [OUTPUT]: 对外提供六工作流身份/安全目录、真实节点与逐候选可用性、普通4K–8K及KS2X/4K/6K、lazy原图真实尺寸建档前拦截、双进度/仅同步重试及Beta独立归档/日常本机隔离回归保障
+ * [OUTPUT]: 对外提供六工作流身份/版本冻结、安全目录、整图及KS大面积分块节点准入、普通4K–8K及KS2X/4K/6K、lazy原图尺寸建档前拦截、双进度/仅同步重试及Beta独立归档/日常本机隔离回归保障
  * [POS]: test 的 Beta AI超分合同及跨层内存集成测试，不启动服务、不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,10 +64,20 @@ function objectInfoFixture() {
   const objectInfo = {};
   for (const workflow of WORKFLOWS) {
     const isDouble = workflow.resolutions[0].scale === 2;
-    const graph = createImageUpscaleWorkflow({ artifactKey: "test-capability", imageBase64: "", seed: 4,
+    const graphs = [createImageUpscaleWorkflow({ artifactKey: "test-capability", imageBase64: "", seed: 4,
       generationRequest: { upscaleWorkflowKey: workflow.key, resolution: workflow.resolutions[0].key },
-      width: isDouble ? 1280 : 4096, height: isDouble ? 960 : 3072 });
-    for (const node of Object.values(graph)) {
+      width: isDouble ? 1280 : 4096, height: isDouble ? 960 : 3072 })];
+    if (workflow.key.startsWith("ks_")) graphs.push(createImageUpscaleWorkflow({
+      artifactKey: "test-tile-capability", imageBase64: "", seed: 4,
+      generationRequest: { upscaleWorkflowKey: workflow.key, resolution: "6K" }, width: 6144, height: 6144,
+    }));
+    for (const node of graphs.flatMap((graph) => Object.values(graph))) {
+      if (node.class_type === "SeedVR2LoadVAEModel") {
+        assert.equal(node.inputs.encode_tiled, true, "真实VAE接口必须使用encode_tiled");
+        assert.equal(node.inputs.decode_tiled, true, "真实VAE接口必须使用decode_tiled");
+        assert.equal(Object.hasOwn(node.inputs, "encode_areaCap"), false);
+        assert.equal(Object.hasOwn(node.inputs, "decode_areaCap"), false);
+      }
       const required = (objectInfo[node.class_type] ||= { input: { required: {} } }).input.required;
       for (const [field, value] of Object.entries(node.inputs)) {
         if (field === "model") {
@@ -95,7 +105,7 @@ test("逐工作流严格冻结身份与分辨率，拒绝伪造模型/非法档�
     for (const resolution of workflow.resolutions) {
       assert.deepEqual(normalizeBetaUpscaleInput({ upscaleWorkflowKey: workflow.key, resolution: resolution.key,
         prompt: "不应进入执行", width: 999999 }), { featureMode: "imageUpscale", modelKey: workflow.key,
-        upscaleWorkflowKey: workflow.key, resolution: resolution.key });
+        upscaleWorkflowKey: workflow.key, upscaleWorkflowVersion: workflow.version, resolution: resolution.key });
     }
     const valid = { upscaleWorkflowKey: workflow.key, resolution: workflow.resolutions[0].key };
     for (const patch of [{ modelKey: "banana2" }, { resolution: "2x" }, { resolution: "1K" },

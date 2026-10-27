@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图服务/真实工作流、图片工具 API、生成任务入口、通用客户端与 sharp 图片样本
- * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选能力/枚举及模型准入、HTTP前置400/409、扩图固定2K与旧四边兼容，以及图片工具六套超分目录和KS2X/4K/6K公开合同测试
+ * [OUTPUT]: 提供扩图尺寸/模型/HTTP合同，超分整图/后置恢复能力、保留VAE编解码槽位且无需外部切块及主Beta同因阻断测试
  * [POS]: test 的扩图应用与 HTTP 合同验证，使用内存客户端，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,8 @@ import { createImageToolsApiHandler } from "../src/image-tools-api.mjs";
 import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
 import { createComfyUiClient } from "../src/comfyui-client.mjs";
 import { createGenerationService } from "../src/generation-service.mjs";
+import { readBetaUpscaleConfig } from "../src/beta-upscale.mjs";
+import { createImageUpscaleWorkflow, IMAGE_UPSCALE_WORKFLOWS } from "../src/image-upscale-workflow.mjs";
 import { imageOutpaintPreparedDimensions as browserDimensions } from "../public/image-outpaint.js";
 
 const bytes = await sharp({ create: { width: 1000, height: 751, channels: 3, background: "#ddd" } }).png().toBuffer();
@@ -395,11 +397,30 @@ test("HTTP三引擎从共享或单项传入1K/4K/null均在目录读取和入队
   assert.deepEqual({ configured, queued, executed, syncChecks }, { configured: 0, queued: 0, executed: 0, syncChecks: 0 });
 });
 
-test("独立图片工具公开同一扩图配置，保留超分健康与目录", async () => {
+function upscaleCapabilityFixture() {
+  const info = {};
+  for (const workflow of Object.values(IMAGE_UPSCALE_WORKFLOWS)) {
+    for (const large of workflow.key.startsWith("ks_") ? [false, true] : [false]) {
+      const resolution = large ? "6K" : workflow.resolutions[0].key;
+      const width = large ? 6144 : resolution === "2X" ? 1024 : 4096;
+      const graph = createImageUpscaleWorkflow({ artifactKey: "image-tools-test", seed: 1, imageBase64: "",
+        generationRequest: { upscaleWorkflowKey: workflow.key, resolution }, width, height: large ? 6144 : width / 2 });
+      for (const node of Object.values(graph)) {
+        const required = (info[node.class_type] ||= { input: { required: {} } }).input.required;
+        for (const field of Object.keys(node.inputs)) required[field] = ["ANY"];
+      }
+    }
+  }
+  return info;
+}
+
+test("独立图片工具公开同一扩图配置，超分按健康和完整节点目录准入", async () => {
   const responses = [];
+  const objectInfo = upscaleCapabilityFixture();
   const handler = createImageToolsApiHandler({
     getImageOutpaintConfig: async () => publicImageOutpaintConfig({ available: true }),
-    imageUpscaleClient: { checkHealth: async () => ({ available: true, version: "fixture" }) },
+    imageUpscaleClient: { checkHealth: async () => ({ available: true, version: "fixture" }),
+      async getObjectInfo([type]) { return objectInfo[type] ? { [type]: objectInfo[type] } : {}; } },
     sendJson(_response, status, body) { responses.push({ status, body }); },
   });
   await handler({ method: "GET" }, {}, "/api/image-outpaint/config");
@@ -407,6 +428,7 @@ test("独立图片工具公开同一扩图配置，保留超分健康与目录",
   assert.equal(responses[0].body.available, true);
   assert.equal(responses[0].body.inputAlignment, 32);
   assert.equal(responses[1].body.comfyUi.available, true);
+  assert.ok(responses[1].body.workflows.every(workflow => workflow.available === true && workflow.reason === null));
   assert.deepEqual(responses[1].body.workflows.map(({ key }) => key), [
     "youxing_seedvr2_3b", "seedvr2_1mp", "seedvr2_075mp", "seedvr2_7b_direct", "ks_seedvr2_2x", "ks_seedvr2_2x_direct",
   ]);
@@ -420,4 +442,49 @@ test("独立图片工具公开同一扩图配置，保留超分健康与目录",
     { key: "6K", label: "6K", longEdge: 6144 },
   ]);
   assert.equal(await handler({ method: "POST" }, {}, "/api/image-outpaint/config"), false);
+});
+
+test("只有健康接口而缺节点目录时主工作台与Beta均不可用且原因一致", async () => {
+  let response, healthReads = 0;
+  const imageUpscaleClient = { async checkHealth() { healthReads += 1; return { available: true }; } };
+  const handler = createImageToolsApiHandler({ imageUpscaleClient,
+    sendJson(_response, status, body) { response = { status, body }; } });
+  await handler({ method: "GET" }, {}, "/api/image-upscale/config");
+  const beta = await readBetaUpscaleConfig(imageUpscaleClient);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.comfyUi.available, false);
+  assert.ok(response.body.workflows.every(workflow => workflow.available === false));
+  assert.deepEqual(response.body.workflows.map(({ available, reason }) => ({ available, reason })),
+    beta.workflows.map(({ available, reason }) => ({ available, reason })));
+  assert.equal(response.body.comfyUi.reason, beta.workflows[0].reason);
+  assert.equal(healthReads, 0, "缺节点读取能力时健康回执不能代替能力准入");
+});
+
+test("整图KS无需外部切块节点，缺最终尺寸恢复节点时仅禁两KS且主Beta一致", async () => {
+  for (const missingPostResize of [false, true]) {
+    const info = upscaleCapabilityFixture(), requested = new Set();
+    assert.equal(info.SplitImageToTileList, undefined);
+    assert.equal(info.ImageMergeTileList, undefined);
+    const vae = info.SeedVR2LoadVAEModel.input.required;
+    assert.ok(vae.encode_tiled && vae.decode_tiled, "VAE保留已验证的内部编解码分块槽位");
+    assert.equal(vae.encode_areaCap, undefined);
+    assert.equal(vae.decode_areaCap, undefined);
+    assert.ok(info.ImageScale, "必须覆盖限面积后的最终尺寸恢复路径");
+    if (missingPostResize) delete info.ImageScale;
+    let main;
+    const imageUpscaleClient = { async checkHealth() { return { available: true }; },
+      async getObjectInfo([type]) { requested.add(type); return info[type] ? { [type]: info[type] } : {}; } };
+    const handler = createImageToolsApiHandler({ imageUpscaleClient,
+      sendJson(_response, status, body) { assert.equal(status, 200); main = body; } });
+    await handler({ method: "GET" }, {}, "/api/image-upscale/config");
+    const beta = await readBetaUpscaleConfig(imageUpscaleClient);
+    assert.equal(requested.has("SplitImageToTileList"), false);
+    assert.equal(requested.has("ImageMergeTileList"), false);
+    assert.equal(requested.has("ImageScale"), true);
+    assert.deepEqual(main.workflows.map(({ key, available, reason }) => ({ key, available, reason })),
+      beta.workflows.map(({ key, available, reason }) => ({ key, available, reason })));
+    assert.equal(main.workflows.filter(workflow => workflow.available).length, missingPostResize ? 4 : 6);
+    if (missingPostResize) assert.ok(main.workflows.filter(workflow => !workflow.available)
+      .every(workflow => workflow.key.startsWith("ks_") && /ImageScale/.test(workflow.reason)));
+  }
 });
