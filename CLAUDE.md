@@ -1,7 +1,10 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
 Node.js 24+ + 原生 HTTP + undici 7.30.1 + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.5 + lark-cli 1.0.77
 
+本机入口法则：主工作目录 `/Users/dai/Work_qunhe/Interior Design` 的日常入口固定为 `http://127.0.0.1:4192/`；本机 `.env.local` 的 `PORT` 为端口真源，启动器与Codex运行动作共用 `launcher.mjs/resolvePort`。功能分支完成后合入主分支，在生成/评测/飞书同步空闲时重启4192并回读实际工作流版本。用户验收统一在4192进行，不再另起临时应用端口；仅用户明确要求时使用独立服务端口。源码文件更新不代表旧Node进程已加载，刷新网页不能代替服务重启。详见 `docs/local-entry.md`。
+
 <directory>
+.codex/ - 本项目桌面运行与停止动作，复用本机端口真源（1子目录：environments）
 .impeccable/ - Impeccable 项目级设计配置与验收证据（2 个子目录：live、review）
 public/ - 浏览器工作台界面（含 icons/ 图标资产模块、分隔线80–620px连续伸缩/304px以上可用中间态/参数容器按实宽重排/80px纯目录隐藏START、900px以下同DOM配置抽屉：运营连接中心、三页共享版本检测与用户确认后安装、含跨功能复用的飞书图片样本库、默认 Flux、本机配置恢复、默认攸行 3B 的六套 SeedVR2 图片超分（含 7B 原图直入与 KS预缩放/原图直入的2X/4K/6K与20MP以下整图推理）、默认 ComfyUI 参数 1082、可选 Qwen Image Edit 2511 原生遮罩及 Sunburst API 的三引擎单图扩图/兼容Flux Fill模型选择/原比例/预设比例与固定2K输出/Sunburst超限等比适配及超宽保全图补边/固定输出的主区域棋盘格构图/四角等比缩放/倍率设置/浮点transform连续构图与整数提交隔离/上传默认预览与结果切换/各自尺寸合同与动态准入、时间追溯 Run ID、异常预警与仅失败项RETRY的十功能 Beta跑图（含四工作流扩图与六工作流超分多选对比）、效果图氛围转换当前上架 Prompt 版本及天气/时段选项、独立六预设的效果图美化强度/色调控件、独立 Prompt 且含临时参数浮窗与按需 Pannellum 360°结果预览的全景图美化、精模/白模/空房设计/旧房改造/风格转换/自由生图、Flux 默认/自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或共享简洁搜索的单选风格与不限模型数批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
 src/ - GitHub 正式 Release 更新检测/受信安装与共享 HTTP 边界、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、含 Flux/Qwen ComfyUI 与 Sunburst 扩图/方向归一化/所选引擎节点或 Key 权限准入的独立图片工具、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图美化/氛围转换/全景图美化独立飞书 Prompt 与统一 Flux 工作流、精模固定 Prompt/批次契约、旧房先清空再复用空房设计的两阶段编排、空房房间类型真源、Style DNA/白模/空房设计/独立风格转换编排及 Benchmark 运行层（76 个模块）

@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+local-entry.md: 本机4192唯一日常入口、共享端口真源、主分支合并/空闲重启与实际工作流版本验收
 oneapi-image-edit-call.http: sunburst.10固定1K/medium完整调用模板，蓝色圈选Responses异步提交/GET轮询及涂抹Images edits同步两条路径、鉴权占位/完整Prompt，不含真实密钥
 oneapi-image-edit-box-request.json: 蓝色圈选加参考图的Responses完整后台JSON请求体，background/input/tools、完整固定Prompt及用户指令占位，3:2原图的1K/medium示例，不传mask
 oneapi-image-edit-mask-request.json: 涂抹加参考图的OneAPI完整JSON请求体，独立alpha遮罩和完整Prompt，3:2原图的1K/medium示例，不混入业务字段
