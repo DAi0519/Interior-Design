@@ -1,0 +1,29 @@
+{
+  "version": "2026-10-22.sunburst.15",
+  "scope": "蓝色框选或自由圈选的异步编辑；图1始终是带蓝色定位线的完整原图；不传独立透明mask。",
+  "userPromptPlaceholder": "{{USER_PROMPT}}",
+  "templates": {
+    "prompt": {
+      "imageCount": 1,
+      "userPromptRequired": true,
+      "template": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image without blue selection outlines, guide marks, labels or a collage."
+    },
+    "reference": {
+      "imageCount": 2,
+      "userPromptRequired": false,
+      "defaultPurpose": "object",
+      "template": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nReplace the selected target in image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image without blue selection outlines, guide marks, labels or a collage.",
+      "defaultTemplate": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nReplace the selected target in image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nReturn one complete image without blue selection outlines, guide marks, labels or a collage.",
+      "purposes": {
+        "object": {
+          "template": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nReplace the selected target in image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image without blue selection outlines, guide marks, labels or a collage.",
+          "defaultTemplate": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nReplace the selected target in image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nReturn one complete image without blue selection outlines, guide marks, labels or a collage."
+        },
+        "material": {
+          "template": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nApply the material from image 2 to the selected target in image 1. Preserve the target's original form, structure and position. Match the surface's scale, perspective, lighting and shadows, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image without blue selection outlines, guide marks, labels or a collage.",
+          "defaultTemplate": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nApply the material from image 2 to the selected target in image 1. Preserve the target's original form, structure and position. Match the surface's scale, perspective, lighting and shadows, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nReturn one complete image without blue selection outlines, guide marks, labels or a collage."
+        }
+      }
+    }
+  }
+}

@@ -57,5 +57,32 @@
     "meanAbsoluteChannelDifference": 26.824276818169487,
     "maxChannelDifference": 214,
     "pixelIdentical": false
+  },
+  "_retainedEvidence": {
+    "response-summary.json": {
+      "sourceSha256": "2a24afe10c0f4166651a57da8f1a60afa95fc5bca61a735c373da663f2a05693",
+      "content": {
+        "actualSize": {
+          "height": 1024,
+          "width": 1536
+        },
+        "bytes": 2128414,
+        "outputSha256": "cc6d79e8f95ddff225cb5124b288c691f3256d00d98b72c641136590b788d777",
+        "requestId": null,
+        "transport": "images-edits",
+        "usageCost": {
+          "cost": null,
+          "costUsd": 0.018680000000000002,
+          "currency": "USD",
+          "exchangeRate": 1,
+          "nativeAmount": 0.018680000000000002
+        }
+      }
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "8aeaf8499f11d9caad7f213c7e6bf8be05539f141ec8b6d2e06d546b0d1610f6",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# sunburst-outpaint/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\n\ninput.png: 用户当日 Downloads 夜景客厅扩图成品的等比 1024×768 测试副本，原文件未修改\ncanvas.png: 1536×1024 透明 PNG 请求画布，原图放置在 left=256/top=128 的矩形\nmask.png: 与画布同尺寸的请求 mask，原图矩形不透明、外围透明；不保证上游锁定原图区\nraw-output.png: 本次 OneAPI 编辑请求返回的原始结果图\nresult.png: 本次真实请求的本机结果副本，用于尺寸与原图区差异核验\nvalidation.json: 时间/实际宽高/结果与 canvas/mask SHA-256/placement/费用及原图区通道差记录\nresponse-summary.json: 本次上游响应与费用的摘要记录\nui-desktop.jpg: 双引擎选择、Sunburst 权限与 1536×1024 手输画布的桌面界面验证，不代表通过界面再次生成\nui-narrow.jpg: 390px 窄屏扩图配置、画布位置与完整提示的界面验证\ntests.log: 本次最终 Node 自动化回归记录，474 项全部通过，不发送真实生图请求\nCLAUDE.md: 本次真实验证来源地图与验收边界\n\n2026-10-12 仅执行一次 Sunburst 真实请求，耗时 34.120 秒，真实费用 USD 0.01868。`validation.json` 的 `passed` 表示接口、唯一结果与 1536×1024 实际尺寸通过；原图区平均绝对通道差 26.824/255、最大差 214、`pixelIdentical=false`，不能将此记录称为严格保真或完整质量验收。\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n"
   }
 }

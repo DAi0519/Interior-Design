@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十功能目录、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供十功能任务/可恢复配置、超分交集输出尺寸语义与版本化接线、共享模型选择器、风格转换明确目标、全景2:1准入、样本ID与去重资产、同步进度/失败项RETRY/预警及可访问布局回归保障
+ * [OUTPUT]: 对外提供十功能配置、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,43 @@ import test from "node:test";
 import { packBatchAssets } from "../public/beta-assets.js";
 import { BETA_FEATURE_COPY } from "../public/beta-model-rules.js";
 import { betaJobWarnings, renderBetaWarnings } from "../public/beta-results.js";
+
+test("Beta提示词模型正常授权不显示说明，检测/断连/权限失败与自动候补仍可见", async () => {
+  const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
+  const body = source.match(/function renderPromptAgentModels\(\) \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(body);
+  const render = new Function("state", "elements", "fillSelect", "renderRunSummary", body);
+  const catalog = [{ key: "gemini3pro", label: "Gemini", imageInput: true },
+    { key: "claude", label: "Claude", imageInput: true }];
+  const check = ({ connected = true, checked = true, access = [true, true] } = {}) => {
+    const classes = new Set();
+    const elements = { promptAgentModelSelect: { value: "gemini3pro" },
+      promptAgentAvailability: { classList: { toggle(name, enabled) {
+        if (enabled) classes.add(name); else classes.delete(name);
+      } } } };
+    const state = { connected, agentAccessChecked: checked, catalog: { agentModels: catalog },
+      agentAccess: new Map(catalog.map((model, index) => [model.key, { selectable: access[index] }])) };
+    render(state, elements, (select, options, current) => {
+      select.value = (options.find(option => option.value === current && !option.disabled)
+        || options.find(option => !option.disabled))?.value || "";
+    }, () => {});
+    return { note: elements.promptAgentAvailability, classes };
+  };
+  const ready = check();
+  assert.equal(ready.note.hidden, true);
+  assert.equal(ready.classes.has("error"), false);
+  for (const [input, message, error] of [
+    [{ connected: false, checked: false }, /请先连接/, true],
+    [{ checked: false }, /正在检测/, false],
+    [{ access: [false, false] }, /没有可用/, true],
+    [{ access: [false, true] }, /已切换为 Claude/, true],
+  ]) {
+    const status = check(input);
+    assert.equal(status.note.hidden, false);
+    assert.match(status.note.textContent, message);
+    assert.equal(status.classes.has("error"), error);
+  }
+});
 
 test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索下拉并保留配置与监控", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
@@ -62,7 +99,7 @@ test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索�
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=36/);
+  assert.match(html, /beta-app\.js\?v=37/);
   assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
   assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
   assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
@@ -71,7 +108,7 @@ test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索�
   assert.match(source, /import \{ bindModelMultiSelect \} from "\.\/model-multi-select\.js\?v=5"/);
   assert.match(source, /const modelSelection = bindModelMultiSelect\(\{/);
   assert.match(source, /modelSelection\.render\(runnable, state\.selectedModelKeys\)/);
-  assert.match(source, /state\.selectedModelKeys = keys;\s*renderOutputControls\(\);\s*saveConfiguration\(\);/);
+  assert.match(source, /state\.selectedModelKeys = refinedModelSelection\.chooseByUser\(state\.featureMode, keys\);\s*renderOutputControls\(\);\s*saveConfiguration\(\);/);
   assert.match(source, /const selectable = betaModelSelectable\(model, state\.featureMode\)/);
   assert.match(source, /reason: selectable \? "" : "不支持 2:1"/);
   assert.doesNotMatch(source, /modelOptions\.replaceChildren|modelOptions\.addEventListener/);
@@ -243,6 +280,24 @@ test("自由生图的共享主图和风格图各传一份", () => {
   assert.deepEqual(packed.assets, { "shared-source": [source], "shared-style": [style] });
   assert.ok(packed.items.every((item) => item.referenceAssetKey === "shared-source"));
   assert.ok(packed.items.every((item) => !item.input.referenceImages && !item.input.styleReferenceImages));
+});
+
+test("精模光影参考按角色只传一份，非活动来源不携带旧参考", () => {
+  const image = { dataUrl: "data:image/png;base64,mood" };
+  const items = ["gpt", "banana"].map(modelKey => ({ sampleId: "sample-1", input: {
+    modelKey, refinedLighting: { mode: "reference" }, lightingReferenceImages: [image],
+  } }));
+  const packed = packBatchAssets(items, "refinedModel");
+  assert.deepEqual(packed.assets, { "shared-lighting": [image] });
+  assert.ok(packed.items.every(item => item.lightingReferenceAssetKey === "shared-lighting"));
+  assert.ok(packed.items.every(item => !("lightingReferenceImages" in item.input)));
+  for (const mode of ["original", "preset"]) {
+    const inactive = packBatchAssets([{ input: { refinedLighting: { mode }, lightingReferenceImages: [image] } }], "refinedModel");
+    assert.deepEqual(inactive.assets, {});
+    assert.equal("lightingReferenceAssetKey" in inactive.items[0], false);
+    assert.equal("lightingReferenceImages" in inactive.items[0].input, false);
+  }
+  assert.deepEqual(packBatchAssets(items, "whiteModel").assets, {});
 });
 
 

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖Beta DOM/共享选择、独立扩图/超分工作流、十功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
- * [OUTPUT]: 提供十功能可恢复配置、独立扩图与AI超分工作流对照、普通模型和设计/美化参数、样本ID批次、冻结RETRY及生成/同步双阶段监控
+ * [INPUT]: 依赖Beta DOM/共享选择、精模预设单图/上传双图两路径和版本准入、独立扩图/超分、十功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
+ * [OUTPUT]: 提供十功能可恢复配置/模型权限真实状态、精模来源/模型策略、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,8 @@ import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelS
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
 import { createBetaUpscaleConfiguration } from "./beta-upscale.js?v=3";
 import { createBetaDesignConfiguration } from "./beta-design-config.js";
+import { createBetaRefinedRenderConfiguration } from "./beta-refined-render.js";
+import { createRefinedModelSelection } from "./refined-model-controls.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=1";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
@@ -26,6 +28,7 @@ import { api, readFileAsInput } from "./workbench-utils.js";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const JOB_STORAGE_KEY = "canvas-lab:beta-run-job";
 const restoredPageState = readBetaPageState(localStorage);
+const refinedModelSelection = createRefinedModelSelection({ saved: restoredPageState.refinedModelSelection });
 
 const elements = Object.fromEntries([
   "betaConnectionStatus", "betaFeatureSelect", "betaForm",
@@ -46,7 +49,7 @@ const elements = Object.fromEntries([
   "upscaleFields", "upscaleWorkflowOptions", "upscaleResolutionField", "upscaleResolutionSelect", "upscaleResolutionNote", "upscaleAvailability",
   "panoramaFields",
   "promptAgentVersionField", "promptAgentVersionSelect", "qualityField",
-  "qualitySelect", "ratioSelect", "refinedPromptField", "refinedPromptSelect",
+  "qualitySelect", "ratioSelect", "refinedPromptField", "refinedPromptSelect", "refinedRenderFields",
   "renderModeSelect", "resolutionSelect", "roomTypeDetailField",
   "roomTypeDetailInput", "roomTypeSelect", "runButton", "runButtonLabel", "runHint",
   "runSummary", "newBatchButton", "sampleCount", "sampleList", "sampleSetCreatePanel",
@@ -80,7 +83,7 @@ const state = {
 const modelSelection = bindModelMultiSelect({
   container: elements.modelOptions,
   onChange(keys) {
-    state.selectedModelKeys = keys;
+    state.selectedModelKeys = refinedModelSelection.chooseByUser(state.featureMode, keys);
     renderOutputControls();
     saveConfiguration();
   },
@@ -125,17 +128,22 @@ const sampleLibrary = createBetaSampleLibrary({
 });
 
 const designConfiguration = createBetaDesignConfiguration({ elements, fillSelect, getState: () => state, restoredPageState });
+const refinedRenderConfiguration = createBetaRefinedRenderConfiguration({ elements, fillSelect, getState: () => state,
+  getModels: selectedModels, showToast: message => { elements.runHint.textContent = message; },
+  onChange() { renderRunSummary(); saveConfiguration(); } });
 const configuration = createBetaConfigurationPersistence({
   currentState: () => ({
     featureMode: state.featureMode,
     sampleSetIds: state.sampleSetIds,
     selectedModelKeys: state.selectedModelKeys,
+    refinedModelSelection: refinedModelSelection.snapshot(),
     outpaint: outpaintConfiguration.snapshot(),
     upscale: upscaleConfiguration.snapshot(),
     stylesReady: Boolean(state.stylesConfig),
     designControls: designConfiguration.snapshot(),
   }),
   effectBeautificationControls,
+  refinedRenderConfiguration,
   elements,
   renderFeature,
   renderOutputControls,
@@ -177,15 +185,18 @@ function renderPromptAgentModels() {
     };
   }), previousKey || "gemini3pro");
   const selected = models.find((model) => model.key === elements.promptAgentModelSelect.value);
+  const changed = Boolean(previous && previous.key !== selected?.key);
   elements.promptAgentAvailability.textContent = !state.connected
     ? "请先连接 OneAPI"
     : !state.agentAccessChecked
       ? "正在检测模型权限"
-      : previous && previous.key !== selected?.key
+      : changed && selected
         ? `${previous.label} 当前不可用，已切换为 ${selected?.label || "可用模型"}`
         : selected
           ? "当前 API Key 已开放此模型"
           : "当前 API Key 没有可用的提示词模型";
+  elements.promptAgentAvailability.hidden = Boolean(state.connected && state.agentAccessChecked && selected && !changed);
+  elements.promptAgentAvailability.classList.toggle("error", !state.connected || state.agentAccessChecked && (!selected || changed));
   renderRunSummary();
 }
 
@@ -287,6 +298,7 @@ function renderRunSummary() {
   const effectPromptKey = FEATURE_COPY[state.featureMode].promptConfig;
   const effectReady = !effectPromptKey || state.stylesConfig?.[effectPromptKey]?.available;
   const targetReady = state.featureMode !== "styleTransfer" || designConfiguration.ready();
+  const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation() : null;
   const workflowConfiguration = upscale ? upscaleConfiguration : outpaintConfiguration;
   const workflowsReady = !(outpaint || upscale) || workflowConfiguration.ready();
   if (upscale) showStatus(workflowsReady ? "ComfyUI 已就绪" : "超分工作流未就绪", { ready: workflowsReady });
@@ -297,12 +309,14 @@ function renderRunSummary() {
   }
   if (!failed && !targetReady && agentReady && !running) elements.runHint.textContent = "请选择平台风格，或上传风格参考图";
   if (!failed && !workflowsReady && !running) elements.runHint.textContent = workflowConfiguration.unavailableReason() || `请选择${upscale ? "超分" : "扩图"}工作流`;
+  if (!failed && lightingIssue && !running) elements.runHint.textContent = lightingIssue;
   elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !state.connected)
     || !sampleLibrary.isReady()
     || total < 1
     || !agentReady
     || !effectReady
     || !targetReady
+    || Boolean(lightingIssue)
     || !workflowsReady));
   elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
   elements.runButton.setAttribute("aria-busy", String(running));
@@ -317,12 +331,13 @@ function modelAvailable(model) {
 }
 
 function renderModels() {
+  state.selectedModelKeys = refinedModelSelection.forFeature(state.featureMode, state.selectedModelKeys, state.catalog.models, state.modelAccessChecked ? [...state.modelAccess.values()] : undefined);
   if (["imageOutpaint", "imageUpscale"].includes(state.featureMode)) { renderOutputControls(); return; }
   const runnable = state.catalog.models.filter((model) => modelAvailable(model));
   const selectable = runnable.filter((model) => betaModelSelectable(model, state.featureMode));
   state.selectedModelKeys = state.selectedModelKeys.filter((key) =>
     selectable.some((model) => model.key === key));
-  if (!state.selectedModelKeys.length && selectable[0]) {
+  if (!state.selectedModelKeys.length && selectable[0] && state.featureMode !== "refinedModel") {
     const defaultModel = selectable.find((model) => model.key === DEFAULT_BETA_MODEL_KEY)
       || selectable[0];
     state.selectedModelKeys = [defaultModel.key];
@@ -339,6 +354,7 @@ function renderOutputControls() {
     return;
   }
   const models = selectedModels();
+  refinedRenderConfiguration.setModels(models);
   const sizes = betaSizeOptions({ models, featureMode: state.featureMode,
     currentRatio: elements.ratioSelect.value, currentResolution: elements.resolutionSelect.value });
   fillSelect(elements.ratioSelect, sizes.ratioOptions, sizes.ratio);
@@ -399,16 +415,7 @@ function renderFeature() {
     elements.configStatus.textContent = effectConfig?.available
       ? `Prompt v${effectConfig.version}` : `${copy.label} Prompt 不可用`;
   }
-  if (refined) {
-    const promptConfig = state.stylesConfig?.refinedPrompt;
-    const versions = (promptConfig?.versions || []).filter((entry) => entry.published === true);
-    fillSelect(elements.refinedPromptSelect, versions.map((entry) => ({
-      label: `${entry.name} · v${entry.version}`,
-      value: entry.version,
-    })), promptConfig?.defaultVersion);
-    elements.refinedPromptSelect.disabled = versions.length === 0;
-    elements.configStatus.textContent = versions.length ? "精模 Prompt 已就绪" : "精模 Prompt 不可用";
-  }
+  refinedRenderConfiguration.render();
   renderReferenceInputs();
   renderRunSummary();
   renderModels();
@@ -425,9 +432,7 @@ function designSettings() { return designConfiguration.settings(); }
 
 function assertFeatureConfig() {
   sampleLibrary.assertRoomTypes();
-  if (state.featureMode === "refinedModel" && !elements.refinedPromptSelect.value) {
-    throw new Error("精模 Prompt 版本不可用");
-  }
+  if (state.featureMode === "refinedModel") refinedRenderConfiguration.validate();
   const effectCopy = FEATURE_COPY[state.featureMode];
   if (effectCopy.promptConfig && !state.stylesConfig?.[effectCopy.promptConfig]?.available) {
     throw new Error(`${effectCopy.label} Prompt 不可用`);
@@ -476,9 +481,7 @@ function buildItems(startedAt = new Date()) {
       ...(state.featureMode === "panoramaEnhancement" ? {
         panoramaPromptVersion: state.stylesConfig?.panoramaEnhancementPrompt?.version,
       } : {}),
-      ...(state.featureMode === "refinedModel" ? {
-        promptVersion: Number(elements.refinedPromptSelect.value),
-      } : {}),
+      ...(state.featureMode === "refinedModel" ? refinedRenderConfiguration.settings() : {}),
       ...(["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode) ? designSettings() : {}),
       ...(state.featureMode === "emptyRoom" ? {
         roomType: currentCase.roomType,

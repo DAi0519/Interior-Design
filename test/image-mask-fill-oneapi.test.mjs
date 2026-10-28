@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test、sharp真实像素、遮罩服务/OneAPI适配器、模型配置与归档投影
- * [OUTPUT]: GPT无mask真实后台编辑/ID即时进度与任务快照、带mask同步原生编辑分流、矩形与自由圈选真实蓝线/互斥准入及点冻结、送模图逐字节独立归档与原生PNG直出、权限/Schema零收费测试
+ * [OUTPUT]: GPT参考模式换物品/换材质的三定位空指令前端到执行归档合同、用途默认/非法/冻结、其它模式指令必填与坏参考零调用、用户原文/双图保留、异步/同步分流/蓝选和原生字节归档、权限/Schema零收费测试
  * [POS]: test 的Sunburst局部重绘合同测试，全部上游/同步替身，不调用CLI、网络或付费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,7 +11,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
 import { createGenerationService } from "../src/generation-service.mjs";
 import { executeImageMaskFill, validateMaskFillInput, readImageMaskFillConfig } from "../src/image-mask-fill-service.mjs";
-import { executeSunburstMaskFill, prepareSunburstMaskInput, sunburstMaskOutputSize, MASK_FILL_ONEAPI_MODEL } from "../src/image-mask-fill-oneapi.mjs";
+import { executeSunburstMaskFill, prepareSunburstMaskInput, sunburstMaskOutputSize, sunburstMaskPrompt, MASK_FILL_ONEAPI_MODEL } from "../src/image-mask-fill-oneapi.mjs";
+import { buildMaskFillJobRequest } from "../public/image-mask-fill-geometry.js";
 
 const descriptor = bytes => ({ dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "synthetic.png", type: "image/png", size: bytes.length });
 const picture = (width, height, background) => sharp({ create: { width, height, channels: 3, background } }).png().toBuffer();
@@ -41,6 +42,62 @@ function clientFixture({ mismatch = false, error = null, format = "png" } = {}) 
   return { requests, results, syncRequests, asyncRequests,
     editImage: request => edit(request, false), editImageAsync: (request, { onSubmitted } = {}) => edit(request, true, onSubmitted) };
 }
+
+test("仅GPT参考模式三定位可省略/空白指令，前端请求到实际执行归档不伪造用户原文", async () => {
+  const source = await picture(96, 64, "#204060"), reference = await picture(48, 80, "#6789ab");
+  const mask = (await fixture()).maskImage;
+  for (const fillReferencePurpose of [undefined, "object", "material"]) for (const location of ["none", "mask", "selection"]) for (const instruction of [undefined, "", " \n\t ", "  修改目标颜色  "]) {
+    const request = buildMaskFillJobRequest({ image: { ...descriptor(source), width: 96, height: 64 },
+      fillReferenceImage: { ...descriptor(reference), width: 48, height: 80 }, mode: "reference", maskFillModel: "gptImage25Sunburst",
+      ...(instruction !== undefined ? { prompt: instruction } : {}), ...(fillReferencePurpose !== undefined ? { fillReferencePurpose } : {}),
+      ...(location === "mask" ? { maskImage: mask } : {}),
+      ...(location === "selection" ? { editRegion: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } } : {}) });
+    const input = { ...request.sharedInput, ...request.items[0].input };
+    const expected = instruction?.trim() || "";
+    assert.equal(request.items[0].input.prompt, expected);
+    assert.equal(request.items[0].input.fillReferencePurpose, fillReferencePurpose || "object");
+    const validated = await validateMaskFillInput(input);
+    assert.equal(validated.prompt, expected);
+    assert.equal(validated.fillReferencePurpose, fillReferencePurpose || "object");
+    const prepared = await prepareSunburstMaskInput(validated);
+    assert.equal(prepared.request.images.length, 2);
+    assert.match(prepared.request.prompt, fillReferencePurpose === "material" ? /Apply the material from image 2 to/i : /Replace .* with the corresponding object from image 2/i);
+    assert.doesNotMatch(prepared.request.prompt, /undefined|null|\{用户|推荐写法/);
+    if (expected) assert.ok(prepared.request.prompt.includes(`User instruction: ${expected}`));
+    else assert.doesNotMatch(prepared.request.prompt, /User instruction:/, "无原文时不能插空行或默认用户指令");
+    const client = clientFixture(); let archive;
+    const result = await executeImageMaskFill(input, { imageClient: client, getOneApiModels: catalog, verifySyncContract: async () => {},
+      scheduleSync(value) { archive = value; return { status: "pending" }; } });
+    assert.equal(client.requests.length, 1);
+    assert.equal(client.asyncRequests.length, location === "mask" ? 0 : 1);
+    assert.equal(archive.sourcePrompt, expected); assert.equal(result.upstream.metadata.sourcePrompt, expected);
+    for (const record of [result.request, result.upstream.metadata, result.workflow, archive.preview, archive.workflow]) {
+      assert.equal(record.fillReferencePurpose, fillReferencePurpose || "object");
+    }
+    assert.equal(Object.hasOwn(client.requests[0], "fillReferencePurpose"), false, "用途通过固定Prompt表达，不新增上游API字段");
+    assert.equal(archive.finalPrompt, client.requests[0].prompt); assert.ok(archive.finalPrompt.trim());
+    assert.deepEqual(Buffer.from(result.images[0].url.split(",")[1], "base64"), client.results[0]);
+    assert.equal(archive.referenceImages[0].imageUrl, descriptor(source).dataUrl);
+    if (location === "selection") assert.equal(archive.boxedSourceImage.imageUrl, client.requests[0].images[0].image_url);
+  }
+});
+
+test("可省略指令不能绕过GPT模式/参考图/类型和长度准入，非法输入零收费", async () => {
+  const reference = descriptor(await picture(48, 80, "#6789ab"));
+  const base = await fixture(96, 64, { maskFillMode: "reference", fillReferenceImage: reference }); delete base.prompt;
+  assert.equal((await validateMaskFillInput(base)).prompt, "", "服务端也接受真正省略prompt字段");
+  const client = clientFixture();
+  const reject = input => assert.rejects(executeImageMaskFill(input, { imageClient: client, getOneApiModels: catalog }), { statusCode: 400 });
+  for (const prompt of [null, false, 123, {}, [], "a".repeat(8001)]) await reject({ ...base, prompt });
+  await reject({ ...base, fillReferenceImage: undefined });
+  await reject({ ...base, fillReferenceImage: { ...reference, dataUrl: "data:image/png;base64,broken" } });
+  await reject({ ...base, referenceImages: [] });
+  for (const maskFillModel of ["flux2Klein", "qwenImageEdit2511"]) for (const prompt of [undefined, "", " \n "]) {
+    await reject({ ...base, maskFillModel, prompt });
+  }
+  for (const prompt of [undefined, "", " \n "]) await reject({ ...base, maskFillMode: "prompt", fillReferenceImage: undefined, prompt });
+  assert.equal(client.requests.length, 0);
+});
 
 test("GPT三档预设沿用模型真源；自定义比例满足16px/3:1/像素限制，默认1K", () => {
   assert.deepEqual(sunburstMaskOutputSize({ width: 512, height: 512 }), { width: 1024, height: 1024 });
@@ -74,7 +131,7 @@ test("4096输入原尺寸提交，遮罩同PNG同宽高，白色编辑转换alph
   assert.equal(alpha[0], 255); assert.equal(alpha[1024 * 4096 + 2048], 0);
   const target = sunburstMaskOutputSize({ width: 4096, height: 2048 }, "1K");
   assert.equal(prepared.request.size, `${target.width}x${target.height}`);
-  assert.match(prepared.request.prompt, /Image 2 is an object reference/);
+  assert.match(prepared.request.prompt, /Replace .* with the corresponding object from image 2/);
 });
 
 test("遮罩扩展使用原图像素；增加编辑范围且不改变源图或mask尺寸", async () => {
@@ -101,7 +158,7 @@ test("GPT两模式可不传mask：请求完全省略mask且不伪造编辑区域
     assert.equal(prepared.request.images.length, mode === "reference" ? 2 : 1);
     assert.doesNotMatch(prepared.request.prompt, /supplied mask|transparent area|masked region/i);
     assert.match(prepared.request.prompt, /Remove the pendant lamp\./);
-    if (mode === "reference") assert.match(prepared.request.prompt, /Image 2 is an object reference/);
+    if (mode === "reference") assert.match(prepared.request.prompt, /Replace .* with the corresponding object from image 2/);
 
     const client = clientFixture(); let archive; const progress = [];
     const result = await executeImageMaskFill(input, { imageClient: client, getOneApiModels: catalog,
@@ -114,7 +171,7 @@ test("GPT两模式可不传mask：请求完全省略mask且不伪造编辑区域
     assert.deepEqual(Buffer.from(result.images[0].url.split(",")[1], "base64"), client.results[0]);
     assert.equal(result.request.hasMask, false); assert.equal(result.request.maskExpand, 0);
     assert.equal(result.upstream.metadata.hasMask, false);
-    assert.equal(result.upstream.metadata.version, "2026-10-22.sunburst.10");
+    assert.equal(result.upstream.metadata.version, "2026-10-22.sunburst.15");
     assert.equal(result.upstream.metadata.upstreamAsync, true);
     assert.equal(result.upstream.transport, "responses-background");
     assert.equal(result.upstream.requestId, "resp_mask_synthetic");
@@ -127,6 +184,7 @@ test("GPT两模式可不传mask：请求完全省略mask且不伪造编辑区域
     assert.equal(Object.hasOwn(result, "archiveBoxedSourceImage"), false);
     assert.equal(archive.workflow.maskSha256, null); assert.equal(archive.workflow.submittedMaskSha256, null);
     assert.equal(archive.finalPrompt, client.requests[0].prompt);
+    assert.equal(archive.workflow.promptSource, "submitted Responses background prompt");
     assert.equal(archive.fillReferenceImage !== null, mode === "reference");
     const directClient = clientFixture();
     const direct = await executeSunburstMaskFill(validated, { imageClient: directClient });
@@ -140,7 +198,7 @@ test("GPT两模式框选定位待修改物体而不硬限框内像素，不发�
   const pixels = { left: 24, top: 16, width: 48, height: 32 };
   for (const mode of ["prompt", "reference"]) {
     const input = await fixture(96, 64, { maskFillMode: mode, editRegion: { ...editRegion }, maskExpand: 80,
-      prompt: "Replace the selected lamp with the requested pendant.",
+      prompt: "换椅子",
       ...(mode === "reference" ? { fillReferenceImage: descriptor(await picture(48, 80, "#6789ab")) } : {}) });
     delete input.maskImage;
     const originalInput = structuredClone(input);
@@ -170,19 +228,18 @@ test("GPT两模式框选定位待修改物体而不硬限框内像素，不发�
     const centre = (32 * 96 + 48) * 3;
     assert.deepEqual(submitted.subarray(centre, centre + 3), original.subarray(centre, centre + 3), "空心框不填满选区");
     assert.match(prepared.request.prompt, /blue outline/i);
-    assert.match(prepared.request.prompt, /selected region/i);
-    assert.match(prepared.request.prompt, /target object/i);
-    for (const operation of [/\breplac(?:e|ing)\b/i, /\bremov(?:e|ing)\b/i, /\badd(?:ing)?\b/i, /\bmodif(?:y|ying)\b/i]) {
-      assert.match(prepared.request.prompt, operation);
-    }
+    assert.match(prepared.request.prompt, /selected target/i);
+    assert.match(prepared.request.prompt, /The temporary blue outline identifies the edit target/i);
+    assert.match(prepared.request.prompt, /Edit this selected target and preserve unrelated content/i);
+    assert.match(prepared.request.prompt, /not part of the scene or a hard boundary for editing/i);
     assert.doesNotMatch(prepared.request.prompt, /\bred\b|rectangle|rectangular|only inside|scene outside it|restyle/i,
       "蓝色圈选只定位目标物体，不能锁定形状、硬限制边界或只允许换风格");
     assert.match(prepared.request.prompt, /remove[^\n]*(?:outline|selection|guide)/i);
-    assert.match(prepared.request.prompt, /Replace the selected lamp/);
+    assert.match(prepared.request.prompt, /User instruction: 换椅子/);
     assert.doesNotMatch(prepared.request.prompt, /supplied mask|transparent area|masked region/i);
     if (mode === "reference") {
-      assert.match(prepared.request.prompt, /Image 2 is an object reference/);
-      assert.match(prepared.request.prompt, /Image 2 is an object reference\.[^\n]*user instruction[^\n]*image 2[^\n]*selected target in image 1/i);
+      assert.match(prepared.request.prompt, /Replace .* with the corresponding object from image 2/i);
+      assert.match(prepared.request.prompt, /Replace the selected target in image 1 with the corresponding object from image 2/i);
       const actualReference = Buffer.from(prepared.request.images[1].image_url.split(",")[1], "base64");
       assert.deepEqual(await sharp(actualReference).raw().toBuffer(), await sharp(Buffer.from(input.fillReferenceImage.dataUrl.split(",")[1], "base64")).raw().toBuffer());
     }
@@ -216,11 +273,56 @@ test("GPT两模式框选定位待修改物体而不硬限框内像素，不发�
     assert.deepEqual(archive.workflow.editRegion, editRegion); assert.deepEqual(archive.workflow.editRegionPixels, pixels);
     assert.equal(archive.workflow.submittedSourceSha256, metadata.submittedSourceSha256);
     assert.equal(archive.finalPrompt, client.requests[0].prompt);
+    assert.equal(archive.workflow.promptSource, "submitted Responses background prompt");
     assert.deepEqual(input, originalInput, "绘制上游定位框不得改写上传与用户区域参数");
     const directClient = clientFixture();
     const direct = await executeSunburstMaskFill(validated, { imageClient: directClient });
     assert.deepEqual(Buffer.from(direct.archiveBoxedSourceImage.imageUrl.split(",")[1], "base64"),
       Buffer.from(directClient.requests[0].images[0].image_url.split(",")[1], "base64"));
+  }
+});
+
+test("换物品/换材质在三定位各自表达固定参考用途，空指令仍可执行；仅验证离线Prompt合同", () => {
+  const locations = [{ editRegion: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } }, { mask: {} }, {}];
+  for (const fillReferencePurpose of ["object", "material"]) for (const location of locations) {
+    const prompt = sunburstMaskPrompt({ mode: "reference", prompt: "", fillReferencePurpose, ...location });
+    const target = location.editRegion ? "the selected target in image 1" : location.mask ? "the target in the masked region of image 1"
+      : fillReferencePurpose === "material" ? "the relevant surface in image 1" : "the relevant object in image 1";
+    if (fillReferencePurpose === "material") {
+      assert.ok(prompt.includes(`Apply the material from image 2 to ${target}.`));
+      assert.match(prompt, /Preserve the target's original form, structure and position/);
+      assert.match(prompt, /Match the surface's scale, perspective, lighting and shadows/);
+      assert.doesNotMatch(prompt, /Replace .* with the corresponding object/);
+    } else {
+      assert.ok(prompt.includes(`Replace ${target} with the corresponding object from image 2.`));
+      assert.doesNotMatch(prompt, /Apply the material|Preserve the target's original form/);
+    }
+    assert.match(prompt, /If additional instructions are provided, follow them/);
+    assert.match(prompt, /Do not copy unrelated content or background from image 2/);
+    assert.doesNotMatch(prompt, /User instruction:|undefined|\bred\b|rectangle/);
+    if (location.editRegion) assert.match(prompt, /Remove all blue guide marks/);
+  }
+});
+
+test("墙面材质/沙发布料/纹理颜色原文在三定位完整保留，换材质固定规则且双图顺序不变；不代表真实画质", async () => {
+  const referenceBytes = await picture(48, 80, "#6789ab");
+  const instructions = ["将图1墙面换成图2的大理石材质，保留墙体位置和开口。", "把图1沙发的布料换成图2的织物，仅改布料，不换沙发。",
+    "把图1目标表面的木纹、米白颜色和格纹图案按图2修改，尺寸和形状不变。"];
+  for (const instruction of instructions) for (const location of ["none", "mask", "polygon"]) {
+    const input = await fixture(96, 64, { maskFillMode: "reference", fillReferencePurpose: "material", prompt: instruction, fillReferenceImage: descriptor(referenceBytes),
+      ...(location === "polygon" ? { editRegion: { type: "polygon", points: [{ x: 0.25, y: 0.25 }, { x: 0.75, y: 0.25 }, { x: 0.5, y: 0.75 }] } } : {}) });
+    if (location !== "mask") delete input.maskImage;
+    const prepared = await prepareSunburstMaskInput(await validateMaskFillInput(input));
+    const prompt = prepared.request.prompt;
+    assert.ok(prompt.includes(`User instruction: ${instruction}`), "保持用户原文，不把材质意图改成换物品");
+    assert.match(prompt, /Apply the material from image 2 to/i);
+    assert.match(prompt, /If additional instructions are provided, follow them/i);
+    assert.match(prompt, /Do not copy unrelated content or background from image 2/i);
+    assert.doesNotMatch(prompt.split("User instruction:")[0], /Replace .* with the corresponding object/);
+    assert.equal(prepared.request.images.length, 2);
+    assert.deepEqual(Buffer.from(prepared.request.images[0].image_url.split(",")[1], "base64"), prepared.sourceBytes);
+    assert.deepEqual(await sharp(Buffer.from(prepared.request.images[1].image_url.split(",")[1], "base64")).raw().toBuffer(), await sharp(referenceBytes).raw().toBuffer());
+    assert.equal(Object.hasOwn(prepared.request, "mask"), location === "mask");
   }
 });
 
@@ -371,6 +473,7 @@ test("单次edits原生PNG逐字节交付并保留mask外模型改动，归档�
     assert.equal(archive.modelLabel, MASK_FILL_ONEAPI_MODEL.label); assert.equal(archive.workflow.provider, "oneapi");
     assert.equal(archive.workflow.requestId, "req-mask-synthetic"); assert.equal(archive.workflow.usageCost.amount, 0.0123);
     assert.equal(archive.finalPrompt, client.requests[0].prompt);
+    assert.equal(archive.workflow.promptSource, "submitted Images edits prompt");
     assert.equal(archive.maskImage.imageUrl, client.requests[0].mask.image_url);
     assert.equal(archive.fillReferenceImage !== null, mode === "reference");
   }
@@ -409,6 +512,9 @@ test("Flux节点不可用不阻断已授权Sunburst，目录不暴露密钥或Pr
   assert.equal(config.models[1].defaultOutputResolution, "1K");
   assert.deepEqual(config.models[1].outputResolutions, ["1K", "2K", "4K"]);
   assert.deepEqual(config.models[1].qualityOptions, ["low", "medium", "high", "xhigh", "max"]);
+  assert.deepEqual(config.models[1].referencePurposes.map(value => value.key), ["object", "material"]);
+  assert.equal(config.models[1].defaultReferencePurpose, "object");
+  for (const model of config.models.filter(model => model.key !== "gptImage25Sunburst")) assert.equal(model.referencePurposes, undefined);
   const disconnected = await readImageMaskFillConfig(null);
   assert.equal(disconnected.models[1].available, false);
 });
@@ -449,34 +555,41 @@ test("后台入口冻结Sunburst真实身份，异步上游ID/状态进入可查
   assert.equal(response.status, 409); assert.equal(queued, null); assert.equal(client.requests.length, 1);
 });
 
-test("后台入队深拷贝矩形和多边形区域，后续共享坐标/点对象变化不改变实际执行区域", async () => {
-  for (const editRegion of [{ x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
+test("GPT空指令参考任务入队冻结用途/模式/空原文/矩形和多边形，后续共享点对象不改变执行区域", async () => {
+  for (const fillReferencePurpose of [undefined, "object", "material"]) for (const editRegion of [{ x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
     { type: "polygon", points: [{ x: 0.25, y: 0.25 }, { x: 0.75, y: 0.25 }, { x: 0.5, y: 0.75 }] }]) {
     const expectedRegion = structuredClone(editRegion);
-    const sharedInput = await fixture(96, 64, { editRegion }); delete sharedInput.maskImage;
+    const expectedPurpose = fillReferencePurpose || "object";
+    const sharedInput = await fixture(96, 64, { editRegion, ...(fillReferencePurpose !== undefined ? { fillReferencePurpose } : {}), maskFillMode: "reference", fillReferenceImage: descriptor(await picture(48, 80, "#6789ab")) });
+    delete sharedInput.maskImage; delete sharedInput.prompt;
     const body = { jobId: "generation-sunburst-box-12345", featureMode: "imageMaskFill", sharedInput,
       items: [{ key: "forged-key", provider: "comfyui", input: {} }] };
     let queued, response, executed;
     const handler = createGenerationJobApiHandler({
       generationJobs: { enqueue(id, details, run) { queued = { id, details, run }; return { jobId: id }; } },
       generationService: { async executeForMode(mode, input) { executed = { mode, input }; return { ok: true }; } },
-      getImageMaskFillConfig: async () => ({ models: [{ key: "gptImage25Sunburst", modes: [{ key: "prompt", available: true, label: "Sunburst提示词填充" }] }] }),
+      getImageMaskFillConfig: async () => ({ models: [{ key: "gptImage25Sunburst", modes: [{ key: "reference", available: true, label: "Sunburst参考图填充" }] }] }),
       readJson: async () => body, sendJson: (_, status, value) => { response = { status, ...value }; }, verifySyncContract: async () => {},
     });
     await handler({ method: "POST" }, {}, "/api/generation-jobs");
     assert.equal(response.status, 202);
     assert.deepEqual(queued.details.stages, { imageEdit: "submitting" });
     assert.equal(body.items[0].provider, "oneapi");
+    sharedInput.fillReferencePurpose = expectedPurpose === "object" ? "material" : "object";
     if (editRegion.type === "polygon") editRegion.points[0].x = 0.75;
     else editRegion.x = 0.75;
     const result = await queued.run(() => {});
     assert.equal(result.outcomes[0].status, "fulfilled");
     assert.equal(executed.mode, "imageMaskFill");
     assert.deepEqual(executed.input.editRegion, expectedRegion);
+    assert.equal(executed.input.prompt, "");
+    assert.equal(executed.input.maskFillMode, "reference");
+    assert.equal(executed.input.fillReferencePurpose, expectedPurpose);
+    assert.equal(executed.input.fillReferenceImage.dataUrl, sharedInput.fillReferenceImage.dataUrl);
     assert.equal(executed.input.maskFillModel, "gptImage25Sunburst");
     assert.equal(executed.input.maskExpand, 0);
     assert.equal(Object.hasOwn(executed.input, "maskImage"), false);
-    assert.equal(result.outcomes[0].item.key, "gptImage25Sunburst-prompt");
+    assert.equal(result.outcomes[0].item.key, "gptImage25Sunburst-reference");
   }
 });
 

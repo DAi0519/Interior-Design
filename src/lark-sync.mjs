@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path/crypto/util、模型/空房/遮罩归档真源、图片产物/尺寸/飞书 CLI、生图结果及独立遮罩/填充参考图/实际提交的GPT圈选标记原图、已创建飞书 Base
- * [OUTPUT]: 原始/完整最终Prompt、真实尺寸与工作流同步；遮罩专属scope动态解析附件列ID、保留上传原图并独立校验归档框选原图、无mask/无框附件列留空、字段/token/字节两次回读后成功，不改变普通功能的Schema范围
+ * [INPUT]: 依赖 node:fs/os/path/crypto/util、模型/空房/遮罩/打光归档真源、图片产物/尺寸/飞书 CLI、生图结果及原图/实际提交的引导图附件、已创建飞书 Base
+ * [OUTPUT]: 原始/最终Prompt及真实尺寸同步；遮罩与打光独立scope校验功能选项和附件身份，打光复用参考图列存原件/实际引导PNG并保存完整光源参数，字段/token/字节双回读后成功
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -28,6 +28,7 @@ import { publicModelCatalog } from "./model-config.mjs";
 import { MULTI_ANGLE_ARCHIVE_FIELDS, MULTI_ANGLE_ARCHIVE_MODEL_LABELS, MULTI_ANGLE_FRAMING_LABELS, multiAngleRecordFields } from "./image-multi-angle-archive.mjs";
 import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "./image-outpaint-archive.mjs";
 import { IMAGE_MASK_FILL_ARCHIVE_FIELDS, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL, IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS, maskFillRecordFields } from "./image-mask-fill-archive.mjs";
+import { IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL, relightArchiveManifest } from "./image-relight-archive.mjs";
 
 export const LARK_SYNC_CONFIG = Object.freeze({
   baseToken:
@@ -52,12 +53,13 @@ const FEATURE_LABELS = Object.freeze({
   "image-outpaint": "AI扩图",
   "image-multi-angle": "多角度",
   "image-mask-fill": "遮罩填充",
+  "image-relight": IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL,
   "panorama-render-enhancement": "全景图美化",
   "refined-model-rendering": "精模渲染",
   "style-transfer": "风格转换",
   "white-model-rendering": "白模渲染",
 });
-const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS).filter((label) => label !== "遮罩填充"));
+const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS).filter((label) => !["遮罩填充", IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL].includes(label)));
 const REQUIRED_MODEL_LABELS = Object.freeze(
   [...new Set([...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS])],
 );
@@ -142,9 +144,7 @@ export function buildRecordFields({
   };
 
   return {
-    "标题": workflow?.roomRenovation
-      ? `旧房改造 · ${workflow.roomRenovation.stage === "clearance" ? "清空" : "设计"} · ${String(workflow.roomRenovation.pipelineId).slice(0, 8)}`
-      : titleFromPrompt(finalPrompt || FEATURE_LABELS[workflow?.feature] || ""),
+    "标题": titleFromPrompt(finalPrompt || FEATURE_LABELS[workflow?.feature] || ""),
     ...workflowRecordFields(workflow),
     ...multiAngleRecordFields(workflow),
     ...maskFillRecordFields(workflow),
@@ -213,6 +213,7 @@ export function assertLarkSyncSchema(
   const issues = [];
 
   const maskFill = scope === "imageMaskFill";
+  const relight = scope === "imageRelight";
   const requiredTypes = { ...REQUIRED_FIELD_TYPES, ...(maskFill ? IMAGE_MASK_FILL_ARCHIVE_FIELDS : {}) };
   for (const [name, type] of Object.entries(requiredTypes)) {
     const field = fieldsByName.get(name);
@@ -224,7 +225,7 @@ export function assertLarkSyncSchema(
 
   const requiredOptions = new Map([
     ["Prompt融合", requiredAgentModelLabels],
-    ["功能", maskFill ? [...REQUIRED_FEATURE_LABELS, "遮罩填充"] : REQUIRED_FEATURE_LABELS],
+    ["功能", [...REQUIRED_FEATURE_LABELS, ...(maskFill ? ["遮罩填充"] : []), ...(relight ? [IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL] : [])]],
     ["景别", Object.values(MULTI_ANGLE_FRAMING_LABELS)],
     ["状态", ["成功", "同步失败"]],
     ["生图模型", maskFill ? [...requiredModelLabels, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL] : requiredModelLabels],
@@ -389,13 +390,13 @@ function recordUrl(config, recordId) {
   return url.toString();
 }
 
-// -------- 仅遮罩归档启用回读；普通同步保持既有字段与调用范围 --------
-async function readMaskFillRecord(config, recordId, run) {
+// -------- 遮罩与打光归档启用回读；普通同步保持既有字段与调用范围 --------
+async function readVerifiedArchiveRecord(config, recordId, run, label = "遮罩") {
   const body = await run(config, ["base", "+record-get", "--as", "user", "--base-token", config.baseToken,
     "--table-id", config.tableId, "--record-id", recordId, "--format", "json"]);
   const record = body?.data?.record || body?.record;
   if (record?.fields && !Array.isArray(record.fields)) {
-    if (record.record_id && record.record_id !== recordId) throw new Error("遮罩归档回读返回了另一条记录");
+    if (record.record_id && record.record_id !== recordId) throw new Error(`${label}归档回读返回了另一条记录`);
     return record.fields;
   }
   const data = body?.data;
@@ -403,10 +404,10 @@ async function readMaskFillRecord(config, recordId, run) {
     && data.record_id_list?.[0] === recordId) {
     return Object.fromEntries(data.fields.map((name, index) => [name, data.data[0][index]]));
   }
-  throw new Error("遮罩归档记录回读格式不正确或记录身份不符");
+  throw new Error(`${label}归档记录回读格式不正确或记录身份不符`);
 }
 
-function verifyMaskFillFields(actual, expected) {
+function verifyArchiveFields(actual, expected, label = "遮罩") {
   for (const [name, value] of Object.entries(expected)) {
     let found = actual[name];
     if (Array.isArray(found)) {
@@ -418,20 +419,20 @@ function verifyMaskFillFields(actual, expected) {
       try { if (isDeepStrictEqual(typeof found === "string" ? JSON.parse(found) : found, JSON.parse(value))) continue; } catch { /* 继续按字段拒绝。 */ }
     } else if (typeof value === "number" && found != null && found !== "" && Number(found) === value) continue;
     else if (String(found ?? "") === String(value ?? "")) continue;
-    throw new Error(`遮罩归档字段回读不一致：${name}`);
+    throw new Error(`${label}归档字段回读不一致：${name}`);
   }
 }
 
-function verifyMaskFillAttachments(fields, manifest, identities = null) {
+function verifyArchiveAttachments(fields, manifest, identities = null, label = "遮罩") {
   const current = {};
   for (const [name, expected] of Object.entries(manifest)) {
     const files = fields[name] ?? [];
     if (!Array.isArray(files) || files.length !== expected.length || expected.some((file, index) =>
       !String(files[index]?.file_token || "").trim() || Number(files[index]?.size) !== file.size)) {
-      throw new Error(`遮罩归档${name}附件数量、token 或字节数回读不一致`);
+      throw new Error(`${label}归档${name}附件数量、token 或字节数回读不一致`);
     }
     current[name] = files.map((file) => ({ file_token: file.file_token, size: Number(file.size) }));
-    if (identities && !isDeepStrictEqual(current[name], identities[name])) throw new Error(`遮罩归档${name}附件身份回读发生变化`);
+    if (identities && !isDeepStrictEqual(current[name], identities[name])) throw new Error(`${label}归档${name}附件身份回读发生变化`);
   }
   return current;
 }
@@ -482,12 +483,15 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG, { r
 
   try {
     const maskFill = input.workflow?.feature === "image-mask-fill";
-    const schema = maskFill ? await verifyLarkSyncSchema(config, { scope: "imageMaskFill", run }) : null;
+    const relight = input.workflow?.feature === "image-relight";
+    const readback = maskFill || relight;
+    const label = relight ? "打光" : "遮罩";
+    const schema = readback ? await verifyLarkSyncSchema(config, { scope: maskFill ? "imageMaskFill" : "imageRelight", run }) : null;
     const resultBytes = await loadImageBytes(input.resultImage.url);
-    const manifest = maskFill ? await maskFillManifest(input, resultBytes) : null;
+    const manifest = maskFill ? await maskFillManifest(input, resultBytes) : relight ? relightArchiveManifest(input, resultBytes) : null;
     const fields = buildRecordFields({
       ...input,
-      ...(maskFill ? { workflow: { ...input.workflow, outputSha256: manifest["结果图"][0].sha256, attachmentManifest: manifest } } : {}),
+      ...(readback ? { workflow: { ...input.workflow, outputSha256: manifest["结果图"][0].sha256, attachmentManifest: manifest } } : {}),
       actualSize: actualImageSize(resultBytes),
     });
     const created = await createRecord(config, fields, run);
@@ -542,15 +546,17 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG, { r
         const fileNames = await materializeReferenceImages(image ? [image] : [], temporaryDirectory, { prefix });
         await uploadAttachments(config, recordId, schema.attachmentFieldIds[name], fileNames, temporaryDirectory, run);
       }
-      const initial = await readMaskFillRecord(config, recordId, run);
-      verifyMaskFillFields(initial, fields);
-      attachmentIdentities = verifyMaskFillAttachments(initial, manifest);
+    }
+    if (readback) {
+      const initial = await readVerifiedArchiveRecord(config, recordId, run, label);
+      verifyArchiveFields(initial, fields, label);
+      attachmentIdentities = verifyArchiveAttachments(initial, manifest, null, label);
     }
     await upsertRecord(config, { "状态": "成功", "错误信息": null }, recordId, run);
-    if (maskFill) {
-      const final = await readMaskFillRecord(config, recordId, run);
-      verifyMaskFillFields(final, { ...fields, "状态": "成功", "错误信息": null });
-      verifyMaskFillAttachments(final, manifest, attachmentIdentities);
+    if (readback) {
+      const final = await readVerifiedArchiveRecord(config, recordId, run, label);
+      verifyArchiveFields(final, { ...fields, "状态": "成功", "错误信息": null }, label);
+      verifyArchiveAttachments(final, manifest, attachmentIdentities, label);
     }
     return {
       ok: true,

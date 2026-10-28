@@ -181,5 +181,11 @@
     "archiveReadback": "evaluation-v34-readback.json",
     "note": "Initial generation snapshot predates async archive completion; sync receipts establish generationId-to-recordId mapping, archive readback confirms status and attachments.",
     "workbenchScreenshot": "workbench-v34.png"
+  },
+  "_retainedEvidence": {},
+  "_cleanup": {
+    "originalValidationSha256": "571e8e2a30c532a56e4c1dc1d9882f056aec56a01e00677f0ce2b93cc9874756",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# cabinet-geometry/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\nvalidation.json: 空房双 Agent v34 正文 hash、上架/运行回读、真实任务与归档 ID、独立视觉核查及未通过项；完整 Prompt 留在 outputs 忽略目录\nworkbench-v34.png: 主工作台恢复真实 v34 双模式任务的结果区截图，图片质量判定见 validation.json\n\n本次只修改双 Agent 的柜体空间规则及输出合同，旧房两阶段调用与普通空房设计共同消费。接口成功、Prompt 传达、柜体立体感和原结构保真分别验收；不能由版本上架或截图存在推定全通过。\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n"
   }
 }

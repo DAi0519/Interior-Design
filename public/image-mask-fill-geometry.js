@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器解码后的主图/参考图尺寸、指针与画布边界、遮罩PNG/归一化矩形或圈选轮廓和用户填充参数
- * [OUTPUT]: 模型/遮罩/矩形/多边形准入、共享蓝线与点数上限、圈选坐标归一化及互斥请求；GPT尺寸由服务端目录注入
+ * [OUTPUT]: 模型/遮罩/矩形/多边形准入、GPT参考模式可空指令与物品/材质用途归一化、共享蓝线与点数上限、圈选坐标归一化及互斥请求；GPT尺寸由服务端目录注入
  * [POS]: public 的遮罩填充纯规则层，由画布与功能控制器共同消费，不访问DOM或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -97,6 +97,20 @@ export function maskFillInferenceSize({ width, height }, tierValue = "2k") {
   return { width: aligned(width), height: aligned(height), maxEdge, resize: tier.key !== "original" };
 }
 export const maskFillMode = value => value === "reference" ? "reference" : "prompt";
+export const maskFillPromptOptional = (modelKey, mode) => modelKey === "gptImage25Sunburst" && mode === "reference";
+export const MASK_FILL_REFERENCE_PURPOSES = Object.freeze([
+  Object.freeze({ key: "object", label: "换物品" }),
+  Object.freeze({ key: "material", label: "换材质" }),
+]);
+export function maskFillReferencePurpose(value, modelKey, mode) {
+  if (!maskFillPromptOptional(modelKey, mode)) {
+    if (value !== undefined) throw new TypeError("参考用途仅支持GPT参考图填充模式");
+    return null;
+  }
+  const purpose = value === undefined ? "object" : value;
+  if (!MASK_FILL_REFERENCE_PURPOSES.some(entry => entry.key === purpose)) throw new TypeError("参考用途请选择换物品或换材质");
+  return purpose;
+}
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 
 export function maskCanvasPoint(event, bounds, width, height) {
@@ -169,12 +183,13 @@ export function maskFillImageIssue(image, subject = "原图") {
 
 const descriptor = ({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type });
 
-export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillReferenceImage, mode, prompt,
+export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillReferenceImage, fillReferencePurpose, mode, prompt,
   inferenceTier, outputResolution, quality = "medium", maskExpand, jobId, maskFillModel: modelKey = "flux2Klein" }) {
   const model = maskFillModel(modelKey);
   if (model.provider === "oneapi") outputResolution = maskFillGptResolution(outputResolution, inferenceTier);
   else inferenceTier = maskFillInferenceTier(inferenceTier, model.key).key;
   const selectedMode = maskFillMode(mode);
+  const referencePurpose = maskFillReferencePurpose(fillReferencePurpose, model.key, selectedMode);
   const issue = maskFillImageIssue(image) || (selectedMode === "reference"
     ? maskFillImageIssue(fillReferenceImage, "填充参考图") : "");
   if (issue) throw new Error(issue);
@@ -183,8 +198,9 @@ export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillRefe
   if (region && model.key !== "gptImage25Sunburst") throw new Error("当前模型不支持框选，请使用画笔涂抹编辑区域");
   if (region && hasMask) throw new Error("框选区域与遮罩不能同时提交");
   if (!hasMask && model.key !== "gptImage25Sunburst") throw new Error("请先在原图上涂抹需要编辑的区域");
-  const instruction = typeof prompt === "string" ? prompt.trim() : "";
-  if (!instruction) throw new Error("请填写明确的编辑指令");
+  if (prompt !== undefined && typeof prompt !== "string") throw new Error("编辑指令必须是文本");
+  const instruction = (prompt ?? "").trim();
+  if (!instruction && !maskFillPromptOptional(model.key, selectedMode)) throw new Error("请填写明确的编辑指令");
   if (instruction.length > 8000) throw new Error("编辑指令不能超过8000字");
   const expand = maskExpand ?? MASK_FILL_MODES[selectedMode].expand;
   if (hasMask && (!Number.isInteger(Number(expand)) || Number(expand) < 0 || Number(expand) > 256)) throw new Error("遮罩扩展应为0–256的整数");
@@ -195,6 +211,7 @@ export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillRefe
       label: model.key === "flux2Klein" ? MASK_FILL_MODES[selectedMode].label : `${model.label} · ${selectedMode === "prompt" ? "提示词填充" : "参考图填充"}`, provider: model.provider,
       input: { ...(model.key !== "flux2Klein" ? { maskFillModel: model.key } : {}),
         maskFillMode: selectedMode, prompt: instruction, ...(model.provider === "oneapi" ? { outputResolution, quality } : { inferenceTier }),
+        ...(referencePurpose ? { fillReferencePurpose: referencePurpose } : {}),
         ...(region ? { editRegion: region } : {}),
         ...(hasMask ? { maskExpand: Number(expand) } : {}) } }],
   };

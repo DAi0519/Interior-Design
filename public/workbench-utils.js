@@ -1,9 +1,11 @@
 /**
- * [INPUT]: 依赖浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
- * [OUTPUT]: 对外提供同源 JSON API、HTML/比例格式化、图片地址/文件读取、字节、含三方/ComfyUI本机身份、图片超分/Flux同图攸行超分与负向Prompt模式的结果摘要、ComfyUI 分段耗时及原生下拉填充工具
+ * [INPUT]: 依赖精模实际光影和旧氛围摘要、浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
+ * [OUTPUT]: 对外提供同源API/格式化/文件读取、含精模实际光影及预设仅提示词/提示词加参考图的结果摘要、ComfyUI分段耗时和原生下拉工具；旧结果不补造执行方式
  * [POS]: public 的无状态浏览器基础设施，被生成、Benchmark 与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { describeRefinedRender } from "./refined-render-presets.js";
 
 export async function api(pathname, options = {}) {
   const response = await fetch(pathname, {
@@ -81,6 +83,12 @@ export function resultMetadata(result, sync = result.sync) {
     result.request.size.replace("x", " × "),
     result.request.outputFormat.toUpperCase(),
     result.style?.name,
+    result.refinedLighting ? result.refinedLighting.mode === "preset"
+      ? `光影预设：${result.refinedLighting.name || result.refinedLighting.presetName || result.refinedLighting.code || "已选预设"}`
+      : result.refinedLighting.mode === "reference" ? "氛围参考图" : "原始光影"
+      : result.refinedRender ? describeRefinedRender(result.refinedRender) : null,
+    result.refinedLighting?.mode === "preset" && result.refinedLighting.execution === "prompt-only" ? "仅提示词"
+      : result.refinedLighting?.mode === "preset" && result.refinedLighting.execution === "prompt-and-reference" ? "提示词＋参考图" : null,
     result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
     result.promptAgent?.reused ? "提示词已复用" : null,
     result.request.referenceImageCount > 0

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖已绑定的扩图预览/定位/尺寸节点、共享结果面板、上传原图、生成任务阶段/身份及可选的隐藏回调
  * [OUTPUT]: 对外提供可配置的bindImageToolWorkspace及兼容bindImageOutpaintWorkspace，以 setActive/setSource/setStage 组合大画布/结果页签；新图保持构图直至新任务开始，离开预览时关闭设置并保留结果
- * [POS]: public 的扩图/多角度/遮罩填充共享工作区呈现层，由 image-tools 在功能控制器初始化后绑定，不接触几何或生成请求
+ * [POS]: public 的扩图/多角度/遮罩填充/打光共享工作区呈现层，由 image-tools 在功能控制器初始化后绑定，不接触几何或生成请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 

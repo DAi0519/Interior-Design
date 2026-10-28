@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 Flux 固定采样步数及 SeedVR2 默认工作流键
- * [OUTPUT]: 对外提供普通 Flux 工作流身份、默认模型参数及统一归档元数据
+ * [INPUT]: 依赖普通Flux固定采样、效果图美化六预设元数据及SeedVR2默认工作流键
+ * [OUTPUT]: 对外提供普通Flux身份/默认参数及按实际美化分支覆盖步数、推理尺寸、LoRA/后处理/来源身份的统一归档元数据
  * [POS]: src 的 Flux 工作流配置真源，把稳定参数合同与节点图编排解耦，并供应用服务复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY } from "./image-upscale-workflow.mjs";
+import { effectBeautificationMetadata } from "./effect-beautification-workflow.mjs";
 
 export const AI_TEXTURE_WORKFLOW = Object.freeze({
   id: "ai-texture-enhancement",
@@ -60,5 +61,7 @@ export function buildAiTextureWorkflowMetadata({
       : null,
     workflowId: AI_TEXTURE_WORKFLOW.id,
     workflowVersion: AI_TEXTURE_WORKFLOW.version,
+    ...(generationRequest?.effect_beautification
+      ? effectBeautificationMetadata(generationRequest) : {}),
   };
 }

@@ -1,0 +1,372 @@
+Window: "AI模型精准渲染", App: Microsoft Edge.
+0 标准窗口 AI模型精准渲染 - 选项卡组 🔎 光影模板对齐 的一部分 - Microsoft Edge, URL: jzxz.com/ai/model_render/operate, Secondary Actions: Raise
+	1 container AI模型精准渲染 - 选项卡组 🔎 光影模板对齐 的一部分 - Microsoft Edge, URL: jzxz.com/ai/model_render/operate
+		2 container
+			3 container
+				4 按钮 工作区按钮
+				5 工具栏 应用栏
+					6 按钮 返回
+					7 按钮 刷新
+					8 按钮 主页
+					9 container
+						10 弹出式按钮 查看站点信息
+						11 文本栏 (settable) 地址和搜索栏, Value: https://www.jzxz.com/ai/model_render/operate, Placeholder: 搜索或输入 Web 地址
+						12 按钮 将此页面添加到收藏夹(⌘D)
+					13 container
+						14 弹出式按钮 扩展
+					15 按钮 下载
+					16 按钮 个人 个人资料
+					17 按钮 更新
+					18 按钮 聊天
+				19 工具栏 收藏夹栏
+					20 工具栏 保存的选项卡组
+						21 按钮 标签页组
+					22 分离器 分隔符
+					23 container 群核
+					24 container Ryan's HOME
+					25 container flomo
+					26 container LIBVIO
+					27 container bilibili
+					28 container Gmail
+					29 container Recraft
+					30 container Lovart
+					31 container  Pinterest
+					32 container 主页 / X
+					33 container Poe
+					34 container YouWare
+					35 container Flowus
+					36 弹出式按钮 包含隐藏的收藏夹的菜单
+				37 container
+					38 滚动区
+						39 HTML 内容 AI模型精准渲染, URL: jzxz.com/ai/model_render/operate
+							40 container
+								41 container
+									42 container
+										43 text 建筑学长电脑版版支持 GPT-6模型 使用！且费用只有 官方GPT的10%！ 支持 SU、CAD自动建模 ，登录即领1500建学币！
+										44 link 立即下载, Value: jzxz.com/download
+									45 按钮 关闭当前活动横幅
+								46 container
+									47 link logo, Value: jzxz.com/
+									48 container 面包屑导航
+										49 内容列表
+											50 link 首页, Value: jzxz.com/home
+											51 link AI工具, Value: jzxz.com/tools
+											52 文本 AI模型渲染
+									53 link 电脑版下载 HOT, Value: jzxz.com/download
+									54 按钮 中文
+									55 文本 专业会员
+									56 图像
+									57 文本 企业版
+									58 图像
+									59 文本 5
+									60 按钮 充值
+									61 图像 http://gd-hbimg.huaban.com/eabdc3be454fff6be137b2aa7cbf0b05c3e07adcd13e-tYd6um
+								62 按钮 打开 AI 助手
+								63 container
+									64 图像
+									65 文本栏 (settable) 搜索AI工具
+									66 菜单 Secondary Actions: Cancel
+										67 创作记录
+											68 图像
+											69 文本 创作记录
+										70 我的收藏
+											71 图像
+											72 文本 我的收藏
+										73 AI画布Agent
+											74 图像
+											75 文本 AI画布Agent
+										76 AI智能体
+											77 图像
+											78 文本 AI智能体
+										79 AI绘图
+											80 图像
+											81 文本 AI绘图
+										82 AI模型渲染
+											83 container
+												84 文本 AI模型渲染
+												85 图像
+										86 AI绘图创作
+											87 container
+												88 文本 AI绘图创作
+												89 图像
+										90 AI全景图创作
+											91 container
+												92 文本 AI全景图创作
+												93 图像
+										94 AI手绘创作
+											95 container
+												96 文本 AI手绘创作
+												97 图像
+										98 AI风格迁移
+											99 container
+												100 文本 AI风格迁移
+												101 图像
+										102 AI彩平生成
+											103 container
+												104 文本 AI彩平生成
+												105 图像
+										106 AI户型上色
+											107 container
+												108 文本 AI户型上色
+												109 图像
+										110 AI旧房改造
+											111 container
+												112 文本 AI旧房改造
+												113 图像
+										114 AI分析图生成
+											115 container
+												116 文本 AI分析图生成
+												117 图像
+										118 AI室内装修
+											119 container
+												120 文本 AI室内装修
+												121 图像
+										122 AI体块创作
+											123 container
+												124 文本 AI体块创作
+												125 图像
+										126 AI软装设计
+											127 container
+												128 文本 AI软装设计
+												129 图像
+										130 AI规划总图
+											131 container
+												132 文本 AI规划总图
+												133 图像
+										134 AI立面迁移
+											135 container
+												136 文本 AI立面迁移
+												137 图像
+										138 AI场地建筑融合
+											139 container
+												140 文本 AI场地建筑融合
+												141 图像
+										142 AI多角度创作
+											143 container
+												144 文本 AI多角度创作
+												145 图像
+										146 AI场景节点
+											147 container
+												148 文本 AI场景节点
+												149 图像
+										150 AI花境设计
+											151 container
+												152 文本 AI花境设计
+												153 图像
+										154 AI室内平面
+											155 container
+												156 文本 AI室内平面
+												157 图像
+										158 AI市政绿化
+											159 container
+												160 文本 AI市政绿化
+												161 图像
+										162 AI市政道路桥梁
+											163 container
+												164 文本 AI市政道路桥梁
+												165 图像
+										166 CAD家具渲染
+											167 container
+												168 文本 CAD家具渲染
+												169 图像
+										170 AI景观改造
+											171 container
+												172 文本 AI景观改造
+												173 图像
+										174 AI商业门头改造
+											175 container
+												176 文本 AI商业门头改造
+												177 图像
+										178 AI舞美设计
+											179 container
+												180 文本 AI舞美设计
+												181 图像
+										182 AI全屋智能设计
+											183 container
+												184 文本 AI全屋智能设计
+												185 图像
+										186 AI灵感
+											187 图像
+											188 文本 AI灵感
+										189 AI改图
+											190 图像
+											191 文本 AI改图
+										192 AI优化
+											193 图像
+											194 文本 AI优化
+										195 AI转换
+											196 图像
+											197 文本 AI转换
+										198 AI视频
+											199 图像
+											200 文本 AI视频
+										201 AI建模
+											202 图像
+											203 文本 AI建模
+										204 其他工具
+											205 图像
+											206 文本 其他工具
+										207 素材库
+											208 图像
+											209 文本 素材库
+										210 创作社区
+											211 图像
+											212 文本 创作社区
+										213 插件下载
+											214 图像
+											215 文本 插件下载
+										216 APP下载
+											217 图像
+											218 文本 APP下载
+										219 帮助教程
+											220 图像
+											221 文本 帮助教程
+										222 企业合作
+											223 图像
+											224 文本 企业合作
+									225 按钮 收起菜单
+									226 container
+										227 图像
+										228 图像
+										229 图像
+										230 图像
+										231 文本 5
+										232 container
+											233 文本 设计风格
+											234 文本 请选择想要生成的设计风格进行渲染
+											235 container
+												236 按钮 通用风格
+												237 按钮 特殊风格
+												238 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1779443705500_bxej.png?x-tos-process=image%2Fresize%2Cw_480
+												239 文本 质感黑金
+												240 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1777532600606_ncjw.png?x-tos-process=image%2Fresize%2Cw_480
+												241 文本 高级轻奢
+												242 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1777532674004_fktc.png?x-tos-process=image%2Fresize%2Cw_480
+												243 文本 质感老钱
+												244 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1777532729115_jxhd.png?x-tos-process=image%2Fresize%2Cw_480
+												245 文本 质感原木
+												246 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1777532770044_xyfj.png?x-tos-process=image%2Fresize%2Cw_480
+												247 文本 极简黑白
+												248 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1785999245995_pceb.png?x-tos-process=image%2Fresize%2Cw_480
+												249 文本 高级暖调
+												250 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1777539519030_wktj.png?x-tos-process=image%2Fresize%2Cw_480
+												251 文本 现代中古
+												252 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1780992058325_ybsn.png?x-tos-process=image%2Fresize%2Cw_480
+												253 文本 包豪斯风
+												254 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1786435165537_hyxj.png?x-tos-process=image%2Fresize%2Cw_480
+												255 文本 比利时极简
+												256 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1786435212208_icwa.png?x-tos-process=image%2Fresize%2Cw_480
+												257 文本 孟菲斯风
+												258 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1786445974783_mzhk.png?x-tos-process=image%2Fresize%2Cw_480
+												259 文本 托斯卡纳
+												260 图像 https://image-assets.jianzhuxuezhang.com/draw_category_cover/1780991803844_feym.png?x-tos-process=image%2Fresize%2Cw_480
+												261 文本 宋式质感
+												262 文本 安缦室内
+												263 文本 自定义
+											264 文本 描述词
+											265 文本输入区 (settable) 写下你的绘画想法和创意
+										266 按钮 上一步
+										267 按钮 开始渲染
+										268 container
+											269 text 剩余次数 : 50 查看会员权益
+				270 标签组 标签页栏
+					271 container
+						272 弹出式按钮 搜索标签页
+						273 按钮 折叠窗格
+						274 标签组
+							275 滚动区
+								276 container
+									277 按钮 群核文档 选项卡组 ("AI场景｜核心指标与漏斗分析...shboard · KMB" 和另外 19 个标签页) - 已展开
+									278 按钮 在组中新建标签页，蓝色 选项卡组 ("AI场景｜核心指标与漏斗分析...shboard · KMB" 和另外 -1 个标签页)
+									279 按钮 选项卡组操作，蓝色 选项卡组 ("AI场景｜核心指标与漏斗分析...shboard · KMB" 和另外 -1 个标签页)
+									280 标签 (settable, boolean) AI场景｜核心指标与漏斗分析 · Dashboard · KMB - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 792 MB, Value: off
+									281 标签 (settable, boolean) AI评测平台 - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 418 MB, Value: off
+									282 标签 (settable, boolean) 报告中心 :: Kinetic - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 435 MB, Value: off
+									283 标签 (settable, boolean) 生图同步文档 - 博观 - 群核Wiki - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用量高 - 1.1 GB, Value: off
+									284 标签 (settable, boolean) 博观1019-1023 - PLG中心 - 群核Wiki - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用量高 - 968 MB, Value: off
+									285 标签 (settable, boolean) 用户分群 :: Kupp - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 675 MB, Value: off
+									286 标签 (settable, boolean) S141（09.14~09.25） - 大用户平台-会员 - 群核Wiki - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 644 MB, Value: off
+									287 标签 (settable, boolean) CoreLand｜核伙人 - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 556 MB, Value: off
+									288 标签 (settable, boolean) 大用户测试平台 - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 358 MB, Value: off
+									289 标签 (settable, boolean) 运营云台 - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 794 MB, Value: off
+									290 标签 (settable, boolean) CoreLand｜核伙人 - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 291 MB, Value: off
+									291 标签 (settable, boolean) 酷家乐 - 全场景在线3D云设计平台 - 群核科技旗下 - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 711 MB, Value: off
+									292 标签 (settable, boolean) 用户平台管理后台 - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 722 MB, Value: off
+									293 标签 (settable, boolean) Model Link - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 348 MB, Value: off
+									294 标签 (settable, boolean) ⁠﻿‌​‍​‌​​​​​﻿‍​​​‌​​​‬‍﻿‌​​⁠​⁠​​‍​‌‍‬⁠‍‬⁠﻿​​​​‍‬问卷 - 飞书云文档 - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用量高 - 1.0 GB, Value: off
+									295 标签 (settable, boolean) 敏捷组 - 会员业务 - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 367 MB, Value: off
+									296 标签 (settable, boolean) MAAS - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 367 MB, Value: off
+									297 标签 (settable, boolean) 看板管理 - Tetris - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 303 MB, Value: off
+									298 标签 (settable, boolean) 用户分群 :: Kupp - 选项卡组 群核文档 的一部分 - 已丢弃 - 内存使用率 - 303 MB, Value: off
+									299 标签 (settable, boolean) 页面不存在 - 酷家乐 - 选项卡组 群核文档 的一部分 - 睡眠 - 内存使用率 - 437 MB, Value: off
+									300 按钮 竞品 选项卡组 ("AI渲染" 和另外 13 个标签页) - 已展开
+									301 按钮 在组中新建标签页，蓝色 选项卡组 ("AI渲染" 和另外 -1 个标签页)
+									302 按钮 选项卡组操作，蓝色 选项卡组 ("AI渲染" 和另外 -1 个标签页)
+									303 标签 (settable, boolean) AI渲染 - 选项卡组 竞品 的一部分 - 内存使用量高 - 1.1 GB, Value: off
+									304 标签 (settable, boolean) 酷家乐 - 全场景在线3D云设计平台 - 群核科技旗下 - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用率 - 605 MB, Value: off
+									305 标签 (settable, boolean) 梦琴湾-副本 - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用量高 - 2.2 GB, Value: off
+									306 标签 (settable, boolean) 知末AI-建筑/景观/室内智能生图平台 | 高效生成渲染图 - 选项卡组 竞品 的一部分 - 已丢弃 - 内存使用率 - 765 MB, Value: off
+									307 标签 (settable, boolean) 知末AI-建筑/景观/室内智能生图平台 | 高效生成渲染图 - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用率 - 381 MB, Value: off
+									308 标签 (settable, boolean) 溜溜AI-支持在线协作的AI创作社区 - 选项卡组 竞品 的一部分 - 已丢弃 - 内存使用率 - 376 MB, Value: off
+									309 标签 (settable, boolean) 建e网_AI - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用率 - 696 MB, Value: off
+									310 标签 (settable, boolean) 风暴AI 工作空间 - 选项卡组 竞品 的一部分 - 已丢弃 - 内存使用率 - 364 MB, Value: off
+									311 标签 (settable, boolean) AI建筑大师—千万建筑师的AI创作平台 - 选项卡组 竞品 的一部分, Value: off
+									312 标签 (settable, boolean) M2-Cloud渲染云 - 选项卡组 竞品 的一部分, Value: off
+									313 标签 (settable, boolean) 建筑学长——千万建筑师的AI创作平台 - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用率 - 392 MB, Value: off
+									314 标签 (settable, boolean) AI模型精准渲染 - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用率 - 447 MB, Value: off
+									315 标签 (settable, boolean) 免费3D家居设计软件 | 1m + 模型和云渲染-Homestyler - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用率 - 316 MB, Value: off
+									316 标签 (settable, boolean) 即梦AI - 创作灵感探索社区 - 选项卡组 竞品 的一部分 - 睡眠 - 内存使用量高 - 821 MB, Value: off
+									317 按钮 生图工作流 选项卡组 ("(81) Pinterest" 和另外 9 个标签页) - 已展开
+									318 按钮 在组中新建标签页，蓝色 选项卡组 ("(34) Pinterest" 和另外 -1 个标签页)
+									319 按钮 选项卡组操作，蓝色 选项卡组 ("(34) Pinterest" 和另外 -1 个标签页)
+									320 标签 (settable, boolean) (81) Pinterest - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用量高 - 1.2 GB, Value: off
+									321 标签 (settable, boolean) Decor Styles | IASCE - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用率 - 642 MB, Value: off
+									322 标签 (settable, boolean) 临港产业园办公楼改造，上海 / 衡建筑 | 谷德设计网 - gooood - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用率 - 428 MB, Value: off
+									323 标签 (settable, boolean) 云盘 - 飞书云文档 - 选项卡组 生图工作流 的一部分 - 内存使用率 - 408 MB, Value: off
+									324 标签 (settable, boolean) ‍‌​​​⁠​‌​​⁠​‌​‍​​​​﻿‌​⁠‌​​​‬‍​​‌﻿​‬﻿﻿​﻿‍‌⁠‬‍​​﻿﻿‌﻿AI 生图 - 飞书云文档 - 选项卡组 生图工作流 的一部分 - 内存使用量高 - 1.8 GB, Value: off
+									325 标签 (settable, boolean) AI 生图 - 飞书云文档 - 选项卡组 生图工作流 的一部分 - 已丢弃 - 内存使用率 - 476 MB, Value: off
+									326 标签 (settable, boolean) 云盘 - 飞书云文档 - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用率 - 546 MB, Value: off
+									327 标签 (settable, boolean) DBV+ - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用率 - 252 MB, Value: off
+									328 标签 (settable, boolean) Canvas Lab · 图像模型工作台 - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用率 - 330 MB, Value: off
+									329 标签 (settable, boolean) *Flux-Fill-OneReward-Outpaint - ComfyUI - 选项卡组 生图工作流 的一部分 - 睡眠 - 内存使用率 - 436 MB, Value: off
+									330 标签 (settable, boolean) AI工具PC端 – Figma - 已丢弃 - 内存使用量高 - 1.1 GB, Value: off
+									331 标签 (settable, boolean) 版本选择页 - 已丢弃 - 内存使用率 - 665 MB, Value: off
+									332 标签 (settable, boolean) 我的方案 - 内存使用量高 - 1.4 GB, Value: off
+									333 标签 (settable, boolean) 【我的方案】梦琴湾-副本-酷家乐3D云设计 - 睡眠 - 内存使用率 - 678 MB, Value: off
+									334 标签 (settable, boolean) 新建标签页 - 已丢弃, Value: off
+									335 标签 (settable, boolean) 大用户测试平台 - 已丢弃 - 内存使用率 - 538 MB, Value: off
+									336 标签 (settable, boolean) 小红书 - 你的生活兴趣社区 - 睡眠 - 内存使用量高 - 805 MB, Value: off
+									337 标签 (settable, boolean) 室内灯光氛围 - 小红书搜索 - 睡眠 - 内存使用率 - 665 MB, Value: off
+									338 标签 (settable, boolean) MAAS - 睡眠 - 内存使用率 - 423 MB, Value: off
+									339 标签 (settable, boolean) 影像版本评审 · 多模式对比 - 睡眠 - 内存使用率 - 453 MB, Value: off
+									340 标签 (settable, boolean) 模板库 - 睡眠 - 内存使用率 - 292 MB, Value: off
+									341 标签 (settable, boolean) 酷家乐AI全景图美化 - 立早 - 群核Wiki - 睡眠 - 内存使用量高 - 898 MB, Value: off
+									342 标签 (settable, boolean) 10/26 酷家乐会员周会 - PLG中心 - 群核Wiki - 睡眠 - 内存使用率 - 662 MB, Value: off
+									343 标签 (settable, boolean) AI出图增长项目周报-1023 - 管理工程部开放空间 - 群核Wiki - 睡眠 - 内存使用率 - 504 MB, Value: off
+									344 标签 (settable, boolean) 47CC69F96BE32DC091A560A532E3BA69.png (2666×1572) - 睡眠 - 内存使用率 - 320 MB, Value: off
+									345 标签 (settable, boolean) 首发 . 唐忠汉｜东方语境下的静谧归心【环球设计4074期】 - 睡眠 - 内存使用率 - 470 MB, Value: off
+									346 按钮 🔎 光影模板对齐 选项卡组 ("AI模型精准渲染") - 已展开
+									347 按钮 在组中新建标签页，紫色 选项卡组 ("about:blank" 和另外 -1 个标签页)
+									348 按钮 选项卡组操作，紫色 选项卡组 ("about:blank" 和另外 -1 个标签页)
+									349 标签 (selected, settable, boolean) AI模型精准渲染 - 选项卡组 🔎 光影模板对齐 的一部分, Value: on
+										350 按钮 关闭标签页
+									351 标签 (settable, boolean) AI工具PC端 – Figma - 内存使用量高 - 1.2 GB, Value: off
+								352 滚动条
+						353 按钮 新建标签页
+						354 分离器 226
+	355 关闭按钮
+	356 全屏幕按钮 Help: 此按钮也可以执行缩放窗口的操作, Secondary Actions: 缩放窗口
+	357 最小化按钮
+358 menu bar
+	359 Edge
+	360 文件
+	361 编辑
+	362 查看
+	363 历史记录
+	364 收藏夹
+	365 个人资料
+	366 标签页
+	367 窗口
+	368 帮助
+
+The focused UI element is 237 按钮 特殊风格

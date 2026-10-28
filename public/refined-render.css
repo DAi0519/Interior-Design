@@ -1,0 +1,18 @@
+/**
+ * [INPUT]: 依赖共享表单、配置栏容器宽度与品牌键面令牌
+ * [OUTPUT]: 对外提供精模时段/天气/色调常显三字段、可读的飞书正文入口、错误状态与窄栏自适应布局
+ * [POS]: public 的主工作台/Beta 共用精模渲染表现样式
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.refined-render-fields { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
+.refined-render-fields .field { min-width: 0; }
+.refined-prompt-source-link { color: var(--brand-key-strong-ink); font-size: 11px; text-decoration: underline; text-underline-offset: 3px; }
+.refined-prompt-source-link:focus-visible { outline: 2px solid var(--brand-key-focus); outline-offset: 3px; }
+.refined-render-error { color: var(--danger, #a32929); font-size: 11px; line-height: 1.6; margin: 10px 0 0; }
+@container workspace-parameters (max-width: 340px) {
+  .refined-render-fields { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .refined-render-fields { grid-template-columns: 1fr; }
+}

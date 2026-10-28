@@ -1,21 +1,23 @@
-# [INPUT]: 依据sunburst.10的固定1K/medium实际请求构造；图片与用户指令由调用者替换
-# [OUTPUT]: 完整OneAPI调用模板，含无mask蓝色圈选/参考图异步提交与GET查询、涂抹/参考图同步请求
-# [POS]: docs/ 的独立开发交接导出，不包含真实密钥或图片；未完成腾讯Sunburst异步路由真实出图验证
+# [INPUT]: 依据sunburst.15的固定1K/medium实际请求构造；图片与用户指令由调用者替换
+# [OUTPUT]: 完整OneAPI调用模板，含圈选目标/换物品或换材质明确用途/可选补充指令/去标记的实际Prompt、无mask异步提交/GET及透明mask同步请求
+# [POS]: docs/ 的独立开发交接导出，不包含真实密钥或图片；sunburst.15尚未新增真实出图验证
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 # 核对日期：2026-10-22。下方size为3:2原图的1K示例；其他比例按交接表换算。
-# 本文件是参数模板；替换以下变量后再调用，每次选择一种路径，不要重复POST。
+# 本文件示例为有参考图、默认换物品object且无补充指令；替换图片及鉴权变量，每次选择一种路径，不要重复POST。
 @ONEAPI_API_KEY = REPLACE_WITH_YOUR_KEY
 @SOURCE_WITH_SELECTION_PNG_BASE64 = REPLACE_WITH_COMPLETE_SOURCE_PNG_WITH_BLUE_SELECTION_OUTLINE
 @SOURCE_PNG_BASE64 = REPLACE_WITH_COMPLETE_SOURCE_PNG_WITHOUT_OVERLAY
-@REFERENCE_PNG_BASE64 = REPLACE_WITH_OBJECT_REFERENCE_PNG
+@REFERENCE_PNG_BASE64 = REPLACE_WITH_VISUAL_REFERENCE_PNG
 @ALPHA_MASK_PNG_BASE64 = REPLACE_WITH_SAME_SIZE_ALPHA_MASK_PNG
-@USER_PROMPT = REPLACE_WITH_USER_INSTRUCTION
 @RESPONSE_ID = REPLACE_WITH_RESP_ID_FROM_ASYNC_POST
 
 ### 第一段：蓝色圈选＋参考图，无mask异步提交；不传mask或editRegion
 # 框选、自由圈选或纯指令（仍有原图）均走Responses；纯指令图1不带圈选线，Prompt按实际定位方式拼接。
-# 输入顺序：input_text完整指令 → 第一个input_image底图 → 第二个input_image物体参考。
-# 提示词模式省略第二个input_image，不要省略完整底图；图片URL保持原PNG data URL，不转换成拼图。
+# 输入顺序：input_text完整指令 → 第一个input_image底图 → 第二个input_image参考图。
+# 业务字段fillReferencePurpose仅GPT参考图模式可用：object换物品（默认）/material换材质，由调用方明确选择，不自动猜；不要把该业务字段传入OneAPI。
+# 蓝圈换材质时，完整input_text改用gpt-image-edit-prompts.json的templates.reference.purposes.material.defaultTemplate；有文字时使用同分支template。
+# 蓝圈有补充指令时，改用gpt-image-edit-prompts.json的templates.reference.purposes[用途].template并只替换{{USER_PROMPT}}；空白时直接用defaultTemplate，不添加空User instruction行。
+# 无参考图模式同时改用gpt-image-edit-prompts.json中templates.prompt.template并省略第二个input_image，不要省略完整底图；图片URL保持原PNG data URL，不转换成拼图。
 POST https://oneapi.qunhequnhe.com/v1/responses
 Authorization: Bearer {{ONEAPI_API_KEY}}
 Content-Type: application/json
@@ -30,7 +32,7 @@ Content-Type: application/json
       "content": [
         {
           "type": "input_text",
-          "text": "Image 1 contains a selected region marked by a temporary blue outline of any shape. The outline is an annotation, not part of the scene. Use the selected region to identify the target object for the user instruction. Follow the requested action, including replacing, removing, adding or modifying the object. The selection identifies the target and is not a hard boundary for editing. Preserve the scene's composition, perspective and lighting, and keep unrelated objects and background unchanged. Remove all blue selection guide marks from the final image and restore the scene beneath them.\nImage 2 is an object reference. If the user instruction calls for using the reference object, use the requested object from image 2 for the selected target in image 1, matching the scene's scale, perspective and lighting. Do not copy image 2's background.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image without blue selection outlines, guide marks, labels or a collage."
+          "text": "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.\nReplace the selected target in image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nReturn one complete image without blue selection outlines, guide marks, labels or a collage."
         },
         {
           "type": "input_image",
@@ -70,6 +72,9 @@ Authorization: Bearer {{ONEAPI_API_KEY}}
 ### 第二段：涂抹＋参考图，独立透明PNG遮罩，仍为同步Images edits
 # Responses文档未提供透明mask合同，不能把mask塞进异步input/tools。
 # 图1不叠加可视蒙版；独立alpha=0编辑、255保护；以下参数与独立mask JSON保持一致。
+# 此处默认object且未填写补充指令；如有文字，按生产函数的mask定位分支生成Prompt，不能直接套蓝圈模板。
+# mask换材质时，仅将下方prompt的参考固定段替换为这一完整段（其它定位/输出段保留）：
+# Apply the material from image 2 to the target in the masked region of image 1. Preserve the target's original form, structure and position. Match the surface's scale, perspective, lighting and shadows, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.
 POST https://oneapi.qunhequnhe.com/v1/images/edits
 Authorization: Bearer {{ONEAPI_API_KEY}}
 Content-Type: application/json
@@ -87,7 +92,7 @@ Content-Type: application/json
   "mask": {
     "image_url": "data:image/png;base64,{{ALPHA_MASK_PNG_BASE64}}"
   },
-  "prompt": "Edit image 1 only in the transparent area of the supplied mask. Preserve its composition, perspective, lighting and all protected areas.\nImage 2 is an object reference. Use the requested object from image 2 inside the masked region of image 1, matching the original scene's scale and lighting. Do not copy image 2's background.\nUser instruction: {{USER_PROMPT}}\nReturn one complete image, without borders, labels or a collage.",
+  "prompt": "Edit image 1 only in the transparent area of the supplied mask. Preserve its composition, perspective, lighting and all protected areas.\nReplace the target in the masked region of image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.\nReturn one complete image, without borders, labels or a collage.",
   "size": "1536x1024",
   "quality": "medium",
   "n": 1,

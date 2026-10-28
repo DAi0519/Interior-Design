@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 sessionStorage 的任务引用、含风格转换/效果图氛围转换与美化的独立功能编码、服务端任务快照与 ComfyUI/API 编辑阶段消息
- * [OUTPUT]: 对外提供遮罩填充/旧房独立任务与按功能持久化的任务引用、安全读取，以及图片计数或图片工具及多角度阶段推导的结果区状态
+ * [INPUT]: 依赖 sessionStorage 的任务引用、含旧房/空房独立入口的功能编码、服务端普通出图任务快照与 ComfyUI/API 编辑阶段消息
+ * [OUTPUT]: 对外提供打光/遮罩/旧房独立任务与按功能持久化的任务引用、安全读取，以及图片计数或图片工具阶段推导的结果区状态
  * [POS]: public 的生成任务恢复状态层，只保存任务引用而不复制图片结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,6 +16,7 @@ const FEATURE_MODES = new Set([
   "imageMultiAngle",
   "imageOutpaint",
   "imageMaskFill",
+  "imageRelight",
   "panoramaEnhancement",
   "refinedModel",
   "styleTransfer",
@@ -72,13 +73,12 @@ export function generationTaskView(task, job) {
   if (!job || job.status === "running") {
     const completed = Number(job?.completed) || 0;
     const total = Number(job?.total) || task.items.length;
-    const renovationMessage = task.featureMode === "roomRenovation" && job?.stages?.roomRenovation ? job.message : null;
-    const imageToolMessage = ["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill"].includes(task.featureMode)
+    const imageToolMessage = ["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight"].includes(task.featureMode)
       && (job?.stages?.comfyUi || job?.stages?.imageEdit)
       ? job.message
       : null;
     return {
-      message: renovationMessage || imageToolMessage || (completed > 0
+      message: imageToolMessage || (completed > 0
         ? `已完成 ${completed} / ${total} 张图…`
         : task.loadingLabel),
       stage: "loading",

@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
- * [OUTPUT]: 对外提供遮罩填充两模式与URL功能直达、按功能任务恢复与飞书记录、生图/遮罩填充与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房改造独立入口/任务与空房配置复用、默认 Flux2 Klein、多角度生成与飞书同步、连接/换 Key/断开后权限刷新、按功能恢复的生成中/结果状态与扩图上传预览/任务身份/大画布结果阶段及 comfyUi/imageEdit 进度并隔离扩图异画幅对比、效果图美化/氛围转换/全景图美化、空房类型、精模要求、白模/空房/风格转换同宽搜索单选与参考图互斥风格选择、Flux 负向 Prompt、共享已选摘要/简洁搜索模型多选、单模型多张或不设模型数上限的多模型生成与独立飞书反馈
+ * [INPUT]: 依赖精模预设提示词/上传参考两路径版本组合控制器、GPT打光/Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
+ * [OUTPUT]: 对外提供GPT点线面打光/逐灯两模式、遮罩填充与URL功能直达、按功能任务恢复与飞书记录、生图/遮罩填充与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设提示词/上传参考与补充要求、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型多选/单模型多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { isEmptyRoomDesign, renderRenovationIntro } from "./room-renovation.js";
+import { isEmptyRoomDesign } from "./room-renovation.js";
 import { bindConfigRefresh } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js?v=2";
@@ -18,7 +18,7 @@ import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
-import { bindImageTools } from "./image-tools.js?v=3";
+import { bindImageTools } from "./image-tools.js?v=4";
 import {
   buildGenerationJobRequest,
   generationItemsForSelection,
@@ -29,7 +29,7 @@ import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
 import { bindReferenceUpload } from "./reference-upload.js?v=2";
-import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
+import { bindRefinedModelControls, createRefinedModelSelection } from "./refined-model-controls.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
@@ -41,6 +41,7 @@ const state = {
   connected: false,
   effectBeautificationPrompt: { available: false, version: null },
   emptyRoomConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
+  roomRenovationConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
   styleTransferConfig: { promptAgent: { defaultVersion: null, versions: [] }, reference: { available: false, reason: "读取中", version: null } },
   featureMode: "whiteModel",
   modelKeys: ["aiTextureEnhancement"],
@@ -52,6 +53,7 @@ const state = {
   larkReady: false,
   smartDefaultConfig: { available: false, reason: "读取中", version: null },
 };
+const refinedModelSelection = createRefinedModelSelection();
 let referenceUpload;
 let styleReferenceUpload;
 const elements = createAppElements();
@@ -74,11 +76,8 @@ const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
 });
-const refinedPromptVersionSelect = bindRefinedPromptVersionSelect({
-  availability: elements.refinedPromptAvailability,
-  note: elements.refinedPromptNote,
-  select: elements.refinedPromptVersionSelect,
-});
+const refinedModel = bindRefinedModelControls({ elements, onChange: () => generationActions.refresh(),
+  getPolicy: () => state.referencePolicy, showToast });
 const imageTools = bindImageTools({ api, elements, getSourceImage: () => selectedSourceImage(),
   onChange: () => generationActions.refresh(), showToast });
 const { upscale: imageUpscale, outpaint: imageOutpaint } = imageTools;
@@ -91,7 +90,7 @@ function selectedSourceImage() { return state.featureMode === "styleDna" ? null 
 function isDesignPromptFlow() { return (isEmptyRoomDesign(state.featureMode) || ["styleTransfer", "whiteModel"].includes(state.featureMode)); }
 function activeDesignPromptConfig() { return designPromptConfiguration(state).smartDefault; }
 function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
-  designPromptConfiguration(state).promptAgent); }
+  designPromptConfiguration(state).promptAgent, { scope: state.featureMode === "roomRenovation" ? "room-renovation" : "" }); }
 function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
   (model) => model.key === state.promptAgentModelKey); }
 function renderPromptAgentModels() {
@@ -126,9 +125,10 @@ function updateReferenceRequirements() {
 function selectFeatureMode(featureMode) {
   const supported = [
     "effectEnhancement", "effectBeautification", "emptyRoom", "roomRenovation", "free",
-    "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
+    "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
+  state.modelKeys = refinedModelSelection.forFeature(featureMode, state.modelKeys, state.catalog);
   state.featureMode = featureMode;
   if (featureMode === "panoramaEnhancement" && state.catalog.length) {
     state.modelKeys = state.modelKeys.filter((key) =>
@@ -159,7 +159,6 @@ function selectFeatureMode(featureMode) {
   for (const result of elements.generationResults) {
     result.classList.toggle("hidden", isStyleDna);
   }
-  renderRenovationIntro(document.querySelector("#roomRenovationSection"), featureMode === "roomRenovation");
   styleDnaChat.setVisible(isStyleDna);
   generationActions.setFeatureMode(featureMode);
   if (isStyleDna) {
@@ -180,9 +179,10 @@ function selectFeatureMode(featureMode) {
   elements.imageUpscaleSection.classList.toggle("hidden", !isImageUpscale);
   elements.imageMultiAngleSection.classList.toggle("hidden", featureMode !== "imageMultiAngle");
   elements.imageMaskFillSection.classList.toggle("hidden", featureMode !== "imageMaskFill");
+  elements.imageRelightSection.classList.toggle("hidden", featureMode !== "imageRelight");
   elements.imageOutpaintSection.classList.toggle("hidden", featureMode !== "imageOutpaint");
-  elements.parameterSection.classList.toggle("hidden", ["imageOutpaint", "imageMultiAngle", "imageMaskFill"].includes(featureMode));
-  elements.resolutionField.classList.toggle("hidden", ["imageOutpaint", "imageMultiAngle", "imageMaskFill"].includes(featureMode));
+  elements.parameterSection.classList.toggle("hidden", ["imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight"].includes(featureMode));
+  elements.resolutionField.classList.toggle("hidden", ["imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight"].includes(featureMode));
   elements.modelSection.classList.toggle("hidden", Boolean(imageTool));
   elements.effectEnhancementSection.classList.toggle("hidden", !isEffectEnhancement);
   elements.effectBeautificationSection.classList.toggle("hidden", !isEffectBeautification);
@@ -191,8 +191,8 @@ function selectFeatureMode(featureMode) {
   elements.styleReferenceSection.classList.toggle("hidden", !isDesignModel);
   elements.styleTitle.textContent = isStyleTransfer ? "目标风格" : isEmptyRoom ? "设计风格" : "风格选择";
   elements.whiteModelRenderModeList.setAttribute("aria-label",
-    isStyleTransfer ? "风格转换目标风格" : isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
-  elements.refinedPromptSection.classList.toggle("hidden", !isRefinedModel);
+    isStyleTransfer ? "风格转换目标风格" : featureMode === "roomRenovation" ? "旧房改造风格选择" : isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
+  refinedModel.setVisible(isRefinedModel);
   elements.promptSection.classList.toggle(
     "hidden", isRefinedModel || isEffectEnhancement || isEffectBeautification || isPanoramaEnhancement || Boolean(imageTool),
   );
@@ -200,7 +200,7 @@ function selectFeatureMode(featureMode) {
   elements.generationCountField.classList.toggle("hidden", Boolean(imageTool));
   elements.qualityField.classList.toggle("hidden", Boolean(imageTool));
   if (imageTool) {
-    fluxNegativePrompt.render([]);
+    fluxNegativePrompt.render([], featureMode);
     imageTool.activate();
   } else configurePrimaryModel();
   updateReferenceRequirements();
@@ -209,19 +209,20 @@ function selectFeatureMode(featureMode) {
 }
 
 function renderModelSelect() {
+  refinedModel.setModels(selectedModels());
   modelMultiSelect.render(state.catalog, state.modelKeys);
   const count = state.modelKeys.length;
-  elements.modelNote.textContent = count === 1
+  elements.modelNote.textContent = !count ? "当前默认模型不可用，请检查 API 权限或手动选择。" : count === 1
     ? "已选 1 个模型，生成张数可在参数中设置。"
     : `${count} 个模型，各 1 张，共 ${count} 张；参数以 ${selectedModel()?.label} 为准。`;
 }
 
 function configurePrimaryModel() {
-  if (!selectedModel()) return;
+  if (!selectedModel()) { renderModelSelect(); return; }
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
   renderModelSelect();
-  fluxNegativePrompt.render(state.modelKeys);
+  fluxNegativePrompt.render(state.modelKeys, state.featureMode);
   generationCount.setSingleModel(state.modelKeys.length === 1);
   updateReferenceRequirements();
   configureSizeControls();
@@ -258,7 +259,7 @@ function configurePrimaryModel() {
 }
 
 function selectModels(modelKeys) {
-  state.modelKeys = modelKeys;
+  state.modelKeys = refinedModelSelection.chooseByUser(state.featureMode, modelKeys);
   configurePrimaryModel();
 }
 
@@ -328,7 +329,8 @@ function generationInput() {
     },
     promptAgentModelKey: state.promptAgentModelKey,
     promptAgentVersion: promptAgentVersionSelect.value(),
-    promptVersion: refinedPromptVersionSelect.value(),
+    promptVersion: refinedModel.promptVersion(),
+    ...refinedModel.requestFields(),
     quality: elements.qualitySelect.value,
     ratio: elements.ratioSelect.value,
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
@@ -340,7 +342,6 @@ function generationInput() {
 }
 
 function updatePromptCount() { elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`; }
-function updateRefinedPromptCount() { elements.refinedPromptCount.textContent = `${elements.refinedPromptInput.value.length} / 8000`; }
 
 function setApiConnectionState(connected) {
   if (state.connected !== connected) generationActions.clearReusable();
@@ -410,7 +411,8 @@ async function checkAvailableModels() {
     elements.modelAvailability.classList.add("ready");
     elements.promptAgentAvailability.classList.add("ready");
     renderPromptAgentModels();
-    renderModelSelect();
+    state.modelKeys = refinedModelSelection.forFeature(state.featureMode, state.modelKeys, state.catalog, body.models);
+    configurePrimaryModel();
   } catch (error) {
     elements.modelAvailability.textContent = "检查失败";
     elements.promptAgentAvailability.textContent = "检查失败";
@@ -475,8 +477,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
-  if (featureMode === "imageOutpaint" && imageOutpaint.validate()?.message) {
-    showToast(imageOutpaint.validate().message); return;
+  if (localImageRequest && imageTool.validate?.()?.message) {
+    showToast(imageTool.validate().message); return;
   }
   if (designPromptRequest) {
     const renderMode = whiteModelRenderMode.current();
@@ -486,7 +488,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
     if (renderMode.mode === "style-dna") {
       if (!promptAgentVersionSelect.value()) {
-        showToast(styleTransferRequest ? "飞书风格转换融合 Agent 没有可用的已上架版本" : emptyRoomRequest
+        showToast(styleTransferRequest ? "飞书风格转换融合 Agent 没有可用的已上架版本" : featureMode === "roomRenovation" ? "飞书旧房风格融合 Agent 没有可用的已上架版本" : emptyRoomRequest
           ? "飞书空房风格融合 Agent 没有可用的已上架版本"
           : "飞书场景融合 Agent 没有可用的已上架版本");
         return;
@@ -503,8 +505,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
   }
   if (refinedModelRequest) {
-    if (!refinedPromptVersionSelect.value()) {
-      showToast("飞书精模 Prompt 没有可用版本");
+    if (refinedModel.validation()) {
+      showToast(refinedModel.validation());
       return;
     }
     if (referenceImages().length !== 1) {
@@ -543,7 +545,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     : null;
   const loadingCopy = localImageRequest ? imageTool.loadingCopy() : generationLoadingCopy({
     designPromptRequest,
-    roomRenovationRequest: featureMode === "roomRenovation", emptyRoomRequest,
+    emptyRoomRequest,
     styleTransferRequest,
     effectEnhancementRequest,
     effectBeautificationRequest,
@@ -553,6 +555,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     models,
     refinedModelRequest,
     refinedPrompt: elements.refinedPromptInput.value.trim(),
+    ...refinedModel.requestFields(),
     renderMode: whiteModelRenderMode.current().mode,
     styleReferenceCount: styleReferenceImages().length,
   });
@@ -589,12 +592,12 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
     const outcomes = job.result?.outcomes || [];
     const completed = outcomes.filter((outcome) => outcome.status === "fulfilled").length;
-    if (designPromptRequest && featureMode !== "roomRenovation" && completed > 0) {
+    if (designPromptRequest && completed > 0) {
       generationActions.markReusable(promptIdentity);
     }
     showToast(completed === generationItems.length
       ? localImageRequest
-        ? `${completed} 张图片${featureMode === "imageMaskFill" ? "遮罩填充" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${featureMode === "imageMaskFill" ? "，正在同步飞书" : ""}`
+        ? `${completed} 张图片${featureMode === "imageRelight" ? "打光" : featureMode === "imageMaskFill" ? "遮罩填充" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${["imageMaskFill", "imageRelight"].includes(featureMode) ? "，正在同步飞书" : ""}`
         : `${completed} 张图已完成，正在分别同步飞书`
       : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
@@ -608,7 +611,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   }
 }
 
-const generationActions = bindGenerationActions({
+const generationActions = bindGenerationActions({ getUnavailableReason: () => state.featureMode === "refinedModel" ? refinedModel.validation() : null,
   getPromptIdentity: () => JSON.stringify([
     state.featureMode,
     isEmptyRoomDesign(state.featureMode) ? emptyRoomType.requestFields() : null,
@@ -642,8 +645,8 @@ const styleDnaChat = bindStyleDnaChat({
 });
 const connectionCenter = bindConnectionCenter({
   api,
-  onApiConnected: async () => { await Promise.all([checkAvailableModels(), imageTools.refreshOutpaint(), imageTools.refreshMultiAngle(), imageTools.refreshMaskFill()]); },
-  onApiDisconnected: () => { resetModelAvailability(); void imageTools.refreshOutpaint(); void imageTools.refreshMultiAngle(); void imageTools.refreshMaskFill(); },
+  onApiConnected: async () => { await Promise.all([checkAvailableModels(), imageTools.refreshOutpaint(), imageTools.refreshMultiAngle(), imageTools.refreshMaskFill(), imageTools.refreshRelight()]); },
+  onApiDisconnected: () => { resetModelAvailability(); void imageTools.refreshOutpaint(); void imageTools.refreshMultiAngle(); void imageTools.refreshMaskFill(); void imageTools.refreshRelight(); },
   onApiStateChange(session) {
     setApiConnectionState(session.connected);
   },
@@ -657,27 +660,31 @@ const connectionCenter = bindConnectionCenter({
 });
 
 async function initialize() {
-  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig] = await Promise.all([
+  const initialFeature = new URLSearchParams(window.location.search).get("feature");
+  if (imageTools.forMode(initialFeature)) selectFeatureMode(initialFeature);
+  generationTasks.resume();
+  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig, relightConfig] = await Promise.all([
     api("/api/catalog"),
     connectionCenter.load(),
     api("/api/image-upscale/config"),
     api("/api/image-outpaint/config"),
     api("/api/image-multi-angle/config"),
     api("/api/image-mask-fill/config").catch(() => ({ available: false, reason: "遮罩填充配置读取失败，请重新启动本机工作台", modes: [] })),
+    api("/api/image-relight/config").catch(() => ({ available: false, reason: "打光配置读取失败，请重新启动本机工作台" })).then(config => { imageTools.relight.configure(config); return config; }),
   ]);
   state.catalog = catalogBody.models;
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
+  refinedModel.setPolicy(state.referencePolicy);
   imageUpscale.configure(imageUpscaleConfig);
   imageOutpaint.configure(imageOutpaintConfig);
   imageTools.multiAngle.configure(multiAngleConfig);
   imageTools.maskFill.configure(maskFillConfig);
+  imageTools.relight.configure(relightConfig);
   emptyRoomType.setOptions(catalogBody.emptyRoomTypes, catalogBody.emptyRoomTypeDetailMaxLength, catalogBody.emptyRoomFurniture, catalogBody.otherFurnitureMaxLength);
   styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
-  const initialFeature = new URLSearchParams(window.location.search).get("feature");
   selectFeatureMode(elements.featureModeButtons.some(button => button.dataset.featureMode === initialFeature) ? initialFeature : state.featureMode);
-  generationTasks.resume();
   await loadConfiguration();
   referenceUpload.render();
   styleReferenceUpload.render();
@@ -694,13 +701,19 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
 });
 const loadConfiguration = bindConfigRefresh({
   api,
+  onRefinedLighting: refinedModel.setLightingConfig,
   onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
   onEmptyRoom(config) {
     state.emptyRoomConfig = config;
-    if (isEmptyRoomDesign(state.featureMode)) {
+    if (state.featureMode === "emptyRoom") {
       whiteModelRenderMode.setSmartDefault(config.smartDefault);
       selectFeatureMode(state.featureMode);
     }
+    generationActions.clearReusable();
+  },
+  onRoomRenovation(config) {
+    state.roomRenovationConfig = config;
+    if (state.featureMode === "roomRenovation") selectFeatureMode("roomRenovation");
     generationActions.clearReusable();
   },
   onStyleTransfer(config) {
@@ -726,7 +739,7 @@ const loadConfiguration = bindConfigRefresh({
     generationActions.clearReusable();
   },
   onRefinedPromptVersions(config) {
-    refinedPromptVersionSelect.render(config);
+    refinedModel.setPromptConfig(config);
   },
   showToast,
 });
@@ -768,9 +781,7 @@ elements.promptInput.addEventListener("input", () => {
   updatePromptCount();
   generationActions.refresh();
 });
-elements.refinedPromptInput.addEventListener("input", updateRefinedPromptCount);
 elements.promptAgentVersionSelect.addEventListener("change", generationActions.refresh);
-elements.refinedPromptVersionSelect.addEventListener("change", generationActions.refresh);
 elements.effectTimeSelect.addEventListener("change", generationActions.refresh);
 elements.effectWeatherSelect.addEventListener("change", generationActions.refresh);
 elements.ratioSelect.addEventListener("change", () => {

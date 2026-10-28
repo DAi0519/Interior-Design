@@ -81,5 +81,249 @@
       "多场景稳定性",
       "历史空白Prompt恢复"
     ]
+  },
+  "_retainedEvidence": {
+    "flux-prompt.txt": {
+      "sourceSha256": "c00ebf9bd781c2181a95bdf0f8bc6e5491611688a7b89522a1827218987c25a0",
+      "content": "```\n\"Enhance the living room scene with a modern, minimalist aesthetic, featuring a cozy sofa, a sleek coffee table, and a large window offering a serene view of the cityscape. The warm, soft lighting complements the natural tones of the furniture and decor, creating a tranquil atmosphere. The outpainting goal is to seamlessly integrate the existing elements while maintaining the room's clean and uncluttered look.\"\n```"
+    },
+    "flux-summary.json": {
+      "sourceSha256": "83fd8846cf05e7f39e9508a2053b692fb012ae873ac4a0bd37a4a5a7340dc731",
+      "content": {
+        "engine": "flux",
+        "metadata": {
+          "artifactKey": "b2f91999-260b-42e8-8715-c677a5cd6896",
+          "engine": "comfyui",
+          "executionDurationMs": 40238,
+          "expansion": {
+            "left": 320,
+            "top": 128,
+            "right": 320,
+            "bottom": 128
+          },
+          "inputHeight": 512,
+          "inputWidth": 374,
+          "model": "flux1-fill-dev-OneReward-fp8.safetensors",
+          "outpaintModel": "oneRewardFp8",
+          "weightDtype": "fp8_e4m3fn",
+          "outputFilename": "CanvasLab_Outpaint_b2f91999-260b-42e8-8715-c677a5cd6896_00001_.png",
+          "outputHeight": 768,
+          "outputSha256": "044981916a7ab39363bb3c1629c8ee5a466215a3c0fbef6e4ccb51a614059b83",
+          "outputWidth": 1024,
+          "preparedHeight": 512,
+          "preparedWidth": 384,
+          "promptGenerator": {
+            "model": "deepseek-ai/Janus-Pro-1B",
+            "seed": 298596445848600,
+            "temperature": 0.1,
+            "topP": 0.95,
+            "maxNewTokens": 999,
+            "question": "请根据以下对一张图片的结构化分析，为我生成一段用于AI扩图（Outpainting）的、高质量、详细的英文提示词。要求生成的提示词能够引导AI模型在保持原始风格和氛围的前提下，无缝、逻辑地扩展画面内容。\n\n**图片结构化分析:**\n*   **核心主体分析 (Core Subject Analysis):** [请在这里填入对图片主要内容的客观描述]\n*   **艺术风格与媒介 (Art Style & Medium):** [请在这里填入对图片风格的分析]\n*   **构图与取景 (Composition & Framing):** [请在这里填入对构图的描述]\n*   **光影与氛围 (Lighting & Atmosphere):** [请在这里填入对光线和感觉的描述]\n*   **扩图方向与目标 (Outpainting Goal & Direction):** [请在这里填入扩图的目标，对于自动化流程，这可以是一个通用指令]\n\n请严格按照分析结果，生成扩图提示词。```",
+            "imageSource": "original-before-padding"
+          },
+          "promptSource": "Janus-Pro-1B",
+          "finalPrompt": "```\n\"Enhance the living room scene with a modern, minimalist aesthetic, featuring a cozy sofa, a sleek coffee table, and a large window offering a serene view of the cityscape. The warm, soft lighting complements the natural tones of the furniture and decor, creating a tranquil atmosphere. The outpainting goal is to seamlessly integrate the existing elements while maintaining the room's clean and uncluttered look.\"\n```",
+          "finalPromptCaptured": true,
+          "promptId": "c3e82fb5-5404-4fdf-b917-d7d57b4c54c3",
+          "queueDurationMs": 50162,
+          "seed": 20261019,
+          "sourceMultiple": 32,
+          "targetHeight": 768,
+          "targetMultiple": 8,
+          "targetWidth": 1024,
+          "workflowId": "image-outpaint",
+          "workflowVersion": "2026-10-19.1",
+          "maasParameterId": 1082,
+          "maasStrategyHint": 643,
+          "sourceStage": "prod_test",
+          "sourceUpdatedAt": "2026-09-10",
+          "sourceSha256": "64684baf682a0a744a03c788928507859bc14160954751a6f3d78c626be47ce1",
+          "sourcePromptSha256": "2a68c653f0074da5a68324d0dbbdd2801b2b5792d955dca27765fedbd420d37f",
+          "originalSourceWidth": 864,
+          "originalSourceHeight": 1184,
+          "sourceResized": true,
+          "outpaintCanvas": {
+            "ratio": "4:3",
+            "resolution": "1K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "scale": 0.6666666666666666
+          }
+        },
+        "workflow": {
+          "key": "image-outpaint",
+          "label": "AI 扩图",
+          "version": "2026-10-19.1"
+        },
+        "request": {
+          "expansion": {
+            "left": 320,
+            "top": 128,
+            "right": 320,
+            "bottom": 128
+          },
+          "outputFormat": "png",
+          "referenceImageCount": 1,
+          "size": "1024x768",
+          "syncMode": "lark",
+          "model": "flux1-fill-dev-OneReward-fp8.safetensors",
+          "outpaintModel": "oneRewardFp8",
+          "weightDtype": "fp8_e4m3fn",
+          "outpaintCanvas": {
+            "ratio": "4:3",
+            "resolution": "1K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "scale": 0.6666666666666666
+          },
+          "provider": "comfyui",
+          "ratio": "4:3",
+          "resolution": "1K",
+          "sizeMode": "preset",
+          "transport": "comfyui-workflow"
+        },
+        "totalMs": 93199,
+        "source": ".impeccable/review/qwen-outpaint-alignment/source.jpg"
+      }
+    },
+    "flux-sync.json": {
+      "sourceSha256": "2e78965c2ab45122ce5900cd4864cf900988010e4f1b862cfd923cd9020f8848",
+      "content": {
+        "ok": true,
+        "recordId": "reczz28P8HvQWyYl",
+        "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28P8HvQWyYl"
+      }
+    },
+    "qwen-prompt.txt": {
+      "sourceSha256": "7feb650f3ca43bb70c90142087beab3f27ec04f2234b3332623b2f679c5938d6",
+      "content": "Extend the scene naturally into the blank gray canvas surrounding the original image. Continue the existing architecture, surfaces, objects and background with coherent perspective, geometry, lighting, colors and texture. Preserve the original composition, camera viewpoint, subject identity and visual style. Create a seamless continuation across every original image boundary. Only fill the newly extended areas; do not add frames, text, watermarks or duplicate subjects.\n\nScene continuation:\nThe image depicts a modern living room with a cozy and minimalist design. The room features a light-colored sofa with a throw blanket draped over it, a wooden coffee table with books and a teapot, and a tall, cylindrical pendant lamp hanging from the ceiling. The room is illuminated by natural light coming through large floor-to-ceiling windows, offering a view of a cityscape at dusk. The windows frame a serene and slightly misty urban landscape. The room is decorated with simple yet elegant decor, including a small shelf with books and a couple of vases, and a soft, neutral color palette that complements the overall ambiance. The lighting is warm and inviting, with the pendant lamp casting a gentle glow over the space. The camera is positioned at a slight angle, capturing the room from the side, providing a view of the interior and the exterior."
+    },
+    "qwen-summary.json": {
+      "sourceSha256": "ca2624f71120d378651a56b27962052b0e6f9107ac0481b70b78a40670065ab0",
+      "content": {
+        "engine": "qwen",
+        "metadata": {
+          "artifactKey": "7b400861-7303-4e44-a4e5-283253b57648",
+          "engine": "qwenImageEdit2511",
+          "executionDurationMs": 81452,
+          "expansion": {
+            "left": 270,
+            "top": 342,
+            "right": 270,
+            "bottom": 341
+          },
+          "inputHeight": 1365,
+          "inputWidth": 996,
+          "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+          "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+          "weightDtype": "default",
+          "steps": 4,
+          "cfg": 1,
+          "sampler": "euler",
+          "scheduler": "simple",
+          "shift": 3.1,
+          "feathering": 32,
+          "preservation": "latent-mask-vae-reconstruction",
+          "sourcePixelsPreserved": false,
+          "outputFilename": "CanvasLab_QwenOutpaint_7b400861-7303-4e44-a4e5-283253b57648_00001_.png",
+          "outputHeight": 2048,
+          "outputWidth": 1536,
+          "outputSha256": "87ba234d5be8898b986628089bab2e909728160d0e9727d14e0b13e0686c9805",
+          "promptId": "038c12ef-9b96-4fcd-aca2-621a708dedf7",
+          "queueDurationMs": 932,
+          "seed": 20261019,
+          "targetHeight": 2048,
+          "targetWidth": 1536,
+          "inferenceWidth": 888,
+          "inferenceHeight": 1184,
+          "inferencePixels": 1051392,
+          "inferenceMegapixels": 1,
+          "inferenceAlignment": 8,
+          "inferenceResampling": "lanczos",
+          "maskResampling": "bilinear",
+          "outputResampling": "lanczos",
+          "outputRestored": true,
+          "outputSizeStrategy": "restore-target-from-masked-sampling",
+          "upscaleModel": null,
+          "workflowId": "image-outpaint-qwen",
+          "workflowVersion": "2026-10-19.3",
+          "finalPrompt": "Extend the scene naturally into the blank gray canvas surrounding the original image. Continue the existing architecture, surfaces, objects and background with coherent perspective, geometry, lighting, colors and texture. Preserve the original composition, camera viewpoint, subject identity and visual style. Create a seamless continuation across every original image boundary. Only fill the newly extended areas; do not add frames, text, watermarks or duplicate subjects.\n\nScene continuation:\nThe image depicts a modern living room with a cozy and minimalist design. The room features a light-colored sofa with a throw blanket draped over it, a wooden coffee table with books and a teapot, and a tall, cylindrical pendant lamp hanging from the ceiling. The room is illuminated by natural light coming through large floor-to-ceiling windows, offering a view of a cityscape at dusk. The windows frame a serene and slightly misty urban landscape. The room is decorated with simple yet elegant decor, including a small shelf with books and a couple of vases, and a soft, neutral color palette that complements the overall ambiance. The lighting is warm and inviting, with the pendant lamp casting a gentle glow over the space. The camera is positioned at a slight angle, capturing the room from the side, providing a view of the interior and the exterior.",
+          "finalPromptCaptured": true,
+          "promptSource": "Janus-Pro-1B + QWEN_OUTPAINT_PROMPT",
+          "promptGenerator": {
+            "model": "deepseek-ai/Janus-Pro-1B",
+            "seed": 298596445848600,
+            "temperature": 0.1,
+            "topP": 0.95,
+            "maxNewTokens": 999,
+            "question": "Write one concise English outpainting prompt based on this original image. Describe the visible scene, architecture, furnishings, materials, colors, lighting, camera viewpoint and perspective. Describe a natural continuation of the same scene beyond its edges, keeping the existing style and atmosphere. Use only visual evidence from this image; do not invent new subjects, decorations, text or frames. Return only the English prompt without headings or Markdown.",
+            "imageSource": "original-before-padding"
+          },
+          "originalSourceWidth": 864,
+          "originalSourceHeight": 1184,
+          "sourceResized": true,
+          "outpaintCanvas": {
+            "ratio": "3:4",
+            "resolution": "2K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "scale": 0.6666666666666666
+          }
+        },
+        "workflow": {
+          "key": "image-outpaint-qwen",
+          "label": "Qwen Image Edit 2511",
+          "version": "2026-10-19.3"
+        },
+        "request": {
+          "expansion": {
+            "left": 270,
+            "top": 342,
+            "right": 270,
+            "bottom": 341
+          },
+          "outputFormat": "png",
+          "referenceImageCount": 1,
+          "size": "1536x2048",
+          "syncMode": "lark",
+          "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+          "outpaintCanvas": {
+            "ratio": "3:4",
+            "resolution": "2K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "scale": 0.6666666666666666
+          },
+          "provider": "comfyui",
+          "ratio": "3:4",
+          "resolution": "2K",
+          "sizeMode": "preset",
+          "transport": "comfyui-workflow"
+        },
+        "totalMs": 86981,
+        "source": ".impeccable/review/qwen-outpaint-alignment/source.jpg"
+      }
+    },
+    "qwen-sync.json": {
+      "sourceSha256": "8e892c83d3286f7064661b52fd3ce8fed0daf6fa6d3dbed4887740f7f44fc517",
+      "content": {
+        "ok": true,
+        "recordId": "reczz28P8G9gC4Vt",
+        "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28P8G9gC4Vt"
+      }
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "0d95d6d33c6619b0566fd605088ac609bd4948f38c72ac444af5b591c6390e5d",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# janus-outpaint/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\n\nqwen.png: Qwen接入Janus后的真实扩图成品，尺寸与质量以validation.json为准\nflux.png: Flux增加实际Prompt回传后的真实扩图成品，生成配置沿用原值\nqwen-prompt.txt: Qwen同次History捕获的固定扩图约束与Janus场景描述全文\nflux-prompt.txt: Flux同次History捕获并透传给编码器的Janus全文\nqwen-summary.json: Qwen请求/模型/实际Prompt/产物指纹/耗时摘要，不含Base64\nflux-summary.json: Flux请求/模型/实际Prompt/产物指纹/耗时摘要，不含Base64\nqwen-sync.json: Qwen新记录的真实飞书同步回执\nflux-sync.json: Flux新记录的真实飞书同步回执\nvalidation.json: 两引擎执行/产物/提示词及飞书实际字段回读核验，不能由自动化代替画质验收\ntests.log: 本轮全量自动化测试记录，不消耗GPU\nCLAUDE.md: Janus接入与真实Prompt归档验证证据地图\n\n原Flux内部已生成Janus提示词，但未返回正文，旧归档字段为空。新流程使用SaveText保存并透传同一正文，History输出经元数据进入飞书最终Prompt；Qwen还拼接固定扩图约束。正文缺失必须留空并标未捕获，不事后补造历史内容。\n\n2026-10-19真实GPU各1次：Qwen输出1536×2048、最终Prompt 1353字符、记录reczz28P8G9gC4Vt；Flux输出1024×768、最终Prompt 422字符、记录reczz28P8HvQWyYl。使用用户身份按记录ID定向回读最终Prompt/生成参数/模型/功能，两条Prompt均与实际History正文逐字相同，captured=true，产物SHA-256一致。812项自动化通过。运行态Flux2026-10-19.1/Qwen2026-10-19.3均available=true；画质只观察该样本，不外推4K和多场景。\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n"
   }
 }

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、负向 Prompt 及参考图安全校验
- * [OUTPUT]: 对外提供模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、原图比例尺寸适配器，以及区分 Flux 推理尺寸与最终超分尺寸的请求构造器和 MODEL_CONFIGS
+ * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、普通/旧房独立负向 Prompt 及参考图安全校验
+ * [OUTPUT]: 对外提供模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、旧房场景与功能一致性准入、原图比例尺寸适配器，以及区分 Flux 推理尺寸与最终超分尺寸的请求构造器和 MODEL_CONFIGS
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -315,6 +315,12 @@ export function createGenerationRequest(
   input,
   { preferSourceAspect = false, sourceDimensions = null } = {},
 ) {
+  if (input.designScenario !== undefined
+    && (input.featureMode !== "emptyRoom" || input.designScenario !== "room-renovation")) {
+    const error = new TypeError("旧房负向提示词场景仅支持空房设计的 room-renovation");
+    error.statusCode = 400;
+    throw error;
+  }
   const modelKey = String(input.modelKey || "");
   const model = modelOrThrow(modelKey);
   const featureSizeOverrides = model.featureSizeOverrides?.[input.featureMode] || {};
@@ -359,7 +365,9 @@ export function createGenerationRequest(
     const outputDimensions = postUpscale
       ? imageUpscaleTargetDimensions(dimensions, resolution)
       : dimensions;
-    const negativePrompt = resolveAiTextureNegativePrompt(input.negativePrompt);
+    const negativePrompt = resolveAiTextureNegativePrompt(input.negativePrompt, {
+      designScenario: input.designScenario,
+    });
     const size = `${outputDimensions.width}x${outputDimensions.height}`;
     return {
       preview: {

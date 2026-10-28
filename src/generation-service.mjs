@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖模型/批次契约、OneAPI 客户端、各生图工作流、带阶段回调的独立图片工具及 Flux/Qwen/Sunburst 扩图服务、本机遮罩填充客户端，以及注入的密钥、目录、Prompt 缓存、同步调度与可选 Beta 超分归档开关
- * [OUTPUT]: 对外提供统一生图/扩图路由、Flux/Qwen/Sunburst遮罩填充按模型取独立客户端与实时权限、执行前Schema检查及飞书同步
+ * [INPUT]: 依赖GPT打光及独立飞书Prompt准备服务、模型/批次契约、OneAPI客户端、各生图/图片工具工作流和注入目录/同步调度
+ * [OUTPUT]: 对外提供打光服务器Prompt快照准备和执行透传、按显式功能冻结输入的统一生成路由及执行前权限/Schema门禁
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,8 @@ import { executeEffectRenderEnhancementWorkflow } from "./effect-render-enhancem
 import { executeImageMultiAngle, resolveMultiAngleModel } from "./image-multi-angle-service.mjs";
 import { executeImageUpscale } from "./image-upscale-service.mjs";
 import { executeImageMaskFill, readImageMaskFillConfig } from "./image-mask-fill-service.mjs";
+import { executeImageRelight, readImageRelightConfig, prepareImageRelightPrompt } from "./image-relight-service.mjs";
+import { RELIGHT_MODEL_KEY } from "../public/image-relight-geometry.js";
 import { maskFillModel } from "../public/image-mask-fill-geometry.js";
 import { imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
@@ -23,7 +25,6 @@ import {
 import { createOneApiClient } from "./oneapi-client.mjs";
 import { executeRefinedModelWorkflow } from "./refined-model-workflow.mjs";
 import { executeWhiteModelWorkflow } from "./white-model-workflow.mjs";
-import { executeRoomRenovationWorkflow, validateRoomRenovationInput } from "./room-renovation-workflow.mjs";
 
 export function createGenerationService({
   getSessionModelCatalog,
@@ -32,6 +33,9 @@ export function createGenerationService({
   imageMaskFillClient = null,
   qwenMaskFillClient = null,
   verifyMaskFillSyncContract,
+  verifyRelightSyncContract,
+  getRelightPrompt,
+  readRelightPromptConfig,
   imageMultiAngleClient = null,
   imageOutpaintClient = null,
   qwenImageClient = null,
@@ -41,7 +45,7 @@ export function createGenerationService({
   archiveImageUpscale = false,
 }) {
   async function executeFree(input) {
-    const generation = createGenerationRequest(input, {
+    const generation = createGenerationRequest({ ...input, featureMode: "free" }, {
       preferSourceAspect: input.ratioMode === "auto",
     });
     const client = imageClientForModel(input.modelKey);
@@ -114,21 +118,19 @@ export function createGenerationService({
     });
   }
 
-  async function executeDesign(input, options = {}) {
-    const roomRenovation = validateRoomRenovationInput(input);
+  async function executeDesign(input) {
     const client = createOneApiClient(requireApiKey());
     const imageClient = imageClientForModel(input.modelKey, {
       oneApiClient: client,
     });
     const availableModels = await getSessionModelCatalog(client);
-    return (roomRenovation ? executeRoomRenovationWorkflow : executeWhiteModelWorkflow)(input, {
+    return executeWhiteModelWorkflow(input, {
       availableModels,
       client,
       imageClient,
       promptResultCache,
       refreshModels: () => getSessionModelCatalog(client, { force: true }),
       scheduleSync: scheduleGenerationSync,
-      onProgress: options.onProgress,
     });
   }
 
@@ -145,8 +147,15 @@ export function createGenerationService({
     return { ...result, request, sync };
   }
 
-  function executeForMode(featureMode, input, options = {}) {
-    validateRoomRenovationInput(input, featureMode);
+  function executeForMode(featureMode, requestInput, options = {}) {
+    const input = { ...requestInput, featureMode };
+    if (featureMode === "imageRelight") {
+      const imageClient = imageClientForModel(RELIGHT_MODEL_KEY);
+      return executeImageRelight(input, { imageClient, onProgress: options.onProgress,
+        getPrompt: getRelightPrompt, relightPromptSnapshot: options.relightPromptSnapshot,
+        getOneApiModels: () => getSessionModelCatalog(imageClient, { force: true }),
+        scheduleSync: scheduleGenerationSync, verifySyncContract: verifyRelightSyncContract });
+    }
     if (featureMode === "imageMaskFill") {
       const model = maskFillModel(input.maskFillModel);
       const imageClient = model.key === "qwenImageEdit2511" ? qwenMaskFillClient
@@ -170,10 +179,10 @@ export function createGenerationService({
       });
     }
     if (["emptyRoom", "whiteModel", "styleTransfer"].includes(featureMode)) {
-      return executeDesign({ ...input, featureMode }, options);
+      return executeDesign(input);
     }
     if (["effectEnhancement", "effectBeautification", "panoramaEnhancement"].includes(featureMode)) {
-      return executeEffectEnhancement({ ...input, featureMode });
+      return executeEffectEnhancement(input);
     }
     if (featureMode === "imageUpscale") {
       return executeUpscale(input, options);
@@ -190,6 +199,8 @@ export function createGenerationService({
     executeFree,
     executeImageUpscale: executeUpscale,
     getImageMaskFillConfig: () => readImageMaskFillConfig(imageMaskFillClient, { qwenMaskFillClient, getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: true }) }),
+    getImageRelightConfig: (options = {}) => readImageRelightConfig({ ...options, getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: true }), readPromptConfig: readRelightPromptConfig }),
+    prepareImageRelightPrompt: input => prepareImageRelightPrompt(input, { getPrompt: getRelightPrompt }),
     executeRefined,
   };
 }

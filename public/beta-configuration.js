@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖持久化函数、Beta表单、美化控制器、独立扩图/超分及风格转换快照和重渲染回调
- * [OUTPUT]: 提供普通表单与独立扩图/超分选择落盘、不截断工作流/模型多选、分阶段恢复、快速切页落盘及保存状态
+ * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化控制器、独立扩图/超分和风格转换快照及重渲染回调
+ * [OUTPUT]: 提供精模光影/手动模型和普通表单落盘、基础Prompt版本与预设图文/上传迁移版本独立保存恢复、旧氛围迁移、模型多选保留和快速切页保存
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ function restoreSelectValue(select, value) {
 export function createBetaConfigurationPersistence({
   currentState,
   effectBeautificationControls,
+  refinedRenderConfiguration,
   elements,
   renderFeature,
   renderOutputControls,
@@ -47,8 +48,9 @@ export function createBetaConfigurationPersistence({
       quality: elements.qualitySelect.value,
       ratio: elements.ratioSelect.value,
       refinedPromptVersion: stylesReady
-        ? elements.refinedPromptSelect.value
+        ? refinedRenderConfiguration?.basePromptVersion?.() ?? elements.refinedPromptSelect.value
         : restoredControls.refinedPromptVersion,
+      refinedLighting: refinedRenderConfiguration?.snapshot() || restoredControls.refinedLighting,
       renderMode: elements.renderModeSelect.value,
       resolution: elements.resolutionSelect.value,
       roomType: elements.roomTypeSelect.value,
@@ -71,6 +73,7 @@ export function createBetaConfigurationPersistence({
       upscale: pageState.upscale,
       sampleSetIds: pageState.sampleSetIds,
       selectedModelKeys: pageState.selectedModelKeys,
+      refinedModelSelection: pageState.refinedModelSelection,
     });
     elements.betaForm.dataset.configurationState = "saved";
   }
@@ -81,6 +84,12 @@ export function createBetaConfigurationPersistence({
       intensity: controlsToRestore.effectBeautificationIntensity,
       tone: controlsToRestore.effectBeautificationTone,
     });
+    const legacyLighting = controlsToRestore.refinedRender;
+    refinedRenderConfiguration?.restorePromptVersion?.(controlsToRestore.refinedPromptVersion);
+    const hasLegacyLighting = legacyLighting && ["time", "weather", "tone"]
+      .some(key => legacyLighting[key] && legacyLighting[key] !== "preserve");
+    refinedRenderConfiguration?.restore(controlsToRestore.refinedLighting
+      || (hasLegacyLighting ? legacyLighting : { mode: "unselected" }));
     restoreTextValue(elements.commonPromptInput, controlsToRestore.commonPrompt);
     restoreTextValue(elements.negativePromptInput, controlsToRestore.negativePrompt);
     restoreTextValue(elements.roomTypeDetailInput, controlsToRestore.roomTypeDetail);
@@ -95,9 +104,9 @@ export function createBetaConfigurationPersistence({
     for (const [select, value] of [
       [elements.styleSelect, controlsToRestore.styleCode],
       [elements.promptAgentVersionSelect, controlsToRestore.promptAgentVersion],
-      [elements.refinedPromptSelect, controlsToRestore.refinedPromptVersion],
       [elements.ratioSelect, controlsToRestore.ratio],
     ]) restoreSelectValue(select, value);
+    if (!refinedRenderConfiguration?.restorePromptVersion) restoreSelectValue(elements.refinedPromptSelect, controlsToRestore.refinedPromptVersion);
     renderOutputControls();
     restoreSelectValue(elements.resolutionSelect, controlsToRestore.resolution);
     restoreSelectValue(elements.qualitySelect, controlsToRestore.quality);

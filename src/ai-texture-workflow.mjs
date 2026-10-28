@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Flux2 Klein 节点、共享工作流配置、默认 9B FP8/7 steps 与 1K/2K 推理尺寸、可选攸行 SeedVR2 3B、单一外部正负 Prompt、参考图 Base64、运行时种子与请求产物键
- * [OUTPUT]: 对外提供统一的普通 Flux 生成、可选无 Prompt 超分、唯一产物前缀和可归档阶段元数据
+ * [INPUT]: 依赖普通 Flux2 Klein 配置与美化六预设专属阶段、可选攸行 SeedVR2 3B、外部正负 Prompt、旧房场景、参考图 Base64、种子与请求产物键
+ * [OUTPUT]: 对外提供普通7步/美化2或4步分流、普通/旧房独立默认负向解析、共用无Prompt超分、唯一SaveImage和实际阶段元数据
  * [POS]: src 的 Flux ComfyUI 工作流定义，以空 Latent、euler 采样、参考图条件、无 Prompt 超分旁路和单一最终 SaveImage 串联生成阶段，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,7 @@ import {
   AI_TEXTURE_WORKFLOW,
   buildAiTextureWorkflowMetadata,
 } from "./ai-texture-workflow-config.mjs";
+import { createEffectBeautificationStage } from "./effect-beautification-workflow.mjs";
 
 export {
   AI_TEXTURE_DEFAULTS,
@@ -23,7 +24,10 @@ export {
 export const AI_TEXTURE_DEFAULT_NEGATIVE_PROMPT =
   "(alter material colors:1.2), (change material types:1.2), matte materials converted to glossy finishes, CG plastic feel, unreasonable light sources, exaggerated light intensity, add non-existent objects and structures, color distortion or unwanted color shifts, localized blown-out highlights, pitch-black shadows with no details, extra noise or artifacts, altered original structural models or proportions";
 
-export function resolveAiTextureNegativePrompt(userPrompt) {
+export const AI_TEXTURE_ROOM_RENOVATION_NEGATIVE_PROMPT =
+  "altered original room-enclosing walls or partitions, altered real beams or columns, changed floor-slab levels or structural floor-to-ceiling height, moved or resized door and window openings, invented structural openings or extra rooms, changed camera position or perspective, changed camera focal length, changed framing or expanded field of view, warped geometry or incorrect spatial proportions, floating furniture, impossible object intersections, implausible object scale, CG plastic feel, physically implausible material rendering, unreasonable light sources, exaggerated light intensity, localized blown-out highlights, pitch-black shadows with no details, extra noise or artifacts";
+
+export function resolveAiTextureNegativePrompt(userPrompt, { designScenario } = {}) {
   const custom = String(userPrompt || "").trim();
   if (custom.length > 8000) {
     const error = new TypeError("Flux2 Klein 负向提示词不能超过 8000 字符");
@@ -32,7 +36,9 @@ export function resolveAiTextureNegativePrompt(userPrompt) {
   }
   return {
     mode: custom ? "custom" : "default",
-    text: custom || AI_TEXTURE_DEFAULT_NEGATIVE_PROMPT,
+    text: custom || (designScenario === "room-renovation"
+      ? AI_TEXTURE_ROOM_RENOVATION_NEGATIVE_PROMPT
+      : AI_TEXTURE_DEFAULT_NEGATIVE_PROMPT),
   };
 }
 
@@ -63,7 +69,15 @@ export function createAiTextureWorkflow({
   }
   const resolvedNegativePrompt = resolveAiTextureNegativePrompt(negativePrompt);
   const artifactPrefix = aiTextureArtifactPrefix(artifactKey);
-  const nodes = {
+  const beautification = generationRequest?.effect_beautification
+    ? createEffectBeautificationStage({
+      artifactKey, generationRequest, height, imageBase64,
+      negativePrompt, prompt, seed, width,
+    }) : null;
+  const nodes = beautification ? {
+    ...beautification.nodes,
+    "72": { class_type: "SaveImage", inputs: { filename_prefix: artifactPrefix, images: beautification.output } },
+  } : {
     "71": {
       class_type: "easy loadImageBase64",
       inputs: {
@@ -212,7 +226,7 @@ export function createAiTextureWorkflow({
       inputs: { image: ["ImageResize+-a38908ad3622430bf340597ca425274c", 0] },
     },
   };
-  let finalImage = ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0];
+  let finalImage = beautification?.output || ["ImageResize+-6348ae83bed7de73d2de60a62eb38a93", 0];
   const upscaleResolution = String(generationRequest?.upscale_resolution || "");
   if (upscaleResolution) {
     const stage = createSeedVrUpscaleStage({

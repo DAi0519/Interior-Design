@@ -111,5 +111,104 @@
     "version": "2026-10-19.1",
     "nodeCount": 24,
     "sha256": "4312f5af52310acbfbae459e540d4ef5f537471a4e5dcd213a8f1fda449d4410"
+  },
+  "_retainedEvidence": {
+    "response-summary.json": {
+      "sourceSha256": "23d229b81f6d5269e16eab7da343b2e7e631cc04c7e3dc6c042b7eb707947645",
+      "content": {
+        "startedAt": "2026-10-19T02:41:27.660Z",
+        "finishedAt": "2026-10-19T02:42:44.347Z",
+        "request": {
+          "expansion": {
+            "left": 270,
+            "top": 342,
+            "right": 270,
+            "bottom": 341
+          },
+          "outputFormat": "png",
+          "referenceImageCount": 1,
+          "size": "1536x2048",
+          "syncMode": "local-only",
+          "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+          "outpaintCanvas": {
+            "ratio": "3:4",
+            "resolution": "2K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "scale": 0.6666666666666666
+          }
+        },
+        "metadata": {
+          "artifactKey": "25ccae30-5ab7-456a-875b-7f9be7ac9ada",
+          "engine": "qwenImageEdit2511",
+          "executionDurationMs": 66984,
+          "expansion": {
+            "left": 270,
+            "top": 342,
+            "right": 270,
+            "bottom": 341
+          },
+          "inputHeight": 1365,
+          "inputWidth": 996,
+          "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+          "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+          "weightDtype": "default",
+          "steps": 4,
+          "cfg": 1,
+          "sampler": "euler",
+          "scheduler": "simple",
+          "shift": 3.1,
+          "feathering": 32,
+          "preservation": "original-center-masked-composite",
+          "outputFilename": "CanvasLab_QwenOutpaint_25ccae30-5ab7-456a-875b-7f9be7ac9ada_00001_.png",
+          "outputHeight": 2048,
+          "outputWidth": 1536,
+          "outputSha256": "ffaf2dd5cefb1bb93b9cc53d5d818ee56266b0f8c3cfd356de6a2bc965da5cc2",
+          "promptId": "c6a517e7-24b9-473c-a1f4-3a872eacd464",
+          "queueDurationMs": 5228,
+          "seed": 20261019,
+          "targetHeight": 2048,
+          "targetWidth": 1536,
+          "inferenceWidth": 888,
+          "inferenceHeight": 1184,
+          "inferencePixels": 1051392,
+          "inferenceMegapixels": 1,
+          "inferenceAlignment": 8,
+          "inferenceResampling": "lanczos",
+          "maskResampling": "bilinear",
+          "outputResampling": "lanczos",
+          "outputRestored": true,
+          "outputSizeStrategy": "restore-target-then-original-mask-composite",
+          "upscaleModel": null,
+          "workflowId": "image-outpaint-qwen",
+          "workflowVersion": "2026-10-19.1",
+          "originalSourceWidth": 864,
+          "originalSourceHeight": 1184,
+          "sourceResized": true,
+          "outpaintCanvas": {
+            "ratio": "3:4",
+            "resolution": "2K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "scale": 0.6666666666666666
+          }
+        },
+        "workflow": {
+          "key": "image-outpaint-qwen",
+          "label": "Qwen Image Edit 2511",
+          "version": "2026-10-19.1"
+        },
+        "bytes": 1909191
+      }
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "e008584a97beb3f102053c4243b49c4b2841d78d6806ae8478fc89463b23f9a1",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# qwen-outpaint-alignment/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\n\nsource.jpg: 从用户当前工作台原图直接保存的864×1184夜景客厅JPEG，不是截图裁切\nbefore.png: 用户当前2K失败结果的原始PNG，明显原图回贴与扩展内容断层\nafter.png: 修复后同源同构图真实Qwen生成的1536×2048 PNG，工作888×1184，执行66.984秒；与失败图种子不同，不能作为严格同种子A/B\nvalidation.json: 同源构图/推理与输出尺寸/中心像素/产物身份/接缝观察的核验记录，状态以内容为准\nresponse-summary.json: 本轮真实运行的脱敏元数据和执行时延，不保留Base64正文或凭据\ntests.log: 最终自动化回归记录，不代表生成画质验收\nCLAUDE.md: 本轮Qwen同尺度采样和合成修复证据地图\n\n早期仅检查输出尺寸及原图中心保留，不能排除扩展区域与原图边缘错位。本轮必须观察窗框、吊灯、沙发及四条边界连续性；尺寸、像素保留、单次画质与多场景稳定性分别判断。\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n\n2026-10-19：真实GPU生成1次，未写飞书。原图中心扣除32px接缝带后932×1301、3637596通道全部相同；窗框、吊灯、沙发与地面在该样本连续，无原矩形断层。788项回归通过。服务实际返回Qwen available=true、版本2026-10-19.1、setup ready=true。用户原页面照片和结果保持，新生成才使用新版；本目录提供本轮重跑成品。不代表4K实跑或多场景质量验收。\n\n2026-10-19后续复核：用户仍观察到原图矩形边界的亮度缝，上述观察仅限明显空间错位修复；中心逐像素相同不代表无缝。后续整图解码、不回贴原图的对照见 ../qwen-outpaint-seam/CLAUDE.md，保留本目录原始图与记录。\n"
   }
 }

@@ -99,11 +99,11 @@ Qwen独立可导入JSON位于 `workflows/Qwen-Image-Edit-2511-Outpaint.json`，A
 
 2026-10-19.3的Qwen Janus接入及Flux `2026-10-19.1`正文捕获已通过812项自动化回归，覆盖未扩边原图分析、固定配置和拼接顺序、节点准入、导出连线，以及同次History正文经客户端/扩图服务进入飞书「最终 Prompt」的内存联通。两引擎另各真实GPU执行1次：Qwen输出1536×2048、正文1353字符；Flux输出1024×768、正文422字符，两条新记录已用用户身份回读，最终Prompt与同次History逐字一致。证据在 `.impeccable/review/janus-outpaint/`；历史实跑记录仍按各自版本保留，不补造旧正文，不代表多场景画质通过。
 
-2026-10-19扩图固定2K收敛已通过817项全量自动化回归。重启后的三引擎配置均返回2K，六个1K/4K请求均在入队前返回400；浏览器上传样图并切换三个引擎，16:9预览均为2048×1152且无分辨率选项。证据见 `.impeccable/review/outpaint-fixed-2k/`。本轮未触发新增GPU任务、飞书写入或发布，不新增画质验收结论。
+2026-10-19扩图固定2K收敛已通过817项全量自动化回归。重启后的三引擎配置均返回2K，六个1K/4K请求均在入队前返回400；浏览器上传样图并切换三个引擎，16:9预览均为2048×1152且无分辨率选项。证据见 `.impeccable/review/CLAUDE.md`。本轮未触发新增GPU任务、飞书写入或发布，不新增画质验收结论。
 
-2026-10-19原比例补齐：首次进入默认原比例，六个比例按钮按两行三列展示；原比例换图后重新计算，用户手选预设后换图不清空选择。823项全量测试通过；实际浏览器上传864×1184样图，Flux预览1496×2048，Qwen/Sunburst预览1488×2048，均保持原比例意图及无分辨率控件。证据见 `.impeccable/review/outpaint-original-ratio/`。长边2048的既有输出口径本轮不变；未触发GPU、Sunburst收费请求或飞书写入，不宣称网关自定义尺寸已实跑。Sunburst原比例依照[官方图像尺寸合同](https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options)实现，并保留实际产物尺寸核验。
+2026-10-19原比例补齐：首次进入默认原比例，六个比例按钮按两行三列展示；原比例换图后重新计算，用户手选预设后换图不清空选择。823项全量测试通过；实际浏览器上传864×1184样图，Flux预览1496×2048，Qwen/Sunburst预览1488×2048，均保持原比例意图及无分辨率控件。证据见 `.impeccable/review/CLAUDE.md`。长边2048的既有输出口径本轮不变；未触发GPU、Sunburst收费请求或飞书写入，不宣称网关自定义尺寸已实跑。Sunburst原比例依照[官方图像尺寸合同](https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options)实现，并保留实际产物尺寸核验。
 
-2026-10-19独立导入复核：在用户当前ComfyUI通过Ctrl+O真实打开原文件成功，未复现整张JSON拒绝；用户拖拽静默的具体来源仍未确认。该服务器缺少BF16命名、已安装同版FP32 LoRA，独立导出图改为FP32并保存显式flow和SaveImage图片输出后再次实际载入，模型缺失提示消失，仅剩LoadImage待选择原图。824项回归通过，未点击运行、未新增GPU任务或飞书记录；证据在 `.impeccable/review/qwen-outpaint-import/`。
+2026-10-19独立导入复核：在用户当前ComfyUI通过Ctrl+O真实打开原文件成功，未复现整张JSON拒绝；用户拖拽静默的具体来源仍未确认。该服务器缺少BF16命名、已安装同版FP32 LoRA，独立导出图改为FP32并保存显式flow和SaveImage图片输出后再次实际载入，模型缺失提示消失，仅剩LoadImage待选择原图。824项回归通过，未点击运行、未新增GPU任务或飞书记录；证据在 `.impeccable/review/CLAUDE.md`。
 
 ## 飞书归档
 

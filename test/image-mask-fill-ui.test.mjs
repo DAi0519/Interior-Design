@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Node测试、遮罩坐标/请求纯规则、画布与模式控制器、共享任务恢复/START及轻量DOM/Canvas替身
- * [OUTPUT]: 非GPT框选/圈选始终显示禁用并提示模型/GPT切换启用、三历史独立与蓝色轮廓、多边形深拷贝与退化准入/轨迹简化、取消保留完成圈选/换图清除、旧服务逐工具能力阻断与恢复、双模式与mask互斥及原功能/质量/任务回归
+ * [OUTPUT]: GPT参考换物品/换材质默认/非法用途与键盘切换、三定位空指令且真实上传可提交/其它模式仍必填、用途往返与手写保留、非GPT工具禁用提示、三历史/多边形冻结与准入/轨迹简化、旧服务门禁及原功能回归
  * [POS]: test 的遮罩填充前端合同验证，不调用GPU或写入飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,6 +73,43 @@ test("仅Sunburst两模式可省略遮罩和扩展，仍保留原图/指令/参�
   assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "reference" }), /填充参考图/);
 });
 
+test("只有GPT参考模式三定位允许指令省略/空/空白，仍拒绝坏类型/超长与缺参考", () => {
+  const base = { image, fillReferenceImage: reference, mode: "reference", maskFillModel: "gptImage25Sunburst" };
+  for (const location of [{}, { maskImage: mask }, { editRegion: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } }]) {
+    for (const prompt of [undefined, "", " \n\t "]) {
+      const request = buildMaskFillJobRequest({ ...base, ...location, ...(prompt !== undefined ? { prompt } : {}) });
+      assert.equal(request.items[0].input.prompt, "");
+      assert.equal(request.items[0].input.fillReferencePurpose, "object");
+      assert.equal(request.sharedInput.fillReferenceImage.dataUrl, reference.dataUrl);
+    }
+  }
+  for (const prompt of [null, 1, false, {}, [], "x".repeat(8001)]) assert.throws(() => buildMaskFillJobRequest({ ...base, prompt }), /指令|文本|8000/);
+  assert.throws(() => buildMaskFillJobRequest({ ...base, fillReferenceImage: null }), /填充参考图/);
+  assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "prompt", fillReferenceImage: null }), /编辑指令/);
+  for (const maskFillModel of ["flux2Klein", "qwenImageEdit2511"]) {
+    assert.throws(() => buildMaskFillJobRequest({ ...base, maskFillModel, maskImage: mask }), /编辑指令/);
+  }
+});
+
+test("参考用途仅GPT参考模式接受，默认换物品且空指令有效；非法或跨模式用途提交前拒绝", () => {
+  const base = { image, fillReferenceImage: reference, mode: "reference", maskFillModel: "gptImage25Sunburst" };
+  for (const fillReferencePurpose of [undefined, "object", "material"]) {
+    const request = buildMaskFillJobRequest({ ...base, ...(fillReferencePurpose !== undefined ? { fillReferencePurpose } : {}) });
+    assert.equal(request.items[0].input.fillReferencePurpose, fillReferencePurpose || "object");
+    assert.equal(request.items[0].input.prompt, "");
+    assert.equal(Object.hasOwn(request.sharedInput, "fillReferencePurpose"), false);
+  }
+  for (const fillReferencePurpose of [null, "", "Object", "texture", " material ", false, 1, {}, []]) {
+    assert.throws(() => buildMaskFillJobRequest({ ...base, fillReferencePurpose }), /参考用途/);
+  }
+  for (const maskFillModel of ["gptImage25Sunburst", "flux2Klein", "qwenImageEdit2511"]) for (const mode of ["prompt", "reference"]) {
+    if (maskFillModel === "gptImage25Sunburst" && mode === "reference") continue;
+    const request = { ...base, maskFillModel, mode, maskImage: mask, prompt: "修改目标" };
+    assert.equal(Object.hasOwn(buildMaskFillJobRequest(request).items[0].input, "fillReferencePurpose"), false);
+    for (const fillReferencePurpose of ["object", "material", null]) assert.throws(() => buildMaskFillJobRequest({ ...request, fillReferencePurpose }), /参考用途/);
+  }
+});
+
 test("GPT两模式框选以归一化区域提交，主图和参考图仍各传一次且不混入mask", () => {
   const editRegion = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
   for (const mode of ["prompt", "reference"]) {
@@ -143,6 +180,7 @@ function fixture({ prefillInstruction = true } = {}) {
   };
   const node = selector => { if (!nodes.has(selector)) nodes.set(selector, make()); return nodes.get(selector); };
   const modes = ["prompt", "reference"].map(mode => { const element = make(); element.dataset.maskMode = mode; return element; });
+  const purposes = ["object", "material"].map(key => { const element = make(); element.dataset.maskReferencePurpose = key; return element; });
   const tools = ["brush", "erase", "box", "lasso"].map(tool => { const element = make(); element.dataset.maskTool = tool; return element; });
   const canvas = node("[data-mask-canvas]");
   let painted = false;
@@ -170,7 +208,7 @@ function fixture({ prefillInstruction = true } = {}) {
   node("[data-mask-brush]").value = "32";
   node("[data-mask-expand]").value = "10";
   node("[data-mask-inference]").value = "2k";
-  const root = { innerHTML: "", querySelector: node, querySelectorAll: () => modes };
+  const root = { innerHTML: "", querySelector: node, querySelectorAll: selector => selector === "[data-mask-reference-purpose]" ? purposes : modes };
   let source = image;
   const emptySize = make(), exactSize = make();
   const controller = bindImageMaskFill({ root, getSourceImage: () => source, onChange() {},
@@ -178,7 +216,7 @@ function fixture({ prefillInstruction = true } = {}) {
   if (prefillInstruction) node("[data-mask-prompt]").value = "Remove the selected object.";
   controller.configure({ available: true, modes: [{ key: "prompt", available: true }, { key: "reference", available: true }] });
   controller.activate();
-  return { root, controller, node, modes, tools, canvas, draws, exports, emptySize, exactSize,
+  return { root, controller, node, modes, purposes, tools, canvas, draws, exports, emptySize, exactSize,
     source(next) { source = next; controller.renderSummary(); },
     paint(type = "touch") { canvas.fire("pointerdown", { pointerId: 3, pointerType: type, button: 0, clientX: 356, clientY: 168 });
       canvas.fire("pointermove", { pointerId: 3, clientX: 612, clientY: 296 });
@@ -204,6 +242,98 @@ test("两模式推荐仅为输入占位，空指令阻断且手写内容往返�
   assert.equal(prompt.value, "移除窗边的吊灯，补全窗户。");
   f.modes[1].fire("click");
   assert.equal(prompt.value, "将图1的床替换为图2的床，保持其他家具。");
+});
+
+test("GPT参考用途支持键盘且切换定位/模型/模式保留用途与手写原文，Flux/Qwen沿原例", () => {
+  const f = fixture({ prefillInstruction: false });
+  const prompt = f.node("[data-mask-prompt]"), model = f.node("[data-mask-model]");
+  f.modes[1].fire("click");
+  assert.match(prompt.placeholder, /将图1中的床替换成图2的床/);
+  const instruction = "只将沙发布料换成图2的织物纹理和米白色，沙发造型与尺寸不变。";
+  prompt.value = instruction;
+  model.value = "gptImage25Sunburst"; model.fire("change");
+  f.controller.configure({ models: [{ key: model.value, supportsBoxSelection: true, supportsLassoSelection: true,
+    modes: [{ key: "prompt", available: true }, { key: "reference", available: true }], sizes: MODEL_CONFIGS.gptImage25Sunburst.sizes,
+    outputResolutions: ["1K", "2K", "4K"], qualityOptions: MODEL_CONFIGS.gptImage25Sunburst.qualityOptions, defaultQuality: "medium" }] });
+  assert.equal(prompt.placeholder, "可选：补充替换要求；留空按参考图替换目标物品。");
+  assert.equal(f.node("[data-mask-reference-purpose-section]").hidden, false);
+  assert.match(f.root.innerHTML, /data-mask-reference-purpose="object" role="radio" aria-checked="true" tabindex="0"/);
+  f.purposes[0].fire("keydown", { key: "ArrowRight" });
+  assert.equal(f.purposes[1].attributes.get("aria-checked"), "true");
+  assert.equal(f.purposes[1].tabIndex, 0);
+  assert.equal(prompt.placeholder, "可选：补充材质要求；留空按参考图更换目标表面的材质，保留原有造型。");
+  assert.doesNotMatch(prompt.placeholder, /蓝色圈选/);
+  assert.equal(prompt.value, instruction);
+  for (const tool of [f.tools[2], f.tools[3]]) {
+    tool.fire("click");
+    assert.equal(prompt.placeholder, "可选：补充材质要求；留空按参考图更换目标表面的材质，保留原有造型。");
+    assert.equal(prompt.value, instruction, "推荐变化不能覆盖手写表面编辑要求");
+  }
+  f.tools[0].fire("click");
+  assert.doesNotMatch(prompt.placeholder, /蓝色圈选/);
+  for (const key of ["qwenImageEdit2511", "flux2Klein"]) {
+    model.value = key; model.fire("change");
+    assert.match(prompt.placeholder, /将图1中的床替换成图2的床/);
+    assert.equal(f.node("[data-mask-reference-purpose-section]").hidden, true);
+    assert.equal(prompt.value, instruction);
+  }
+  f.modes[0].fire("click");
+  assert.equal(prompt.value, "");
+  f.modes[1].fire("click");
+  assert.equal(prompt.value, instruction);
+  model.value = "gptImage25Sunburst"; model.fire("change");
+  assert.equal(f.purposes[1].attributes.get("aria-checked"), "true", "切换模式和模型后保留换材质");
+  for (const [key, index] of [["Home", 0], ["End", 1], ["ArrowUp", 0], ["ArrowDown", 1], ["ArrowLeft", 0]]) {
+    f.purposes[1 - index].fire("keydown", { key });
+    assert.equal(f.purposes[index].attributes.get("aria-checked"), "true");
+    assert.equal(prompt.value, instruction);
+  }
+  f.purposes[1].fire("click");
+  assert.equal(f.purposes[1].attributes.get("aria-checked"), "true");
+});
+
+test("真实参考图上传后GPT空指令在画笔/框选/无区域均可提交，切回提示词或Qwen仍阻断", async context => {
+  const originals = Object.fromEntries(["document", "FileReader", "Image"].map(key => [key, globalThis[key]]));
+  context.after(() => { for (const [key, value] of Object.entries(originals)) {
+    if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+  } });
+  const f = fixture({ prefillInstruction: false }); let created = 0;
+  globalThis.document = { createElement: () => f.node(`__uploaded-reference-${created++}`) };
+  globalThis.FileReader = class {
+    addEventListener(name, callback) { this[name] = callback; }
+    readAsDataURL(file) { this.result = file.dataUrl; queueMicrotask(() => this.load()); }
+  };
+  globalThis.Image = class {
+    addEventListener(name, callback) { this[name] = callback; }
+    set src(value) { this.naturalWidth = reference.width; this.naturalHeight = reference.height; queueMicrotask(() => this.load()); }
+  };
+  const model = f.node("[data-mask-model]"); model.value = "gptImage25Sunburst"; model.fire("change");
+  f.controller.configure({ models: [{ key: model.value, supportsBoxSelection: true, supportsLassoSelection: true,
+    modes: [{ key: "prompt", available: true }, { key: "reference", available: true }], sizes: MODEL_CONFIGS.gptImage25Sunburst.sizes,
+    outputResolutions: ["1K", "2K", "4K"], qualityOptions: MODEL_CONFIGS.gptImage25Sunburst.qualityOptions, defaultQuality: "medium" }] });
+  f.modes[1].fire("click");
+  assert.match(f.controller.availabilityReason(), /填充参考图/);
+  await f.node("[data-mask-reference-input]").fire("change", { target: { files: [reference], value: "ref.png" } });
+  assert.equal(f.controller.isAvailable(), true);
+  for (const tool of ["none", "brush", "box"]) {
+    if (tool === "brush") f.paint();
+    if (tool === "box") { f.tools[2].fire("click"); f.paint(); }
+    for (const purpose of f.purposes) for (const prompt of ["", " \n "]) {
+      purpose.fire("click");
+      f.node("[data-mask-prompt]").value = prompt;
+      assert.equal(f.controller.isAvailable(), true);
+      const request = f.controller.jobRequest({ image });
+      assert.equal(request.items[0].input.prompt, "");
+      assert.equal(request.items[0].input.fillReferencePurpose, purpose.dataset.maskReferencePurpose);
+      assert.equal(request.sharedInput.fillReferenceImage.dataUrl, reference.dataUrl);
+    }
+  }
+  f.modes[0].fire("click");
+  assert.match(f.controller.availabilityReason(), /编辑指令/);
+  f.modes[1].fire("click");
+  model.value = "qwenImageEdit2511"; model.fire("change");
+  f.controller.configure({ models: [{ key: "qwenImageEdit2511", modes: [{ key: "reference", available: true }] }] });
+  assert.match(f.controller.availabilityReason(), /编辑指令/);
 });
 
 test("触屏画笔用缩放后原图坐标和笔宽，导出同尺寸黑底白mask；撤销/擦除/换图不会残留", () => {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公开遮罩填充目录、主图上传、共享参考图上传、画笔/矩形/自由圈选交互、纯请求规则与主工作台任务/摘要和飞书同步回调
- * [OUTPUT]: 对外提供三模型两模式、蓝色圈选物体推荐写法/独立指令记忆/仅异常提示、GPT画笔/矩形/自由圈选或纯指令与三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
+ * [OUTPUT]: 对外提供三模型两模式、GPT参考模式换物品/换材质与可空补充指令/独立指令记忆/仅异常提示、GPT画笔/矩形/自由圈选或纯指令与三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
  * [POS]: public 的区域填充控制器，不持有上游地址或工作流正文；换模型保留三类独立历史，当前工具决定请求，权限失效及旧服务缺少对应选区能力时阻断原选择
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,8 @@ import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindMaskFillCanvas } from "./image-mask-fill-canvas.js";
 import { buildMaskFillJobRequest, MASK_FILL_IMAGE_POLICY,
   MASK_FILL_MODES, MASK_FILL_MODELS, maskFillModel, MASK_FILL_INFERENCE_TIERS, MASK_FILL_GPT_RESOLUTIONS,
-  maskFillGptOutputSize, maskFillOutputSize, maskFillImageIssue, maskFillMode } from "./image-mask-fill-geometry.js";
+  maskFillGptOutputSize, maskFillOutputSize, maskFillImageIssue, maskFillMode, maskFillPromptOptional,
+  MASK_FILL_REFERENCE_PURPOSES } from "./image-mask-fill-geometry.js";
 
 const PROMPT_EXAMPLES = {
   prompt: "推荐写法：移除图1中的吊灯，补全其后的窗户和背景。保持原机位、房间布局、其他物体和光线。",
@@ -31,6 +32,9 @@ const CONTROLS = `
     <label class="field"><span>输出档位</span><select data-mask-output aria-label="GPT遮罩填充输出档位">${MASK_FILL_GPT_RESOLUTIONS.map(value => `<option value="${value}">${value}</option>`).join("")}</select></label>
     <label class="field"><span>生成质量</span><select data-mask-quality aria-label="GPT遮罩填充生成质量"><option value="medium">medium</option></select></label>
   </div>
+  <div class="mask-fill-mode-field" data-mask-reference-purpose-section hidden><span class="mask-fill-field-label">参考用途</span>
+    <div class="mask-fill-modes" role="radiogroup" aria-label="参考图用途">${MASK_FILL_REFERENCE_PURPOSES.map(({ key, label }, index) => `<button type="button" data-mask-reference-purpose="${key}" role="radio" aria-checked="${index === 0}" tabindex="${index === 0 ? 0 : -1}"${index === 0 ? ' class="selected"' : ""}>${label}</button>`).join("")}</div>
+  </div>
   <div data-mask-reference-section hidden>
     <div class="section-heading"><h3>填充参考图 <span class="optional">必填 · 1张</span></h3><span data-mask-reference-count class="reference-count">0 / 1</span></div>
     <label data-mask-reference-drop class="reference-drop-zone">
@@ -39,7 +43,7 @@ const CONTROLS = `
     </label>
     <div data-mask-reference-list class="reference-list"></div>
   </div>
-  <div class="mask-fill-prompt-block"><label class="mask-fill-instruction"><span>编辑指令</span><textarea data-mask-prompt maxlength="8000" aria-label="遮罩填充编辑指令" rows="5"></textarea></label>
+  <div class="mask-fill-prompt-block"><label class="mask-fill-instruction"><span data-mask-prompt-label>编辑指令</span><textarea data-mask-prompt maxlength="8000" aria-label="遮罩填充编辑指令" rows="5"></textarea></label>
   </div>
   <div class="field-grid mask-fill-parameters" data-mask-parameters>
     <label class="field" data-mask-tier-field><span>推理档位</span><select data-mask-inference aria-label="遮罩填充推理档位">${MASK_FILL_INFERENCE_TIERS.map(tier => `<option value="${tier.key}">${tier.label}</option>`).join("")}</select></label>
@@ -69,6 +73,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
   root.innerHTML = CONTROLS;
   const by = selector => root.querySelector(selector);
   const modeButtons = [...root.querySelectorAll("[data-mask-mode]")];
+  const purposeButtons = [...root.querySelectorAll("[data-mask-reference-purpose]")];
   const prompt = by("[data-mask-prompt]");
   const expand = by("[data-mask-expand]");
   const inference = by("[data-mask-inference]");
@@ -83,6 +88,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
   const brushSize = by("[data-mask-brush-size]");
   let config = { available: false, reason: "遮罩填充配置读取中", modes: [] };
   let mode = "prompt";
+  let fillReferencePurpose = "object";
   const values = { prompt: { prompt: "", expand: 10 }, reference: { prompt: "", expand: 80 } };
   prompt.value = values.prompt.prompt;
   prompt.placeholder = PROMPT_EXAMPLES.prompt;
@@ -137,27 +143,39 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     values[mode] = { prompt: prompt.value, expand: expand.value };
     mode = maskFillMode(next);
     prompt.value = values[mode].prompt;
-    prompt.placeholder = (drawing.isSelection() ? BOX_PROMPT_EXAMPLES : PROMPT_EXAMPLES)[mode];
+    prompt.placeholder = recommendedPrompt();
     expand.value = values[mode].expand;
     referenceSection.hidden = mode !== "reference";
-    modeButtons.forEach(button => {
-      const selected = button.dataset.maskMode === mode;
+    renderRadioButtons(modeButtons, "maskMode", mode);
+    renderSummary(); onChange();
+  }
+
+  function renderRadioButtons(buttons, key, value) {
+    buttons.forEach(button => {
+      const selected = button.dataset[key] === value;
       button.classList.toggle("selected", selected);
       button.setAttribute("aria-checked", String(selected));
       button.tabIndex = selected ? 0 : -1;
     });
-    renderSummary(); onChange();
   }
 
-  modeButtons.forEach((button, index) => {
-    button.addEventListener("click", () => selectMode(button.dataset.maskMode));
-    button.addEventListener("keydown", event => {
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
-      event.preventDefault();
-      const next = event.key === "Home" ? 0 : event.key === "End" ? modeButtons.length - 1
-        : (index + (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) + modeButtons.length) % modeButtons.length;
-      selectMode(modeButtons[next].dataset.maskMode); modeButtons[next].focus();
+  function bindRadioButtons(buttons, key, select) {
+    buttons.forEach((button, index) => {
+      button.addEventListener("click", () => select(button.dataset[key]));
+      button.addEventListener("keydown", event => {
+        if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+          : (index + (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) + buttons.length) % buttons.length;
+        select(buttons[next].dataset[key]); buttons[next].focus();
+      });
     });
+  }
+  bindRadioButtons(modeButtons, "maskMode", selectMode);
+  bindRadioButtons(purposeButtons, "maskReferencePurpose", value => {
+    fillReferencePurpose = value;
+    renderRadioButtons(purposeButtons, "maskReferencePurpose", value);
+    renderSummary(); onChange();
   });
   [prompt, expand, inference].forEach(control => control.addEventListener("input", onChange));
   [modelSelect, outputResolution, quality].forEach(control => control.addEventListener("change", () => { renderSummary(); onChange(); }));
@@ -169,7 +187,18 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     by("[data-mask-expand-field]").hidden = selection;
     by("[data-mask-parameters]").hidden = selection;
     expand.disabled = optional && !drawing.hasMask();
-    prompt.placeholder = (selection ? BOX_PROMPT_EXAMPLES : PROMPT_EXAMPLES)[mode];
+    by("[data-mask-reference-purpose-section]").hidden = !maskFillPromptOptional(selectedModel().key, mode);
+    by("[data-mask-prompt-label]").textContent = maskFillPromptOptional(selectedModel().key, mode) ? "补充指令（可选）" : "编辑指令";
+    prompt.placeholder = recommendedPrompt();
+  }
+
+  function recommendedPrompt() {
+    if (mode === "reference" && selectedModel().provider === "oneapi") {
+      return fillReferencePurpose === "material"
+        ? "可选：补充材质要求；留空按参考图更换目标表面的材质，保留原有造型。"
+        : "可选：补充替换要求；留空按参考图替换目标物品。";
+    }
+    return (drawing.isSelection() ? BOX_PROMPT_EXAMPLES : PROMPT_EXAMPLES)[mode];
   }
 
   function renderSummary() {
@@ -195,7 +224,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     const hasMask = drawing.hasMask();
     const message = !available() ? unavailableReason() : maskFillImageIssue(getSourceImage()) || modelIssue()
       || (mode === "reference" ? maskFillImageIssue(referenceUpload.images()[0], "填充参考图") : "")
-      || (!prompt.value.trim() ? "请填写明确的编辑指令" : "")
+      || (!prompt.value.trim() && !maskFillPromptOptional(selectedModel().key, mode) ? "请填写明确的编辑指令" : "")
       || (!hasMask && selectedModel().key !== "gptImage25Sunburst" ? "请先在原图上涂抹需要编辑的区域" : "")
       || (hasMask && (!Number.isInteger(Number(expand.value)) || Number(expand.value) < 0 || Number(expand.value) > 256) ? "遮罩扩展应为0–256的整数" : "");
     return message ? { message } : null;
@@ -216,12 +245,13 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     inputPolicy: () => MASK_FILL_IMAGE_POLICY,
     isAvailable: () => !validate(),
     availabilityReason: () => validate()?.message || "",
-    loadingCopy: () => `正在${mode === "reference" ? "按参考图" : "按提示词"}${drawing.editRegion() ? "编辑圈选物体" : drawing.hasMask() ? "填充遮罩区域" : "编辑图片"}…`,
+    loadingCopy: () => `正在${mode === "reference" ? "按参考图" : "按提示词"}${drawing.editRegion() ? "编辑圈选目标" : drawing.hasMask() ? "填充遮罩区域" : "编辑图片"}…`,
     jobRequest({ image, jobId }) {
       const issue = validate();
       if (issue) throw new Error(issue.message);
       const editRegion = drawing.editRegion();
       return buildMaskFillJobRequest({ image, jobId, mode, maskFillModel: modelSelect.value, prompt: prompt.value,
+        ...(maskFillPromptOptional(selectedModel().key, mode) ? { fillReferencePurpose } : {}),
         inferenceTier: selectedModel().provider === "oneapi" ? undefined : selectedModel().key === "qwenImageEdit2511" ? "1mp" : inference.value,
         ...(selectedModel().provider === "oneapi" ? { outputResolution: outputResolution.value, quality: quality.value } : {}), maskExpand: expand.value,
         ...(editRegion ? { editRegion } : {}),

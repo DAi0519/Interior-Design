@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖风格目录、白模/空房/风格转换/Style DNA Agent、精模/效果图氛围转换/效果图美化/全景图美化独立 Prompt 的脱敏配置读取
+ * [INPUT]: 依赖独立精模光影基础目录、飞书光影氛围库、风格目录、白模/空房/旧房/风格转换/Style DNA Agent及各功能Prompt
  * [OUTPUT]: 对外提供日常生图与 Beta 共用的配置快照及统一主动刷新，保留独立 Prompt 来源和正文边界
  * [POS]: src 的生图配置聚合边界，由 server 的 /api/styles 与 /api/config/refresh 共用，避免目录和刷新合同分叉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -11,12 +11,14 @@ import {
   getPublishedPromptAgent,
   listPublishedPromptAgentVersions,
   publicEmptyRoomConfig,
+  publicRoomRenovationConfig,
   publicPromptAgentCatalog,
   publicSmartDefaultConfig,
   publicStyleTransferConfig,
   STYLE_DNA_REVERSE_PROMPT_CONFIG,
 } from "./prompt-agent.mjs";
-import { publicRefinedModelPromptConfig } from "./refined-model-prompt.mjs";
+import { publicRefinedLightingBasePromptConfig } from "./refined-model-prompt.mjs";
+import { publicRefinedLightingLibrary } from "./refined-lighting-library.mjs";
 import { listPublicStyles } from "./style-library.mjs";
 
 const DEFAULT_READERS = Object.freeze({
@@ -24,8 +26,10 @@ const DEFAULT_READERS = Object.freeze({
   effectEnhancementPrompt: publicEffectEnhancementPromptConfig,
   panoramaEnhancementPrompt: publicPanoramaEnhancementPromptConfig,
   emptyRoom: publicEmptyRoomConfig,
+  roomRenovation: publicRoomRenovationConfig,
   promptAgents: (options) => listPublishedPromptAgentVersions("white-model-fusion", options),
-  refinedPrompt: publicRefinedModelPromptConfig,
+  refinedPrompt: publicRefinedLightingBasePromptConfig,
+  refinedLighting: publicRefinedLightingLibrary,
   smartDefault: publicSmartDefaultConfig,
   styleTransfer: publicStyleTransferConfig,
   styles: listPublicStyles,
@@ -39,8 +43,8 @@ export async function readGenerationConfig({
   forceRefresh = false,
   readers = DEFAULT_READERS,
 } = {}) {
-  const keys = ["styles", "promptAgents", "refinedPrompt", "effectEnhancementPrompt",
-    "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "styleTransfer"];
+  const keys = ["styles", "promptAgents", "refinedPrompt", "refinedLighting", "effectEnhancementPrompt",
+    "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "roomRenovation", "styleTransfer"];
   const values = await Promise.all([
     ...keys.map((key) => readers[key]({ forceRefresh })),
     ...(forceRefresh ? [readers.styleDna({ forceRefresh })] : []),

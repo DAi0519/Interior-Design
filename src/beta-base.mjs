@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖模型/图片输入 Agent/独立扩图与超分工作流真源、Beta 三表、beta-sample-store.mjs 逐张资产边界、beta-base-schema.mjs 实时合同、lark-cli.mjs 与图片产物基础设施，接收样本集、已冻结 Run、附件和正式生成结果
- * [OUTPUT]: 对外提供三表Schema/十功能归档回读；KS26.3整图ceil16补齐面积严格低于20MP，核验规划推理/最终成品/恢复插值；20.1/21.1整图、26.1面积策略与26.2分块仅按原合同恢复
+ * [INPUT]: 依赖模型/图片输入Agent/精模冻结资产、扩图真源及beta-upscale-archive-contract的超分版本/原件合同、Beta三表和图片基础设施
+ * [OUTPUT]: 对外提供三表Schema/十功能快照、精模基础身份及预设单图/图文双图/上传双图归档回读；KS固定5K/20MP纯合同与历史策略恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,7 +25,39 @@ import { MODEL_CONFIGS, publicModelCatalog } from "./model-config.mjs";
 import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
 import { QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW } from "./image-outpaint-qwen.mjs";
 import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
-import { imageUpscaleExecutionPlan, imageUpscaleTargetDimensions, imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
+import { imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
+import { isLegacyKsArchive, verifyUpscaleArchive as verifyUpscaleArchiveContract } from "./beta-upscale-archive-contract.mjs";
+import { hasRefinedLightingInput, resolveRefinedLightingInput } from "./refined-lighting.mjs";
+
+async function lightingReferences(input, featureMode = input?.featureMode, resolveLighting = resolveRefinedLightingInput) {
+  if (featureMode === "refinedModel" && hasRefinedLightingInput(input)) {
+    if (input.refinedLighting?.execution === "prompt-and-reference") {
+      return (await resolveLighting(input)).referenceImages;
+    }
+    return input.refinedLighting?.execution === "prompt-only" ? [] : input.lightingReferenceImages;
+  }
+  return input?.styleReferenceImages;
+}
+
+function verifyLightingArchive(fields, frozen) {
+  const expected = frozen?.refinedLighting;
+  if (!expected) return;
+  let parameters;
+  try { parameters = JSON.parse(fields["生成参数"]); }
+  catch { throw betaBaseContractError("精模光影缺少实际生成参数"); }
+  const actual = parameters.workflow?.refinedLighting;
+  const promptOnly = expected.execution === "prompt-only";
+  const expectedCount = promptOnly || expected.mode === "original" ? 1 : 2;
+  const invalidReference = promptOnly
+    ? actual?.reference != null || !isDeepStrictEqual(actual?.imageRoles, { source: 1 })
+    : expected.mode !== "original" && (actual?.reference?.sha256 !== expected.referenceSha256
+      || !isDeepStrictEqual(actual?.imageRoles, { source: 1, atmosphere: 2 }));
+  if (!actual || Object.entries(expected).some(([key, value]) => !isDeepStrictEqual(actual[key], value))
+    || !/^[a-f0-9]{64}$/.test(actual.source?.sha256 || "")
+    || parameters.referenceImageCount !== expectedCount || invalidReference) {
+    throw betaBaseContractError("精模光影实际来源、版本、图序或图片摘要与冻结配置不一致");
+  }
+}
 
 export const BETA_BASE_CONFIG = Object.freeze({
   baseToken: process.env.BETA_BASE_TOKEN || "ORwJbt5EYauNORsrhqJcpetLnEb",
@@ -90,11 +122,14 @@ export function betaSceneParameters(input = {}) {
     effectTime: input.effectTime,
     effectWeather: input.effectWeather,
     effectBeautification: input.effectBeautification,
+    refinedRender: input.featureMode === "refinedModel" ? input.refinedRender : undefined,
+    refinedLighting: input.featureMode === "refinedModel" ? input.refinedLighting : undefined,
     renderMode: input.renderMode,
     roomType: input.roomType,
     roomTypeDetail: input.roomTypeDetail,
     styleCode: input.featureMode !== "styleTransfer" || input.renderMode === "style-dna" ? input.styleCode : undefined,
-    styleReferenceUsed: input.featureMode === "styleTransfer" ? Boolean(input.styleReferenceImages?.length) : undefined,
+    styleReferenceUsed: input.featureMode === "styleTransfer" ? Boolean(input.styleReferenceImages?.length)
+      : input.featureMode === "refinedModel" && hasRefinedLightingInput(input) ? Boolean(input.lightingReferenceImages?.length) : undefined,
     outpaintCanvas: input.featureMode === "imageOutpaint" ? input.outpaintCanvas : undefined,
     upscaleWorkflowKey: input.featureMode === "imageUpscale" ? input.upscaleWorkflowKey : undefined,
   });
@@ -116,6 +151,11 @@ export function betaConfigSnapshot(input = {}) {
     promptAgentModelKey: input.promptAgentModelKey,
     promptAgentVersion: input.promptAgentVersion,
     promptVersion: input.promptVersion,
+    promptCode: input.featureMode === "refinedModel" ? input.promptCode : undefined,
+    refinedPromptSha256: input.featureMode === "refinedModel" ? input.refinedPromptSha256 : undefined,
+    refinedLighting: input.featureMode === "refinedModel" ? input.refinedLighting : undefined,
+    refinedAtmospherePromptVersion: input.featureMode === "refinedModel" ? input.refinedAtmospherePromptVersion : undefined,
+    refinedAtmospherePromptSha256: input.featureMode === "refinedModel" ? input.refinedAtmospherePromptSha256 : undefined,
     effectBeautificationPromptVersion: input.effectBeautificationPromptVersion,
     panoramaPromptVersion: input.panoramaPromptVersion,
     quality: input.quality,
@@ -131,17 +171,24 @@ export function betaConfigSnapshot(input = {}) {
 export function betaResultVersion(result = {}) {
   const workflowVersion = result.upstream?.metadata?.workflowVersion || result.workflow?.version;
   const workflowKey = result.upstream?.metadata?.workflowId || result.workflow?.key;
+  const atmospherePrompt = result.atmospherePrompt || result.workflow?.atmospherePrompt;
+  const lighting = result.refinedLighting || result.workflow?.refinedLighting;
   const values = [
     workflowKey && workflowVersion ? `${workflowKey}@${workflowVersion}` : null,
     result.prompt?.code && result.prompt?.version
       ? `${result.prompt.code}@v${result.prompt.version}`
       : null,
+    atmospherePrompt?.code && atmospherePrompt?.version
+      ? `${atmospherePrompt.code}@v${atmospherePrompt.version}`
+      : null,
     result.promptAgent?.version ? `Prompt Agent v${result.promptAgent.version}` : null,
     result.style?.code && result.style?.version
       ? `${result.style.code}@v${result.style.version}`
       : null,
+    ...[lighting?.rule, lighting?.preset].map(asset => asset?.code && asset?.version ? `${asset.code}@v${asset.version}` : null),
+    lighting?.execution === "prompt-and-reference" ? "prompt-and-reference" : null,
   ].filter(Boolean);
-  return values.join(" · ");
+  return [...new Set(values)].join(" · ");
 }
 
 export function betaResultCostUsd(result = {}) {
@@ -365,118 +412,15 @@ function verifyMetadata(fields, expected) {
   }
 }
 
-// -------- 历史整图/面积分流/全档分块只用于恢复；当前为受限面积整图 --------
-function isLegacyKsArchive(key, version, resolution) {
-  return key?.startsWith("ks_") && (["2026-10-21.1", "2026-10-26.1", "2026-10-26.2"].includes(version)
-    || (version === "2026-10-20.1" && resolution === "2X"));
-}
-
-function legacyKsTiledPlan(target) {
-  const width = Math.min(2048, target.width), height = Math.min(2048, target.height);
-  const count = (length, size) => 1 + Math.ceil(Math.max(0, length - size) / Math.round(Math.max(size * 0.25, size - 256)));
-  return { strategy: "tiled", policyVersion: "ks-always-tiled-v2", tileWidth: width, tileHeight: height,
-    tileOverlap: 256, tileRows: count(target.height, height), tileColumns: count(target.width, width),
-    tileCount: count(target.height, height) * count(target.width, width), blocksToSwap: 36, swapIoComponents: true,
-    seedVrResolution: Math.min(width, height), seedVrMaxResolution: Math.max(width, height) };
-}
-
-function legacyKsAreaPlan(target, selectedResolution) {
-  const tiled = target.width * target.height > 25000000;
-  const count = length => 1 + Math.ceil(Math.max(0, length - 2048) / 1792);
-  return { strategy: tiled ? "tiled" : "whole", policyVersion: "ks-area-tiling-v1", thresholdPixels: 25000000,
-    tileWidth: 2048, tileHeight: 2048, tileOverlap: 256, tileRows: count(target.height), tileColumns: count(target.width),
-    tileCount: count(target.height) * count(target.width), blocksToSwap: tiled ? 36 : 32, swapIoComponents: tiled,
-    seedVrResolution: tiled ? 2048 : Math.min(target.width, target.height),
-    seedVrMaxResolution: tiled ? 2048 : selectedResolution.scale ? 0 : target.longEdge };
-}
-
-function verifyUpscaleArchive(fields, snapshot, bytes = null, { recovering = false } = {}) {
-  let parameters;
-  try { parameters = JSON.parse(fields["生成参数"]); }
-  catch { throw betaBaseContractError("已有超分缺少可信的生成参数"); }
-  const workflow = parameters?.workflow;
-  const key = snapshot.upscaleWorkflowKey;
-  const positiveInteger = value => Number.isInteger(value) && value > 0;
-  if (!workflow || workflow.feature !== "image-upscale" || workflow.workflowId !== key
-    || (snapshot.modelKey != null && snapshot.modelKey !== key)
-    || !String(workflow.workflowVersion || "").trim()
-    || workflow.resolution !== snapshot.resolution || parameters.resolution !== snapshot.resolution
-    || !String(workflow.model || "").trim() || !Object.hasOwn(workflow, "inputMegapixels")
-    || !/^[a-f0-9]{64}$/.test(workflow.sourceSha256 || "")
-    || !/^[a-f0-9]{64}$/.test(workflow.outputSha256 || "")
-    || ![workflow.sourceWidth, workflow.sourceHeight, workflow.requestedOutputWidth,
-      workflow.requestedOutputHeight, workflow.outputWidth, workflow.outputHeight].every(positiveInteger)) {
-    throw betaBaseContractError("超分工作流身份、版本、来源、尺寸或产物元数据不完整");
-  }
-  let target;
-  let definition;
-  try {
-    definition = imageUpscaleWorkflow(key);
-    target = imageUpscaleTargetDimensions({ width: workflow.sourceWidth, height: workflow.sourceHeight },
-      snapshot.resolution, key);
-  } catch (cause) { throw betaBaseContractError("超分冻结工作流或源图尺寸合同不一致", cause); }
-  const selectedResolution = definition.resolutions.find((resolution) => resolution.key === snapshot.resolution);
-  const legacyKs = recovering && isLegacyKsArchive(key, workflow.workflowVersion, snapshot.resolution);
-  const legacyArea = legacyKs && workflow.workflowVersion === "2026-10-26.1";
-  const legacyTiled = legacyKs && workflow.workflowVersion === "2026-10-26.2";
-  const legacyWhole = legacyKs && !legacyArea && !legacyTiled;
-  if ((!legacyKs && workflow.workflowVersion !== definition.version)
-    || (snapshot.upscaleWorkflowVersion && snapshot.upscaleWorkflowVersion !== workflow.workflowVersion)
-    || (key.startsWith("ks_") && !legacyWhole && snapshot.upscaleWorkflowVersion !== workflow.workflowVersion)) {
-    throw betaBaseContractError("超分冻结版本与实际工作流不一致");
-  }
-  if (workflow.model !== definition.model || workflow.inputMegapixels !== definition.inputMegapixels
-    || workflow.sourceSha256 !== definition.sourceSha256
-    || workflow.outputScale !== selectedResolution.scale
-    || workflow.requestedOutputWidth !== target.width || workflow.requestedOutputHeight !== target.height) {
-    throw betaBaseContractError("超分源图、目标尺寸或 SeedVR2 参数回读不一致");
-  }
-  const plan = legacyWhole ? { strategy: "whole", seedVrResolution: Math.min(target.width, target.height),
-    seedVrMaxResolution: selectedResolution.scale ? 0 : target.longEdge }
-    : legacyArea ? legacyKsAreaPlan(target, selectedResolution)
-      : legacyTiled ? legacyKsTiledPlan(target)
-        : imageUpscaleExecutionPlan({ ...target, resolution: snapshot.resolution, workflowKey: key });
-  if (workflow.seedVrResolution !== plan.seedVrResolution || workflow.seedVrMaxResolution !== plan.seedVrMaxResolution) {
-    throw betaBaseContractError("超分实际 SeedVR2 推理尺寸回读不一致");
-  }
-  if (key.startsWith("ks_") && !legacyWhole) {
-    const tiling = plan.strategy === "tiled" ? { ...(plan.thresholdPixels === undefined ? {} : { thresholdPixels: plan.thresholdPixels }), tileWidth: plan.tileWidth,
-      tileHeight: plan.tileHeight, overlap: plan.tileOverlap, rows: plan.tileRows,
-      columns: plan.tileColumns, tileCount: plan.tileCount } : undefined;
-    if (workflow.executionStrategy !== plan.strategy || workflow.executionPolicyVersion !== plan.policyVersion
-      || workflow.blocksToSwap !== plan.blocksToSwap || workflow.swapIoComponents !== plan.swapIoComponents
-      || !isDeepStrictEqual(workflow.tiling, tiling)
-      || (plan.strategy === "tiled" && (workflow.outputWidth !== target.width || workflow.outputHeight !== target.height))) {
-      throw betaBaseContractError("超分执行策略、实际参数或交付尺寸回读不一致");
-    }
-    if (!legacyKs) {
-      const inference = { inferenceWidth: plan.inferenceWidth, inferenceHeight: plan.inferenceHeight,
-        inferencePixelLimit: 20000000, paddedInferencePixels: plan.paddedInferencePixels, deliveryPostResize: plan.deliveryPostResize };
-      const padded = Math.ceil(workflow.inferenceWidth / 16) * 16 * Math.ceil(workflow.inferenceHeight / 16) * 16;
-      if (Object.entries(inference).some(([field, value]) => workflow[field] !== value)
-        || ![workflow.inferenceWidth, workflow.inferenceHeight, workflow.paddedInferencePixels].every(positiveInteger)
-        || padded !== workflow.paddedInferencePixels || padded >= 20000000
-        || workflow.deliveryPostResize !== (workflow.inferenceWidth !== target.width || workflow.inferenceHeight !== target.height)
-        || workflow.outputWidth !== target.width || workflow.outputHeight !== target.height) {
-        throw betaBaseContractError("超分整图推理面积、画布或交付恢复参数回读不一致");
-      }
-    }
-  } else if (legacyWhole && (workflow.executionStrategy && workflow.executionStrategy !== "whole"
-    || workflow.tiling || workflow.executionPolicyVersion)) {
-    throw betaBaseContractError("历史KS整图记录包含不兼容的分块策略");
-  }
-  verifyMetadata(fields, { "Prompt / 工作流版本": `${key}@${workflow.workflowVersion}`,
-    "尺寸": `${workflow.outputWidth}x${workflow.outputHeight}` });
-  if (bytes && (actualImageSize(bytes) !== fields["尺寸"]
-    || createHash("sha256").update(bytes).digest("hex") !== workflow.outputSha256)) {
-    throw betaBaseContractError("超分实际结果尺寸或 SHA-256 与工作流不一致");
-  }
-  return workflow;
+// -------- 超分纯合同独立维护，其他归档继续共用本文件字段核验 --------
+function verifyUpscaleArchive(fields, snapshot, bytes = null, options = {}) {
+  return verifyUpscaleArchiveContract(fields, snapshot, bytes, { ...options, verifyMetadata });
 }
 
 export function createBetaBaseStore({
   config = BETA_BASE_CONFIG,
   run: executeCli = runLarkCli,
+  resolveLighting = resolveRefinedLightingInput,
 } = {}) {
   const runArchives = new Map();
   const recoveryRecords = new Map();
@@ -500,6 +444,7 @@ export function createBetaBaseStore({
     async beginRun({ batchId, featureMode, item, testTime }) {
       if (featureMode === "imageUpscale" && (item.input?.referenceImages?.length !== 1
         || item.input?.styleReferenceImages?.length)) throw betaBaseContractError("AI超分归档需要唯一原图且不使用风格参考图");
+      const styleReferences = await lightingReferences(item.input, featureMode, resolveLighting);
       const fields = buildBetaRunFields({ batchId, featureMode, item, testTime });
       const recordId = await createRecord(
         run,
@@ -515,7 +460,7 @@ export function createBetaBaseStore({
           "input",
         );
         const styleFiles = await materializeImages(
-          item.input?.styleReferenceImages,
+          styleReferences,
           directory,
           "style",
         );
@@ -535,7 +480,8 @@ export function createBetaBaseStore({
           styleFiles.files,
           directory,
         );
-        if (["styleTransfer", "imageOutpaint", "imageUpscale"].includes(featureMode)) {
+        if (["styleTransfer", "imageOutpaint", "imageUpscale"].includes(featureMode)
+          || featureMode === "refinedModel" && hasRefinedLightingInput(item.input)) {
           inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
         }
       } finally {
@@ -561,6 +507,7 @@ export function createBetaBaseStore({
           "尺寸": actualImageSize(resultBytes),
         };
         const frozen = runArchives.get(recordId)?.fields;
+        if (frozen?.["功能"] === "精模渲染") verifyLightingArchive(generatedFields, JSON.parse(frozen["配置快照"]));
         if (frozen?.["功能"] === "AI超分") {
           if (result.images.length !== 1) throw betaBaseContractError("AI超分结果必须是唯一图片");
           verifyUpscaleArchive({ ...generatedFields, "Prompt / 工作流版本": betaResultVersion(result) },
@@ -676,7 +623,7 @@ export function createBetaBaseStore({
         }
       }
       const styleAttachments = fields["风格参考图"] || [];
-      const styleCount = item.input.styleReferenceImages?.length || 0;
+      const styleCount = lightingReferences(item.input, featureMode)?.length || 0;
       if (styleAttachments.length !== styleCount || styleAttachments.some((file) => !file.file_token || !(Number(file.size) > 0))) {
         throw betaBaseContractError("已有结果的风格参考附件不可恢复");
       }
@@ -684,6 +631,7 @@ export function createBetaBaseStore({
       try { parameters = JSON.parse(fields["生成参数"]); }
       catch { throw betaBaseContractError("已有结果缺少可信的生成参数"); }
       const workflow = parameters.workflow || {};
+      if (featureMode === "refinedModel") verifyLightingArchive(fields, JSON.parse(frozen["配置快照"]));
       if ((featureMode !== "imageUpscale" && !fields["最终 Prompt"])
         || !fields["Prompt / 工作流版本"] || !(Number(fields["时延（ms）"]) > 0)) {
         throw betaBaseContractError("已有结果缺少最终 Prompt、版本或时延");

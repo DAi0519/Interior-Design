@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、共享搜索单选下拉的内存 DOM 替身及设计配置/图片能力/生成输入/任务恢复纯函数
- * [OUTPUT]: 对外提供风格转换单主图、可搜索且无自动目标的单选、平台/参考图独立 Agent 版本、互斥及删除参考图清空选择、图片共享载荷和任务隔离回归保障
+ * [OUTPUT]: 对外提供风格转换单主图/单选/独立Agent、真实配置错误与正常无说明、参考互斥/删除恢复、图片共享和任务隔离回归
  * [POS]: test 的风格转换浏览器合同测试，不调用付费模型或真实飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -167,7 +167,9 @@ test("搜索单选下拉保留风格隔离、明确目标、参考图互斥与�
   row("style-dna", style.code).click();
   assert.equal(controller.current().styleCode, style.code);
   assert.equal(trigger.children[0].textContent, "现代简约 · v2");
-  assert.equal(note.textContent, "现代简约 Style DNA 已就绪");
+  assert.equal(note.textContent, "");
+  assert.equal(note.hidden, true);
+  assert.equal(note.classList.contains("error"), false);
   assert.equal(panel.popoverOpen, false);
   assert.equal(doc.activeElement, trigger);
   assert.deepEqual(trigger.focusOptions, { preventScroll: true });
@@ -175,6 +177,7 @@ test("搜索单选下拉保留风格隔离、明确目标、参考图互斥与�
   controller.setDesignContext({ featureMode: "styleTransfer" });
   assert.equal(controller.current().mode, null);
   assert.equal(controller.current().available, false);
+  assert.equal(note.hidden, true, "未选择用户目标不作为配置错误显示");
   assert.equal(trigger.children[0].textContent, "请选择风格");
   assert.equal(rows().length, 1);
   assert.equal(row("style-dna", style.code).attributes["aria-checked"], "false");
@@ -192,6 +195,15 @@ test("搜索单选下拉保留风格隔离、明确目标、参考图互斥与�
   assert.match(row("style-dna", style.code).title, /当前使用参考图风格/);
   row("style-dna", style.code).click();
   assert.equal(controller.current().mode, "style-reference");
+  controller.setDesignContext({ featureMode: "styleTransfer", referenceCount: 1,
+    reference: { available: false, reason: "参考图 Agent 未上架" } });
+  assert.equal(note.textContent, "参考图 Agent 未上架");
+  assert.equal(note.hidden, false);
+  assert.equal(note.classList.contains("error"), true);
+  controller.setDesignContext({ featureMode: "styleTransfer", referenceCount: 1,
+    reference: { available: true, version: 4 } });
+  assert.equal(note.hidden, true);
+  assert.equal(note.classList.contains("error"), false);
   controller.setDesignContext({ featureMode: "styleTransfer", referenceCount: 0 });
   assert.equal(row("style-dna", style.code).disabled, false);
   assert.equal(row("style-dna", style.code).attributes["aria-checked"], "false");

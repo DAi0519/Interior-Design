@@ -1,19 +1,22 @@
 /**
- * [INPUT]: 依赖日常生成任务注册表、模型目录、统一 generation-service、飞书同步合同/图片工具能力预检、真实遮罩/矩形或多边形圈选互斥校验、JSON 读写函数与浏览器生成任务请求
- * [OUTPUT]: 对外提供任务入队/查询与Schema门禁；遮罩填充冻结模型/模式/矩形或多边形轮廓/推理或输出档位/质量，透传上游后台任务ID与状态，禁止静默换模
+ * [INPUT]: 依赖精模旧模块及光影来源/双图/版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
+ * [OUTPUT]: 对外提供精模必选光影/历史参数准入、基础编码/版本/SHA及规则/卡片/参考图冻结与批次去重、打光正文冻结和任务入队/查询
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { validateMultiAngleInput, resolveMultiAngleModel } from "./image-multi-angle-service.mjs";
 import { validateMaskFillInput } from "./image-mask-fill-service.mjs";
+import { validateRelightInput } from "./image-relight-service.mjs";
+import { RELIGHT_MODEL_KEY } from "../public/image-relight-geometry.js";
 import { runGenerationJobBatch } from "./generation-jobs.mjs";
 import { imageOutpaintEngineKey, publicImageOutpaintConfig } from "./image-outpaint-service.mjs";
 import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
 import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
 import { MODEL_CONFIGS } from "./model-config.mjs";
 import { assertOutpaintResolution } from "../public/image-outpaint-geometry.js";
-import { validateRoomRenovationInput } from "./room-renovation-workflow.mjs";
+import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
+import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
@@ -22,6 +25,7 @@ const FEATURE_MODES = new Set([
   "free",
   "imageUpscale",
   "imageMaskFill",
+  "imageRelight",
   "imageMultiAngle",
   "imageOutpaint",
   "panoramaEnhancement",
@@ -35,6 +39,10 @@ export function createGenerationJobApiHandler({
   generationService,
   getImageMultiAngleConfig = null,
   getImageMaskFillConfig = null,
+  getImageRelightConfig = null,
+  prepareImageRelightPrompt = null,
+  prepareRefinedInput = prepareRefinedRenderInput,
+  prepareRefinedLighting = prepareRefinedLightingInput,
   getImageOutpaintConfig = async () => publicImageOutpaintConfig(),
   readJson,
   sendJson,
@@ -57,11 +65,12 @@ export function createGenerationJobApiHandler({
 
     const body = await readJson(request);
     const featureMode = String(body.featureMode || "");
-    const localImageRequest = ["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill"].includes(featureMode);
+    const localImageRequest = ["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight"].includes(featureMode);
     const sharedInput = body.sharedInput && typeof body.sharedInput === "object" ? body.sharedInput : {};
     let imageStage = "comfyUi";
     const jobId = String(body.jobId || "");
     const items = Array.isArray(body.items) ? body.items : [];
+    let relightPromptSnapshot = null;
     if (!/^generation-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
       sendJson(response, 400, { error: "生成任务 ID 无效" });
       return true;
@@ -72,15 +81,6 @@ export function createGenerationJobApiHandler({
     }
     if (items.length < 1) {
       sendJson(response, 400, { error: "生成任务至少需要 1 个生成项" });
-      return true;
-    }
-    let roomRenovation = false;
-    try {
-      const renovationModes = items.map(item => validateRoomRenovationInput({ ...sharedInput, ...item.input }, featureMode));
-      roomRenovation = renovationModes.some(Boolean);
-      if (roomRenovation && renovationModes.some(value => !value)) throw new Error("同一任务不能混合旧房改造与普通空房设计");
-    } catch (error) {
-      sendJson(response, 400, { error: error.message });
       return true;
     }
     if (!localImageRequest) {
@@ -106,6 +106,26 @@ export function createGenerationJobApiHandler({
       sendJson(response, 400, { error: "图片超分每次只允许 1–4 个生成项" });
       return true;
     }
+    if (featureMode === "imageRelight") {
+      if (items.length !== 1) { sendJson(response, 400, { error: "打光每次只允许1个生成项" }); return true; }
+      try {
+        const validated = await validateRelightInput({ ...sharedInput, ...items[0].input });
+        const readConfig = getImageRelightConfig || generationService.getImageRelightConfig;
+        if (!readConfig) throw Object.assign(new Error("打光客户端尚未配置"), { statusCode: 409 });
+        const config = await readConfig();
+        if (!config.available) throw Object.assign(new Error(config.reason || "GPT 打光模型不可用"), { statusCode: 409 });
+        const preparePrompt = prepareImageRelightPrompt || generationService.prepareImageRelightPrompt;
+        if (!preparePrompt) throw Object.assign(new Error("打光Prompt读取尚未配置"), { statusCode: 409 });
+        relightPromptSnapshot = structuredClone(await preparePrompt({ ...sharedInput, ...items[0].input }));
+        items[0] = { key: RELIGHT_MODEL_KEY, label: "GPT · 打光", provider: "oneapi", input: {
+          ...items[0].input, modelKey: RELIGHT_MODEL_KEY, lights: validated.lights, originalLights: structuredClone(validated.originalLights),
+          templateKey: validated.templateKey, blendMode: validated.blendMode, prompt: validated.prompt,
+          outputResolution: validated.outputResolution, quality: validated.quality,
+          relightPromptVersion: relightPromptSnapshot.version, relightPromptSha256: relightPromptSnapshot.sha256,
+        } };
+        imageStage = "imageEdit";
+      } catch (error) { sendJson(response, error.statusCode || 400, { error: error.message }); return true; }
+    }
     if (featureMode === "imageMaskFill") {
       if (items.length !== 1) { sendJson(response, 400, { error: "遮罩填充每次只允许1个生成项" }); return true; }
       try {
@@ -120,6 +140,7 @@ export function createGenerationJobApiHandler({
         items[0] = { key: validated.modelKey === "flux2Klein" ? validated.mode : `${validated.modelKey}-${validated.mode}`, label: candidate.label, provider: validated.provider, input: {
           ...items[0].input, maskFillModel: validated.modelKey, maskFillMode: validated.mode, prompt: validated.prompt,
           inferenceTier: validated.inferenceTier, maskExpand: validated.maskExpand,
+          ...(validated.fillReferencePurpose ? { fillReferencePurpose: validated.fillReferencePurpose } : {}),
           ...(validated.provider === "oneapi" ? { outputResolution: validated.outputResolution, quality: validated.quality, editRegion: validated.editRegion } : {}),
         } };
         if (validated.provider === "oneapi") imageStage = "imageEdit";
@@ -180,9 +201,44 @@ export function createGenerationJobApiHandler({
       const provider = engine.provider || (engineKey === ONEAPI_OUTPAINT_ENGINE_KEY ? "oneapi" : "comfyui");
       if (provider === "oneapi") imageStage = "imageEdit";
     }
+    if (featureMode === "refinedModel") {
+      try {
+        const frozenConfigurations = new Map();
+        for (let index = 0; index < items.length; index += 1) {
+          const item = items[index];
+          const input = { ...sharedInput, ...item.input };
+          assertRefinedLightingAdmission(input);
+          const key = JSON.stringify([
+            input.promptCode, input.promptVersion, input.refinedPromptSha256,
+            input.refinedRender, input.refinedAtmospherePromptVersion,
+            input.refinedAtmospherePromptSha256,
+            refinedLightingFreezeKey(input),
+          ]);
+          if (!frozenConfigurations.has(key)) {
+            const lightingPrepared = await prepareRefinedLighting(input);
+            const prepared = await prepareRefinedInput(lightingPrepared);
+            frozenConfigurations.set(key, {
+              promptCode: prepared.promptCode,
+              promptVersion: prepared.promptVersion,
+              refinedPromptSha256: prepared.refinedPromptSha256,
+              refinedRender: prepared.refinedRender,
+              refinedAtmospherePromptVersion: prepared.refinedAtmospherePromptVersion,
+              refinedAtmospherePromptSha256: prepared.refinedAtmospherePromptSha256,
+              ...(hasRefinedLightingInput(prepared) ? { refinedLighting: prepared.refinedLighting,
+                lightingReferenceImages: lightingPrepared.lightingReferenceImages } : {}),
+            });
+          }
+          items[index] = { ...item, input: { ...item.input, ...structuredClone(frozenConfigurations.get(key)) } };
+        }
+      } catch (error) {
+        sendJson(response, error.statusCode || 409, { error: error.message });
+        return true;
+      }
+    }
     if (featureMode !== "imageUpscale") {
       try {
-        if (featureMode === "imageMaskFill") await verifySyncContract(undefined, { scope: "imageMaskFill" });
+        if (featureMode === "imageRelight") await verifySyncContract(undefined, { scope: "imageRelight" });
+        else if (featureMode === "imageMaskFill") await verifySyncContract(undefined, { scope: "imageMaskFill" });
         else await verifySyncContract();
       } catch (error) {
         sendJson(response, 409, {
@@ -194,8 +250,8 @@ export function createGenerationJobApiHandler({
     const job = generationJobs.enqueue(
       jobId,
       {
-        featureMode: roomRenovation ? "roomRenovation" : featureMode,
-        stages: roomRenovation ? { roomRenovation: "clearing" } : localImageRequest ? { [imageStage]: "submitting" } : null,
+        featureMode,
+        stages: localImageRequest ? { [imageStage]: "submitting" } : null,
         total: items.length,
       },
       async (update) => ({
@@ -215,11 +271,12 @@ export function createGenerationJobApiHandler({
               forcePromptRegeneration:
                 Boolean(body.forcePromptRegeneration) && index === 0,
             }, {
+              ...(featureMode === "imageRelight" ? { relightPromptSnapshot } : {}),
               onProgress(progress) {
-                if (!localImageRequest && !roomRenovation) return;
+                if (!localImageRequest) return;
                 update({
                   message: progress.message,
-                  stages: roomRenovation ? { roomRenovation: progress.phase } : {
+                  stages: {
                     [imageStage]: progress.phase,
                     promptId: progress.promptId || null,
                     ...(progress.upstreamResponseId ? {

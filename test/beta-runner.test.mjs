@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供含AI扩图/风格转换/效果图氛围转换/美化/全景美化的十功能样本准入、Agent 当前 Key 权限前置阻断、409 不重试、全目录多模型无限结果的两路并发单图隔离/保序归档、生成/飞书同步阶段、回读后预览、瞬时生成重试与仅同步重试、全量归档与终态前忙碌守卫回归保障
+ * [OUTPUT]: 对外提供超分旧版本零入队阻断、精模模板/双Prompt版本摘要冻结与漂移阻断、十功能样本准入、Agent权限门禁、409不重试、两路并发单图隔离/保序归档、生成/同步双阶段与仅同步重试、终态前忙碌守卫回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,22 @@ import {
 } from "../src/beta-runner.mjs";
 
 const TEST_TIME = "2026-09-02 14:03:21";
+
+test("Beta超分显式旧工作流版本在读样本、建档和GPU执行之前阻断", async () => {
+  const calls = [];
+  const service = createBetaRunnerService({
+    baseStore: { async getSampleSet() { calls.push("sample"); }, async beginRun() { calls.push("archive"); } },
+    generationService: { async executeForMode() { calls.push("gpu"); } },
+    async getUpscaleConfig() { calls.push("capability"); return { comfyUi: { available: true } }; },
+  });
+  await assert.rejects(async () => service.start({ batchId: "BETA-upscale-old-version", featureMode: "imageUpscale",
+    jobId: "beta-upscale-old-version", sampleSetId: "SET-upscale", testTime: TEST_TIME,
+    items: [{ caseId: "CASE-1", sampleId: "SAMPLE-1", runId: "RUN-upscale-old-version",
+      input: { upscaleWorkflowKey: "ks_seedvr2_2x_direct", upscaleWorkflowVersion: "2026-10-21.1", resolution: "6K" } }],
+  }), (error) => error.statusCode === 409 && error.retryable === false);
+  assert.deepEqual(calls, []);
+  assert.equal(service.hasActiveJobs(), false);
+});
 
 function nextTurn() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -98,6 +114,56 @@ test("Beta跑图公开十个场景且不发布结果数量上限", () => {
     "imageUpscale",
   ]);
   assert.equal(BETA_MAX_ATTEMPTS, 3);
+});
+
+test("Beta精模整批共用入队冻结的模板与版本摘要，执行不重新选择当前版本", async () => {
+  const prepared = [];
+  const generated = [];
+  const archived = [];
+  const service = createBetaRunnerService({
+    baseStore: {
+      async beginRun({ item }) { archived.push(structuredClone(item.input)); return { recordId: item.runId }; },
+      async completeRun(recordId) { return { recordId }; },
+      async failRun() {},
+    },
+    generationService: { async executeForMode(mode, input) { generated.push({ mode, input }); return { images: [] }; } },
+    async prepareRefinedInput(input) {
+      prepared.push(input);
+      return { ...input, refinedRender: { preset: "sunset", time: "dusk", weather: "clear", tone: "warm" },
+        promptVersion: 7, refinedPromptSha256: "a".repeat(64),
+        refinedAtmospherePromptVersion: 3, refinedAtmospherePromptSha256: "b".repeat(64) };
+    },
+  });
+  const batch = { batchId: "BETA-refinedfreeze01", featureMode: "refinedModel", jobId: "beta-refined-freeze01", testTime: TEST_TIME,
+    items: [1, 2, 3].map((index) => ({ caseId: `CASE-${index}`, runId: `RUN-refinedfreeze-${index}`,
+      input: { modelKey: "seedream50", prompt: `样本${index}`, refinedRender: { preset: "sunset" }, promptVersion: 7 } })) };
+  await service.start(batch);
+  await waitForJob(service, batch.jobId);
+  assert.equal(prepared.length, 1);
+  assert.equal(generated.length, 3);
+  for (const [index, result] of generated.entries()) {
+    assert.equal(result.mode, "refinedModel");
+    assert.equal(result.input.prompt, `样本${index + 1}`);
+    assert.equal(result.input.refinedAtmospherePromptVersion, 3);
+    assert.equal(result.input.refinedAtmospherePromptSha256, "b".repeat(64));
+    assert.equal(result.input.refinedPromptSha256, "a".repeat(64));
+    assert.deepEqual(result.input.refinedRender, archived[index].refinedRender);
+  }
+  assert.equal("refinedPromptSha256" in batch.items[0].input, false);
+});
+
+test("Beta精模非法模板或已下架Prompt在建档和出图前阻断", async () => {
+  let executed = 0;
+  const service = createBetaRunnerService({
+    baseStore: { async beginRun() { executed += 1; }, async completeRun() {} },
+    generationService: { async executeForMode() { executed += 1; } },
+    async prepareRefinedInput() { throw Object.assign(new Error("所选氛围Prompt已下架"), { statusCode: 409 }); },
+  });
+  await assert.rejects(service.start({ batchId: "BETA-refinedblocked", featureMode: "refinedModel",
+    jobId: "beta-refined-blocked01", testTime: TEST_TIME,
+    items: [{ caseId: "CASE-1", runId: "RUN-refinedblocked01", input: { refinedRender: { preset: "sunset" } } }],
+  }), (error) => error.statusCode === 409);
+  assert.equal(executed, 0);
 });
 
 test("ComfyUI 产物下载 404 作为瞬时故障重试，显式永久错误仍立即停止", () => {

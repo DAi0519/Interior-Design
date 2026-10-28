@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖图片文件读取、可信尺寸探测、浏览器上传 DOM、服务端公开参考图策略与调用方数量/名称规则
- * [OUTPUT]: 对外提供可复用的单/多参考图上传控制器，统一预览、删除、拖放、单图文件选择/拖入原位替换、按当前功能策略的格式容量校验与变更通知
+ * [INPUT]: 依赖图片文件读取、可信尺寸探测、浏览器上传 DOM、服务端图片策略、调用方数量/名称及可选启用状态
+ * [OUTPUT]: 对外提供单/多图预览/替换/删除/拖放、最新有效单图读取优先、非法/取消保留、禁用及清空中断异步回写与通知
  * [POS]: public 的参考图上传交互层，被主白模/精模图与白模风格参考图两个独立输入位复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,12 +47,20 @@ export function bindReferenceUpload({
   getSubject,
   input,
   list,
+  isEnabled = () => true,
   onChange = () => {},
   showToast,
 }) {
   let images = [];
+  let epoch = 0;
 
   function render() {
+    const enabled = isEnabled();
+    input.disabled = !enabled;
+    if (!enabled) {
+      epoch += 1;
+      dropZone.classList.remove("dragging");
+    }
     const limit = getLimit();
     const replaceEnabled = canReplaceImage();
     count.textContent = `${images.length} / ${limit}`;
@@ -61,6 +69,7 @@ export function bindReferenceUpload({
     if (!replaceEnabled) list.classList.remove("dragging");
     list.replaceChildren(
       ...images.map((image) => createReferenceItem(image, () => {
+        epoch += 1;
         const previousImages = images;
         images = images.filter((entry) => entry.id !== image.id);
         render();
@@ -70,6 +79,7 @@ export function bindReferenceUpload({
   }
 
   async function addFiles(fileList, { replace = false } = {}) {
+    if (!isEnabled()) return;
     const policy = getPolicy();
     if (!policy) return;
     const limit = getLimit();
@@ -105,6 +115,8 @@ export function bindReferenceUpload({
       return;
     }
 
+    // --- 单图仅在同步校验通过后取消旧读取，非法文件与取消不影响在途有效图片 ---
+    const readEpoch = limit === 1 ? ++epoch : epoch;
     let nextImages;
     try {
       nextImages = await Promise.all(accepted.map(async (file) => {
@@ -120,9 +132,11 @@ export function bindReferenceUpload({
         };
       }));
     } catch (error) {
-      showToast(error.message);
+      if (readEpoch === epoch && isEnabled()) showToast(error.message);
       return;
     }
+    // --- 来源已清除或切为互斥选项时，丢弃尚未完成的文件读取 ---
+    if (readEpoch !== epoch || !isEnabled()) return;
     const previousImages = images;
     images = replace ? nextImages : [...images, ...nextImages];
     render();
@@ -136,6 +150,7 @@ export function bindReferenceUpload({
   for (const eventName of ["dragenter", "dragover"]) {
     dropZone.addEventListener(eventName, (event) => {
       event.preventDefault();
+      if (!isEnabled()) return;
       dropZone.classList.add("dragging");
     });
   }
@@ -150,11 +165,12 @@ export function bindReferenceUpload({
   });
 
   function canReplaceImage() {
-    return getLimit() === 1 && images.length === 1;
+    return isEnabled() && getLimit() === 1 && images.length === 1;
   }
 
   for (const eventName of ["dragenter", "dragover"]) {
     list.addEventListener(eventName, (event) => {
+      if (!isEnabled()) { event.preventDefault(); return; }
       if (!canReplaceImage()) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
@@ -165,11 +181,21 @@ export function bindReferenceUpload({
     if (!list.contains(event.relatedTarget)) list.classList.remove("dragging");
   });
   list.addEventListener("drop", async (event) => {
+    if (!isEnabled()) { event.preventDefault(); list.classList.remove("dragging"); return; }
     if (!canReplaceImage()) return;
     event.preventDefault();
     list.classList.remove("dragging");
     await addFiles(event.dataTransfer.files, { replace: true });
   });
 
-  return { images: () => images.slice(), render };
+  function clear({ notify = true } = {}) {
+    epoch += 1;
+    const previousImages = images;
+    images = [];
+    input.value = "";
+    render();
+    if (notify) onChange({ images: [], previousImages });
+  }
+
+  return { images: () => images.slice(), render, clear };
 }

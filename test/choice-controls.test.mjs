@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与生图页功能/超分按钮及共享风格下拉的主题、交互 CSS、最终纯黑反色层和版本化主题资源引用
- * [OUTPUT]: 对外提供功能/超分按钮共享高度、圆角、内距、字重、对齐、阴影和选中态，以及风格下拉资源引用的回归保障
+ * [INPUT]: 依赖node:test/assert、node:fs与主/Beta共享刷新样式及功能/超分/风格下拉的主题、交互CSS和版本化引用
+ * [OUTPUT]: 验证功能/超分共享尺寸/表面/选中态、风格下拉引用，以及Main/Beta显式共用刷新视觉且主题不再重复持有
  * [POS]: test 的工作台选择按钮视觉合同护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,8 +29,17 @@ test("功能与超分按钮维持共享尺寸且加载风格下拉样式", async
   assert.match(themeCss, /\.feature-mode-option,\s*\.model-option-toggle\s*{[^}]*min-height: var\(--choice-control-height\)[^}]*text-align: left/s);
   assert.match(themeCss, /\.feature-mode-option,\s*\.model-option-toggle\s*{[^}]*font-weight: 500[^}]*padding: 0 var\(--choice-control-padding\)/s);
   assert.match(html, /<link rel="stylesheet" href="\/theme\.css\?v=\d+" \/>/);
-  assert.match(html, /\/theme-interactions\.css\?v=1/);
+  assert.match(html, /\/theme-interactions\.css\?v=2/);
   assert.match(html, /\/white-model-render-mode\.css\?v=5/);
+});
+
+test("主/Beta显式加载同一刷新按钮样式，SVG保持12px描边", async () => {
+  const [main, beta, refresh, theme] = await Promise.all([
+    "../public/index.html", "../public/beta.html", "../public/config-refresh-button.css", "../public/theme.css",
+  ].map(path => readFile(new URL(path, import.meta.url), "utf8")));
+  for (const html of [main, beta]) assert.equal((html.match(/href="\/config-refresh-button\.css\?v=1"/g) || []).length, 1);
+  assert.match(refresh, /\.config-refresh-button svg\s*\{[^}]*fill: none;[^}]*height: 12px;[^}]*stroke: currentColor;[^}]*width: 12px;/s);
+  assert.doesNotMatch(theme, /\.config-refresh-button\s*\{/);
 });
 
 test("功能与超分按钮保留原有选中态与键盘、指针反馈", async () => {

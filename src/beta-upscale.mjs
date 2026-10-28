@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖六套超分尺寸/安全目录、image-upscale-service共用的整图能力读取及参考图真实字节校验
- * [OUTPUT]: 对外提供 Beta 超分目录/版本冻结与执行前阻断；仅受信失败批次可保留白名单旧KS版本进入已有附件恢复，不能重新生成
+ * [OUTPUT]: 对外提供 Beta 超分目录/版本冻结与执行前阻断；仅受信失败批次可保留白名单旧KS版本进入已有附件恢复，不能重新生成；当前直入6K冻结固定5K新版本
  * [POS]: src 的 Beta AI超分合同边界，复用正式超分执行图与尺寸规则，不复制推理或归档逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -48,7 +48,8 @@ export function normalizeBetaUpscaleInput(input = {}, { recoveringLegacy = false
   const workflow = resolveWorkflow(input.upscaleWorkflowKey);
   const legacyVersion = recoveringLegacy && workflow.key.startsWith("ks_")
     && (["2026-10-21.1", "2026-10-26.1", "2026-10-26.2"].includes(input.upscaleWorkflowVersion)
-      || input.upscaleWorkflowVersion === "2026-10-20.1" && input.resolution === "2X");
+      || input.upscaleWorkflowVersion === "2026-10-20.1" && input.resolution === "2X"
+      || workflow.key === "ks_seedvr2_2x_direct" && input.upscaleWorkflowVersion === "2026-10-26.3");
   if (!legacyVersion) verifyFrozenVersion(input, workflow);
   if (input.modelKey !== undefined && input.modelKey !== workflow.key) {
     throw inputError("出图模型与所选超分工作流不一致");

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sharp 真实图片、遮罩归档投影、飞书 Schema/同步边界及可注入内存 CLI
- * [OUTPUT]: 遮罩专属七字段准入、实际推理尺度、GPT双模式矩形/自由多边形蓝色圈选送模原图独立附件与真实点/轮廓参数、形状中立Prompt/原件保留/非圈选空manifest、缺图SHA阻断、五类真实字节附件和两次回读故障阻断测试
+ * [OUTPUT]: 遮罩七字段准入、GPT参考用途默认/换物品/换材质和三定位空原文/真实固定Prompt与两次回读、矩形/自由圈选送模原图独立附件和真实来源、原件与空manifest/缺图SHA及回读故障阻断测试
  * [POS]: test 的遮罩填充飞书归档合同测试，不调用真实模型、CLI 或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,7 +21,7 @@ import {
   buildImageMaskFillArchive, maskFillRecordFields,
 } from "../src/image-mask-fill-archive.mjs";
 import { validateMaskFillInput } from "../src/image-mask-fill-service.mjs";
-import { prepareSunburstMaskInput } from "../src/image-mask-fill-oneapi.mjs";
+import { prepareSunburstMaskInput, sunburstMaskPrompt } from "../src/image-mask-fill-oneapi.mjs";
 import { assertLarkSyncSchema, buildRecordFields, LARK_SYNC_CONFIG, syncGenerationToLark, verifyLarkSyncSchema } from "../src/lark-sync.mjs";
 
 // -------- 即使实现意外忽略 run 替身，也必须在本机失败而不能调用真实 CLI --------
@@ -37,21 +37,25 @@ const inputFor = (mode = "reference") => ({ referenceImages: [descriptor(sourceB
   ...(mode === "reference" ? { fillReferenceImage: descriptor(referenceBytes, "object.png") } : {}) });
 const actualPrompt = mode => `image1: <|vision_start|><|image_pad|><|vision_end|> ${mode === "reference" ? "image2: <|vision_start|><|image_pad|><|vision_end|> " : ""}已实际提交的完整英文指令\nKeep the scene coherent.`;
 
-async function archiveFor(mode = "reference", { inferenceTier = "2k", inferenceEvidence = null, modelKey = "flux2Klein", hasMask = true, editRegion = null } = {}) {
-  const input = { ...inputFor(mode), inferenceTier, maskFillModel: modelKey, ...(!hasMask ? { maskImage: null } : {}), ...(editRegion ? { editRegion } : {}) };
+async function archiveFor(mode = "reference", { inferenceTier = "2k", inferenceEvidence = null, modelKey = "flux2Klein", hasMask = true, editRegion = null,
+  prompt = "用户确认的填充指令", fillReferencePurpose } = {}) {
+  const input = { ...inputFor(mode), prompt, ...(fillReferencePurpose !== undefined ? { fillReferencePurpose } : {}), inferenceTier, maskFillModel: modelKey, ...(!hasMask ? { maskImage: null } : {}), ...(editRegion ? { editRegion } : {}) };
   const validated = await validateMaskFillInput(input);
   const prepared = editRegion ? await prepareSunburstMaskInput(validated) : null;
   const boxedSourceImage = prepared ? { imageUrl: prepared.request.images[0].image_url, mimeType: "image/png",
     fileName: "submitted-boxed-source-fixture.png", size: prepared.sourceBytes.length } : null;
-  const version = validated.provider === "oneapi" ? "2026-10-22.sunburst.10" : "test-executed-version";
+  const version = validated.provider === "oneapi" ? "2026-10-22.sunburst.15" : "test-executed-version";
   const inference = inferenceTier === "original" ? inferenceEvidence : inferenceTier === "2k"
     ? { width: 2048, height: 1376 } : { width: 4096, height: 2720 };
   const inferenceSize = inference ? Math.max(inference.width, inference.height) : null;
   const result = { durationMs: 3210, images: [{ url: `data:image/png;base64,${resultBytes.toString("base64")}` }],
     request: { outputFormat: "png", maskFillMode: mode, inferenceTier, inferenceSize, maskExpand: validated.maskExpand, hasMask,
       referenceImageCount: mode === "reference" ? 2 : 1, size: "96x64", syncMode: "local-only" },
-    upstream: { outputFormat: "png", transport: "comfyui-workflow", metadata: {
-      prompt: prepared?.request.prompt || actualPrompt(mode), sourcePrompt: validated.prompt, mode, inferenceTier, inferenceSize, hasMask,
+    upstream: { outputFormat: "png", transport: validated.provider === "oneapi" ? hasMask ? "images-edits" : "responses-background" : "comfyui-workflow", metadata: {
+      prompt: prepared?.request.prompt || (validated.provider === "oneapi" ? sunburstMaskPrompt(validated) : actualPrompt(mode)),
+      sourcePrompt: validated.prompt, mode, inferenceTier, inferenceSize, hasMask,
+      ...(validated.fillReferencePurpose ? { fillReferencePurpose: validated.fillReferencePurpose } : {}),
+      ...(validated.provider === "oneapi" ? { upstreamAsync: !hasMask } : {}),
       ...(prepared ? { editRegion: validated.editRegion, editRegionPixels: prepared.editRegionPixels, regionAnnotation: prepared.regionAnnotation,
         sourceSha256: digest(sourceBytes), submittedSourceSha256: digest(prepared.sourceBytes) } : {}),
       inferenceWidth: inference?.width ?? null, inferenceHeight: inference?.height ?? null, maskExpand: validated.maskExpand,
@@ -246,6 +250,8 @@ test("GPT无mask两模式只归档真实图片，遮罩附件留空且参数和�
     assert.equal(archive.maskImage, null);
     assert.equal(archive.boxedSourceImage, null);
     assert.equal(archive.workflow.provider, "oneapi"); assert.equal(archive.workflow.hasMask, false);
+    assert.equal(archive.preview.fillReferencePurpose, mode === "reference" ? "object" : undefined);
+    assert.equal(archive.workflow.fillReferencePurpose, mode === "reference" ? "object" : undefined);
     assert.equal(archive.workflow.maskExpand, 0); assert.equal(archive.workflow.maskSha256, null);
     assert.equal(archive.workflow.submittedMaskSha256, null); assert.equal(archive.workflow.drawnMaskSha256, null);
     const f = cliFixture();
@@ -258,9 +264,53 @@ test("GPT无mask两模式只归档真实图片，遮罩附件留空且参数和�
     assert.equal(recorded.hasMask, false); assert.equal(recorded.maskSha256, null);
     assert.equal(recorded.submittedMaskSha256, null); assert.equal(recorded.maskExpand, 0);
     assert.deepEqual(recorded.attachmentManifest["框选原图"], []);
-    assert.equal(f.fields["遮罩工作流版本"], "2026-10-22.sunburst.10");
+    assert.equal(recorded.promptSource, "submitted Responses background prompt");
+    assert.equal(f.fields["遮罩工作流版本"], "2026-10-22.sunburst.15");
     assert.equal(f.fields["状态"], "成功");
   }
+});
+
+test("GPT参考模式三定位两种用途空原文留空，用途/固定Prompt/附件两次回读后成功", async () => {
+  for (const location of [{ hasMask: false }, { hasMask: true },
+    { hasMask: false, editRegion: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } }]) {
+    for (const fillReferencePurpose of [undefined, "object", "material"]) for (const prompt of ["", " \n\t "]) {
+      const { archive, validated } = await archiveFor("reference", { modelKey: "gptImage25Sunburst", prompt, fillReferencePurpose, ...location });
+      assert.equal(validated.prompt, "");
+      assert.equal(archive.sourcePrompt, "");
+      assert.ok(archive.finalPrompt.trim());
+      assert.match(archive.finalPrompt, fillReferencePurpose === "material" ? /Apply the material from image 2 to/i : /Replace .* with the corresponding object from image 2/i);
+      assert.equal(archive.preview.fillReferencePurpose, fillReferencePurpose || "object");
+      assert.doesNotMatch(archive.finalPrompt, /User instruction:|undefined|\{用户|推荐写法/);
+      const f = cliFixture();
+      const synced = await syncGenerationToLark(archive, offlineConfig, { run: f.run });
+      assert.equal(synced.ok, true, synced.error); assert.equal(f.reads(), 2);
+      assert.equal(f.fields["原始 Prompt"], "");
+      assert.equal(f.fields["最终 Prompt"], archive.finalPrompt);
+      const recorded = JSON.parse(f.fields["生成参数"]);
+      assert.equal(recorded.workflow.sourcePrompt, "");
+      assert.equal(recorded.workflow.fillReferencePurpose, fillReferencePurpose || "object");
+      assert.equal(Object.hasOwn(f.fields, "参考用途"), false, "用途归入参数JSON，不新增飞书列");
+      assert.equal(f.fields["状态"], "成功");
+    }
+  }
+});
+
+test("参考用途回执与归档须一致，用途JSON第二次回读漂移不能报成功或重新上传", async () => {
+  const { input, validated, result, archive } = await archiveFor("reference", { modelKey: "gptImage25Sunburst", hasMask: false,
+    prompt: "", fillReferencePurpose: "material" });
+  const wrongReceipt = structuredClone(result); wrongReceipt.upstream.metadata.fillReferencePurpose = "object";
+  assert.throws(() => buildImageMaskFillArchive({ input, validated, result: wrongReceipt }), /参考用途/);
+  const f = cliFixture({ transformRead(fields, reads) {
+    if (reads !== 2) return;
+    const parameters = JSON.parse(fields["生成参数"]);
+    parameters.workflow.fillReferencePurpose = "object";
+    fields["生成参数"] = JSON.stringify(parameters);
+  } });
+  const synced = await syncGenerationToLark(archive, offlineConfig, { run: f.run });
+  assert.equal(synced.ok, false); assert.equal(f.reads(), 2);
+  assert.equal(f.fields["状态"], "同步失败");
+  assert.equal(f.uploads.length, 3, "只上传原图/结果/参考，回读失败不重复上传");
+  assert.equal(f.commands.filter(args => args.includes("+record-batch-create")).length, 1);
 });
 
 test("GPT两模式矩形和自由圈选实际送模PNG独立上传，原件与真实点/轮廓/摘要/指令经两次回读冻结", async () => {
@@ -295,9 +345,16 @@ test("GPT两模式矩形和自由圈选实际送模PNG独立上传，原件与�
     assert.deepEqual(recorded.attachmentManifest["框选原图"], [{ size: prepared.sourceBytes.length, sha256: digest(prepared.sourceBytes) }]);
     assert.notEqual(recorded.submittedSourceSha256, recorded.sourceSha256);
     assert.equal(recorded.hasMask, false); assert.equal(recorded.maskExpand, 0);
+    assert.equal(recorded.promptSource, "submitted Responses background prompt");
     assert.equal(f.fields["最终 Prompt"], archive.finalPrompt);
     assert.match(f.fields["最终 Prompt"], /blue outline/i);
-    assert.match(f.fields["最终 Prompt"], /target object/i);
+    assert.match(f.fields["最终 Prompt"], /The temporary blue outline identifies the edit target/i);
+    assert.match(f.fields["最终 Prompt"], /Edit this selected target and preserve unrelated content/i);
+    if (mode === "reference") {
+      assert.match(f.fields["最终 Prompt"], /Replace .* with the corresponding object from image 2/i);
+      assert.match(f.fields["最终 Prompt"], /If additional instructions are provided, follow them/i);
+      assert.match(f.fields["最终 Prompt"], /Do not copy unrelated content or background from image 2/i);
+    }
     assert.doesNotMatch(f.fields["最终 Prompt"], /\bred\b|rectangle|only inside|restyle/i);
     assert.match(f.fields["最终 Prompt"], /remove[^\n]*(?:outline|selection|guide)/i);
     assert.equal(f.fields["状态"], "成功");

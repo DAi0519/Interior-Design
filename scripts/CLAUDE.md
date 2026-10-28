@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+export-ks-5k6k.mjs: 从KS直入27.1真源导出独立4096/4096及5120/6144两档MaaS画布/API，已有节点schema/控件端口与逐字段回投，后端唯一input_img，不提交GPU
 multi-angle-preview.mjs: 本机4175摄影机球试跑服务（静态复用主工作台camera-sphere交互与camera-sphere-scene绘制），复用ComfyUI客户端/异步任务/图片校验，20MB上传/30MB请求及大图压到长边2K直接推理、可固定种子的单张提交、请求幂等、原件/压缩输入/产物留存与原图对比
 
 CLAUDE.md: 本模块地图，维护源码发布工具成员清单

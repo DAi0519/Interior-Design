@@ -62,5 +62,97 @@
     "available": true,
     "setupReady": true,
     "checkedAt": "2026-10-19T03:09:07.269Z"
+  },
+  "_retainedEvidence": {
+    "response-summary.json": {
+      "sourceSha256": "b4012e10f075619652ea2fcdd3057edea2d410fb31476e277f1452479be5fd92",
+      "content": {
+        "created": 1792379024,
+        "metadata": {
+          "artifactKey": "c6a42164-1d70-4bc6-85bc-2f66055d9491",
+          "engine": "qwenImageEdit2511",
+          "executionDurationMs": 68982,
+          "expansion": {
+            "left": 270,
+            "top": 342,
+            "right": 270,
+            "bottom": 341
+          },
+          "inputHeight": 1365,
+          "inputWidth": 996,
+          "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+          "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+          "weightDtype": "default",
+          "steps": 4,
+          "cfg": 1,
+          "sampler": "euler",
+          "scheduler": "simple",
+          "shift": 3.1,
+          "feathering": 32,
+          "preservation": "latent-mask-vae-reconstruction",
+          "outputFilename": "CanvasLab_QwenOutpaint_c6a42164-1d70-4bc6-85bc-2f66055d9491_00001_.png",
+          "outputHeight": 2048,
+          "outputWidth": 1536,
+          "outputSha256": "de3509006be1eed8b5adcb999ce7034362510f886e6bf9ef22370efabb015f01",
+          "promptId": "09995cc4-a73f-46d9-9533-03705fc945df",
+          "queueDurationMs": 1231,
+          "seed": 20261019,
+          "targetHeight": 2048,
+          "targetWidth": 1536,
+          "inferenceWidth": 888,
+          "inferenceHeight": 1184,
+          "inferencePixels": 1051392,
+          "inferenceMegapixels": 1,
+          "inferenceAlignment": 8,
+          "inferenceResampling": "lanczos",
+          "maskResampling": "bilinear",
+          "outputResampling": "lanczos",
+          "outputRestored": true,
+          "outputSizeStrategy": "restore-target-from-masked-sampling",
+          "upscaleModel": null,
+          "workflowId": "image-outpaint-qwen",
+          "workflowVersion": "2026-10-19.1",
+          "comparisonOnly": true,
+          "sourcePromptId": "c6a517e7-24b9-473c-a1f4-3a872eacd464"
+        },
+        "outputFormat": "png",
+        "quality": null,
+        "transport": "comfyui-workflow",
+        "bytes": 1974738,
+        "comparison": {
+          "sameUpstreamGraph": true,
+          "seed": 20261019,
+          "cache": [
+            [
+              "execution_cached",
+              {
+                "nodes": [],
+                "prompt_id": "09995cc4-a73f-46d9-9533-03705fc945df",
+                "timestamp": 1792378955625
+              }
+            ]
+          ],
+          "gpuExecutions": 1,
+          "feishuWrites": 0,
+          "productionWorkflowVersion": "2026-10-19.2",
+          "executedCodeVersion": "2026-10-19.1",
+          "note": "本次实验从.1图分支直接保存restore与raw，生产.2删除无用composite并保持推理链相同；原返回metadata已标comparisonOnly，不伪造历史版本"
+        },
+        "cpuComparison": {
+          "formula": "ComfyUI ImagePadForOutpaint quadratic feather + ImageCompositeMasked alpha",
+          "feathers": [
+            32,
+            160
+          ],
+          "source": "same decoded restore output",
+          "quantizationLimit": "8bit重建与原生float节点可能有1色阶差异"
+        }
+      }
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "ff6b2f5d88496c68e30d9d37246d2f072291bd09d76217b5eae8c436c88e85e5",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# qwen-outpaint-seam/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\n\nafter.png: 同源同种子Qwen真实整图输出，1536×2048；取消最终回贴，仍保留latent采样遮罩\nraw.png: 同次采样888×1184解码图，用于区分模型输出与目标尺寸恢复\npaste-32.png: 同次after图按官方原遮罩公式在CPU重建32px回贴，仅诊断，8bit计算可能与节点浮点合成相差1色阶\npaste-160.png: 同次after图按相同公式在CPU重建160px宽带回贴，仅诊断，不是另一次模型采样\ncomparison.jpg: 上方接缝局部三方案对照，固定同一裁切和缩放；标题只标注方案，不修改实际成品\nresponse-summary.json: 本次真实输出/原推理版本/同种子来源/缓存状态及耗时元数据，不保留Base64或凭据\nvalidation.json: 尺寸/产物/执行图等价与局部观察，区分自动化、视觉判断及未验证边界\ntests.log: 最终自动化回归记录，不代表模型多场景无缝保证\nCLAUDE.md: 本次去回贴接缝修复证据地图\n\n上轮同尺度推理修复了大块错位，用户复核仍有矩形亮度缝；本轮保留旧证据，比较同次生成结果的最终输出方式。原图中心像素相同不作为无缝判据。只验证该2K场景，不外推到4K或所有照片。\n\n2026-10-19：同源同种子新增GPU实跑1次，缓存未命中，执行68.982秒；取消回贴后该样本矩形亮度缝明显减轻，天花及窗玻璃仍有轻微软过渡，不能称完全无缝。原图中心平均通道差约1.44/255。27项专项及789项全量回归通过；本地服务回读2026-10-19.2、Qwen available=true、setup ready=true。两份JSON最终回读均无ImageCompositeMasked，未写飞书。\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n"
   }
 }

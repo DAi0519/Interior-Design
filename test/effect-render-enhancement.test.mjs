@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图氛围转换/全景图两套独立 Prompt 解析器与可注入工作流边界
- * [OUTPUT]: 对外提供氛围转换展示名与旧编码兼容、环境模块、全景开放 MAIN JSON/指定冻结版本、Seedream 全景 4K、普通 Flux 工作流、受控单图请求和脱敏归档回归保障
+ * [OUTPUT]: 对外提供氛围展示名/旧编码、正常无说明与不可用反馈、环境模块、全景MAIN版本及模型/工作流/请求/脱敏归档回归
  * [POS]: test 的效果图氛围转换/全景图美化独立资产与工作流专项测试，所有外部 API 与飞书同步均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -125,7 +125,7 @@ test("效果图氛围转换只回显最高已上架版本并投影新名称，�
   assert.equal(JSON.stringify(config).includes("BASE BODY"), false);
   assert.deepEqual(effectEnhancementPromptStatus(config), {
     availability: "Prompt v1 · 已上架",
-    note: "当前使用「效果图氛围转换 Prompt」v1（已上架）；环境效果可单选或组合，组合时时段优先。",
+    note: "",
     ready: true,
   });
 });

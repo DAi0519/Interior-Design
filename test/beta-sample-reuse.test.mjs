@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert/fs、sharp真实图片、Beta Runner/样本Store、模型及功能目录与扩图能力合同
- * [OUTPUT]: 对外提供已有样本跨功能按ID复用、目标功能真实内容准入、成员/记录ID/状态/8MB/MIME守卫、新建保留来源功能与零样本复制写入回归保障
+ * [INPUT]: 依赖 node:test/assert/fs、sharp真实图片、Beta Runner/样本Store、模型及功能目录与扩图能力合同，精模明确旧参数并替身冻结Prompt
+ * [OUTPUT]: 对外提供已有样本跨功能按ID复用、含合法旧精模参数的目标功能内容准入、成员/记录ID/状态/8MB/MIME守卫、新建保留来源功能与零样本复制写入回归保障
  * [POS]: test 的 Beta跨来源样本复用合同，真实图片和本地下载替身，不调用模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -71,9 +71,11 @@ function runner(fixture, overrides = {}) {
 test("已有白模样本跨来源复用于扩图/其他图像功能，原ID与源图不复制也不改归属", async () => {
   for (const target of ["imageOutpaint", "effectBeautification", "refinedModel", "emptyRoom"]) {
     const fixture = sampleFixture(await png());
-    const { service, queue, generated, archives } = runner(fixture);
+    const { service, queue, generated, archives } = runner(fixture, target === "refinedModel"
+      ? { prepareRefinedInput: async value => ({ ...value, promptVersion: 12, refinedPromptSha256: "a".repeat(64) }) } : {});
     const input = target === "imageOutpaint" ? { modelKey: undefined, outpaintWorkflowKey: "outpaint-flux-onereward" }
-      : target === "emptyRoom" ? { roomType: "客厅" } : {};
+      : target === "emptyRoom" ? { roomType: "客厅" }
+        : target === "refinedModel" ? { refinedRender: { preset: "preserve" } } : {};
     const request = batch(target, input);
     assert.doesNotMatch(JSON.stringify(request), /base64|data:image/);
     await service.start(request);

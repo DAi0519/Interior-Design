@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图服务/真实工作流、图片工具 API、生成任务入口、通用客户端与 sharp 图片样本
- * [OUTPUT]: 提供扩图尺寸/模型/HTTP合同，超分整图/后置恢复能力、保留VAE编解码槽位且无需外部切块及主Beta同因阻断测试
+ * [OUTPUT]: 对外提供真实4K源尺寸/字节合同、双UNET候选能力准入、HTTP前置400/409、扩图固定2K与旧四边兼容，含固定5K源比例的六超分目录及主Beta缺节点同因阻断测试
  * [POS]: test 的扩图应用与 HTTP 合同验证，使用内存客户端，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -404,7 +404,8 @@ function upscaleCapabilityFixture() {
       const resolution = large ? "6K" : workflow.resolutions[0].key;
       const width = large ? 6144 : resolution === "2X" ? 1024 : 4096;
       const graph = createImageUpscaleWorkflow({ artifactKey: "image-tools-test", seed: 1, imageBase64: "",
-        generationRequest: { upscaleWorkflowKey: workflow.key, resolution }, width, height: large ? 6144 : width / 2 });
+        generationRequest: { upscaleWorkflowKey: workflow.key, resolution,
+          ...(large ? { sourceWidth: 512, sourceHeight: 512 } : {}) }, width, height: large ? 6144 : width / 2 });
       for (const node of Object.values(graph)) {
         const required = (info[node.class_type] ||= { input: { required: {} } }).input.required;
         for (const field of Object.keys(node.inputs)) required[field] = ["ANY"];

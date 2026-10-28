@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Style DNA 反推 DOM、共享本地 API、服务端图片/PDF 附件能力策略、Agent 模型目录与浏览器文件能力
- * [OUTPUT]: 对外提供接口驱动的 Prompt 版本/模型选择、参考附件上传、多模态分析、多轮修正、草稿展示、复制与重置控制器
+ * [OUTPUT]: 对外提供Prompt版本/模型选择与真实配置错误、参考附件/多模态分析/修正、草稿展示及复制重置；正常版本不显示说明
  * [POS]: public 的 Style DNA 反推浏览器控制器，以服务端附件能力为上传单一真源并与生成控制器隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -252,8 +252,10 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     elements.promptVersionSelect.disabled = versions.length === 0;
     elements.promptVersionNote.textContent =
       versions.length > 0
-        ? `${versions.length} 个已上架版本可测试；正文仅在服务端读取。`
+        ? ""
         : "飞书中没有可测试的已上架 Prompt 版本。";
+    elements.promptVersionNote.classList.toggle("error", versions.length === 0);
+    elements.promptVersionNote.hidden = versions.length > 0;
   }
 
   function setPromptRefreshPending(pending) {

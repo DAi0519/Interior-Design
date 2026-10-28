@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 theme.css 的颜色令牌和生图工作台元素结构
  * [OUTPUT]: 对外提供精细指针 hover 反馈与 560px 以下的边到边布局收口
- * [POS]: public 的主题交互与窄屏补充层，紧随 theme.css 加载并先于业务动作和最终强调色层
+ * [POS]: public 的主题交互与窄屏补充层，先于业务动作和最终强调色；跨页面刷新交互归config-refresh-button.css
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -11,11 +11,6 @@
   .icon-button:hover {
     background: #fff;
     border-color: #aaa69e;
-    color: var(--text);
-  }
-
-  .config-refresh-button:hover:not(:disabled) {
-    background: var(--panel-soft);
     color: var(--text);
   }
 

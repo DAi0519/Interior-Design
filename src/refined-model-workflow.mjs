@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖仅已上架的固定精模 Prompt、可选用户补充要求/Flux 负向 Prompt、单张带材质模型图、出图模型矩阵、批次元数据、图像客户端与非阻塞归档
- * [OUTPUT]: 对外提供用户要求前置、预设 Prompt 后置的精模忠实渲染、实际参数摘要和独立飞书同步任务
+ * [INPUT]: 依赖纯词预设基础/氛围、双图统一专用规则、卡片/上传原件SHA及图像客户端
+ * [OUTPUT]: 对外提供纯词基础+氛围/双图仅专用规则编译、实际Prompt来源与图序原件归档、历史兼容及脱敏响应
  * [POS]: src 的精模渲染应用服务，与白模 Style DNA/Prompt Agent 链路隔离并复用出图基础设施
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,10 +8,17 @@
 import { normalizeGenerationBatch } from "./generation-batch.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import {
-  DEFAULT_REFINED_MODEL_PROMPT_CODE,
   getRefinedModelPrompt,
 } from "./refined-model-prompt.mjs";
+import { getEffectEnhancementPrompt } from "./effect-render-enhancement-prompt.mjs";
+import {
+  composeRefinedRenderAppearance,
+  refinedAtmosphereIdentity,
+  refinedRenderPromptIdentity,
+  resolveRefinedRenderInput,
+} from "./refined-render-prompt.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
+import { composeRefinedLightingPrompt, refinedLightingImageSummary, resolveRefinedLightingInput } from "./refined-lighting.mjs";
 
 const MAX_USER_PROMPT_LENGTH = 8000;
 
@@ -36,6 +43,9 @@ export async function executeRefinedModelWorkflow(
   {
     imageClient,
     loadPrompt = getRefinedModelPrompt,
+    loadAtmospherePrompt = getEffectEnhancementPrompt,
+    loadLightingAssets,
+    loadLightingReference,
     scheduleSync = null,
   },
 ) {
@@ -46,16 +56,27 @@ export async function executeRefinedModelWorkflow(
   if (referenceImages.length !== 1) {
     throw workflowError("精模渲染需要且只允许 1 张带材质模型图");
   }
+  const lighting = await resolveRefinedLightingInput(input, {
+    ...(loadLightingAssets ? { loadAssets: loadLightingAssets } : {}),
+    ...(loadLightingReference ? { loadReference: loadLightingReference } : {}),
+  });
 
-  const promptAsset = await loadPrompt(
-    input.promptCode || DEFAULT_REFINED_MODEL_PROMPT_CODE,
-    { allowDraft: false, version: input.promptVersion },
+  const { selection, promptAsset, promptIdentity, promptDefinition, atmosphereAsset } = await resolveRefinedRenderInput(
+    input, { loadPrompt, loadAtmospherePrompt, lightingAssets: lighting },
   );
   const sourcePrompt = String(input.prompt || "").trim();
-  const finalPrompt = composeRefinedModelPrompt(promptAsset.prompt, sourcePrompt);
+  if (sourcePrompt.length > MAX_USER_PROMPT_LENGTH) throw workflowError(`精模自定义要求不能超过 ${MAX_USER_PROMPT_LENGTH} 个字符`);
+  let finalPrompt;
+  if (lighting) {
+    finalPrompt = composeRefinedLightingPrompt(promptDefinition.main, lighting, sourcePrompt);
+  } else {
+    finalPrompt = composeRefinedRenderAppearance(composeRefinedModelPrompt(promptDefinition.main, sourcePrompt),
+      selection, atmosphereAsset, promptDefinition);
+  }
+  const renderPrompt = refinedRenderPromptIdentity(promptDefinition, selection, promptIdentity);
   const batch = normalizeGenerationBatch(input);
   const generation = createGenerationRequest(
-    { ...input, prompt: finalPrompt },
+    { ...input, prompt: finalPrompt, ...(lighting ? { referenceImages: [input.referenceImages[0], ...lighting.referenceImages] } : {}) },
     {
       preferSourceAspect: input.ratioMode !== "manual",
       sourceDimensions: {
@@ -81,21 +102,30 @@ export async function executeRefinedModelWorkflow(
   const imageModel = publicModelCatalog().find(
     (entry) => entry.key === String(input.modelKey || ""),
   );
-  const archivedReferences = generation.request.images.map((image, index) => ({
+  const archivedReferences = generation.request.images.slice(0, 1).map((image, index) => ({
     fileName: generation.preview.referenceImages[index]?.fileName,
     imageUrl: image.image_url,
     mimeType: generation.preview.referenceImages[index]?.mimeType,
   }));
+  const lightingReferences = lighting?.referenceImages.map(image => ({ fileName: image.name,
+    imageUrl: image.dataUrl, mimeType: image.type })) || [];
+  const lightingMetadata = lighting ? { ...lighting.metadata, source: refinedLightingImageSummary(input.referenceImages[0]) } : null;
   const workflow = {
     ...batch,
     feature: "refined-model-rendering",
     customPromptUsed: Boolean(sourcePrompt),
-    promptCode: promptAsset.code,
-    promptPublished: promptAsset.published,
-    promptVersion: promptAsset.version,
     provider: generation.provider,
     ...(generation.workflowMetadata || {}),
     ...(result.metadata || {}),
+    promptCode: promptAsset.code,
+    promptPublished: promptAsset.published,
+    promptVersion: promptAsset.version,
+    promptSha256: promptIdentity.sha256,
+    promptSource: promptIdentity.source,
+    refinedRender: selection,
+    ...(renderPrompt ? { renderPrompt } : {}),
+    ...(atmosphereAsset ? { atmospherePrompt: refinedAtmosphereIdentity(atmosphereAsset) } : {}),
+    ...(lightingMetadata ? { refinedLighting: lightingMetadata } : {}),
   };
   const sync = scheduleSync
     ? scheduleSync({
@@ -104,6 +134,7 @@ export async function executeRefinedModelWorkflow(
         modelLabel: imageModel.label,
         preview,
         referenceImages: archivedReferences,
+        ...(lighting ? { styleReferenceImages: lightingReferences } : {}),
         resultImage,
         sourcePrompt,
         workflow,
@@ -119,6 +150,10 @@ export async function executeRefinedModelWorkflow(
       published: promptAsset.published,
       version: promptAsset.version,
     },
+    refinedRender: selection,
+    ...(lightingMetadata ? { refinedLighting: lightingMetadata } : {}),
+    ...(renderPrompt ? { renderPrompt } : {}),
+    ...(atmosphereAsset ? { atmospherePrompt: refinedAtmosphereIdentity(atmosphereAsset) } : {}),
     request: preview,
     sync,
     upstream: {

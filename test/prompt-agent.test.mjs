@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/prompt-agent.mjs 的飞书行解析和配置读取
- * [OUTPUT]: 对外提供可选 Agent 名称字段、无名称字段时的白模/空房/风格转换双模式/反推展示名派生、脱敏已上架目录、独立空房和风格转换双配置、版本选择、System Prompt 与分页边界回归保障
+ * [OUTPUT]: 对外提供可选Agent名称、脱敏上架目录、白模/空房/旧房/风格转换独立配置与指定版本读取、旧房无上架版本时不跨表回退及正文隔离测试
  * [POS]: test 的 Prompt Agent 配置测试，不读取或修改真实飞书 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,9 @@ import {
   listPublishedPromptAgentVersions,
   parsePromptAgentEnvelope,
   publicEmptyRoomConfig,
+  publicRoomRenovationConfig,
   publicStyleTransferConfig,
+  ROOM_RENOVATION_PROMPT_CONFIG,
   STYLE_TRANSFER_PROMPT_CONFIG,
 } from "../src/prompt-agent.mjs";
 
@@ -219,4 +221,57 @@ test("风格转换双 Agent 各自降级可用性，不回退到其他功能 Pro
   assert.equal(config.promptAgent.defaultVersion, null);
   assert.deepEqual(config.promptAgent.versions, []);
   assert.match(config.promptAgent.reason, /未上架或 System Prompt 为空/);
+});
+
+test("旧房独立表公开智能默认和融合版本，指定版本只读取旧房正文", async () => {
+  const reads = [];
+  const run = async (_config, args) => {
+    reads.push(args);
+    return envelope([
+      ["room-renovation-smart-default", 1, ["上架"], ["旧房改造"], "Independent smart secret"],
+      ["room-renovation-fusion", 1, ["上架"], ["旧房改造"], "Independent fusion v1 secret"],
+      ["room-renovation-fusion", 2, ["上架"], ["旧房改造"], "Independent fusion v2 secret"],
+      ["room-renovation-fusion", 3, ["下架"], ["旧房改造"], "Retired secret"],
+    ]);
+  };
+  const config = await publicRoomRenovationConfig({ run, forceRefresh: true });
+  assert.equal(config.smartDefault.available, true);
+  assert.equal(config.smartDefault.name, "旧房智能默认 Agent");
+  assert.equal(config.smartDefault.version, 1);
+  assert.equal(config.promptAgent.defaultVersion, 2);
+  assert.deepEqual(config.promptAgent.versions.map(({ version }) => version), [2, 1]);
+  assert.equal(config.promptAgent.versions[0].code, "room-renovation-fusion");
+  assert.equal(config.promptAgent.versions[0].name, "旧房风格融合 Agent");
+  assert.equal(JSON.stringify(config).includes("secret"), false);
+  const selected = await getPublishedPromptAgent("room-renovation-fusion", {
+    config: ROOM_RENOVATION_PROMPT_CONFIG, run, version: 1,
+  });
+  assert.equal(selected.systemPrompt, "Independent fusion v1 secret");
+  assert.equal(selected.version, 1);
+  await assert.rejects(getPublishedPromptAgent("room-renovation-fusion", {
+    config: ROOM_RENOVATION_PROMPT_CONFIG, run, version: 3,
+  }), error => error.statusCode === 409);
+  assert.ok(reads.every(args => args[args.indexOf("--table-id") + 1] === ROOM_RENOVATION_PROMPT_CONFIG.tableId));
+});
+
+test("旧房双Agent下架或缺失时不可用，不用空房白模正文兜底", async () => {
+  const reads = [];
+  const run = async (_config, args) => {
+    reads.push(args);
+    return envelope([
+      ["room-renovation-smart-default", 1, ["下架"], ["旧房改造"], "Retired renovation"],
+      ["room-renovation-fusion", 1, ["上架"], ["旧房改造"], ""],
+      ["empty-room-smart-default", 34, ["上架"], ["空房设计"], "Do not use empty-room smart"],
+      ["empty-room-fusion", 34, ["上架"], ["空房设计"], "Do not use empty-room fusion"],
+    ]);
+  };
+  const config = await publicRoomRenovationConfig({ run });
+  assert.equal(config.smartDefault.available, false);
+  assert.equal(config.smartDefault.version, null);
+  assert.equal(config.promptAgent.defaultVersion, null);
+  assert.deepEqual(config.promptAgent.versions, []);
+  await assert.rejects(getPublishedPromptAgent("room-renovation-smart-default", {
+    config: ROOM_RENOVATION_PROMPT_CONFIG, run,
+  }), error => error.statusCode === 409);
+  assert.ok(reads.every(args => args[args.indexOf("--table-id") + 1] === ROOM_RENOVATION_PROMPT_CONFIG.tableId));
 });

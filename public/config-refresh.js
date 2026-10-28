@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖页面飞书配置刷新按钮、调用方 API、美化/氛围转换独立上架 Prompt 状态、白模/空房/风格转换 Agent、Style DNA/精模目录与 Toast 回调
- * [OUTPUT]: 对外提供美化/氛围转换 Prompt 脱敏状态映射与 bindConfigRefresh，美化就绪仅显示标题行状态、异常才显示原因，管理共享单次刷新、互斥状态与双模式脱敏配置反馈
+ * [INPUT]: 依赖飞书配置刷新按钮、API、精模光影库脱敏目录、美化/氛围转换独立Prompt状态及设计Agent目录与Toast回调
+ * [OUTPUT]: 对外提供Prompt脱敏状态/共享刷新与配置分派，普通说明清空、真实配置错误可见；保留互斥刷新反馈
  * [POS]: public 的配置刷新交互控制器，与 app.js 的生图状态和上传流程隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,7 @@ export function effectEnhancementPromptStatus(config = {}) {
   if (config.available && Number.isInteger(config.version)) {
     return {
       availability: `Prompt v${config.version} · 已上架`,
-      note: `当前使用「${config.name || "效果图氛围转换 Prompt"}」v${config.version}（已上架）；环境效果可单选或组合，组合时时段优先。`,
+      note: "",
       ready: true,
     };
   }
@@ -28,11 +28,14 @@ export function effectBeautificationPromptStatus(config = {}) {
 
 export function bindConfigRefresh({
   api,
+  onEffectEnhancementPrompt = () => {},
   onEffectBeautificationPrompt = () => {},
   onEmptyRoom,
+  onRoomRenovation = () => {},
   onStyleTransfer = () => {},
   onPromptAgentVersions,
   onRefinedPromptVersions,
+  onRefinedLighting = () => {},
   onSmartDefault,
   onStyles,
   showToast,
@@ -56,13 +59,19 @@ export function bindConfigRefresh({
   const unavailableEffectPrompt = (reason) => ({ available: false, reason, version: null });
 
   function renderEffectPrompt(config) {
+    onEffectEnhancementPrompt(config);
     const status = effectEnhancementPromptStatus(config);
     effectPromptAvailability.textContent = status.availability;
     effectPromptAvailability.classList.toggle("ready", status.ready);
     effectPromptNote.textContent = status.note;
+    effectPromptNote.classList.toggle("error", !status.ready);
+    effectPromptNote.hidden = status.ready;
   }
 
   function apply(body) {
+    styleNote.textContent = "";
+    styleNote.classList.toggle("error", false);
+    styleNote.hidden = true;
     renderEffectPrompt(body.effectEnhancementPrompt || unavailableEffectPrompt(
       "当前服务尚未提供效果图氛围转换 Prompt 状态，请重启工作台",
     ));
@@ -72,6 +81,9 @@ export function bindConfigRefresh({
     onEmptyRoom(body.emptyRoom || unavailableEmptyRoom(
       "当前服务尚未提供空房双模式配置，请重启工作台",
     ));
+    onRoomRenovation(body.roomRenovation || unavailableEmptyRoom(
+      "当前服务尚未提供旧房独立提示词配置，请重启工作台",
+    ));
     onStyleTransfer(body.styleTransfer || unavailableStyleTransfer(
       "当前服务尚未提供风格转换配置，请重启工作台",
     ));
@@ -79,6 +91,7 @@ export function bindConfigRefresh({
     onSmartDefault(body.smartDefault);
     onPromptAgentVersions(body.promptAgent);
     onRefinedPromptVersions(body.refinedPrompt);
+    onRefinedLighting(body.refinedLighting || { available: false, referenceAvailable: false, reason: "当前服务尚未提供光影库，请重启工作台", presets: [] });
   }
 
   function renderBeautificationPrompt(config) {
@@ -87,6 +100,7 @@ export function bindConfigRefresh({
     beautificationAvailability.textContent = status.availability;
     beautificationAvailability.classList.toggle("ready", status.ready);
     beautificationNote.textContent = status.note;
+    beautificationNote.classList.toggle("error", !status.ready);
     beautificationNote.hidden = !status.note;
   }
 
@@ -96,6 +110,7 @@ export function bindConfigRefresh({
       apply(await api("/api/styles"));
     } catch (error) {
       onEmptyRoom(unavailableEmptyRoom(error.message));
+      onRoomRenovation(unavailableEmptyRoom(error.message));
       onStyleTransfer(unavailableStyleTransfer(error.message));
       renderEffectPrompt(unavailableEffectPrompt(error.message));
       renderBeautificationPrompt(unavailableEffectPrompt(error.message));
@@ -103,9 +118,12 @@ export function bindConfigRefresh({
       onSmartDefault({ available: false, reason: error.message, version: null });
       onPromptAgentVersions({ defaultVersion: null, versions: [] });
       onRefinedPromptVersions({ defaultVersion: null, versions: [] });
+      onRefinedLighting({ available: false, referenceAvailable: false, reason: error.message, presets: [] });
       styleAvailability.textContent = "读取失败";
       styleAvailability.classList.remove("ready");
       styleNote.textContent = error.message;
+      styleNote.classList.toggle("error", true);
+      styleNote.hidden = false;
     }
   }
 
@@ -129,11 +147,12 @@ export function bindConfigRefresh({
       const body = await api("/api/config/refresh", { method: "POST" });
       apply(body);
       const emptyRoom = body.emptyRoom || unavailableEmptyRoom("不可用");
+      const renovation = body.roomRenovation || unavailableEmptyRoom("不可用");
       const styleTransfer = body.styleTransfer || unavailableStyleTransfer("不可用");
       const effectPrompt = body.effectEnhancementPrompt || unavailableEffectPrompt("不可用");
       const beautyPrompt = body.effectBeautificationPrompt || unavailableEffectPrompt("不可用");
       showToast(
-        `配置已更新 · 美化 Prompt ${beautyPrompt.available ? `v${beautyPrompt.version}` : "不可用"} · 氛围转换 Prompt ${effectPrompt.available ? `v${effectPrompt.version}` : "不可用"} · 白模 ${body.smartDefault.available ? `v${body.smartDefault.version}` : "不可用"} · 空房智能默认 ${emptyRoom.smartDefault.available ? `v${emptyRoom.smartDefault.version}` : "不可用"} · 空房融合 ${emptyRoom.promptAgent.versions.length} 个版本 · 风格转换参考图 ${styleTransfer.reference.available ? `v${styleTransfer.reference.version}` : "不可用"} / 融合 ${styleTransfer.promptAgent.versions.length} 个版本 · Style DNA ${body.styles.length} 条 · 白模融合 ${body.promptAgent.versions.length} 个版本 · 精模 Prompt ${body.refinedPrompt.versions.length} 个版本`,
+        `配置已更新 · 美化 Prompt ${beautyPrompt.available ? `v${beautyPrompt.version}` : "不可用"} · 氛围转换 Prompt ${effectPrompt.available ? `v${effectPrompt.version}` : "不可用"} · 白模 ${body.smartDefault.available ? `v${body.smartDefault.version}` : "不可用"} · 空房智能默认 ${emptyRoom.smartDefault.available ? `v${emptyRoom.smartDefault.version}` : "不可用"} · 空房融合 ${emptyRoom.promptAgent.versions.length} 个版本 · 旧房智能默认 ${renovation.smartDefault.available ? `v${renovation.smartDefault.version}` : "不可用"} / 融合 ${renovation.promptAgent.versions.length} 个版本 · 风格转换参考图 ${styleTransfer.reference.available ? `v${styleTransfer.reference.version}` : "不可用"} / 融合 ${styleTransfer.promptAgent.versions.length} 个版本 · Style DNA ${body.styles.length} 条 · 白模融合 ${body.promptAgent.versions.length} 个版本 · 精模 Prompt ${body.refinedPrompt.versions.length} 个版本`,
       );
     } catch (error) {
       showToast(`配置刷新失败：${error.message}`);

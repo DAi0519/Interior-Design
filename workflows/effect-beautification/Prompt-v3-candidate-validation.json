@@ -1,0 +1,72 @@
+{
+  "createdAt": "2026-10-23T09:30:19.773Z",
+  "status": "candidate-not-published",
+  "basedOn": {
+    "beautificationVersion": 2,
+    "atmosphereVersion": 13,
+    "beautificationJsonSha256": "f83f6005674fec9a9ac8182a8895bab85c6660bb3ef11d6265d9cf17ec0c4c72",
+    "atmosphereJsonSha256": "685bc12dfda05aca2e95b4254cca698048c0efc5eb5021ee9da05ba001a281b8"
+  },
+  "jsonSha256": "483e788cc1fd791bd2244149ba693a5ca6de017b533f6e364adf7b4f70bb7aac",
+  "schemaValid": true,
+  "presets": [
+    {
+      "preset": "low-natural",
+      "characters": 1381,
+      "words": 178,
+      "changedNodes": [
+        "EffectBeautification-Positive"
+      ],
+      "sha256": "6000fb6a5be96eeb41db0b88d96ebe477494c851b589c663c5e3f70a4a74649d"
+    },
+    {
+      "preset": "low-warm",
+      "characters": 1481,
+      "words": 190,
+      "changedNodes": [
+        "EffectBeautification-Positive"
+      ],
+      "sha256": "63532293f535834fc9286f1f3cb88e7ecadfdb05e35dea9bfa7930af1d105469"
+    },
+    {
+      "preset": "low-cool",
+      "characters": 1486,
+      "words": 192,
+      "changedNodes": [
+        "EffectBeautification-Positive"
+      ],
+      "sha256": "6e44a406afdf89ba6e9a2f61eb508b4619e0253e50b8fb4e72cab99785d4a01b"
+    },
+    {
+      "preset": "high-natural",
+      "characters": 1484,
+      "words": 192,
+      "changedNodes": [
+        "EffectBeautification-Positive"
+      ],
+      "sha256": "2fde7653732e7edc943ec567b369108b7d54b9bfe4aca33d8d1b183501c4e985"
+    },
+    {
+      "preset": "high-warm",
+      "characters": 1584,
+      "words": 204,
+      "changedNodes": [
+        "EffectBeautification-Positive"
+      ],
+      "sha256": "c965609d35a41b5fa80d221daa5d8141ec97e5d3e65ebabffc2007d3f2f9cb40"
+    },
+    {
+      "preset": "high-cool",
+      "characters": 1589,
+      "words": 206,
+      "changedNodes": [
+        "EffectBeautification-Positive"
+      ],
+      "sha256": "ea6fa590f6437ea3ea0ae8ecd3636f74e23c5f6133fb10d0baba0bd7f5eebb04"
+    }
+  ],
+  "remoteWrites": 0,
+  "gpuCalls": 0,
+  "qualityConclusion": "尚未实图对照，文字与静态图隔离校验不证明画质改善",
+  "independentTextReview": "四组重点无实质矛盾；surface roughness表述已改为改善已有粗糙度/反射的渲染且不得改变finish。未证明画质收益。"
+}

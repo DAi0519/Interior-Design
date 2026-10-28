@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与 AI 生图 Base 内独立表的统一 Prompt Agent 版本协议
- * [OUTPUT]: 对外提供白模/空房智能默认及平台融合、风格转换平台风格及参考图、风格反推的独立 Prompt 配置与脱敏版本目录，保留稳定 Agent 编码和指定已上架版本读取
+ * [OUTPUT]: 对外提供白模/空房/旧房智能默认及平台融合、风格转换平台风格及参考图、风格反推的独立 Prompt 配置与脱敏版本目录，保留稳定 Agent 编码和指定已上架版本读取且不跨表回退
  * [POS]: src 的服务端 Prompt 资产边界，让不同执行链复用同一发布与缓存语义
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,8 @@ const AGENT_DISPLAY_NAMES = Object.freeze({
   "empty-room-design": "空房设计 Agent",
   "empty-room-fusion": "空房风格融合 Agent",
   "empty-room-smart-default": "空房智能默认 Agent",
+  "room-renovation-fusion": "旧房风格融合 Agent",
+  "room-renovation-smart-default": "旧房智能默认 Agent",
   "style-transfer-fusion": "风格转换融合 Agent",
   "style-transfer-reference": "风格转换参考图 Agent",
   "style-dna-reverse": "Style DNA 反推 Agent",
@@ -65,6 +67,15 @@ export const STYLE_TRANSFER_PROMPT_CONFIG = Object.freeze({
   displayNameField: AGENT_NAME_FIELD,
   tableId:
     process.env.LARK_STYLE_TRANSFER_PROMPT_TABLE_ID || "tblmisc7ePjSwJ0U",
+});
+
+export const ROOM_RENOVATION_PROMPT_CONFIG = Object.freeze({
+  baseToken:
+    process.env.LARK_ROOM_RENOVATION_PROMPT_BASE_TOKEN ||
+    "SALobKnnra17iSsGT2ccC52PnHd",
+  cliPath: process.env.LARK_CLI_PATH || "lark-cli",
+  displayNameField: AGENT_NAME_FIELD,
+  tableId: process.env.LARK_ROOM_RENOVATION_PROMPT_TABLE_ID || "tbl9aFZzK7AwF8qk",
 });
 
 function values(value) {
@@ -268,6 +279,17 @@ export function publicEmptyRoomConfig(options = {}) {
     config: EMPTY_ROOM_PROMPT_CONFIG,
     description: "AI 根据空间自主确定整体风格，统筹墙地顶、材质与灯光，并满足家具需求；有参考图时遵循参考风格",
     fusionCode: "empty-room-fusion",
+    options,
+  });
+}
+
+export function publicRoomRenovationConfig(options = {}) {
+  return publicDesignAgentConfig({
+    companionCode: "room-renovation-smart-default",
+    companionKey: "smartDefault",
+    config: ROOM_RENOVATION_PROMPT_CONFIG,
+    description: "仅参考旧房空间结构与原机位，家具、软装及装修风格重新设计；有参考图时遵循目标风格",
+    fusionCode: "room-renovation-fusion",
     options,
   });
 }

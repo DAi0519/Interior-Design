@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖服务端公开的默认项、SeedVR2/KS 工作流完整/紧凑名称及尺寸目录与说明、单张上传图、共享分辨率控件和 sessionStorage
- * [OUTPUT]: 提供合法档位恢复、KS的2X/4K/6K最终尺寸选择、目录驱动的整图面积限制说明、逐项能力阻断及冻结版本单图请求
+ * [INPUT]: 依赖服务端公开的默认项、SeedVR2/KS工作流名称/尺寸/异常目录、单张上传图、共享分辨率控件和sessionStorage
+ * [OUTPUT]: 提供合法档位恢复、KS的2X/4K/6K最终尺寸选择、仅异常可见的原因提示、逐项能力阻断及冻结版本单图请求
  * [POS]: public 的图片超分交互边界，让主编排器无需理解 SeedVR2 工作流细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -117,7 +117,12 @@ export function bindImageUpscale({
     exactSize.textContent = target ? `${target.width} × ${target.height}` : `${resolution?.label || "待选择"} · 保持原图比例`;
     emptyModel.textContent = selectedWorkflow()?.label || "SeedVR2";
     emptySize.textContent = target ? `${target.width} × ${target.height}` : sourceIssue() ? "请调整输入图片尺寸" : "上传图片后计算";
-    if (note) note.textContent = availabilityReason() || selectedWorkflow()?.helpText || "输出保持原图比例。";
+    if (note) {
+      const issue = availabilityReason();
+      note.textContent = issue;
+      note.hidden = !issue;
+      note.classList.toggle("error", Boolean(issue));
+    }
     remember();
   }
 

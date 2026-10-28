@@ -124,5 +124,37 @@
     "同一张卧室图两次试跑，不能作为覆盖性质量评测",
     "生成模型仍可能在遮挡补全和门窗结构上漂移",
     "每个结果独立两次出图；失败不自动重跑"
-  ]
+  ],
+  "_retainedEvidence": {
+    "design-detection.json": {
+      "sourceSha256": "888731bb54b68068a86041d88e29bcf096d34d55c1b4d13275ce7230632df737",
+      "content": [
+        {
+          "antipattern": "broken-image",
+          "name": "Broken or placeholder image",
+          "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+          "severity": "warning",
+          "category": "quality",
+          "file": "/Users/dai/Work_qunhe/Interior Design/public/index.html",
+          "line": 355,
+          "snippet": "<img id=\"imageOutpaintSourceImage\" class=\"image-outpaint-source-image\" alt=\"扩图原图的位置预览\" />"
+        },
+        {
+          "antipattern": "broken-image",
+          "name": "Broken or placeholder image",
+          "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+          "severity": "warning",
+          "category": "quality",
+          "file": "/Users/dai/Work_qunhe/Interior Design/public/index.html",
+          "line": 738,
+          "snippet": "<img id=\"larkQrCode\" alt=\"飞书授权二维码\" />"
+        }
+      ]
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "03761cb0f9eb26e9cca185a607d9326b4ed486b7c1012fc71fc8ef7dc72af1b7",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# room-renovation/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\nCLAUDE.md: 旧房改造工作台验收证据地图，区分实际样本、合同测试和独立审查\ndesktop.png: 1280×800 工作台旧房改造入口与真实设计结果\nmobile.png: 390×844 旧房改造配置抽屉，包含清空范围与两次出图说明\nmobile-result.png: 390×844 三图切换、结果下载及两阶段飞书状态\nclearance.png: 1280×800 实际清空中间图与对应下载/归档状态\nvalidation.json: 测试、真实产物尺寸、两阶段记录关联及审查边界，按最终运行结果回写\ndesign-detection.json: 单次机械检测结果，缺HTML解析依赖时为退化检查；两个既存动态图片警告不等于新增坏图\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n"
+  }
 }

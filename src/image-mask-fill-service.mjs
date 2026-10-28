@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 sharp、共享模型/尺寸规则、Flux/Qwen执行图、Sunburst编辑适配器、归档、权限目录与同步调度
- * [OUTPUT]: 三模型两模式配置与准入、GPT矩形/自由圈选能力及实际送模蓝线原图独立归档、内部附件剥离与原生交付；付费前复核权限/Schema
+ * [INPUT]: 依赖 sharp、共享模型/尺寸/参考用途规则、Flux/Qwen执行图、Sunburst编辑适配器、归档、权限目录与同步调度
+ * [OUTPUT]: 三模型两模式配置与准入、仅GPT参考模式的换物品/换材质用途与默认兼容及指令可选、GPT矩形/自由圈选与实际送模蓝线原图独立归档、内部附件剥离与原生交付；付费前复核权限/Schema
  * [POS]: src 的遮罩填充应用服务，复用后台任务与飞书同步，禁止自动缩放遮罩掩盖错位
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,8 @@ import { buildImageMaskFillArchive } from "./image-mask-fill-archive.mjs";
 import { verifyLarkSyncSchema } from "./lark-sync.mjs";
 import { MASK_FILL_INFERENCE_TIERS, MASK_FILL_MAX_OUTPUT_EDGE, maskFillInferenceTier,
   maskFillInferenceSize, maskFillOutputSize, MASK_FILL_MODELS, maskFillModel, QWEN_MASK_FILL_INFERENCE_TIERS,
-  MASK_FILL_GPT_RESOLUTIONS, maskFillGptResolution, normalizeMaskFillEditRegion } from "../public/image-mask-fill-geometry.js";
+  MASK_FILL_GPT_RESOLUTIONS, maskFillGptResolution, maskFillPromptOptional, normalizeMaskFillEditRegion,
+  MASK_FILL_REFERENCE_PURPOSES, maskFillReferencePurpose } from "../public/image-mask-fill-geometry.js";
 import { createQwenMaskFillWorkflow, verifyQwenMaskFillCapabilities, QWEN_MASK_FILL_WORKFLOW } from "./image-mask-fill-qwen.mjs";
 import { executeSunburstMaskFill, MASK_FILL_ONEAPI_MODEL, MASK_FILL_ONEAPI_LIMITS, sunburstMaskOutputSize, sunburstMaskQuality } from "./image-mask-fill-oneapi.mjs";
 import {
@@ -54,6 +55,7 @@ export async function readImageMaskFillConfig(imageClient, { getOneApiModels, qw
   } catch (error) { reason = `Sunburst不可用：${String(error.message).slice(0, 180)}`; }
   models.push({ ...MASK_FILL_MODELS[1], available: permitted, reason, maskRequired: false, supportsBoxSelection: true, supportsLassoSelection: true, quality: MASK_FILL_ONEAPI_MODEL.defaultQuality,
     qualityOptions: MASK_FILL_ONEAPI_MODEL.qualityOptions, defaultQuality: MASK_FILL_ONEAPI_MODEL.defaultQuality,
+    referencePurposes: MASK_FILL_REFERENCE_PURPOSES, defaultReferencePurpose: "object",
     outputResolutions: MASK_FILL_GPT_RESOLUTIONS, defaultOutputResolution: "1K", sizes: MASK_FILL_ONEAPI_MODEL.sizes,
     modes: modes.map(({ key, defaultMaskExpand }) => ({ key, defaultMaskExpand, maskRequired: false, label: `${MASK_FILL_ONEAPI_MODEL.label} · ${key === "prompt" ? "提示词填充" : "参考图填充"}`, available: permitted, reason })),
     outputLimits: MASK_FILL_ONEAPI_LIMITS });
@@ -107,9 +109,13 @@ export async function validateMaskFillInput(input = {}) {
   if (editRegion && model.provider !== "oneapi") throw error400("框选仅支持GPT模型，请使用涂抹遮罩");
   if (editRegion && input.maskImage != null) throw error400("框选与涂抹遮罩不能同时提交，请选择一种编辑工具");
   const mode = resolveImageMaskFillMode(input.maskFillMode);
-  if (typeof input.prompt !== "string") throw error400("遮罩填充指令必须是文本");
-  const prompt = String(input.prompt || "").trim();
-  if (!prompt || prompt.length > 8000) throw error400("遮罩填充指令不能为空，且不能超过8000字符");
+  let fillReferencePurpose;
+  try { fillReferencePurpose = maskFillReferencePurpose(input.fillReferencePurpose, model.key, mode.key); }
+  catch (error) { throw error400(error.message); }
+  if (input.prompt !== undefined && typeof input.prompt !== "string") throw error400("遮罩填充指令必须是文本");
+  const prompt = (input.prompt ?? "").trim();
+  if (prompt.length > 8000) throw error400("遮罩填充指令不能超过8000字符");
+  if (!prompt && !maskFillPromptOptional(model.key, mode.key)) throw error400("遮罩填充指令不能为空");
   let tier;
   let outputResolution, quality;
   try {
@@ -124,8 +130,8 @@ export async function validateMaskFillInput(input = {}) {
   if (!Number.isInteger(maskExpand) || maskExpand < 0 || maskExpand > 256) throw error400("遮罩扩展需要为0–256的整数");
   normalizeReferenceImages(input.referenceImages, { maxCount: 1, maxBytesPerImage: IMAGE_MASK_FILL_IMAGE_POLICY.maxBytesPerImage });
   if (input.referenceImages?.length !== 1) throw error400("遮罩填充需要且只允许1张主图");
-  if (mode.key === "prompt" && input.fillReferenceImage) throw error400("提示词填充不接收参考物体图片");
-  if (mode.key === "reference" && !input.fillReferenceImage) throw error400("参考图填充需要上传参考物体图片");
+  if (mode.key === "prompt" && input.fillReferenceImage) throw error400("提示词填充不接收填充参考图");
+  if (mode.key === "reference" && !input.fillReferenceImage) throw error400("参考图填充需要上传填充参考图");
   const [source, mask, reference] = await Promise.all([
     decodeInput(input.referenceImages[0], "主图"),
     model.provider === "oneapi" && input.maskImage == null ? null : decodeInput(input.maskImage, "遮罩", true),
@@ -142,6 +148,7 @@ export async function validateMaskFillInput(input = {}) {
     if (stats.channels[0].max === 0) throw error400("遮罩没有白色编辑区域，请先涂抹需要修改的区域");
   }
   return { modelKey: model.key, provider: model.provider, mode: mode.key, prompt, inferenceTier: tier.key, inferenceSize,
+    ...(fillReferencePurpose ? { fillReferencePurpose } : {}),
     ...(nativeTarget ? { outputResolution, quality } : {}),
     inferenceWidth: measuredInference ? null : plan.width, inferenceHeight: measuredInference ? null : plan.height,
     maskExpand: mask ? maskExpand : 0, source, mask, reference, editRegion,

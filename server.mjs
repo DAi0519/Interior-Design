@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖Flux/Qwen/Sunburst遮罩服务、独立ComfyUI客户端与OneAPI实时权限目录、多角度/Qwen；依赖Node HTTP/静态文件、更新/安装、本机设置、飞书Schema、模型/Prompt/图片工具目录、双Provider与日常/Beta/Benchmark工作流
- * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新/安装、连接、配置、飞书合同与模型权限准入、生成和下载；遮罩填充为本地测试任务和独立能力目录；Beta 十功能复用正式扩图/超分客户端与独立归档、逐张上传样本、按样本 ID 入队并提供轻量预览，超分独立复核ComfyUI节点且不依赖OneAPI，JSON 单次请求保留 30MB 保护
+ * [INPUT]: 依赖独立精模光影基础目录、光影库版本化同源预览、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新/安装、连接、配置、飞书合同与模型权限准入、生成和下载；打光/遮罩填充提供独立任务、能力目录与飞书归档；Beta 十功能复用正式扩图/超分客户端与独立归档、逐张上传样本、按样本 ID 入队并提供轻量预览，超分独立复核ComfyUI节点且不依赖OneAPI，JSON 单次请求保留 30MB 保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,22 +13,13 @@ import packageInfo from "./package.json" with { type: "json" };
 import { createAppUpdateService } from "./src/app-update.mjs";
 import { createAppInstaller } from "./src/app-installer.mjs";
 import { createAppUpdateApiHandler } from "./src/app-update-api.mjs";
-import {
-  checkAgentModelAvailability,
-  publicAgentModelCatalog,
-} from "./src/agent-model-config.mjs";
+import { checkAgentModelAvailability, publicAgentModelCatalog } from "./src/agent-model-config.mjs";
 import { createComfyUiClient } from "./src/comfyui-client.mjs";
 import { EMPTY_ROOM_FURNITURE, OTHER_FURNITURE_MAX_LENGTH } from "./src/empty-room-furniture.mjs";
-import {
-  EMPTY_ROOM_TYPES,
-  EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
-} from "./src/empty-room-type.mjs";
+import { EMPTY_ROOM_TYPES, EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH } from "./src/empty-room-type.mjs";
 import { captureBetaGenerationArchive, createBetaBaseStore } from "./src/beta-base.mjs";
 import { readBetaUpscaleConfig } from "./src/beta-upscale.mjs";
-import {
-  createBetaApiHandler,
-  createBetaRunnerService,
-} from "./src/beta-runner.mjs";
+import { createBetaApiHandler, createBetaRunnerService } from "./src/beta-runner.mjs";
 import { readGenerationConfig } from "./src/generation-config.mjs";
 import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
@@ -49,10 +40,7 @@ import {
 } from "./src/image-upscale-workflow.mjs";
 import { prepareGeneratedImageDownload } from "./src/image-download.mjs";
 import { imageProviderForModel, publicModelCatalog } from "./src/model-config.mjs";
-import {
-  benchmarkBaseConfigFromEnv,
-  createBenchmarkBaseStore,
-} from "./src/benchmark-base.mjs";
+import { benchmarkBaseConfigFromEnv, createBenchmarkBaseStore } from "./src/benchmark-base.mjs";
 import { createBenchmarkJobRegistry } from "./src/benchmark-jobs.mjs";
 import { createBenchmarkWorkbenchService } from "./src/benchmark-workbench.mjs";
 import { createBenchmarkWorkbenchStore } from "./src/benchmark-workbench-store.mjs";
@@ -69,16 +57,15 @@ import {
   STYLE_DNA_REVERSE_PROMPT_CONFIG,
   STYLE_TRANSFER_PROMPT_CONFIG,
   getPublishedPromptAgent,
+  publicRoomRenovationConfig,
   publicStyleTransferConfig,
 } from "./src/prompt-agent.mjs";
-import { publicRefinedModelPromptConfig } from "./src/refined-model-prompt.mjs";
+import { publicRefinedLightingBasePromptConfig } from "./src/refined-model-prompt.mjs";
+import { readRefinedLightingPreview } from "./src/refined-lighting-library.mjs";
 import { listPublicStyles } from "./src/style-library.mjs";
 import { createAsyncTtlCache } from "./src/runtime-cache.mjs";
 import { createSyncJobRegistry } from "./src/sync-jobs.mjs";
-import {
-  executeStyleDnaReverse,
-  publicStyleDnaReverseConfig,
-} from "./src/style-dna-reverse.mjs";
+import { executeStyleDnaReverse, publicStyleDnaReverseConfig } from "./src/style-dna-reverse.mjs";
 const HOST = "127.0.0.1";
 const PORT = Number.parseInt(process.env.PORT || "4173", 10);
 const appUpdates = createAppUpdateService({ currentVersion: packageInfo.version });
@@ -132,6 +119,7 @@ const imageOutpaintClient = createComfyUiClient(IMAGE_OUTPAINT_CLIENT_OPTIONS);
 const qwenImageClient = createComfyUiClient(QWEN_OUTPAINT_CLIENT_OPTIONS);
 const imageMaskFillClient = createComfyUiClient(IMAGE_MASK_FILL_CLIENT_OPTIONS), qwenMaskFillClient = createComfyUiClient(QWEN_MASK_FILL_CLIENT_OPTIONS);
 const getImageMaskFillConfig = () => generationService.getImageMaskFillConfig();
+const getImageRelightConfig = (options = {}) => generationService.getImageRelightConfig(options);
 const getImageMultiAngleConfig = () => readMultiAngleConfig(imageMultiAngleClient,
   { getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: true }) });
 const getImageOutpaintConfig = createImageOutpaintConfigReader(imageOutpaintClient,
@@ -252,7 +240,7 @@ async function verifyLarkConfiguration() {
   await Promise.all([
     verifyLarkSyncSchema(),
     listPublicStyles(),
-    publicRefinedModelPromptConfig(),
+    publicRefinedLightingBasePromptConfig(),
     getPublishedPromptAgent("white-model-fusion"),
     getPublishedPromptAgent("white-model-smart-default"),
     getPublishedPromptAgent("empty-room-smart-default", {
@@ -261,6 +249,8 @@ async function verifyLarkConfiguration() {
     getPublishedPromptAgent("empty-room-fusion", {
       config: EMPTY_ROOM_PROMPT_CONFIG,
     }),
+    // -------- 旧房独立降级，由本功能出图准入阻断，不牵连普通空房 --------
+    publicRoomRenovationConfig(),
     getPublishedPromptAgent("style-transfer-reference", {
       config: STYLE_TRANSFER_PROMPT_CONFIG,
     }),
@@ -344,7 +334,6 @@ function scheduleGenerationSync(input) {
   };
   return syncJobs.enqueue(generationId, () => syncGenerationToLark(syncInput));
 }
-
 const generationService = createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
@@ -352,6 +341,7 @@ const generationService = createGenerationService({
   promptResultCache: whiteModelPromptResultCache,
   requireApiKey,
   scheduleGenerationSync,
+  verifyRelightSyncContract: () => verifyLarkSyncSchema(undefined, { scope: "imageRelight" }),
 });
 const betaGenerationService = createGenerationService({
   archiveImageUpscale: true,
@@ -381,13 +371,13 @@ const handleGenerationJobApi = createGenerationJobApiHandler({
   generationJobs,
   generationService,
   getImageMultiAngleConfig,
-  getImageMaskFillConfig,
+  getImageMaskFillConfig, getImageRelightConfig,
   getImageOutpaintConfig,
   readJson,
   sendJson,
   verifySyncContract: verifyLarkSyncSchema,
 });
-const handleImageToolsApi = createImageToolsApiHandler({ imageMultiAngleClient, getImageMultiAngleConfig, getImageMaskFillConfig, imageUpscaleClient, getImageOutpaintConfig, sendJson });
+const handleImageToolsApi = createImageToolsApiHandler({ imageMultiAngleClient, getImageMultiAngleConfig, getImageMaskFillConfig, getImageRelightConfig, imageUpscaleClient, getImageOutpaintConfig, sendJson });
 function safeStaticPath(pathname) {
   if (pathname === "/vendor/inter-variable-latin.woff2") return INTER_VARIABLE_LATIN_FONT;
   if (PANNELLUM_ASSETS[pathname]) return PANNELLUM_ASSETS[pathname];
@@ -395,7 +385,6 @@ function safeStaticPath(pathname) {
   const resolvedPath = normalize(join(PUBLIC_DIR, requestedPath));
   return resolvedPath.startsWith(PUBLIC_DIR) ? resolvedPath : null;
 }
-
 function serveStatic(response, pathname) {
   const filePath = safeStaticPath(pathname);
   if (!filePath || !existsSync(filePath)) return false;
@@ -612,6 +601,15 @@ async function handleApi(request, response, pathname) {
 
   if (request.method === "GET" && pathname === "/api/styles") {
     return sendJson(response, 200, await readGenerationConfig());
+  }
+
+  if (request.method === "GET" && pathname === "/api/refined-lighting/preview") {
+    const query = new URL(request.url, `http://${HOST}:${PORT}`).searchParams;
+    const image = await readRefinedLightingPreview({ id: query.get("id"), version: query.get("version"), sha256: query.get("sha256") });
+    response.writeHead(200, { "Content-Type": image.mimeType, "Content-Length": image.bytes.length,
+      "Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff" });
+    response.end(image.bytes);
+    return;
   }
 
   if (request.method === "POST" && pathname === "/api/config/refresh") {

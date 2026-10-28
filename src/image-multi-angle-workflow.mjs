@@ -1,11 +1,15 @@
 /**
- * [INPUT]: 依赖 image-multi-angle-image 的尺寸计划，接收机位、压缩输入/Base64、产物键与MaaS节点目录
- * [OUTPUT]: 三档景别及以原机位为参照的后半圈反打指令、长边不超过2048直接推理的Qwen图与真实元数据
+ * [INPUT]: 依赖共享英文镜头指令/版本与 image-multi-angle-image 的尺寸计划，接收机位、压缩输入/Base64、产物键与MaaS节点目录
+ * [OUTPUT]: 复用统一英文镜头语义与机位校验、长边不超过2048直接推理的Qwen图与真实元数据
  * [POS]: src 的共享多角度工作流，由主工作台服务与独立试跑服务消费，尚未发布正式 MaaS 策略
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { multiAnglePrompt, normalizeCameraPose, MULTI_ANGLE_PROMPT_VERSION } from "./image-multi-angle-prompt.mjs";
 import { planMultiAngleImage } from "./image-multi-angle-image.mjs";
+
+export { normalizeCameraPose };
+export const cameraPosePrompt = multiAnglePrompt;
 
 export const MULTI_ANGLE = Object.freeze({
   label: "Qwen 多角度",
@@ -15,52 +19,9 @@ export const MULTI_ANGLE = Object.freeze({
   cameraLora: "Qwen_Edit_Lens_Transformation.safetensors",
   lightningLora: "Qwen-Image-Lightning-8steps-V1.1.safetensors",
   outputNodeId: "18",
-  version: "2026-10-20.preview.6",
+  version: "2026-10-26.preview.7",
+  promptVersion: MULTI_ANGLE_PROMPT_VERSION,
 });
-
-export function normalizeCameraPose(pose) {
-  const ranges = { azimuth: [0, 360], elevation: [-30, 60], distance: [0, 100] };
-  return Object.fromEntries(Object.entries(ranges).map(([key, [min, max]]) => {
-    const value = pose?.[key];
-    if (!Number.isInteger(value) || value < min || value > max) {
-      throw Object.assign(new Error(`机位 ${key} 必须为 ${min}–${max} 的整数`), { statusCode: 400 });
-    }
-    if (key === "distance" && ![0, 50, 100].includes(value)) {
-      throw Object.assign(new Error("景别请选择特写、标准或远景，请刷新旧版页面"), { statusCode: 400 });
-    }
-    return [key, key === "azimuth" ? value % 360 : value];
-  }));
-}
-
-export function cameraPosePrompt(input) {
-  const { azimuth, elevation, distance } = normalizeCameraPose(input);
-  const parts = [];
-  // -------- 远景先约束取景结果，避免仅改变广角透视而没有明显拉远 --------
-  if (distance === 100) parts.push(
-    "将镜头向后移动，明显拉远，拍摄整个场景的远景",
-    "让主体在画面中明显变小，完整展示主体及更大范围的周围环境，增加前景与两侧的可见空间",
-  );
-  if (azimuth) parts.push(`将镜头向${azimuth <= 180 ? "右" : "左"}旋转${azimuth <= 180 ? azimuth : 360 - azimuth}度`);
-  // -------- 后半圈明确改变观察位置，避免“旋转”被理解为原地转镜或翻图 --------
-  if (azimuth > 90 && azimuth < 270) {
-    const side = azimuth === 180 ? "正后方" : azimuth < 180 ? "右后方" : "左后方";
-    parts.push(
-      `拍摄反打镜头：以场景中心为基准，从原拍摄点绕到场景另一侧的${side}反打机位，朝原摄影机所在的一侧回拍`,
-      azimuth === 180 ? "原机位为A，场景中心为B，新机位为C；摄影机从A越过B移动到另一侧C，镜头按C到B到A的方向拍摄，视线与原图相反"
-        : `新机位相对于180度反打位向${azimuth > 180 ? "右" : "左"}偏转${Math.abs(azimuth - 180)}度，保持向原拍摄点一侧回看`,
-      "展示原摄影机身后的空间；原图远处的背景应落到新摄影机身后或侧后方，不要仍把原背景拍在正前方",
-      "如果原图朝窗户拍摄，新机位应移到窗边、背靠窗户向室内拍摄，让窗户处于新机位身后或侧后方",
-      "只改变摄影机位置，不旋转房间和家具，不交换门窗位置，不做原图水平镜像",
-    );
-    if (elevation === 0) parts.push("保持平视，不要改为俯拍或仰拍");
-    if (distance === 50) parts.push("保持标准景别");
-  }
-  if (elevation > 0) parts.push(`将镜头转为俯视，俯视角度${elevation}度`);
-  if (elevation < 0) parts.push(`将镜头转为仰视，仰视角度${-elevation}度`);
-  if (distance === 0) parts.push("将镜头转为特写镜头");
-  if (distance === 100) parts.push("保持同一场景中原有物体的外观与相对位置");
-  return `${parts.length ? parts.join("。") : "保持原图正面视角与景别"}。`;
-}
 
 export const multiAngleArtifactPrefix = (key) => `canvas_lab_multi_angle_${key}`;
 

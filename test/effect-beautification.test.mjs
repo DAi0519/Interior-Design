@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含全景及风格转换脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
- * [OUTPUT]: 对外提供去除 LoRA 触发词后的六预设正文原样投递、默认值/非法值/单图校验、独立版本来源与脱敏、双 Provider 负向行为、功能标签和完整元信息穿透回归保障
+ * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含光影库/旧房/全景/风格转换脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
+ * [OUTPUT]: 对外提供OneAPI六预设原样/Flux专属LoRA触发词和空默认负向、节点准入、版本脱敏与实际参数归档，以及旧房/空房配置刷新回归
  * [POS]: test 的效果图美化服务端合同测试，模型与飞书只用内存替身，不生成或写入真实数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,6 +22,8 @@ import { betaConfigSnapshot, betaSceneParameters, buildBetaRunFields } from "../
 import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "../src/generation-jobs.mjs";
 import { readGenerationConfig } from "../src/generation-config.mjs";
+import { publicRoomRenovationConfig } from "../src/prompt-agent.mjs";
+import { negativePromptNote } from "../public/flux-negative-prompt.js";
 
 const PRESETS = {
   LOW: {
@@ -93,7 +95,7 @@ test("独立飞书来源只读取美化编码且按版本准入，浏览器只�
   assert.deepEqual(unavailable.versions, []);
 });
 
-test("六预设分别经 OneAPI/Flux 单图链路原样出图，不追加天气、时段或 Agent Prompt", async () => {
+test("六预设经OneAPI原样或Flux专属LoRA链路投递，实际正向及选择归档", async () => {
   for (const modelKey of ["gptImage2", "aiTextureEnhancement"]) {
     for (const intensity of ["low", "high"]) {
       for (const tone of ["natural", "warm", "cool"]) {
@@ -109,12 +111,20 @@ test("六预设分别经 OneAPI/Flux 单图链路原样出图，不追加天气�
           imageClient: { generateImage: async (value) => { request = value; return { images: [{ url: png }], transport: modelKey === "gptImage2" ? "responses" : "comfyui" }; } },
           scheduleSync: (value) => { archived = value; return { generationId: "generated", status: "pending" }; },
         });
-        const expected = PRESETS[intensity.toUpperCase()][tone.toUpperCase()];
+        const expected = `${modelKey === "aiTextureEnhancement" ? "zhiganEnhance, " : ""}${PRESETS[intensity.toUpperCase()][tone.toUpperCase()]}`;
         assert.equal(request.prompt, expected);
         assert.equal(request.images.length, 1);
         assert.equal(loadedVersion, 3);
-        if (modelKey === "aiTextureEnhancement") assert.equal(request.negative_prompt, "CUSTOM NEGATIVE");
-        else assert.equal("negative_prompt" in request, false);
+        if (modelKey === "aiTextureEnhancement") {
+          assert.equal(request.negative_prompt, "CUSTOM NEGATIVE");
+          assert.deepEqual(request.effect_beautification, { intensity, tone });
+          assert.deepEqual(request.effect_beautification_source, { width: 1, height: 1 });
+          assert.equal(archived.workflow.workflowId, "effect-render-beautification");
+          assert.equal(archived.workflow.steps, intensity === "low" ? 2 : 4);
+        } else {
+          assert.equal("negative_prompt" in request, false);
+          assert.equal("effect_beautification" in request, false);
+        }
         assert.equal(archived.finalPrompt, expected);
         assert.equal(archived.workflow.feature, "effect-render-beautification");
         assert.equal(archived.workflow.promptVersion, 3);
@@ -126,6 +136,29 @@ test("六预设分别经 OneAPI/Flux 单图链路原样出图，不追加天气�
       }
     }
   }
+});
+
+test("Flux美化默认负向为空且说明匹配，缺失LoRA在提交模型前拒绝", async () => {
+  let request, archived;
+  const deps = {
+    loadBeautificationPrompt: async () => promptAsset,
+    imageClient: { generateImage: async (value) => { request = value; return { images: [{ url: png }] }; } },
+    scheduleSync: (value) => { archived = value; return { status: "pending" }; },
+  };
+  await executeEffectRenderEnhancementWorkflow({ ...input, modelKey: "aiTextureEnhancement" }, deps);
+  assert.equal(request.negative_prompt, "");
+  assert.equal(archived.workflow.negativePrompt, "");
+  assert.match(negativePromptNote("", "effectBeautification"), /默认不使用负向提示词/);
+  assert.match(negativePromptNote("blur", "effectBeautification"), /覆盖美化工作流的空负向/);
+  let submitted = false;
+  await assert.rejects(() => executeEffectRenderEnhancementWorkflow({ ...input, modelKey: "aiTextureEnhancement" }, {
+    ...deps,
+    imageClient: {
+      getObjectInfo: async () => ({}),
+      generateImage: async () => { submitted = true; },
+    },
+  }), (error) => error.statusCode === 409);
+  assert.equal(submitted, false);
 });
 
 test("单图与非法选择在调用模型/Prompt 前失败", async () => {
@@ -170,8 +203,13 @@ test("新效果图美化在日常后台任务目录准入并把预设传到指�
 
 test("配置目录与刷新共用独立读取器，刷新穿透各来源且保持正文隔离", async () => {
   const calls = [];
-  const readers = Object.fromEntries(["styles", "promptAgents", "refinedPrompt", "effectEnhancementPrompt", "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "styleTransfer", "styleDna"].map((key) => [key, async (options) => {
+  const renovation = {
+    promptAgent: { defaultVersion: 7, versions: [{ code: "room-renovation-fusion", version: 7 }] },
+    smartDefault: { available: true, version: 8 },
+  };
+  const readers = Object.fromEntries(["styles", "promptAgents", "refinedPrompt", "refinedLighting", "effectEnhancementPrompt", "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "roomRenovation", "styleTransfer", "styleDna"].map((key) => [key, async (options) => {
     calls.push({ key, forceRefresh: options.forceRefresh });
+    if (key === "roomRenovation") return renovation;
     return key === "styles" || key === "promptAgents" ? [] : { version: key === "effectBeautificationPrompt" ? 1 : 13 };
   }]));
   const config = await readGenerationConfig({ readers });
@@ -179,9 +217,24 @@ test("配置目录与刷新共用独立读取器，刷新穿透各来源且保�
   assert.equal(config.effectEnhancementPrompt.version, 13);
   assert.equal(config.panoramaEnhancementPrompt.version, 13);
   assert.equal(config.styleTransfer.version, 13);
+  assert.equal(config.refinedLighting.version, 13);
+  assert.equal(config.emptyRoom.version, 13);
+  assert.deepEqual(config.roomRenovation, renovation);
   assert.equal(calls.some((call) => call.key === "styleDna"), false);
+  const isolated = await readGenerationConfig({ readers: { ...readers,
+    roomRenovation: (options) => publicRoomRenovationConfig({ ...options, run: async () => { throw new Error("旧房配置表不可用"); } }),
+  } });
+  assert.equal(isolated.roomRenovation.promptAgent.defaultVersion, null);
+  assert.deepEqual(isolated.roomRenovation.promptAgent.versions, []);
+  assert.equal(isolated.roomRenovation.promptAgent.reason, "旧房配置表不可用");
+  assert.equal(isolated.roomRenovation.smartDefault.available, false);
+  assert.equal(isolated.roomRenovation.smartDefault.reason, "旧房配置表不可用");
+  assert.deepEqual(isolated.emptyRoom, config.emptyRoom);
+  assert.deepEqual(isolated.smartDefault, config.smartDefault);
+  assert.notDeepEqual(isolated.roomRenovation, isolated.emptyRoom);
   calls.length = 0;
   await readGenerationConfig({ readers, forceRefresh: true });
-  assert.equal(calls.length, 10);
+  assert.equal(calls.length, 12);
+  assert.equal(calls.some((call) => call.key === "roomRenovation"), true);
   assert.equal(calls.every((call) => call.forceRefresh === true), true);
 });

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 真实图字节、六超分真源、Beta 超分合同/Runner/生成服务与内存健康/归档替身
- * [OUTPUT]: 对外提供六工作流身份/版本冻结、安全目录、整图及KS大面积分块节点准入、普通4K–8K及KS2X/4K/6K、lazy原图尺寸建档前拦截、双进度/仅同步重试及Beta独立归档/日常本机隔离回归保障
+ * [OUTPUT]: 对外提供六工作流身份/版本冻结、安全目录、整图及KS固定5K/其他20MP节点准入、普通4K–8K及KS2X/4K/6K、lazy原图尺寸建档前拦截、双进度/仅同步重试及Beta独立归档/日常本机隔离回归保障
  * [POS]: test 的 Beta AI超分合同及跨层内存集成测试，不启动服务、不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -69,7 +69,7 @@ function objectInfoFixture() {
       width: isDouble ? 1280 : 4096, height: isDouble ? 960 : 3072 })];
     if (workflow.key.startsWith("ks_")) graphs.push(createImageUpscaleWorkflow({
       artifactKey: "test-tile-capability", imageBase64: "", seed: 4,
-      generationRequest: { upscaleWorkflowKey: workflow.key, resolution: "6K" }, width: 6144, height: 6144,
+      generationRequest: { upscaleWorkflowKey: workflow.key, resolution: "6K", sourceWidth: 2048, sourceHeight: 2048 }, width: 6144, height: 6144,
     }));
     for (const node of graphs.flatMap((graph) => Object.values(graph))) {
       if (node.class_type === "SeedVR2LoadVAEModel") {

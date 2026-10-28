@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖生成动作 DOM、调用方提供的白模/空房/风格转换 Prompt 输入指纹与普通生成/图片超分/扩图/强制重新生成 Prompt 回调
- * [OUTPUT]: 对外提供旧房全流程单按钮及固定 START/RUNNING… 视觉文案、随生图/遮罩填充/图片超分/扩图/多角度/复用态变化的中文 aria-label、运行态 is-busy/aria-busy 语义、纯状态推导 generationActionState 与 bindGenerationActions 生成动作控制器
+ * [INPUT]: 依赖生成动作DOM、可选当前功能不可用原因、调用方的设计Prompt输入指纹与生成/强制重新生成回调
+ * [OUTPUT]: 对外提供设计Prompt复用动作、固定START/RUNNING…文案及中文动作语义、运行态语义与可恢复配置门禁，导出generationActionState/bindGenerationActions
  * [POS]: public 的生成动作状态层，负责首次单按钮与提示词可复用后的双按钮切换
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,7 +11,7 @@ export function generationActionState({
   featureMode,
   reusableIdentity = null,
 }) {
-  const designPromptFlow = ["whiteModel", "emptyRoom", "styleTransfer"].includes(featureMode);
+  const designPromptFlow = ["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(featureMode);
   const hasReusablePrompt = designPromptFlow
     && Boolean(reusableIdentity)
     && currentIdentity === reusableIdentity;
@@ -24,16 +24,17 @@ export function generationActionState({
         ? featureMode === "styleTransfer"
           ? hasReusablePrompt ? "再次转换风格" : "开始转换风格"
           : hasReusablePrompt ? "再次渲染" : "开始渲染"
-        : featureMode === "roomRenovation" ? "开始旧房改造"
         : featureMode === "imageMultiAngle" ? "开始多角度编辑"
         : featureMode === "imageOutpaint" ? "开始扩图"
         : featureMode === "imageMaskFill" ? "开始遮罩填充"
+        : featureMode === "imageRelight" ? "开始打光"
           : featureMode === "imageUpscale" ? "开始超分" : "开始生成",
   };
 }
 
 export function bindGenerationActions({
   getPromptIdentity,
+  getUnavailableReason = () => null,
   onGenerate,
   onRegenerate,
 }) {
@@ -50,6 +51,7 @@ export function bindGenerationActions({
   }
 
   function render() {
+    const unavailableReason = getUnavailableReason();
     const view = generationActionState({
       busy,
       currentIdentity: currentIdentity(),
@@ -62,8 +64,9 @@ export function bindGenerationActions({
     root.classList.toggle("has-reusable-prompt", view.hasReusablePrompt);
     root.classList.toggle("is-busy", busy);
     regenerateButton.classList.toggle("hidden", !view.hasReusablePrompt);
-    generateButton.disabled = busy;
-    regenerateButton.disabled = busy;
+    generateButton.disabled = busy || Boolean(unavailableReason);
+    regenerateButton.disabled = busy || Boolean(unavailableReason);
+    generateButton.title = unavailableReason || "";
   }
 
   generateButton.addEventListener("click", onGenerate);

@@ -2,7 +2,12 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+KS-固定4K推理-4K交付.MaaS.json: KS直入27.1固定4096推理直接交付4096的10节点14线画布，现有数学节点按原图比例计算宽高，无后置放大
+KS-固定4K推理-4K交付.MaaS.api.json: 独立4K执行图，仅input_img原图URL与result_img原始PNG；平台调用ID待发布，不传尺寸、不新增插件
+KS-固定5K推理-6K交付.MaaS.json: KS直入27.1固定5120推理/6144交付的12节点19线整理画布，唯一input_img、result_img原始PNG，现有节点且无新增插件
+KS-固定5K推理-6K交付.MaaS.api.json: 同正式固定值执行图，只适配URL输入与PNG报告；不含密钥/原图字节或生产调用ID，待平台发布联调
 
+effect-beautification/ - CF效果图美化六份原始画布及参数/旁路/来源说明、借鉴氛围v13的六段Prompt v3本地候选与静态校验；运行时src单图工厂，含1920推理与输出档区别
 flux2-mask-fill/ - 两份用户Flux2遮罩填充工作流的独立MaaS兼容版，原生条件/参考潜空间/噪声遮罩替代Painter，现有BiRefNet替代参考分割，含构建器、API/画布与验证证据
 Flux-Fill-OneReward-Outpaint.json: 当前2026-10-19.1执行图导出的19节点/26连线独立ComfyUI画布，原生上传、每轴32–4096px/32对齐、默认四边各128px、Janus自动英文提示词与SaveText透传，OneReward FP8/20步/CFG1/guidance30；无地址、密钥或内嵌图片
 Flux-Fill-OneReward-Outpaint说明.md: OneReward扩图导入方式、模型与自定义节点依赖、默认扩边/手工尺寸规则和导出核验边界

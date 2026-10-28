@@ -1,0 +1,15 @@
+/**
+ * [INPUT]: 依赖Main/Beta配置容器、辅助说明类与控制器提供的真实error状态
+ * [OUTPUT]: 统一移除参数面板说明段/维护入口，保留错误、历史恢复异常、标题计数及上传限制
+ * [POS]: public 的参数面板文案展示规则，独立于具体功能和模型执行合同
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+:is(#configurationPanel, #betaForm) .compact-config-note:not(.error):not([data-relight-context]):not([data-relight-history-parameters]):not([data-relight-legacy-template]) {
+  display: none;
+}
+:is(#configurationPanel, #betaForm) :is(.refined-prompt-source-link, [data-relight-prompt-link]) {
+  display: none;
+}
+#betaForm :is(.beta-outpaint-hint, .beta-upscale-hint, #outputSettingsHint, #panoramaFields) {
+  display: none;
+}

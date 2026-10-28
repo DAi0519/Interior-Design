@@ -1,0 +1,944 @@
+{
+  "at": "2026-10-23T09:16:23.037Z",
+  "workflowVersion": "2026-10-23.1",
+  "activePort": 4188,
+  "preservedExistingPort": 4173,
+  "focusedTests": {
+    "total": 48,
+    "pass": 48,
+    "fail": 0
+  },
+  "fullRegression": {
+    "total": 1135,
+    "pass": 1134,
+    "fail": 1,
+    "knownFailure": {
+      "file": "test/image-upscale.test.mjs:478",
+      "reason": "既有静态正则断言仍要求app.js内存在旧飞书准入表达式，当前准入已位于生成操作层；本轮未修改对应app.js或该测试"
+    }
+  },
+  "sourcePresets": 6,
+  "sourceHashesVerified": 6,
+  "liveCapabilitiesVerified": 6,
+  "promptVersion": 2,
+  "promptBodiesExactAfterTriggerRemoval": 6,
+  "liveSchemaVerified": true,
+  "browserChecks": {
+    "main": true,
+    "beta": true
+  },
+  "realCanary": {
+    "runs": 2,
+    "generated": 2,
+    "archived": 2,
+    "audit": "canary-audit-20261023.json",
+    "graphRecheckRequired": false,
+    "metadataLabelFollowup": "随后只补inferenceSize/inferenceResolution以避免4K/6K继承普通Flux旧标签，执行图未改变，48项合同已重跑"
+  },
+  "qualityConclusion": "只验证执行和归档一致性，未进行六预设代表样本质量评估",
+  "_retainedEvidence": {
+    "canary-audit-20261023.json": {
+      "sourceSha256": "00a6c1d86bcdc3ca6957acee9f554acf36b22518398c21f50612deba379d4723",
+      "content": {
+        "checkedAt": "2026-10-23T09:14:13.202Z",
+        "readOnly": true,
+        "remoteWrites": 0,
+        "gpuSubmissions": 0,
+        "scope": "independent History GET + exact Feishu record GET + local PNG/source workflow SHA audit",
+        "sourceImageSha256": "bdcf707e5a2784c6bb778a87ca51bbc9c3c685cccac74a7d5917f2ee29b7799d",
+        "passed": true,
+        "audits": [
+          {
+            "key": "low-natural",
+            "passed": true,
+            "recordId": "reczz28QnVVTK4b0",
+            "promptId": "aee2af3c-a554-4fa4-896d-6b2975ad3aa9",
+            "workflowVersion": "2026-10-23.1",
+            "promptVersion": 2,
+            "sourceSha256": "c04af0e4be2792b0d7193bb22fe8eb107caff0b1d03798a58a21858b0e6ef252",
+            "outputSha256": "b7ae4b3ad2bcd73f3b162ea1c9b3e26c127dfb0d40ae7e46e8c7fbca019fe12f",
+            "outputBytes": 5229638,
+            "outputDimensions": {
+              "height": 1600,
+              "width": 2592
+            },
+            "actualGraphNodeCount": 26,
+            "actualLoraStrength": 0.45,
+            "actualSteps": 2,
+            "actualColorMatch": 1,
+            "actualBrightnessContrast": null,
+            "actualTemperature": null,
+            "actualPositivePromptSha256": "bbd4e33f10afa99595c49198c4160a582db90029ad59f33f91da2ecf36e72322",
+            "larkFinalPromptSha256": "bbd4e33f10afa99595c49198c4160a582db90029ad59f33f91da2ecf36e72322",
+            "checks": [
+              {
+                "name": "historyPromptIdentity",
+                "passed": true
+              },
+              {
+                "name": "historyCompletedSuccess",
+                "passed": true
+              },
+              {
+                "name": "actualModelLoraAndSampler",
+                "passed": true
+              },
+              {
+                "name": "actualColorPostprocess",
+                "passed": true
+              },
+              {
+                "name": "actualPromptAndEmptyNegative",
+                "passed": true
+              },
+              {
+                "name": "uniqueOutput72",
+                "passed": true
+              },
+              {
+                "name": "actualInputSourceAndInference",
+                "passed": true
+              },
+              {
+                "name": "sourceWorkflowSha",
+                "passed": true
+              },
+              {
+                "name": "localPngSizeShaAndReceipt",
+                "passed": true
+              },
+              {
+                "name": "larkSuccessLabelsSizeAttachments",
+                "passed": true
+              },
+              {
+                "name": "larkMetadataMatchesReceipt",
+                "passed": true
+              }
+            ]
+          },
+          {
+            "key": "high-cool",
+            "passed": true,
+            "recordId": "reczz28QnX3gyfVw",
+            "promptId": "0d9aa6d4-4771-405d-828f-658cefc466b6",
+            "workflowVersion": "2026-10-23.1",
+            "promptVersion": 2,
+            "sourceSha256": "bb003074c6cf501f9f7612d8785d7b800593cc3f8b45a496f3c92433d2a7ae0d",
+            "outputSha256": "c1525070cf288d57b3e6e19694888e252e1c099cb693989735ca9f02b8c128b3",
+            "outputBytes": 5196980,
+            "outputDimensions": {
+              "height": 1600,
+              "width": 2592
+            },
+            "actualGraphNodeCount": 28,
+            "actualLoraStrength": 0.7,
+            "actualSteps": 4,
+            "actualColorMatch": 0.5,
+            "actualBrightnessContrast": {
+              "brightness": 0.97,
+              "contrast": 1.03,
+              "saturation": 1
+            },
+            "actualTemperature": 2,
+            "actualPositivePromptSha256": "c645608fedfed2f4d5c15d12eb4c4917d701f74bdf412e92ba0c130bd25da531",
+            "larkFinalPromptSha256": "c645608fedfed2f4d5c15d12eb4c4917d701f74bdf412e92ba0c130bd25da531",
+            "checks": [
+              {
+                "name": "historyPromptIdentity",
+                "passed": true
+              },
+              {
+                "name": "historyCompletedSuccess",
+                "passed": true
+              },
+              {
+                "name": "actualModelLoraAndSampler",
+                "passed": true
+              },
+              {
+                "name": "actualColorPostprocess",
+                "passed": true
+              },
+              {
+                "name": "actualPromptAndEmptyNegative",
+                "passed": true
+              },
+              {
+                "name": "uniqueOutput72",
+                "passed": true
+              },
+              {
+                "name": "actualInputSourceAndInference",
+                "passed": true
+              },
+              {
+                "name": "sourceWorkflowSha",
+                "passed": true
+              },
+              {
+                "name": "localPngSizeShaAndReceipt",
+                "passed": true
+              },
+              {
+                "name": "larkSuccessLabelsSizeAttachments",
+                "passed": true
+              },
+              {
+                "name": "larkMetadataMatchesReceipt",
+                "passed": true
+              }
+            ]
+          }
+        ],
+        "qualityReview": "No image-quality conclusion; audit verifies submitted graph, archive and artifacts only."
+      }
+    },
+    "canary-high-cool-receipt.json": {
+      "sourceSha256": "d23a4eb2fa744a7e44c99851df6f062774a2e1374182c17d4940d7b2c16161b0",
+      "content": {
+        "durationMs": 56290,
+        "images": [
+          {
+            "path": "canary-high-cool.png",
+            "sha256": "c1525070cf288d57b3e6e19694888e252e1c099cb693989735ca9f02b8c128b3",
+            "bytes": 5196980
+          }
+        ],
+        "prompt": {
+          "code": "effect-render-beautification",
+          "name": "效果图美化强度与色调 Prompt",
+          "published": true,
+          "version": 2
+        },
+        "request": {
+          "referenceImageCount": 1,
+          "model": "comfyui:ai-texture-enhancement",
+          "negativePromptMode": "default",
+          "outputFormat": "png",
+          "quality": null,
+          "ratio": "source",
+          "referenceImages": [
+            {
+              "fileName": "效果图美化接入验证-客厅.png",
+              "height": 1600,
+              "mimeType": "image/png",
+              "size": 6162729,
+              "width": 2592
+            }
+          ],
+          "resolution": "2K",
+          "size": "2592x1600",
+          "sizeMode": "source-tier",
+          "inferenceSize": "1920x1200",
+          "provider": "comfyui",
+          "transport": "comfyui-workflow",
+          "effectBeautification": {
+            "intensity": "high",
+            "tone": "cool"
+          }
+        },
+        "sync": {
+          "error": null,
+          "generationId": "55e90e54-c6d9-4dff-8ef7-b403706b154d",
+          "recordId": null,
+          "recordUrl": null,
+          "status": "pending"
+        },
+        "upstream": {
+          "created": 1792746686,
+          "metadata": {
+            "artifactKey": "7f46555c-ce8b-4ebd-8f57-03f0a46c05ec",
+            "engine": "comfyui",
+            "executionDurationMs": 37291,
+            "inferenceHeight": 1200,
+            "inferenceWidth": 1920,
+            "model": "flux-2-klein-9b-fp8.safetensors",
+            "negativePromptMode": "default",
+            "outputFilename": "CanvasLab_Flux2Klein_7f46555c-ce8b-4ebd-8f57-03f0a46c05ec_00001_.png",
+            "outputHeight": 1600,
+            "outputSha256": "c1525070cf288d57b3e6e19694888e252e1c099cb693989735ca9f02b8c128b3",
+            "outputWidth": 2592,
+            "promptId": "0d9aa6d4-4771-405d-828f-658cefc466b6",
+            "queueDurationMs": 2284,
+            "resolution": "2K",
+            "seed": 975770921,
+            "steps": 4,
+            "upscaleResolution": null,
+            "upscaleWorkflowKey": null,
+            "workflowId": "effect-render-beautification",
+            "workflowVersion": "2026-10-23.1",
+            "sourceWidth": 2592,
+            "sourceHeight": 1600,
+            "resizedWidth": 1920,
+            "resizedHeight": 1185,
+            "padRight": 0,
+            "padBottom": 15,
+            "effectBeautification": {
+              "intensity": "high",
+              "tone": "cool"
+            },
+            "effectBeautificationPresetKey": "high-cool",
+            "sampler": "euler",
+            "cfg": 1,
+            "lora": "flux/flux2_klein9B_zhiganEnhance_v1_000006000.safetensors",
+            "loraStrength": 0.7,
+            "trigger": "zhiganEnhance",
+            "colorMatchChannels": "ab",
+            "colorMatchStrength": 0.5,
+            "brightnessContrast": {
+              "brightness": 0.97,
+              "contrast": 1.03,
+              "saturation": 1
+            },
+            "temperature": 2,
+            "maxInferenceEdge": 1920,
+            "sourceFileName": "高增强-冷调.json",
+            "sourceSha256": "bb003074c6cf501f9f7612d8785d7b800593cc3f8b45a496f3c92433d2a7ae0d",
+            "maasParameterId": 1119,
+            "maasStrategyId": 683,
+            "sourceWorkflowOutput": "restore-source-size",
+            "outputAdaptation": "workbench-resolution-tier"
+          },
+          "outputFormat": "png",
+          "transport": "comfyui-workflow"
+        }
+      }
+    },
+    "canary-low-natural-receipt.json": {
+      "sourceSha256": "166df3eeb07c5e5a7ff27ac3a7aadfc084a93c0eba4bdd55411191b180d1deeb",
+      "content": {
+        "durationMs": 53324,
+        "images": [
+          {
+            "path": "canary-low-natural.png",
+            "sha256": "b7ae4b3ad2bcd73f3b162ea1c9b3e26c127dfb0d40ae7e46e8c7fbca019fe12f",
+            "bytes": 5229638
+          }
+        ],
+        "prompt": {
+          "code": "effect-render-beautification",
+          "name": "效果图美化强度与色调 Prompt",
+          "published": true,
+          "version": 2
+        },
+        "request": {
+          "referenceImageCount": 1,
+          "model": "comfyui:ai-texture-enhancement",
+          "negativePromptMode": "default",
+          "outputFormat": "png",
+          "quality": null,
+          "ratio": "source",
+          "referenceImages": [
+            {
+              "fileName": "效果图美化接入验证-客厅.png",
+              "height": 1600,
+              "mimeType": "image/png",
+              "size": 6162729,
+              "width": 2592
+            }
+          ],
+          "resolution": "2K",
+          "size": "2592x1600",
+          "sizeMode": "source-tier",
+          "inferenceSize": "1920x1200",
+          "provider": "comfyui",
+          "transport": "comfyui-workflow",
+          "effectBeautification": {
+            "intensity": "low",
+            "tone": "natural"
+          }
+        },
+        "sync": {
+          "error": null,
+          "generationId": "932b61b4-a6e1-4706-8a84-4e34ad7af0c7",
+          "recordId": null,
+          "recordUrl": null,
+          "status": "pending"
+        },
+        "upstream": {
+          "created": 1792746597,
+          "metadata": {
+            "artifactKey": "1d8b1217-a0d4-4819-adfd-9a3d98de67dd",
+            "engine": "comfyui",
+            "executionDurationMs": 33614,
+            "inferenceHeight": 1200,
+            "inferenceWidth": 1920,
+            "model": "flux-2-klein-9b-fp8.safetensors",
+            "negativePromptMode": "default",
+            "outputFilename": "CanvasLab_Flux2Klein_1d8b1217-a0d4-4819-adfd-9a3d98de67dd_00001_.png",
+            "outputHeight": 1600,
+            "outputSha256": "b7ae4b3ad2bcd73f3b162ea1c9b3e26c127dfb0d40ae7e46e8c7fbca019fe12f",
+            "outputWidth": 2592,
+            "promptId": "aee2af3c-a554-4fa4-896d-6b2975ad3aa9",
+            "queueDurationMs": 2390,
+            "resolution": "2K",
+            "seed": 3955428174,
+            "steps": 2,
+            "upscaleResolution": null,
+            "upscaleWorkflowKey": null,
+            "workflowId": "effect-render-beautification",
+            "workflowVersion": "2026-10-23.1",
+            "sourceWidth": 2592,
+            "sourceHeight": 1600,
+            "resizedWidth": 1920,
+            "resizedHeight": 1185,
+            "padRight": 0,
+            "padBottom": 15,
+            "effectBeautification": {
+              "intensity": "low",
+              "tone": "natural"
+            },
+            "effectBeautificationPresetKey": "low-natural",
+            "sampler": "euler",
+            "cfg": 1,
+            "lora": "flux/flux2_klein9B_zhiganEnhance_v1_000006000.safetensors",
+            "loraStrength": 0.45,
+            "trigger": "zhiganEnhance",
+            "colorMatchChannels": "ab",
+            "colorMatchStrength": 1,
+            "brightnessContrast": null,
+            "temperature": null,
+            "maxInferenceEdge": 1920,
+            "sourceFileName": "低增强-自然调.json",
+            "sourceSha256": "c04af0e4be2792b0d7193bb22fe8eb107caff0b1d03798a58a21858b0e6ef252",
+            "maasParameterId": 1114,
+            "maasStrategyId": 678,
+            "sourceWorkflowOutput": "restore-source-size",
+            "outputAdaptation": "workbench-resolution-tier"
+          },
+          "outputFormat": "png",
+          "transport": "comfyui-workflow"
+        }
+      }
+    },
+    "canary-summary-20261023.json": {
+      "sourceSha256": "c73e64dd1d1c6e40dbe5d224205053af501e443880cd142b9ca32c12ae94fe3d",
+      "content": {
+        "at": "2026-10-23T09:09:20.392Z",
+        "sourcePath": "outputs/room-renovation/2026-10-23-v4-clear-first/03-living-result.png",
+        "sourceSha256": "bdcf707e5a2784c6bb778a87ca51bbc9c3c685cccac74a7d5917f2ee29b7799d",
+        "runs": [
+          {
+            "key": "low-natural",
+            "jobId": "generation-beautification-356ece1b-0640-4ad8-b625-4262eb960d67",
+            "durationMs": 53324,
+            "images": [
+              {
+                "path": "canary-low-natural.png",
+                "sha256": "b7ae4b3ad2bcd73f3b162ea1c9b3e26c127dfb0d40ae7e46e8c7fbca019fe12f",
+                "bytes": 5229638
+              }
+            ],
+            "prompt": {
+              "code": "effect-render-beautification",
+              "name": "效果图美化强度与色调 Prompt",
+              "published": true,
+              "version": 2
+            },
+            "request": {
+              "referenceImageCount": 1,
+              "model": "comfyui:ai-texture-enhancement",
+              "negativePromptMode": "default",
+              "outputFormat": "png",
+              "quality": null,
+              "ratio": "source",
+              "referenceImages": [
+                {
+                  "fileName": "效果图美化接入验证-客厅.png",
+                  "height": 1600,
+                  "mimeType": "image/png",
+                  "size": 6162729,
+                  "width": 2592
+                }
+              ],
+              "resolution": "2K",
+              "size": "2592x1600",
+              "sizeMode": "source-tier",
+              "inferenceSize": "1920x1200",
+              "provider": "comfyui",
+              "transport": "comfyui-workflow",
+              "effectBeautification": {
+                "intensity": "low",
+                "tone": "natural"
+              }
+            },
+            "sync": {
+              "error": null,
+              "generationId": "932b61b4-a6e1-4706-8a84-4e34ad7af0c7",
+              "recordId": "reczz28QnVVTK4b0",
+              "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28QnVVTK4b0",
+              "status": "success"
+            },
+            "upstream": {
+              "created": 1792746597,
+              "metadata": {
+                "artifactKey": "1d8b1217-a0d4-4819-adfd-9a3d98de67dd",
+                "engine": "comfyui",
+                "executionDurationMs": 33614,
+                "inferenceHeight": 1200,
+                "inferenceWidth": 1920,
+                "model": "flux-2-klein-9b-fp8.safetensors",
+                "negativePromptMode": "default",
+                "outputFilename": "CanvasLab_Flux2Klein_1d8b1217-a0d4-4819-adfd-9a3d98de67dd_00001_.png",
+                "outputHeight": 1600,
+                "outputSha256": "b7ae4b3ad2bcd73f3b162ea1c9b3e26c127dfb0d40ae7e46e8c7fbca019fe12f",
+                "outputWidth": 2592,
+                "promptId": "aee2af3c-a554-4fa4-896d-6b2975ad3aa9",
+                "queueDurationMs": 2390,
+                "resolution": "2K",
+                "seed": 3955428174,
+                "steps": 2,
+                "upscaleResolution": null,
+                "upscaleWorkflowKey": null,
+                "workflowId": "effect-render-beautification",
+                "workflowVersion": "2026-10-23.1",
+                "sourceWidth": 2592,
+                "sourceHeight": 1600,
+                "resizedWidth": 1920,
+                "resizedHeight": 1185,
+                "padRight": 0,
+                "padBottom": 15,
+                "effectBeautification": {
+                  "intensity": "low",
+                  "tone": "natural"
+                },
+                "effectBeautificationPresetKey": "low-natural",
+                "sampler": "euler",
+                "cfg": 1,
+                "lora": "flux/flux2_klein9B_zhiganEnhance_v1_000006000.safetensors",
+                "loraStrength": 0.45,
+                "trigger": "zhiganEnhance",
+                "colorMatchChannels": "ab",
+                "colorMatchStrength": 1,
+                "brightnessContrast": null,
+                "temperature": null,
+                "maxInferenceEdge": 1920,
+                "sourceFileName": "低增强-自然调.json",
+                "sourceSha256": "c04af0e4be2792b0d7193bb22fe8eb107caff0b1d03798a58a21858b0e6ef252",
+                "maasParameterId": 1114,
+                "maasStrategyId": 678,
+                "sourceWorkflowOutput": "restore-source-size",
+                "outputAdaptation": "workbench-resolution-tier"
+              },
+              "outputFormat": "png",
+              "transport": "comfyui-workflow"
+            }
+          },
+          {
+            "key": "high-cool",
+            "jobId": "generation-beautification-db5b584a-2478-425c-be03-47840de7ebb5",
+            "durationMs": 56290,
+            "images": [
+              {
+                "path": "canary-high-cool.png",
+                "sha256": "c1525070cf288d57b3e6e19694888e252e1c099cb693989735ca9f02b8c128b3",
+                "bytes": 5196980
+              }
+            ],
+            "prompt": {
+              "code": "effect-render-beautification",
+              "name": "效果图美化强度与色调 Prompt",
+              "published": true,
+              "version": 2
+            },
+            "request": {
+              "referenceImageCount": 1,
+              "model": "comfyui:ai-texture-enhancement",
+              "negativePromptMode": "default",
+              "outputFormat": "png",
+              "quality": null,
+              "ratio": "source",
+              "referenceImages": [
+                {
+                  "fileName": "效果图美化接入验证-客厅.png",
+                  "height": 1600,
+                  "mimeType": "image/png",
+                  "size": 6162729,
+                  "width": 2592
+                }
+              ],
+              "resolution": "2K",
+              "size": "2592x1600",
+              "sizeMode": "source-tier",
+              "inferenceSize": "1920x1200",
+              "provider": "comfyui",
+              "transport": "comfyui-workflow",
+              "effectBeautification": {
+                "intensity": "high",
+                "tone": "cool"
+              }
+            },
+            "sync": {
+              "error": null,
+              "generationId": "55e90e54-c6d9-4dff-8ef7-b403706b154d",
+              "recordId": "reczz28QnX3gyfVw",
+              "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28QnX3gyfVw",
+              "status": "success"
+            },
+            "upstream": {
+              "created": 1792746686,
+              "metadata": {
+                "artifactKey": "7f46555c-ce8b-4ebd-8f57-03f0a46c05ec",
+                "engine": "comfyui",
+                "executionDurationMs": 37291,
+                "inferenceHeight": 1200,
+                "inferenceWidth": 1920,
+                "model": "flux-2-klein-9b-fp8.safetensors",
+                "negativePromptMode": "default",
+                "outputFilename": "CanvasLab_Flux2Klein_7f46555c-ce8b-4ebd-8f57-03f0a46c05ec_00001_.png",
+                "outputHeight": 1600,
+                "outputSha256": "c1525070cf288d57b3e6e19694888e252e1c099cb693989735ca9f02b8c128b3",
+                "outputWidth": 2592,
+                "promptId": "0d9aa6d4-4771-405d-828f-658cefc466b6",
+                "queueDurationMs": 2284,
+                "resolution": "2K",
+                "seed": 975770921,
+                "steps": 4,
+                "upscaleResolution": null,
+                "upscaleWorkflowKey": null,
+                "workflowId": "effect-render-beautification",
+                "workflowVersion": "2026-10-23.1",
+                "sourceWidth": 2592,
+                "sourceHeight": 1600,
+                "resizedWidth": 1920,
+                "resizedHeight": 1185,
+                "padRight": 0,
+                "padBottom": 15,
+                "effectBeautification": {
+                  "intensity": "high",
+                  "tone": "cool"
+                },
+                "effectBeautificationPresetKey": "high-cool",
+                "sampler": "euler",
+                "cfg": 1,
+                "lora": "flux/flux2_klein9B_zhiganEnhance_v1_000006000.safetensors",
+                "loraStrength": 0.7,
+                "trigger": "zhiganEnhance",
+                "colorMatchChannels": "ab",
+                "colorMatchStrength": 0.5,
+                "brightnessContrast": {
+                  "brightness": 0.97,
+                  "contrast": 1.03,
+                  "saturation": 1
+                },
+                "temperature": 2,
+                "maxInferenceEdge": 1920,
+                "sourceFileName": "高增强-冷调.json",
+                "sourceSha256": "bb003074c6cf501f9f7612d8785d7b800593cc3f8b45a496f3c92433d2a7ae0d",
+                "maasParameterId": 1119,
+                "maasStrategyId": 683,
+                "sourceWorkflowOutput": "restore-source-size",
+                "outputAdaptation": "workbench-resolution-tier"
+              },
+              "outputFormat": "png",
+              "transport": "comfyui-workflow"
+            }
+          }
+        ]
+      }
+    },
+    "detector.json": {
+      "sourceSha256": "579848c66a010c875e356177a30f8021405893cb21b4bf358ff896f063998d62",
+      "content": [
+        {
+          "antipattern": "broken-image",
+          "name": "Broken or placeholder image",
+          "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+          "severity": "warning",
+          "category": "quality",
+          "file": "/Users/dai/Work_qunhe/Interior Design/public/index.html",
+          "line": 371,
+          "snippet": "<img id=\"imageOutpaintSourceImage\" class=\"image-outpaint-source-image\" alt=\"扩图原图的位置预览\" />"
+        },
+        {
+          "antipattern": "broken-image",
+          "name": "Broken or placeholder image",
+          "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+          "severity": "warning",
+          "category": "quality",
+          "file": "/Users/dai/Work_qunhe/Interior Design/public/index.html",
+          "line": 782,
+          "snippet": "<img id=\"larkQrCode\" alt=\"飞书授权二维码\" />"
+        }
+      ]
+    },
+    "live-contract-20261023.json": {
+      "sourceSha256": "a04b5131f03f26cfb2ba6646dd439541a2586d18708ed0fbcfaa039d8cb6592b",
+      "content": {
+        "checkedAt": "2026-10-23T09:05:53.532Z",
+        "readOnly": true,
+        "remoteWrites": 0,
+        "gpuCalls": 0,
+        "checks": [
+          {
+            "name": "prompt",
+            "ok": true,
+            "value": {
+              "code": "effect-render-beautification",
+              "version": 2,
+              "published": true,
+              "promptJsonSha256": "f83f6005674fec9a9ac8182a8895bab85c6660bb3ef11d6265d9cf17ec0c4c72",
+              "matches": [
+                {
+                  "intensity": "LOW",
+                  "tone": "NATURAL",
+                  "workflowFileSha256": "c04af0e4be2792b0d7193bb22fe8eb107caff0b1d03798a58a21858b0e6ef252",
+                  "positiveNodeId": "CLIPTextEncode-27235e40e21924396cd7d6470ecd5417",
+                  "sourcePromptSha256": "bbd4e33f10afa99595c49198c4160a582db90029ad59f33f91da2ecf36e72322",
+                  "sourceWithoutTriggerSha256": "4dba31c8b79dda227a32d7f880fb9db9569c0172379e8846e181fdc3a5933782",
+                  "livePromptSha256": "4dba31c8b79dda227a32d7f880fb9db9569c0172379e8846e181fdc3a5933782",
+                  "exactEqualsFullSource": false,
+                  "equalsAfterRemovingTrigger": true,
+                  "equalAfterTrim": true,
+                  "liveContainsTrigger": false,
+                  "sourceCharacters": 142,
+                  "liveCharacters": 127
+                },
+                {
+                  "intensity": "LOW",
+                  "tone": "WARM",
+                  "workflowFileSha256": "7b5d12986ea804f3864c47275ba26ea3c2d7d6b0e471feb9c3893f287a5c7f37",
+                  "positiveNodeId": "CLIPTextEncode-27235e40e21924396cd7d6470ecd5417",
+                  "sourcePromptSha256": "65f41ba42165f61cbfe5a69232e9e766f075853014cc25cab82ad86dc6bbebc0",
+                  "sourceWithoutTriggerSha256": "892e5218cfaee101db6bdb4b1463c68fa0cf76888a0ff44c988f864986362e8a",
+                  "livePromptSha256": "892e5218cfaee101db6bdb4b1463c68fa0cf76888a0ff44c988f864986362e8a",
+                  "exactEqualsFullSource": false,
+                  "equalsAfterRemovingTrigger": true,
+                  "equalAfterTrim": true,
+                  "liveContainsTrigger": false,
+                  "sourceCharacters": 167,
+                  "liveCharacters": 152
+                },
+                {
+                  "intensity": "LOW",
+                  "tone": "COOL",
+                  "workflowFileSha256": "ce31b19955cf2da8ac430d85e12947cc5efea9ef3b28ee67dc5a340308234780",
+                  "positiveNodeId": "CLIPTextEncode-27235e40e21924396cd7d6470ecd5417",
+                  "sourcePromptSha256": "623e642d83ebede28939869b53cac521172acc8922d1674138d2bd20a654f0f0",
+                  "sourceWithoutTriggerSha256": "8c1fb93380c2d6ebf0fd1f0dcb887fa5dbebc58a93d6d361cdf3891a909c3c26",
+                  "livePromptSha256": "8c1fb93380c2d6ebf0fd1f0dcb887fa5dbebc58a93d6d361cdf3891a909c3c26",
+                  "exactEqualsFullSource": false,
+                  "equalsAfterRemovingTrigger": true,
+                  "equalAfterTrim": true,
+                  "liveContainsTrigger": false,
+                  "sourceCharacters": 249,
+                  "liveCharacters": 234
+                },
+                {
+                  "intensity": "HIGH",
+                  "tone": "NATURAL",
+                  "workflowFileSha256": "c890fb067cb9c71351cef9eb10bb6c331dc90be2fc4985b20de624bfbd281b74",
+                  "positiveNodeId": "CLIPTextEncode-27235e40e21924396cd7d6470ecd5417",
+                  "sourcePromptSha256": "2c17d4d23c141237e9fad5ad02f55dc6f1edd041df97d3f5957974011c6f3e45",
+                  "sourceWithoutTriggerSha256": "a85d424546b21760babcfecbab2bf602d20ce6705f28a38b0fedfbd1875d06da",
+                  "livePromptSha256": "a85d424546b21760babcfecbab2bf602d20ce6705f28a38b0fedfbd1875d06da",
+                  "exactEqualsFullSource": false,
+                  "equalsAfterRemovingTrigger": true,
+                  "equalAfterTrim": true,
+                  "liveContainsTrigger": false,
+                  "sourceCharacters": 271,
+                  "liveCharacters": 256
+                },
+                {
+                  "intensity": "HIGH",
+                  "tone": "WARM",
+                  "workflowFileSha256": "c25e1f503a4fedb1a0b506ca863c09dc013d4fdf21fd3750125ede68cb27d585",
+                  "positiveNodeId": "CLIPTextEncode-27235e40e21924396cd7d6470ecd5417",
+                  "sourcePromptSha256": "35db3aea414f2bbeef681187f30f368e87e472e1cad95d344333f692e45287fe",
+                  "sourceWithoutTriggerSha256": "32ac5ec7d76990f76b91aaebc3311cd37140b6767e295126624951829b7ac2ed",
+                  "livePromptSha256": "32ac5ec7d76990f76b91aaebc3311cd37140b6767e295126624951829b7ac2ed",
+                  "exactEqualsFullSource": false,
+                  "equalsAfterRemovingTrigger": true,
+                  "equalAfterTrim": true,
+                  "liveContainsTrigger": false,
+                  "sourceCharacters": 338,
+                  "liveCharacters": 323
+                },
+                {
+                  "intensity": "HIGH",
+                  "tone": "COOL",
+                  "workflowFileSha256": "bb003074c6cf501f9f7612d8785d7b800593cc3f8b45a496f3c92433d2a7ae0d",
+                  "positiveNodeId": "CLIPTextEncode-27235e40e21924396cd7d6470ecd5417",
+                  "sourcePromptSha256": "c645608fedfed2f4d5c15d12eb4c4917d701f74bdf412e92ba0c130bd25da531",
+                  "sourceWithoutTriggerSha256": "50ba02748b897848ec39582cb129e445fc16685cebf691ba03f4edc9da2da3f5",
+                  "livePromptSha256": "50ba02748b897848ec39582cb129e445fc16685cebf691ba03f4edc9da2da3f5",
+                  "exactEqualsFullSource": false,
+                  "equalsAfterRemovingTrigger": true,
+                  "equalAfterTrim": true,
+                  "liveContainsTrigger": false,
+                  "sourceCharacters": 350,
+                  "liveCharacters": 335
+                }
+              ]
+            }
+          },
+          {
+            "name": "generationRecordSchema",
+            "ok": true,
+            "value": {
+              "tableId": "tblFWdK9RlSiZRKC",
+              "fullVerifierPassed": true,
+              "fieldCount": 34,
+              "schemaSha256": "475d600524334804fb1a62188ed781ac5f5d5799461ae456b19b66b5ccdd0885",
+              "featureContainsEffectBeautification": true,
+              "fluxModelOptions": [
+                "Flux2 Klein",
+                "Flux Fill OneReward（FP8）",
+                "Flux Fill Dev（原版）",
+                "Flux2 Klein 9B · 遮罩填充"
+              ],
+              "metadataFieldTypes": {
+                "功能": "select",
+                "生图模型": "select",
+                "生成参数": "text",
+                "最终 Prompt": "text",
+                "Agent 编码": "text",
+                "Agent 版本": "number"
+              }
+            }
+          },
+          {
+            "name": "betaSchema",
+            "ok": true,
+            "value": {
+              "tableId": "tblrue5KUj7VNDD2",
+              "fullVerifierPassed": true,
+              "tablesChecked": [
+                "tblZHiPlolFYcG1t",
+                "tblrue5KUj7VNDD2",
+                "tblQmKbAHOCPcct7"
+              ],
+              "fieldCount": 31,
+              "schemaSha256": "4b2238b7a06e4394936d8bbe500f0ed2c94efb84fdc5c4db0ac2c27423739491",
+              "featureContainsEffectBeautification": true,
+              "fluxModelOptions": [
+                "Flux2 Klein",
+                "Flux Fill OneReward（FP8）",
+                "Flux Fill Dev（原版）"
+              ],
+              "metadataFieldTypes": {
+                "功能": "select",
+                "出图模型": "select",
+                "生成参数": "text",
+                "配置快照": "text",
+                "场景参数": "text",
+                "最终 Prompt": "text",
+                "Prompt / 工作流版本": "text",
+                "Agent 编码": "text",
+                "Agent 版本": "number"
+              }
+            }
+          }
+        ],
+        "metadataProjection": {
+          "remoteWrites": 0,
+          "passed": 6,
+          "projections": [
+            {
+              "preset": "low-natural",
+              "normalMetadataPreserved": true,
+              "betaMetadataPreserved": true,
+              "betaVersion": "effect-render-beautification@2026-10-23.1 · effect-render-beautification@v2"
+            },
+            {
+              "preset": "low-warm",
+              "normalMetadataPreserved": true,
+              "betaMetadataPreserved": true,
+              "betaVersion": "effect-render-beautification@2026-10-23.1 · effect-render-beautification@v2"
+            },
+            {
+              "preset": "low-cool",
+              "normalMetadataPreserved": true,
+              "betaMetadataPreserved": true,
+              "betaVersion": "effect-render-beautification@2026-10-23.1 · effect-render-beautification@v2"
+            },
+            {
+              "preset": "high-natural",
+              "normalMetadataPreserved": true,
+              "betaMetadataPreserved": true,
+              "betaVersion": "effect-render-beautification@2026-10-23.1 · effect-render-beautification@v2"
+            },
+            {
+              "preset": "high-warm",
+              "normalMetadataPreserved": true,
+              "betaMetadataPreserved": true,
+              "betaVersion": "effect-render-beautification@2026-10-23.1 · effect-render-beautification@v2"
+            },
+            {
+              "preset": "high-cool",
+              "normalMetadataPreserved": true,
+              "betaMetadataPreserved": true,
+              "betaVersion": "effect-render-beautification@2026-10-23.1 · effect-render-beautification@v2"
+            }
+          ]
+        }
+      }
+    },
+    "new-process-20261023.json": {
+      "sourceSha256": "79a968081f8048211e11a2b3f280ee70bd98e6e3e5688abed5016da076f773d5",
+      "content": {
+        "checkedAt": "2026-10-23T09:14:43.504Z",
+        "port": 4188,
+        "flux": {
+          "accent": "lime",
+          "defaultFormat": "png",
+          "defaultQuality": null,
+          "defaultRatio": "source",
+          "defaultResolution": "2K",
+          "description": "ComfyUI · Flux2 Klein，1K/2K 原生输出，4K/6K 在同一工作流接攸行超分",
+          "featureSizeOverrides": null,
+          "formats": [
+            "png"
+          ],
+          "id": "comfyui:ai-texture-enhancement",
+          "key": "aiTextureEnhancement",
+          "label": "Flux2 Klein",
+          "maxReferenceImages": 1,
+          "provider": "comfyui",
+          "qualityOptions": [],
+          "postUpscale": {
+            "4K": {
+              "longEdge": 4096,
+              "sourceResolution": "2K"
+            },
+            "6K": {
+              "longEdge": 6144,
+              "sourceResolution": "2K"
+            }
+          },
+          "requiresReferenceImage": true,
+          "sizes": {
+            "source": {
+              "1K": "1048576",
+              "2K": "4194304"
+            }
+          },
+          "sizingMode": "source"
+        },
+        "beautificationPrompt": {
+          "available": true,
+          "code": "effect-render-beautification",
+          "defaultVersion": 2,
+          "name": "效果图美化强度与色调 Prompt",
+          "published": true,
+          "version": 2,
+          "versions": [
+            {
+              "code": "effect-render-beautification",
+              "name": "效果图美化强度与色调 Prompt",
+              "published": true,
+              "version": 2
+            }
+          ]
+        },
+        "upstreamBodiesExposed": false
+      }
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "d1e02aac87243126361846aea4120fc2b53a0ec58a8e078fa9fbec197e323e84",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# effect-beautification/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\n\nCLAUDE.md: 本次效果图美化/氛围转换界面证据地图，截图与配置回读均不代表真实出图质量通过\ndesktop.jpg: 2026-10-12 主工作台美化强度/色调桌面截图，说明改用 muted 并沿用共享键面\nuser-714.jpg: 2026-10-12 用户实际 714px 窗口美化控件截图\nmobile.jpg: 2026-10-12 主工作台 390px 窄屏美化控件截图\natmosphere.jpg: 2026-10-12 旧功能更名与 v13/时段/天气独立配置截图，标题/状态整体换行避免单字碎行\nbeta.jpg: 2026-10-12 Beta 六功能与共用美化控件桌面截图\ndetector.json: 新增 UI 目标的一次静态设计检测结果，历史 token 规则不等于本次视觉缺陷\ncanary-audit-20261023.json: 2026-10-23 低自然/高冷两次真实 canary 的独立只读审计，ComfyUI History 实际节点、按 ID 飞书回读、源文件与本地 PNG 的 SHA/尺寸全部一致；不代表画质验收\nlive-contract-20261023.json: 飞书v2六正文去触发词后与六源图逐字相等、实时普通/Beta Schema及六预设归档JSON投影的只读证据\nnew-process-20261023.json: 最终源码新进程4188的Flux目录/上架Prompt v2/正文脱敏回读，原4173生成任务不重启\nmain-20261023.png: 主工作台六预设/高冷选中、Flux模型及空默认负向说明的真实浏览器截图\ncontrols-20261023.png: 主截图中美化六预设控件原像素裁剪，排除无关浏览器内容\nbeta-20261023.png: Beta美化任务/上架v2/六预设共用控件及现有样本集回读截图，未启动批量GPU\ncanary-source.png: 两次canary共同使用的已有2592×1600客厅效果图原字节副本\ncanary-low-natural.png: 2步/LoRA0.45/ab1/亮度色温旁路的实际PNG，原有2K档2592×1600\ncanary-high-cool.png: 4步/LoRA0.7/ab0.5/亮度0.97对比1.03饱和1/色温2的实际PNG，同尺寸\ncanary-low-natural-receipt.json: 低自然实际出图回执、专属产物SHA/尺寸/LoRA/来源参数与初始同步身份\ncanary-high-cool-receipt.json: 高冷实际出图回执、专属产物SHA/尺寸/后处理/来源参数与初始同步身份\ncanary-summary-20261023.json: 两张真实生成和飞书同步成功总回执，保留recordId/recordUrl，不代表六预设画质通过\nfocused-tests-20261023.log: 最终48项相关合同测试全部通过日志，不包含额外GPU执行\nvalidation-20261023.json: 本轮六源/实时节点/Schema/浏览器/两次canary及48项测试总证据，标明全套1135项中既有超分静态断言1项失败\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n"
+  }
+}

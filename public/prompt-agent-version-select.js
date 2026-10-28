@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖场景融合 Agent 脱敏版本目录、原生 select 与 sessionStorage
- * [OUTPUT]: 对外提供 bindPromptAgentVersionSelect，负责已上架版本的默认选择、记忆与下拉渲染
+ * [INPUT]: 依赖场景融合Agent脱敏版本目录、原生select、sessionStorage及可选记忆scope
+ * [OUTPUT]: 对外提供上架版本选择/记忆/渲染，旧房以独立scope隔离版本，其余调用保持原全局存储键
  * [POS]: public 的场景融合 Agent 版本选择控制器，与融合基模和出图模型状态分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,19 +8,25 @@
 const STORAGE_KEY = "canvas-lab.prompt-agent-version";
 
 export function bindPromptAgentVersionSelect({ availability, select }) {
+  let activeScope = "";
   let selectedVersion = Number(sessionStorage.getItem(STORAGE_KEY)) || null;
   let versions = [];
+  const storageKey = () => activeScope ? `${STORAGE_KEY}:${activeScope}` : STORAGE_KEY;
 
   function setSelectedVersion(version) {
     selectedVersion = Number(version) || null;
     if (selectedVersion) {
-      sessionStorage.setItem(STORAGE_KEY, String(selectedVersion));
+      sessionStorage.setItem(storageKey(), String(selectedVersion));
     } else {
-      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(storageKey());
     }
   }
 
-  function render(config = {}) {
+  function render(config = {}, { scope = "" } = {}) {
+    if (scope !== activeScope) {
+      activeScope = scope;
+      selectedVersion = Number(sessionStorage.getItem(storageKey())) || null;
+    }
     versions = [...(config.versions || [])].sort(
       (left, right) => right.version - left.version,
     );
@@ -48,7 +54,7 @@ export function bindPromptAgentVersionSelect({ availability, select }) {
 
   select.addEventListener("change", (event) => {
     setSelectedVersion(event.target.value);
-    render({ versions });
+    render({ versions }, { scope: activeScope });
   });
 
   return {

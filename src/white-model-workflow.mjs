@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖白模/空房/风格转换的独立 Prompt Agent 配置、空房必填房间类型、“其他”详情及最终家具选择、Style DNA、必填主图与可选风格参考图、可选 Flux 负向 Prompt、双 Provider 出图矩阵、批次元数据、提示词缓存、OneAPI Prompt 客户端与可独立注入的图像客户端
- * [OUTPUT]: 对外提供白模/空房智能默认或平台融合、日常及 Beta 共用的风格转换显式来源/冻结版本校验与独立 Agent 分流；完整准入后可注入主图预处理供旧房先清空，处理后的主图进入 Agent、缓存、最终出图及归档
+ * [INPUT]: 依赖白模/空房/旧房/风格转换的独立飞书Agent、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
+ * [OUTPUT]: 对外提供白模/空房/旧房及风格转换Agent分流与单次出图归档；旧房独立读取上架Prompt及版本，System Prompt与Agent输出不拼接或覆盖，缓存按实际Agent正文和版本隔离
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,7 @@ import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs"
 import {
   EMPTY_ROOM_PROMPT_CONFIG,
   getPublishedPromptAgent,
+  ROOM_RENOVATION_PROMPT_CONFIG,
   STYLE_TRANSFER_PROMPT_CONFIG,
 } from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
@@ -30,6 +31,8 @@ export const STYLE_REFERENCE_RENDER_MODE = "style-reference";
 export const EMPTY_ROOM_FEATURE_MODE = "emptyRoom";
 export const WHITE_MODEL_FEATURE_MODE = "whiteModel";
 export const STYLE_TRANSFER_FEATURE_MODE = "styleTransfer";
+
+const ROOM_RENOVATION_SCENARIO = "room-renovation";
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -189,6 +192,13 @@ export function buildEmptyRoomFusionPromptAgentInput({
   ].join("\n");
 }
 
+function buildRoomRenovationPromptAgentInput({ smartDefault, ...options }) {
+  const prompt = smartDefault
+    ? buildEmptyRoomSmartDefaultPromptAgentInput(options)
+    : buildEmptyRoomFusionPromptAgentInput(options);
+  return prompt.replace(/^请执行空房/, "请执行旧房改造");
+}
+
 export function buildStyleTransferPromptAgentInput({
   hasStyleReference = false,
   renderMode,
@@ -272,6 +282,7 @@ export function normalizeStyleTransferSelection(input, { styleReferenceCount = n
 
 function promptResultCacheKey({
   agent,
+  designScenario,
   featureMode,
   furnitureSelection,
   promptModel,
@@ -289,6 +300,7 @@ function promptResultCacheKey({
     agent.version,
     agent.systemPrompt,
     featureMode,
+    ...(designScenario ? [designScenario] : []),
     JSON.stringify(furnitureSelection || null),
     promptModel.id,
     renderMode,
@@ -321,7 +333,6 @@ export async function executeWhiteModelWorkflow(
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
     promptResultCache = null,
-    prepareSourceImage = null,
     refreshModels = null,
     scheduleSync = null,
   },
@@ -337,6 +348,10 @@ export async function executeWhiteModelWorkflow(
   }
   const featureMode = normalizeFeatureMode(input);
   const emptyRoom = featureMode === EMPTY_ROOM_FEATURE_MODE;
+  const designScenario = input.designScenario;
+  if (designScenario !== undefined && (!emptyRoom || designScenario !== ROOM_RENOVATION_SCENARIO)) {
+    throw workflowError("旧房提示词场景仅支持空房设计的 room-renovation");
+  }
   const styleTransfer = featureMode === STYLE_TRANSFER_FEATURE_MODE;
   const roomType = emptyRoom ? normalizeEmptyRoomType(input.roomType) : null;
   if (emptyRoom && !String(input.roomType || "").trim()) {
@@ -364,7 +379,7 @@ export async function executeWhiteModelWorkflow(
     : null;
   const furnitureSelection = emptyRoom
     ? normalizeFurnitureSelection(input.furnitureSelection, roomType) : null;
-  let sourceImages = normalizeReferenceImages(input.referenceImages);
+  const sourceImages = normalizeReferenceImages(input.referenceImages);
   if (sourceImages.length !== 1) {
     throw workflowError(
       emptyRoom
@@ -405,17 +420,18 @@ export async function executeWhiteModelWorkflow(
       ]);
     }
   } else if (emptyRoom) {
+    const config = designScenario ? ROOM_RENOVATION_PROMPT_CONFIG : EMPTY_ROOM_PROMPT_CONFIG;
     if (smartDefault) {
-      agent = await loadAgent("empty-room-smart-default", {
-        config: EMPTY_ROOM_PROMPT_CONFIG,
-        version: input.emptyRoomSmartDefaultVersion,
+      agent = await loadAgent(designScenario ? "room-renovation-smart-default" : "empty-room-smart-default", {
+        config,
+        version: designScenario ? input.roomRenovationSmartDefaultVersion : input.emptyRoomSmartDefaultVersion,
       });
     } else {
       [style, agent] = await Promise.all([
         loadStyle(input.styleCode),
-        loadAgent("empty-room-fusion", {
-          config: EMPTY_ROOM_PROMPT_CONFIG,
-          version: input.emptyRoomPromptAgentVersion,
+        loadAgent(designScenario ? "room-renovation-fusion" : "empty-room-fusion", {
+          config,
+          version: designScenario ? input.roomRenovationPromptAgentVersion : input.emptyRoomPromptAgentVersion,
         }),
       ]);
     }
@@ -445,18 +461,6 @@ export async function executeWhiteModelWorkflow(
     throw workflowError(`${promptModel.label} 当前未向这个 API Key 开放`, 409);
   }
 
-  // -------- 旧房预处理须晚于配置准入，早于 Agent 读取与缓存指纹 --------
-  let generationInput = input;
-  if (prepareSourceImage) {
-    createGenerationRequest({ ...input, prompt: "Validate design parameters" }, {
-      preferSourceAspect: input.ratioMode !== "manual",
-    });
-    const referenceImages = await prepareSourceImage(sourceImages[0]);
-    sourceImages = normalizeReferenceImages(referenceImages, { maxCount: 1 });
-    if (sourceImages.length !== 1) throw workflowError("主图预处理必须返回 1 张有效图片", 502);
-    generationInput = { ...input, referenceImages };
-  }
-
   const startedAt = Date.now();
   const promptStartedAt = Date.now();
   let promptGenerated = false;
@@ -480,6 +484,16 @@ export async function executeWhiteModelWorkflow(
             styleDna: style?.styleDna,
             userRequirements,
           })
+        : designScenario
+          ? buildRoomRenovationPromptAgentInput({
+              furnitureSelection,
+              hasStyleReference: styleReferences.length > 0,
+              roomType,
+              roomTypeDetail,
+              smartDefault,
+              styleDna: style?.styleDna,
+              userRequirements,
+            })
         : emptyRoom
         ? smartDefault
           ? buildEmptyRoomSmartDefaultPromptAgentInput({
@@ -507,18 +521,16 @@ export async function executeWhiteModelWorkflow(
               userRequirements,
             }),
     });
-    return JSON.stringify(
-      parsePromptAgentOutput(promptResult.text, {
-        strict: smartDefault || emptyRoom || styleTransfer,
-      }),
-      null,
-      2,
-    );
+    const payload = parsePromptAgentOutput(promptResult.text, {
+      strict: smartDefault || emptyRoom || styleTransfer,
+    });
+    return JSON.stringify(payload, null, 2);
   };
   const finalPrompt = promptResultCache
     ? await promptResultCache.get(
         promptResultCacheKey({
           agent,
+          designScenario,
           featureMode,
           furnitureSelection,
           promptModel,
@@ -538,7 +550,7 @@ export async function executeWhiteModelWorkflow(
   const promptReused = Boolean(promptResultCache && !promptGenerated);
   const generation = createGenerationRequest(
     {
-      ...generationInput,
+      ...input,
       prompt: finalPrompt,
     },
     {
@@ -587,6 +599,7 @@ export async function executeWhiteModelWorkflow(
     ...(roomType ? { roomType } : {}),
     ...(roomTypeDetail ? { roomTypeDetail } : {}),
     ...(emptyRoom ? { furnitureSelection } : {}),
+    ...(designScenario ? { designScenario } : {}),
     selectionName: styleReference ? "参考图风格" : smartDefault ? "智能默认" : style.name,
     styleReferenceUsed: styleReferences.length > 0,
     ...(generation.workflowMetadata || {}),
@@ -617,6 +630,7 @@ export async function executeWhiteModelWorkflow(
   return {
     durationMs,
     featureMode,
+    ...(designScenario ? { designScenario } : {}),
     images: result.images,
     promptAgent: {
       durationMs: promptDurationMs,

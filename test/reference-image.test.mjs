@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、参考图安全边界与浏览器上传控制器，以及轻量 DOM/FileReader/Image 替身
- * [OUTPUT]: 对外提供参考图策略、可信宽高/字节校验、单图选择/拖入替换、同文件重选/取消/失败保留与多图追加回归保障
+ * [OUTPUT]: 对外提供图片策略/字节尺寸、最新有效单图并发优先/非法取消不打断、替换失败保留、多图追加及禁用/clear异步取消与通知回归
  * [POS]: test 的参考图能力与上传交互契约测试，不上传文件或调用公司 API
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -116,9 +116,10 @@ test("拒绝 SVG、伪造 MIME 和错误字节数", () => {
 });
 
 // -------- 用可等待的文件选择事件覆盖真实控制器，不读取本地文件 --------
-function uploadFixture(t, { limit = 1, policy = {} } = {}) {
+function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true } = {}) {
   const original = Object.fromEntries(["document", "FileReader", "Image"].map((key) => [key, globalThis[key]]));
   const sources = new Map();
+  const reads = [], pendingReads = [];
   const element = () => {
     const listeners = new Map(), classes = new Set();
     return {
@@ -138,9 +139,11 @@ function uploadFixture(t, { limit = 1, policy = {} } = {}) {
   globalThis.FileReader = class {
     addEventListener(name, callback) { this[name] = callback; }
     readAsDataURL(file) {
+      reads.push(file.name);
       this.result = `data:${file.type};base64,${Buffer.from(file.name).toString("base64")}`;
       sources.set(this.result, file);
-      queueMicrotask(() => this[file.readError ? "error" : "load"]());
+      const finish = () => this[file.readError ? "error" : "load"]();
+      if (file.deferRead) pendingReads.push(finish); else queueMicrotask(finish);
     }
   };
   globalThis.Image = class {
@@ -160,8 +163,10 @@ function uploadFixture(t, { limit = 1, policy = {} } = {}) {
   const changes = [], messages = [];
   const controller = bindReferenceUpload({ ...ui, getLimit: () => limit,
     getPolicy: () => ({ ...REFERENCE_IMAGE_POLICY, ...policy }), getSubject: () => "原图",
+    isEnabled,
     onChange: (change) => changes.push(change), showToast: (message) => messages.push(message) });
-  return { ...ui, controller, changes, messages,
+  return { ...ui, controller, changes, messages, reads,
+    finishRead(index = 0) { assert.ok(pendingReads[index], "应有尚未完成的文件读取"); pendingReads.splice(index, 1)[0](); },
     async select(files) {
       ui.input.files = files; ui.input.value = files.length ? `C:\\fakepath\\${files[0].name}` : "";
       await ui.input.emit("change");
@@ -195,6 +200,42 @@ test("单图先选择A再选择B原位替换，同文件重选、取消和拖入
   assert.equal(ui.controller.images()[0].name, "A.png");
   assert.deepEqual(ui.changes[3].previousImages, [sameFile]);
   assert.deepEqual(ui.messages, []);
+});
+
+for (const oldFinishesFirst of [true, false]) {
+  test(`有效单图读取重叠时最后选择B获胜，${oldFinishesFirst ? "A先读完" : "B先读完"}也不追加或覆盖`, async (t) => {
+    const ui = uploadFixture(t);
+    const pendingA = ui.select([uploadFile("A.png", { deferRead: true })]);
+    const pendingB = ui.select([uploadFile("B.png", { deferRead: true })]);
+    assert.deepEqual(ui.reads, ["A.png", "B.png"]);
+    ui.finishRead(oldFinishesFirst ? 0 : 1);
+    await (oldFinishesFirst ? pendingA : pendingB);
+    assert.deepEqual(ui.controller.images().map(image => image.name), oldFinishesFirst ? [] : ["B.png"]);
+    ui.finishRead();
+    await (oldFinishesFirst ? pendingB : pendingA);
+    assert.deepEqual(ui.controller.images().map(image => image.name), ["B.png"]);
+    assert.equal(ui.count.textContent, "1 / 1");
+    assert.equal(ui.changes.length, 1);
+    assert.deepEqual(ui.changes[0].previousImages, []);
+    assert.deepEqual(ui.messages, []);
+  });
+}
+
+test("单图后续格式/大小校验失败或取消不打断已开始的有效读取", async (t) => {
+  const ui = uploadFixture(t, { policy: { maxBytesPerImage: 16 * 1024 * 1024, maxTotalBytes: 8 * 1024 * 1024 } });
+  const pending = ui.select([uploadFile("valid.png", { deferRead: true })]);
+  await ui.select([uploadFile("invalid.svg", { type: "image/svg+xml" })]);
+  await ui.select([uploadFile("too-large.png", { size: 17 * 1024 * 1024 })]);
+  await ui.select([uploadFile("too-large-total.png", { size: 9 * 1024 * 1024 })]);
+  await ui.select([]);
+  assert.deepEqual(ui.reads, ["valid.png"]);
+  assert.deepEqual(ui.controller.images(), []);
+  assert.deepEqual(ui.changes, []);
+  ui.finishRead();
+  await pending;
+  assert.deepEqual(ui.controller.images().map(image => image.name), ["valid.png"]);
+  assert.equal(ui.changes.length, 1);
+  assert.equal(ui.messages.length, 3);
 });
 
 test("替换的格式、单图容量、读取或解码校验失败均保留旧图", async (t) => {
@@ -238,4 +279,72 @@ test("多图文件选择继续追加，达到合计容量时保留全部旧图",
   assert.deepEqual(ui.controller.images(), before);
   assert.equal(ui.changes.length, 2);
   assert.match(ui.messages.at(-1), /合计不能超过 8MB/);
+});
+
+test("互斥禁用同时阻断文件选择、空位拖放及旧图替换，解锁后可以继续上传", async (t) => {
+  let enabled = false;
+  const ui = uploadFixture(t, { isEnabled: () => enabled });
+  ui.controller.render();
+  assert.equal(ui.input.disabled, true);
+  await ui.select([uploadFile("blocked-input.png")]);
+  await ui.dropZone.emit("drop", { dataTransfer: { files: [uploadFile("blocked-drop.png")] } });
+  assert.deepEqual(ui.reads, []);
+  assert.deepEqual(ui.controller.images(), []);
+  assert.deepEqual(ui.changes, []);
+  enabled = true; ui.controller.render();
+  assert.equal(ui.input.disabled, false);
+  await ui.select([uploadFile("A.png")]);
+  const previous = ui.controller.images();
+  enabled = false; ui.controller.render();
+  await ui.select([uploadFile("blocked-replace-input.png")]);
+  await ui.list.emit("drop", { dataTransfer: { files: [uploadFile("blocked-replace-drop.png")] } });
+  assert.deepEqual(ui.controller.images(), previous);
+  assert.deepEqual(ui.reads, ["A.png"]);
+  assert.equal(ui.changes.length, 1);
+  assert.deepEqual(ui.messages, []);
+  enabled = true; ui.controller.render();
+  await ui.select([uploadFile("B.png")]);
+  assert.equal(ui.controller.images()[0].name, "B.png");
+});
+
+test("文件读取途中切换互斥选项不会回写旧上传，快速解锁也不恢复过期读取", async (t) => {
+  let enabled = true;
+  const ui = uploadFixture(t, { isEnabled: () => enabled });
+  await ui.select([uploadFile("A.png")]);
+  const previous = ui.controller.images();
+  const pending = ui.select([uploadFile("late.png", { deferRead: true })]);
+  enabled = false; ui.controller.render();
+  enabled = true; ui.controller.render();
+  ui.finishRead(); await pending;
+  assert.deepEqual(ui.controller.images(), previous);
+  assert.equal(ui.changes.length, 1);
+  assert.deepEqual(ui.messages, []);
+  const locked = ui.select([uploadFile("still-locked.png", { deferRead: true })]);
+  enabled = false;
+  ui.finishRead(); await locked;
+  assert.deepEqual(ui.controller.images(), previous, "未重新渲染时也检查当前启用状态");
+  assert.equal(ui.changes.length, 1);
+});
+
+test("clear清空内存和文件栏并中断在途读取，静默恢复不通知，默认清除保留previousImages", async (t) => {
+  const ui = uploadFixture(t);
+  await ui.select([uploadFile("A.png")]);
+  const silentPending = ui.select([uploadFile("late-A.png", { deferRead: true })]);
+  ui.controller.clear({ notify: false });
+  assert.deepEqual(ui.controller.images(), []);
+  assert.equal(ui.input.value, "");
+  assert.equal(ui.count.textContent, "0 / 1");
+  assert.equal(ui.changes.length, 1);
+  ui.finishRead(); await silentPending;
+  assert.deepEqual(ui.controller.images(), []);
+  assert.equal(ui.changes.length, 1);
+  await ui.select([uploadFile("B.png")]);
+  const previous = ui.controller.images();
+  const pending = ui.select([uploadFile("late-B.png", { deferRead: true })]);
+  ui.controller.clear();
+  assert.deepEqual(ui.changes.at(-1), { images: [], previousImages: previous });
+  ui.finishRead(); await pending;
+  assert.deepEqual(ui.controller.images(), []);
+  assert.equal(ui.changes.length, 3);
+  assert.deepEqual(ui.messages, []);
 });

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖效果图氛围转换/六预设美化/可指定冻结版本全景图三张独立飞书 Prompt 表、受控天气/时段或强度/色调、单图、模型矩阵、批次与图像客户端及非阻塞归档
- * [OUTPUT]: 对外提供单轮效果图氛围转换/美化和全景图美化、原样固定 Prompt、共享双 Provider 工作流、实际预设/参数摘要与飞书同步任务
+ * [INPUT]: 依赖三张独立飞书 Prompt 表、美化六预设工作流/LoRA触发词及节点准入、天气/时段或强度/色调、单图、模型矩阵、批次与图像客户端及非阻塞归档
+ * [OUTPUT]: 对外提供单轮氛围/美化/全景服务，Flux美化专属图与实际触发词/空默认负向归档、OneAPI原样正文，以及脱敏预设/推理尺寸摘要
  * [POS]: src 的效果图与全景图应用服务，各自隔离 Prompt 真源并复用普通出图基础设施，不经过 Prompt Agent
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,12 @@ import {
 } from "./effect-beautification-prompt.mjs";
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
+import {
+  EFFECT_BEAUTIFICATION_REQUIRED_NODES,
+  composeFluxBeautificationPrompt,
+  effectBeautificationMetadata,
+  verifyEffectBeautificationCapabilities,
+} from "./effect-beautification-workflow.mjs";
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -51,7 +57,7 @@ export async function executeEffectRenderEnhancementWorkflow(
   const promptAsset = await (beautification
     ? loadBeautificationPrompt({ version: input.effectBeautificationPromptVersion })
     : panorama ? loadPanoramaPrompt({ version: input.panoramaPromptVersion }) : loadEffectPrompt());
-  const finalPrompt = panorama
+  let finalPrompt = panorama
     ? composePanoramaEnhancementPrompt(promptAsset.prompt)
     : beautification ? composeEffectBeautificationPrompt(promptAsset.prompt, selection)
       : composeEffectEnhancementPrompt(promptAsset.prompt, {
@@ -69,6 +75,28 @@ export async function executeEffectRenderEnhancementWorkflow(
       },
     },
   );
+  if (beautification && generation.provider === "comfyui") {
+    finalPrompt = composeFluxBeautificationPrompt(finalPrompt);
+    generation.request.prompt = finalPrompt;
+    generation.request.effect_beautification = selection;
+    generation.request.effect_beautification_source = {
+      width: referenceImages[0].width,
+      height: referenceImages[0].height,
+    };
+    // -- 源图默认负向为空，自定义仍整段覆盖 ---------------------------
+    if (generation.request.negative_prompt_mode === "default") {
+      generation.request.negative_prompt = "";
+      generation.workflowMetadata.negativePrompt = "";
+    }
+    const metadata = effectBeautificationMetadata(generation.request);
+    generation.preview.inferenceSize = metadata.inferenceSize;
+    generation.preview.inferenceResolution = metadata.inferenceResolution;
+    generation.workflowMetadata = { ...generation.workflowMetadata, ...metadata };
+    if (imageClient.getObjectInfo) {
+      const objectInfo = await imageClient.getObjectInfo(EFFECT_BEAUTIFICATION_REQUIRED_NODES);
+      verifyEffectBeautificationCapabilities(objectInfo, selection);
+    }
+  }
   const startedAt = Date.now();
   const result = await imageClient.generateImage(generation.request);
   const resultImage = result.images?.[0];

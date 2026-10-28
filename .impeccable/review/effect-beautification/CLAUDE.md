@@ -2,13 +2,14 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+canary-source.png: 保留原字节的真实源图或模型原件，身份与尺寸见validation-20261023.json
+canary-low-natural.png: 保留原字节的真实源图或模型原件，身份与尺寸见validation-20261023.json
+canary-high-cool.png: 保留原字节的真实源图或模型原件，身份与尺寸见validation-20261023.json
+validation-20261023.json: 原有验证正文及_retainedEvidence合并的实际任务/Prompt/同步/参数证据，未新增实测
+CLAUDE.md: 本模块最小真实评测证据地图
 
-CLAUDE.md: 本次效果图美化/氛围转换界面证据地图，截图与配置回读均不代表真实出图质量通过
-desktop.jpg: 2026-10-12 主工作台美化强度/色调桌面截图，说明改用 muted 并沿用共享键面
-user-714.jpg: 2026-10-12 用户实际 714px 窗口美化控件截图
-mobile.jpg: 2026-10-12 主工作台 390px 窄屏美化控件截图
-atmosphere.jpg: 2026-10-12 旧功能更名与 v13/时段/天气独立配置截图，标题/状态整体换行避免单字碎行
-beta.jpg: 2026-10-12 Beta 六功能与共用美化控件桌面截图
-detector.json: 新增 UI 目标的一次静态设计检测结果，历史 token 规则不等于本次视觉缺陷
+2026-10-23低自然/高冷两次真实canary与共同源图；专属图执行归档通过，不等于六预设画质验收
+
+旧界面截图、测试日志和重复衍生资料已移入废纸篓；原文件名在合并证据中仅表示来源身份。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

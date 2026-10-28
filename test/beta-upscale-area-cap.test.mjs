@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖真实PNG字节、KS执行计划/元数据、Beta Runner/任务注册表和Base内存CLI替身
- * [OUTPUT]: 验证KS整图20MP补齐面积上限/成品恢复及历史整图/分块合同；受信旧任务冷恢复附件，缺结果或篡改冻结字段零建档/零GPU拒绝
+ * [OUTPUT]: 验证KS直入固定5K/其他档20MP与历史整图/分块合同；受信旧任务冷恢复附件，缺结果或篡改冻结字段零建档/零GPU拒绝
  * [POS]: test 的KS版本化整图归档与历史分块冷恢复跨层测试，补充beta-upscale与beta-base常规用例
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,7 +16,7 @@ import { normalizeBetaUpscaleInput, readBetaUpscaleConfig, verifyBetaUpscaleBatc
 import { createBetaRunnerService } from "../src/beta-runner.mjs";
 import { createGenerationJobRegistry } from "../src/generation-jobs.mjs";
 import { createImageUpscaleWorkflow, IMAGE_UPSCALE_WORKFLOWS,
-  imageUpscaleTargetDimensions, imageUpscaleWorkflowMetadata } from "../src/image-upscale-workflow.mjs";
+  imageUpscaleTargetDimensions, imageUpscaleWorkflowMetadata, imageUpscaleAreaCapDimensions } from "../src/image-upscale-workflow.mjs";
 
 const KEY = "ks_seedvr2_2x_direct";
 const TEST_TIME = "2026-10-26 18:00:00";
@@ -34,7 +34,7 @@ function capabilityFixture() {
       const resolution = tiled ? "6K" : workflow.resolutions[0].key;
       const target = imageUpscaleTargetDimensions({ width: tiled ? 2048 : 1024, height: tiled ? 2048 : 768 }, resolution, workflow.key);
       const graph = createImageUpscaleWorkflow({ artifactKey: "test-capabilities", imageBase64: "", seed: 4,
-        generationRequest: { upscaleWorkflowKey: workflow.key, resolution }, ...target });
+        generationRequest: { upscaleWorkflowKey: workflow.key, resolution, sourceWidth: tiled ? 2048 : 1024, sourceHeight: tiled ? 2048 : 768 }, ...target });
       for (const node of Object.values(graph)) {
         const required = (info[node.class_type] ||= { input: { required: {} } }).input.required;
         for (const field of Object.keys(node.inputs)) required[field] = ["ANY"];
@@ -58,6 +58,17 @@ test("两KS整图不依赖Split或Merge，缺画布缩放节点只禁两KS", asy
   }
 });
 
+test("固定5K所需现有读尺寸/数学节点失效只禁直入版，不影响KS075", async () => {
+  for (const missing of ["GetImageSize", "SimpleMathDual+", "SimpleMath+"]) {
+    const info = capabilityFixture(); assert.ok(info[missing]); delete info[missing];
+    const config = await readBetaUpscaleConfig({ async checkHealth() { return { available: true }; },
+      async getObjectInfo([type]) { return info[type] ? { [type]: info[type] } : {}; } });
+    assert.equal(config.workflows.find(w => w.key === KEY).available, false);
+    assert.equal(config.workflows.find(w => w.key === "ks_seedvr2_2x").available, true);
+    assert.equal(config.workflows.filter(w => w.available).length, 5);
+  }
+});
+
 test("Beta超分服务端冻结版本，执行准入拒绝后续输入漂移", () => {
   const input = normalizedInput();
   assert.equal(input.upscaleWorkflowVersion, definition.version);
@@ -68,9 +79,10 @@ test("Beta超分服务端冻结版本，执行准入拒绝后续输入漂移", (
     (error) => error.statusCode === 409 && error.retryable === false);
 });
 
-function archiveFixture({ legacy = false, legacyArea = false, legacyTiled = false, patch = () => {},
-  snapshotVersion = legacy ? undefined : legacyArea ? "2026-10-26.1" : legacyTiled ? "2026-10-26.2" : definition.version,
-  workflowKey = KEY, resolution = "6K", sourceWidth = 1152, sourceHeight = 864, sourceImage = source, png = outputBytes } = {}) {
+function archiveFixture({ legacy = false, legacyArea = false, legacyTiled = false, legacyCapped = false, patch = () => {},
+  workflowKey = KEY,
+  snapshotVersion = legacy ? undefined : legacyArea ? "2026-10-26.1" : legacyTiled ? "2026-10-26.2" : legacyCapped ? "2026-10-26.3" : IMAGE_UPSCALE_WORKFLOWS[workflowKey].version,
+  resolution = "6K", sourceWidth = 1152, sourceHeight = 864, sourceImage = source, png = outputBytes } = {}) {
   const input = { ...normalizeBetaUpscaleInput({ upscaleWorkflowKey: workflowKey, resolution }), referenceImages: [sourceImage] };
   const target = imageUpscaleTargetDimensions({ width: sourceWidth, height: sourceHeight }, resolution, workflowKey);
   const inputBytes = Buffer.from(sourceImage.dataUrl.slice(sourceImage.dataUrl.indexOf(",") + 1), "base64");
@@ -86,7 +98,7 @@ function archiveFixture({ legacy = false, legacyArea = false, legacyTiled = fals
     outputSha256: createHash("sha256").update(png).digest("hex"),
     promptId: "test-prompt-tiling", seed: 42, executionDurationMs: 123, queueDurationMs: 1 }), feature: "image-upscale" };
   if (legacy || legacyArea || legacyTiled) {
-    for (const key of ["inferenceWidth", "inferenceHeight", "paddedInferencePixels", "inferencePixelLimit", "deliveryPostResize"]) delete metadata[key];
+    for (const key of ["inferenceWidth", "inferenceHeight", "paddedInferencePixels", "inferencePixelLimit", "deliveryPostResize", "fixedInferenceLongEdge"]) delete metadata[key];
   }
   if (legacy) {
     metadata.workflowVersion = "2026-10-21.1";
@@ -120,6 +132,15 @@ function archiveFixture({ legacy = false, legacyArea = false, legacyTiled = fals
     metadata.tiling = { tileWidth, tileHeight, overlap: 256, rows: count(target.height, tileHeight),
       columns: count(target.width, tileWidth), tileCount: count(target.height, tileHeight) * count(target.width, tileWidth) };
   }
+  if (legacyCapped) {
+    const { width, height } = imageUpscaleAreaCapDimensions(target.width, target.height);
+    Object.assign(metadata, { workflowVersion: "2026-10-26.3", executionPolicyVersion: "ks-whole-area-cap-v3",
+      inferenceWidth: width, inferenceHeight: height, inferencePixelLimit: 20000000,
+      paddedInferencePixels: Math.ceil(width / 16) * 16 * Math.ceil(height / 16) * 16,
+      seedVrResolution: Math.min(width, height), seedVrMaxResolution: Math.max(width, height),
+      deliveryPostResize: width !== target.width || height !== target.height });
+    delete metadata.fixedInferenceLongEdge;
+  }
   patch(metadata);
   const sync = captureBetaGenerationArchive({ durationMs: 123, modelLabel: IMAGE_UPSCALE_WORKFLOWS[workflowKey].label, finalPrompt: "",
     preview: { outputFormat: "png", resolution, ratio: "original" }, workflow: metadata });
@@ -146,12 +167,12 @@ function archiveFixture({ legacy = false, legacyArea = false, legacyTiled = fals
   return { store, fields, result, item, commands, target };
 }
 
-test("KS整图推理补齐面积严格小于20MP并恢复6K成品，参数漂移在上传前阻断", async () => {
+test("KS直入固定5K推理并恢复6K成品，参数漂移在上传前阻断", async () => {
   const corruptions = [null, (m) => { m.seedVrResolution = 4608; }, (m) => { m.seedVrMaxResolution = 6144; },
     (m) => { m.blocksToSwap = 32; }, (m) => { m.swapIoComponents = false; },
     (m) => { m.tiling = { overlap: 256 }; }, (m) => { m.inferenceWidth += 2; },
     (m) => { m.executionStrategy = "tiled"; }, (m) => { m.paddedInferencePixels = 20000000; },
-    (m) => { m.inferencePixelLimit = 21000000; }, (m) => { m.deliveryPostResize = false; },
+    (m) => { m.inferencePixelLimit = 20000000; }, (m) => { m.fixedInferenceLongEdge = 4992; }, (m) => { m.deliveryPostResize = false; },
     (m) => { delete m.inferenceHeight; },
     (m) => { delete m.executionStrategy; }, (m) => { m.workflowVersion = "2026-10-21.1"; }];
   for (const corruption of corruptions) {
@@ -166,10 +187,12 @@ test("KS整图推理补齐面积严格小于20MP并恢复6K成品，参数漂移
       assert.equal(archived.attachment.fileToken, "output-token");
       assert.equal(archived.attachment.size, outputBytes.length);
       const metadata = JSON.parse(fixture.fields["生成参数"]).workflow;
-      assert.equal(metadata.seedVrResolution, 3864);
-      assert.equal(metadata.seedVrMaxResolution, 5152);
-      assert.deepEqual([metadata.inferenceWidth, metadata.inferenceHeight], [5152, 3864]);
-      assert.equal(metadata.paddedInferencePixels, 19948544);
+      assert.equal(metadata.seedVrResolution, 3840);
+      assert.equal(metadata.seedVrMaxResolution, 5120);
+      assert.deepEqual([metadata.inferenceWidth, metadata.inferenceHeight], [5120, 3840]);
+      assert.equal(metadata.paddedInferencePixels, 19660800);
+      assert.equal(metadata.fixedInferenceLongEdge, 5120);
+      assert.equal(Object.hasOwn(metadata, "inferencePixelLimit"), false);
       assert.equal(metadata.deliveryPostResize, true);
       assert.equal(metadata.requestedOutputWidth, 6144);
       assert.equal(metadata.outputWidth, 6144);
@@ -190,7 +213,7 @@ test("两KS小图与横竖窄图保持整图推理，未超限不做交付插值
       await fixture.store.beginRun({ batchId: "BETA-ks-tiling-contract", featureMode: "imageUpscale", item: fixture.item, testTime: TEST_TIME });
       await fixture.store.completeRun("rec-tiling", fixture.result);
       const metadata = JSON.parse(fixture.fields["生成参数"]).workflow;
-      assert.equal(metadata.workflowVersion, "2026-10-26.3");
+      assert.equal(metadata.workflowVersion, IMAGE_UPSCALE_WORKFLOWS[workflowKey].version);
       assert.equal(metadata.executionStrategy, "whole");
       assert.equal(metadata.executionPolicyVersion, "ks-whole-area-cap-v3");
       assert.equal(metadata.seedVrResolution, Math.min(width, height));
@@ -204,6 +227,57 @@ test("两KS小图与横竖窄图保持整图推理，未超限不做交付插值
       await wrong.store.beginRun({ batchId: "BETA-ks-tiling-contract", featureMode: "imageUpscale", item: wrong.item, testTime: TEST_TIME });
       await assert.rejects(wrong.store.completeRun("rec-tiling", wrong.result), { statusCode: 409, retryable: false });
     }
+  }
+});
+
+test("直入6K归档接受真实固定5K超过20MP，拒绝混入旧面积上限或伪造固定长边", async () => {
+  for (const [sourceWidth, sourceHeight, iw, ih] of [[960, 1200, 4096, 5120], [2048, 2048, 5120, 5120]]) {
+    const inputBytes = await sharp({ create: { width: sourceWidth, height: sourceHeight, channels: 3, background: "#65717b" } }).png().toBuffer();
+    const target = imageUpscaleTargetDimensions({ width: sourceWidth, height: sourceHeight }, "6K", KEY);
+    const png = await sharp({ create: { width: target.width, height: target.height, channels: 3, background: "#65717b" } }).png().toBuffer();
+    const options = { sourceWidth, sourceHeight, png,
+      sourceImage: { name: "fixed5k.png", type: "image/png", dataUrl: `data:image/png;base64,${inputBytes.toString("base64")}` } };
+    const fixture = archiveFixture(options);
+    await fixture.store.beginRun({ batchId: "BETA-fixed5k", featureMode: "imageUpscale", item: fixture.item, testTime: TEST_TIME });
+    await fixture.store.completeRun("rec-tiling", fixture.result);
+    const actual = JSON.parse(fixture.fields["生成参数"]).workflow;
+    assert.equal(actual.workflowVersion, "2026-10-27.1");
+    assert.equal(actual.executionPolicyVersion, "ks-fixed-5k-to-6k-v1");
+    assert.deepEqual([actual.inferenceWidth, actual.inferenceHeight], [iw, ih]);
+    assert.ok(actual.paddedInferencePixels > 20000000);
+    assert.equal(actual.fixedInferenceLongEdge, 5120);
+    assert.equal(Object.hasOwn(actual, "inferencePixelLimit"), false);
+    for (const patch of [(m) => { m.inferencePixelLimit = 20000000; }, (m) => { delete m.fixedInferenceLongEdge; },
+      (m) => { m.fixedInferenceLongEdge = 4992; }, (m) => { m.executionPolicyVersion = "ks-whole-area-cap-v3"; }]) {
+      const wrong = archiveFixture({ ...options, patch });
+      await wrong.store.beginRun({ batchId: "BETA-fixed5k", featureMode: "imageUpscale", item: wrong.item, testTime: TEST_TIME });
+      const beforeUploads = wrong.commands.filter(command => command === "+record-upload-attachment").length;
+      await assert.rejects(wrong.store.completeRun("rec-tiling", wrong.result), { statusCode: 409, retryable: false });
+      assert.equal(wrong.commands.filter(command => command === "+record-upload-attachment").length, beforeUploads);
+    }
+  }
+});
+
+test("旧直入26.3只恢复原20MP附件，不能新建GPU或按固定5K合同改写历史", async () => {
+  for (const resolution of ["2X", "4K", "6K"]) {
+    const target = imageUpscaleTargetDimensions({ width: 1152, height: 864 }, resolution, KEY);
+    const png = await sharp({ create: { width: target.width, height: target.height, channels: 3, background: "#65717b" } }).png().toBuffer();
+    const fixture = archiveFixture({ legacyCapped: true, resolution, png });
+    const before = fixture.fields["生成参数"];
+    const recovered = await fixture.store.recoverRun({ batchId: "BETA-ks-tiling-contract", featureMode: "imageUpscale", item: fixture.item, testTime: TEST_TIME });
+    assert.equal(recovered.recordId, "rec-tiling");
+    assert.equal(fixture.fields["生成参数"], before);
+    assert.equal(JSON.parse(before).workflow.inferencePixelLimit, 20000000);
+    assert.equal(fixture.commands.includes("+record-upload-attachment"), false);
+    const input = { upscaleWorkflowKey: KEY, upscaleWorkflowVersion: "2026-10-26.3", resolution };
+    assert.equal(normalizeBetaUpscaleInput(input, { recoveringLegacy: true }).upscaleWorkflowVersion, "2026-10-26.3");
+    assert.throws(() => normalizeBetaUpscaleInput(input), { statusCode: 409, retryable: false });
+    assert.throws(() => verifyBetaUpscaleBatch({ featureMode: "imageUpscale", items: [{ input }] }, { comfyUi: { available: true } }), { statusCode: 409, retryable: false });
+    const newRun = archiveFixture({ legacyCapped: true, resolution, png });
+    await newRun.store.beginRun({ batchId: "BETA-legacy26-3", featureMode: "imageUpscale", item: newRun.item, testTime: TEST_TIME });
+    await assert.rejects(newRun.store.completeRun("rec-tiling", newRun.result), { statusCode: 409, retryable: false });
+    const wrong = archiveFixture({ legacyCapped: true, resolution, png, patch(m) { m.executionPolicyVersion = "ks-fixed-5k-to-6k-v1"; } });
+    await assert.rejects(wrong.store.recoverRun({ batchId: "BETA-ks-tiling-contract", featureMode: "imageUpscale", item: wrong.item, testTime: TEST_TIME }), { statusCode: 409, retryable: false });
   }
 });
 
@@ -282,7 +356,8 @@ async function settledJob(getJob, id) {
 }
 
 async function coldRecoveryFixture({ missing = false, tampered = false, version = "2026-10-26.1" } = {}) {
-  const fixture = archiveFixture(version === "2026-10-26.2" ? { legacyTiled: true } : { legacyArea: true });
+  const fixture = archiveFixture(version === "2026-10-26.2" ? { legacyTiled: true }
+    : version === "2026-10-26.3" ? { legacyCapped: true } : { legacyArea: true });
   if (tampered) {
     const snapshot = JSON.parse(fixture.fields["配置快照"]);
     snapshot.resolution = "4K";
@@ -310,7 +385,7 @@ async function coldRecoveryFixture({ missing = false, tampered = false, version 
   return { fixture, service, body, calls, done: () => settledJob(id => service.getJob(id), newId) };
 }
 
-for (const version of ["2026-10-26.1", "2026-10-26.2"]) {
+for (const version of ["2026-10-26.1", "2026-10-26.2", "2026-10-26.3"]) {
 test(`正式Runner冷恢复旧${version}已有原附件，保留旧参数且零建档/零GPU`, async () => {
   const { fixture, service, body, calls, done } = await coldRecoveryFixture({ version });
   const parameters = fixture.fields["生成参数"];

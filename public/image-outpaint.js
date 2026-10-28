@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享固定 2K 输出合同及提交画布/缩放边界规划、image-outpaint-transform.js 的连续浮点预览与合帧交互、三引擎能力与 Flux 目录、上传图及构图 DOM
- * [OUTPUT]: 对外提供三引擎/模型、默认原比例及五预设的固定 2K 构图、Sunburst原图/适配图上限分离校验、固定图片基准尺寸的 transform 连续移动/缩放、原图变更通知与可取消手势、冲刷后严格规划的 scale/位置请求；保留旧几何导出
+ * [OUTPUT]: 对外提供三引擎/模型、固定2K连续构图与尺寸校验、仅异常可见的配置原因、可取消手势及冲刷后scale/位置请求；保留旧几何导出
  * [POS]: public 的 AI扩图交互边界，与 image-upscale.js 并列并由主编排器配置和激活
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -495,9 +495,10 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
     const isApi = config.provider === "oneapi";
     availability.textContent = config.available ? isApi ? "API 已接入" : "工作流已接入" : config.workflow ? "服务暂不可用" : "待接入";
     availability.classList.toggle("ready", Boolean(config.available));
-    const redrawNote = isApi ? "模型可能重绘原图区域，请检查结果。" : "";
-    note.textContent = `${config.available ? "" : `${availabilityReason().replace(/[。；;]+$/, "")}。`}${redrawNote}`;
-    note.classList.toggle("hidden", !note.textContent);
+    const issue = config.available ? "" : availabilityReason();
+    note.textContent = issue;
+    note.classList.toggle("hidden", !issue);
+    note.classList.toggle("error", Boolean(issue));
     engineButtons.forEach((button) => {
       button.disabled = !engines.some((entry) => entry.key === button.dataset.outpaintEngine);
     });

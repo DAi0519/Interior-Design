@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享 bindSearchableChoice 单选下拉、白模/空房/风格转换设计方式容器、飞书 Style DNA 脱敏目录、独立 Agent 可用性、平台风格临时锁定状态与模式变更回调
- * [OUTPUT]: 对外提供可搜索的白模/空房智能默认与平台风格单选、风格转换明确平台/参考图风格选项、无目标阻断和互斥选择控制器
+ * [OUTPUT]: 对外提供白模/空房/风格转换搜索单选、互斥和无目标阻断；说明位仅显示真实配置错误
  * [POS]: public 的设计风格选择层，复用模型选择器的同宽搜索浮层；风格转换独立保留选择且不提供自动风格，空房遵循原智能默认合同
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -177,11 +177,10 @@ export function bindWhiteModelRenderMode({
       "ready",
       choices.some((choice) => choice.available),
     );
-    note.textContent = active.mode === SMART_DEFAULT_RENDER_MODE
-      ? active.available
-        ? [active.description, platformStyles.reason].filter(Boolean).join("；")
-        : `${active.description}；${active.reason || "Agent 暂不可用"}。`
-      : active.available || !active.mode ? active.description : [active.description, active.reason].filter(Boolean).join("；");
+    const issue = active.mode && !active.available ? active.reason || "Agent 暂不可用" : "";
+    note.textContent = issue;
+    note.classList.toggle("error", Boolean(issue));
+    note.hidden = !issue;
   }
 
   render();

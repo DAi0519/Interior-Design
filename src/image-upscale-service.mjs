@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖真实单图安全校验、超分目标/KS整图面积限制计划/冻结版本、专用ComfyUI客户端与阶段回调
+ * [INPUT]: 依赖真实单图安全校验、KS固定5K或20MP整图计划/冻结版本、专用ComfyUI客户端与阶段回调
  * [OUTPUT]: 提供主/Beta共用且缺能力即不可用的整图目录和executeImageUpscale、5分钟排队/KS或8K的15分钟执行、Prompt追踪、最终尺寸核验及KS异常不自动重提
  * [POS]: src 的图片超分应用服务，隔离页面输入、工作流参数、分辨率级时限与 ComfyUI 传输层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -38,7 +38,8 @@ export async function executeImageUpscale(input, { imageClient, onProgress = nul
   }
   const target = imageUpscaleTargetDimensions(source, input.resolution, workflow.key);
   const resolution = String(input.resolution);
-  const plan = imageUpscaleExecutionPlan({ ...target, resolution, workflowKey: workflow.key });
+  const plan = imageUpscaleExecutionPlan({ ...target, resolution, workflowKey: workflow.key,
+    sourceWidth: source.width, sourceHeight: source.height });
   const clientOptions = {
     executionTimeoutMs: imageUpscaleExecutionTimeoutMs(resolution, plan),
     queueTimeoutMs: IMAGE_UPSCALE_QUEUE_TIMEOUT_MS,
@@ -120,7 +121,7 @@ function capabilityGraphs(workflow) {
     width, height: resolution.scale ? 1024 : width / 2 })];
   if (imageUpscaleWorkflow(workflow.key).areaCap) graphs.push(createImageUpscaleWorkflow({
     artifactKey: "upscale-area-cap-capability", imageBase64: "", seed: 4,
-    generationRequest: { upscaleWorkflowKey: workflow.key, resolution: "6K" }, width: 6144, height: 6144,
+    generationRequest: { upscaleWorkflowKey: workflow.key, resolution: "6K", sourceWidth: 1024, sourceHeight: 1024 }, width: 6144, height: 6144,
   }));
   return graphs;
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置/字段映射与独立扩图真源
- * [OUTPUT]: 对外提供新 Base 隔离、目录模型单选标签与无 Agent 清空、默认可用状态在创建后清空/草稿回读与对象关联、十功能映射、扩图场景/配置/版本/费用、全部实际写入元数据漂移与附件身份回读拒绝成功的回归保障
+ * [OUTPUT]: 对外提供新 Base 隔离、KS工作流版本快照、精模模板/双Prompt版本摘要投影、目录模型单选标签与无 Agent 清空、草稿回读/关联、十功能映射、扩图场景/配置/版本/费用及元数据/附件漂移拒绝成功的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,6 +22,7 @@ import {
 } from "../src/beta-base.mjs";
 import { LARK_SYNC_CONFIG } from "../src/lark-sync.mjs";
 import { normalizeBetaSampleImage } from "../src/beta-sample-store.mjs";
+import { imageUpscaleWorkflow } from "../src/image-upscale-workflow.mjs";
 
 const onePixelPngBytes = await sharp({
   create: { background: "#f37021", channels: 3, height: 8, width: 8 },
@@ -31,6 +32,14 @@ const onePixelPng = `data:image/png;base64,${onePixelPngBytes.toString("base64")
 function recordEnvelope(recordId, fields) {
   return { ok: true, data: { fields: Object.keys(fields), data: [Object.values(fields)], record_id_list: [recordId] } };
 }
+
+test("Beta超分配置快照冻结实际版本且其他功能不带超分版本", () => {
+  const input = { featureMode: "imageUpscale", upscaleWorkflowKey: "ks_seedvr2_2x_direct", resolution: "6K" };
+  const snapshot = betaConfigSnapshot(input);
+  assert.equal(snapshot.upscaleWorkflowVersion, imageUpscaleWorkflow(input.upscaleWorkflowKey).version);
+  assert.equal(betaConfigSnapshot({ ...input, upscaleWorkflowVersion: "2026-10-21.1" }).upscaleWorkflowVersion, "2026-10-21.1");
+  assert.equal("upscaleWorkflowVersion" in betaConfigSnapshot({ ...input, featureMode: "free" }), false);
+});
 
 test("飞书创建 null 被默认可用填充时，草稿与新样本创建后必须更新清空再继续", async () => {
   const records = new Map();
@@ -174,6 +183,25 @@ test("一行一 Run 冻结可追溯的输入与配置", () => {
   assert.equal(fields["输入文本"], "保持空间结构");
   assert.equal(fields["测试时间"], "2026-09-02 14:03:21");
   assert.equal(fields["出图模型"], "Seedream 5.0");
+});
+
+test("Beta精模保留模板与双Prompt版本摘要，版本列标明实际使用氛围资产", () => {
+  const refinedRender = { preset: "custom", time: "dusk", weather: "rainy", tone: "warm" };
+  const input = { featureMode: "refinedModel", modelKey: "aiTextureEnhancement", promptVersion: 7,
+    refinedPromptSha256: "a".repeat(64), refinedRender, refinedAtmospherePromptVersion: 3,
+    refinedAtmospherePromptSha256: "b".repeat(64) };
+  const fields = buildBetaRunFields({ batchId: "BETA-refinedrender", featureMode: "refinedModel",
+    item: { runId: "RUN-refinedrender", caseId: "CASE-1", input } });
+  assert.deepEqual(JSON.parse(fields["场景参数"]).refinedRender, refinedRender);
+  assert.equal(JSON.parse(fields["配置快照"]).promptVersion, 7);
+  assert.equal(JSON.parse(fields["配置快照"]).refinedPromptSha256, "a".repeat(64));
+  assert.equal(JSON.parse(fields["配置快照"]).refinedAtmospherePromptVersion, 3);
+  assert.equal(JSON.parse(fields["配置快照"]).refinedAtmospherePromptSha256, "b".repeat(64));
+  assert.equal(betaResultVersion({ prompt: { code: "refined-model-render", version: 7 },
+    atmospherePrompt: { code: "effect-render-enhancement", version: 3 } }),
+  "refined-model-render@v7 · effect-render-enhancement@v3");
+  assert.equal("refinedRender" in betaSceneParameters({ ...input, featureMode: "free" }), false);
+  assert.equal("refinedAtmospherePromptVersion" in betaConfigSnapshot({ ...input, featureMode: "free" }), false);
 });
 
 test("Beta 模型标签由目录解析，忽略伪造展示名并保留合法历史标签快照", () => {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert/fs、扩图服务公开模型目录、Sunburst 画布合同、三引擎控制器与共享 fixture 的可控 RAF
- * [OUTPUT]: 对外提供原比例首项/真实默认与换图重算、双Flux模型/三引擎隔离、固定2K/默认1.5倍构图/拖动、4K源图准入、权限刷新/单份原图请求及旧四边助手兼容回归保障
+ * [OUTPUT]: 对外提供三引擎固定2K构图/换图重算、正常说明移除与真实异常可见、4K源图准入及权限刷新/单图请求与旧四边兼容回归
  * [POS]: test 的 AI扩图前端合同测试，使用内存控件，不调用真实工作流或生图 API
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -276,6 +276,8 @@ test("未配置工作流仍可选择目标并预览，提交保留具体不可�
   assert.equal(ui.binding.isAvailable(), false);
   assert.equal(ui.binding.availabilityReason(), reason);
   assert.match(ui.nodes.get("#imageOutpaintNote").textContent, /尚未配置扩图工作流/);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("hidden"), false);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("error"), true);
   assert.equal(ui.nodes.get("#imageOutpaintAvailability").classList.contains("ready"), false);
   ui.ratios.find((button) => button.dataset.outpaintRatio === "4:3").dispatch("click");
   assert.equal(ui.exactSize.textContent, "2048 × 1536");
@@ -443,8 +445,12 @@ test("Qwen配置刷新保留引擎与构图，独立服务失败阻断且不切�
   assert.equal(ui.binding.isAvailable(), false);
   assert.equal(ui.nodes.get("#imageOutpaintAvailability").textContent, "服务暂不可用");
   assert.match(ui.nodes.get("#imageOutpaintNote").textContent, /Qwen 模型文件不可用/);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("error"), true);
   assert.throws(() => ui.binding.jobRequest({ image: source, jobId: "qwen-unavailable" }), /Qwen 模型文件不可用/);
   ui.binding.configure({ engines: [comfy, qwen, sunburst] });
+  assert.equal(ui.nodes.get("#imageOutpaintNote").textContent, "");
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("hidden"), true);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("error"), false);
   assert.deepEqual(ui.binding.jobRequest({ image: source, jobId: "after-refresh" }).items[0].input, before.items[0].input);
 });
 
@@ -506,6 +512,8 @@ test("已接入工作流的服务故障明确显示暂不可用，不退回待�
   assert.equal(ui.nodes.get("#imageOutpaintAvailability").textContent, "服务暂不可用");
   assert.equal(ui.binding.isAvailable(), false);
   assert.match(ui.nodes.get("#imageOutpaintNote").textContent, /ComfyUI 服务不可用/);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("hidden"), false);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("error"), true);
   assert.equal(ui.binding.currentItem().label, `PLG-AI扩图 · ${defaultModel.label}`);
 });
 
@@ -588,8 +596,9 @@ test("切换引擎保留比例并按固定2K目标重算，Sunburst携带独立�
   assert.equal(ui.exactSize.textContent, "2048 × 1536");
   assert.equal(ui.engines.find((button) => button.dataset.outpaintEngine === "gptImage25Sunburst").getAttribute("aria-checked"), "true");
   assert.equal(ui.nodes.get("#imageOutpaintAvailability").textContent, "API 已接入");
-  assert.match(ui.nodes.get("#imageOutpaintNote").textContent, /可能重绘原图区域/);
-  assert.doesNotMatch(ui.nodes.get("#imageOutpaintNote").textContent, /32 像素对齐|8 的倍数|16 的倍数/);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").textContent, "");
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("hidden"), true);
+  assert.equal(ui.nodes.get("#imageOutpaintNote").classList.contains("error"), false);
   const preview = outpaintCanvasPlan({ source, ratio: "4:3", resolution: "2K", scale: 2 / 3, limits: sunburst });
   assertPreview(ui, { target: preview.target, limits: sunburst });
   const request = ui.binding.jobRequest({ image: source, jobId: "sunburst-single-image" });

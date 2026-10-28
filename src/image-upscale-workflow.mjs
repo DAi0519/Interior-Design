@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖六套SeedVR2参数、整图面积预算与精确缩放节点合同、单张Base64、目标宽高、冻结版本与请求级产物键
- * [OUTPUT]: 对外提供目录/比例尺寸、KS全部档位严格20MP以下整图推理计划、可嵌入执行图及区分模型推理与插值交付的版本化元数据
+ * [INPUT]: 依赖六套SeedVR2参数、原图真实尺寸、20MP整图预算或固定5K节点合同、Base64与冻结版本/产物键
+ * [OUTPUT]: 对外提供目录/尺寸、KS直入6K固定5120推理后6144交付、其他KS档位20MP计划、旧面积几何及版本化元数据
  * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,9 @@
 export const IMAGE_UPSCALE_OUTPUT_NODE_ID = "76";
 export const KS_UPSCALE_AREA_POLICY = Object.freeze({
   version: "ks-whole-area-cap-v3", pixelLimit: 20_000_000, paddingMultiple: 16,
+});
+export const KS_FIXED_6K_POLICY = Object.freeze({
+  version: "ks-fixed-5k-to-6k-v1", inferenceLongEdge: 5120, deliveryLongEdge: 6144,
 });
 
 export const IMAGE_UPSCALE_RESOLUTIONS = Object.freeze({
@@ -114,12 +117,13 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
   }),
   ks_seedvr2_2x_direct: Object.freeze({
     areaCap: true,
+    fixed6K: true,
     blocksToSwap: 36,
     cacheModel: false,
-    description: "KS原图直入整图推理，面积严格低于20MP，保持2倍或4K/6K交付",
+    description: "KS原图直入；6K固定5K整图推理再插值交付，2倍/4K保留20MP整图策略",
     displayLabel: "KS直入 · 7B",
     ditOffloadDevice: "cpu",
-    helpText: "不做0.75MP预缩放，整图推理面积严格低于20MP；超限时缩小推理，再等比插值恢复所选2倍或4K/6K尺寸。输入每边需为384–3200px。",
+    helpText: "不做0.75MP预缩放；6K固定长边5120推理后插值到6144，方图推理可达26.21MP；2倍/4K保留20MP策略。输入每边需为384–3200px。",
     inputMegapixels: null,
     inputSize: Object.freeze({ minWidth: 384, maxWidth: 3200, minHeight: 384, maxHeight: 3200 }),
     key: "ks_seedvr2_2x_direct",
@@ -129,7 +133,7 @@ export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
     shortLabel: "KS直入 · 7B",
     sourceSha256: "8db4d3de7194d117756e19fdd5d64b50e9c0664146dde82312bb4071a44458c4",
     vaeOffloadDevice: "cpu",
-    version: "2026-10-26.3",
+    version: "2026-10-27.1",
   }),
 });
 
@@ -159,7 +163,10 @@ function paddedInferencePixels(width, height) {
   return Math.ceil(width / unit) * unit * Math.ceil(height / unit) * unit;
 }
 
-function cappedInferenceDimensions(width, height) {
+export function imageUpscaleAreaCapDimensions(width, height) {
+  if (![width, height].every(value => Number.isInteger(value) && value > 0)) {
+    throw validationError("图片超分目标尺寸必须是正整数");
+  }
   const limit = KS_UPSCALE_AREA_POLICY.pixelLimit;
   if (paddedInferencePixels(width, height) < limit) return { width, height };
   const portrait = height > width, long = Math.max(width, height), short = Math.min(width, height);
@@ -176,7 +183,7 @@ function cappedInferenceDimensions(width, height) {
   return best;
 }
 
-export function imageUpscaleExecutionPlan({ width, height, resolution, workflowKey }) {
+export function imageUpscaleExecutionPlan({ width, height, resolution, workflowKey, sourceWidth, sourceHeight }) {
   const workflow = imageUpscaleWorkflow(workflowKey);
   const selected = resolutionForWorkflow(workflow, resolution);
   if (![width, height].every(value => Number.isInteger(value) && value > 0)) {
@@ -189,7 +196,24 @@ export function imageUpscaleExecutionPlan({ width, height, resolution, workflowK
   if (controlled && [width, height].some(value => value % 2 !== 0)) {
     throw validationError("KS超分目标宽高必须是偶数");
   }
-  const inference = controlled ? cappedInferenceDimensions(width, height) : { width, height };
+  if (workflow.fixed6K && selected.key === "6K") {
+    const source = { width: sourceWidth, height: sourceHeight };
+    const target = imageUpscaleTargetDimensions(source, "6K", workflow.key);
+    if (target.width !== width || target.height !== height) {
+      throw validationError("固定5K推理的成品尺寸必须对应真实原图比例");
+    }
+    const scale = KS_FIXED_6K_POLICY.inferenceLongEdge / Math.max(sourceWidth, sourceHeight);
+    const even = value => Math.max(2, Math.floor(value / 2 + 0.5) * 2);
+    const inference = { width: even(sourceWidth * scale), height: even(sourceHeight * scale) };
+    return { strategy: "whole", policyVersion: KS_FIXED_6K_POLICY.version,
+      inferenceWidth: inference.width, inferenceHeight: inference.height,
+      paddedInferencePixels: paddedInferencePixels(inference.width, inference.height),
+      fixedInferenceLongEdge: KS_FIXED_6K_POLICY.inferenceLongEdge,
+      deliveryPostResize: true, seedVrResolution: Math.min(inference.width, inference.height),
+      seedVrMaxResolution: KS_FIXED_6K_POLICY.inferenceLongEdge,
+      blocksToSwap: workflow.blocksToSwap, swapIoComponents: true };
+  }
+  const inference = controlled ? imageUpscaleAreaCapDimensions(width, height) : { width, height };
   return {
     strategy: "whole",
     ...(controlled ? { policyVersion: KS_UPSCALE_AREA_POLICY.version,
@@ -260,6 +284,14 @@ export function publicImageUpscaleConfig() {
   };
 }
 
+// -------- 使用已有数学节点保持原比例；5120/6144为固定字面量 --------
+export function fixedUpscaleLongEdgeExpression(axis, longEdge) {
+  if (!["a", "b"].includes(axis) || !Number.isInteger(longEdge) || longEdge <= 0) {
+    throw new TypeError("固定长边表达式参数不正确");
+  }
+  return `max(2,(${axis}*(${longEdge}/max(a,b))/2+0.5)//1*2)`;
+}
+
 export function createSeedVrUpscaleStage({
   generationRequest,
   height,
@@ -285,7 +317,8 @@ export function createSeedVrUpscaleStage({
     error.statusCode = 409;
     throw error;
   }
-  const plan = imageUpscaleExecutionPlan({ width, height, resolution, workflowKey: workflow.key });
+  const plan = imageUpscaleExecutionPlan({ width, height, resolution, workflowKey: workflow.key,
+    sourceWidth: generationRequest?.sourceWidth, sourceHeight: generationRequest?.sourceHeight });
   const ids = {
     dit: nodeIds.dit || "73",
     preprocess: nodeIds.preprocess || "72",
@@ -293,6 +326,10 @@ export function createSeedVrUpscaleStage({
     vae: nodeIds.vae || "74",
     canvas: nodeIds.canvas || (nodeIds.upscaler ? `${nodeIds.upscaler}-Canvas` : "77"),
     restore: nodeIds.restore || (nodeIds.upscaler ? `${nodeIds.upscaler}-Restore` : "78"),
+    size: nodeIds.size || (nodeIds.upscaler ? `${nodeIds.upscaler}-Size` : "80"),
+    inferenceDimensions: nodeIds.inferenceDimensions || (nodeIds.upscaler ? `${nodeIds.upscaler}-InferenceSize` : "81"),
+    shortEdge: nodeIds.shortEdge || (nodeIds.upscaler ? `${nodeIds.upscaler}-ShortEdge` : "82"),
+    deliveryDimensions: nodeIds.deliveryDimensions || (nodeIds.upscaler ? `${nodeIds.upscaler}-DeliverySize` : "83"),
   };
   const nodes = {
     [ids.dit]: {
@@ -366,6 +403,27 @@ export function createSeedVrUpscaleStage({
       image: [ids.upscaler, 0], upscale_method: "lanczos", width, height, crop: "disabled",
     } };
   }
+  if (plan.fixedInferenceLongEdge) {
+    nodes[ids.size] = { class_type: "GetImageSize", inputs: { image } };
+    nodes[ids.inferenceDimensions] = { class_type: "SimpleMathDual+", inputs: {
+      a: [ids.size, 0], b: [ids.size, 1],
+      value_1: fixedUpscaleLongEdgeExpression("a", KS_FIXED_6K_POLICY.inferenceLongEdge),
+      value_2: fixedUpscaleLongEdgeExpression("b", KS_FIXED_6K_POLICY.inferenceLongEdge),
+    } };
+    nodes[ids.shortEdge] = { class_type: "SimpleMath+", inputs: {
+      a: [ids.inferenceDimensions, 0], b: [ids.inferenceDimensions, 2], value: "min(a,b)",
+    } };
+    nodes[ids.deliveryDimensions] = { class_type: "SimpleMathDual+", inputs: {
+      a: [ids.size, 0], b: [ids.size, 1],
+      value_1: fixedUpscaleLongEdgeExpression("a", KS_FIXED_6K_POLICY.deliveryLongEdge),
+      value_2: fixedUpscaleLongEdgeExpression("b", KS_FIXED_6K_POLICY.deliveryLongEdge),
+    } };
+    nodes[ids.canvas].inputs.width = [ids.inferenceDimensions, 0];
+    nodes[ids.canvas].inputs.height = [ids.inferenceDimensions, 2];
+    nodes[ids.upscaler].inputs.resolution = [ids.shortEdge, 0];
+    nodes[ids.restore].inputs.width = [ids.deliveryDimensions, 0];
+    nodes[ids.restore].inputs.height = [ids.deliveryDimensions, 2];
+  }
   return { nodes, output: [plan.deliveryPostResize ? ids.restore : ids.upscaler, 0], workflow };
 }
 
@@ -429,7 +487,8 @@ export function imageUpscaleWorkflowMetadata({
   if (selectedResolution.longEdge && Math.max(width, height) !== selectedResolution.longEdge) {
     throw validationError(`图片超分所选${selectedResolution.key}目标长边必须为${selectedResolution.longEdge}px`);
   }
-  const plan = imageUpscaleExecutionPlan({ width, height, resolution: selectedResolution.key, workflowKey: workflow.key });
+  const plan = imageUpscaleExecutionPlan({ width, height, resolution: selectedResolution.key, workflowKey: workflow.key,
+    sourceWidth: generationRequest?.sourceWidth, sourceHeight: generationRequest?.sourceHeight });
   return {
     artifactKey,
     engine: "comfyui",
@@ -457,7 +516,8 @@ export function imageUpscaleWorkflowMetadata({
       inferenceWidth: plan.inferenceWidth,
       inferenceHeight: plan.inferenceHeight,
       paddedInferencePixels: plan.paddedInferencePixels,
-      inferencePixelLimit: plan.inferencePixelLimit,
+      ...(plan.inferencePixelLimit ? { inferencePixelLimit: plan.inferencePixelLimit } : {}),
+      ...(plan.fixedInferenceLongEdge ? { fixedInferenceLongEdge: plan.fixedInferenceLongEdge } : {}),
       deliveryPostResize: plan.deliveryPostResize,
     } : {}),
     sourceSha256: workflow.sourceSha256,

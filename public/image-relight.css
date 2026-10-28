@@ -1,0 +1,76 @@
+/**
+ * [INPUT]: 依赖光照模板/Prompt脱敏版本与飞书入口/整体原灯和可选新增光源及单灯精修状态、共享大画布工作区及工作台银灰控件令牌
+ * [OUTPUT]: 对外提供轻量Prompt版本刷新行、五模板直接生成及整体原灯三选/可选精修、两灯具模式/色温预设、混合标注列表、等比画布、窄屏工具可达与焦点样式
+ * [POS]: public 的AI编辑打光视觉层，沿用38px共享控件与黑白选中态，光源彩色标记仅用于定位
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.relight-settings { display: grid; gap: 20px; min-width: 0; }
+.relight-settings [hidden], .relight-preview [hidden] { display: none; }
+.relight-settings .section-heading { margin-bottom: 0; }
+.relight-prompt-actions { flex-shrink: 0; white-space: nowrap; }
+.relight-prompt-actions .config-refresh-button { min-height: 38px; text-decoration: none; }
+.relight-settings .field { display: grid; gap: 8px; min-width: 0; }
+.relight-settings .field > span { margin: 0; }
+.relight-settings .compact-config-note { margin: 0; }
+.relight-plan-section { display: grid; gap: 16px; min-width: 0; }
+.relight-template-field { display: grid; gap: 8px; min-width: 0; }
+.relight-template-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.relight-template-grid > button { min-width: 0; overflow-wrap: anywhere; }
+.relight-editor { display: grid; gap: 16px; min-width: 0; }
+.relight-lights-section { display: grid; gap: 8px; min-width: 0; }
+.relight-lights-section h3 { font-size: 12px; font-weight: 600; margin: 0; }
+.relight-light-list { display: grid; gap: 6px; max-height: 208px; overflow-y: auto; padding: 2px; margin: -2px; }
+.relight-light-item { align-items: center; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; text-align: left; width: 100%; }
+.relight-light-item small { color: var(--muted); font-size: 10px; font-weight: 400; white-space: nowrap; }
+.relight-light-item.selected small { color: #ddd; }
+.relight-properties { border: 0; display: grid; gap: 16px; margin: 0; min-width: 0; padding: 0; }
+.relight-properties legend { color: var(--text); font-size: 12px; font-weight: 600; margin-bottom: 12px; padding: 0; }
+.relight-brighten-fields { display: grid; gap: 16px; min-width: 0; }
+.relight-mode-field, .relight-temperature { display: grid; gap: 8px; min-width: 0; }
+.relight-modes, .relight-presets, .relight-drawing-actions { display: flex; gap: 8px; }
+.relight-modes > button { flex: 1; padding: 0 5px; }
+.relight-presets { gap: 4px; }
+.relight-presets > button { flex: 1; font-size: 10px; padding: 0 2px; }
+.relight-template-grid > button, .relight-light-item, .relight-modes > button, .relight-presets > button, .relight-drawing-actions > button {
+  background: var(--panel-soft, #f5f5f7); border: 1px solid var(--line, #ddd); border-radius: 6px;
+  color: var(--text); cursor: pointer; font-family: inherit; font-size: 12px; min-height: 38px; padding: 0 10px;
+}
+.relight-modes > button { padding-inline: 5px; }
+.relight-presets > button { font-size: 10px; padding-inline: 2px; }
+.relight-template-grid > button.selected, .relight-light-item.selected, .relight-modes > button.selected, .relight-presets > button.selected, .relight-drawing-actions > button.selected {
+  background: #000; border-color: #000; color: #fff;
+}
+.relight-template-grid > button:hover:not(.selected):not(:disabled), .relight-light-item:hover:not(.selected), .relight-modes > button:hover:not(.selected), .relight-presets > button:hover:not(.selected), .relight-drawing-actions > button:hover:not(.selected):not(:disabled) { background: #e9e9ed; }
+.relight-settings button:focus-visible, .relight-toolbar button:focus-visible, .relight-frame canvas:focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
+.relight-settings input:focus-visible, .relight-settings textarea:focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
+.relight-settings button:disabled, .relight-toolbar button:disabled { cursor: default; opacity: .4; }
+.relight-settings input[type="number"] { min-height: 38px; width: 100%; }
+.relight-intensity { display: grid; gap: 8px; font-size: 12px; }
+.relight-intensity > span { display: flex; justify-content: space-between; }
+.relight-intensity output { color: var(--muted); font-variant-numeric: tabular-nums; }
+.relight-intensity input { accent-color: #000; cursor: pointer; width: 100%; }
+.relight-fixture textarea { font-size: 12px; font-weight: 400; min-height: 70px; resize: vertical; }
+.relight-preview { align-items: center; container-type: size; display: grid; flex: 1; height: 100%; justify-items: center; min-height: 0; width: 100%; }
+.relight-empty { color: var(--muted); font-size: 13px; line-height: 1.7; max-width: 28ch; text-align: center; }
+.relight-frame { aspect-ratio: var(--relight-ratio, 1); isolation: isolate; position: relative; width: min(100cqw, calc(100cqh * var(--relight-ratio, 1))); }
+.relight-frame img { display: block; height: 100%; object-fit: fill; pointer-events: none; width: 100%; }
+.relight-frame canvas { cursor: crosshair; height: 100%; inset: 0; position: absolute; touch-action: none; user-select: none; width: 100%; }
+.outpaint-workspace-footer:has(.relight-toolbar) { display: block; }
+.outpaint-workspace-footer:has(.relight-toolbar[hidden]), .relight-toolbar[hidden] { display: none; }
+.relight-toolbar { display: grid; gap: 8px; min-width: 0; width: 100%; }
+.relight-drawing-actions { flex-wrap: wrap; gap: 6px; }
+.relight-toolbar p { margin: 0; }
+.relight-keyboard-hint { color: var(--muted); font-size: 10px; line-height: 1.6; }
+/* ---- 打光工具栏优先保留可操作高度，预览使用剩余空间 ---- */
+@media (max-width: 760px) {
+  #imageRelightWorkspace .outpaint-workspace-canvas { flex: 1 1 0; height: auto; min-height: 0; overflow: hidden; }
+  #imageRelightWorkspace .outpaint-workspace-footer { flex-shrink: 1; max-height: 65%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
+@media (max-width: 560px) {
+  .relight-drawing-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .relight-drawing-actions > button { padding-inline: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .relight-settings *, .relight-toolbar * { transition: none; }
+}

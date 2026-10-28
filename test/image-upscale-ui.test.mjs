@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、图片超分浏览器控制器、服务端公开目录与内存 DOM/sessionStorage 替身
- * [OUTPUT]: 提供六工作流/节点能力、KS最终2X/4K/6K与缓存、目录驱动整图限面积说明、输入范围及单份图片/冻结版本请求保障
+ * [OUTPUT]: 提供六工作流/节点能力、KS最终尺寸与缓存、正常说明移除/异常原因可见、输入范围及单份图片/冻结版本请求保障
  * [POS]: test 的图片超分交互测试，不提交 ComfyUI 任务或访问网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,7 +26,7 @@ function element() {
     dataset: {},
     textContent: "",
     value: "",
-    classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } },
+    classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); }, contains(name) { return classes.has(name); } },
     setAttribute(name, value) { attributes.set(name, value); },
     addEventListener(name, callback) { listeners.set(name, callback); },
     append(...children) { this.children.push(...children); },
@@ -103,7 +103,8 @@ for (const key of KS_KEYS) {
     assert.equal(ui.emptySize.textContent, "2560 × 1440");
     assert.match(ui.controller.loadingCopy(), /原图2倍/);
     assert.doesNotMatch(ui.controller.loadingCopy(), /4K/);
-    assert.equal(ui.note.textContent, ui.config.workflows.find((workflow) => workflow.key === key).helpText);
+    assert.equal(ui.note.textContent, "");
+    assert.equal(ui.note.hidden, true);
     ui.choose("seedvr2_075mp");
     assert.equal(ui.resolutionSelect.value, "4K");
     assert.equal(ui.changes(), 5);
@@ -154,19 +155,25 @@ test("服务缺最终尺寸恢复节点时只阻断对应KS并显示原因，其
   ui.choose(KS_KEY);
   assert.equal(ui.controller.isAvailable(), false);
   assert.match(ui.note.textContent, /ImageScale/);
+  assert.equal(ui.note.hidden, false);
+  assert.equal(ui.note.classList.contains("error"), true);
   assert.throws(() => ui.controller.jobRequest({ image: { width: 1280, height: 720 }, jobId: "generation-not-submitted" }), /ImageScale/);
   ui.choose(ui.config.defaultWorkflowKey);
   assert.equal(ui.controller.isAvailable(), true);
+  assert.equal(ui.note.textContent, "");
+  assert.equal(ui.note.hidden, true);
+  assert.equal(ui.note.classList.contains("error"), false);
 });
 
-test("整图推理面积说明跟随目录，6K最终尺寸和请求不被改成推理尺寸", (t) => {
+test("不展示正常工作流内部说明，6K最终尺寸和请求仍保留真实档位", (t) => {
   const ui = fixture(t, { source: { width: 3200, height: 3200 } });
   const helpText = "整图推理面积小于20MP，超限时降低推理尺寸并等比恢复最终6K。";
   ui.controller.configure({ ...ui.config, workflows: ui.config.workflows.map(workflow => ({ ...workflow,
     helpText: workflow.key === KS_KEY ? helpText : workflow.helpText })) });
   ui.choose(KS_KEY);
   ui.resolution("6K");
-  assert.equal(ui.note.textContent, helpText);
+  assert.equal(ui.note.textContent, "");
+  assert.equal(ui.note.hidden, true);
   assert.equal(ui.exactSize.textContent, "6144 × 6144");
   const request = ui.controller.jobRequest({ image: { width: 3200, height: 3200 }, jobId: "generation-final-6k" });
   assert.equal(request.items[0].input.resolution, "6K");
@@ -203,6 +210,8 @@ for (const key of KS_KEYS) {
       assert.equal(ui.controller.isAvailable(), false);
       assert.match(ui.controller.availabilityReason(), /384–3200px/);
       assert.match(ui.note.textContent, /请调整图片后上传/);
+      assert.equal(ui.note.hidden, false);
+      assert.equal(ui.note.classList.contains("error"), true);
       assert.equal(ui.emptySize.textContent, "请调整输入图片尺寸");
       assert.throws(() => ui.controller.jobRequest({ image: source, jobId: "generation-invalid" }), /384–3200px/);
     }

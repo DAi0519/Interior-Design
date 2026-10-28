@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 真实图片字节、遮罩填充工作流/服务与统一后台任务接口
- * [OUTPUT]: 两模式独立能力、三档推理/最高2K输出与真实crop尺度、首图潜空间/裁剪回贴、真实图片准入及独立飞书scope/入队阻断测试
+ * [OUTPUT]: GPT参考用途默认/有效/非法及跨模型模式零调用、两模式独立能力、三档推理/最高2K输出与真实crop尺度、首图潜空间/裁剪回贴、真实图片准入及独立飞书scope/入队阻断测试
  * [POS]: test 的 Flux2 遮罩填充回归，使用内存 ComfyUI 替身，不调用 GPU、外网或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -171,6 +171,26 @@ test("真实输入宽高覆盖浏览器伪尺寸，全白遮罩可用且两种�
   const explicit = await validateMaskFillInput({ ...input, inferenceTier: "4k", maskExpand: 0 });
   assert.equal(explicit.inferenceSize, 4096);
   assert.equal(explicit.maskExpand, 0);
+});
+
+test("参考用途仅GPT参考模式接受且默认换物品，非法用途或跨模型模式在调用前拒绝", async () => {
+  const referenceInput = { ...input, maskFillModel: "gptImage25Sunburst", maskFillMode: "reference", fillReferenceImage: reference, prompt: "" };
+  for (const fillReferencePurpose of [undefined, "object", "material"]) {
+    const validated = await validateMaskFillInput({ ...referenceInput, ...(fillReferencePurpose !== undefined ? { fillReferencePurpose } : {}) });
+    assert.equal(validated.fillReferencePurpose, fillReferencePurpose || "object");
+    assert.equal(validated.prompt, "");
+  }
+  let calls = 0;
+  const imageClient = { generateImage() { calls++; }, editImage() { calls++; }, editImageAsync() { calls++; } };
+  const reject = value => assert.rejects(executeImageMaskFill(value, { imageClient }), error => error.statusCode === 400 && /参考用途/.test(error.message));
+  for (const fillReferencePurpose of [null, "", "Object", "texture", " material ", false, 1, {}, []]) await reject({ ...referenceInput, fillReferencePurpose });
+  for (const maskFillModel of ["gptImage25Sunburst", "flux2Klein", "qwenImageEdit2511"]) for (const maskFillMode of ["prompt", "reference"]) {
+    if (maskFillModel === "gptImage25Sunburst" && maskFillMode === "reference") continue;
+    const value = { ...input, maskFillModel, maskFillMode, ...(maskFillMode === "reference" ? { fillReferenceImage: reference } : {}) };
+    assert.equal(Object.hasOwn(await validateMaskFillInput(value), "fillReferencePurpose"), false);
+    for (const fillReferencePurpose of ["object", "material", null]) await reject({ ...value, fillReferencePurpose });
+  }
+  assert.equal(calls, 0, "用途错误不触发模型或能力调用");
 });
 
 test("主图 EXIF 归一后要求遮罩同尺寸，不自动拉伸旧方向遮罩", async () => {

@@ -79,7 +79,7 @@ test("主工作台统一任务用专用客户端压到2K、直出并同步飞书
   assert.equal(f.syncChecks(), 1);
   assert.equal(f.archive().finalPrompt, f.submitted().prompt);
   assert.equal(f.archive().workflow.feature, "image-multi-angle");
-  assert.equal(f.archive().workflow.promptVersion, output.value.workflow.version);
+  assert.equal(f.archive().workflow.promptVersion, output.value.workflow.promptVersion);
   assert.deepEqual(f.archive().workflow.pose, pose);
   assert.equal(f.archive().referenceImages[0].imageUrl, f.body.sharedInput.referenceImages[0].dataUrl);
   assert.deepEqual(output.value.upstream.metadata.pose, pose);

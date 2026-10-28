@@ -83,5 +83,156 @@
   },
   "executionDurationMs": 138668,
   "visualReview": "扩展区形成完整室内场景，接缝无明显灰边；单张样例可用性通过，不代表多场景画质评测。",
-  "scope": "一次 1024x768 真实GPU运行；2K/4K仅尺寸与节点合同测试，未实跑性能验证。"
+  "scope": "一次 1024x768 真实GPU运行；2K/4K仅尺寸与节点合同测试，未实跑性能验证。",
+  "_retainedEvidence": {
+    "lark-backfill.json": {
+      "sourceSha256": "537aa7602ea19a70ba0538c97f57ef002d2db5cd68d5c8c46a13a6c2632379ae",
+      "content": {
+        "ok": true,
+        "recordId": "reczz28NbXZd0YyC",
+        "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28NbXZd0YyC",
+        "generationId": "fe6a82e7-f029-41ad-b94f-a10051872b65",
+        "outputSha256": "5e3f6833aeca96803fdf4600a63c7c6163652d3dbbbf9b9ffe0ca7cb70b2a787",
+        "outputWidth": 1024,
+        "outputHeight": 576,
+        "backfilledAt": "2026-10-15T07:31:03.308Z"
+      }
+    },
+    "lark-readback-validation.json": {
+      "sourceSha256": "41d335f494d94a34d7a1205bec8dab3fca51d15a88ee17bf6870481dd5713a2d",
+      "content": {
+        "verifiedAt": "2026-10-15T07:33:36.104Z",
+        "passed": true,
+        "recordId": "reczz28NbXZd0YyC",
+        "recordUrl": "https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28NbXZd0YyC",
+        "feature": "AI扩图",
+        "status": "成功",
+        "model": "Qwen Image Edit 2511",
+        "actualSize": "1024x576",
+        "sourceAttachment": {
+          "name": "1-input.png",
+          "size": 645055
+        },
+        "resultAttachment": {
+          "name": "result.png",
+          "size": 609773
+        },
+        "parameters": {
+          "generationId": "fe6a82e7-f029-41ad-b94f-a10051872b65",
+          "outputSha256": "5e3f6833aeca96803fdf4600a63c7c6163652d3dbbbf9b9ffe0ca7cb70b2a787",
+          "outpaintCanvas": {
+            "ratio": "16:9",
+            "resolution": "1K",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "expansion": {
+            "left": 128,
+            "top": 32,
+            "right": 128,
+            "bottom": 32
+          },
+          "sourceWidth": 768,
+          "sourceHeight": 512
+        },
+        "preservedOldOptions": true
+      }
+    },
+    "response-summary.json": {
+      "sourceSha256": "dca77855e7ba3427e7569d1544df289ed1ab5226a29ca90994bdfafd7e339792",
+      "content": {
+        "startedAt": "2026-10-15T07:04:09.400Z",
+        "finishedAt": "2026-10-15T07:06:32.381Z",
+        "request": {
+          "sourceWidth": 768,
+          "sourceHeight": 512,
+          "width": 1024,
+          "height": 768,
+          "expansion": {
+            "left": 128,
+            "top": 128,
+            "right": 128,
+            "bottom": 128
+          }
+        },
+        "metadata": {
+          "artifactKey": "a1b2b0fa-8ef4-469f-864c-e788370f50e5",
+          "engine": "qwenImageEdit2511",
+          "executionDurationMs": 138668,
+          "expansion": {
+            "left": 128,
+            "top": 128,
+            "right": 128,
+            "bottom": 128
+          },
+          "inputHeight": 512,
+          "inputWidth": 768,
+          "model": "qwen_image_edit_2511_fp8mixed.safetensors",
+          "lora": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+          "weightDtype": "default",
+          "steps": 4,
+          "cfg": 1,
+          "sampler": "euler",
+          "scheduler": "simple",
+          "shift": 3.1,
+          "feathering": 32,
+          "preservation": "original-center-masked-composite",
+          "outputFilename": "CanvasLab_QwenOutpaint_a1b2b0fa-8ef4-469f-864c-e788370f50e5_00001_.png",
+          "outputHeight": 768,
+          "outputWidth": 1024,
+          "outputSha256": "fb5f9c9b3ee51f0db0690b7e3252cf0795f1c6e4f43f4c1491d21014cd9693fa",
+          "promptId": "5f714133-6836-49da-a5ec-da93bb861eab",
+          "queueDurationMs": 1151,
+          "seed": 2469831208,
+          "targetHeight": 768,
+          "targetWidth": 1024,
+          "workflowId": "image-outpaint-qwen",
+          "workflowVersion": "2026-10-15.1"
+        },
+        "outputFormat": "png"
+      }
+    },
+    "ui-validation.json": {
+      "sourceSha256": "bbb6a8ed3635e4acb85e165a151ae3d192ca53fdb4fa44a2cd7410585972271e",
+      "content": {
+        "verifiedAt": "2026-10-15T07:17:11.718Z",
+        "path": "UI上传→后台任务→Qwen ComfyUI→结果卡→本地下载",
+        "passed": true,
+        "source": {
+          "width": 768,
+          "height": 512
+        },
+        "output": {
+          "width": 1024,
+          "height": 576,
+          "sha256": "5e3f6833aeca96803fdf4600a63c7c6163652d3dbbbf9b9ffe0ca7cb70b2a787"
+        },
+        "observedEngine": "Qwen Image Edit 2511",
+        "identityEvidence": "页面选中引擎与结果标签；实时配置准入成功。下载PNG未携工作流文本元数据。",
+        "expansion": {
+          "left": 128,
+          "top": 32,
+          "right": 128,
+          "bottom": 32
+        },
+        "preservedCenter": {
+          "inset": 32,
+          "width": 704,
+          "height": 448,
+          "maxAbsoluteChannelDifference": 0,
+          "differingChannels": 0,
+          "channelCount": 946176,
+          "pixelIdentical": true
+        },
+        "pageObservedDurationSeconds": 219.1
+      }
+    }
+  },
+  "_cleanup": {
+    "originalValidationSha256": "f72c1270f7b63896ddc485f6ef99cf6781d717a0f69e5f75fe35501ced876970",
+    "purpose": "仅合并原有任务/Prompt/同步与参数证据，未新增测试或生成",
+    "originalDirectoryMap": "# qwen-outpaint/\n> L2 | 父级: ../CLAUDE.md\n\n成员清单\n\ninput.png: 历史 Sunburst 夜景客厅成品的等比 768×512 测试副本，原始文件未修改\nresult.png: 本次 Qwen 工作流真实 GPU 返回的本机 PNG，仅在请求成功后写入\nvalidation.json: 本次运行时间、真实尺寸、唯一产物指纹、中心像素差与扩展区域统计，仅在验证完成后写入\nresponse-summary.json: 本次运行的脱敏请求几何与工作流/模型/耗时元数据，仅在请求成功后写入\nui-result.png: 从工作台真实结果卡下载的第二次 1024×576 PNG，独立于第一次客户端运行\nui-validation.json: 页面上传/入队/生成/显示/下载整链路及第二次真实PNG尺寸/中心像素一致性；PNG无工作流文本元数据，身份依据页面与实时配置\nlark-backfill.json: 本次将页面1024×576成品补写飞书的成功回执、记录链接与产物SHA，不重新出图\nlark-readback-validation.json: 补写后的功能/模型/实际尺寸/参数及原图/结果图附件回读核验，仅核对成功后写入\nsync-tests.log: 扩图飞书归档修复后641项Node测试全部通过，包含三引擎归档与入队前Schema阻断，不重新调用GPU\ntests.log: 本次最终634项Node测试全部通过的记录，不向GPU提交任务\nCLAUDE.md: 本次运行证据地图；运行状态以 validation.json 为准，不由文件存在推断完整质量\n\n[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md\n\n2026-10-15 已完成两次真实生成。第一次执行 138.668 秒、1024×768，第二次页面显示总耗时 219.1 秒、1024×576。两次扣除内侧32px接缝带后的704×448中心均逐像素相同。桌面/390px窄屏已检查：引擎名称单行省略且具完整title，Qwen隐藏Flux选择；4K预览4096×2304。4K未实跑GPU性能，单场景两个种子不代表多场景质量评测。\n\n飞书修复：旧扩图原为local-only路径；已将AI扩图移至AI创作末位并接入三引擎自动归档，实时新增功能/模型选项且保留旧选项。1024×576页面成品已补写并回读为成功，原图645055字节、结果图609773字节与本机一致。旧任务过期，补写明确不填造未恢复的seed/promptId。新进程飞书就绪检查ready=true；桌面页面已复核功能顺序。补写与归档修复未重新提交GPU。\n"
+  }
 }

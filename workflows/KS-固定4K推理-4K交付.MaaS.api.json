@@ -1,0 +1,152 @@
+{
+  "70": {
+    "class_type": "MaaSInputString",
+    "inputs": {
+      "key": "input_img",
+      "value": "",
+      "required": true,
+      "display_name": "原图URL",
+      "info": "仅此业务输入；固定4096推理与成品，等比最近偶数"
+    }
+  },
+  "71": {
+    "class_type": "MaaSUrlLoader",
+    "inputs": {
+      "url": [
+        "70",
+        0
+      ]
+    }
+  },
+  "73": {
+    "class_type": "SeedVR2LoadDiTModel",
+    "inputs": {
+      "attention_mode": "sdpa",
+      "blocks_to_swap": 36,
+      "cache_model": false,
+      "device": "cuda:0",
+      "model": "seedvr2_ema_7b_fp8_e4m3fn_mixed_block35_fp16.safetensors",
+      "offload_device": "cpu",
+      "swap_io_components": true
+    }
+  },
+  "74": {
+    "class_type": "SeedVR2LoadVAEModel",
+    "inputs": {
+      "cache_model": false,
+      "decode_tile_overlap": 128,
+      "decode_tile_size": 1024,
+      "decode_tiled": true,
+      "device": "cuda:0",
+      "encode_tile_overlap": 128,
+      "encode_tile_size": 1024,
+      "encode_tiled": true,
+      "model": "ema_vae_fp16.safetensors",
+      "offload_device": "cpu",
+      "tile_debug": "false"
+    }
+  },
+  "75": {
+    "class_type": "SeedVR2VideoUpscaler",
+    "inputs": {
+      "batch_size": 1,
+      "color_correction": "lab",
+      "dit": [
+        "73",
+        0
+      ],
+      "enable_debug": false,
+      "image": [
+        "77",
+        0
+      ],
+      "input_noise_scale": 0,
+      "latent_noise_scale": 0,
+      "max_resolution": 4096,
+      "offload_device": "cpu",
+      "prepend_frames": 0,
+      "resolution": [
+        "82",
+        0
+      ],
+      "seed": 1758808765,
+      "temporal_overlap": 0,
+      "uniform_batch_size": false,
+      "vae": [
+        "74",
+        0
+      ]
+    }
+  },
+  "76": {
+    "class_type": "MaaSReportImage",
+    "inputs": {
+      "image": [
+        "75",
+        0
+      ],
+      "key": "result_img",
+      "bucket_key": "",
+      "batch_size": 1,
+      "format": ".png",
+      "quality": 100
+    }
+  },
+  "77": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": [
+        "71",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "width": [
+        "81",
+        0
+      ],
+      "height": [
+        "81",
+        2
+      ],
+      "crop": "disabled"
+    }
+  },
+  "80": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "71",
+        0
+      ]
+    }
+  },
+  "81": {
+    "class_type": "SimpleMathDual+",
+    "inputs": {
+      "a": [
+        "80",
+        0
+      ],
+      "b": [
+        "80",
+        1
+      ],
+      "value_1": "max(2,(a*(4096/max(a,b))/2+0.5)//1*2)",
+      "value_2": "max(2,(b*(4096/max(a,b))/2+0.5)//1*2)"
+    }
+  },
+  "82": {
+    "class_type": "SimpleMath+",
+    "inputs": {
+      "a": [
+        "81",
+        0
+      ],
+      "b": [
+        "81",
+        2
+      ],
+      "value": "min(a,b)"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、风格转换/效果图氛围转换/美化及全景图美化、风格、参考图状态与后台任务批次元数据
- * [OUTPUT]: 对外提供旧房改造映射为空房加包装参数、两步加载文案与不设模型数上限的单模型多张生成项展开、不重复图片载荷的后台生成任务请求与含风格转换/效果图氛围转换/美化及全景图美化的分功能加载文案
+ * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、精模光影提示词与旧氛围兼容、各功能状态与后台任务批次元数据
+ * [OUTPUT]: 对外提供旧房直接映射普通空房的单流程请求、不设模型数上限的单模型多张展开、不重复图片载荷的后台请求及精模纯提示词/预设双图/上传参考加载文案
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,7 +27,6 @@ export function generationItemsForSelection(models, generationCount = 1) {
 export function generationLoadingCopy({
   designPromptRequest,
   emptyRoomRequest,
-  roomRenovationRequest,
   effectBeautificationRequest,
   effectEnhancementRequest,
   forcePromptRegeneration,
@@ -36,11 +35,12 @@ export function generationLoadingCopy({
   panoramaEnhancementRequest,
   refinedModelRequest,
   refinedPrompt,
+  refinedRender,
+  refinedLighting,
   renderMode,
   styleReferenceCount,
   styleTransferRequest,
 }) {
-  if (roomRenovationRequest) return "第 1 / 2 步：正在清空旧房；完成后自动开始空房设计…";
   if (effectEnhancementRequest) {
     return "正在按时段与天气规则转换效果图氛围…";
   }
@@ -77,6 +77,13 @@ export function generationLoadingCopy({
       : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…";
   }
   if (refinedModelRequest) {
+    if (refinedLighting?.mode === "preset") return refinedLighting.execution === "prompt-and-reference"
+      ? "正在保留设计与材质，结合光影提示词与预设参考图渲染精模…"
+      : "正在保留设计与材质，按光影提示词渲染精模…";
+    if (refinedLighting?.mode === "reference") return "正在保留设计与材质，参考上传图渲染精模…";
+    if (refinedRender && (refinedRender.time !== "preserve" || refinedRender.weather !== "preserve" || refinedRender.tone !== "preserve")) {
+      return "正在保留设计与材质，按所选氛围渲染精模…";
+    }
     return refinedPrompt
       ? "正在拼接自定义要求并忠实渲染精模…"
       : "正在读取固定 Prompt 并忠实渲染精模…";
@@ -101,6 +108,7 @@ export function buildGenerationJobRequest({
   const {
     referenceImages,
     styleReferenceImages,
+    lightingReferenceImages,
     ...sharedInput
   } = baseInput;
   const items = models.map((model) => {
@@ -111,6 +119,7 @@ export function buildGenerationJobRequest({
     const {
       referenceImages: _referenceImages,
       styleReferenceImages: _styleReferenceImages,
+      lightingReferenceImages: _lightingReferenceImages,
       ...input
     } = adapted;
     return { input, key: model.key, label: model.label };
@@ -125,6 +134,7 @@ export function buildGenerationJobRequest({
       ...sharedInput,
       referenceImages,
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
+      ...(lightingReferenceImages ? { lightingReferenceImages } : {}),
     },
   };
 }

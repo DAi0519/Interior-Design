@@ -65,7 +65,7 @@ for (const key of ["banana21", "gptImage25Sunburst"]) {
     assert.equal(archive.finalPrompt, submittedPrompt);
     assert.equal(archive.modelLabel, model.label);
     assert.equal(archive.workflow.pose.azimuth, 180);
-    assert.equal(archive.workflow.promptVersion, result.workflow.version);
+    assert.equal(archive.workflow.promptVersion, result.workflow.promptVersion);
     assert.equal(archive.referenceImages[0].imageUrl, url(original));
     assert.equal(result.upstream.metadata.nativeOutputWidth, 3072);
     assert.equal(result.upstream.metadata.outputResized, true);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖真实 PNG/SeedVR2 工作流元数据、Beta独立三表 Store/归档投影、正式生成服务与内存 CLI/超分客户端
- * [OUTPUT]: 验证六套稳定标签/版本冻结、两KS整图受限推理与4K/6K成品回读、恢复插值标记、无Prompt恢复及旧20.1的2X合同
+ * [OUTPUT]: 验证六套稳定标签/版本冻结、直入6K固定5K/其他KS20MP推理与成品回读、恢复插值标记、无Prompt恢复及旧20.1的2X合同
  * [POS]: test 的 Beta AI超分归档合同测试，不提交 GPU、收费请求或真实飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -238,16 +238,18 @@ for (const workflowKey of ["ks_seedvr2_2x", "ks_seedvr2_2x_direct"]) {
       assert.equal(workflow.workflowId, workflowKey);
       assert.equal(workflow.workflowVersion, IMAGE_UPSCALE_WORKFLOWS[workflowKey].version);
       assert.equal(workflow.outputScale, undefined);
-      const [inferenceWidth, inferenceHeight] = resolution === "6K" ? [3864, 5152] : [width, height];
+      const fixed6K = workflowKey === "ks_seedvr2_2x_direct" && resolution === "6K";
+      const [inferenceWidth, inferenceHeight] = resolution === "6K" ? (fixed6K ? [3840, 5120] : [3864, 5152]) : [width, height];
       assert.equal(workflow.executionStrategy, "whole");
-      assert.equal(workflow.executionPolicyVersion, "ks-whole-area-cap-v3");
+      assert.equal(workflow.executionPolicyVersion, fixed6K ? "ks-fixed-5k-to-6k-v1" : "ks-whole-area-cap-v3");
       assert.equal(workflow.seedVrMaxResolution, inferenceHeight);
       assert.equal(workflow.seedVrResolution, inferenceWidth);
       assert.equal(workflow.blocksToSwap, 36);
       assert.equal(workflow.swapIoComponents, true);
       assert.equal(workflow.tiling, undefined);
       assert.deepEqual([workflow.inferenceWidth, workflow.inferenceHeight], [inferenceWidth, inferenceHeight]);
-      assert.equal(workflow.inferencePixelLimit, 20000000);
+      assert.equal(workflow.inferencePixelLimit, fixed6K ? undefined : 20000000);
+      assert.equal(workflow.fixedInferenceLongEdge, fixed6K ? 5120 : undefined);
       assert.equal(workflow.paddedInferencePixels, Math.ceil(inferenceWidth / 16) * 16 * Math.ceil(inferenceHeight / 16) * 16);
       assert.ok(workflow.paddedInferencePixels < 20000000);
       assert.equal(workflow.deliveryPostResize, resolution === "6K");

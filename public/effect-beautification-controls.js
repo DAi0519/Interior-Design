@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖主工作台美化容器或 Beta 已有强度/色调单选组、受控选择值与变更回调
- * [OUTPUT]: 对外提供无常驻说明的主工作台美化骨架、异常提示位、低强度/自然调归一化及 value/restore 单选控制器，支持方向键、Home/End 与焦点跟随
+ * [OUTPUT]: 对外提供无常驻说明的主工作台美化骨架、异常提示位、低强度/自然调归一化及value/restore单选控制器，支持方向键/Home/End/焦点跟随，禁用按钮不接受选择
  * [POS]: public 的效果图美化输入层，由生图工作台与 Beta 共用，不持有 Prompt 正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,6 +64,7 @@ export function bindEffectBeautificationControls({ root, intensityGroup, toneGro
     const selector = `[data-effect-${key}]`;
     const dataKey = key === "intensity" ? "effectIntensity" : "effectTone";
     const select = (button) => {
+      if (button.disabled) return;
       selection = normalizeEffectBeautification({ ...selection, [key]: button.dataset[dataKey] });
       render();
       button.focus();

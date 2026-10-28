@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部字段类型/单选值/附件 ID 的 409 阻断、Banana 2.1 独立模型归档、真实尺寸、风格转换平台/参考图风格与独立扩图功能 Schema、设计字段及完整工作流回归保障
+ * [OUTPUT]: 对外提供全部字段类型/单选值/附件ID的409阻断、独立旧房Agent编码/版本及场景原样归档、Banana2.1/真实尺寸/风格转换/扩图Schema与完整工作流回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -364,6 +364,24 @@ test("空房双模式与非 Agent 链路投影为可筛选业务字段", () => {
   assert.equal("其他空间类型" in fusion, false);
   assert.equal("设计方式" in refined, false);
   assert.equal("Agent 编码" in refined, false);
+});
+
+test("旧房独立Agent通过既有文本编码和版本列归档，不扩展空房功能枚举", () => {
+  assert.doesNotThrow(() => assertLarkSyncSchema({ data: { fields: validSyncSchemaFields() } }));
+  for (const [renderMode, agentCode] of [["smart-default", "room-renovation-smart-default"], ["style-dna", "room-renovation-fusion"]]) {
+    const workflow = {
+      agentCode, agentVersion: 1, designScenario: "room-renovation",
+      feature: "empty-room-design", renderMode, roomType: "客厅", selectionName: "智能默认",
+    };
+    const fields = buildRecordFields({ actualSize: "1200x900", finalPrompt: "独立旧房Prompt", sourcePrompt: "重新设计家具",
+      modelLabel: "GPT Image 2", preview: { outputFormat: "png" }, workflow });
+    assert.equal(fields["功能"], "空房设计");
+    assert.equal(fields["Agent 编码"], agentCode);
+    assert.equal(fields["Agent 版本"], 1);
+    assert.equal(fields["原始 Prompt"], "重新设计家具");
+    assert.equal(fields["最终 Prompt"], "独立旧房Prompt");
+    assert.deepEqual(JSON.parse(fields["生成参数"]).workflow, workflow);
+  }
 });
 
 test("长 Prompt 只截断标题，不截断最终内容且允许原始输入为空", () => {

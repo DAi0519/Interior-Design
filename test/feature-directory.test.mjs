@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与生图工作台入口/主题 CSS
- * [OUTPUT]: 对外提供 AI设计/AI渲染/AI编辑/AI创作内嵌目录、十四功能唯一入口、旧房改造与风格转换归属 AI设计、超分/扩图/遮罩填充归属 AI编辑、美化/氛围转换独立导航、禁止桌面外面板焦点滚动与约束隐藏下拉定位、双面板桌面布局与窄屏两列降级的静态合同测试
+ * [OUTPUT]: 对外提供 AI设计/AI渲染/AI编辑/AI创作内嵌目录、十五功能唯一入口、旧房改造与风格转换归属 AI设计、超分/扩图/遮罩填充/打光归属 AI编辑、美化/氛围转换独立导航、禁止桌面外面板焦点滚动与约束隐藏下拉定位、双面板桌面布局与窄屏两列降级的静态合同测试
  * [POS]: test 的生图工作台信息架构回归测试，不创建 DOM 或发送请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("十四个功能只在四组内嵌目录中出现一次，旧房归属 AI设计，超分、扩图、多角度与遮罩填充归属 AI编辑", async () => {
+test("十五个功能只在四组内嵌目录中出现一次，旧房归属 AI设计，超分、扩图、多角度与遮罩填充/打光归属 AI编辑", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const directory = html.match(/<nav id="featureModeList"[\s\S]*?<\/nav>/)?.[0] || "";
 
@@ -17,7 +17,7 @@ test("十四个功能只在四组内嵌目录中出现一次，旧房归属 AI�
   assert.match(directory, /<h2 id="aiRenderTitle">AI渲染<\/h2>/);
   assert.match(directory, /<h2 id="aiEditTitle">AI编辑<\/h2>/);
   assert.match(directory, /<h2 id="aiCreationTitle">AI创作<\/h2>/);
-  assert.equal((html.match(/data-feature-mode=/g) || []).length, 14);
+  assert.equal((html.match(/data-feature-mode=/g) || []).length, 15);
   const designGroup = directory.match(/<section[^>]*aria-labelledby="aiDesignTitle"[\s\S]*?<\/section>/)?.[0] || "";
   assert.deepEqual([...designGroup.matchAll(/data-feature-mode="([^"]+)"/g)].map((match) => match[1]), [
     "whiteModel", "emptyRoom", "roomRenovation", "styleTransfer", "refinedModel",
@@ -31,7 +31,7 @@ test("十四个功能只在四组内嵌目录中出现一次，旧房归属 AI�
     "effectBeautification", "effectEnhancement", "panoramaEnhancement",
   ]);
   assert.deepEqual([...editGroup.matchAll(/data-feature-mode="([^"]+)"/g)].map((match) => match[1]), [
-    "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill",
+    "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight",
   ]);
   assert.deepEqual([...creationGroup.matchAll(/data-feature-mode="([^"]+)"/g)].map((match) => match[1]), [
     "styleDna", "free",

@@ -1,0 +1,45 @@
+/**
+ * [INPUT]: 依赖主工作台/Beta的共享配置操作语义与银灰主题令牌
+ * [OUTPUT]: 对外提供轻量刷新按钮/12px描边SVG、操作行排列及悬停/按压/禁用反馈
+ * [POS]: public 的配置刷新按钮唯一视觉源，由Main和Beta显式加载，不依赖整套工作台主题
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+.section-heading-actions {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.config-refresh-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--quiet);
+  display: inline-flex;
+  font-size: 10px;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 6px;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.config-refresh-button svg {
+  fill: none;
+  height: 12px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 12px;
+}
+
+.config-refresh-button:active { transform: scale(0.97); }
+.config-refresh-button:disabled { cursor: wait; opacity: 0.45; }
+
+@media (hover: hover) and (pointer: fine) {
+  .config-refresh-button:hover:not(:disabled) { background: var(--panel-soft); color: var(--text); }
+}
