@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+texture-enhancement.md: 独立飞书上架Prompt表/v1与刷新/无本地回退、单图固定词/空负向、共享批次与独立任务归档及真实验证边界
 ks-4k6k-integration.md: KS独立4K/6K两工作流文件、按档位ID映射、单input_img/result_img PNG与固定推理/成品尺寸及平台发布联调合同
 local-entry.md: 本机4192唯一日常入口、共享端口真源、主分支合并/空闲重启与实际工作流版本验收
 refined-lighting-library.md: 收起图卡/无清除/上传替换锁定、纯词与reference3后台、1397全测/Main展开上传删除与焦点实测及历史边界

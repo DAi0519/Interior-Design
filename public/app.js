@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖精模预设提示词/上传参考两路径版本组合控制器、GPT打光/Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
- * [OUTPUT]: 对外提供GPT点线面打光/逐灯两模式、遮罩填充与URL功能直达、按功能任务恢复与飞书记录、生图/遮罩填充与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设提示词/上传参考与补充要求、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型多选/单模型多张与独立飞书反馈
+ * [INPUT]: 依赖质感增强飞书固定Prompt版本目录、精模预设提示词/上传参考两路径版本组合控制器、GPT打光/Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
+ * [OUTPUT]: 对外提供质感增强运行进程/飞书Prompt可用性门禁、版本冻结与单图入口、GPT点线面打光/逐灯两模式、遮罩填充与URL功能直达、按功能任务恢复与飞书记录、生图/遮罩填充与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设提示词/上传参考与补充要求、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型多选/单模型多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { isEmptyRoomDesign } from "./room-renovation.js";
-import { bindConfigRefresh } from "./config-refresh.js";
+import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js?v=2";
 import { designPromptConfiguration, designSourceValidation, platformStyleAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=2";
@@ -19,11 +19,7 @@ import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
 import { bindImageTools } from "./image-tools.js?v=4";
-import {
-  buildGenerationJobRequest,
-  generationItemsForSelection,
-  generationLoadingCopy,
-} from "./generation-task-request.js";
+import { buildGenerationJobRequest, generationItemsForSelection, generationLoadingCopy } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
@@ -32,14 +28,16 @@ import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedModelControls, createRefinedModelSelection } from "./refined-model-controls.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
-import { referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
+import { generationFeatureUnavailableReason, referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
 import "./custom-select.js?v=9";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
   connected: false,
+  generationFeatureModes: null,
   effectBeautificationPrompt: { available: false, version: null },
+  textureEnhancementPrompt: { available: false, version: null },
   emptyRoomConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
   roomRenovationConfig: { promptAgent: { defaultVersion: null, versions: [] }, smartDefault: { available: false, reason: "读取中", version: null } },
   styleTransferConfig: { promptAgent: { defaultVersion: null, versions: [] }, reference: { available: false, reason: "读取中", version: null } },
@@ -96,7 +94,6 @@ function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
 function renderPromptAgentModels() {
   renderAgentControls(elements, state);
 }
-
 function selectPromptAgent(modelKey) {
   const model = state.promptAgentCatalog.find((entry) => entry.key === modelKey);
   const live = model && state.availablePromptAgents.get(model.id);
@@ -124,7 +121,7 @@ function updateReferenceRequirements() {
 }
 function selectFeatureMode(featureMode) {
   const supported = [
-    "effectEnhancement", "effectBeautification", "emptyRoom", "roomRenovation", "free",
+    "effectEnhancement", "effectBeautification", "textureEnhancement", "emptyRoom", "roomRenovation", "free",
     "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
@@ -142,6 +139,7 @@ function selectFeatureMode(featureMode) {
   const isDesignModel = isWhiteModel || isEmptyRoom || isStyleTransfer;
   const isEffectEnhancement = featureMode === "effectEnhancement";
   const isEffectBeautification = featureMode === "effectBeautification";
+  const isTextureEnhancement = featureMode === "textureEnhancement";
   const isPanoramaEnhancement = featureMode === "panoramaEnhancement";
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
@@ -186,6 +184,7 @@ function selectFeatureMode(featureMode) {
   elements.modelSection.classList.toggle("hidden", Boolean(imageTool));
   elements.effectEnhancementSection.classList.toggle("hidden", !isEffectEnhancement);
   elements.effectBeautificationSection.classList.toggle("hidden", !isEffectBeautification);
+  elements.textureEnhancementSection.classList.toggle("hidden", !isTextureEnhancement);
   elements.emptyRoomTypeSection.classList.toggle("hidden", !isEmptyRoom);
   emptyRoomType.setFeatureMode(featureMode);
   elements.styleReferenceSection.classList.toggle("hidden", !isDesignModel);
@@ -194,7 +193,7 @@ function selectFeatureMode(featureMode) {
     isStyleTransfer ? "风格转换目标风格" : featureMode === "roomRenovation" ? "旧房改造风格选择" : isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   refinedModel.setVisible(isRefinedModel);
   elements.promptSection.classList.toggle(
-    "hidden", isRefinedModel || isEffectEnhancement || isEffectBeautification || isPanoramaEnhancement || Boolean(imageTool),
+    "hidden", isRefinedModel || isEffectEnhancement || isEffectBeautification || isTextureEnhancement || isPanoramaEnhancement || Boolean(imageTool),
   );
   elements.ratioField.classList.toggle("hidden", Boolean(imageTool));
   elements.generationCountField.classList.toggle("hidden", Boolean(imageTool));
@@ -207,7 +206,6 @@ function selectFeatureMode(featureMode) {
   referenceUpload.render();
   renderActiveGenerationTask();
 }
-
 function renderModelSelect() {
   refinedModel.setModels(selectedModels());
   modelMultiSelect.render(state.catalog, state.modelKeys);
@@ -216,7 +214,6 @@ function renderModelSelect() {
     ? "已选 1 个模型，生成张数可在参数中设置。"
     : `${count} 个模型，各 1 张，共 ${count} 张；参数以 ${selectedModel()?.label} 为准。`;
 }
-
 function configurePrimaryModel() {
   if (!selectedModel()) { renderModelSelect(); return; }
   if (selectedSourceImage()) state.ratioMode = "auto";
@@ -257,12 +254,10 @@ function configurePrimaryModel() {
   updateComputedSize();
   referenceUpload.render();
 }
-
 function selectModels(modelKeys) {
   state.modelKeys = refinedModelSelection.chooseByUser(state.featureMode, modelKeys);
   configurePrimaryModel();
 }
-
 function configureSizeControls({
   preserveResolution = false,
   ratioMode = state.ratioMode,
@@ -287,7 +282,6 @@ function configureSizeControls({
   elements.ratioSelect.disabled = controls.ratioDisabled;
   elements.resolutionSelect.disabled = controls.resolutionDisabled;
 }
-
 function updateComputedSize() {
   const model = selectedModel();
   const ratio = elements.ratioSelect.value;
@@ -311,12 +305,12 @@ function updateComputedSize() {
   elements.emptyModel.textContent = model.label;
   elements.emptySize.textContent = summary.emptySize;
 }
-
 function generationInput() {
   const renderMode = whiteModelRenderMode.current();
   return buildGenerationInput({
     effectBeautification: effectBeautification.value(),
     effectBeautificationPromptVersion: state.effectBeautificationPrompt.version,
+    textureEnhancementPromptVersion: state.textureEnhancementPrompt.version,
     effectTime: elements.effectTimeSelect.value,
     effectWeather: elements.effectWeatherSelect.value,
     emptyRoomFields: emptyRoomType.requestFields(),
@@ -340,9 +334,7 @@ function generationInput() {
     styleReferenceImages: styleReferenceImages(),
   });
 }
-
 function updatePromptCount() { elements.promptCount.textContent = `${elements.promptInput.value.length} / 8000`; }
-
 function setApiConnectionState(connected) {
   if (state.connected !== connected) generationActions.clearReusable();
   state.connected = connected;
@@ -362,7 +354,6 @@ function setApiConnectionState(connected) {
   elements.promptAgentAvailability.classList.toggle("ready", connected);
   renderActiveGenerationTask();
 }
-
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.remove("hidden");
@@ -421,7 +412,6 @@ async function checkAvailableModels() {
     showToast(error.message);
   }
 }
-
 function resetModelAvailability() {
   state.availablePromptAgents.clear();
   styleDnaChat.setAvailability([]);
@@ -431,6 +421,8 @@ function resetModelAvailability() {
 
 async function generate({ forcePromptRegeneration = false } = {}) {
   const featureMode = state.featureMode;
+  const unavailableReason = generationUnavailableReason();
+  if (unavailableReason) { showToast(unavailableReason); return; }
   const imageTool = imageTools.forMode(featureMode);
   const localImageRequest = Boolean(imageTool);
   if (generationTasks.view(featureMode).stage === "loading") return;
@@ -447,6 +439,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const refinedModelRequest = featureMode === "refinedModel";
   const effectEnhancementRequest = featureMode === "effectEnhancement";
   const effectBeautificationRequest = featureMode === "effectBeautification";
+  const textureEnhancementRequest = featureMode === "textureEnhancement";
   const panoramaEnhancementRequest = featureMode === "panoramaEnhancement";
   if (effectBeautificationRequest && !state.effectBeautificationPrompt.available) {
     showToast(state.effectBeautificationPrompt.reason || "效果图美化 Prompt 不可用，请刷新飞书配置"); return;
@@ -514,11 +507,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
-  if ((effectEnhancementRequest || effectBeautificationRequest || panoramaEnhancementRequest)
+  if ((effectEnhancementRequest || effectBeautificationRequest || textureEnhancementRequest || panoramaEnhancementRequest)
     && referenceImages().length !== 1) {
     showToast(panoramaEnhancementRequest
       ? "全景图美化需要且只允许 1 张待美化全景图"
-      : `${effectEnhancementRequest ? "效果图氛围转换" : "效果图美化"}需要且只允许 1 张效果图`);
+      : `${textureEnhancementRequest ? "质感增强" : effectEnhancementRequest ? "效果图氛围转换" : "效果图美化"}需要且只允许 1 张效果图`);
     return;
   }
   if (
@@ -549,6 +542,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     styleTransferRequest,
     effectEnhancementRequest,
     effectBeautificationRequest,
+    textureEnhancementRequest,
     panoramaEnhancementRequest,
     forcePromptRegeneration,
     generationCount: generationCount.value(),
@@ -610,8 +604,13 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     if (state.featureMode === featureMode) renderActiveGenerationTask();
   }
 }
-
-const generationActions = bindGenerationActions({ getUnavailableReason: () => state.featureMode === "refinedModel" ? refinedModel.validation() : null,
+function generationUnavailableReason() {
+  return generationFeatureUnavailableReason(state.featureMode, state.generationFeatureModes)
+    || (state.featureMode === "refinedModel" ? refinedModel.validation()
+      : state.featureMode === "textureEnhancement" && !effectEnhancementPromptStatus(state.textureEnhancementPrompt).ready
+        ? state.textureEnhancementPrompt.reason || "未读取到质感增强的上架 Prompt，请刷新飞书配置" : null);
+}
+const generationActions = bindGenerationActions({ getUnavailableReason: generationUnavailableReason,
   getPromptIdentity: () => JSON.stringify([
     state.featureMode,
     isEmptyRoomDesign(state.featureMode) ? emptyRoomType.requestFields() : null,
@@ -673,6 +672,7 @@ async function initialize() {
     api("/api/image-relight/config").catch(() => ({ available: false, reason: "打光配置读取失败，请重新启动本机工作台" })).then(config => { imageTools.relight.configure(config); return config; }),
   ]);
   state.catalog = catalogBody.models;
+  state.generationFeatureModes = catalogBody.generationFeatureModes;
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
   refinedModel.setPolicy(state.referencePolicy);
@@ -703,6 +703,7 @@ const loadConfiguration = bindConfigRefresh({
   api,
   onRefinedLighting: refinedModel.setLightingConfig,
   onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
+  onTextureEnhancementPrompt(config) { state.textureEnhancementPrompt = config; generationActions.refresh(); },
   onEmptyRoom(config) {
     state.emptyRoomConfig = config;
     if (state.featureMode === "emptyRoom") {

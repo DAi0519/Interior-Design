@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖普通 Flux2 Klein 配置与美化六预设专属阶段、可选攸行 SeedVR2 3B、外部正负 Prompt、旧房场景、参考图 Base64、种子与请求产物键
- * [OUTPUT]: 对外提供普通7步/美化2或4步分流、普通/旧房独立默认负向解析、共用无Prompt超分、唯一SaveImage和实际阶段元数据
+ * [INPUT]: 依赖普通 Flux2 Klein 配置与美化六预设专属阶段、可选攸行 SeedVR2 3B、正负 Prompt及固定词空负向模式、旧房场景、参考图 Base64、种子与请求产物键
+ * [OUTPUT]: 对外提供普通7步/美化2或4步分流、普通/旧房独立默认负向与质感增强显式空负向、共用无Prompt超分、唯一SaveImage和实际阶段元数据
  * [POS]: src 的 Flux ComfyUI 工作流定义，以空 Latent、euler 采样、参考图条件、无 Prompt 超分旁路和单一最终 SaveImage 串联生成阶段，不负责网络提交、轮询或图片下载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -67,7 +67,9 @@ export function createAiTextureWorkflow({
   if (![width, height].every((value) => Number.isInteger(value) && value >= 16)) {
     throw new TypeError("Flux2 Klein 工作流尺寸不正确");
   }
-  const resolvedNegativePrompt = resolveAiTextureNegativePrompt(negativePrompt);
+  const resolvedNegativePrompt = generationRequest?.negative_prompt_mode === "disabled-fixed-prompt"
+    ? { mode: "disabled-fixed-prompt", text: "" }
+    : resolveAiTextureNegativePrompt(negativePrompt);
   const artifactPrefix = aiTextureArtifactPrefix(artifactKey);
   const beautification = generationRequest?.effect_beautification
     ? createEffectBeautificationStage({

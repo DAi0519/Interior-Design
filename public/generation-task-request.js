@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、精模光影提示词与旧氛围兼容、各功能状态与后台任务批次元数据
- * [OUTPUT]: 对外提供旧房直接映射普通空房的单流程请求、不设模型数上限的单模型多张展开、不重复图片载荷的后台请求及精模纯提示词/预设双图/上传参考加载文案
+ * [OUTPUT]: 对外提供质感增强与精模分路加载文案、旧房直接映射普通空房的单流程请求、不设模型数上限的单模型多张展开和不重复图片载荷的后台请求
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,6 +29,7 @@ export function generationLoadingCopy({
   emptyRoomRequest,
   effectBeautificationRequest,
   effectEnhancementRequest,
+  textureEnhancementRequest,
   forcePromptRegeneration,
   generationCount = 1,
   models,
@@ -46,6 +47,9 @@ export function generationLoadingCopy({
   }
   if (effectBeautificationRequest) {
     return "正在按所选强度与色调美化效果图…";
+  }
+  if (textureEnhancementRequest) {
+    return "正在增强材质质感与光影细节…";
   }
   if (panoramaEnhancementRequest) {
     return "正在按全景连续性规则美化全景图…";

@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+texture-enhancement-prompt.mjs: 独立飞书质感增强上架正文/指定版本读取与SHA、脱敏目录及刷新，缺失下架阻断且无本地回退
 refined-lighting-library.mjs: 独立飞书光影库唯一读取器，双规则/版本摘要/分页/发布身份与预设两执行能力；原附件供预设参考生成并支持forceRefresh，预览独立轻量化；无本地fallback
 refined-lighting.mjs: usesReferencePrompt统一预设图文/用户上传仅专用规则+补充，纯词基础+text规则+反推；原卡图下载/单双图门槛/真实SHA冻结复核、旧冻结拒绝与历史兼容
 refined-render-prompt-asset.mjs: 精模四块资产纯解析器，将主正文与三列JSON模块规范化为内部MAIN/TIME/WEATHER/TONE，三列全空兼容旧纯文本，缺组/错型/未知键/空模块以409阻断
@@ -38,8 +39,8 @@ app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 �
 model-config.mjs: 模型参数真源，维护七个 OneAPI 模型（含独立 Banana 2.1 十四比例/1K-4K、GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt/旧房场景准入及独立默认、原有四模型 2:1 与 2.5 九比例/五质量档、GPT 按比例的 16px/655360–8294400像素/3840边长尺寸映射（1K 16:9 为1536x864）、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，批次总数不受模型数量上限约束，严格校验共同批次 ID、正安全整数总数与批内序号；单模型张数由任务入口独立约束
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败、进程内任务查询、领域阶段快照透传及有界结果保留；只读hasActiveJobs守护running任务供原地更新准入
-generation-job-api.mjs: 精模入队必选光影来源或明确有效旧参数，冻结独立基础code/版本/SHA及规则/卡片/实际氛围图身份并去重，兼容旧四块/双资产；GPT打光单图/模板融合/整体原灯及真实局部光源深冻结及独立scope、日常生成后台任务 HTTP 适配层，普通生图按真实目录准入、单模型1–4张/多模型各1张及两路并发；旧房与空房共用普通任务与按张数进度；需归档先验飞书Schema；超分最多4项/扩图1项，扩图固定2K且按引擎权限准入，多角度单图机位准入；遮罩填充仅单项、真实主图/遮罩及GPT归一化矩形或多边形前验、分模式能力/GPT参考用途与圈选参数冻结、透传上游后台任务ID/状态并以独立imageMaskFill scope校验飞书新增字段，仅超分豁免飞书
-generation-service.mjs: 独立GPT打光/执行前Schema及显式功能路由统一覆盖输入身份，自由生图直接入口也固定free以拒绝冒用旧房场景，含风格转换、氛围转换及美化；旧房入口直接复用emptyRoom单流程；扩图取Flux/Qwen或Sunburst编辑客户端并归档；日常超分本机结果/Beta独立归档，遮罩填充独立客户端/配置、GPU前专属Schema复核与飞书同步，多角度按冻结模型分流并重查权限
+generation-job-api.mjs: 实际运行功能目录与质感增强任务准入；精模入队必选光影来源或明确有效旧参数，冻结独立基础code/版本/SHA及规则/卡片/实际氛围图身份并去重，兼容旧四块/双资产；GPT打光单图/模板融合/整体原灯及真实局部光源深冻结及独立scope、日常生成后台任务 HTTP 适配层，普通生图按真实目录准入、单模型1–4张/多模型各1张及两路并发；旧房与空房共用普通任务与按张数进度；需归档先验飞书Schema；超分最多4项/扩图1项，扩图固定2K且按引擎权限准入，多角度单图机位准入；遮罩填充仅单项、真实主图/遮罩及GPT归一化矩形或多边形前验、分模式能力/GPT参考用途与圈选参数冻结、透传上游后台任务ID/状态并以独立imageMaskFill scope校验飞书新增字段，仅超分豁免飞书
+generation-service.mjs: 质感增强路由及可注入独立Prompt读取；独立GPT打光/执行前Schema及显式功能路由统一覆盖输入身份，自由生图直接入口也固定free以拒绝冒用旧房场景，含风格转换、氛围转换及美化；旧房入口直接复用emptyRoom单流程；扩图取Flux/Qwen或Sunburst编辑客户端并归档；日常超分本机结果/Beta独立归档，遮罩填充独立客户端/配置、GPU前专属Schema复核与飞书同步，多角度按冻结模型分流并重查权限
 image-upscale-service.mjs: 主/Beta共享源图真实尺寸与节点准入，KS直入6K固定5K和其他KS面积策略保留15分钟执行/5分钟排队、冻结版本/Prompt追踪、精确PNG与所有异常不自动重提
 image-upscale-workflow.mjs: 六套SeedVR2真源；直入27.1的6K在已有节点内固定5120推理/6144交付，其他KS仍strict20MP，原图比例最近偶数/独立元数据及旧面积helper供恢复，普通四套不变
 beta-upscale-archive-contract.mjs: 从Base提取的纯超分合同，当前fixed5K与20MP严格分开，旧直入26.3/更早历史仅原件恢复，源/目标/推理/成品/SHA逐字段验证
@@ -50,7 +51,7 @@ beta-upscale.mjs: Beta六套超分目录与真实尺寸合同，默认攸行3B�
 beta-outpaint.mjs: Beta扩图四稳定工作流与脱敏能力目录，复用两款Flux Fill/Qwen2511/Sunburst模型真源；严格映射引擎/模型并冻结真实标签，固定2K、原比例或五预设、居中和1.5/2/3倍，拒绝身份冲突/四边参数/重传图片，入队及执行前独立核验所选候选可用性，不复制推理或归档
 beta-runner.mjs: 精模必选光影来源或明确有效旧参数，冻结独立基础code/版本/SHA及规则/卡片/实际参考图并去重/共享图片解包，历史original仅恢复已有结果、缺结果零建档/出图，兼容历史四块/双资产；十功能样本草稿/逐张保存/完成回读与ID批次三表Schema准入，真实成员/目标输入内容及Agent/全景/风格转换冻结版本校验；来源功能不阻断跨功能复用，原样本不复制/重传或改写，两路并发逐项lazy读取原图；扩图/超分异步配置、零重传、真实尺寸在beginRun前预检及候选能力执行前复核，Comfy扩图/超分不依赖Prompt Agent Key；共享生成服务与独立Beta归档保持生成/同步双阶段，逐Run结构化预警，手动RETRY保留成功项与原冻结输入、只续失败Attempt，旧任务可携冻结批次恢复并先复用已上传附件；仅同步失败保留原结果/记录且零重新生成，普通瞬时生成错误最多三次新Attempt、400/409不自动重试，Sunburst扩图最多一次执行，重复点击复用重试任务，全部生成同步结算前hasActiveJobs持续忙碌；受信旧KS失败批次恢复可保留旧版本，恢复无结果仍零建档/GPU拒绝
 effect-render-enhancement-prompt.mjs: 效果图氛围转换/全景图美化 Prompt 资产边界，原效果图表 ID 与 effect-render-enhancement 编码保持兼容，分别公开脱敏可用性/当前上架版本；氛围严格校验 BASE/DEFAULT/CONTRACT/TIME/WEATHER 并按环境拼接，全景接受纯文本/开放 MAIN JSON 与根级尾逗号，禁止跨表回退
-effect-render-enhancement-workflow.mjs: 三张独立飞书Prompt的双Provider单图服务；美化Flux补一次LoRA触发词、空默认/自定义负向、六预设请求标记与节点/模型执行前准入，归档实际送模正文和核心推理尺寸；OneAPI仍原正文，全景/氛围合同不变
+effect-render-enhancement-workflow.mjs: 质感增强单图/独立表上架正文/空负向与实际版本SHA归档；三张独立飞书Prompt的双Provider单图服务；美化Flux补一次LoRA触发词、空默认/自定义负向、六预设请求标记与节点/模型执行前准入，归档实际送模正文和核心推理尺寸；OneAPI仍原正文，全景/氛围合同不变
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
@@ -58,12 +59,12 @@ agent-model-config.mjs: Prompt Agent 模型真源，维护十一个候选 ID（�
 oneapi-image-async.mjs: 无mask原始PNG及图序的Responses background提交/1.5秒轮询、单次收费POST、同ID/终态校验、提交到正文与等待共享600秒总预算、取消及即时ID回调；透明mask明确拒绝
 oneapi-client.mjs: 按阶段独立限时/外部及单请求 AbortSignal 的 OneAPI HTTP 客户端与 ONEAPI_REQUEST_TIMEOUTS 真源：目录 30 秒、提示词/Style DNA 300 秒、出图/编辑 600 秒、分析/评审 180 秒，每次 HTTP 请求至完整响应体独立计时，专用 undici Agent 避免底层默认 300 秒提前截断且不改全局连接；Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImageAsync使用Responses后台任务并归一化结果/费用，editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留阶段/模型/限时脱敏诊断及请求身份/费用
 ai-texture-workflow-config.mjs: 普通Flux7步身份/参数与统一归档元数据，美化分支覆盖实际工作流版本/2或4步/1920推理尺寸/LoRA及后处理、来源SHA和平台参数策略ID
-ai-texture-workflow.mjs: 普通Flux9B FP8/7步/euler/空Latent与原图ReferenceLatent，保留普通/旧房独立默认负向和8000字符自定义；美化请求改走独立1920核心阶段，两支共用可选攸行3B超分与唯一72 SaveImage/请求级产物键
+ai-texture-workflow.mjs: 质感增强固定词模式保持最终空负向节点；普通Flux9B FP8/7步/euler/空Latent与原图ReferenceLatent，保留普通/旧房独立默认负向和8000字符自定义；美化请求改走独立1920核心阶段，两支共用可选攸行3B超分与唯一72 SaveImage/请求级产物键
 comfyui-client.mjs: 支持外部取消信号、可独立设置的排队/执行时限与工作流适配器的 ComfyUI HTTP/WebSocket 客户端，将 Base64 单图与工作流原子提交，以请求级唯一产物键隔离多实例同名旧图，通过同 client ID 的事件流区分排队/执行并保留 Prompt ID，WebSocket 丢失执行事件时以实时队列和 History 恢复阶段，即使 `completed=false` 也立即透传节点 OOM/中断，只对网关读取抖动做安全重试、保留节点校验详情、为最终输出提供最长约一分钟的暂不可见恢复，并向元数据适配器传递当前History输出以捕获实际Prompt，归一为含真实尺寸/SHA-256身份的data URL与耗时元数据
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 含打光独立scope/原件与实际引导图双参考附件/参数及字段附件双回读的飞书生成记录同步边界，既有Schema/字段/附件与生成投影保持原范围；遮罩专属scope要求七列/模式/功能/模型枚举并动态解析附件ID，原图/结果/遮罩/填充参考图/框选原图分列，框图实际PNG/size/送模SHA校验，GPT无mask时附件留空并校验hasMask，结果真实SHA与附件manifest留档、字段和token/字节两次回读通过才成功；失败只标同步失败，不重跑GPU
+lark-sync.mjs: 质感增强独立功能标签/Schema准入；含打光独立scope/原件与实际引导图双参考附件/参数及字段附件双回读的飞书生成记录同步边界，既有Schema/字段/附件与生成投影保持原范围；遮罩专属scope要求七列/模式/功能/模型枚举并动态解析附件ID，原图/结果/遮罩/填充参考图/框选原图分列，框图实际PNG/size/送模SHA校验，GPT无mask时附件留空并校验hasMask，结果真实SHA与附件manifest留档、字段和token/字节两次回读通过才成功；失败只标同步失败，不重跑GPU
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
@@ -90,7 +91,7 @@ reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 �
 runtime-cache.mjs: 运行时缓存基础设施，提供异步加载并发去重、五分钟 TTL 与主动失效
 sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询；只读 hasActiveJobs 在 pending 同步结束前阻断原地更新
 
-generation-config.mjs: 生图与Beta共用脱敏配置聚合器，精模仅公开独立基础编码目录，光影卡片及风格/Agent/各功能Prompt独立；统一主动刷新，正文与附件token留服务端
+generation-config.mjs: 质感增强脱敏Prompt目录与统一刷新；生图与Beta共用脱敏配置聚合器，精模仅公开独立基础编码目录，光影卡片及风格/Agent/各功能Prompt独立；统一主动刷新，正文与附件token留服务端
 effect-beautification-prompt.mjs: 独立效果图美化固定 Prompt 真源，读取 effect-render-beautification 上架版本，复用执行预设真源准入LOW/HIGH×NATURAL/WARM/COOL，默认low/natural、拒绝未知值、逐字选择正向正文，公开脱敏目录且禁止跨表回退
 effect-beautification-workflow.mjs: CF六原图的共享美化阶段及参数真源，LoRA0.45/0.7、2/4步、ab匹配及按mode旁路的亮度/色温，1920等比/右下16补边/裁剪/输出档适配、触发词幂等、实际元数据与接口枚举准入
 

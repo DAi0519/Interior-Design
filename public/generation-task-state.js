@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sessionStorage 的任务引用、含旧房/空房独立入口的功能编码、服务端普通出图任务快照与 ComfyUI/API 编辑阶段消息
- * [OUTPUT]: 对外提供打光/遮罩/旧房独立任务与按功能持久化的任务引用、安全读取，以及图片计数或图片工具阶段推导的结果区状态
+ * [OUTPUT]: 对外提供质感增强/打光/遮罩/旧房独立任务与按功能持久化的任务引用、安全读取，以及图片计数或图片工具阶段推导的结果区状态
  * [POS]: public 的生成任务恢复状态层，只保存任务引用而不复制图片结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ export const GENERATION_TASK_STORAGE_KEY = "canvas-lab:generation-tasks:v1";
 const FEATURE_MODES = new Set([
   "effectBeautification",
   "effectEnhancement",
+  "textureEnhancement",
   "emptyRoom",
   "roomRenovation",
   "free",

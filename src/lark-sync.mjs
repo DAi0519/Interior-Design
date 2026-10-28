@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:fs/os/path/crypto/util、模型/空房/遮罩/打光归档真源、图片产物/尺寸/飞书 CLI、生图结果及原图/实际提交的引导图附件、已创建飞书 Base
- * [OUTPUT]: 原始/最终Prompt及真实尺寸同步；遮罩与打光独立scope校验功能选项和附件身份，打光复用参考图列存原件/实际引导PNG并保存完整光源参数，字段/token/字节双回读后成功
+ * [OUTPUT]: 原始/最终Prompt及真实尺寸同步；包含质感增强功能标签准入，遮罩与打光独立scope校验附件，字段/token/字节双回读后成功
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,6 +57,7 @@ const FEATURE_LABELS = Object.freeze({
   "panorama-render-enhancement": "全景图美化",
   "refined-model-rendering": "精模渲染",
   "style-transfer": "风格转换",
+  "texture-render-enhancement": "质感增强",
   "white-model-rendering": "白模渲染",
 });
 const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS).filter((label) => !["遮罩填充", IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL].includes(label)));

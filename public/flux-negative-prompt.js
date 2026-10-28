@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Flux2 Klein 模型编码、当前功能、负向提示词文本域、字数与状态说明 DOM
- * [OUTPUT]: 对外提供仅在选中Flux时显示、旧房/普通两组草稿隔离、美化空默认负向说明和自定义整段覆盖的输入控制器
+ * [OUTPUT]: 对外提供质感增强隐藏负向编辑、其他功能仅在选中Flux时显示、旧房/普通两组草稿隔离、美化空默认负向说明和自定义整段覆盖的输入控制器
  * [POS]: public 的 Flux 负向 Prompt 交互边界，隔离 app.js 编排与具体 DOM 反馈
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -46,7 +46,7 @@ export function bindFluxNegativePrompt({ count, note, root, textarea }) {
         textarea.value = drafts[scope];
       }
       update();
-      root.classList.toggle("hidden", !modelKeys.includes(FLUX_MODEL_KEY));
+      root.classList.toggle("hidden", featureMode === "textureEnhancement" || !modelKeys.includes(FLUX_MODEL_KEY));
     },
     value() {
       return textarea.value.trim();

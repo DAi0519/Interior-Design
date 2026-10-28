@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 sharp 真实图片、遮罩归档投影、飞书 Schema/同步边界及可注入内存 CLI
+ * [INPUT]: 依赖 sharp 真实图片、遮罩归档投影、含质感增强普通功能的飞书Schema/同步边界及可注入内存CLI
  * [OUTPUT]: 遮罩七字段准入、GPT参考用途默认/换物品/换材质和三定位空原文/真实固定Prompt与两次回读、矩形/自由圈选送模原图独立附件和真实来源、原件与空manifest/缺图SHA及回读故障阻断测试
  * [POS]: test 的遮罩填充飞书归档合同测试，不调用真实模型、CLI 或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -77,7 +77,7 @@ function schemaFields({ mask = true } = {}) {
     { id: LARK_SYNC_CONFIG.resultFieldId, name: "结果图", type: "attachment" },
     { id: LARK_SYNC_CONFIG.styleReferenceFieldId, name: "风格参考图", type: "attachment" },
     select("Prompt融合", publicAgentModelCatalog().filter(model => model.imageInput).map(model => model.label)),
-    select("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "AI扩图", "多角度", ...(mask ? ["遮罩填充"] : [])]),
+    select("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "质感增强", "AI扩图", "多角度", ...(mask ? ["遮罩填充"] : [])]),
     select("状态", ["成功", "生成失败", "同步失败"]),
     select("生图模型", [...publicModelCatalog().map(model => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS, ...(mask ? [IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL] : [])]),
     select("空间类型", EMPTY_ROOM_TYPES), select("设计方式", ["智能默认", "平台风格", "参考图风格"]), select("景别", ["特写", "标准", "远景"]),

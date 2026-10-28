@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生图工作台原配置栏/功能按钮、原生 dialog、共享 select 适配、指针/RAF/观察器和可选本机存储
- * [OUTPUT]: 对外提供布局偏好归一化、目录缩窄/参数自适应几何与窄尾吸附，以及保留原节点的分割线拖宽、键盘调整和移动抽屉
+ * [OUTPUT]: 对外提供含质感增强的紧凑目录标签、布局偏好归一化、目录缩窄/参数自适应几何与窄尾吸附，以及保留原节点的分割线拖宽、键盘调整和移动抽屉
  * [POS]: public 的生图工作台布局控制器，仅维护面板呈现，不改变上传、生成配置或后台任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,7 +20,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const positiveNumber = value => typeof value === "number" && Number.isFinite(value) && value > 0;
 const COMPACT_LABELS = Object.freeze({
   whiteModel: "白模渲染", emptyRoom: "空房设计", styleTransfer: "风格转换", refinedModel: "精模渲染",
-  effectBeautification: "效果美化", effectEnhancement: "氛围转换", panoramaEnhancement: "全景美化",
+  effectBeautification: "效果美化", effectEnhancement: "氛围转换", panoramaEnhancement: "全景美化", textureEnhancement: "质感增强",
   imageUpscale: "图片超分", imageOutpaint: "AI扩图", imageMultiAngle: "多角度", styleDna: "风格反推", free: "自由生图",
 });
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模旧模块及光影来源/双图/版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
- * [OUTPUT]: 对外提供精模必选光影/历史参数准入、基础编码/版本/SHA及规则/卡片/参考图冻结与批次去重、打光正文冻结和任务入队/查询
+ * [OUTPUT]: 对外提供运行进程只读功能目录、含质感增强的功能准入、精模光影及资产批次冻结、打光正文冻结和任务入队/查询
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,8 +31,13 @@ const FEATURE_MODES = new Set([
   "panoramaEnhancement",
   "refinedModel",
   "styleTransfer",
+  "textureEnhancement",
   "whiteModel",
 ]);
+
+export function supportedGenerationFeatureModes() {
+  return Object.freeze([...FEATURE_MODES]);
+}
 
 export function createGenerationJobApiHandler({
   generationJobs,

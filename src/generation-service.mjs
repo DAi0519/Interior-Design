@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖GPT打光及独立飞书Prompt准备服务、模型/批次契约、OneAPI客户端、各生图/图片工具工作流和注入目录/同步调度
+ * [INPUT]: 依赖GPT打光及独立飞书Prompt准备服务、独立质感增强Prompt读取与共享工作流、模型/批次契约、OneAPI客户端和注入目录/同步调度
  * [OUTPUT]: 对外提供打光服务器Prompt快照准备和执行透传、按显式功能冻结输入的统一生成路由及执行前权限/Schema门禁
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -35,6 +35,7 @@ export function createGenerationService({
   verifyMaskFillSyncContract,
   verifyRelightSyncContract,
   getRelightPrompt,
+  getTextureEnhancementPrompt,
   readRelightPromptConfig,
   imageMultiAngleClient = null,
   imageOutpaintClient = null,
@@ -114,6 +115,7 @@ export function createGenerationService({
       : null;
     return executeEffectRenderEnhancementWorkflow(input, {
       imageClient: imageClientForModel(input.modelKey, { oneApiClient }),
+      ...(getTextureEnhancementPrompt ? { loadTexturePrompt: getTextureEnhancementPrompt } : {}),
       scheduleSync: scheduleGenerationSync,
     });
   }
@@ -181,7 +183,7 @@ export function createGenerationService({
     if (["emptyRoom", "whiteModel", "styleTransfer"].includes(featureMode)) {
       return executeDesign(input);
     }
-    if (["effectEnhancement", "effectBeautification", "panoramaEnhancement"].includes(featureMode)) {
+    if (["effectEnhancement", "effectBeautification", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)) {
       return executeEffectEnhancement(input);
     }
     if (featureMode === "imageUpscale") {

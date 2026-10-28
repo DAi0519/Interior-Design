@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立精模光影基础目录、光影库版本化同源预览、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: 对外提供生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新/安装、连接、配置、飞书合同与模型权限准入、生成和下载；打光/遮罩填充提供独立任务、能力目录与飞书归档；Beta 十功能复用正式扩图/超分客户端与独立归档、逐张上传样本、按样本 ID 入队并提供轻量预览，超分独立复核ComfyUI节点且不依赖OneAPI，JSON 单次请求保留 30MB 保护
+ * [OUTPUT]: 对外提供运行进程功能目录、生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新/安装、连接、配置、飞书合同与模型权限准入、生成和下载；打光/遮罩填充提供独立任务、能力目录与飞书归档；Beta 十功能复用正式扩图/超分客户端与独立归档、逐张上传样本、按样本 ID 入队并提供轻量预览，超分独立复核ComfyUI节点且不依赖OneAPI，JSON 单次请求保留 30MB 保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,7 +21,7 @@ import { captureBetaGenerationArchive, createBetaBaseStore } from "./src/beta-ba
 import { readBetaUpscaleConfig } from "./src/beta-upscale.mjs";
 import { createBetaApiHandler, createBetaRunnerService } from "./src/beta-runner.mjs";
 import { readGenerationConfig } from "./src/generation-config.mjs";
-import { createGenerationJobApiHandler } from "./src/generation-job-api.mjs";
+import { createGenerationJobApiHandler, supportedGenerationFeatureModes } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
 import { readMultiAngleConfig } from "./src/image-multi-angle-service.mjs";
@@ -46,11 +46,7 @@ import { createBenchmarkWorkbenchService } from "./src/benchmark-workbench.mjs";
 import { createBenchmarkWorkbenchStore } from "./src/benchmark-workbench-store.mjs";
 import { syncGenerationToLark, verifyLarkSyncSchema } from "./src/lark-sync.mjs";
 import { createLarkSetupService } from "./src/lark-setup.mjs";
-import {
-  hasPersistedOneApiKey,
-  persistOneApiKey,
-  removePersistedOneApiKey,
-} from "./src/local-settings.mjs";
+import { hasPersistedOneApiKey, persistOneApiKey, removePersistedOneApiKey } from "./src/local-settings.mjs";
 import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
 import {
   EMPTY_ROOM_PROMPT_CONFIG,
@@ -553,6 +549,7 @@ async function handleApi(request, response, pathname) {
     const { REFERENCE_IMAGE_POLICY } = await import("./src/reference-image.mjs");
     return sendJson(response, 200, {
       agentModels: publicAgentModelCatalog(),
+      generationFeatureModes: supportedGenerationFeatureModes(),
       emptyRoomTypeDetailMaxLength: EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH,
       emptyRoomTypes: EMPTY_ROOM_TYPES,
       emptyRoomFurniture: EMPTY_ROOM_FURNITURE,

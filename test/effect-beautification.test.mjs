@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含光影库/旧房/全景/风格转换脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
+ * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含质感增强/光影库/旧房/全景/风格转换脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
  * [OUTPUT]: 对外提供OneAPI六预设原样/Flux专属LoRA触发词和空默认负向、节点准入、版本脱敏与实际参数归档，以及旧房/空房配置刷新回归
  * [POS]: test 的效果图美化服务端合同测试，模型与飞书只用内存替身，不生成或写入真实数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -207,7 +207,7 @@ test("配置目录与刷新共用独立读取器，刷新穿透各来源且保�
     promptAgent: { defaultVersion: 7, versions: [{ code: "room-renovation-fusion", version: 7 }] },
     smartDefault: { available: true, version: 8 },
   };
-  const readers = Object.fromEntries(["styles", "promptAgents", "refinedPrompt", "refinedLighting", "effectEnhancementPrompt", "effectBeautificationPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "roomRenovation", "styleTransfer", "styleDna"].map((key) => [key, async (options) => {
+  const readers = Object.fromEntries(["styles", "promptAgents", "refinedPrompt", "refinedLighting", "effectEnhancementPrompt", "effectBeautificationPrompt", "textureEnhancementPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "roomRenovation", "styleTransfer", "styleDna"].map((key) => [key, async (options) => {
     calls.push({ key, forceRefresh: options.forceRefresh });
     if (key === "roomRenovation") return renovation;
     return key === "styles" || key === "promptAgents" ? [] : { version: key === "effectBeautificationPrompt" ? 1 : 13 };
@@ -215,6 +215,7 @@ test("配置目录与刷新共用独立读取器，刷新穿透各来源且保�
   const config = await readGenerationConfig({ readers });
   assert.equal(config.effectBeautificationPrompt.version, 1);
   assert.equal(config.effectEnhancementPrompt.version, 13);
+  assert.equal(config.textureEnhancementPrompt.version, 13);
   assert.equal(config.panoramaEnhancementPrompt.version, 13);
   assert.equal(config.styleTransfer.version, 13);
   assert.equal(config.refinedLighting.version, 13);
@@ -234,7 +235,7 @@ test("配置目录与刷新共用独立读取器，刷新穿透各来源且保�
   assert.notDeepEqual(isolated.roomRenovation, isolated.emptyRoom);
   calls.length = 0;
   await readGenerationConfig({ readers, forceRefresh: true });
-  assert.equal(calls.length, 12);
+  assert.equal(calls.length, 13);
   assert.equal(calls.some((call) => call.key === "roomRenovation"), true);
   assert.equal(calls.every((call) => call.forceRefresh === true), true);
 });

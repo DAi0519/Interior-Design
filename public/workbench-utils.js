@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模实际光影和旧氛围摘要、浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
- * [OUTPUT]: 对外提供同源API/格式化/文件读取、含精模实际光影及预设仅提示词/提示词加参考图的结果摘要、ComfyUI分段耗时和原生下拉工具；旧结果不补造执行方式
+ * [OUTPUT]: 对外提供同源API/格式化/文件读取、含精模实际光影及预设执行方式的结果摘要、质感固定词无负向时省略负向标记、ComfyUI分段耗时和原生下拉工具；旧结果不补造执行方式
  * [POS]: public 的无状态浏览器基础设施，被生成、Benchmark 与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -95,7 +95,8 @@ export function resultMetadata(result, sync = result.sync) {
       ? `${result.request.referenceImageCount} 张参考图`
       : null,
     result.upstream?.metadata?.engine === "comfyui"
-      ? result.upstream.metadata.negativePromptMode === "custom"
+      ? result.upstream.metadata.negativePromptMode === "disabled-fixed-prompt" ? null
+        : result.upstream.metadata.negativePromptMode === "custom"
         ? "自定义负向"
         : "默认负向"
       : null,

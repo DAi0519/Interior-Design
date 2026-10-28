@@ -2,6 +2,10 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+texture-enhancement.test.mjs: 运行功能目录、飞书实际正文/版本SHA、全模型单图直投/空负向节点、任务与归档闭环及失败零提交
+texture-enhancement-prompt.test.mjs: 独立表版本/上架过滤、正文SHA、缺失下架阻断、目录脱敏与刷新；CLI替身
+texture-enhancement-ui.test.mjs: 运行目录准入、单图必填、用户词隔离/版本冻结、逐模型批次、无负向标记与任务恢复
+texture-enhancement-prompt-ui.test.mjs: 固定Prompt版本/上架与共享刷新、缺配置/读取失败可见和恢复，无正文编辑与版本选择器
 beta-refined-preset-reference.test.mjs: Beta图文预设原卡图归档、实际图序/版本身份、上传专用摘要去重与原件漂移建档前阻断
 image-upscale-area-cap.test.mjs: 原面积路径strict20MP与直入27.1的6K固定5120/源比例/独立元数据、已实测图逐字段对应及其他图不变，缺真实源拒绝，15分钟与异常不重提；无GPU
 beta-upscale-area-cap.test.mjs: 直入27.1固定5K允许真实面积超20MP且拒旧上限伪造，其他KS仍20MP；旧26.3及更早仅原附件冷恢复，无附件/篡改零建档零GPU
@@ -111,7 +115,7 @@ image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
 generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与忙碌态、内嵌 Smiley Sans、版本化主题引用、精密键帽反馈、761px 起禁止外面板焦点滚动的独立配置区、不遮挡控件的底部动作栏及窄屏自然流布局
 generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离、带版本的入口与页面内存边界，不提交真实生图任务
-feature-directory.test.mjs: 桌面外面板禁止焦点滚动与隐藏下拉定位边界、生图工作台信息架构静态合同测试，覆盖AI设计/AI渲染/AI编辑/AI创作四组、十三功能唯一入口/旧房改造与风格转换归属AI设计/图片超分与AI扩图归属AI编辑、黑色粗体分类、144px目录与11/12px字号、图片上传置顶、桌面双面板及窄屏两列分组
+feature-directory.test.mjs: 桌面外面板禁止焦点滚动与隐藏下拉定位边界、生图工作台信息架构静态合同测试，覆盖AI设计/AI渲染/AI编辑/AI创作四组、十六功能唯一入口/旧房改造与风格转换归属AI设计/图片超分与AI扩图归属AI编辑、黑色粗体分类、144px目录与11/12px字号、图片上传置顶、桌面双面板及窄屏两列分组
 image-upscale-ui.test.mjs: 六工作流真实控制器、KS2X/4K/6K尺寸与两条输入路径、4K/6K切换保留和8K回退/旧倍率缓存、增强select同步、前后端几何一致、冻结执行版本、候选失效原因及单份图片请求；无网络或GPU；正常说明清空，服务/节点/尺寸实际错误可见及恢复清除
 empty-room-furniture.test.mjs: 空房家具跨层合同测试，覆盖线上目录推荐合法性、剥离“其他”入口、已选正向需求、未选及空条件省略、明确排除原文保留、其他家具/非法输入、浏览器请求、两条 Agent 路由、缓存隔离和飞书可读归档
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
