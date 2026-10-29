@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert/fs、Flux 负向 Prompt 前端控制器/输入映射、模型请求构造器、ComfyUI 工作流工厂与结果摘要
- * [OUTPUT]: 对外提供普通默认不变、旧房默认/内存草稿独立及场景准入、自定义整段覆盖、实际节点/归档一致、仅 Flux 显示/消费、长度边界、同图攸行超分与结果标记回归保障
+ * [OUTPUT]: 对外提供普通默认不变、旧房/全景空默认及内存草稿独立和场景准入、自定义整段覆盖、实际节点/归档一致、仅 Flux 显示/消费、长度边界、同图攸行超分与结果标记回归保障
  * [POS]: test 的 Flux 负向 Prompt 端到端静态/纯函数合同测试，不提交真实生图任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import sharp from "sharp";
 
 import { bindFluxNegativePrompt } from "../public/flux-negative-prompt.js";
 import { buildGenerationInput } from "../public/generation-input.js";
@@ -93,13 +94,23 @@ test("旧房负向内存草稿与普通功能隔离，切换恢复内容/计数�
   assert.equal(root.hidden, true);
   assert.equal(textarea.value, renovationDraft);
 
-  for (const featureMode of ["emptyRoom", "whiteModel", "free", "panoramaEnhancement"]) {
+  for (const featureMode of ["emptyRoom", "whiteModel", "free"]) {
     control.render(["aiTextureEnhancement"], featureMode);
     assert.equal(root.hidden, false);
     assert.equal(textarea.value, ordinaryDraft);
     assert.equal(count.textContent, `${ordinaryDraft.length} / 8000`);
     assert.equal(note.textContent, ordinaryCustomNote);
   }
+  control.render(["aiTextureEnhancement"], "panoramaEnhancement");
+  assert.equal(root.hidden, true);
+  assert.equal(textarea.value, "");
+  assert.equal(count.textContent, "0 / 8000");
+  assert.match(note.textContent, /默认不使用负向提示词/);
+  textarea.value = "panorama-only negative"; listeners.input();
+  control.render(["aiTextureEnhancement"], "free");
+  assert.equal(textarea.value, ordinaryDraft);
+  control.render(["aiTextureEnhancement"], "panoramaEnhancement");
+  assert.equal(control.value(), "panorama-only negative");
   control.render(["aiTextureEnhancement"], "roomRenovation");
   assert.equal(textarea.value, renovationDraft);
   assert.equal(count.textContent, `${renovationDraft.length} / 8000`);
@@ -172,7 +183,7 @@ test("Flux 空输入继续使用原默认，自定义值整段覆盖并归档", 
   );
 });
 
-test("仅旧房采用独立负向，释放材质颜色与陈设重设计并保留真实结构和视角", () => {
+test("旧房采用结构保护默认，全景独立空负向且不继承普通默认", async () => {
   const renovationInput = { ...fluxInput(), featureMode: "emptyRoom", designScenario: "room-renovation" };
   const renovation = createGenerationRequest(renovationInput);
   assert.equal(renovation.request.negative_prompt, AI_TEXTURE_ROOM_RENOVATION_NEGATIVE_PROMPT);
@@ -189,11 +200,17 @@ test("仅旧房采用独立负向，释放材质颜色与陈设重设计并保�
     negativePrompt: renovation.request.negative_prompt, prompt: "彻底改造", seed: 42 });
   assert.equal(workflow["CLIPTextEncode-a5eb6fed8b48761592bb34a3f51a1e24"].inputs.text,
     renovation.workflowMetadata.negativePrompt);
-  for (const featureMode of ["emptyRoom", "whiteModel", "styleTransfer", "free", "panoramaEnhancement"]) {
+  for (const featureMode of ["emptyRoom", "whiteModel", "styleTransfer", "free"]) {
     const ordinary = createGenerationRequest({ ...fluxInput(), featureMode });
     assert.equal(ordinary.request.negative_prompt, AI_TEXTURE_DEFAULT_NEGATIVE_PROMPT);
   }
 
+  const bytes = await sharp({ create: { width: 64, height: 32, channels: 3, background: "#888888" } }).png().toBuffer();
+  const panoramaInput = { ...fluxInput(), featureMode: "panoramaEnhancement", referenceImages: [{
+    dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "panorama.png", size: bytes.length, type: "image/png",
+  }] };
+  assert.equal(createGenerationRequest(panoramaInput).request.negative_prompt, "");
+  assert.equal(createGenerationRequest({ ...panoramaInput, negativePrompt: "  panorama artifacts  " }).request.negative_prompt, "panorama artifacts");
   const custom = createGenerationRequest({ ...renovationInput, negativePrompt: "  blur, artifacts  " });
   assert.equal(custom.request.negative_prompt, "blur, artifacts");
   assert.equal(custom.request.negative_prompt_mode, "custom");

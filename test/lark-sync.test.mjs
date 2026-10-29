@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、最终出图/Prompt Agent 模型目录与 src/lark-sync.mjs 的同步配置、Schema 准入、记录字段构造器、记录 ID 解析器
- * [OUTPUT]: 对外提供全部字段类型/含质感增强的单选值/附件ID的409阻断、独立旧房Agent及场景原样归档、真实尺寸/风格转换/扩图Schema回归保障
+ * [OUTPUT]: 对外提供全部字段类型/含光影转换与质感增强的单选值/附件ID的409阻断、独立旧房Agent及场景原样归档、真实尺寸/风格转换/扩图Schema回归保障
  * [POS]: test 的飞书同步契约测试，不访问真实飞书或写入任何 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,7 +36,7 @@ function validSyncSchemaFields() {
     selectField("Prompt融合", publicAgentModelCatalog()
       .filter((model) => model.imageInput)
       .map((model) => model.label)),
-    selectField("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "质感增强", "AI扩图", "多角度"]),
+    selectField("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "质感增强", "光影转换", "AI扩图", "多角度"]),
     selectField("状态", ["成功", "生成失败", "同步失败"]),
     selectField("生图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, "Qwen 多角度"]),
     selectField("空间类型", EMPTY_ROOM_TYPES),
@@ -88,6 +88,7 @@ test("生成记录 Schema 覆盖当前前台模型、全部可写字段和附件
   assert.ok(schema.featureOptions.includes("效果图氛围转换"));
   assert.ok(schema.featureOptions.includes("全景图美化"));
   assert.ok(schema.featureOptions.includes("质感增强"));
+  assert.ok(schema.featureOptions.includes("光影转换"));
   assert.ok(schema.featureOptions.includes("AI扩图"));
   assert.ok(schema.featureOptions.includes("风格转换"));
   for (const label of IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS) assert.ok(schema.modelOptions.includes(label));
@@ -109,6 +110,14 @@ test("质感增强单选缺失时实时Schema在付费生成前阻断", () => {
   feature.options = feature.options.filter((option) => option.name !== "质感增强");
   assert.throws(() => assertLarkSyncSchema({ fields }),
     (error) => error.statusCode === 409 && /功能.*质感增强/.test(error.message));
+});
+
+test("光影转换单选缺失时实时Schema在付费生成前409阻断", () => {
+  const fields = validSyncSchemaFields();
+  const feature = fields.find(field => field.name === "功能");
+  feature.options = feature.options.filter(option => option.name !== "光影转换");
+  assert.throws(() => assertLarkSyncSchema({ fields }),
+    error => error.statusCode === 409 && /功能.*光影转换/.test(error.message));
 });
 
 test("风格转换单选缺失时 Schema 在生成前阻断", () => {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、临时文件与 sharp，注入飞书光影库记录及附件替身
- * [OUTPUT]: 对外提供光影库上架/重复/分页/正文脱敏、预设两模式能力及原图完整字节/轻量预览身份的离线合同测试
+ * [OUTPUT]: 对外提供光影库上架/重复/分页/正文脱敏、光影多选/三模式及三规则独立能力和原图完整字节/轻量预览身份的离线合同测试
  * [POS]: test 的光影资产边界验证，与预设单双图编译及浏览器测试分工，无真实飞书或生图调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,8 +33,9 @@ test("公开光影目录不含正文和附件token，保留版本摘要和同源
   const config = await publicRefinedLightingLibrary({ run: async () => envelope() });
   assert.equal(config.available, true);
   assert.equal(config.promptAvailable, true);
+  assert.equal(config.multiplePresetSelections, true);
   assert.equal(config.referenceAvailable, false);
-  assert.deepEqual(config.presetExecutions, ["prompt-only"]);
+  assert.deepEqual(config.presetExecutions, ["prompt-only"], "氛围词双图需要独立前置规则");
   assert.equal(config.presets[0].name, "自然柔光");
   assert.match(config.presets[0].previewUrl, /^\/api\/refined-lighting\/preview\?.*&sha256=[a-f0-9]{64}$/);
   assert.doesNotMatch(JSON.stringify(config), /PRIVATE|file-token|fileToken|"prompt"/);
@@ -54,6 +55,14 @@ test("公开光影目录不含正文和附件token，保留版本摘要和同源
   assert.equal(both.referenceAvailable, true);
   assert.deepEqual(both.presetExecutions, ["prompt-only", "prompt-and-reference"]);
   assert.match(both.referenceRuleSha256, /^[a-f0-9]{64}$/);
+  const hybridRule = structuredClone(rule); hybridRule[1] = "lighting-prompt-reference";
+  const hybrid = await publicRefinedLightingLibrary({ run: async () => envelope([hybridRule, preset]) });
+  assert.equal(hybrid.hybridAvailable, true);
+  assert.equal(hybrid.hybridRuleVersion, 1);
+  assert.match(hybrid.hybridRuleSha256, /^[a-f0-9]{64}$/);
+  assert.deepEqual(hybrid.presetExecutions, ["prompt-with-reference"]);
+  const all = await publicRefinedLightingLibrary({ run: async () => envelope([rule, oldRule, hybridRule, preset]) });
+  assert.deepEqual(all.presetExecutions, ["prompt-only", "prompt-and-reference", "prompt-with-reference"]);
   const unknown = structuredClone(rule); unknown[1] = "unknown-rule";
   const invalid = await publicRefinedLightingLibrary({ run: async () => envelope([rule, unknown, preset]) });
   assert.equal(invalid.available, false);

@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖Node测试、遮罩坐标/请求纯规则、画布与模式控制器、共享任务恢复/START及轻量DOM/Canvas替身
+ * [INPUT]: 依赖Node测试、遮罩坐标/请求纯规则、画布与模式控制器、共享任务恢复/START及独立UI夹具
  * [OUTPUT]: GPT参考换物品/换材质默认/非法用途与键盘切换、三定位空指令且真实上传可提交/其它模式仍必填、用途往返与手写保留、非GPT工具禁用提示、三历史/多边形冻结与准入/轨迹简化、旧服务门禁及原功能回归
- * [POS]: test 的遮罩填充前端合同验证，不调用GPU或写入飞书
+ * [POS]: test 的二次编辑前端合同验证，不调用GPU或写入飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -9,14 +9,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { buildMaskFillJobRequest, maskCanvasPoint, maskFillImageIssue, maskLassoRegion, normalizeMaskFillEditRegion, MASK_FILL_IMAGE_POLICY } from "../public/image-mask-fill-geometry.js";
-import { bindImageMaskFill } from "../public/image-mask-fill.js";
 import { createGenerationTask, generationTaskView, readGenerationTasks, saveGenerationTask } from "../public/generation-task-state.js";
 import { generationActionState } from "../public/generation-actions.js";
 import { MODEL_CONFIGS } from "../src/model-config.mjs";
 
-const image = { id: "source-1", dataUrl: "data:image/png;base64,c291cmNl", name: "source.png", type: "image/png", size: 6, width: 2048, height: 1024 };
-const reference = { ...image, id: "ref-1", dataUrl: "data:image/png;base64,cmVm", name: "ref.png" };
-const mask = { dataUrl: "data:image/png;base64,bWFzaw==", name: "mask.png", type: "image/png", size: 4 };
+import { fixture, image, reference, mask } from "./image-mask-fill-ui-fixture.mjs";
 
 test("缩放和偏移后的触屏/鼠标坐标准确落到原图，边界拖动不越界", () => {
   const bounds = { left: 132, top: 80, width: 512, height: 256 };
@@ -48,7 +45,7 @@ test("非法输入在提交前拒绝，6MB/4096px边界与遮罩/参考图必填
   assert.match(maskFillImageIssue({ ...image, size: MASK_FILL_IMAGE_POLICY.maxBytesPerImage + 1 }), /6MB/);
   const base = { image, maskImage: mask, mode: "prompt", prompt: "remove the object" };
   assert.throws(() => buildMaskFillJobRequest({ ...base, maskImage: null }), /涂抹/);
-  assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "reference" }), /填充参考图/);
+  assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "reference" }), /编辑参考图/);
   assert.throws(() => buildMaskFillJobRequest({ ...base, prompt: "  " }), /编辑指令/);
   assert.throws(() => buildMaskFillJobRequest({ ...base, inferenceTier: "1k" }), /推理档位/);
   assert.throws(() => buildMaskFillJobRequest({ ...base, maskExpand: 257 }), /0–256/);
@@ -70,7 +67,7 @@ test("仅Sunburst两模式可省略遮罩和扩展，仍保留原图/指令/参�
   }
   assert.throws(() => buildMaskFillJobRequest({ ...base, image: null }), /原图/);
   assert.throws(() => buildMaskFillJobRequest({ ...base, prompt: "  " }), /编辑指令/);
-  assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "reference" }), /填充参考图/);
+  assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "reference" }), /编辑参考图/);
 });
 
 test("只有GPT参考模式三定位允许指令省略/空/空白，仍拒绝坏类型/超长与缺参考", () => {
@@ -84,7 +81,7 @@ test("只有GPT参考模式三定位允许指令省略/空/空白，仍拒绝坏
     }
   }
   for (const prompt of [null, 1, false, {}, [], "x".repeat(8001)]) assert.throws(() => buildMaskFillJobRequest({ ...base, prompt }), /指令|文本|8000/);
-  assert.throws(() => buildMaskFillJobRequest({ ...base, fillReferenceImage: null }), /填充参考图/);
+  assert.throws(() => buildMaskFillJobRequest({ ...base, fillReferenceImage: null }), /编辑参考图/);
   assert.throws(() => buildMaskFillJobRequest({ ...base, mode: "prompt", fillReferenceImage: null }), /编辑指令/);
   for (const maskFillModel of ["flux2Klein", "qwenImageEdit2511"]) {
     assert.throws(() => buildMaskFillJobRequest({ ...base, maskFillModel, maskImage: mask }), /编辑指令/);
@@ -164,65 +161,6 @@ test("自由圈选自然像素归一化并冻结点对象，非法点/越界/数
   }
 });
 
-function fixture({ prefillInstruction = true } = {}) {
-  const nodes = new Map(), draws = [], exports = [];
-  const make = () => {
-    const listeners = new Map(), classes = new Set(), attributes = new Map();
-    return { value: "", hidden: false, disabled: false, title: "", dataset: {}, textContent: "", attributes,
-      style: { setProperty() {} },
-      classList: { toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); }, contains: name => classes.has(name) },
-      setAttribute: (name, value) => attributes.set(name, value), removeAttribute: name => attributes.delete(name),
-      addEventListener(name, callback) { listeners.set(name, callback); },
-      fire(name, event = {}) { return listeners.get(name)?.({ preventDefault() {}, ...event }); },
-      querySelector: selector => node(selector), querySelectorAll: selector => selector === "[data-mask-tool]" ? tools : [],
-      append() {}, replaceChildren() {}, contains() { return false; }, focus() {},
-    };
-  };
-  const node = selector => { if (!nodes.has(selector)) nodes.set(selector, make()); return nodes.get(selector); };
-  const modes = ["prompt", "reference"].map(mode => { const element = make(); element.dataset.maskMode = mode; return element; });
-  const purposes = ["object", "material"].map(key => { const element = make(); element.dataset.maskReferencePurpose = key; return element; });
-  const tools = ["brush", "erase", "box", "lasso"].map(tool => { const element = make(); element.dataset.maskTool = tool; return element; });
-  const canvas = node("[data-mask-canvas]");
-  let painted = false;
-  const context = { globalCompositeOperation: "source-over", clearRect() { painted = false; },
-    beginPath() {}, moveTo(x, y) { draws.push(["move", x, y]); }, lineTo(x, y) { draws.push(["line", x, y]); },
-    arc(x, y, radius) { draws.push(["arc", x, y, radius]); },
-    closePath() { draws.push(["close"]); },
-    strokeRect(...args) { draws.push(["box", ...args, this.strokeStyle]); },
-    fill() { painted = this.globalCompositeOperation !== "destination-out"; },
-    stroke() { painted = this.globalCompositeOperation !== "destination-out"; draws.push(["stroke", this.strokeStyle]); },
-    getImageData() { return { data: new Uint8ClampedArray([255, 255, 255, painted ? 255 : 0]) }; },
-  };
-  canvas.getContext = () => context;
-  canvas.getBoundingClientRect = () => ({ left: 100, top: 40, width: 512, height: 256 });
-  let capture = null;
-  canvas.setPointerCapture = id => { capture = id; };
-  canvas.hasPointerCapture = id => capture === id;
-  canvas.releasePointerCapture = () => { capture = null; };
-  canvas.ownerDocument = { createElement() {
-    const result = { getContext: () => ({ set fillStyle(value) { exports.push(["fill", value]); },
-      fillRect(...args) { exports.push(["background", ...args]); }, drawImage(input) { exports.push(["mask", input.width, input.height]); } }),
-    toDataURL: () => mask.dataUrl };
-    exports.push(result); return result;
-  } };
-  node("[data-mask-brush]").value = "32";
-  node("[data-mask-expand]").value = "10";
-  node("[data-mask-inference]").value = "2k";
-  const root = { innerHTML: "", querySelector: node, querySelectorAll: selector => selector === "[data-mask-reference-purpose]" ? purposes : modes };
-  let source = image;
-  const emptySize = make(), exactSize = make();
-  const controller = bindImageMaskFill({ root, getSourceImage: () => source, onChange() {},
-    emptyModel: make(), emptySize, exactSize });
-  if (prefillInstruction) node("[data-mask-prompt]").value = "Remove the selected object.";
-  controller.configure({ available: true, modes: [{ key: "prompt", available: true }, { key: "reference", available: true }] });
-  controller.activate();
-  return { root, controller, node, modes, purposes, tools, canvas, draws, exports, emptySize, exactSize,
-    source(next) { source = next; controller.renderSummary(); },
-    paint(type = "touch") { canvas.fire("pointerdown", { pointerId: 3, pointerType: type, button: 0, clientX: 356, clientY: 168 });
-      canvas.fire("pointermove", { pointerId: 3, clientX: 612, clientY: 296 });
-      canvas.fire("pointerup", { pointerId: 3 }); },
-  };
-}
 
 test("两模式推荐仅为输入占位，空指令阻断且手写内容往返保留", () => {
   const f = fixture({ prefillInstruction: false });
@@ -312,7 +250,7 @@ test("真实参考图上传后GPT空指令在画笔/框选/无区域均可提交
     modes: [{ key: "prompt", available: true }, { key: "reference", available: true }], sizes: MODEL_CONFIGS.gptImage25Sunburst.sizes,
     outputResolutions: ["1K", "2K", "4K"], qualityOptions: MODEL_CONFIGS.gptImage25Sunburst.qualityOptions, defaultQuality: "medium" }] });
   f.modes[1].fire("click");
-  assert.match(f.controller.availabilityReason(), /填充参考图/);
+  assert.match(f.controller.availabilityReason(), /编辑参考图/);
   await f.node("[data-mask-reference-input]").fire("change", { target: { files: [reference], value: "ref.png" } });
   assert.equal(f.controller.isAvailable(), true);
   for (const tool of ["none", "brush", "box"]) {
@@ -387,7 +325,7 @@ test("两模式保留各自编辑指令和10/80扩展默认，参考图条件必
   assert.equal(f.node("[data-mask-prompt]").value, "");
   assert.equal(f.node("[data-mask-reference-section]").hidden, false);
   assert.equal(f.controller.currentItem().key, "flux2MaskReference");
-  assert.match(f.controller.availabilityReason(), /填充参考图/);
+  assert.match(f.controller.availabilityReason(), /编辑参考图/);
   f.node("[data-mask-expand]").value = "96";
   f.modes[1].fire("keydown", { key: "ArrowLeft" });
   assert.equal(f.node("[data-mask-prompt]").value, "My custom instruction");
@@ -458,7 +396,7 @@ test("Sunburst可不涂抹仅用指令提交，画后传mask，清空后恢复�
   assert.equal(Object.hasOwn(f.controller.jobRequest({ image }).sharedInput, "maskImage"), false);
   assert.equal(f.exports.length, previousExports);
   f.modes[1].fire("click");
-  assert.match(f.controller.availabilityReason(), /填充参考图/);
+  assert.match(f.controller.availabilityReason(), /编辑参考图/);
   f.modes[0].fire("click");
   for (const key of ["qwenImageEdit2511", "flux2Klein"]) {
     model.value = key; model.fire("change");
@@ -527,7 +465,7 @@ test("GPT新增框选而保留画笔：按当前工具冻结，框选与笔画�
   assert.equal(f.node("[data-mask-status]").hidden, true, "切回画笔时即时清除框选配置提示");
   assert.equal(f.controller.jobRequest({ image }).sharedInput.maskImage.dataUrl, mask.dataUrl);
   f.tools[2].fire("click");
-  for (const reason of ["读取模型权限中…", "遮罩填充模型读取失败，请检查连接后重试"]) {
+  for (const reason of ["读取模型权限中…", "二次编辑模型读取失败，请检查连接后重试"]) {
     f.controller.configure({ models: [{ ...legacy, modes: [{ key: "prompt", available: false, reason }] }] });
     assert.equal(f.controller.availabilityReason(), reason, "加载和网络错误不能被旧框选配置提示覆盖");
     assert.equal(f.tools[2].attributes.get("aria-pressed"), "true");
@@ -672,7 +610,7 @@ test("旧服务仅有Flux目录时GPT/Qwen明确提示重启，补全目录后�
     model.value = key; model.fire("change");
     assert.equal(f.controller.isAvailable(), false);
     assert.equal(f.node("[data-mask-availability]").textContent, "不可用");
-    assert.equal(f.controller.availabilityReason(), "遮罩填充模型配置未更新，请重启当前工作台后刷新页面");
+    assert.equal(f.controller.availabilityReason(), "二次编辑模型配置未更新，请重启当前工作台后刷新页面");
     assert.equal(f.node("[data-mask-status]").textContent, f.controller.availabilityReason());
     assert.throws(() => f.controller.jobRequest({ image }), /重启.*刷新页面/);
     const restored = { key, modes: [{ key: "prompt", available: true }],
@@ -697,7 +635,7 @@ test("读取与失败原因不误报旧服务，逐模型权限原因仍阻断�
   const model = f.node("[data-mask-model]");
   for (const key of ["gptImage25Sunburst", "qwenImageEdit2511"]) {
     model.value = key; model.fire("change");
-    for (const reason of ["读取模型权限中…", "遮罩填充模型读取失败，请检查连接后重试"]) {
+    for (const reason of ["读取模型权限中…", "二次编辑模型读取失败，请检查连接后重试"]) {
       f.controller.configure({ available: false, reason, modes: [] });
       assert.equal(f.controller.availabilityReason(), reason);
       assert.equal(f.node("[data-mask-status]").textContent, reason);
@@ -731,13 +669,13 @@ test("GPT模式可用但输出目录缺字段时继续明确提示重启并阻�
   assert.equal(f.controller.isAvailable(), true);
 });
 
-test("遮罩填充任务独立恢复且保留ComfyUI进度和统一START语义", () => {
+test("二次编辑任务独立恢复且保留ComfyUI进度和统一START语义", () => {
   const values = new Map(); const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
   const task = createGenerationTask({ featureMode: "imageMaskFill", models: [{ key: "flux2MaskPrompt", label: "填充" }], loadingLabel: "正在填充", createId: () => "mask-fill" });
   saveGenerationTask(storage, task);
   assert.deepEqual(readGenerationTasks(storage).imageMaskFill, task);
   assert.equal(generationTaskView(task, { status: "running", stages: { comfyUi: "executing" }, message: "MaaS执行中" }).message, "MaaS执行中");
-  assert.equal(generationActionState({ featureMode: "imageMaskFill" }).mainAriaLabel, "开始遮罩填充");
+  assert.equal(generationActionState({ featureMode: "imageMaskFill" }).mainAriaLabel, "开始二次编辑");
 });
 
 test("AI编辑唯一入口、URL直达、局部配置失败隔离与飞书同步门槛已连接", async () => {

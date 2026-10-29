@@ -1,10 +1,12 @@
 /**
  * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 对外提供模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、旧房场景与功能一致性准入、原图比例尺寸适配器，以及区分 Flux 推理尺寸与最终超分尺寸的请求构造器和 MODEL_CONFIGS
+ * [OUTPUT]: 对外提供模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、全景R5_4原尺寸/空默认负向合同，以及普通Flux推理/超分和精模/光影转换双图独立1K/2K请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { REFINED_FLUX_REFERENCE, isRefinedFluxReference, refinedFluxDimensions } from "../public/refined-flux-reference.js";
+import { PANORAMA_WORKFLOW } from "./panorama-workflow.mjs";
 import { resolveAiTextureNegativePrompt } from "./ai-texture-workflow.mjs";
 import {
   IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
@@ -174,6 +176,8 @@ export const MODEL_CONFIGS = Object.freeze({
     id: "comfyui:ai-texture-enhancement",
     label: "Flux2 Klein",
     maxReferenceImages: 1,
+    panoramaWorkflow: { id: PANORAMA_WORKFLOW.id, version: PANORAMA_WORKFLOW.version, label: "R5_4 全景", sourceSize: true },
+    refinedLightingReference: REFINED_FLUX_REFERENCE,
     provider: "comfyui",
     postUpscale: {
       "4K": { longEdge: 4096, sourceResolution: "2K" },
@@ -298,6 +302,8 @@ export function publicModelCatalog() {
     key,
     label: model.label,
     maxReferenceImages: model.maxReferenceImages || 4,
+    refinedLightingReference: model.refinedLightingReference || null,
+    panoramaWorkflow: model.panoramaWorkflow || null,
     provider: model.provider || "oneapi",
     qualityOptions: model.qualityOptions,
     postUpscale: model.postUpscale || null,
@@ -341,8 +347,10 @@ export function createGenerationRequest(
   const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
 
   if (model.provider === "comfyui") {
-    if (referenceImages.length !== 1) {
-      const error = new Error("Flux2 Klein 需要且只允许 1 张参考图");
+    const dual = isRefinedFluxReference(input);
+    const panorama = input.featureMode === "panoramaEnhancement";
+    if (referenceImages.length !== (dual ? 2 : 1)) {
+      const error = new Error(dual ? "精模Flux参考链路需要且只允许2张图片" : "Flux2 Klein 需要且只允许 1 张参考图");
       error.statusCode = 400;
       throw error;
     }
@@ -351,27 +359,37 @@ export function createGenerationRequest(
       error.statusCode = 400;
       throw error;
     }
-    const resolution = optionOrThrow(
-      [...Object.keys(model.sizes.source), ...Object.keys(model.postUpscale || {})],
+    if (panorama && referenceImages[0].width !== referenceImages[0].height * 2) {
+      const error = new Error("全景图美化需要真实尺寸为2:1的全景图");
+      error.statusCode = 400;
+      throw error;
+    }
+    const resolution = panorama ? "original" : optionOrThrow(
+      dual ? Object.keys(REFINED_FLUX_REFERENCE.longEdges) : [...Object.keys(model.sizes.source), ...Object.keys(model.postUpscale || {})],
       String(input.resolution || model.defaultResolution),
       "Flux2 Klein 不支持这个分辨率档位",
     );
-    const postUpscale = model.postUpscale?.[resolution] || null;
+    const postUpscale = dual || panorama ? null : model.postUpscale?.[resolution] || null;
     const inferenceResolution = postUpscale?.sourceResolution || resolution;
-    const dimensions = fitSourceDimensionsToPixelArea(
+    const dimensions = panorama ? { width: referenceImages[0].width, height: referenceImages[0].height }
+      : dual ? refinedFluxDimensions(resolvedSourceDimensions, resolution) : fitSourceDimensionsToPixelArea(
       resolvedSourceDimensions,
       Number(model.sizes.source[inferenceResolution]),
     );
     const outputDimensions = postUpscale
       ? imageUpscaleTargetDimensions(dimensions, resolution)
       : dimensions;
-    const negativePrompt = resolveAiTextureNegativePrompt(input.negativePrompt, {
+    const panoramaNegative = String(input.negativePrompt || "").trim();
+    const negativePrompt = dual ? { text: "", mode: "disabled-cfg1" }
+      : panorama ? { text: panoramaNegative, mode: panoramaNegative ? "custom" : "empty-panorama" }
+      : resolveAiTextureNegativePrompt(input.negativePrompt, {
       designScenario: input.designScenario,
     });
+    if (negativePrompt.text.length > 8000) throw Object.assign(new Error("负向提示词不能超过8000字符"), { statusCode: 400 });
     const size = `${outputDimensions.width}x${outputDimensions.height}`;
     return {
       preview: {
-        referenceImageCount: 1,
+        referenceImageCount: dual ? 2 : 1,
         model: model.id,
         negativePromptMode: negativePrompt.mode,
         outputFormat: "png",
@@ -386,7 +404,8 @@ export function createGenerationRequest(
         })),
         resolution,
         size,
-        sizeMode: postUpscale ? "source-tier-upscale" : "source-tier",
+        sizeMode: panorama ? "panorama-source" : dual ? "source-long-edge-reference" : postUpscale ? "source-tier-upscale" : "source-tier",
+        ...(panorama ? { workflowId: model.panoramaWorkflow.id } : {}),
         ...(postUpscale ? {
           inferenceResolution,
           inferenceSize: `${dimensions.width}x${dimensions.height}`,
@@ -402,6 +421,8 @@ export function createGenerationRequest(
         })),
         model: model.id,
         n: 1,
+        ...(dual ? { workflow_kind: REFINED_FLUX_REFERENCE.id } : {}),
+        ...(panorama ? { workflow_kind: model.panoramaWorkflow.id } : {}),
         negative_prompt: negativePrompt.text,
         negative_prompt_mode: negativePrompt.mode,
         output_format: "png",
@@ -420,6 +441,7 @@ export function createGenerationRequest(
       workflowMetadata: {
         negativePrompt: negativePrompt.text,
         negativePromptMode: negativePrompt.mode,
+        ...(panorama ? { workflowId: model.panoramaWorkflow.id, sourceSize: true } : {}),
         ...(postUpscale ? {
           inferenceResolution,
           inferenceSize: `${dimensions.width}x${dimensions.height}`,

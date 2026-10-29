@@ -15,7 +15,7 @@ export const QWEN_MASK_FILL_WORKFLOW = Object.freeze({
 });
 
 export function qwenMaskFillArtifactPrefix(key) {
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(String(key || ""))) throw new TypeError("Qwen遮罩填充产物键无效");
+  if (!/^[A-Za-z0-9_-]{8,80}$/.test(String(key || ""))) throw new TypeError("Qwen二次编辑产物键无效");
   return `CanvasLab_QwenMaskFill_${key}`;
 }
 
@@ -26,7 +26,7 @@ export function createQwenMaskFillWorkflow({ artifactKey, imageBase64, seed, gen
   const output = maskFillOutputSize({ width: request.sourceWidth ?? 2048, height: request.sourceHeight ?? 2048 });
   const expand = request.maskExpand ?? mode.defaultMaskExpand;
   if (!Number.isInteger(expand) || expand < 0 || expand > 256) throw new TypeError("遮罩扩展需要为0–256的整数");
-  if (!Number.isSafeInteger(seed) || seed < 0) throw new TypeError("Qwen遮罩填充随机种子无效");
+  if (!Number.isSafeInteger(seed) || seed < 0) throw new TypeError("Qwen二次编辑随机种子无效");
   const node = (class_type, inputs) => ({ class_type, inputs });
   const load = (data, suffix) => node("easy loadImageBase64", { base64_data: data, image_output: "Hide", save_prefix: `${prefix}_${suffix}` });
   const grow = { incremental_expandrate: 0, tapered_corners: true, flip_input: false, lerp_alpha: 1, decay_factor: 1 };

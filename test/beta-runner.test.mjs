@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供超分旧版本零入队阻断、精模模板/双Prompt版本摘要冻结与漂移阻断、十功能样本准入、Agent权限门禁、409不重试、两路并发单图隔离/保序归档、生成/同步双阶段与仅同步重试、终态前忙碌守卫回归保障
+ * [OUTPUT]: 对外提供超分旧版本零入队阻断、精模模板/双Prompt版本摘要冻结与漂移阻断、异构光影配置串行准备/重复去重及失败零入队、十功能样本准入、Agent权限门禁、409不重试、两路并发单图隔离/保序归档、生成/同步双阶段与仅同步重试、终态前忙碌守卫回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -150,6 +150,85 @@ test("Beta精模整批共用入队冻结的模板与版本摘要，执行不重�
     assert.deepEqual(result.input.refinedRender, archived[index].refinedRender);
   }
   assert.equal("refinedPromptSha256" in batch.items[0].input, false);
+});
+
+test("Beta精模异构光影配置串行准备、重复键去重，准备失败仍零入队", async () => {
+  const selections = [];
+  for (const modelKey of ["gptImage25Sunburst", "seedream5Pro", "banana2", "aiTextureEnhancement"]) {
+    for (const presetId of ["sun-window", "warm-night", "film"]) {
+      for (const execution of ["prompt-only", "prompt-and-reference"]) {
+        selections.push({ modelKey, refinedLighting: { mode: "preset", presetId, execution } });
+      }
+    }
+  }
+  for (const rejectPreparation of [false, true]) {
+    const prepared = [];
+    let activePreparations = 0;
+    let maxPreparations = 0;
+    let generated = 0;
+    let archived = 0;
+    let activeGenerations = 0;
+    let maxGenerations = 0;
+    const service = createBetaRunnerService({
+      baseStore: {
+        async beginRun({ item }) { archived += 1; return { recordId: item.runId }; },
+        async completeRun(recordId) { return { recordId }; },
+        async failRun() {},
+      },
+      async prepareRefinedLighting(input) {
+        activePreparations += 1;
+        maxPreparations = Math.max(maxPreparations, activePreparations);
+        prepared.push(JSON.stringify([input.modelKey, input.refinedLighting]));
+        await nextTurn();
+        return input;
+      },
+      async prepareRefinedInput(input) {
+        await nextTurn();
+        activePreparations -= 1;
+        if (rejectPreparation && prepared.length === 3) {
+          throw Object.assign(new Error("飞书资产读取限流"), { statusCode: 429 });
+        }
+        return { ...input, promptCode: "refined-lighting-base", promptVersion: 2,
+          refinedPromptSha256: "a".repeat(64) };
+      },
+      generationService: {
+        async executeForMode() {
+          assert.equal(activePreparations, 0);
+          assert.equal(prepared.length, selections.length);
+          activeGenerations += 1;
+          maxGenerations = Math.max(maxGenerations, activeGenerations);
+          await nextTurn();
+          activeGenerations -= 1;
+          generated += 1;
+          return { images: [] };
+        },
+      },
+    });
+    const suffix = rejectPreparation ? "blocked" : "success";
+    const batch = { batchId: `BETA-refined-serial-${suffix}`, featureMode: "refinedModel",
+      jobId: `beta-refined-serial-${suffix}`, testTime: TEST_TIME,
+      items: [...selections, ...selections].map((input, index) => ({ caseId: `CASE-${index}`,
+        runId: `RUN-refined-serial-${suffix}-${index}`, input: structuredClone(input) })) };
+    if (rejectPreparation) {
+      await assert.rejects(service.start(batch), error => error.statusCode === 429);
+      assert.equal(prepared.length, 3);
+      assert.equal(generated, 0);
+      assert.equal(archived, 0);
+      assert.equal(service.getJob(batch.jobId), null);
+      assert.equal(service.hasActiveJobs(), false);
+    } else {
+      await service.start(batch);
+      const job = await waitForJob(service, batch.jobId);
+      assert.equal(job.completed, batch.items.length);
+      assert.equal(generated, batch.items.length);
+      assert.equal(archived, batch.items.length);
+      assert.equal(prepared.length, selections.length);
+      assert.equal(new Set(prepared).size, selections.length);
+      assert.equal(maxGenerations, 2);
+    }
+    assert.equal(maxPreparations, 1);
+    assert.equal(activePreparations, 0);
+  }
 });
 
 test("Beta精模非法模板或已下架Prompt在建档和出图前阻断", async () => {

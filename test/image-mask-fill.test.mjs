@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 node:test/assert、sharp 真实图片字节、遮罩填充工作流/服务与统一后台任务接口
+ * [INPUT]: 依赖 node:test/assert、sharp 真实图片字节、二次编辑工作流/服务与统一后台任务接口
  * [OUTPUT]: GPT参考用途默认/有效/非法及跨模型模式零调用、两模式独立能力、三档推理/最高2K输出与真实crop尺度、首图潜空间/裁剪回贴、真实图片准入及独立飞书scope/入队阻断测试
- * [POS]: test 的 Flux2 遮罩填充回归，使用内存 ComfyUI 替身，不调用 GPU、外网或飞书
+ * [POS]: test 的 Flux2 二次编辑回归，使用内存 ComfyUI 替身，不调用 GPU、外网或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -364,7 +364,7 @@ test("统一生成路由只用遮罩专用客户端，不要求 OneAPI Key并调
 
 test("后台遮罩任务单项入队前校验独立飞书scope，合同错误和多项请求不入队", async () => {
   const body = { jobId: "generation-mask-fill-12345", featureMode: "imageMaskFill", sharedInput: input,
-    items: [{ key: "prompt", label: "提示词填充", input: {} }] };
+    items: [{ key: "prompt", label: "提示词编辑", input: {} }] };
   const queued = [];
   const syncChecks = [];
   let schemaError = null;

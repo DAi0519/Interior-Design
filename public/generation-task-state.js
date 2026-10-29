@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sessionStorage 的任务引用、含旧房/空房独立入口的功能编码、服务端普通出图任务快照与 ComfyUI/API 编辑阶段消息
- * [OUTPUT]: 对外提供质感增强/打光/遮罩/旧房独立任务与按功能持久化的任务引用、安全读取，以及图片计数或图片工具阶段推导的结果区状态
+ * [OUTPUT]: 对外提供光影转换/质感增强/打光/遮罩/旧房独立任务与按功能持久化的任务引用、安全读取，以及图片计数或图片工具/全景MaaS阶段推导的结果区状态
  * [POS]: public 的生成任务恢复状态层，只保存任务引用而不复制图片结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ const FEATURE_MODES = new Set([
   "effectBeautification",
   "effectEnhancement",
   "textureEnhancement",
+  "lightingTransfer",
   "emptyRoom",
   "roomRenovation",
   "free",
@@ -74,7 +75,7 @@ export function generationTaskView(task, job) {
   if (!job || job.status === "running") {
     const completed = Number(job?.completed) || 0;
     const total = Number(job?.total) || task.items.length;
-    const imageToolMessage = ["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight"].includes(task.featureMode)
+    const imageToolMessage = ["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight", "panoramaEnhancement"].includes(task.featureMode)
       && (job?.stages?.comfyUi || job?.stages?.imageEdit)
       ? job.message
       : null;

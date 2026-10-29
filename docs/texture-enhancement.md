@@ -14,7 +14,7 @@ AI渲染 → 质感增强（`textureEnhancement`）。上传一张待增强效�
 
 2026-10-28验证：1415项全量测试通过，覆盖八模型实际请求正文、固定词SHA、最终Flux节点、单图准入、跨层任务/归档和前端输入隔离。飞书“功能”已追加“质感增强”并通过真实Schema读回。4192实际界面已验证单图必填与正负向/Agent隐藏，缺图点击START被前置阻断。上述为接口与交互验证，尚未进行真实出图质量验收。
 
-开发验证时4192有精模240项与Banana2.1的60项批次在运行，保留旧Node进程。经用户明确同意，2026-10-28在4193启动独立预览，入口为 `http://127.0.0.1:4193/?feature=textureEnhancement`，由 `com.canvas-lab.texture-preview` 本机任务托管；4192继续执行原批次。
+本分支保留开发，不合入主分支。4192仍有精模240项与Banana2.1的60项批次在运行，保留旧Node进程。经用户明确同意，2026-10-28在4193启动独立预览，入口为 `http://127.0.0.1:4193/?feature=textureEnhancement`，由 `com.canvas-lab.texture-preview` 本机任务托管；4192继续执行原批次。
 
 运行进程通过`/api/catalog.generationFeatureModes`公开实际准入真源，目录缺失或未声明质感增强时，前端禁用START并在重试入口前阻断，明确提示使用已更新的工作台入口。刷新静态页面不再被当作后端已更新的证据。
 
@@ -29,7 +29,5 @@ AI渲染 → 质感增强（`textureEnhancement`）。上传一张待增强效�
 | GPT Image 2.5 Sunburst | 1152×2048 | [reczz28SmL8Dtgzu](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC&record=reczz28SmL8Dtgzu) |
 
 2026-10-28独立表接入验证：v1已上架且342字正文SHA与原文一致；真实飞书读取→生成请求与归档投影使用替身出图客户端验证通过，未追加收费出图。1455项全量测试通过；4193实际`/api/styles`及界面回读均为v1/已上架，点击共享刷新返回质感增强Prompt v1。该次重载仅操作空闲4193进程，4192未重启。
-
-主支独立提交验证：仅提取质感增强及独立飞书配置接入，不纳入同期精模双图或R5_4全景工作流；干净主支副本1418项全量测试通过。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md

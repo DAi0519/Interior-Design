@@ -1,8 +1,19 @@
 {
-  "version": "2026-10-22.sunburst.15",
+  "version": "2026-10-29.sunburst.16",
   "scope": "蓝色框选或自由圈选的异步编辑；图1始终是带蓝色定位线的完整原图；不传独立透明mask。",
   "userPromptPlaceholder": "{{USER_PROMPT}}",
   "templates": {
+    "removal": {
+      "maskFillMode": "prompt",
+      "maskFillOperation": "remove",
+      "removalPromptVersion": "2026-10-29.removal.1",
+      "imageCount": 1,
+      "userPromptRequired": true,
+      "regionRequired": true,
+      "template": "{{USER_PROMPT}}",
+      "defaultSelectionPrompt": "去除框选区域的物品，其余保持不变，最后去掉蓝色框。",
+      "defaultMaskPrompt": "去除涂抹区域的物品，其余保持不变。"
+    },
     "prompt": {
       "imageCount": 1,
       "userPromptRequired": true,

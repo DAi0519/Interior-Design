@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖模型/图片输入Agent/精模冻结资产、扩图真源及beta-upscale-archive-contract的超分版本/原件合同、Beta三表和图片基础设施
- * [OUTPUT]: 对外提供三表Schema/十功能快照、精模基础身份及预设单图/图文双图/上传双图归档回读；KS固定5K/20MP纯合同与历史策略恢复
+ * [INPUT]: 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
+ * [OUTPUT]: 对外提供三表Schema/十功能快照、精模图序及全景光影卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -28,10 +28,12 @@ import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
 import { imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
 import { isLegacyKsArchive, verifyUpscaleArchive as verifyUpscaleArchiveContract } from "./beta-upscale-archive-contract.mjs";
 import { hasRefinedLightingInput, resolveRefinedLightingInput } from "./refined-lighting.mjs";
+import { isLightingReference } from "../public/refined-flux-reference.js";
+import { panoramaArchiveSnapshot, verifyPanoramaArchive } from "./beta-panorama-archive-contract.mjs";
 
 async function lightingReferences(input, featureMode = input?.featureMode, resolveLighting = resolveRefinedLightingInput) {
   if (featureMode === "refinedModel" && hasRefinedLightingInput(input)) {
-    if (input.refinedLighting?.execution === "prompt-and-reference") {
+    if (input.refinedLighting?.mode === "preset" && isLightingReference(input.refinedLighting)) {
       return (await resolveLighting(input)).referenceImages;
     }
     return input.refinedLighting?.execution === "prompt-only" ? [] : input.lightingReferenceImages;
@@ -158,6 +160,8 @@ export function betaConfigSnapshot(input = {}) {
     refinedAtmospherePromptSha256: input.featureMode === "refinedModel" ? input.refinedAtmospherePromptSha256 : undefined,
     effectBeautificationPromptVersion: input.effectBeautificationPromptVersion,
     panoramaPromptVersion: input.panoramaPromptVersion,
+    panoramaLighting: input.featureMode === "panoramaEnhancement" ? input.panoramaLighting : undefined,
+    ...panoramaArchiveSnapshot(input),
     quality: input.quality,
     ratio: input.ratio,
     ratioMode: input.ratioMode,
@@ -173,6 +177,7 @@ export function betaResultVersion(result = {}) {
   const workflowKey = result.upstream?.metadata?.workflowId || result.workflow?.key;
   const atmospherePrompt = result.atmospherePrompt || result.workflow?.atmospherePrompt;
   const lighting = result.refinedLighting || result.workflow?.refinedLighting;
+  const panoramaLighting = result.panoramaLighting || result.workflow?.panoramaLighting || result.request?.panoramaLighting;
   const values = [
     workflowKey && workflowVersion ? `${workflowKey}@${workflowVersion}` : null,
     result.prompt?.code && result.prompt?.version
@@ -186,7 +191,9 @@ export function betaResultVersion(result = {}) {
       ? `${result.style.code}@v${result.style.version}`
       : null,
     ...[lighting?.rule, lighting?.preset].map(asset => asset?.code && asset?.version ? `${asset.code}@v${asset.version}` : null),
-    lighting?.execution === "prompt-and-reference" ? "prompt-and-reference" : null,
+    panoramaLighting?.preset?.code && panoramaLighting.preset.version
+      ? `${panoramaLighting.preset.code}@v${panoramaLighting.preset.version}` : null,
+    lighting?.mode === "preset" && isLightingReference(lighting) ? lighting.execution : null,
   ].filter(Boolean);
   return [...new Set(values)].join(" · ");
 }
@@ -258,7 +265,7 @@ function promptModelLabel(value) {
 
 export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
   const attempt = Number(item.attempt || 1);
-  const input = featureMode === "imageUpscale" ? { ...item.input, featureMode } : item.input;
+  const input = ["imageUpscale", "panoramaEnhancement"].includes(featureMode) ? { ...item.input, featureMode } : item.input;
   const modelLabel = runModelLabel(item, featureMode);
   return {
     "Run ID": String(item.runId || ""),
@@ -442,6 +449,10 @@ export function createBetaBaseStore({
     ...createBetaSampleStore({ config, run, featureLabels: FEATURE_LABELS, createRecord, updateRecord,
       listRecords, getRecord, uploadAttachments }),
     async beginRun({ batchId, featureMode, item, testTime }) {
+      if (featureMode === "panoramaEnhancement" && (item.input?.referenceImages?.length !== 1
+        || item.input?.styleReferenceImages?.length || item.input?.lightingReferenceImages?.length)) {
+        throw betaBaseContractError("全景归档需要唯一原图且不使用第二张参考图");
+      }
       if (featureMode === "imageUpscale" && (item.input?.referenceImages?.length !== 1
         || item.input?.styleReferenceImages?.length)) throw betaBaseContractError("AI超分归档需要唯一原图且不使用风格参考图");
       const styleReferences = await lightingReferences(item.input, featureMode, resolveLighting);
@@ -480,7 +491,7 @@ export function createBetaBaseStore({
           styleFiles.files,
           directory,
         );
-        if (["styleTransfer", "imageOutpaint", "imageUpscale"].includes(featureMode)
+        if (["styleTransfer", "imageOutpaint", "imageUpscale", "panoramaEnhancement"].includes(featureMode)
           || featureMode === "refinedModel" && hasRefinedLightingInput(item.input)) {
           inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
         }
@@ -508,6 +519,10 @@ export function createBetaBaseStore({
         };
         const frozen = runArchives.get(recordId)?.fields;
         if (frozen?.["功能"] === "精模渲染") verifyLightingArchive(generatedFields, JSON.parse(frozen["配置快照"]));
+        if (frozen?.["功能"] === "全景图美化") {
+          if (result.images.length !== 1) throw betaBaseContractError("全景结果必须是唯一图片");
+          verifyPanoramaArchive(generatedFields, JSON.parse(frozen["配置快照"]), { bytes: resultBytes });
+        }
         if (frozen?.["功能"] === "AI超分") {
           if (result.images.length !== 1) throw betaBaseContractError("AI超分结果必须是唯一图片");
           verifyUpscaleArchive({ ...generatedFields, "Prompt / 工作流版本": betaResultVersion(result) },
@@ -612,6 +627,19 @@ export function createBetaBaseStore({
         }
         frozen["配置快照"] = JSON.stringify(expectedSnapshot);
       }
+      if (featureMode === "panoramaEnhancement") {
+        let stored;
+        try { stored = JSON.parse(fields["配置快照"]); } catch { throw betaBaseContractError("已有全景缺少可信的冻结配置"); }
+        if (!stored || typeof stored !== "object" || Array.isArray(stored)) throw betaBaseContractError("已有全景冻结配置格式不正确");
+        const expected = JSON.parse(frozen["配置快照"]);
+        if (stored.panoramaArchiveVersion === 1 && !expected.panoramaSource) expected.panoramaSource = stored.panoramaSource;
+        if (!stored.panoramaArchiveVersion) {
+          if (expected.panoramaLightingMode !== "preserve") throw betaBaseContractError("旧全景归档不能恢复新的光影目标任务");
+          for (const key of Object.keys(expected).filter(key => key.startsWith("panorama") && key !== "panoramaPromptVersion")) delete expected[key];
+          if (expected.resolution === "original") expected.resolution = stored.resolution;
+        }
+        frozen["配置快照"] = JSON.stringify(expected);
+      }
       verifyMetadata(fields, frozen);
       const attachments = fields["结果图"];
       if (!Array.isArray(attachments) || attachments.length !== 1 || !attachments[0]?.file_token
@@ -632,6 +660,7 @@ export function createBetaBaseStore({
       catch { throw betaBaseContractError("已有结果缺少可信的生成参数"); }
       const workflow = parameters.workflow || {};
       if (featureMode === "refinedModel") verifyLightingArchive(fields, JSON.parse(frozen["配置快照"]));
+      if (featureMode === "panoramaEnhancement") verifyPanoramaArchive(fields, JSON.parse(frozen["配置快照"]), { recovering: true });
       if ((featureMode !== "imageUpscale" && !fields["最终 Prompt"])
         || !fields["Prompt / 工作流版本"] || !(Number(fields["时延（ms）"]) > 0)) {
         throw betaBaseContractError("已有结果缺少最终 Prompt、版本或时延");
@@ -652,6 +681,17 @@ export function createBetaBaseStore({
         if (bytes.length !== Number(attachments[0].size) || actualImageSize(bytes) !== fields["尺寸"]
           || (workflow.outputSha256 && createHash("sha256").update(bytes).digest("hex") !== workflow.outputSha256)) {
           throw betaBaseContractError("已有结果附件字节数、尺寸或 SHA-256 不一致");
+        }
+        if (featureMode === "panoramaEnhancement") {
+          const snapshot = JSON.parse(frozen["配置快照"]);
+          let sourceBytes = null;
+          if (snapshot.panoramaArchiveVersion === 1) {
+            await run(config, ["base", "+record-download-attachment", "--as", "user", "--base-token", config.baseToken,
+              "--table-id", config.tableId, "--record-id", candidate.recordId, "--file-token", fields["输入图"][0].file_token,
+              "--output", "input-image", "--overwrite", "--format", "json"], { cwd: directory });
+            sourceBytes = await readFile(join(directory, "input-image"));
+          }
+          verifyPanoramaArchive(fields, snapshot, { bytes, sourceBytes, recovering: true });
         }
       } finally { await rm(directory, { force: true, recursive: true }); }
       const completion = { "状态": "成功", "错误信息": "" };

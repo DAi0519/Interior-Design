@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node fetch/WebSocket/crypto、可注入的 ComfyUI 工作流/输出节点/产物命名/元数据适配器、单张已校验图片、可覆盖服务地址/排队时限/执行时限与可选取消信号，默认适配 Flux2 Klein 1K/2K 工作流
- * [OUTPUT]: 对外提供 ComfyUI 健康/节点与模型目录读取、Base64 单图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、最终输出读取恢复与含真实尺寸/SHA-256身份的generateImage结果，并向元数据适配器传递当前History输出以捕获实际Prompt
+ * [INPUT]: 依赖 Node fetch/WebSocket/crypto、可注入的 ComfyUI 工作流/输出节点/产物命名/元数据适配器、已校验参考图片、可覆盖服务地址/排队时限/执行时限与可选取消信号，默认适配 Flux2 Klein 1K/2K 工作流
+ * [OUTPUT]: 对外提供 ComfyUI 健康/节点与模型目录读取、Base64 单图或双图工作流原子提交、请求级唯一产物校验、可取消排队/轮询、带 Prompt ID 的 WebSocket 阶段与实时队列/History 执行兜底、独立超时错误、网关抖动安全恢复、最终输出读取恢复与含真实尺寸/SHA-256身份的generateImage结果，并向元数据适配器传递当前History输出以捕获实际Prompt
  * [POS]: src 的通用 ComfyUI 传输边界，与 oneapi-client.mjs 并列并让 Flux 生图、SeedVR2 超分及 AI 扩图复用同一异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -268,6 +268,7 @@ export function createComfyUiClient({
   requestTimeoutMs = DEFAULT_TIMEOUT_MS,
   waitImpl = wait,
   webSocketFactory = (url) => new WebSocket(url),
+  referenceImageCount = 1,
   workflowFactory = createAiTextureWorkflow,
   workflowMetadataFactory = aiTextureWorkflowMetadata,
   outputNodeId = AI_TEXTURE_WORKFLOW.outputNodeId,
@@ -543,15 +544,21 @@ export function createComfyUiClient({
       const images = Array.isArray(generationRequest.images)
         ? generationRequest.images
         : [];
-      if (images.length !== 1) {
+      if (images.length !== referenceImageCount) {
         throw new ComfyUiError(
-          "Flux2 Klein 需要且只允许 1 张参考图",
+          `ComfyUI工作流需要且只允许 ${referenceImageCount} 张参考图`,
           400,
           "reference_count",
         );
       }
 
       const reference = dataImage(images[0].image_url);
+      const references = referenceImageCount === 2 ? images.map(image => {
+        const decoded = dataImage(image.image_url);
+        const dimensions = readImageDimensions(decoded.bytes, decoded.mimeType);
+        if (!dimensions) throw new ComfyUiError("无法读取双图真实尺寸", 400, "invalid_input_image");
+        return { ...dimensions, base64: decoded.bytes.toString("base64") };
+      }) : null;
       const width = Number(generationRequest.width || 2048);
       const height = Number(generationRequest.height || 2048);
       const resolution = String(generationRequest.resolution || "2K");
@@ -571,6 +578,7 @@ export function createComfyUiClient({
           artifactKey,
           generationRequest,
           imageBase64: reference.bytes.toString("base64"),
+          ...(references ? { references } : {}),
           height,
           negativePrompt: generationRequest.negative_prompt,
           prompt: generationRequest.prompt,

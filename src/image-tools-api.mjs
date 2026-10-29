@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖GPT打光公开配置/飞书Prompt主动刷新、主/Beta同源超分能力读取、注入的Flux/Qwen/Sunburst及本机遮罩填充读取器、ComfyUI客户端和JSON响应
- * [OUTPUT]: 对外提供仅GPT打光及forceRefresh查询透传、多角度逐项权限准入、超分/扩图/遮罩填充分模式可用性与原因的只读HTTP处理器
+ * [INPUT]: 依赖GPT打光公开配置/飞书Prompt主动刷新、主/Beta同源超分能力读取、注入的Flux/Qwen/Sunburst及本机二次编辑读取器、ComfyUI客户端和JSON响应
+ * [OUTPUT]: 对外提供仅GPT打光及forceRefresh查询透传、多角度逐项权限准入、超分/扩图/二次编辑分模式可用性与原因的只读HTTP处理器
  * [POS]: src 的独立图片工具配置入口，保持根 HTTP 组合文件精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */

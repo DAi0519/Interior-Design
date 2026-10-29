@@ -2,6 +2,10 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+panorama-enhancement/ - R5_4原始执行图与来源SHA、20视角球面链路/原尺寸/输入保存适配和纯词光影说明
+Flux2-Klein-精模双图-1K.json: 用户双图骨架的独立可导入画布，图1保设计/图2光影；源比例长边1024、16px对齐、4步CFG1Euler与referenceRule4静态快照
+Flux2-Klein-精模双图-2K.json: 同合同长边2048画布，普通Flux及原附件不改，无SeedVR2后置超分
+Flux2-Klein-精模双图说明.md: 双图角色、模型/节点依赖、尺寸和Prompt运行真源、原附件SHA及未实跑画质边界
 KS-固定4K推理-4K交付.MaaS.json: KS直入27.1固定4096推理直接交付4096的10节点14线画布，现有数学节点按原图比例计算宽高，无后置放大
 KS-固定4K推理-4K交付.MaaS.api.json: 独立4K执行图，仅input_img原图URL与result_img原始PNG；平台调用ID待发布，不传尺寸、不新增插件
 KS-固定5K推理-6K交付.MaaS.json: KS直入27.1固定5120推理/6144交付的12节点19线整理画布，唯一input_img、result_img原始PNG，现有节点且无新增插件

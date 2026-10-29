@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:fs/os/path/crypto/util、模型/空房/遮罩/打光归档真源、图片产物/尺寸/飞书 CLI、生图结果及原图/实际提交的引导图附件、已创建飞书 Base
- * [OUTPUT]: 原始/最终Prompt及真实尺寸同步；包含质感增强功能标签准入，遮罩与打光独立scope校验附件，字段/token/字节双回读后成功
+ * [OUTPUT]: 原始/最终Prompt及真实尺寸同步；二次编辑新标签/字段写入及历史模型标签规范化，包含光影转换/质感增强功能标签准入，二次编辑与打光独立scope校验附件，字段/token/字节双回读后成功
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,7 +27,7 @@ import { runLarkCli } from "./lark-cli.mjs";
 import { publicModelCatalog } from "./model-config.mjs";
 import { MULTI_ANGLE_ARCHIVE_FIELDS, MULTI_ANGLE_ARCHIVE_MODEL_LABELS, MULTI_ANGLE_FRAMING_LABELS, multiAngleRecordFields } from "./image-multi-angle-archive.mjs";
 import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "./image-outpaint-archive.mjs";
-import { IMAGE_MASK_FILL_ARCHIVE_FIELDS, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL, IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS, maskFillRecordFields } from "./image-mask-fill-archive.mjs";
+import { IMAGE_MASK_FILL_ARCHIVE_FIELDS, IMAGE_MASK_FILL_ARCHIVE_FEATURE_LABEL, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL, IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS, maskFillRecordFields } from "./image-mask-fill-archive.mjs";
 import { IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL, relightArchiveManifest } from "./image-relight-archive.mjs";
 
 export const LARK_SYNC_CONFIG = Object.freeze({
@@ -52,15 +52,16 @@ const FEATURE_LABELS = Object.freeze({
   "free-image-generation": "自由生图",
   "image-outpaint": "AI扩图",
   "image-multi-angle": "多角度",
-  "image-mask-fill": "遮罩填充",
+  "image-mask-fill": IMAGE_MASK_FILL_ARCHIVE_FEATURE_LABEL,
   "image-relight": IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL,
+  "lighting-transfer": "光影转换",
   "panorama-render-enhancement": "全景图美化",
   "refined-model-rendering": "精模渲染",
   "style-transfer": "风格转换",
   "texture-render-enhancement": "质感增强",
   "white-model-rendering": "白模渲染",
 });
-const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS).filter((label) => !["遮罩填充", IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL].includes(label)));
+const REQUIRED_FEATURE_LABELS = Object.freeze(Object.values(FEATURE_LABELS).filter((label) => ![IMAGE_MASK_FILL_ARCHIVE_FEATURE_LABEL, IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL].includes(label)));
 const REQUIRED_MODEL_LABELS = Object.freeze(
   [...new Set([...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS])],
 );
@@ -149,7 +150,8 @@ export function buildRecordFields({
     ...workflowRecordFields(workflow),
     ...multiAngleRecordFields(workflow),
     ...maskFillRecordFields(workflow),
-    "生图模型": modelLabel,
+    "生图模型": workflow?.feature === "image-mask-fill" && modelLabel === "Flux2 Klein 9B · 遮罩填充"
+      ? IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL : modelLabel,
     ...(workflow?.agentModelLabel
       ? { "Prompt融合": workflow.agentModelLabel }
       : {}),
@@ -226,14 +228,14 @@ export function assertLarkSyncSchema(
 
   const requiredOptions = new Map([
     ["Prompt融合", requiredAgentModelLabels],
-    ["功能", [...REQUIRED_FEATURE_LABELS, ...(maskFill ? ["遮罩填充"] : []), ...(relight ? [IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL] : [])]],
+    ["功能", [...REQUIRED_FEATURE_LABELS, ...(maskFill ? [IMAGE_MASK_FILL_ARCHIVE_FEATURE_LABEL] : []), ...(relight ? [IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL] : [])]],
     ["景别", Object.values(MULTI_ANGLE_FRAMING_LABELS)],
     ["状态", ["成功", "同步失败"]],
     ["生图模型", maskFill ? [...requiredModelLabels, IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL] : requiredModelLabels],
     ["空间类型", EMPTY_ROOM_TYPES],
     ["设计方式", Object.values(RENDER_MODE_LABELS)],
   ]);
-  if (maskFill) requiredOptions.set("遮罩填充模式", IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS);
+  if (maskFill) requiredOptions.set("二次编辑模式", IMAGE_MASK_FILL_ARCHIVE_MODE_LABELS);
   for (const [name, required] of requiredOptions) {
     const field = fieldsByName.get(name);
     if (field?.type !== "select") continue;
@@ -246,12 +248,12 @@ export function assertLarkSyncSchema(
 
   const attachmentFieldIds = {};
   if (maskFill) {
-    for (const name of ["参考图", "结果图", "遮罩图", "填充参考图", "框选原图"]) {
+    for (const name of ["参考图", "结果图", "遮罩图", "编辑参考图", "框选原图"]) {
       const field = fieldsByName.get(name);
       if (!field?.id || field.type !== "attachment") issues.push(`“${name}”附件字段缺少有效 ID 或类型`);
       else attachmentFieldIds[name] = field.id;
     }
-    if (new Set(Object.values(attachmentFieldIds)).size !== Object.keys(attachmentFieldIds).length) issues.push("遮罩填充附件列 ID 不能重复");
+    if (new Set(Object.values(attachmentFieldIds)).size !== Object.keys(attachmentFieldIds).length) issues.push("二次编辑附件列 ID 不能重复");
   }
 
   for (const [name, fieldId] of [
@@ -444,7 +446,7 @@ async function maskFillManifest(input, resultBytes) {
   const boxSelected = input.workflow.provider === "oneapi" && Boolean(input.workflow.editRegion);
   if (input.referenceImages?.length !== 1 || (maskOmitted ? Boolean(input.maskImage) : !input.maskImage) || (referenceMode && !input.fillReferenceImage)
     || (!referenceMode && input.fillReferenceImage) || input.styleReferenceImages?.length || !input.finalPrompt?.trim()) {
-    throw new Error("遮罩归档需分别提供主图/结果及实际使用的遮罩，仅GPT可省略遮罩，且仅参考模式提供填充参考图");
+    throw new Error("遮罩归档需分别提供主图/结果及实际使用的遮罩，仅GPT可省略遮罩，且仅参考模式提供编辑参考图");
   }
   if (Boolean(input.boxedSourceImage) !== boxSelected
     || input.workflow.editRegion && !boxSelected || boxSelected && !maskOmitted) {
@@ -473,7 +475,7 @@ async function maskFillManifest(input, resultBytes) {
     "参考图": [await summarize(input.referenceImages[0])],
     "结果图": [{ size: resultBytes.length, sha256: outputSha256 }],
     "遮罩图": input.maskImage ? [await summarize(input.maskImage)] : [],
-    "填充参考图": referenceMode ? [await summarize(input.fillReferenceImage)] : [],
+    "编辑参考图": referenceMode ? [await summarize(input.fillReferenceImage)] : [],
     "框选原图": boxedSource ? [boxedSource] : [],
   };
 }
@@ -543,7 +545,7 @@ export async function syncGenerationToLark(input, config = LARK_SYNC_CONFIG, { r
     let attachmentIdentities = null;
     if (maskFill) {
       for (const [name, image, prefix] of [["遮罩图", input.maskImage, "mask"],
-        ["填充参考图", input.fillReferenceImage, "fill-reference"], ["框选原图", input.boxedSourceImage, "boxed-source"]]) {
+        ["编辑参考图", input.fillReferenceImage, "fill-reference"], ["框选原图", input.boxedSourceImage, "boxed-source"]]) {
         const fileNames = await materializeReferenceImages(image ? [image] : [], temporaryDirectory, { prefix });
         await uploadAttachments(config, recordId, schema.attachmentFieldIds[name], fileNames, temporaryDirectory, run);
       }

@@ -1,15 +1,16 @@
 /**
- * [INPUT]: 依赖飞书光影两类规则/预设原附件、旧精模参数、模型目录和原图字节校验
- * [OUTPUT]: 对外提供纯词预设基础+氛围、两种双图统一专用规则编译、来源能力与原图SHA冻结复核
- * [POS]: src 的精模预设两执行模式与上传参考边界，旧请求不读新库，Prompt与卡片原图仅服务端读取
+ * [INPUT]: 依赖飞书光影三类规则/预设原附件、可注入独立迁移规则编码、旧精模参数、模型目录和原图字节校验
+ * [OUTPUT]: 对外提供基础+氛围单图、专用迁移双图及图序前置+氛围双图编译、精模Flux独立双图准入与原图SHA冻结复核
+ * [POS]: src 的精模预设三执行模式与上传参考边界，旧请求不读新库，Prompt与卡片原图仅服务端读取
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from "node:crypto";
+import { isLightingReference, REFINED_LIGHTING_PRESET_EXECUTIONS, supportsLightingReference } from "../public/refined-flux-reference.js";
 import { MODEL_CONFIGS } from "./model-config.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { normalizeRefinedRender, requiresRefinedAtmosphere } from "../public/refined-render-presets.js";
-import { loadRefinedLightingAssets, loadRefinedLightingReference, REFINED_LIGHTING_PROMPT_RULE_CODE, REFINED_LIGHTING_REFERENCE_RULE_CODE } from "./refined-lighting-library.mjs";
+import { loadRefinedLightingAssets, loadRefinedLightingReference, REFINED_LIGHTING_PROMPT_RULE_CODE, REFINED_LIGHTING_REFERENCE_RULE_CODE, REFINED_LIGHTING_HYBRID_RULE_CODE } from "./refined-lighting-library.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
@@ -19,6 +20,9 @@ export function usesReferencePrompt(selection) {
   return selection?.mode === "reference"
     || selection?.mode === "preset" && selection.execution === "prompt-and-reference";
 }
+export function usesHybridPrompt(selection) {
+  return selection?.mode === "preset" && selection.execution === "prompt-with-reference";
+}
 
 export function hasRefinedLightingInput(input = {}) {
   return Object.hasOwn(input, "refinedLighting");
@@ -27,9 +31,10 @@ export function hasRefinedLightingInput(input = {}) {
 function selectionOf(input) {
   const value = input.refinedLighting;
   if (value?.mode === "original") throw fail("原始光影已取消，请选择光影预设或上传氛围参考图");
-  const presetReference = value?.mode === "preset" && value.execution === "prompt-and-reference";
-  const execution = value?.mode === "reference" ? "image-reference" : presetReference ? "prompt-and-reference" : "prompt-only";
+  const presetReference = value?.mode === "preset" && isLightingReference(value);
+  const execution = value?.mode === "reference" ? "image-reference" : value?.execution ?? "prompt-only";
   if (value?.mode === "preset" && value.referenceSha256 !== undefined && !presetReference
+    || value?.mode === "preset" && !REFINED_LIGHTING_PRESET_EXECUTIONS.includes(execution)
     || value?.execution !== undefined && value.execution !== execution) {
     throw fail("旧双图光影任务不能再次执行，请重新选择光影预设", 409);
   }
@@ -113,6 +118,7 @@ export function refinedLightingFreezeKey(input = {}) {
 export async function resolveRefinedLightingInput(input = {}, {
   loadAssets = loadRefinedLightingAssets,
   loadReference = loadRefinedLightingReference,
+  referenceRuleCode = REFINED_LIGHTING_REFERENCE_RULE_CODE,
 } = {}) {
   if (!hasRefinedLightingInput(input)) {
     if (input.lightingReferenceImages != null && (!Array.isArray(input.lightingReferenceImages)
@@ -121,18 +127,23 @@ export async function resolveRefinedLightingInput(input = {}, {
   }
   const selection = selectionOf(input);
   const model = MODEL_CONFIGS[String(input.modelKey || "")];
-  if (!model) throw fail("请选择有效的精模出图模型");
+  const featureLabel = input.featureMode === "lightingTransfer" ? "光影转换" : "精模";
+  if (!model) throw fail(`请选择有效的${featureLabel}出图模型`);
   const referenceMode = selection.mode === "reference";
-  const presetReference = selection.mode === "preset" && selection.execution === "prompt-and-reference";
+  const presetReference = selection.mode === "preset" && isLightingReference(selection);
+  const referenceRequired = isLightingReference(selection);
   const referencePrompt = usesReferencePrompt(selection);
-  if (referencePrompt && ((model.maxReferenceImages ?? 4) < 2 || model.provider === "comfyui")) {
+  const hybridPrompt = usesHybridPrompt(selection);
+  if (referenceRequired && !supportsLightingReference({ ...model, maxReferenceImages: model.maxReferenceImages ?? 4 })) {
     throw fail(`${model.label}仅支持单图，提示词加参考图或上传参考图需要支持双图的模型`, 409);
   }
+  if (referenceRequired && model.refinedLightingReference && !["1K", "2K"].includes(input.resolution || "2K")) throw fail(`${featureLabel}Flux双图只支持1K/2K`, 409);
   if (referenceMode && input.lightingReferenceImages?.length !== 1) throw fail("请上传且仅上传1张氛围参考图");
   const library = await loadAssets({ forceRefresh: true });
-  const rule = referencePrompt ? library?.referenceRule : library?.rule;
-  verifyAsset(rule, selection.ruleVersion, selection.ruleSha256, referencePrompt ? "光影参考规则" : "光影提示词规则");
-  const expectedRuleCode = referencePrompt ? REFINED_LIGHTING_REFERENCE_RULE_CODE : REFINED_LIGHTING_PROMPT_RULE_CODE;
+  const rule = referencePrompt ? library?.referenceRule : hybridPrompt ? library?.hybridRule : library?.rule;
+  verifyAsset(rule, selection.ruleVersion, selection.ruleSha256, referencePrompt ? "光影参考规则" : hybridPrompt ? "氛围词参考前置规则" : "光影提示词规则");
+  const expectedRuleCode = referencePrompt ? referenceRuleCode
+    : hybridPrompt ? REFINED_LIGHTING_HYBRID_RULE_CODE : REFINED_LIGHTING_PROMPT_RULE_CODE;
   if (rule.code !== expectedRuleCode) throw fail("光影来源与规则不匹配，请刷新配置", 409);
   const preset = referenceMode ? null : library.presets?.find(entry => entry.id === selection.presetId);
   if (preset) verifyAsset(preset, selection.version, selection.sha256, "光影卡片");
@@ -143,7 +154,7 @@ export async function resolveRefinedLightingInput(input = {}, {
   if (summary && selection.referenceSha256 !== undefined && selection.referenceSha256 !== summary.sha256) {
     throw fail("光影参考图已变更，请重新选择后提交", 409);
   }
-  const frozen = { ...selection, execution: referenceMode ? "image-reference" : presetReference ? "prompt-and-reference" : "prompt-only",
+  const frozen = { ...selection, execution: referenceMode ? "image-reference" : selection.execution || "prompt-only",
     ruleVersion: rule.version, ruleSha256: rule.sha256.toLowerCase(),
     ...(preset ? { version: preset.version, sha256: preset.sha256.toLowerCase() } : {}),
     ...(summary ? { referenceSha256: summary.sha256 } : {}) };
@@ -169,6 +180,9 @@ export function composeRefinedLightingPrompt(basePrompt, assets, userPrompt = ""
   if (custom.length > 8000) throw fail("精模自定义要求不能超过 8000 个字符");
   if (usesReferencePrompt(assets.selection)) {
     return [assets.rule?.prompt, custom].filter(Boolean).join("\n\n");
+  }
+  if (usesHybridPrompt(assets.selection)) {
+    return [assets.rule?.prompt, assets.preset?.prompt, custom].filter(Boolean).join("\n\n");
   }
   const atmospherePrompt = [assets.rule?.prompt, assets.preset?.prompt].filter(Boolean).join("\n\n");
   return [String(basePrompt || "").trim(), atmospherePrompt, custom].filter(Boolean).join("\n\n");

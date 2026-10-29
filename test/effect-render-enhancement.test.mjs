@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、工作台静态入口与配置状态/生成输入映射器、效果图氛围转换/全景图两套独立 Prompt 解析器与可注入工作流边界
- * [OUTPUT]: 对外提供氛围展示名/旧编码、正常无说明与不可用反馈、环境模块、全景MAIN版本及模型/工作流/请求/脱敏归档回归
+ * [OUTPUT]: 对外提供氛围展示名/旧编码、正常无说明与不可用反馈、环境模块、全景MAIN版本及R5_4工作流/请求/脱敏归档回归
  * [POS]: test 的效果图氛围转换/全景图美化独立资产与工作流专项测试，所有外部 API 与飞书同步均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import sharp from "sharp";
 
 import { effectEnhancementPromptStatus } from "../public/config-refresh.js";
 import { buildGenerationInput } from "../public/generation-input.js";
@@ -421,10 +422,11 @@ test("美化工作流拒绝缺图和多图", async () => {
   );
 });
 
-test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
+test("Flux 全景图美化路由R5_4专用工作流请求", async () => {
   const generatedRequests = [];
   const generationOptions = [];
   let syncedInput;
+  const panoramaBytes = await sharp({ create: { width: 64, height: 32, channels: 3, background: "#999999" } }).png().toBuffer();
   await executeEffectRenderEnhancementWorkflow({
     featureMode: "panoramaEnhancement",
     panoramaPromptVersion: 7,
@@ -433,9 +435,9 @@ test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
     ratio: "2:1",
     ratioMode: "auto",
     referenceImages: [{
-      dataUrl: onePixelPng,
+      dataUrl: `data:image/png;base64,${panoramaBytes.toString("base64")}`,
       name: "panorama.png",
-      size: Buffer.from(onePixelPng.split(",")[1], "base64").length,
+      size: panoramaBytes.length,
       type: "image/png",
     }],
     resolution: "2K",
@@ -471,6 +473,9 @@ test("Flux 全景图美化复用普通 Flux 工作流请求", async () => {
   assert.deepEqual(generationOptions, [undefined]);
   assert.match(generatedRequests[0].prompt, /same-condition restoration/);
   assert.match(generatedRequests[0].prompt, /seamless horizontal wrap-around/);
+  assert.equal(generatedRequests[0].workflow_kind, "panorama-r5-4");
+  assert.equal(generatedRequests[0].width, 64);
+  assert.equal(generatedRequests[0].height, 32);
   assert.equal("panorama_circular_sampling" in generatedRequests[0], false);
   assert.equal("panorama_enhancement_denoise" in generatedRequests[0], false);
   assert.equal("panorama_wrap_padding" in generatedRequests[0], false);

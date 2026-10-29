@@ -171,7 +171,7 @@ test("GPT两模式可不传mask：请求完全省略mask且不伪造编辑区域
     assert.deepEqual(Buffer.from(result.images[0].url.split(",")[1], "base64"), client.results[0]);
     assert.equal(result.request.hasMask, false); assert.equal(result.request.maskExpand, 0);
     assert.equal(result.upstream.metadata.hasMask, false);
-    assert.equal(result.upstream.metadata.version, "2026-10-22.sunburst.15");
+    assert.equal(result.upstream.metadata.version, "2026-10-29.sunburst.16");
     assert.equal(result.upstream.metadata.upstreamAsync, true);
     assert.equal(result.upstream.transport, "responses-background");
     assert.equal(result.upstream.requestId, "resp_mask_synthetic");
@@ -533,7 +533,7 @@ test("后台入口冻结Sunburst真实身份，异步上游ID/状态进入可查
     enqueue(id, details, run) { queued = { id, details, run }; snapshot = { jobId: id, ...details }; return { jobId: id }; },
     get(id) { return id === snapshot?.jobId ? snapshot : null; },
   },
-    generationService: service, getImageMaskFillConfig: async () => ({ models: [{ key: "gptImage25Sunburst", modes: [{ key: "prompt", available: permitted, label: "Sunburst提示词填充" }] }] }),
+    generationService: service, getImageMaskFillConfig: async () => ({ models: [{ key: "gptImage25Sunburst", modes: [{ key: "prompt", available: permitted, label: "Sunburst提示词编辑" }] }] }),
     readJson: async () => structuredClone(body), sendJson: (_, status, value) => { response = { status, ...value }; },
     verifySyncContract: async (_, scope) => { assert.deepEqual(scope, { scope: "imageMaskFill" }); } });
   await handler({ method: "POST" }, {}, "/api/generation-jobs");
@@ -568,7 +568,7 @@ test("GPT空指令参考任务入队冻结用途/模式/空原文/矩形和多�
     const handler = createGenerationJobApiHandler({
       generationJobs: { enqueue(id, details, run) { queued = { id, details, run }; return { jobId: id }; } },
       generationService: { async executeForMode(mode, input) { executed = { mode, input }; return { ok: true }; } },
-      getImageMaskFillConfig: async () => ({ models: [{ key: "gptImage25Sunburst", modes: [{ key: "reference", available: true, label: "Sunburst参考图填充" }] }] }),
+      getImageMaskFillConfig: async () => ({ models: [{ key: "gptImage25Sunburst", modes: [{ key: "reference", available: true, label: "Sunburst参考图编辑" }] }] }),
       readJson: async () => body, sendJson: (_, status, value) => { response = { status, ...value }; }, verifySyncContract: async () => {},
     });
     await handler({ method: "POST" }, {}, "/api/generation-jobs");

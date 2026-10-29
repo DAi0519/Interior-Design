@@ -9,6 +9,9 @@ private/
 assets/
 references/
 outputs/
+public/refined-lighting-report/
+public/refined-lighting-third-mode-report/
+public/refined-lighting-seedream-report/
 output/
 generated/
 *.png

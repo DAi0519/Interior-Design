@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
- * [OUTPUT]: 对外提供生图/遮罩填充及扩图的前台飞书同步合同阻断与仅本机超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、效果图美化六组合/非法值缺省/Prompt隔离、分功能加载文案与批任务只传一份图片载荷的回归保障
+ * [OUTPUT]: 对外提供全景多光影×模型/每卡张数逐项投影和标签、共享底图去重，生图/二次编辑及扩图的前台飞书同步合同阻断与仅本机超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、效果图美化六组合/非法值缺省/Prompt隔离、全景连续性/光影目标加载文案与批任务只传一份图片载荷的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,9 +13,33 @@ import {
   buildGenerationJobRequest,
   generationItemsForSelection,
   generationLoadingCopy,
+  panoramaItemsForSelection,
 } from "../public/generation-task-request.js";
 import { publicModelCatalog } from "../src/model-config.mjs";
 import { buildGenerationInput } from "../public/generation-input.js";
+
+test("全景六种光影按模型和每卡张数独立展开，逐项模板正确且底图只传一份", () => {
+  const models = publicModelCatalog().filter(model => model.sizes?.["2:1"]);
+  const selections = Array.from({ length: 6 }, (_, index) => ({ presetId: `recLight${index}`,
+    version: index + 1, sha256: String(index).repeat(64), presetName: `光影${index}` }));
+  const items = panoramaItemsForSelection([models[0]], 4, selections);
+  assert.equal(items.length, 24);
+  for (const selection of selections) assert.equal(items.filter(item => item.panoramaLightingSelection === selection).length, 4);
+  assert.equal(panoramaItemsForSelection(models.slice(0, 2), 4, selections).length, 12);
+  const request = buildGenerationJobRequest({ baseInput: { featureMode: "panoramaEnhancement", prompt: "保留材质",
+    panoramaLighting: selections[0], referenceImages: [{ dataUrl: "data:image/png;base64,AA==" }], ratio: "2:1", resolution: "2K" },
+    featureMode: "panoramaEnhancement", models: items, sourceImage: { width: 4096, height: 2048 } });
+  assert.equal(request.sharedInput.referenceImages.length, 1);
+  for (let index = 0; index < items.length; index += 1) {
+    const item = request.items[index], expected = selections[index % selections.length];
+    assert.deepEqual(item.input.panoramaLighting, { presetId: expected.presetId, version: expected.version, sha256: expected.sha256 });
+    assert.match(item.label, new RegExp(expected.presetName));
+    assert.equal(item.input.prompt, "保留材质");
+    assert.equal("referenceImages" in item.input, false);
+    assert.equal("refinedLighting" in item.input, false);
+  }
+  assert.match(generationLoadingCopy({ panoramaEnhancementRequest: true, panoramaLightingSelections: selections }), /6 种光影/);
+});
 
 test("工作台默认使用空白提示词与 Flux2 Klein", async () => {
   const [html, app] = await Promise.all([
@@ -28,7 +52,7 @@ test("工作台默认使用空白提示词与 Flux2 Klein", async () => {
   assert.doesNotMatch(app, /modelKeys:\s*\["seedream5"\]/);
 });
 
-test("前台生图/遮罩填充及扩图只在飞书实时 Schema 就绪后提交，仅本机超分除外", async () => {
+test("前台生图/二次编辑及扩图只在飞书实时 Schema 就绪后提交，仅本机超分除外", async () => {
   const [app, connectionCenter] = await Promise.all([
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
     readFile(new URL("../public/connection-center.js", import.meta.url), "utf8"),
@@ -209,8 +233,8 @@ test("效果图美化旧客户端与失效选择回退低强度自然调，其�
   assert.match(generationLoadingCopy({ effectBeautificationRequest: true }), /所选强度与色调美化效果图/);
 });
 
-test("全景图美化显示连续性专用加载文案", () => {
-  assert.match(generationLoadingCopy({
+test("全景生成加载文案同时说明连续性与光影目标", () => {
+  assert.equal(generationLoadingCopy({
     designPromptRequest: false,
     effectEnhancementRequest: false,
     panoramaEnhancementRequest: true,
@@ -222,5 +246,5 @@ test("全景图美化显示连续性专用加载文案", () => {
     refinedPrompt: "",
     renderMode: "smart-default",
     styleReferenceCount: 0,
-  }), /全景连续性规则/);
+  }), "正在保持全景连续性，按光影要求生成全景图…");
 });

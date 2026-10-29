@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 model-capabilities 的按功能尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
- * [OUTPUT]: 对外提供按任务选择顺序排列且含完整名称的十功能文案目录、独立AI超分图像任务、风格转换空间图/补充要求、全景2:1准入与普通输出控件状态
+ * [INPUT]: 依赖 model-capabilities 的按功能及精模Flux双图尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
+ * [OUTPUT]: 对外提供按任务选择顺序排列且含完整名称的十功能文案目录、独立AI超分图像任务、风格转换空间图/补充要求、全景2:1/R5_4原尺寸准入与普通输出控件状态
  * [POS]: public 的 Beta 功能与模型纯规则层，供页面编排、持久配置和测试复用，不读取 DOM 或图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,7 +39,7 @@ function intersection(values) {
   return values[0].filter((value) => values.every((entries) => entries.includes(value)));
 }
 
-export function betaSizeOptions({ models, featureMode, currentRatio, currentResolution }) {
+export function betaSizeOptions({ models, featureMode, refinedLighting, currentRatio, currentResolution }) {
   const panorama = featureMode === "panoramaEnhancement";
   const automatic = featureMode !== "free";
   const ratios = intersection(models.map((model) => Object.keys(model.sizes)));
@@ -56,7 +56,7 @@ export function betaSizeOptions({ models, featureMode, currentRatio, currentReso
   const resolutionSets = models.map((model) => sizeControlState({
     currentRatio: effectiveRatio,
     currentResolution,
-    featureMode,
+    featureMode, refinedLighting,
     model,
     preserveResolution: true,
     ratioMode: "manual",
@@ -68,7 +68,7 @@ export function betaSizeOptions({ models, featureMode, currentRatio, currentReso
     ratio,
     ratioDisabled: panorama,
     ratioOptions,
-    resolution: resolutions.includes(currentResolution) ? currentResolution : models[0]?.defaultResolution,
-    resolutionOptions: resolutions.map((value) => ({ label: value, value })),
+    resolution: resolutions.includes(currentResolution) ? currentResolution : resolutions.includes(models[0]?.defaultResolution) ? models[0]?.defaultResolution : resolutions[0],
+    resolutionOptions: resolutions.map((value) => ({ label: value === "original" ? "原图尺寸 · R5_4 全景" : value, value })),
   };
 }

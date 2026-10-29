@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖飞书光影氛围库、lark-cli 记录/附件读取、运行时缓存、可信参考图与轻量预览
- * [OUTPUT]: 对外提供已上架规则/预设、脱敏执行能力目录、两类规则及预设原图强制重读/SHA复核输入与同源轻量预览
+ * [OUTPUT]: 对外提供已上架规则/预设、光影多选和三种预设执行能力目录、三类规则及预设原图强制重读/SHA复核输入与同源轻量预览
  * [POS]: src 的精模光影库唯一读取边界，正文与附件身份只在服务端交给 refined-lighting 编译器
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,6 +16,7 @@ import { createImagePreviewDataUrl, decodeImageDataUrl } from "./image-artifact.
 
 export const REFINED_LIGHTING_PROMPT_RULE_CODE = "lighting-prompt-render";
 export const REFINED_LIGHTING_REFERENCE_RULE_CODE = "lighting-reference-transfer";
+export const REFINED_LIGHTING_HYBRID_RULE_CODE = "lighting-prompt-reference";
 
 export const REFINED_LIGHTING_LIBRARY_CONFIG = Object.freeze({
   baseToken: process.env.LARK_REFINED_LIGHTING_BASE_TOKEN || "SALobKnnra17iSsGT2ccC52PnHd",
@@ -90,11 +91,12 @@ export async function loadRefinedLightingAssets({
       versions.add(key);
     }
     const rules = entries.filter((entry) => entry.kind === "参考规则").sort((a, b) => b.version - a.version);
-    if (rules.some(entry => ![REFINED_LIGHTING_PROMPT_RULE_CODE, REFINED_LIGHTING_REFERENCE_RULE_CODE].includes(entry.code))) {
+    if (rules.some(entry => ![REFINED_LIGHTING_PROMPT_RULE_CODE, REFINED_LIGHTING_REFERENCE_RULE_CODE, REFINED_LIGHTING_HYBRID_RULE_CODE].includes(entry.code))) {
       throw fail("光影库包含未知规则编码");
     }
     return { rule: rules.find(entry => entry.code === REFINED_LIGHTING_PROMPT_RULE_CODE) || null,
       referenceRule: rules.find(entry => entry.code === REFINED_LIGHTING_REFERENCE_RULE_CODE) || null,
+      hybridRule: rules.find(entry => entry.code === REFINED_LIGHTING_HYBRID_RULE_CODE) || null,
       presets: entries.filter((entry) => entry.kind === "光影预设")
       .sort((a, b) => a.order - b.order || b.version - a.version || a.name.localeCompare(b.name)), tableUrl: tableUrl(config) };
   };
@@ -110,12 +112,17 @@ export async function publicRefinedLightingLibrary(options = {}) {
     }
     const promptAvailable = assets.rule?.code === REFINED_LIGHTING_PROMPT_RULE_CODE;
     const referenceAvailable = assets.referenceRule?.code === REFINED_LIGHTING_REFERENCE_RULE_CODE;
+    const hybridAvailable = assets.hybridRule?.code === REFINED_LIGHTING_HYBRID_RULE_CODE;
     return {
-      available: promptAvailable || referenceAvailable, promptAvailable, referenceAvailable,
-      presetExecutions: [...(promptAvailable ? ["prompt-only"] : []), ...(referenceAvailable ? ["prompt-and-reference"] : [])],
+      available: promptAvailable || referenceAvailable || hybridAvailable, promptAvailable, referenceAvailable, hybridAvailable,
+      presetExecutions: [...(promptAvailable ? ["prompt-only"] : []), ...(referenceAvailable ? ["prompt-and-reference"] : []),
+        ...(hybridAvailable ? ["prompt-with-reference"] : [])],
+      multiplePresetExecutions: true,
+      multiplePresetSelections: true,
       ruleVersion: assets.rule?.version || null, ruleSha256: assets.rule?.sha256 || null,
       referenceRuleVersion: assets.referenceRule?.version || null, referenceRuleSha256: assets.referenceRule?.sha256 || null,
-      reason: promptAvailable || referenceAvailable ? null : "请在飞书光影氛围库上架对应的光影规则。",
+      hybridRuleVersion: assets.hybridRule?.version || null, hybridRuleSha256: assets.hybridRule?.sha256 || null,
+      reason: promptAvailable || referenceAvailable || hybridAvailable ? null : "请在飞书光影氛围库上架对应的光影规则。",
       tableUrl: assets.tableUrl,
       presets: [...latest.values()].sort((a, b) => a.order - b.order).map(({ id, code, name, description, category, version, sha256 }) => ({
         id, code, name, description, category, version, sha256,

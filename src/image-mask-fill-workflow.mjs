@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖已校验的三图Base64/真实原图尺寸、用户指令、共享2K/4K/原图推理档位与实机节点目录
- * [OUTPUT]: 两模式执行图、原图尺度回贴/原比例最高2K输出、可复用执行图节点准入及两PreviewAny同次History实际crop宽高；原图未知尺度留空
+ * [OUTPUT]: 提示词编辑/参考图编辑两模式标签与执行图、原图尺度回贴/原比例最高2K输出、可复用执行图节点准入及同次History实际crop宽高；原图未知尺度留空
  * [POS]: src 的本机遮罩测试工作流真源，保留附件的首图 latent、参考顺序及裁剪回贴，不依赖发布包外的 workflows 文件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,19 +9,19 @@ import { maskFillInferenceTier, maskFillInferenceSize, maskFillOutputSize } from
 
 export const IMAGE_MASK_FILL_VERSION = "2026-10-21.local.2";
 export const IMAGE_MASK_FILL_MODES = Object.freeze([
-  Object.freeze({ key: "prompt", label: "提示词填充", defaultMaskExpand: 10, sourceSha256: "0623d534cf16ace205f7facb71c3bd8e559de5a458eb8d43a96573872dee9519" }),
-  Object.freeze({ key: "reference", label: "参考图填充", defaultMaskExpand: 80, sourceSha256: "21c339fe84d9218b8b5bb78241e37e6d99fa043ac9bca073d5f74078a4394569" }),
+  Object.freeze({ key: "prompt", label: "提示词编辑", defaultMaskExpand: 10, sourceSha256: "0623d534cf16ace205f7facb71c3bd8e559de5a458eb8d43a96573872dee9519" }),
+  Object.freeze({ key: "reference", label: "参考图编辑", defaultMaskExpand: 80, sourceSha256: "21c339fe84d9218b8b5bb78241e37e6d99fa043ac9bca073d5f74078a4394569" }),
 ]);
 const WEIGHTS = Object.freeze({ model: "flux-2-klein-9b.safetensors", clip: "qwen_3_8b.safetensors", vae: "flux2-vae.safetensors" });
 
 export function imageMaskFillArtifactPrefix(artifactKey) {
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(String(artifactKey || ""))) throw new TypeError("遮罩填充产物键无效");
+  if (!/^[A-Za-z0-9_-]{8,80}$/.test(String(artifactKey || ""))) throw new TypeError("二次编辑产物键无效");
   return `CanvasLab_MaskFill_${artifactKey}`;
 }
 
 export function resolveImageMaskFillMode(value = "prompt") {
   const mode = IMAGE_MASK_FILL_MODES.find((entry) => entry.key === value);
-  if (!mode) throw Object.assign(new Error("请选择提示词填充或参考图填充"), { statusCode: 400 });
+  if (!mode) throw Object.assign(new Error("请选择提示词编辑或参考图编辑"), { statusCode: 400 });
   return mode;
 }
 
@@ -104,18 +104,18 @@ export function verifyImageMaskFillCapabilities(objectInfo, mode = "prompt") {
 export function verifyImageMaskFillGraphCapabilities(objectInfo, graph) {
   for (const node of Object.values(graph)) {
     const schema = objectInfo[node.class_type];
-    if (!schema?.input) throw new Error(`缺少遮罩填充节点：${node.class_type}`);
+    if (!schema?.input) throw new Error(`缺少二次编辑节点：${node.class_type}`);
     const fields = { ...schema.input.required, ...schema.input.optional };
-    for (const name of Object.keys(schema.input.required || {})) if (!(name in node.inputs)) throw new Error(`遮罩填充节点缺少输入：${node.class_type}.${name}`);
+    for (const name of Object.keys(schema.input.required || {})) if (!(name in node.inputs)) throw new Error(`二次编辑节点缺少输入：${node.class_type}.${name}`);
     for (const [name, value] of Object.entries(node.inputs)) {
       const spec = fields[name];
-      if (!spec) throw new Error(`遮罩填充节点输入不兼容：${node.class_type}.${name}`);
+      if (!spec) throw new Error(`二次编辑节点输入不兼容：${node.class_type}.${name}`);
       if (Array.isArray(value)) {
         const type = objectInfo[graph[value[0]]?.class_type]?.output?.[value[1]];
-        if (!type || (spec[0] !== "*" && type !== spec[0])) throw new Error(`遮罩填充连线不兼容：${node.class_type}.${name}`);
+        if (!type || (spec[0] !== "*" && type !== spec[0])) throw new Error(`二次编辑连线不兼容：${node.class_type}.${name}`);
       } else {
         const choices = Array.isArray(spec[0]) ? spec[0] : spec[0] === "COMBO" ? spec[1]?.options : null;
-        if (choices && !choices.includes(value)) throw new Error(`遮罩填充配置不可用：${node.class_type}.${name}`);
+        if (choices && !choices.includes(value)) throw new Error(`二次编辑配置不可用：${node.class_type}.${name}`);
       }
     }
   }
