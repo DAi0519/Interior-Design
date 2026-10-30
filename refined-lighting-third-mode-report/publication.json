@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "expected": 420,
+  "success": 419,
+  "failed": 0,
+  "held": 1,
+  "embeddedImages": 432,
+  "allLogicalSlotsComplete": false,
+  "imageQualityAccepted": false,
+  "privateLinksRemoved": true,
+  "localPathsRemoved": true,
+  "sourceReportSha256": "9fb68afbaae6bc6780a78d556ad99a1ea69cff235dd94dce1291aa0e4721e40b",
+  "files": {
+    ".nojekyll": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "CLAUDE.md": {
+      "bytes": 344,
+      "sha256": "07f0fd19725877815790017e410af04f5ca87194999dca204259843d4a892816"
+    },
+    "index.html": {
+      "bytes": 265,
+      "sha256": "73cecbf5cb784f4dad010aba88e8ab2b9fb8aced5054edff62c7a6b862620a49"
+    },
+    "refined-lighting-third-mode-report/CLAUDE.md": {
+      "bytes": 425,
+      "sha256": "37b175b2ec36729fb2a548b9d615c2a9bedb81ee179de744f6672a36662505c1"
+    },
+    "refined-lighting-third-mode-report/comparison-report.html": {
+      "bytes": 28847357,
+      "sha256": "6fd62b1349226de2d4dc1cc89b509c6a6ccc03939ab28250c00c1f2aaacae373"
+    },
+    "refined-lighting-third-mode-report/index.html": {
+      "bytes": 28812264,
+      "sha256": "0d17dc0f3ce76bef9cdacd455c5c9b39f9612e3a493e5b7e718fbb06c3b3cfb8"
+    },
+    "refined-lighting-third-mode-report/report.css": {
+      "bytes": 15922,
+      "sha256": "36f01494be311fcada861ce71d46edad01f11fb301deaafd8d252770767221f9"
+    },
+    "refined-lighting-third-mode-report/report.js": {
+      "bytes": 19223,
+      "sha256": "c0d62d1717bf29990d462e9794e8e407ebb2f500d60658b7cbe8eae20b72f01e"
+    }
+  }
+}
