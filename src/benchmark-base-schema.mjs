@@ -1,9 +1,20 @@
 /**
- * [INPUT]: 依赖 Benchmark Base 实时字段 Schema 与带稳定编码的冻结生成配置
- * [OUTPUT]: 对外提供五张运行表必需/可选投影字段（含评分细则），以及按实时字段类型校验全部普通回填、把冻结配置解析为真实单选项名称的纯函数
+ * [INPUT]: 依赖模型目录的稳定ID/历史标签、Benchmark Base 实时字段 Schema 与带稳定编码的冻结生成配置
+ * [OUTPUT]: 对外提供模型当前/历史标签解析、五张运行表投影字段（含评分细则），以及按实时字段类型校验全部普通回填、把冻结配置解析为真实单选项名称的纯函数
  * [POS]: src 的 Benchmark Base Schema 适配层，隔离飞书展示名变化与领域配置稳定编码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+import { publicModelCatalog } from "./model-config.mjs";
+
+export function comparisonModelLabels(value) {
+  const resource = String(value || "");
+  const id = resource.match(/\[([^\]]+)\]\s*$/)?.[1]?.trim();
+  const label = resource.replace(/\s*\[[^\]]+\]\s*$/, "").trim();
+  const model = publicModelCatalog().find((entry) => id ? entry.id === id
+    : entry.label === label || entry.legacyLabels?.includes(label));
+  return [...new Set([model?.label, ...(model?.legacyLabels || []), label].filter(Boolean))];
+}
 
 export const TABLE_FIELDS = Object.freeze({
   configs: [

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 对外提供模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、全景R5_4原尺寸/空默认负向合同，以及普通Flux推理/超分和精模/光影转换双图独立1K/2K请求构造器
+ * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、普通/旧房独立负向 Prompt 及参考图安全校验
+ * [OUTPUT]: 对外提供含完整型号与历史别名的模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、全景R5_4原尺寸/空默认负向合同，以及普通Flux推理/超分和精模/光影转换双图独立1K/2K请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -193,10 +193,11 @@ export const MODEL_CONFIGS = Object.freeze({
     defaultFormat: "png",
     defaultRatio: "4:3",
     defaultResolution: "2K",
-    description: "高分辨率中文语义生成，最低从 2K 起",
+    description: "Lite 版本，高分辨率中文语义生成，最低从 2K 起",
     formats: ["png", "jpeg"],
     id: "doubao-seedream-5.0",
-    label: "Seedream 5.0",
+    label: "Seedream 5.0 Lite",
+    legacyLabels: ["Seedream 5.0"],
     qualityOptions: [],
     sizes: SEEDREAM_5_SIZES,
   },
@@ -301,6 +302,7 @@ export function publicModelCatalog() {
     id: model.id,
     key,
     label: model.label,
+    legacyLabels: model.legacyLabels || [],
     maxReferenceImages: model.maxReferenceImages || 4,
     refinedLightingReference: model.refinedLightingReference || null,
     panoramaWorkflow: model.panoramaWorkflow || null,

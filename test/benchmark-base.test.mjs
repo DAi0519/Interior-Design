@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-base.mjs 的环境配置、Base 返回解析、实时单选项适配和可注入 CLI 边界
- * [OUTPUT]: 对外提供 Benchmark 五表快照字段、全部普通回填的实时字段类型/单选阻断、按稳定编码解析真实选项且隔离系统时间字段的冻结配置创建、阶段化错误上下文、样本录入、实验筛选链接与 Prompt/Run/横评幂等写入回归保障
+ * [OUTPUT]: 对外提供 Benchmark 五表快照字段、当前模型名与历史附件列兼容读写、全部普通回填的实时字段类型/单选阻断、按稳定编码解析真实选项且隔离系统时间字段的冻结配置创建、阶段化错误上下文、样本录入、实验筛选链接与 Prompt/Run/横评幂等写入回归保障
  * [POS]: test 的 Benchmark 飞书适配测试，使用内存 CLI 替身且不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -311,6 +311,10 @@ test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停
     calls.push(args);
     const table = args[args.indexOf("--table-id") + 1];
     if (args[1] === "+field-list") {
+      if (table === "comparisons") return { data: { fields: [
+        { id: "fld-banana-pro", name: "Banana Pro", type: "attachment" },
+        { id: "fld-seedream", name: "Seedream 5.0", type: "attachment" },
+      ] }, ok: true };
       return { data: { fields: [{ name: table === "prompts" ? "Prompt 成本（USD）" : "Image 成本（USD）" }] }, ok: true };
     }
     if (table === "samples") {
@@ -321,7 +325,7 @@ test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停
       );
     }
     if (table === "configs") {
-      return envelope(
+      const response = envelope(
         [
           "配置 ID", "横评组", "Style DNA", "融合 Agent",
           "融合基座模型", "出图模型", "输出规格",
@@ -336,6 +340,13 @@ test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停
         ],
         "rec-config",
       );
+      response.data.data.push([
+        "CFG-001", "GROUP", ["奶油法式 [cream-french@v4]"],
+        ["融合 [white-model-fusion@v7]"], ["Gemini [gemini-3.1-pro-preview]"],
+        ["Seedream 5.0 [doubao-seedream-5.0]"], ["跟随原图比例 · 2K · PNG"], 3, 1, true,
+      ]);
+      response.data.record_id_list.push("rec-seedream-config");
+      return response;
     }
     if (table === "prompts") {
       return envelope(
@@ -370,11 +381,11 @@ test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停
     return envelope(
       [
         "对比 ID", "关联 Case", "提示词批次", "横评组",
-        "白模参考图", "Banana Pro",
+        "白模参考图", "Banana Pro", "Seedream 5.0",
       ],
       [
         "CASE__GROUP__P1", [{ id: "rec-sample" }], [{ id: "rec-prompt" }],
-        "GROUP", [{ file_token: "reference" }], [{ file_token: "result" }],
+        "GROUP", [{ file_token: "reference" }], [{ file_token: "result" }], [{ file_token: "seedream-result" }],
       ],
       "rec-comparison",
     );
@@ -388,6 +399,7 @@ test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停
   assert.equal(snapshot.configs[0].enabled, false);
   assert.equal(snapshot.configs[0].imageModel, "Banana Pro [gemini-3-pro-image]");
   assert.equal(snapshot.configs[0].imageModelLabel, "Banana Pro");
+  assert.equal(snapshot.configs[1].imageModelLabel, "Seedream 5.0 Lite");
   assert.equal(snapshot.prompts[0].status, "完成");
   assert.equal(snapshot.prompts[0].costUsd, 0.01);
   assert.equal(snapshot.results[0].runId, "RUN-1");
@@ -398,7 +410,8 @@ test("五张表解析为编排快照、可选 USD 成本且 Banana Pro 保持停
     1,
   );
   assert.equal(snapshot.comparisons[0].referenceAttachments.length, 1);
-  assert.equal(calls.length, 7);
+  assert.equal(snapshot.comparisons[0].modelAttachments["Seedream 5.0 Lite"][0].file_token, "seedream-result");
+  assert.equal(calls.length, 8);
 });
 
 test("分类样本写入飞书字段并上传唯一参考图", async () => {
@@ -643,13 +656,13 @@ test("正式执行前按飞书实时选项校验全部状态与实验类型", as
   assert.equal(await store.validateExecutionContract(["模型横评", "Prompt 横评"]), true);
 });
 
-test("横评宽表参考图上传到固定附件列", async () => {
+test("横评宽表参考图与改名模型上传到既有附件列", async () => {
   let uploadArgs;
   const run = async (_config, args) => {
     if (args.includes("+field-list")) {
       return {
         data: {
-          fields: [{ id: "fld-reference", name: "白模参考图" }],
+          fields: [{ id: "fld-reference", name: "白模参考图" }, { id: "fld-seedream-old", name: "Seedream 5.0" }],
         },
         ok: true,
       };
@@ -668,4 +681,6 @@ test("横评宽表参考图上传到固定附件列", async () => {
   assert.equal(uploadArgs[uploadArgs.indexOf("--record-id") + 1], "rec-compare");
   assert.equal(uploadArgs[uploadArgs.indexOf("--field-id") + 1], "fld-reference");
   assert.equal(uploadArgs[uploadArgs.indexOf("--file") + 1], "reference.png");
+  await store.uploadComparisonImage("rec-compare", "Seedream 5.0 Lite", { url: "data:image/png;base64,aQ==" }, "png");
+  assert.equal(uploadArgs[uploadArgs.indexOf("--field-id") + 1], "fld-seedream-old");
 });

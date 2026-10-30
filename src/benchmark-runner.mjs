@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 benchmark-plan-input.mjs 的计划输入规则、带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端、按模型解析的图像客户端与可选取消信号
- * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、持久化 Run 进度重建、按实验阶段共享或隔离冻结 Prompt、飞书模型横评/Prompt 横评类型映射、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检及可取消/断点续跑执行器
+ * [INPUT]: 依赖 benchmark-plan-input.mjs 的计划输入规则、benchmark-base-schema.mjs 的稳定模型标签解析、带样本类型准入标记的 Benchmark Base 快照、冻结实验输出规格、Style DNA/Prompt Agent 发布资源、模型 Provider 矩阵、参考图校验、OneAPI Prompt 客户端、按模型解析的图像客户端与可选取消信号
+ * [OUTPUT]: 对外提供任意质量配置作为唯一实验因子的确定性横评计划、持久化 Run/历史模型名宽表进度重建、按实验阶段共享或隔离冻结 Prompt、飞书模型横评/Prompt 横评类型映射、OneAPI 真实费用传递、Provider 分辨率路由、可用性预检及可取消/断点续跑执行器
  * [POS]: src 的单变量横评应用服务，以一图一行的结果为真源、Prompt 批次为冻结实验产物，并分离 Prompt 与最终出图 Provider
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { agentModelOrThrow, publicAgentModelCatalog } from "./agent-model-config.mjs";
+import { comparisonModelLabels } from "./benchmark-base-schema.mjs";
 import { baseRunId, providerFromModelId, runIdForAttempt, sha256, stablePromptId, stableRunId } from "./benchmark-identifiers.mjs";
 import {
   benchmarkVariableStage,
@@ -169,10 +170,12 @@ export function buildBenchmarkPlan(
                 (result) => result.status === "成功" && result.attachments.length > 0,
               );
               const comparisonAttachments =
-                existingComparison?.modelAttachments?.[config.imageModelLabel] || [];
+                comparisonModelLabels(config.imageModel)
+                  .map((label) => existingComparison?.modelAttachments?.[label])
+                  .find((attachments) => attachments?.length) || [];
               const latestAttempt = resultAttempts.at(-1) || null;
               runs.push({
-                attempted: resultAttempts.length > 0,
+                attempted: resultAttempts.length > 0 || comparisonAttachments.length >= sampleIndex,
                 config,
                 existingResult:
                   successfulResult ||

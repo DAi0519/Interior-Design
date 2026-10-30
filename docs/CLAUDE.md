@@ -6,7 +6,7 @@ lighting-transfer.md: AI渲染效果图卡片双图迁移、独立Prompt表/冻�
 panorama-enhancement.md: 全景多光影×模型独立对比/张数/标签，共享小勾/紧凑数量与标题行清空、版本漂移可见且阻断，独立要求草稿与R5_4原尺寸/纯词/归档和实图验收边界
 texture-enhancement.md: 独立飞书Prompt表/v1原文/上架版本刷新与无本地回退、用户授权4193独立预览/四模型真实出图归档4/4、4192原批次隔离与运行目录准入、质感增强固定原文单图合同、共用生成/模型与独立任务归档、Flux空负向/无LoRA及验证边界
 ks-4k6k-integration.md: KS独立4K/6K两工作流文件、按档位ID映射、单input_img/result_img PNG与固定推理/成品尺寸及平台发布联调合同
-local-entry.md: 本机4192日常入口与用户授权4193全景/质感临时预览、旧进程门禁、共享端口真源、主分支合并/空闲重启与实际工作流版本验收
+local-entry.md: Seedream Lite命名核验/当前Agent运行副本保留与空闲重载记录；本机4192日常入口与用户授权4193全景/质感临时预览、旧进程门禁、共享端口真源、主分支合并/空闲重启与实际工作流版本验收
 refined-lighting-library.md: 基础v4/短衔接v3/迁移v6/前置v3独立分工、用户完整曝光段与既有开口外缺失环境补全，九卡WebP/原附件SHA、Flux双图1K2K及发布回读
 refined-rendering.md: Main/Beta多光影×方式×模型对比/逐卡冻结、三方式及上传独立Prompt身份和缺失外景补全，Flux双图1K2K/上传互斥及发布与真实成图边界
 parameter-panels.md: 参数说明移除/真实状态保留，精模/全景/光影转换统一小勾与正常字号/紧凑数量/窄屏两列，全景标题行清空及失效恢复，上传互斥和历史验证边界

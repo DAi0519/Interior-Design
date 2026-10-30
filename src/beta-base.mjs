@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
- * [OUTPUT]: 对外提供三表Schema/十功能快照、精模图序及全景光影卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
+ * [OUTPUT]: 对外提供三表Schema/十功能快照、当前模型完整名称与受信历史别名兼容、精模图序及全景光影卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -247,9 +247,9 @@ function runModelLabel(item, featureMode) {
   }
   const catalog = publicModelCatalog();
   const model = catalog.find((entry) => entry.key === item.input?.modelKey)
-    || catalog.find((entry) => entry.label === item.modelLabel);
+    || catalog.find((entry) => entry.label === item.modelLabel || entry.legacyLabels?.includes(item.modelLabel));
   if (!model) throw betaBaseContractError("Beta 出图模型缺少合法的目录标签");
-  return model.label;
+  return model.key === item.input?.modelKey ? model.label : item.modelLabel;
 }
 
 function promptModelLabel(value) {

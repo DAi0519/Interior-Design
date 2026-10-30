@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖实验配置 DOM、/api/catalog 模型矩阵、/api/styles 脱敏资源目录与 Benchmark Base 配置模板
- * [OUTPUT]: 对外提供系统实验 ID、八类可扩展单变量因子注册表、候选值控制器、模板推断、输出能力联动与通用实验草稿
+ * [INPUT]: 依赖实验配置 DOM、/api/catalog 模型矩阵、/api/styles 脱敏资源目录与含稳定模型ID的 Benchmark Base 配置模板
+ * [OUTPUT]: 对外提供系统实验 ID、八类可扩展单变量因子注册表、候选值控制器、按稳定模型ID恢复历史模板、输出能力联动与通用实验草稿
  * [POS]: public 的 Benchmark 实验配置控制器，将任意质量配置映射为“固定控制项 + 唯一实验因子”，与页面编排和执行分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -231,7 +231,8 @@ export function createExperimentDraftController({ byId, escapeHtml, onChange }) 
     const output = outputPreset(config.outputSpec);
     const values = {
       "fusion-model": state.agentModels.find((model) => model.id === resourceId(config.fusionModel))?.key,
-      "image-model": state.models.find((model) => model.label === config.model)?.key,
+      "image-model": (state.models.find((model) => model.id === resourceId(config.imageModel))
+        || state.models.find((model) => model.label === config.model || model.legacyLabels?.includes(config.model)))?.key,
       "output-format": output.format,
       "prompt-version": resourceId(config.fusionAgent),
       quality: output.quality,

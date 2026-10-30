@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 benchmark-runner.mjs 的可筛选纯计划器、可注入模型/飞书执行边界
- * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、飞书实验类型映射、停用模型排除、Provider 智能路由、主动取消、OneAPI 费用传递、Run 真源、失败重试、横评展示与规模回归保障
+ * [OUTPUT]: 对外提供 Case/配置筛选、八类单变量的 Prompt 共享或隔离、飞书实验类型映射、停用模型排除、Provider 智能路由、主动取消、OneAPI 费用传递、Run/历史模型名宽表断点续跑、失败重试、横评展示与规模回归保障
  * [POS]: test 的模型横评核心集成测试，所有资源与模型调用均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -96,7 +96,7 @@ test("七个样本只规划三个启用模型，共 21 次融合与 63 张图", 
   assert.equal(plan.groups[0].configs.length, 3);
   assert.deepEqual(
     plan.groups[0].configs.map((entry) => entry.imageModelLabel),
-    ["Seedream 5.0", "Banana 2", "GPT Image 2"],
+    ["Seedream 5.0 Lite", "Banana 2", "GPT Image 2"],
   );
   assert.equal(plan.summary.cases, 7);
   assert.equal(plan.summary.promptBatches, 21);
@@ -528,7 +528,7 @@ test("失败 Run 生成新尝试且保留重试来源", () => {
   assert.equal(run.retrySource, logicalRunId);
 });
 
-test("断点重试跳过成功 Run 并只生成失败 Run 的下一次尝试", async () => {
+test("断点重试跳过成功 Run 与旧模型名宽表图片，只生成失败 Run 的下一次尝试", async () => {
   const value = snapshot();
   value.configs = value.configs.filter((entry) => entry.enabled);
   value.configs.forEach((entry) => { entry.promptBatches = 1; });
@@ -541,10 +541,14 @@ test("断点重试跳过成功 Run 并只生成失败 Run 的下一次尝试", a
     status: "完成",
   }];
   value.results = [
-    { attachments: [{ file_token: "ok-1" }], attempt: 1, runId: runId("CFG-001"), status: "成功" },
     { attachments: [], attempt: 1, runId: runId("CFG-003"), status: "失败" },
     { attachments: [{ file_token: "ok-4" }], attempt: 1, runId: runId("CFG-004"), status: "成功" },
   ];
+  value.comparisons = [{
+    compareId: promptId,
+    modelAttachments: { "Seedream 5.0": [{ file_token: "ok-1" }] },
+    recordId: "comparison-existing",
+  }];
   const plan = buildBenchmarkPlan(value);
   const savedRuns = [];
   const progress = [];

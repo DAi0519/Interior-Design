@@ -1,6 +1,8 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
 Node.js 24+ + 原生 HTTP + undici 7.30.1 + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.5 + lark-cli 1.0.77
 
+Seedream命名法则：`seedream5` 的完整型号为 Seedream 5.0 Lite，OneAPI ID `doubao-seedream-5.0` 对应上游 `doubao-seedream-5-0-260128`；界面与新归档必须写 Lite，不另设“5.0标准版”。Pro 独立保留；Flash 未向当前Key开放。稳定 key/API ID 不因展示改名变更，历史“Seedream 5.0”别名由模型真源维护，旧评测配置、附件列及Beta冻结快照继续兼容，禁止重复收费生成。
+
 2026-10-28运行态：精模300项生成及归档均已终态成功；用户授权重启4192，现已加载精模三种预设执行方式及多选对比（含氛围词＋参考图），独立只读报告采集继续。4193仍为用户授权的独立预览，R5_4全景光影与质感增强共用该进程。全景验收入口为`http://127.0.0.1:4193/?feature=panoramaEnhancement`，实际目录须声明`panorama-r5-4@2026-10-28.1`，旧4192禁止以新模板参数误走普通Flux。日常端口真源仍为4192，详见`docs/local-entry.md`。
 
 2026-10-29多光影运行态：4192在已知生成终态、Main/Beta待运行且无上游在途连接后重载；实际`/api/styles`已声明`multiplePresetSelections: true`，Main/Beta启用多卡独立对比。旧评测报告及4193保留；本功能仅离线替身与浏览器交互验收，不新增收费生成。

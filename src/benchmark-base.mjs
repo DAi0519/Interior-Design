@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:fs/os/path、benchmark-base-config/schema.mjs、benchmark-review.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
- * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时字段类型与单选项校验的全部普通回填、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/三维评分及可读细则/评审时间/真实费用幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、参考图与结果附件读写及历史宽表回填
+ * [INPUT]: 依赖 node:fs/os/path、benchmark-base-config/schema.mjs 的稳定模型标签解析、benchmark-review.mjs、image-artifact.mjs、lark-cli.mjs 与带人工准入类型及空间/五维标签的 Benchmark Base 五张运行主表
+ * [OUTPUT]: 对外提供 Benchmark 配置解析/按实时字段类型与单选项校验的全部普通回填、分页快照、含空间和五个独立维度的样本录入/样本集批量重命名、Prompt/Run/三维评分及可读细则/评审时间/真实费用幂等写入、按页面语义筛选飞书横评对比/运行明细/结果报告视图、当前模型名与历史宽表附件列兼容读写
  * [POS]: src 的 Benchmark 飞书持久化边界，以模型结果为运行真源、横评宽表为展示派生层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 
 import {
+  comparisonModelLabels,
   OPTIONAL_TABLE_FIELDS,
   resolveBaseWriteFields,
   resolveGenerationConfigFields,
@@ -70,10 +71,6 @@ function numberOrNull(value) {
   if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
-}
-
-function displayLabelFromResource(value) {
-  return String(value || "").replace(/\s*\[[^\]]+\]\s*$/, "").trim();
 }
 
 function extensionForMimeType(mimeType) {
@@ -164,7 +161,8 @@ export function createBenchmarkBaseStore(config, { run = runLarkCli } = {}) {
   }
 
   async function comparisonFieldId(fieldName) {
-    return fieldId(config.compareTableId, fieldName);
+    const names = new Set((await tableFields(config.compareTableId)).map((field) => field.name));
+    return fieldId(config.compareTableId, comparisonModelLabels(fieldName).find((name) => names.has(name)) || fieldName);
   }
 
   async function resultFieldId(fieldName) {
@@ -382,7 +380,7 @@ export function createBenchmarkBaseStore(config, { run = runLarkCli } = {}) {
           fusionModel: selectValue(fields["融合基座模型"]),
           groupId: String(fields["横评组"] || "").trim(),
           imageModel,
-          imageModelLabel: displayLabelFromResource(imageModel),
+          imageModelLabel: comparisonModelLabels(imageModel)[0] || "",
           outputSpec: selectValue(fields["输出规格"]),
           perBatchImages: Number(fields["每批次每模型出图数"]),
           promptBatches: Number(fields["提示词批次数"]),
@@ -390,11 +388,12 @@ export function createBenchmarkBaseStore(config, { run = runLarkCli } = {}) {
           styleDna: selectValue(fields["Style DNA"]),
         };
       });
+      const comparisonNames = new Set((await tableFields(config.compareTableId)).map((field) => field.name));
       const comparisonRows = await listRecords(
         config.compareTableId,
         [
           ...TABLE_FIELDS.comparisons,
-          ...new Set(configs.map((entry) => entry.imageModelLabel)),
+          ...new Set(configs.flatMap((entry) => comparisonModelLabels(entry.imageModel).filter((name) => comparisonNames.has(name)))),
         ],
       );
 
@@ -406,7 +405,7 @@ export function createBenchmarkBaseStore(config, { run = runLarkCli } = {}) {
           modelAttachments: Object.fromEntries(
             configs.map((entry) => [
               entry.imageModelLabel,
-              fields[entry.imageModelLabel] || [],
+              comparisonModelLabels(entry.imageModel).map((name) => fields[name]).find((attachments) => attachments?.length) || [],
             ]),
           ),
           promptLinks: fields["提示词批次"] || [],

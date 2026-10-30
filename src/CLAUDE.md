@@ -43,7 +43,7 @@ CLAUDE.md: 本模块地图，维护服务端业务模块清单
 app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及无说明正文的版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
 app-update-api.mjs: 共享版本检查与安装 HTTP 边界，按服务端最新正式版回执、安装政策及运行任务状态准入，流式返回安装进度/错误并保护待重启与恢复失败状态
 app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 与受信重定向/容量/ZIP 路径准入，无 shell 解压；含 .git 的源码工作区仅安装到持久新目录，无 .git 的 Release 目录原地事务替换发布运行根项、保留配置/依赖/数据并失败回滚；公开 getPolicy/isRestartRequired/isRecoveryRequired，成功后要求重启，恢复失败保留备份与操作指引并阻断再次安装，不自动重启
-model-config.mjs: 全景Flux公开R5_4原尺寸目录、空默认负向/无超分请求；模型参数真源，维护七个 OneAPI 模型（含独立 Banana 2.1 十四比例/1K-4K、GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt/旧房场景准入及独立默认、原有四模型 2:1 与 2.5 九比例/五质量档、GPT 按比例的 16px/655360–8294400像素/3840边长尺寸映射（1K 16:9 为1536x864）、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及精模/效果图光影转换参考来源的独立双图长边1K/2K请求与普通 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
+model-config.mjs: Seedream 5.0 Lite 完整名/稳定API ID与legacyLabels历史别名真源；全景Flux公开R5_4原尺寸目录、空默认负向/无超分请求；模型参数真源，维护七个 OneAPI 模型（含独立 Banana 2.1 十四比例/1K-4K、GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt/旧房场景准入及独立默认、原有四模型 2:1 与 2.5 九比例/五质量档、GPT 按比例的 16px/655360–8294400像素/3840边长尺寸映射（1K 16:9 为1536x864）、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及精模/效果图光影转换参考来源的独立双图长边1K/2K请求与普通 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，批次总数不受模型数量上限约束，严格校验共同批次 ID、正安全整数总数与批内序号；单模型张数由任务入口独立约束
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败、进程内任务查询、领域阶段快照透传及有界结果保留；只读hasActiveJobs守护running任务供原地更新准入
 generation-job-api.mjs: 局部消除Prompt版本准入与操作身份冻结；光影转换独立Prompt/卡片及原附件SHA入队冻结/去重，全景纯词卡片入队前冻结/去重，按模型/光影ID限额且版本SHA不另开计数，排队执行阶段透传；supportedGenerationFeatureModes/supportedGenerationFeatureCapabilities公开运行进程功能及全景多光影能力目录；精模入队必选光影来源或明确有效旧参数，冻结独立基础code/版本/SHA及规则/卡片/实际氛围图身份并去重，兼容旧四块/双资产；GPT打光单图/模板融合/整体原灯及真实局部光源深冻结及独立scope、日常生成后台任务 HTTP 适配层，普通生图含质感增强按真实目录准入；精模按模型/光影ID/模式计数，每组合单模型1–4张/多模型各1张且版本SHA不另开限额，两路并发；旧房与空房共用普通任务与按张数进度；需归档先验飞书Schema；超分最多4项/扩图1项，扩图固定2K且按引擎权限准入，多角度单图机位准入；二次编辑仅单项、真实主图/遮罩及GPT归一化矩形或多边形前验、分模式能力/GPT参考用途与圈选参数冻结、透传上游后台任务ID/状态并以独立imageMaskFill scope校验飞书新增字段，仅超分豁免飞书
@@ -51,7 +51,7 @@ generation-service.mjs: 光影转换独立双图工作流/Prompt与卡片读取�
 image-upscale-service.mjs: 主/Beta共享源图真实尺寸与节点准入，KS直入6K固定5K和其他KS面积策略保留15分钟执行/5分钟排队、冻结版本/Prompt追踪、精确PNG与所有异常不自动重提
 image-upscale-workflow.mjs: 六套SeedVR2真源；直入27.1的6K在已有节点内固定5120推理/6144交付，其他KS仍strict20MP，原图比例最近偶数/独立元数据及旧面积helper供恢复，普通四套不变
 beta-upscale-archive-contract.mjs: 从Base提取的纯超分合同，当前fixed5K与20MP严格分开，旧直入26.3/更早历史仅原件恢复，源/目标/推理/成品/SHA逐字段验证
-beta-base.mjs: 全景版本1快照冻结/最终Prompt与卡片/原尺寸SHA核验及旧美化恢复边界；精模实际Prompt code/版本/SHA与execution冻结归档，纯词用基础、迁移/上传用迁移规则、氛围词双图用独立图序前置规则且版本摘要去重，纯提示词单图/附原卡图及上传双图分路；图文预设建档前解析核验并归档服务器原件，版本摘要区分prompt-and-reference/prompt-with-reference并回读图序/数量/SHA；旧双图归档按历史图数和摘要恢复；独立三表归档与十功能映射，真源标签及无Agent清空Prompt融合；KS直入27.1固定5K/其他KS20MP由专用archive-contract核验，旧直入26.3/20.1/21.1/26.1/26.2仅原件恢复；冻结扩图/风格/美化/全景配置；captureBetaGenerationArchive复用正式Prompt投影且不写旧表，版本/尺寸/费用逐字段回读，图片工具额外核验附件token/字节；合同错误不可重试409，浮点机器精度容差与上传幂等；历史原件下载核验SHA/尺寸后仅恢复状态，确认后展示预览
+beta-base.mjs: 当前模型完整名归档与旧冻结别名兼容；全景版本1快照冻结/最终Prompt与卡片/原尺寸SHA核验及旧美化恢复边界；精模实际Prompt code/版本/SHA与execution冻结归档，纯词用基础、迁移/上传用迁移规则、氛围词双图用独立图序前置规则且版本摘要去重，纯提示词单图/附原卡图及上传双图分路；图文预设建档前解析核验并归档服务器原件，版本摘要区分prompt-and-reference/prompt-with-reference并回读图序/数量/SHA；旧双图归档按历史图数和摘要恢复；独立三表归档与十功能映射，真源标签及无Agent清空Prompt融合；KS直入27.1固定5K/其他KS20MP由专用archive-contract核验，旧直入26.3/20.1/21.1/26.1/26.2仅原件恢复；冻结扩图/风格/美化/全景配置；captureBetaGenerationArchive复用正式Prompt投影且不写旧表，版本/尺寸/费用逐字段回读，图片工具额外核验附件token/字节；合同错误不可重试409，浮点机器精度容差与上传幂等；历史原件下载核验SHA/尺寸后仅恢复状态，确认后展示预览
 beta-sample-store.mjs: 新建按当前功能归属、已有样本跨功能按目标功能读取的草稿样本集、{id}对象关联、逐张真实8MB/MIME/尺寸校验、稳定ID/内容幂等及附件回读，全部确认才发布；列表仅元数据，执行时按需读单张原图，全景再次核验2:1，扩图保留真实源尺寸交执行引擎准入，预览按需WebP，不设整集图片容量上限
 beta-base-schema.mjs: Beta三表字段合同真源，实时分页校验含AI扩图的十功能、普通/独立扩图/六超分工作流模型及图片输入Agent单选标签、全部字段类型/附件ID/关联目标；扩图与风格转换复用配置/场景/版本/生成参数及附件字段，允许历史附加选项，合同错误不可重试，不读取旧生成记录或Benchmark表
 beta-upscale.mjs: Beta六套超分目录与真实尺寸合同，默认攸行3B；冻结直入27.1/其他当前版本，能力门禁与执行前阻断漂移；受信旧直入26.3/更早任务仅进入Base原件恢复
@@ -75,18 +75,18 @@ local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或
 lark-sync.mjs: 二次编辑新字段/选项写入与历史Flux模型标签补归档规范化，保留内部feature与模式key；光影转换与质感增强独立功能枚举/固定词归档，含打光独立scope/原件与实际引导图双参考附件/参数及字段附件双回读的飞书生成记录同步边界，既有Schema/字段/附件与生成投影保持原范围；遮罩专属scope要求七列/模式/功能/模型枚举并动态解析附件ID，原图/结果/遮罩/编辑参考图/框选原图分列，框图实际PNG/size/送模SHA校验，GPT无mask时附件留空并校验hasMask，结果真实SHA与附件manifest留档、字段和token/字节两次回读通过才成功；失败只标同步失败，不重跑GPU
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
-benchmark-base-schema.mjs: Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
+benchmark-base-schema.mjs: comparisonModelLabels按稳定ID优先解析当前名/历史别名；Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
 benchmark-base-config.mjs: Benchmark Base 连接/响应协议层，解析五表环境配置、必填项、分页 envelope 与单选字段值
-benchmark-base.mjs: Benchmark 飞书持久化边界，分页读取五张运行表，在统一写入口按实时 Schema 校验字段/类型/单选值并隔离系统与附件字段，录入完整样本标签、批量同步样本集名称、读写附件，幂等回填配置、Prompt、逐 Run、三维评分/细则/时间、费用、重试链和展示宽表，并筛选三类实验视图
+benchmark-base.mjs: 当前模型名与历史附件列按既有列ID兼容读写；Benchmark 飞书持久化边界，分页读取五张运行表，在统一写入口按实时 Schema 校验字段/类型/单选值并隔离系统与附件字段，录入完整样本标签、批量同步样本集名称、读写附件，幂等回填配置、Prompt、逐 Run、三维评分/细则/时间、费用、重试链和展示宽表，并筛选三类实验视图
 benchmark-identifiers.mjs: Benchmark 标识基础设施，兼容历史模型横评并支持任意提示阶段候选维度的稳定 Prompt/Run/重试 ID、SHA-256 与 Provider 归一化
 benchmark-experiment-config.mjs: Benchmark 实验配置领域层，把 `variableKey + variantValues` 规范化为八类质量配置的单变量候选与稳定配置 ID，并推导提示/出图阶段及校验 Provider 输出能力
 benchmark-model-access.mjs: Benchmark Provider 准入层，统一检查 OneAPI 模型权限与 ComfyUI 等外部图像服务健康状态
 benchmark-plan-input.mjs: Benchmark 计划输入边界，集中维护资源 ID/版本/正整数/同组一致性校验、有效样本筛选与显式 ID 集合归一化
-benchmark-runner.mjs: 可主动取消的通用单变量横评应用服务，按因子阶段决定候选间共享或隔离冻结 Prompt，并映射飞书“模型横评/Prompt 横评”实验类型，校验模型权限与输出策略，贯穿费用，逐 Run 留存成功失败和重试、重建持久化进度并同步横评展示
+benchmark-runner.mjs: 历史模型名宽表恢复/已处理进度与重复收费防护；可主动取消的通用单变量横评应用服务，按因子阶段决定候选间共享或隔离冻结 Prompt，并映射飞书“模型横评/Prompt 横评”实验类型，校验模型权限与输出策略，贯穿费用，逐 Run 留存成功失败和重试、重建持久化进度并同步横评展示
 benchmark-review.mjs: Benchmark AI 评审领域层，维护 `white-model-review@v3.1-single-pass` 的单次白模准入与三维 1–5 小数评分、三维证据隔离、完整 JSON 提取/严格契约与单次修复、正式评分 Run 断点筛选、原文留存、MINOR/MAJOR/CRITICAL 本地封顶、40%/30%/30% 加权准入、飞书可读评分细则与浏览器评分目录投影、旧协议隔离、P95 及模型分类分析
 benchmark-labeling.mjs: Benchmark 样本 AI 标注领域层，维护 `sample-labeling@v2`、受控空间与空间结构/镜头/软装/材质复杂度/输入质量五个独立低中高维度、人工准入隔离、单图视觉模型协议、严格 JSON 解析、理由和置信度
 benchmark-workbench-store.mjs: Benchmark 当前 worktree 本地状态边界，原子持久化样本集、实验、样本分类元数据、评审批次和版本化 AI 评分，并兼容旧状态迁移
-benchmark-workbench.mjs: Benchmark 浏览器应用服务，编排样本治理、五维 AI 待审标注、八类单变量零写入计划、确认后配置落库/可取消运行、停止实验 Base 进度重建、v3.1 单次评分与按 Run 断点继续/写回/分析及飞书跳转，并持久化任务阶段、评分失败批次、结构化评分事实与拦截协议漂移
+benchmark-workbench.mjs: 当前及历史图片列兼容模型准入；Benchmark 浏览器应用服务，编排样本治理、五维 AI 待审标注、八类单变量零写入计划、确认后配置落库/可取消运行、停止实验 Base 进度重建、v3.1 单次评分与按 Run 断点继续/写回/分析及飞书跳转，并持久化任务阶段、评分失败批次、结构化评分事实与拦截协议漂移
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息；只读 hasActiveJobs 同时保护 running/cancelling，容量清理不得移除未结算取消任务
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模/空房及独立旧房表的智能默认/平台融合、独立风格转换表的平台风格及参考图、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取

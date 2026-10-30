@@ -1,7 +1,7 @@
 <!--
   [INPUT]: 依赖lighting-transfer-controls.js的独立效果图光影转换，依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖config-refresh-button.css共享刷新样式、refined-model-controls.js与refined-lighting-controls.js/css光影库/参考图/版本配置；依赖image-relight.js/css的GPT光照模板/可选点线面光源编辑及逐灯两种模式；依赖image-mask-fill.js/css的提示词/参考图二次编辑与原图等尺寸画布；依赖workspace-panel.js/css和workspace-panel-responsive.css的分隔线连续伸缩/可用中间态/参数容器重排与原生抽屉；依赖choice-select共享下拉组件及custom-select原生表单适配；依赖共享摄影机球与多角度单图控制器；依赖app.js、共享任务/上传/结果/连接中心、设计/渲染/创作控件及既有视觉资源
   [OUTPUT]: 对外提供AI渲染分组的白模/精模及光影转换入口/独立光影选择容器；对外提供质感增强飞书固定Prompt版本/上架及刷新、AI渲染单图质感增强入口、不展示控件外说明/维护入口且真实错误可见的参数面板、AI编辑打光/五效果模板与可选点线面光源编辑/逐灯两种模式和二次编辑入口与两种模式共用大画布/START/飞书同步及记录入口；旧房改造独立入口与空房共用的单流程设计和结果展示、共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI编辑/AI创作分组且将图片超分、AI扩图与多角度归入AI编辑、不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化低/高强度与自然/暖/冷调单选控件、效果图氛围转换当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立全景R5_4工作流、光影模板与自定义要求的全景图美化入口及专属 360°结果预览、精模必选预设卡片/氛围参考光影选择与常显 Prompt 版本/刷新和补充要求、白模/空房设计/风格转换/图片超分/AI扩图/自由生图/风格反推入口、Flux/Qwen/Sunburst 扩图引擎、独立 Flux 模型、默认原比例及五预设画幅与固定 2K 输出、主区域棋盘格构图与贴近画布的输出尺寸/居中栏、默认攸行 3B 的图片超分六工作流、SeedVR2 7B 原图直入与KS预缩放/原图直入的2X/4K/6K对照选项、各工作流独立合法尺寸目录及说明、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同宽可搜索单选下拉承载的白模/空房智能默认和平台风格、风格转换明确平台或参考图风格及已选摘要/简洁搜索且不设数量上限的出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
-  [POS]: public 的单页入口，被 server.mjs 作为根页面提供；workspace-panel.js/css 管理同一配置 DOM 的分隔线连续伸缩与窄屏抽屉
+  [POS]: public 的单页入口，被 server.mjs 作为根页面提供；模型动态目录与初始占位统一标明 Seedream 5.0 Lite；workspace-panel.js/css 管理同一配置 DOM 的分隔线连续伸缩与窄屏抽屉
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 <!doctype html>
@@ -526,7 +526,7 @@
               <h3>等待生成</h3>
               <p>配置完成后，结果会显示在这里。</p>
               <div class="empty-specs">
-                <span id="emptyModel">Seedream 5.0</span>
+                <span id="emptyModel">Seedream 5.0 Lite</span>
                 <i></i>
                 <span id="emptySize">2400 × 1792</span>
               </div>
@@ -537,7 +537,7 @@
               </div>
               <div>
                 <h3>正在生成</h3>
-                <p id="loadingLabel">正在向 Seedream 5.0 提交请求…</p>
+                <p id="loadingLabel">正在向 Seedream 5.0 Lite 提交请求…</p>
               </div>
             </div>
             <div id="resultGallery" class="result-gallery hidden" aria-live="polite"></div>

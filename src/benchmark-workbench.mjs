@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 Benchmark Base、本地版本化状态、样本 AI 标注、横评计划/执行器、AI 评分领域层、可注入 OneAPI 客户端与可选任务取消信号
- * [OUTPUT]: 对外提供样本集治理、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、可取消/失败持久化批量生成、停止实验 Base 进度重建、seven_evaluate_v3.1 同构的单次调用/按 Run 断点继续评分与写回、实验分析及飞书筛选跳转
+ * [INPUT]: 依赖 Benchmark Base/模型历史标签解析、本地版本化状态、样本 AI 标注、横评计划/执行器、AI 评分领域层、可注入 OneAPI 客户端与可选任务取消信号
+ * [OUTPUT]: 对外提供样本集治理、兼容历史图片列的模型准入、五维 AI 待审标签、八类质量配置单变量实验计划与分阶段冻结配置落库、协议漂移拦截、可取消/失败持久化批量生成、停止实验 Base 进度重建、seven_evaluate_v3.1 同构的单次调用/按 Run 断点继续评分与写回、实验分析及飞书筛选跳转
  * [POS]: src 的评测工作台应用服务，统一浏览器 API 与既有 CLI Runner 的业务边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { randomUUID } from "node:crypto";
+import { comparisonModelLabels } from "./benchmark-base-schema.mjs";
 import { agentModelOrThrow, publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { baseRunId } from "./benchmark-identifiers.mjs";
 import {
@@ -221,7 +222,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
     if (supportedFields) {
       const supported = new Set(supportedFields);
       const unsupported = draft.configs
-        .filter((config) => !supported.has(config.imageModelLabel))
+        .filter((config) => !comparisonModelLabels(config.imageModel).some((label) => supported.has(label)))
         .map((config) => config.imageModelLabel);
       if (unsupported.length) {
         throw inputError(`横评对比表缺少模型图片列：${unsupported.join("、")}`);
@@ -544,7 +545,7 @@ export function createBenchmarkWorkbenchService({ baseStore, localStore }) {
         reviewableExperiments: reviewableExperimentList(snapshot, state),
         reviewModels: publicAgentModelCatalog().filter((model) => model.imageInput),
         supportedImageModelLabels: publicModelCatalog()
-          .filter((model) => comparisonFields.includes(model.label))
+          .filter((model) => comparisonModelLabels(model.label).some((label) => comparisonFields.includes(label)))
           .map((model) => model.label),
       };
     },
