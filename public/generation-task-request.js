@@ -1,13 +1,35 @@
 /**
- * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型 1–4 张选择、精模光影提示词与旧氛围兼容、各功能状态与后台任务批次元数据
- * [OUTPUT]: 对外提供质感增强与精模分路加载文案、旧房直接映射普通空房的单流程请求、不设模型数上限的单模型多张展开和不重复图片载荷的后台请求
+ * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型每光影每模式1–4张及精模光影/三方式多选与旧氛围兼容、各功能状态与后台任务批次元数据
+ * [OUTPUT]: 对外提供全景/精模多光影×模型独立展开与标签、精模逐模式版本及全景逐卡身份投影、光影对比进度文案和不重复图片载荷的后台请求
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { adaptGenerationInputForModel } from "./generation-batch.js";
+import { REFINED_LIGHTING_EXECUTION_LABELS } from "./refined-flux-reference.js";
 
-export function generationItemsForSelection(models, generationCount = 1) {
+export function refinedLightingRequestSelection(value) {
+  if (!value) return value;
+  const { executions: _executions, presets: _presets, presetName: _presetName, ...selection } = value;
+  return selection;
+}
+
+export function panoramaLightingRequestSelection(value) {
+  if (!value) return null;
+  const { presetId, version, sha256 } = value;
+  return { presetId, version, sha256 };
+}
+
+export function panoramaItemsForSelection(models, generationCount = 1, selections = null) {
+  const items = generationItemsForSelection(models, generationCount);
+  if (!selections?.length) return items;
+  return items.flatMap(model => selections.map(selection => ({
+    ...model, panoramaLightingSelection: selection,
+    label: [model.label, selection.presetName || selection.presetId].join(" · "),
+  })));
+}
+
+export function generationItemsForSelection(models, generationCount = 1, lightingSelections = null) {
   if (!Array.isArray(models) || models.length < 1) {
     throw new RangeError("请至少选择 1 个出图模型");
   }
@@ -15,13 +37,18 @@ export function generationItemsForSelection(models, generationCount = 1) {
   if (!Number.isInteger(count) || count < 1 || count > 4) {
     throw new RangeError("单模型生成张数需要在 1–4 张之间");
   }
-  if (models.length > 1) return models;
-  if (count === 1) return models;
-  const [model] = models;
-  return Array.from({ length: count }, (_, index) => ({
-    ...model,
-    label: `${model.label} · ${index + 1}/${count}`,
+  const repeated = models.length > 1 || count === 1 ? models : Array.from({ length: count }, (_, index) => ({
+    ...models[0], label: `${models[0].label} · ${index + 1}/${count}`,
   }));
+  if (!lightingSelections?.length) return repeated;
+  const multiplePresets = new Set(lightingSelections.map(selection => selection.presetId).filter(Boolean)).size > 1;
+  return repeated.flatMap(model => lightingSelections.map(lightingSelection => ({
+    ...model, modelLabel: model.label, lightingSelection,
+    label: lightingSelections.length > 1 || lightingSelection.presetName
+      ? [model.label, lightingSelection.presetName || (multiplePresets ? lightingSelection.presetId : null),
+        REFINED_LIGHTING_EXECUTION_LABELS[lightingSelection.execution]].filter(Boolean).join(" · ")
+      : model.label,
+  })));
 }
 
 export function generationLoadingCopy({
@@ -30,10 +57,12 @@ export function generationLoadingCopy({
   effectBeautificationRequest,
   effectEnhancementRequest,
   textureEnhancementRequest,
+  lightingTransferRequest,
   forcePromptRegeneration,
   generationCount = 1,
   models,
   panoramaEnhancementRequest,
+  panoramaLightingSelections,
   refinedModelRequest,
   refinedPrompt,
   refinedRender,
@@ -42,6 +71,7 @@ export function generationLoadingCopy({
   styleReferenceCount,
   styleTransferRequest,
 }) {
+  if (lightingTransferRequest) return "正在保留设计与材质，将效果图转换为所选光影氛围…";
   if (effectEnhancementRequest) {
     return "正在按时段与天气规则转换效果图氛围…";
   }
@@ -52,7 +82,8 @@ export function generationLoadingCopy({
     return "正在增强材质质感与光影细节…";
   }
   if (panoramaEnhancementRequest) {
-    return "正在按全景连续性规则美化全景图…";
+    if (panoramaLightingSelections?.length > 1) return `正在保持全景连续性，分别对比 ${panoramaLightingSelections.length} 种光影氛围…`;
+    return "正在保持全景连续性，按光影要求生成全景图…";
   }
   if (designPromptRequest && forcePromptRegeneration) {
     return "正在重新生成提示词并渲染…";
@@ -81,6 +112,11 @@ export function generationLoadingCopy({
       : "正在读取 Style DNA，由 Prompt Agent 整合后渲染…";
   }
   if (refinedModelRequest) {
+    if (refinedLighting?.presets?.length > 1) return `正在对比 ${refinedLighting.presets.length} 种光影氛围…`;
+    if (refinedLighting?.executions?.length > 1) return `正在对比 ${refinedLighting.executions.length} 种精模渲染方式…`;
+    if (refinedLighting?.mode === "preset" && refinedLighting.execution === "prompt-with-reference") {
+      return "正在保留设计与材质，结合图序前置词、氛围词与预设参考图渲染精模…";
+    }
     if (refinedLighting?.mode === "preset") return refinedLighting.execution === "prompt-and-reference"
       ? "正在保留设计与材质，结合光影提示词与预设参考图渲染精模…"
       : "正在保留设计与材质，按光影提示词渲染精模…";
@@ -116,7 +152,14 @@ export function buildGenerationJobRequest({
     ...sharedInput
   } = baseInput;
   const items = models.map((model) => {
-    const adapted = adaptGenerationInputForModel(baseInput, model, {
+    const selectedLighting = refinedLightingRequestSelection(model.lightingSelection || baseInput.refinedLighting);
+    const lightingInput = selectedLighting ? { ...baseInput, refinedLighting: selectedLighting,
+      promptVersion: selectedLighting.mode === "preset" && ["prompt-and-reference", "prompt-with-reference"].includes(selectedLighting.execution)
+        ? selectedLighting.ruleVersion : baseInput.promptVersion } : baseInput;
+    const modeInput = featureMode === "panoramaEnhancement" ? { ...lightingInput,
+      panoramaLighting: panoramaLightingRequestSelection(model.panoramaLightingSelection || baseInput.panoramaLighting),
+    } : lightingInput;
+    const adapted = adaptGenerationInputForModel(modeInput, model, {
       featureMode,
       sourceImage,
     });
@@ -136,6 +179,7 @@ export function buildGenerationJobRequest({
     jobId,
     sharedInput: {
       ...sharedInput,
+      ...(baseInput.refinedLighting ? { refinedLighting: items[0].input.refinedLighting } : {}),
       referenceImages,
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
       ...(lightingReferenceImages ? { lightingReferenceImages } : {}),

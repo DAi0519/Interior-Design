@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖精模旧模块及光影来源/双图/版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
- * [OUTPUT]: 对外提供运行进程只读功能目录、含质感增强的功能准入、精模光影及资产批次冻结、打光正文冻结和任务入队/查询
+ * [INPUT]: 依赖光影转换/精模及全景光影版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
+ * [OUTPUT]: 对外提供局部消除独立Prompt版本准入与操作冻结、运行进程功能及全景多光影能力目录、精模每模型每光影每模式与全景每模型每光影限额/独立批次冻结、打光正文冻结和任务入队/查询及全景排队/执行阶段
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { validateMultiAngleInput, resolveMultiAngleModel } from "./image-multi-angle-service.mjs";
 import { validateMaskFillInput } from "./image-mask-fill-service.mjs";
+import { MASK_FILL_REMOVAL_PROMPT_VERSION } from "../public/image-mask-fill-geometry.js";
 import { validateRelightInput } from "./image-relight-service.mjs";
 import { RELIGHT_MODEL_KEY } from "../public/image-relight-geometry.js";
 import { runGenerationJobBatch } from "./generation-jobs.mjs";
@@ -17,6 +18,9 @@ import { MODEL_CONFIGS } from "./model-config.mjs";
 import { assertOutpaintResolution } from "../public/image-outpaint-geometry.js";
 import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
 import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
+import { normalizePanoramaLighting, preparePanoramaLightingInput } from "./panorama-lighting.mjs";
+import { REFINED_LIGHTING_PRESET_EXECUTIONS } from "../public/refined-flux-reference.js";
+import { prepareLightingTransferInput, validateLightingTransferInput } from "./lighting-transfer-workflow.mjs";
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
@@ -28,6 +32,7 @@ const FEATURE_MODES = new Set([
   "imageRelight",
   "imageMultiAngle",
   "imageOutpaint",
+  "lightingTransfer",
   "panoramaEnhancement",
   "refinedModel",
   "styleTransfer",
@@ -39,6 +44,10 @@ export function supportedGenerationFeatureModes() {
   return Object.freeze([...FEATURE_MODES]);
 }
 
+export function supportedGenerationFeatureCapabilities() {
+  return Object.freeze({ panoramaEnhancement: Object.freeze({ multipleLightingSelections: true }) });
+}
+
 export function createGenerationJobApiHandler({
   generationJobs,
   generationService,
@@ -48,6 +57,8 @@ export function createGenerationJobApiHandler({
   prepareImageRelightPrompt = null,
   prepareRefinedInput = prepareRefinedRenderInput,
   prepareRefinedLighting = prepareRefinedLightingInput,
+  preparePanoramaLighting = preparePanoramaLightingInput,
+  prepareLightingTransfer = prepareLightingTransferInput,
   getImageOutpaintConfig = async () => publicImageOutpaintConfig(),
   readJson,
   sendJson,
@@ -98,11 +109,43 @@ export function createGenerationJobApiHandler({
         }
         modelCounts.set(modelKey, (modelCounts.get(modelKey) || 0) + 1);
       }
-      if (modelCounts.size === 1 && items.length > 4) {
+      const lightingComparison = featureMode === "refinedModel" && items.every(item => {
+        const lighting = item.input?.refinedLighting || sharedInput.refinedLighting;
+        return lighting?.mode === "preset" && REFINED_LIGHTING_PRESET_EXECUTIONS.includes(lighting.execution);
+      });
+      const panoramaComparison = featureMode === "panoramaEnhancement";
+      const lightingCounts = new Map();
+      if (lightingComparison) for (const item of items) {
+        const lighting = item.input?.refinedLighting || sharedInput.refinedLighting;
+        const presetId = typeof lighting.presetId === "string" ? lighting.presetId.trim() : lighting.presetId;
+        const key = JSON.stringify([item.input?.modelKey ?? sharedInput.modelKey, presetId, lighting.execution]);
+        lightingCounts.set(key, (lightingCounts.get(key) || 0) + 1);
+      }
+      if (lightingComparison && [...lightingCounts.values()].some(count => count > (modelCounts.size === 1 ? 4 : 1))) {
+        sendJson(response, 400, { error: modelCounts.size === 1
+          ? "精模对比每个光影的每种模式只允许1–4张" : "精模多模型对比每个模型、光影和模式只允许1个生成项" });
+        return true;
+      }
+      if (panoramaComparison) {
+        try {
+          for (const item of items) {
+            const input = { ...sharedInput, ...item.input };
+            const selection = normalizePanoramaLighting(input.panoramaLighting);
+            const key = JSON.stringify([input.modelKey, selection?.presetId || null]);
+            lightingCounts.set(key, (lightingCounts.get(key) || 0) + 1);
+          }
+        } catch (error) { sendJson(response, 400, { error: error.message }); return true; }
+        if ([...lightingCounts.values()].some(count => count > (modelCounts.size === 1 ? 4 : 1))) {
+          sendJson(response, 400, { error: modelCounts.size === 1
+            ? "全景对比每个光影只允许1–4张" : "全景多模型对比每个模型、光影只允许1个生成项" });
+          return true;
+        }
+      }
+      if (!lightingComparison && !panoramaComparison && modelCounts.size === 1 && items.length > 4) {
         sendJson(response, 400, { error: "单模型生成张数需要在 1–4 张之间" });
         return true;
       }
-      if (modelCounts.size > 1 && modelCounts.size !== items.length) {
+      if (!lightingComparison && !panoramaComparison && modelCounts.size > 1 && modelCounts.size !== items.length) {
         sendJson(response, 400, { error: "多模型生成时每个模型只允许 1 个生成项" });
         return true;
       }
@@ -132,19 +175,23 @@ export function createGenerationJobApiHandler({
       } catch (error) { sendJson(response, error.statusCode || 400, { error: error.message }); return true; }
     }
     if (featureMode === "imageMaskFill") {
-      if (items.length !== 1) { sendJson(response, 400, { error: "遮罩填充每次只允许1个生成项" }); return true; }
+      if (items.length !== 1) { sendJson(response, 400, { error: "二次编辑每次只允许1个生成项" }); return true; }
       try {
         const input = { ...sharedInput, ...items[0].input };
         const validated = await validateMaskFillInput(input);
         const readConfig = getImageMaskFillConfig || generationService.getImageMaskFillConfig;
-        if (!readConfig) throw Object.assign(new Error("遮罩填充客户端尚未配置"), { statusCode: 409 });
+        if (!readConfig) throw Object.assign(new Error("二次编辑客户端尚未配置"), { statusCode: 409 });
         const config = await readConfig();
         const model = config.models?.find(entry => entry.key === validated.modelKey);
         const candidate = (model?.modes || (validated.modelKey === "flux2Klein" ? config.modes : []))?.find((entry) => entry.key === validated.mode);
-        if (!candidate?.available) throw Object.assign(new Error(candidate?.reason || "所选遮罩填充模式不可用"), { statusCode: 409 });
+        if (!candidate?.available) throw Object.assign(new Error(candidate?.reason || "所选二次编辑模式不可用"), { statusCode: 409 });
+        if (validated.maskFillOperation === "remove" && config.removalPromptVersion !== MASK_FILL_REMOVAL_PROMPT_VERSION) {
+          throw Object.assign(new Error("局部消除提示词配置未更新，请重启当前工作台"), { statusCode: 409 });
+        }
         items[0] = { key: validated.modelKey === "flux2Klein" ? validated.mode : `${validated.modelKey}-${validated.mode}`, label: candidate.label, provider: validated.provider, input: {
           ...items[0].input, maskFillModel: validated.modelKey, maskFillMode: validated.mode, prompt: validated.prompt,
           inferenceTier: validated.inferenceTier, maskExpand: validated.maskExpand,
+          ...(validated.maskFillOperation ? { maskFillOperation: validated.maskFillOperation } : {}),
           ...(validated.fillReferencePurpose ? { fillReferencePurpose: validated.fillReferencePurpose } : {}),
           ...(validated.provider === "oneapi" ? { outputResolution: validated.outputResolution, quality: validated.quality, editRegion: validated.editRegion } : {}),
         } };
@@ -206,6 +253,37 @@ export function createGenerationJobApiHandler({
       const provider = engine.provider || (engineKey === ONEAPI_OUTPAINT_ENGINE_KEY ? "oneapi" : "comfyui");
       if (provider === "oneapi") imageStage = "imageEdit";
     }
+    if (featureMode === "panoramaEnhancement") {
+      try {
+        const prepared = new Map();
+        for (let index = 0; index < items.length; index += 1) {
+          const input = { ...sharedInput, ...items[index].input };
+          const key = JSON.stringify([input.panoramaLighting, input.prompt]);
+          if (!prepared.has(key)) prepared.set(key, await preparePanoramaLighting(input));
+          const frozen = prepared.get(key);
+          items[index] = { ...items[index], input: { ...items[index].input,
+            panoramaLighting: structuredClone(frozen.panoramaLighting), prompt: frozen.prompt } };
+        }
+      } catch (error) { sendJson(response, error.statusCode || 409, { error: error.message }); return true; }
+    }
+    if (featureMode === "lightingTransfer") {
+      try {
+        const frozenConfigurations = new Map();
+        for (let index = 0; index < items.length; index += 1) {
+          const input = { ...sharedInput, ...items[index].input };
+          validateLightingTransferInput(input);
+          const key = JSON.stringify([refinedLightingFreezeKey(input), input.promptCode, input.promptVersion]);
+          if (!frozenConfigurations.has(key)) {
+            const prepared = await prepareLightingTransfer(input);
+            frozenConfigurations.set(key, { refinedLighting: prepared.refinedLighting,
+              promptCode: prepared.promptCode, promptVersion: prepared.promptVersion,
+              lightingReferenceImages: [] });
+          }
+          items[index] = { ...items[index], input: { ...items[index].input,
+            ...structuredClone(frozenConfigurations.get(key)) } };
+        }
+      } catch (error) { sendJson(response, error.statusCode || 409, { error: error.message }); return true; }
+    }
     if (featureMode === "refinedModel") {
       try {
         const frozenConfigurations = new Map();
@@ -256,7 +334,7 @@ export function createGenerationJobApiHandler({
       jobId,
       {
         featureMode,
-        stages: localImageRequest ? { [imageStage]: "submitting" } : null,
+        stages: localImageRequest || featureMode === "panoramaEnhancement" ? { [imageStage]: "submitting" } : null,
         total: items.length,
       },
       async (update) => ({
@@ -278,9 +356,9 @@ export function createGenerationJobApiHandler({
             }, {
               ...(featureMode === "imageRelight" ? { relightPromptSnapshot } : {}),
               onProgress(progress) {
-                if (!localImageRequest) return;
+                if (!localImageRequest && featureMode !== "panoramaEnhancement") return;
                 update({
-                  message: progress.message,
+                  message: progress.message || (progress.phase === "executing" ? "R5_4 正在生成全景图…" : "全景任务已提交，MaaS排队中…"),
                   stages: {
                     [imageStage]: progress.phase,
                     promptId: progress.promptId || null,

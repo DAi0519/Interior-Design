@@ -118,7 +118,7 @@ test("Qwen任务入口冻结真实模型/Provider/档位，旧Flux目录不能�
     generationService: { executeForMode: async (_, value) => { calls.push(value); return { sync: { status: "pending" } }; } } });
   await handler({ method: "POST" }, {}, "/api/generation-jobs");
   assert.equal(response.code, 409); assert.equal(queued.length, 0);
-  config = { models: [{ key: "qwenImageEdit2511", modes: [{ key: "prompt", label: "Qwen提示词填充", available: true }] }] };
+  config = { models: [{ key: "qwenImageEdit2511", modes: [{ key: "prompt", label: "Qwen提示词编辑", available: true }] }] };
   await handler({ method: "POST" }, {}, "/api/generation-jobs");
   assert.equal(response.code, 202);
   assert.deepEqual(queued[0].details.stages, { comfyUi: "submitting" });

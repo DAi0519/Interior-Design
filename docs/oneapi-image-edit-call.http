@@ -1,6 +1,6 @@
-# [INPUT]: 依据sunburst.15的固定1K/medium实际请求构造；图片与用户指令由调用者替换
+# [INPUT]: 依据sunburst.16的固定1K/medium实际请求构造；图片与用户指令由调用者替换
 # [OUTPUT]: 完整OneAPI调用模板，含圈选目标/换物品或换材质明确用途/可选补充指令/去标记的实际Prompt、无mask异步提交/GET及透明mask同步请求
-# [POS]: docs/ 的独立开发交接导出，不包含真实密钥或图片；sunburst.15尚未新增真实出图验证
+# [POS]: docs/ 的独立开发交接导出，不包含真实密钥或图片；sunburst.16尚未新增真实出图验证
 # [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 # 核对日期：2026-10-22。下方size为3:2原图的1K示例；其他比例按交接表换算。
 # 本文件示例为有参考图、默认换物品object且无补充指令；替换图片及鉴权变量，每次选择一种路径，不要重复POST。
@@ -15,6 +15,7 @@
 # 框选、自由圈选或纯指令（仍有原图）均走Responses；纯指令图1不带圈选线，Prompt按实际定位方式拼接。
 # 输入顺序：input_text完整指令 → 第一个input_image底图 → 第二个input_image参考图。
 # 业务字段fillReferencePurpose仅GPT参考图模式可用：object换物品（默认）/material换材质，由调用方明确选择，不自动猜；不要把该业务字段传入OneAPI。
+# 局部消除使用业务标志maskFillOperation=remove；最终input_text只有“去除框选区域的物品，其余保持不变，最后去掉蓝色框。”（手写时直接用手写指令），不拼下列编辑模板。此业务标志不传入OneAPI JSON。
 # 蓝圈换材质时，完整input_text改用gpt-image-edit-prompts.json的templates.reference.purposes.material.defaultTemplate；有文字时使用同分支template。
 # 蓝圈有补充指令时，改用gpt-image-edit-prompts.json的templates.reference.purposes[用途].template并只替换{{USER_PROMPT}}；空白时直接用defaultTemplate，不添加空User instruction行。
 # 无参考图模式同时改用gpt-image-edit-prompts.json中templates.prompt.template并省略第二个input_image，不要省略完整底图；图片URL保持原PNG data URL，不转换成拼图。

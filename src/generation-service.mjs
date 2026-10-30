@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖GPT打光及独立飞书Prompt准备服务、独立质感增强Prompt读取与共享工作流、模型/批次契约、OneAPI客户端和注入目录/同步调度
+ * [INPUT]: 依赖GPT打光及独立飞书Prompt准备服务、光影转换双图/独立Prompt、R5_4全景专用客户端、独立质感增强Prompt读取与共享工作流、模型/批次契约、OneAPI客户端和注入目录/同步调度
  * [OUTPUT]: 对外提供打光服务器Prompt快照准备和执行透传、按显式功能冻结输入的统一生成路由及执行前权限/Schema门禁
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -24,18 +24,23 @@ import {
 } from "./model-config.mjs";
 import { createOneApiClient } from "./oneapi-client.mjs";
 import { executeRefinedModelWorkflow } from "./refined-model-workflow.mjs";
+import { executeLightingTransferWorkflow } from "./lighting-transfer-workflow.mjs";
 import { executeWhiteModelWorkflow } from "./white-model-workflow.mjs";
 
 export function createGenerationService({
   getSessionModelCatalog,
   imageClientForModel,
   imageUpscaleClient,
+  panoramaClient = null,
   imageMaskFillClient = null,
   qwenMaskFillClient = null,
   verifyMaskFillSyncContract,
   verifyRelightSyncContract,
   getRelightPrompt,
   getTextureEnhancementPrompt,
+  getLightingTransferPrompt,
+  loadLightingTransferAssets,
+  loadLightingTransferReference,
   readRelightPromptConfig,
   imageMultiAngleClient = null,
   imageOutpaintClient = null,
@@ -109,12 +114,26 @@ export function createGenerationService({
     });
   }
 
-  async function executeEffectEnhancement(input) {
+  async function executeLightingTransfer(input) {
+    return executeLightingTransferWorkflow(input, {
+      imageClient: imageClientForModel(input.modelKey),
+      ...(getLightingTransferPrompt ? { loadPrompt: getLightingTransferPrompt } : {}),
+      ...(loadLightingTransferAssets ? { loadLightingAssets: loadLightingTransferAssets } : {}),
+      ...(loadLightingTransferReference ? { loadLightingReference: loadLightingTransferReference } : {}),
+      scheduleSync: scheduleGenerationSync,
+    });
+  }
+
+  async function executeEffectEnhancement(input, options = {}) {
     const oneApiClient = imageProviderForModel(input.modelKey) === "oneapi"
       ? createOneApiClient(requireApiKey())
       : null;
+    const panorama = input.featureMode === "panoramaEnhancement" && imageProviderForModel(input.modelKey) === "comfyui";
+    if (panorama && !panoramaClient) throw Object.assign(new Error("R5_4 全景工作流客户端尚未配置"), { statusCode: 409 });
     return executeEffectRenderEnhancementWorkflow(input, {
-      imageClient: imageClientForModel(input.modelKey, { oneApiClient }),
+      imageClient: panorama ? panoramaClient : imageClientForModel(input.modelKey, { oneApiClient }),
+      onProgress: options.onProgress,
+      signal: options.signal,
       ...(getTextureEnhancementPrompt ? { loadTexturePrompt: getTextureEnhancementPrompt } : {}),
       scheduleSync: scheduleGenerationSync,
     });
@@ -184,12 +203,13 @@ export function createGenerationService({
       return executeDesign(input);
     }
     if (["effectEnhancement", "effectBeautification", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)) {
-      return executeEffectEnhancement(input);
+      return executeEffectEnhancement(input, options);
     }
     if (featureMode === "imageUpscale") {
       return executeUpscale(input, options);
     }
     if (featureMode === "refinedModel") return executeRefined(input);
+    if (featureMode === "lightingTransfer") return executeLightingTransfer(input);
     if (featureMode === "free") return executeFree(input);
     throw new TypeError("不支持的生成功能");
   }
@@ -204,5 +224,6 @@ export function createGenerationService({
     getImageRelightConfig: (options = {}) => readImageRelightConfig({ ...options, getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: true }), readPromptConfig: readRelightPromptConfig }),
     prepareImageRelightPrompt: input => prepareImageRelightPrompt(input, { getPrompt: getRelightPrompt }),
     executeRefined,
+    executeLightingTransfer,
   };
 }

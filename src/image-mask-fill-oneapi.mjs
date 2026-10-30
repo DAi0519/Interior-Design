@@ -1,16 +1,17 @@
 /**
- * [INPUT]: 依赖已解码的主图/可选遮罩或已验证的归一化矩形与多边形/参考图与共享用途规则、模型真源、sharp、真实产物读取与注入的OneAPI同步/异步编辑客户端
- * [OUTPUT]: Sunburst三档五质量、矩形内侧或拒绝像素退化的多边形真实轮廓蓝色定位线及点/边界元数据、换物品/换材质自足参考与可选用户补充/用途追溯/去标记简洁模板，原生PNG直出及实际送模标记图归档副本
- * [POS]: src 的遮罩填充三方适配器，无mask走Responses后台任务、透明mask保留Images edits；返回后不裁切或回贴原图
+ * [INPUT]: 依赖已解码的主图/可选遮罩或已验证的归一化矩形与多边形/参考图与共享用途及消除操作规则、模型真源、sharp、真实产物读取与注入的OneAPI同步/异步编辑客户端
+ * [OUTPUT]: Sunburst独立局部消除原文直投（不拼填充模板）与操作版本追溯；三档五质量、真实蓝色定位线、物品/材质参考模板、原生PNG直出及实际送模标记图归档副本
+ * [POS]: src 的二次编辑三方适配器，无mask走Responses后台任务、透明mask保留Images edits；返回后不裁切或回贴原图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { MODEL_CONFIGS } from "./model-config.mjs";
 import { loadImageBytes } from "./image-artifact.mjs";
-import { MASK_FILL_GPT_OUTPUT_LIMITS, MASK_FILL_SELECTION_COLOR, maskFillGptOutputSize, maskFillReferencePurpose } from "../public/image-mask-fill-geometry.js";
+import { MASK_FILL_GPT_OUTPUT_LIMITS, MASK_FILL_SELECTION_COLOR, maskFillGptOutputSize, maskFillReferencePurpose,
+  normalizeMaskFillOperation, MASK_FILL_REMOVAL_PROMPT_VERSION } from "../public/image-mask-fill-geometry.js";
 
-export const MASK_FILL_ONEAPI_VERSION = "2026-10-22.sunburst.15";
+export const MASK_FILL_ONEAPI_VERSION = "2026-10-29.sunburst.16";
 export const MASK_FILL_ONEAPI_MODEL = MODEL_CONFIGS.gptImage25Sunburst;
 export const MASK_FILL_ONEAPI_LIMITS = Object.freeze({ ...MASK_FILL_GPT_OUTPUT_LIMITS, maxImageUrlCharacters: 20_971_520 });
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -27,9 +28,13 @@ export function sunburstMaskQuality(value = MASK_FILL_ONEAPI_MODEL.defaultQualit
   return value;
 }
 
-export function sunburstMaskPrompt({ prompt, mode, mask, editRegion, fillReferencePurpose }) {
+export function sunburstMaskPrompt({ prompt, mode, mask, editRegion, fillReferencePurpose, maskFillOperation }) {
   const instruction = typeof prompt === "string" ? prompt.trim() : "";
   const purpose = maskFillReferencePurpose(fillReferencePurpose, "gptImage25Sunburst", mode);
+  if (normalizeMaskFillOperation(maskFillOperation, mode) === "remove") {
+    if (!instruction) throw fail("局部消除指令不能为空");
+    return instruction;
+  }
   const referenceTarget = editRegion ? "the selected target in image 1"
     : mask ? "the target in the masked region of image 1"
     : purpose === "material" ? "the relevant surface in image 1" : "the relevant object in image 1";
@@ -106,6 +111,8 @@ export async function prepareSunburstMaskInput(validated) {
 
 export async function executeSunburstMaskFill(validated, { imageClient, onProgress = () => {} }) {
   const fillReferencePurpose = maskFillReferencePurpose(validated.fillReferencePurpose, "gptImage25Sunburst", validated.mode);
+  const maskFillOperation = normalizeMaskFillOperation(validated.maskFillOperation, validated.mode);
+  const removalFields = maskFillOperation ? { maskFillOperation, removalPromptVersion: MASK_FILL_REMOVAL_PROMPT_VERSION } : {};
   const method = validated.mask ? "editImage" : "editImageAsync";
   if (typeof imageClient?.[method] !== "function") throw fail("Sunburst编辑客户端尚未配置", 409);
   const prepared = await prepareSunburstMaskInput(validated);
@@ -128,7 +135,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
   // -------- 完整交付上游PNG原始字节；不按mask截取、不回贴、不重编码 --------
   const outputSha256 = digest(nativeBytes);
   const metadata = { provider: "oneapi", model: MASK_FILL_ONEAPI_MODEL.id, version: MASK_FILL_ONEAPI_VERSION,
-    prompt: prepared.request.prompt, sourcePrompt: validated.prompt, mode: validated.mode, quality: prepared.request.quality,
+    prompt: prepared.request.prompt, sourcePrompt: validated.prompt, mode: validated.mode, quality: prepared.request.quality, ...removalFields,
     ...(fillReferencePurpose ? { fillReferencePurpose } : {}),
     outputResolution: validated.outputResolution, protectedSourceResampled: false,
     sourceWidth: source.width, sourceHeight: source.height, sourceSha256: source.sha256,
@@ -150,7 +157,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
     requestId: generated.requestId || null, upstreamAsync: !validated.mask, usageCost: generated.usageCost || null };
   return { durationMs: Date.now() - startedAt, images: [{ url: pngUrl(nativeBytes) }],
     request: { model: MASK_FILL_ONEAPI_MODEL.id, provider: "oneapi", quality: prepared.request.quality, outputFormat: "png",
-      outputResolution: validated.outputResolution, resolution: validated.outputResolution,
+      outputResolution: validated.outputResolution, resolution: validated.outputResolution, ...removalFields,
       referenceImageCount: validated.reference ? 2 : 1, hasMask: Boolean(validated.mask), editRegion: validated.editRegion || null, maskFillMode: validated.mode, inferenceTier: validated.inferenceTier,
       ...(fillReferencePurpose ? { fillReferencePurpose } : {}),
       inferenceSize: metadata.inferenceSize, inferenceWidth: native.width, inferenceHeight: native.height,
@@ -158,7 +165,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
     sync: { generationId: null, status: "skipped" },
     upstream: { created: generated.created, outputFormat: "png", transport: generated.transport, metadata,
       requestId: generated.requestId, usageCost: generated.usageCost || null },
-    workflow: { key: "sunburst-mask-fill", label: MASK_FILL_ONEAPI_MODEL.label, version: MASK_FILL_ONEAPI_VERSION, mode: validated.mode,
+    workflow: { key: "sunburst-mask-fill", label: MASK_FILL_ONEAPI_MODEL.label, version: MASK_FILL_ONEAPI_VERSION, mode: validated.mode, ...removalFields,
       ...(fillReferencePurpose ? { fillReferencePurpose } : {}) },
     archiveMaskImage: prepared.maskBytes ? { imageUrl: pngUrl(prepared.maskBytes), mimeType: "image/png", fileName: "submitted-alpha-mask.png", size: prepared.maskBytes.length } : null,
     archiveBoxedSourceImage: validated.editRegion ? { imageUrl: prepared.request.images[0].image_url, mimeType: "image/png",

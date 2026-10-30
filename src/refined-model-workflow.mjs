@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖纯词预设基础/氛围、双图统一专用规则、卡片/上传原件SHA及图像客户端
- * [OUTPUT]: 对外提供纯词基础+氛围/双图仅专用规则编译、实际Prompt来源与图序原件归档、历史兼容及脱敏响应
+ * [INPUT]: 依赖纯词基础与卡片词、迁移专用规则及氛围词双图独立图序前置、卡片/上传原件SHA及普通/精模Flux双图客户端
+ * [OUTPUT]: 对外提供基础+氛围单图、专用迁移及图序前置+氛围双图编译、实际Prompt来源与图序原件归档、历史兼容及脱敏响应
  * [POS]: src 的精模渲染应用服务，与白模 Style DNA/Prompt Agent 链路隔离并复用出图基础设施
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -76,7 +76,7 @@ export async function executeRefinedModelWorkflow(
   const renderPrompt = refinedRenderPromptIdentity(promptDefinition, selection, promptIdentity);
   const batch = normalizeGenerationBatch(input);
   const generation = createGenerationRequest(
-    { ...input, prompt: finalPrompt, ...(lighting ? { referenceImages: [input.referenceImages[0], ...lighting.referenceImages] } : {}) },
+    { ...input, featureMode: "refinedModel", prompt: finalPrompt, ...(lighting ? { referenceImages: [input.referenceImages[0], ...lighting.referenceImages] } : {}) },
     {
       preferSourceAspect: input.ratioMode !== "manual",
       sourceDimensions: {

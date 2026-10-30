@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
-[INPUT]: 依据 src/image-mask-fill-oneapi.mjs 的 2026-10-22.sunburst.15、模型尺寸真源与业务准入规则
-[OUTPUT]: 固定1K/medium的15行交接表，含无mask异步/有mask同步、无参考图模板与参考图换物品/换材质两用途默认正文及可选补充规则
+[INPUT]: 依据 src/image-mask-fill-oneapi.mjs 的 2026-10-29.sunburst.16、模型尺寸真源与业务准入规则
+[OUTPUT]: 二次编辑固定1K/medium交接表与独立局部消除短词，含无mask异步/有mask同步、无参考图模板与参考图换物品/换材质两用途默认正文及可选补充规则
 [POS]: docs/ 的开发交接快照，不依赖项目运行环境或外部资源
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -19,7 +19,7 @@
 </head>
 <body>
 <main>
-<header><h1>GPT 局部编辑接口交接表</h1><p class="meta">模型：GPT Image 2.5 Sunburst　·　核对日期：2026-10-22　·　交接约定：1K／medium　·　参考实现：2026-10-22.sunburst.15</p><p class="lead">适用范围：业务后端接公司 OneAPI 的图像编辑接口。字段转换、圈选与遮罩、输入输出和无参考图／有参考图两套固定模板均在下表。</p></header>
+<header><h1>GPT 局部编辑接口交接表</h1><p class="meta">模型：GPT Image 2.5 Sunburst　·　核对日期：2026-10-29　·　交接约定：1K／medium　·　参考实现：2026-10-29.sunburst.16</p><p class="lead">适用范围：业务后端接公司 OneAPI 的图像编辑接口。字段转换、圈选与遮罩、输入输出和无参考图／有参考图两套固定模板均在下表。</p></header>
 <table aria-label="GPT 局部编辑接口开发交接表"><colgroup><col class="group-col"><col class="item-col"><col></colgroup><thead><tr><th scope="col">模块</th><th scope="col">交接项</th><th scope="col">约定与示例</th></tr></thead><tbody>
 <tr><td class="group">接口</td><th scope="row">目标与范围</th><td>GPT 图像编辑：完整原图＋可选参考图＋可选定位信息，返回 <strong>1 张完整 PNG</strong>。提示词／参考图是内容模式，框选／圈选／涂抹是定位方式，两者自由组合。<p>下方完整模板用于<strong>蓝色框选／自由圈选</strong>：无参考图使用固定模板＋必填用户指令；有参考图按换物品／换材质选择固定模板，补充指令可不填。后端选模板和拼接无需再调用模型。</p></td></tr>
 <tr><td class="group">业务输入</td><th scope="row">模型、模式与指令</th><td><code>maskFillModel: &quot;gptImage25Sunburst&quot;</code><br><code>maskFillMode: &quot;prompt&quot; | &quot;reference&quot;</code>：无参考图模式／有参考图模式。<br><code>fillReferencePurpose: "object" | "material"</code>：仅 GPT 参考图模式，分别为换物品／换材质，默认 <code>object</code>；由调用方明确选择，不自动猜用途，不原样传入 OneAPI。<br><code>prompt</code>：无参考图模式必填，去除首尾空白后 1–8000 字符；有参考图模式为可选补充指令，可省略、传空字符串或纯空白，非空时最多 8000 字符。下面固定规则由后端拼接，不要求用户手写。</td></tr>
@@ -101,6 +101,7 @@
 <tr data-prompt="box-prompt"><td class="group">提示词</td><th scope="row">无参考图完整模板</th><td>用于蓝色框选／自由圈选，<code>maskFillMode: "prompt"</code>。只发送<strong>图1＝完整带蓝线底图</strong>，不发送图2或 fillReferencePurpose；用户指令必填，仅将 <code>{用户提示词}</code> 替换为用户原文，其余固定。<pre data-template="template">Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.
 User instruction: {用户提示词}
 Return one complete image without blue selection outlines, guide marks, labels or a collage.</pre></td></tr>
+<tr data-prompt="removal"><td class="group">提示词</td><th scope="row">局部消除独立指令</th><td>业务字段使用 <code>maskFillMode: "prompt"</code> 与 <code>maskFillOperation: "remove"</code>，必须有蓝色选区或遮罩，只发送图1。最终送模直接使用用户指令，不拼编辑模板：<pre>去除框选区域的物品，其余保持不变，最后去掉蓝色框。</pre>涂抹默认：去除涂抹区域的物品，其余保持不变。归档的最终Prompt与实际送模指令一致。</td></tr>
 <tr data-prompt="box-reference"><td class="group">提示词</td><th scope="row">有参考图完整模板</th><td>用于蓝色框选／自由圈选，<code>maskFillMode: "reference"</code>。依次发送<strong>图1＝完整带蓝线底图、图2＝参考图</strong>，按 <code>fillReferencePurpose</code> 选择下面完整默认正文，不自动猜用途；补充指令可不填。<p><strong>object：换物品（默认）</strong></p><pre data-template="defaultTemplate" data-purpose="object">Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.
 Replace the selected target in image 1 with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content. If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.
 Return one complete image without blue selection outlines, guide marks, labels or a collage.</pre><p><strong>material：换材质</strong></p><pre data-template="defaultTemplate" data-purpose="material">Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image.

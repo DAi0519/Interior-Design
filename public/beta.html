@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
-  [OUTPUT]: 提供不展示普通辅助说明/维护入口且实际状态可见的参数面板、精模必选预设/参考光影、可搜索十任务与独立参数、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
+  [OUTPUT]: 提供全景光影模板/用户要求与原尺寸输出、不展示普通辅助说明/维护入口且实际状态可见的参数面板、精模必选预设/参考光影、可搜索十任务与独立参数、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
   [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
     <link rel="stylesheet" href="/effect-beautification.css?v=1" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
-    <link rel="stylesheet" href="/refined-lighting-controls.css?v=1" />
+    <link rel="stylesheet" href="/refined-lighting-controls.css?v=2" />
     <link rel="stylesheet" href="/generation-actions.css?v=15" />
     <link rel="stylesheet" href="/custom-select.css?v=10" />
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
@@ -164,7 +164,7 @@
                   </div>
                 </div>
               </div>
-              <div id="panoramaFields" class="field hidden"><small>保持全景构图与 2:1 画幅，增强材质、光照与细节。</small></div>
+              <div id="panoramaFields" class="field hidden" aria-label="全景光影氛围"></div>
               <label id="refinedPromptField" class="field hidden"><span>精模 Prompt 版本</span><select id="refinedPromptSelect"></select></label>
               <div id="refinedRenderFields" class="hidden" aria-label="精模渲染氛围"></div>
               <div id="freeReferenceField" class="upload-field compact-upload hidden">
@@ -287,6 +287,6 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=37"></script>
+    <script type="module" src="/beta-app.js?v=38"></script>
   </body>
 </html>

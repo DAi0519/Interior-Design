@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖飞书配置刷新按钮、API、精模光影库脱敏目录、质感/美化/氛围转换独立Prompt状态及设计Agent目录与Toast回调
- * [OUTPUT]: 对外提供质感固定Prompt版本/上架与刷新栏、Prompt脱敏状态/共享刷新及配置分派，普通说明清空、真实错误可见；保留互斥刷新反馈
+ * [OUTPUT]: 对外提供光影转换独立Prompt分派、质感固定Prompt版本/上架与刷新栏、Prompt脱敏状态/共享刷新及配置分派，普通说明清空、真实错误可见；保留互斥刷新反馈
  * [POS]: public 的配置刷新交互控制器，与 app.js 的生图状态和上传流程隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,6 +31,7 @@ export function bindConfigRefresh({
   onEffectEnhancementPrompt = () => {},
   onEffectBeautificationPrompt = () => {},
   onTextureEnhancementPrompt = () => {},
+  onLightingTransferPrompt = () => {},
   onEmptyRoom,
   onRoomRenovation = () => {},
   onStyleTransfer = () => {},
@@ -107,6 +108,7 @@ export function bindConfigRefresh({
     onPromptAgentVersions(body.promptAgent);
     onRefinedPromptVersions(body.refinedPrompt);
     onRefinedLighting(body.refinedLighting || { available: false, referenceAvailable: false, reason: "当前服务尚未提供光影库，请重启工作台", presets: [] });
+    onLightingTransferPrompt(body.lightingTransferPrompt || unavailableEffectPrompt("当前服务尚未提供光影转换，请重启工作台"));
   }
 
   function renderBeautificationPrompt(config) {
@@ -149,6 +151,7 @@ export function bindConfigRefresh({
       onPromptAgentVersions({ defaultVersion: null, versions: [] });
       onRefinedPromptVersions({ defaultVersion: null, versions: [] });
       onRefinedLighting({ available: false, referenceAvailable: false, reason: error.message, presets: [] });
+      onLightingTransferPrompt(unavailableEffectPrompt(error.message));
       styleAvailability.textContent = "读取失败";
       styleAvailability.classList.remove("ready");
       styleNote.textContent = error.message;

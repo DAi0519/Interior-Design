@@ -1,11 +1,12 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 真实图片夹具、Beta 样本/批次/归档边界、独立全景工作流和浏览器模型尺寸规则
- * [OUTPUT]: 对外提供全景真实 2:1、ID 惰性取图、Banana 2.1/GPT2.5 非 2:1 模型零调用准入、冻结 Prompt 版本、重试归档、Seedream 全景 4K 与普通 Flux 请求合同回归保障
+ * [OUTPUT]: 对外提供全景真实2:1、ID惰性取图、多光影逐样本模型展开/计数/标签/身份冻结、非2:1模型零调用准入、冻结Prompt版本、重试归档、Seedream全景4K与R5_4独立Flux请求合同
  * [POS]: test 的 Beta 全景跨层合同测试，使用内存 Store/模型替身，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import sharp from "sharp";
 
@@ -15,6 +16,8 @@ import { normalizeBetaSampleImage } from "../src/beta-sample-store.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "../src/effect-render-enhancement-workflow.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
 import { adaptGenerationInputForModel } from "../public/generation-batch.js";
+import { panoramaItemsForSelection, panoramaLightingRequestSelection } from "../public/generation-task-request.js";
+import { preparePanoramaLightingInput } from "../src/panorama-lighting.mjs";
 import { assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "../public/beta-model-rules.js";
 
 const FEATURE_MODE = "panoramaEnhancement";
@@ -230,7 +233,7 @@ test("执行时下载到方图立即失败且不建档或调用模型", async ()
   assert.equal(generations, 0);
 });
 
-test("全景瞬时重试复用原件并保持同一 Prompt 版本与新 Attempt", async () => {
+test("OneAPI全景瞬时重试复用原件并保持同一 Prompt 版本与新 Attempt", async () => {
   const queue = controlledQueue();
   let downloads = 0;
   let generations = 0;
@@ -255,12 +258,27 @@ test("全景瞬时重试复用原件并保持同一 Prompt 版本与新 Attempt"
     jobs: queue.jobs,
     sleep: async () => {},
   });
-  await service.start(batch());
+  await service.start(batch({ modelKeys: ["seedream5Pro"] }));
   const result = await queue.run();
   assert.equal(downloads, 1);
   assert.equal(generations, 2);
   assert.deepEqual(runIds, ["RUN-PANORAMA123-1", "RUN-PANORAMA123-1-A2"]);
   assert.equal(result.results[0].attempt, 2);
+});
+
+test("Flux全景R5_4瞬时失败不自动再次提交GPU", async () => {
+  const queue = controlledQueue();
+  let generations = 0;
+  const service = createBetaRunnerService({
+    baseStore: fakeStore(), jobs: queue.jobs, sleep: async () => {},
+    generationService: { async executeForMode() {
+      generations += 1;
+      throw Object.assign(new Error("球面任务上游暂时不可用"), { statusCode: 503 });
+    } },
+  });
+  await service.start(batch());
+  await assert.rejects(queue.run(), /球面任务上游暂时不可用/);
+  assert.equal(generations, 1);
 });
 
 test("全景仅加载指定独立 Prompt，Seedream 5.0 Pro 4K 使用 3040x1520", async () => {
@@ -296,7 +314,7 @@ test("全景仅加载指定独立 Prompt，Seedream 5.0 Pro 4K 使用 3040x1520"
   assert.equal("effectBeautification" in archived.workflow, false);
 });
 
-test("Flux 全景请求只有普通工作流参数与独立 Prompt", async () => {
+test("Flux 全景请求路由R5_4独立工作流并保留独立Prompt", async () => {
   let request;
   await executeEffectRenderEnhancementWorkflow({
     ...batch().items[0].input, featureMode: FEATURE_MODE, referenceImages: [panorama],
@@ -310,7 +328,10 @@ test("Flux 全景请求只有普通工作流参数与独立 Prompt", async () =>
   assert.equal(request.model, "comfyui:ai-texture-enhancement");
   assert.equal(request.images.length, 1);
   assert.equal(request.n, 1);
-  assert.doesNotMatch(JSON.stringify(Object.keys(request)), /panorama|denoise|sampler|wrap/);
+  assert.equal(request.workflow_kind, "panorama-r5-4");
+  assert.doesNotMatch(JSON.stringify(Object.keys(request)), /denoise|sampler|wrap|upscale/);
+  assert.equal(request.width, 16);
+  assert.equal(request.height, 8);
   assert.equal(request.width, request.height * 2);
 });
 
@@ -333,4 +354,69 @@ test("浏览器全景规则固定 2:1，屏蔽两个 GPT2.5 和 Banana 2.1 并�
   const input = adaptGenerationInputForModel({ ratio: "2:1", ratioMode: "manual", resolution: "4K", outputFormat: "png" }, seedream, { featureMode: FEATURE_MODE });
   assert.equal(input.ratio, "2:1");
   assert.equal(input.resolution, "4K");
+});
+
+const lightingPresets = [
+  { id: "recDay", name: "日光", code: "day", version: 3, sha256: "a".repeat(64), prompt: "DAY" },
+  { id: "recNight", name: "夜景", code: "night", version: 4, sha256: "b".repeat(64), prompt: "NIGHT" },
+];
+const lightingIdentity = preset => ({ presetId: preset.id, version: preset.version, sha256: preset.sha256 });
+
+test("Beta实际页面批次按样本×模型×光影展开，逐项只携一份身份并保留可读光影标签", async () => {
+  const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
+  const functionSource = source.match(/function buildItems\(startedAt = new Date\(\)\) \{[\s\S]*?\n\}/)?.[0];
+  const countSource = source.match(/function runCount\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(functionSource); assert.ok(countSource);
+  const selected = models.filter(model => ["aiTextureEnhancement", "seedream5Pro"].includes(model.key));
+  const cases = ["A", "B"].map(id => ({ caseId: `SAMPLE-${id}`, label: `样本${id}`, referenceImages: [panorama] }));
+  const lighting = { getSelections: () => lightingPresets.map(preset => ({ ...lightingIdentity(preset), presetName: preset.name })),
+    requestFields: () => ({ panoramaLighting: lightingIdentity(lightingPresets[0]), prompt: "用户补充" }) };
+  const context = {
+    state: { featureMode: FEATURE_MODE, stylesConfig: {} },
+    elements: { ratioSelect: { value: "2:1" }, negativePromptInput: { value: "" },
+      qualitySelect: { value: "" }, resolutionSelect: { value: "2K" } },
+    assertFeatureConfig() {}, currentCases: () => cases, selectedModels: () => selected,
+    selectedCandidates: () => selected, sampleCount: () => cases.length,
+    panoramaLighting: lighting, panoramaItemsForSelection, panoramaLightingRequestSelection,
+    adaptGenerationInputForModel, createBetaRunId: ({ sequence }) => `RUN-LIGHTING-${sequence}`,
+  };
+  const build = new Function(...Object.keys(context), `return (${functionSource})();`);
+  const count = new Function(...Object.keys(context), `return (${countSource})();`);
+  const items = build(...Object.values(context));
+  assert.equal(items.length, 8);
+  assert.equal(count(...Object.values(context)), items.length);
+  assert.equal(new Set(items.map(item => item.runId)).size, 8);
+  assert.equal(new Set(items.map(item => item.label)).size, 8);
+  assert.deepEqual(items.slice(0, 2).map(item => item.input.panoramaLighting), lightingPresets.map(lightingIdentity));
+  assert.ok(items.every(item => item.input.prompt === "用户补充" && !item.input.panoramaLighting.presetName));
+});
+
+test("Beta多光影跨模型只冻结每张卡一次，每个Run独立保留光影身份", async () => {
+  const queue = controlledQueue(), received = [], snapshots = [];
+  let reads = 0;
+  const service = createBetaRunnerService({
+    baseStore: fakeStore({ async beginRun({ item }) {
+      snapshots.push(betaConfigSnapshot(item.input)); return { recordId: item.runId };
+    } }), jobs: queue.jobs,
+    preparePanoramaLighting: actual => preparePanoramaLightingInput(actual, {
+      loadAssets: async () => { reads += 1; return { presets: lightingPresets }; },
+    }),
+    generationService: { async executeForMode(_mode, actual) {
+      received.push(actual); return { images: [{ url: panorama.dataUrl }] };
+    } },
+  });
+  const input = batch({ modelKeys: ["aiTextureEnhancement", "seedream5Pro"] });
+  input.items = input.items.flatMap((item, modelIndex) => lightingPresets.map((preset, index) => ({
+    ...item, input: { ...item.input, panoramaLighting: lightingIdentity(preset), prompt: "用户要求" },
+    label: `${item.label} · ${preset.name}`, runId: `RUN-PANORAMA-MULTI-${modelIndex}-${index}`,
+  })));
+  const accepted = await service.start(input);
+  assert.equal(accepted.total, 4); assert.equal(reads, 2);
+  await queue.run();
+  assert.equal(received.length, 4); assert.equal(snapshots.length, 4);
+  for (const actual of received) {
+    assert.deepEqual(actual.panoramaLighting, lightingIdentity(lightingPresets.find(preset => preset.id === actual.panoramaLighting.presetId)));
+    assert.equal(actual.prompt, "用户要求");
+  }
+  assert.deepEqual(snapshots.map(snapshot => snapshot.panoramaLighting), received.map(actual => actual.panoramaLighting));
 });

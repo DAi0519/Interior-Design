@@ -1,18 +1,29 @@
 /**
- * [INPUT]: 依赖共享光影控制器、飞书双规则脱敏配置/上传专用Prompt目录、基础Prompt版本、Beta模型和轻量恢复值
- * [OUTPUT]: 对外提供纯词预设基础/预设图文及上传专用迁移Prompt统一分流、独立版本准入和基础草稿记忆，不持久化上传图片
+ * [INPUT]: 依赖共享光影控制器、单项光影请求投影、飞书三规则脱敏配置/双图专用Prompt目录、基础Prompt版本、Beta模型和轻量恢复值
+ * [OUTPUT]: 对外提供纯词基础、迁移/上传与氛围词前置Prompt分流、光影×模式selections/单项settings、光影与方式独立计数摘要、独立版本准入和基础草稿记忆，不持久化上传图片
  * [POS]: public 的 Beta 精模光影适配器，与设计风格/旧时段天气参数隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { bindRefinedLightingControls, usesRefinedLightingReferencePrompt } from "./refined-lighting-controls.js";
+import { bindRefinedLightingControls, refinedLightingSelections } from "./refined-lighting-controls.js";
 import { referenceLightingPromptCatalog } from "./refined-prompt-version-select.js";
+import { refinedLightingPromptKind } from "./refined-flux-reference.js";
+import { refinedLightingRequestSelection } from "./generation-task-request.js";
+
+export function betaRefinedLightingRunSummary({ selections, samples, models }) {
+  const presets = new Set(selections.filter(value => value.mode === "preset").map(value => value.presetId)).size;
+  const executions = new Set(selections.map(value => value.execution)).size;
+  const factors = [`${samples} 个样本`, `${models} 个模型`,
+    ...(presets > 1 ? [`${presets} 种光影`] : []), ...(executions > 1 ? [`${executions} 种方式`] : [])];
+  return `${factors.join(" × ")} = ${samples * models * selections.length} 张结果`;
+}
 
 export function createBetaRefinedRenderConfiguration({ elements, fillSelect, getState, onChange,
   getModels = () => [], showToast = () => {},
   bindControls = bindRefinedLightingControls }) {
   let baseVersion = "", referenceDisplayed = false;
   const controls = bindControls({ root: elements.refinedRenderFields,
+    allowMultiplePresets: true,
     onChange() { renderPrompt(); onChange?.(); }, showToast,
     getPolicy: () => getState().catalog?.referenceImage || {
       accept: ["image/png", "image/jpeg", "image/webp"], maxBytesPerImage: 8 * 1024 * 1024,
@@ -27,14 +38,14 @@ export function createBetaRefinedRenderConfiguration({ elements, fillSelect, get
   }
 
   function validation() {
-    if (!usesRefinedLightingReferencePrompt(controls.value()) && !elements.refinedPromptSelect.value) return "精模 Prompt 版本不可用";
+    if (refinedLightingPromptKind(controls.value()) === "base" && !elements.refinedPromptSelect.value) return "精模 Prompt 版本不可用";
     return controls.validation(getModels());
   }
 
   function renderPrompt() {
-    const reference = usesRefinedLightingReferencePrompt(controls.value());
+    const kind = refinedLightingPromptKind(controls.value()), reference = kind !== "base";
     if (!referenceDisplayed && elements.refinedPromptSelect.value) baseVersion = elements.refinedPromptSelect.value;
-    const promptConfig = reference ? referenceLightingPromptCatalog(getState().stylesConfig?.refinedLighting)
+    const promptConfig = reference ? referenceLightingPromptCatalog(getState().stylesConfig?.refinedLighting, kind)
       : getState().stylesConfig?.refinedPrompt;
     const versions = (promptConfig?.versions || []).filter(entry => entry.published === true);
     const selected = reference ? promptConfig.defaultVersion
@@ -45,9 +56,8 @@ export function createBetaRefinedRenderConfiguration({ elements, fillSelect, get
     if (!reference && promptConfig) baseVersion = elements.refinedPromptSelect.value;
     referenceDisplayed = reference;
     elements.refinedPromptSelect.disabled = reference || versions.length === 0;
-    elements.configStatus.textContent = versions.length
-      ? reference ? "参考图光影迁移 Prompt 已就绪" : "精模 Prompt 已就绪"
-      : reference ? "参考图光影迁移 Prompt 不可用" : "精模 Prompt 不可用";
+    const name = kind === "hybrid" ? "氛围词参考前置" : reference ? "参考图光影迁移" : "精模";
+    elements.configStatus.textContent = `${name} Prompt ${versions.length ? "已就绪" : "不可用"}`;
   }
 
   function validate() {
@@ -69,15 +79,18 @@ export function createBetaRefinedRenderConfiguration({ elements, fillSelect, get
       if (!referenceDisplayed) elements.refinedPromptSelect.value = baseVersion; },
     basePromptVersion: () => referenceDisplayed ? baseVersion : elements.refinedPromptSelect.value,
     snapshot: () => controls.value(),
+    selections: () => controls.selections?.() || refinedLightingSelections(controls.value(), getState().stylesConfig?.refinedLighting),
     setModels(models) { controls.setModels(models); },
     validation,
     validate,
-    settings() {
+    settings(selection = null) {
       validate();
+      const selected = refinedLightingRequestSelection(selection || controls.value());
       return {
-        promptVersion: usesRefinedLightingReferencePrompt(controls.value())
-          ? getState().stylesConfig?.refinedLighting?.referenceRuleVersion : Number(elements.refinedPromptSelect.value),
+        promptVersion: refinedLightingPromptKind(selected) !== "base"
+          ? selected.ruleVersion : Number(referenceDisplayed ? baseVersion : elements.refinedPromptSelect.value),
         ...controls.requestFields(),
+        refinedLighting: selected,
       };
     },
   };

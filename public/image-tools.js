@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 GPT 光照模板/可选光源编辑与遮罩画布控制器、共享摄影机球、多角度/超分/扩图控制器、共享大画布、同源 API、单图和任务状态回调
- * [OUTPUT]: 对外提供图片工具组合、独立打光任务与原图预览/可选编辑工作区、Prompt强制读取与连接/换Key后的版本隔离能力刷新
+ * [OUTPUT]: 对外提供图片工具组合、二次编辑工作区文案、独立打光任务与原图预览/可选编辑工作区、Prompt强制读取与连接/换Key后的版本隔离能力刷新
  * [POS]: public 的图片工具组合层，从主 app 编排器隔离控制器初始化细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -49,7 +49,7 @@ export function bindImageTools({ api, elements, getSourceImage, onChange, showTo
   const maskFill = bindImageMaskFill({ ...shared, root: elements.imageMaskFillSection, showToast,
     onSourceChange: source => maskWorkspace?.setSource(source) });
   maskWorkspace = bindImageToolWorkspace({ root: elements.imageMaskFillSection, prefix: "imageMaskFill",
-    label: "遮罩填充工作区", previewLabel: "绘制遮罩", previewSelector: ".mask-fill-preview", footerSelectors: [".mask-fill-toolbar"] });
+    label: "二次编辑工作区", previewLabel: "绘制遮罩", previewSelector: ".mask-fill-preview", footerSelectors: [".mask-fill-toolbar"] });
   let relightWorkspace = null;
   const relight = bindImageRelight({ ...shared, root: elements.imageRelightSection, showToast,
     onRefresh: options => refreshRelight(options),
@@ -77,7 +77,7 @@ export function bindImageTools({ api, elements, getSourceImage, onChange, showTo
       maskFill.configure({ available: false, reason: "读取模型权限中…", modes: [] }); onChange();
       let config;
       try { config = await api("/api/image-mask-fill/config"); }
-      catch { config = { available: false, reason: "遮罩填充模型读取失败，请检查连接后重试", modes: [] }; }
+      catch { config = { available: false, reason: "二次编辑模型读取失败，请检查连接后重试", modes: [] }; }
       if (version !== maskConfigVersion) return;
       maskFill.configure(config); onChange();
     },

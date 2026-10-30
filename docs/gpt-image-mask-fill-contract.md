@@ -1,6 +1,8 @@
-# GPT Image 2.5 Sunburst 局部重绘开发对接
+# GPT Image 2.5 Sunburst 二次编辑开发对接
 
-核对日期：2026-10-22；当前适配器版本2026-10-22.sunburst.15。接入模型 `gpt-image-2.5-sunburst`，通道为公司OneAPI；Flare未接入本功能。工作台入口：`http://127.0.0.1:4190/?feature=imageMaskFill` → 填充模型选择 GPT Image 2.5 Sunburst。
+核对日期：2026-10-29；当前适配器版本2026-10-29.sunburst.16。接入模型 `gpt-image-2.5-sunburst`，通道为公司OneAPI；Flare未接入本功能。工作台入口：`http://127.0.0.1:4192/?feature=imageMaskFill` → 编辑模型选择 GPT Image 2.5 Sunburst。
+
+局部消除独立使用`maskFillMode:"prompt"`加`maskFillOperation:"remove"`。默认最终Prompt只有“去除框选区域的物品，其余保持不变，最后去掉蓝色框。”；涂抹默认“去除涂抹区域的物品，其余保持不变。”。实际送模直接使用去首尾空白后的指令，不拼接下述编辑模板、`User instruction`或输出规则。消除必须有有效框选/圈选或真实遮罩，禁止携带参考图；仅凭正文出现“消除”不会切换操作。该操作由前端与后端共同校验，归档生成参数保存`maskFillOperation`与`removalPromptVersion`，最终Prompt记录实际短词。普通提示词编辑与参考图编辑行为保持各自合同。能力目录须声明`removalPromptVersion:"2026-10-29.removal.1"`，旧服务未声明时阻断局部消除。
 
 ## 尺寸与容量，分层理解
 
@@ -17,9 +19,9 @@
 
 合法原生输出示例：1024×640为像素下限，3840×2160和2880×2880均为像素上限；4096×2160超边长，3840×3840超总像素，2048×512超比例，512×512低于总像素下限，均不合法。例子是公式校验，不代表每个尺寸已通过公司OneAPI真实调用。
 
-## 开发对接：有、无参考图两套模板
+## 开发对接：编辑模板与独立消除指令
 
-蓝色框选和自由圈选的完整模板见 [交接表](gpt-image-edit-handoff.html) 与 [可直接读取的两模板JSON](gpt-image-edit-prompts.json)，均从当前 `sunburstMaskPrompt` 导出。
+蓝色框选和自由圈选的完整模板见 [交接表](gpt-image-edit-handoff.html) 与 [可直接读取的模板JSON](gpt-image-edit-prompts.json)，均与当前 `sunburstMaskPrompt` 保持一致。下表为普通提示词编辑；局部消除使用JSON的`templates.removal`直接传指令。
 
 | maskFillMode | 图片输入 | 固定模板 |
 | --- | --- | --- |
@@ -110,7 +112,7 @@ sunburst.15沿用sunburst.10按实际是否存在透明mask分流的两条路径
 
 ## 蓝色圈选与涂抹工具
 
-GPT保留画笔/擦除和矩形框选，新增“圈选”：按住鼠标或触屏自由画轮廓，松开自动闭合。涂抹、框选、圈选分别保存历史，按当前工具提交、撤销和清空；切换恢复各自区域，更换原图全部清空。两种填充模式均支持圈选；不选区域仍可纯指令编辑。框选/圈选入口始终可见，Flux/Qwen下禁用并提示先选择GPT Image 2.5 Sunburst；白色画笔仍是涂抹遮罩。
+GPT保留画笔/擦除和矩形框选，新增“圈选”：按住鼠标或触屏自由画轮廓，松开自动闭合。涂抹、框选、圈选分别保存历史，按当前工具提交、撤销和清空；切换恢复各自区域，更换原图全部清空。两种编辑模式均支持圈选；不选区域仍可纯指令编辑。框选/圈选入口始终可见，Flux/Qwen下禁用并提示先选择GPT Image 2.5 Sunburst；白色画笔仍是涂抹遮罩。
 
 矩形合同不变：`editRegion={x,y,width,height}`。自由轮廓提交 `editRegion={type:"polygon",points:[{x,y},...]}`，坐标按方向归一后的原图归一到0–1，左上角为原点。3–2048个有限坐标点，去除连续重复及尾部重复首点后必须形成非零面积；前端长轨迹自动降采样。后端映射到实际像素后再次拒绝退化或宽高小于3px的轮廓。任何editRegion均不能与maskImage同时提交，其他模型不接收该字段。
 

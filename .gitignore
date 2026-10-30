@@ -9,6 +9,10 @@ private/
 assets/
 references/
 outputs/
+public/refined-lighting-report/
+public/refined-lighting-third-mode-report/
+public/refined-lighting-seedream-report/
+public/model-render-latency-report
 output/
 generated/
 *.png

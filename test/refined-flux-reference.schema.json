@@ -1,0 +1,651 @@
+{
+  "_source": "2026-10-28 ComfyUI object_info只读快照；仅保留实际端口/枚举，不含地址、密钥或图片",
+  "_protocol": "[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md",
+  "catalog": {
+    "UNETLoader": {
+      "input": {
+        "required": {
+          "unet_name": [
+            [
+              "DINOv2/dinov2-giant/pytorch_model.bin",
+              "DINOv2/dinov2_vitl14_reg4_pretrain.pth",
+              "FLLUX.1-Kontext-dev/ae.safetensors",
+              "FLLUX.1-Kontext-dev/flux1-kontext-dev.safetensors",
+              "FLLUX.1-Kontext-dev/text_encoder/model.safetensors",
+              "FLLUX.1-Kontext-dev/text_encoder_2/model-00001-of-00002.safetensors",
+              "FLLUX.1-Kontext-dev/text_encoder_2/model-00002-of-00002.safetensors",
+              "FLLUX.1-Kontext-dev/transformer/diffusion_pytorch_model-00001-of-00003.safetensors",
+              "FLLUX.1-Kontext-dev/transformer/diffusion_pytorch_model-00002-of-00003.safetensors",
+              "FLLUX.1-Kontext-dev/transformer/diffusion_pytorch_model-00003-of-00003.safetensors",
+              "FLLUX.1-Kontext-dev/vae/diffusion_pytorch_model.safetensors",
+              "FLUX.1-Fill-dev/ae.safetensors",
+              "FLUX.1-Fill-dev/text_encoder/model.safetensors",
+              "FLUX.1-Fill-dev/text_encoder_2/model-00001-of-00002.safetensors",
+              "FLUX.1-Fill-dev/text_encoder_2/model-00002-of-00002.safetensors",
+              "FLUX.1-Fill-dev/transformer/diffusion_pytorch_model-00001-of-00003.safetensors",
+              "FLUX.1-Fill-dev/transformer/diffusion_pytorch_model-00002-of-00003.safetensors",
+              "FLUX.1-Fill-dev/transformer/diffusion_pytorch_model-00003-of-00003.safetensors",
+              "FLUX.1-Fill-dev/vae/diffusion_pytorch_model.safetensors",
+              "Hunyuan3D-2.1/hunyuan3d-dit-v2-1/model.fp16.ckpt",
+              "Hunyuan3D-2.1/hunyuan3d-paintpbr-v2-1/image_encoder/model.safetensors",
+              "Hunyuan3D-2.1/hunyuan3d-paintpbr-v2-1/text_encoder/pytorch_model.bin",
+              "Hunyuan3D-2.1/hunyuan3d-paintpbr-v2-1/unet/diffusion_pytorch_model.bin",
+              "Hunyuan3D-2.1/hunyuan3d-paintpbr-v2-1/vae/diffusion_pytorch_model.bin",
+              "Hunyuan3D-2.1/hunyuan3d-vae-v2-1/model.fp16.ckpt",
+              "Wan2_2-Animate-14B_fp8_scaled_e4m3fn_KJ_v2.safetensors",
+              "flux-2-klein-4b-fp8.safetensors",
+              "flux-2-klein-9b-fp8.safetensors",
+              "flux-2-klein-9b-kv-fp8.safetensors",
+              "flux-2-klein-9b-nvfp4.safetensors",
+              "flux-2-klein-9b.safetensors",
+              "flux-2-klein-base-4b-fp8.safetensors",
+              "flux-2-klein-base-9b-fp8.safetensors",
+              "flux-tools/redux/flux1-redux-dev.safetensors",
+              "flux-tools/redux/image_embedder/diffusion_pytorch_model.safetensors",
+              "flux-tools/redux/image_encoder/model.safetensors",
+              "flux1-dev-fp8.safetensors",
+              "flux1-dev-kontext_fp8_scaled.safetensors",
+              "flux1-fill-dev-OneReward-fp8.safetensors",
+              "flux1-fill-dev.safetensors",
+              "flux1-kontext-dev-fp8-e4m3fn.safetensors",
+              "flux1-schnell-fp8-e4m3fn.safetensors",
+              "flux1-schnell.safetensors",
+              "flux3-image-klein-int8-convrot.safetensors",
+              "hunyuan3d-dit-v2-1/model.fp16.ckpt",
+              "hunyuan3d-dit-v2.0-fp16.safetensors",
+              "iclight_sd15_fbc.safetensors",
+              "iclight_sd15_fc.safetensors",
+              "kolors-unet.fp16.safetensors",
+              "minimax-h3/minimax_h3_fl2va_bf16.safetensors",
+              "minimax-h3/minimax_h3_fl2va_int8_convrot.safetensors",
+              "minimax-h3/minimax_h3_fl2va_pruned_fp8_scaled.safetensors",
+              "minimax-h3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+              "minimax-h3/minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
+              "minimax-h3/minimax_h3_ref2va_int8_convrot.safetensors",
+              "minimax-h3/minimax_h3_ref2va_pruned_fp8_scaled.safetensors",
+              "minimax-h3/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+              "nunchaku-flux.1-kontext-dev/svdq-fp4_r32-flux.1-kontext-dev.safetensors",
+              "nunchaku-flux.1-kontext-dev/svdq-int4_r32-flux.1-kontext-dev.safetensors",
+              "qwen_image_edit/Qwen-Image-Edit-2509_fp8_e4m3fn.safetensors",
+              "qwen_image_edit/qwen_image_edit_2511_fp8mixed.safetensors",
+              "qwen_image_edit_2511_fp8mixed.safetensors",
+              "qwen_image_fp8_e4m3fn.safetensors",
+              "svdq-fp4-flux.1-dev/transformer_blocks.safetensors",
+              "svdq-fp4-flux.1-dev/unquantized_layers.safetensors",
+              "svdq-fp4_r32-FLUX.2-klein-9B-Nunchaku.safetensors",
+              "svdq-fp4_r32-flux.1-dev.safetensors",
+              "svdq-fp4_r32-flux.1-kontext-dev.safetensors",
+              "svdq-int4-flux.1-dev/transformer_blocks.safetensors",
+              "svdq-int4-flux.1-dev/unquantized_layers.safetensors",
+              "svdq-int4-flux.1-fill-dev/transformer_blocks.safetensors",
+              "svdq-int4-flux.1-fill-dev/unquantized_layers.safetensors",
+              "wan2.1/Wan2.1-14B-T2V-FusionX-VACE-FP8_e4m3fn.safetensors",
+              "wan2.1/Wan2_1-T2V-14B_fp8_e4m3fn.safetensors",
+              "wan2.1/Wan2_1-VACE_module_14B_bf16.safetensors",
+              "wan2.2_kj/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+              "wan2.2_kj/Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+              "wan2.2_kj/Wan2_2-T2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors",
+              "wan2.2_kj/Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+              "wan2.2_kj/Wan2_2_Fun_VACE_module_A14B_HIGH_bf16.safetensors",
+              "wan2.2_kj/Wan2_2_Fun_VACE_module_A14B_LOW_bf16.safetensors",
+              "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+              "z_image_turbo_bf16.safetensors"
+            ]
+          ],
+          "weight_dtype": [
+            [
+              "default",
+              "fp8_e4m3fn",
+              "fp8_e4m3fn_fast",
+              "fp8_e5m2"
+            ],
+            {
+              "advanced": true
+            }
+          ]
+        }
+      },
+      "output": [
+        "MODEL"
+      ]
+    },
+    "CLIPLoader": {
+      "input": {
+        "required": {
+          "clip_name": [
+            [
+              "awq-int4-flux.1-t5xxl.safetensors",
+              "clip_l.safetensors",
+              "minimax-h3/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+              "minimax-h3/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+              "model.fp16.safetensors",
+              "qwen3vl_4b_int8_convrot.safetensors",
+              "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+              "qwen_3_4b.safetensors",
+              "qwen_3_8b.safetensors",
+              "qwen_3_8b_fp4mixed.safetensors",
+              "qwen_3_8b_fp8mixed.safetensors",
+              "siglip-so400m-patch14-384/model.safetensors",
+              "t5_base.safetensors",
+              "t5xxl_fp16.safetensors",
+              "t5xxl_fp8_e4m3fn.safetensors",
+              "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+              "wan2.1/umt5-xxl-enc-bf16.safetensors"
+            ]
+          ],
+          "type": [
+            [
+              "stable_diffusion",
+              "stable_cascade",
+              "sd3",
+              "stable_audio",
+              "mochi",
+              "ltxv",
+              "pixart",
+              "cosmos",
+              "lumina2",
+              "wan",
+              "hidream",
+              "chroma",
+              "ace",
+              "omnigen2",
+              "qwen_image",
+              "hunyuan_image",
+              "flux2",
+              "ovis",
+              "longcat_image",
+              "cogvideox",
+              "lens",
+              "pixeldit",
+              "ideogram4",
+              "boogu",
+              "krea2",
+              "joyimage",
+              "mage",
+              "minimax",
+              "yue2"
+            ]
+          ]
+        },
+        "optional": {
+          "device": [
+            [
+              "default",
+              "cpu"
+            ],
+            {
+              "advanced": true
+            }
+          ]
+        }
+      },
+      "output": [
+        "CLIP"
+      ]
+    },
+    "VAELoader": {
+      "input": {
+        "required": {
+          "vae_name": [
+            [
+              "ae.sft",
+              "ema_vae_fp16.safetensors",
+              "flux2-vae.safetensors",
+              "flux2-vae_d64f3a68e1cc.safetensors",
+              "full_encoder_small_decoder.safetensors",
+              "hunyuan3d-vae-v2-1/model.fp16.ckpt",
+              "hyperVAEKrea2Minimax_v20MinimaxX2Upscale.safetensors",
+              "minimax-h3/minimax_h3_audio_vae_fp32.safetensors",
+              "minimax-h3/minimax_h3_video_vae_fp16.safetensors",
+              "minimax-h3/minimax_h3_video_vae_int8_convrot.safetensors",
+              "qwen_image_vae.safetensors",
+              "sdxl.vae.safetensors",
+              "vae-ft-mse-840000-ema-pruned.safetensors",
+              "wan2.1/Wan2_1_VAE_bf16.safetensors",
+              "wan2.1/wan_2.1_vae.safetensors",
+              "taeh3.safetensors",
+              "pixel_space"
+            ]
+          ]
+        }
+      },
+      "output": [
+        "VAE"
+      ]
+    },
+    "CLIPTextEncode": {
+      "input": {
+        "required": {
+          "text": [
+            "STRING",
+            {
+              "multiline": true,
+              "dynamicPrompts": true,
+              "tooltip": "The text to be encoded."
+            }
+          ],
+          "clip": [
+            "CLIP",
+            {
+              "tooltip": "The CLIP model used for encoding the text."
+            }
+          ]
+        }
+      },
+      "output": [
+        "CONDITIONING"
+      ]
+    },
+    "ConditioningZeroOut": {
+      "input": {
+        "required": {
+          "conditioning": [
+            "CONDITIONING"
+          ]
+        }
+      },
+      "output": [
+        "CONDITIONING"
+      ]
+    },
+    "EmptyFlux2LatentImage": {
+      "input": {
+        "required": {
+          "width": [
+            "INT",
+            {
+              "default": 1024,
+              "min": 16,
+              "max": 16384,
+              "step": 16
+            }
+          ],
+          "height": [
+            "INT",
+            {
+              "default": 1024,
+              "min": 16,
+              "max": 16384,
+              "step": 16
+            }
+          ],
+          "batch_size": [
+            "INT",
+            {
+              "default": 1,
+              "min": 1,
+              "max": 4096
+            }
+          ]
+        }
+      },
+      "output": [
+        "LATENT"
+      ]
+    },
+    "Flux2Scheduler": {
+      "input": {
+        "required": {
+          "steps": [
+            "INT",
+            {
+              "default": 20,
+              "min": 1,
+              "max": 4096
+            }
+          ],
+          "width": [
+            "INT",
+            {
+              "default": 1024,
+              "min": 16,
+              "max": 16384,
+              "step": 1
+            }
+          ],
+          "height": [
+            "INT",
+            {
+              "default": 1024,
+              "min": 16,
+              "max": 16384,
+              "step": 1
+            }
+          ]
+        }
+      },
+      "output": [
+        "SIGMAS"
+      ]
+    },
+    "RandomNoise": {
+      "input": {
+        "required": {
+          "noise_seed": [
+            "INT",
+            {
+              "default": 0,
+              "min": 0,
+              "max": 18446744073709552000,
+              "control_after_generate": true
+            }
+          ]
+        }
+      },
+      "output": [
+        "NOISE"
+      ]
+    },
+    "KSamplerSelect": {
+      "input": {
+        "required": {
+          "sampler_name": [
+            "COMBO",
+            {
+              "multiselect": false,
+              "options": [
+                "euler",
+                "euler_cfg_pp",
+                "euler_ancestral",
+                "euler_ancestral_cfg_pp",
+                "heun",
+                "heunpp2",
+                "exp_heun_2_x0",
+                "exp_heun_2_x0_sde",
+                "dpm_2",
+                "dpm_2_ancestral",
+                "lms",
+                "dpm_fast",
+                "dpm_adaptive",
+                "dpmpp_2s_ancestral",
+                "dpmpp_2s_ancestral_cfg_pp",
+                "dpmpp_sde",
+                "dpmpp_sde_gpu",
+                "dpmpp_2m",
+                "dpmpp_2m_cfg_pp",
+                "dpmpp_2m_sde",
+                "dpmpp_2m_sde_gpu",
+                "dpmpp_2m_sde_heun",
+                "dpmpp_2m_sde_heun_gpu",
+                "dpmpp_3m_sde",
+                "dpmpp_3m_sde_gpu",
+                "ddpm",
+                "lcm",
+                "ipndm",
+                "ipndm_v",
+                "deis",
+                "cfgpp_ud10_ab",
+                "res_multistep",
+                "res_multistep_cfg_pp",
+                "res_multistep_ancestral",
+                "res_multistep_ancestral_cfg_pp",
+                "gradient_estimation",
+                "gradient_estimation_cfg_pp",
+                "er_sde",
+                "seeds_2",
+                "seeds_3",
+                "sa_solver",
+                "sa_solver_pece",
+                "ddim",
+                "uni_pc",
+                "uni_pc_bh2",
+                "euler_panorama"
+              ]
+            }
+          ]
+        }
+      },
+      "output": [
+        "SAMPLER"
+      ]
+    },
+    "easy loadImageBase64": {
+      "input": {
+        "required": {
+          "base64_data": [
+            "STRING",
+            {
+              "default": ""
+            }
+          ],
+          "image_output": [
+            [
+              "Hide",
+              "Preview",
+              "Save",
+              "Hide/Save"
+            ],
+            {
+              "default": "Preview"
+            }
+          ],
+          "save_prefix": [
+            "STRING",
+            {
+              "default": "ComfyUI"
+            }
+          ]
+        },
+        "optional": {},
+        "hidden": {
+          "prompt": "PROMPT",
+          "extra_pnginfo": "EXTRA_PNGINFO"
+        }
+      },
+      "output": [
+        "IMAGE",
+        "MASK"
+      ]
+    },
+    "ImageResize+": {
+      "input": {
+        "required": {
+          "image": [
+            "IMAGE"
+          ],
+          "width": [
+            "INT",
+            {
+              "default": 512,
+              "min": 0,
+              "max": 16384,
+              "step": 1
+            }
+          ],
+          "height": [
+            "INT",
+            {
+              "default": 512,
+              "min": 0,
+              "max": 16384,
+              "step": 1
+            }
+          ],
+          "interpolation": [
+            [
+              "nearest",
+              "bilinear",
+              "bicubic",
+              "area",
+              "nearest-exact",
+              "lanczos"
+            ]
+          ],
+          "method": [
+            [
+              "stretch",
+              "keep proportion",
+              "fill / crop",
+              "pad"
+            ]
+          ],
+          "condition": [
+            [
+              "always",
+              "downscale if bigger",
+              "upscale if smaller",
+              "if bigger area",
+              "if smaller area"
+            ]
+          ],
+          "multiple_of": [
+            "INT",
+            {
+              "default": 0,
+              "min": 0,
+              "max": 512,
+              "step": 1
+            }
+          ]
+        }
+      },
+      "output": [
+        "IMAGE",
+        "INT",
+        "INT"
+      ]
+    },
+    "VAEEncode": {
+      "input": {
+        "required": {
+          "pixels": [
+            "IMAGE"
+          ],
+          "vae": [
+            "VAE"
+          ]
+        }
+      },
+      "output": [
+        "LATENT"
+      ]
+    },
+    "ReferenceLatent": {
+      "input": {
+        "required": {
+          "conditioning": [
+            "CONDITIONING",
+            {}
+          ]
+        },
+        "optional": {
+          "latent": [
+            "LATENT",
+            {}
+          ]
+        }
+      },
+      "output": [
+        "CONDITIONING"
+      ]
+    },
+    "CFGGuider": {
+      "input": {
+        "required": {
+          "model": [
+            "MODEL",
+            {}
+          ],
+          "positive": [
+            "CONDITIONING",
+            {}
+          ],
+          "negative": [
+            "CONDITIONING",
+            {}
+          ],
+          "cfg": [
+            "FLOAT",
+            {
+              "default": 8,
+              "min": 0,
+              "max": 100,
+              "step": 0.1,
+              "round": 0.01
+            }
+          ]
+        }
+      },
+      "output": [
+        "GUIDER"
+      ]
+    },
+    "SamplerCustomAdvanced": {
+      "input": {
+        "required": {
+          "noise": [
+            "NOISE",
+            {}
+          ],
+          "guider": [
+            "GUIDER",
+            {}
+          ],
+          "sampler": [
+            "SAMPLER",
+            {}
+          ],
+          "sigmas": [
+            "SIGMAS",
+            {}
+          ],
+          "latent_image": [
+            "LATENT",
+            {}
+          ]
+        }
+      },
+      "output": [
+        "LATENT",
+        "LATENT"
+      ]
+    },
+    "VAEDecode": {
+      "input": {
+        "required": {
+          "samples": [
+            "LATENT",
+            {
+              "tooltip": "The latent to be decoded."
+            }
+          ],
+          "vae": [
+            "VAE",
+            {
+              "tooltip": "The VAE model used for decoding the latent."
+            }
+          ]
+        }
+      },
+      "output": [
+        "IMAGE"
+      ]
+    },
+    "SaveImage": {
+      "input": {
+        "required": {
+          "images": [
+            "IMAGE",
+            {
+              "tooltip": "The images to save."
+            }
+          ],
+          "filename_prefix": [
+            "STRING",
+            {
+              "default": "ComfyUI",
+              "tooltip": "The prefix for the file to save. This may include formatting information such as %date:yyyy-MM-dd% or %Empty Latent Image.width% to include values from nodes."
+            }
+          ]
+        },
+        "hidden": {
+          "prompt": "PROMPT",
+          "extra_pnginfo": "EXTRA_PNGINFO"
+        }
+      },
+      "output": [
+        "IMAGE"
+      ]
+    }
+  }
+}

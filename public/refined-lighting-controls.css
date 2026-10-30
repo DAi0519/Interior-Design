@@ -1,32 +1,53 @@
 /**
  * [INPUT]: 依赖白模同源panel-section/共享上传、银灰主题与Main/Beta宿主布局
- * [OUTPUT]: 对外提供常显上传/缩略图选择入口、栏内展开三列图卡、面板外渲染方式二选一和上传锁模板状态，无选中高亮框
- * [POS]: public 的精模光影布局层，折叠入口与卡片仅呈现预览图片和名称
+ * [OUTPUT]: 对外提供统一12px单行光影入口/44px缩略图、11px正常名称与图卡/渲染方式小勾、全景标题行清空/独立要求、窄栏两列和键盘焦点、失败重试及上传锁定，无选中高亮框
+ * [POS]: public 的精模/全景/光影转换共享光影视觉层，Main/Beta同源呈现
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 .refined-lighting-section + .refined-lighting-section { border-top: 1px solid var(--line, #ddd); margin-top: 18px; padding-top: 18px; }
 #refinedRenderSection { padding: 0; }
 #refinedRenderSection > .refined-lighting-section { padding: 18px 20px; }
 #refinedRenderSection > .refined-lighting-section + .refined-lighting-section { margin-top: 0; }
-.refined-lighting-picker-trigger { align-items: center; background: var(--panel-soft, #f5f5f7); border: 1px solid var(--line, #ddd); border-radius: 6px; color: var(--text, #171719); cursor: pointer; display: flex; font: inherit; gap: 10px; min-height: 38px; padding: 6px 10px; text-align: left; width: 100%; }
-.refined-lighting-picker-trigger img { aspect-ratio: 16 / 10; border-radius: 4px; object-fit: cover; width: 64px; }
-.refined-lighting-picker-trigger span { flex: 1; min-width: 0; }
+.refined-lighting-picker-trigger { align-items: center; background: var(--panel-soft, #f5f5f7); border: 1px solid var(--line, #ddd); border-radius: 6px; color: var(--text, #171719); cursor: pointer; display: flex; font: inherit; font-size: 12px; font-weight: 400; gap: 8px; line-height: 18px; min-height: 38px; padding: 6px 10px; text-align: left; width: 100%; }
+.refined-lighting-picker-trigger img { aspect-ratio: 1936 / 1090; border-radius: 4px; flex: none; object-fit: cover; width: 44px; }
+.refined-lighting-picker-trigger > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .refined-lighting-picker-trigger svg { fill: none; flex: none; height: 16px; stroke: currentColor; stroke-width: 1.5; width: 16px; }
 .refined-lighting-picker-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
-.refined-lighting-picker-trigger:focus-visible { outline: none; text-decoration: underline; text-underline-offset: 3px; }
+.refined-lighting-picker-trigger:focus-visible { outline: 2px solid var(--text, #171719); outline-offset: 2px; }
 .refined-lighting-picker-trigger:disabled { cursor: not-allowed; opacity: .45; }
 .refined-lighting-grid { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; }
-.refined-lighting-card { align-content: start; background: var(--panel-soft, #f5f5f7); border: 0; border-radius: 8px; color: var(--muted, #67676d); cursor: pointer; display: grid; font: inherit; gap: 5px; min-width: 0; padding: 4px; text-align: center; }
-.refined-lighting-card img { aspect-ratio: 16 / 10; border-radius: 5px; display: block; object-fit: cover; width: 100%; }
-.refined-lighting-card span { font-size: 11px; line-height: 16px; overflow-wrap: anywhere; }
-.refined-lighting-card[aria-pressed="true"] span { color: var(--text, #171719); font-weight: 700; }
-.refined-lighting-card:focus-visible { outline: none; text-decoration: underline; text-underline-offset: 3px; }
+.refined-lighting-card { align-content: start; background: var(--panel-soft, #f5f5f7); border: 0; border-radius: 8px; color: var(--muted, #67676d); cursor: pointer; display: grid; font: inherit; gap: 5px; min-width: 0; padding: 4px; position: relative; text-align: center; }
+.refined-lighting-card img { aspect-ratio: 1936 / 1090; border-radius: 5px; display: block; object-fit: cover; width: 100%; }
+[data-refined-lighting] img[data-preview-failed="true"] { visibility: hidden; }
+.refined-lighting-card-label { font-size: 11px; font-weight: 400; line-height: 16px; overflow-wrap: anywhere; }
+.refined-lighting-card:focus-visible { outline: 2px solid var(--text, #171719); outline-offset: 2px; }
+.refined-lighting-check { background: var(--text, #171719); border-radius: 50%; height: 16px; pointer-events: none; position: absolute; right: 8px; top: 8px; width: 16px; }
+.refined-lighting-check::before { border-bottom: 1.5px solid var(--panel, #fff); border-right: 1.5px solid var(--panel, #fff); content: ""; height: 7px; left: 6px; position: absolute; top: 3px; transform: rotate(45deg); width: 4px; }
 .refined-lighting-card:disabled { cursor: not-allowed; opacity: .45; }
 .refined-lighting-execution-field { margin-top: 16px; }
 .refined-lighting-execution-field h3 { font-size: 12px; font-weight: 600; margin: 0 0 8px; }
-.refined-lighting-executions { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.refined-lighting-execution-choice[aria-checked="true"] { color: var(--text, #171719); font-weight: 700; }
+.refined-lighting-executions { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.refined-lighting-execution-choice { align-items: center; display: flex; font-weight: 400; gap: 6px; justify-content: space-between; }
+.refined-lighting-execution-check { background: var(--text, #171719); border-radius: 50%; flex: 0 0 12px; height: 12px; position: relative; visibility: hidden; width: 12px; }
+.refined-lighting-execution-check::before { border-bottom: 1.5px solid var(--panel, #fff); border-right: 1.5px solid var(--panel, #fff); content: ""; height: 5px; left: 4px; position: absolute; top: 2px; transform: rotate(45deg); width: 3px; }
+.refined-lighting-execution-choice[aria-checked="true"] .refined-lighting-execution-check { visibility: visible; }
 .refined-lighting-execution-choice:focus-visible { outline: none; text-decoration: underline; text-underline-offset: 3px; }
 .refined-lighting-execution-choice:disabled { cursor: not-allowed; opacity: .45; }
 [data-refined-lighting] [hidden] { display: none; }
 @media (hover: hover) and (pointer: fine) { .refined-lighting-card:hover:not(:disabled) { color: var(--text, #171719); } }
+
+/* --- 全景模板内紧凑分组，光影要求独立留白 --- */
+[data-panorama-lighting] [hidden] { display: none; }
+[data-panorama-lighting] .section-heading { flex-wrap: wrap; gap: 8px; }
+[data-panorama-lighting] .section-heading-actions { margin-left: auto; }
+.panorama-lighting-clear { color: var(--muted); }
+.panorama-lighting-prompt { display: grid; gap: 8px; margin-top: 16px; }
+.panorama-lighting-prompt > span { margin: 0; }
+.panorama-lighting-prompt textarea { min-height: 96px; }
+[data-panorama-lighting] :is(.refined-lighting-card, .refined-lighting-picker-trigger, .panorama-lighting-clear):focus-visible { outline: 2px solid var(--text); outline-offset: 2px; text-decoration: none; }
+@container workspace-parameters (max-width: 280px) { .refined-lighting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px) { .refined-lighting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* --- 效果图光影转换只保留模板与独立补充要求 --- */
+#lightingTransferSection [data-lighting-preset-section] { border-top: 0; margin-top: 0; padding-top: 0; }
+.lighting-transfer-supplement, .lighting-transfer-version { margin-top: 18px; }

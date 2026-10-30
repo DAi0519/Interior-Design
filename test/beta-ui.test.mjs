@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十功能目录、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供十功能配置、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
+ * [OUTPUT]: 对外提供十功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -99,7 +99,7 @@ test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索�
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=37/);
+  assert.match(html, /beta-app\.js\?v=38/);
   assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
   assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
   assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
@@ -235,7 +235,17 @@ test("Beta效果图美化与氛围转换分别准入和传参，强度色调复�
   assert.match(source, /effectBeautification: effectBeautificationControls\.value\(\)/);
   assert.match(source, /effectBeautificationPromptVersion: state\.stylesConfig\?\.effectBeautificationPrompt\?\.version/);
   assert.match(source, /\|\| !effectReady/);
-  assert.match(source, /prompt: FEATURE_COPY\[state\.featureMode\]\.promptConfig \? "" : currentCase\.prompt/);
+  const promptExpression = source.match(/\n\s+prompt: ([^\n]+),\n/)?.[1];
+  assert.ok(promptExpression, "批次构造必须显式决定实际用户Prompt");
+  const promptFor = new Function("state", "panoramaLighting", "FEATURE_COPY", "currentCase", `return (${promptExpression});`);
+  const lighting = { requestFields: () => ({ prompt: "夜晚暖灯，减弱窗外日光" }) };
+  const currentCase = { prompt: "样本补充要求" };
+  for (const featureMode of ["effectBeautification", "effectEnhancement"]) {
+    assert.equal(promptFor({ featureMode }, lighting, BETA_FEATURE_COPY, currentCase), "");
+  }
+  assert.equal(promptFor({ featureMode: "panoramaEnhancement" }, lighting, BETA_FEATURE_COPY, currentCase), "夜晚暖灯，减弱窗外日光");
+  assert.equal(promptFor({ featureMode: "free" }, lighting, BETA_FEATURE_COPY, currentCase), "样本补充要求");
+  assert.match(source, /panoramaLighting: panoramaLightingRequestSelection\(model\.panoramaLightingSelection \|\| panoramaLighting\.requestFields\(\)\.panoramaLighting\)/);
   assert.match(configuration, /effectBeautificationControls\.restore\(/);
   assert.match(configuration, /effectBeautificationIntensity: beautification\.intensity/);
   assert.match(configuration, /effectBeautificationTone: beautification\.tone/);

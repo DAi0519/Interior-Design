@@ -1,13 +1,20 @@
 /**
- * [INPUT]: 依赖服务端脱敏精模基础目录/预设图文与上传共用迁移规则身份、原生 select 与独立 sessionStorage
- * [OUTPUT]: 对外提供基础版本独立记忆、预设图文/上传光影迁移只读目录和真实错误；迁移版本不覆盖基础记忆，无说明小字
+ * [INPUT]: 依赖服务端脱敏精模基础目录/迁移和氛围词双图各自规则身份、原生 select 与独立 sessionStorage
+ * [OUTPUT]: 对外提供基础版本独立记忆、迁移/氛围词前置只读目录和真实错误；迁移版本不覆盖基础记忆，无说明小字
  * [POS]: public 的精模固定 Prompt 配置控制器，绝不接收或展示 Prompt 正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 const STORAGE_KEY = "canvas-lab.refined-lighting-base-version";
 
-export function referenceLightingPromptCatalog(config = {}) {
+export function referenceLightingPromptCatalog(config = {}, kind = "reference") {
+  if (kind === "hybrid") {
+    const ready = config?.hybridAvailable === true && Number.isInteger(config.hybridRuleVersion)
+      && config.hybridRuleVersion > 0 && Boolean(config.hybridRuleSha256);
+    return { defaultVersion: ready ? config.hybridRuleVersion : null,
+      reason: "氛围词参考前置 Prompt 不可用，请刷新配置",
+      versions: ready ? [{ name: "氛围词参考前置", version: config.hybridRuleVersion, published: true }] : [] };
+  }
   const ready = config?.referenceAvailable === true && Number.isInteger(config.referenceRuleVersion)
     && config.referenceRuleVersion > 0 && Boolean(config.referenceRuleSha256);
   return { defaultVersion: ready ? config.referenceRuleVersion : null,
@@ -19,6 +26,7 @@ export function bindRefinedPromptVersionSelect({ availability, note, select }) {
   let selectedVersion = Number(sessionStorage.getItem(STORAGE_KEY)) || null;
   let currentConfig = { defaultVersion: null, versions: [] };
   let referenceConfig = null;
+  let referenceKind = "reference";
 
   function remember(version) {
     selectedVersion = Number(version) || null;
@@ -28,7 +36,7 @@ export function bindRefinedPromptVersionSelect({ availability, note, select }) {
 
   function render(config = currentConfig) {
     currentConfig = config;
-    const activeConfig = referenceConfig ? referenceLightingPromptCatalog(referenceConfig) : config;
+    const activeConfig = referenceConfig ? referenceLightingPromptCatalog(referenceConfig, referenceKind) : config;
     const versions = [...(activeConfig.versions || [])]
       .filter((entry) => entry.published === true)
       .sort((left, right) => right.version - left.version);
@@ -64,11 +72,11 @@ export function bindRefinedPromptVersionSelect({ availability, note, select }) {
   });
 
   return { render,
-    setReferenceConfig(config) {
+    setReferenceConfig(config, kind = "reference") {
       if (referenceConfig === null && config == null) return;
-      referenceConfig = config ?? null; render();
+      referenceConfig = config ?? null; referenceKind = kind; render();
     },
-    value: () => referenceConfig ? referenceLightingPromptCatalog(referenceConfig).defaultVersion : selectedVersion,
-    selected: () => referenceConfig ? referenceLightingPromptCatalog(referenceConfig).versions[0]
+    value: () => referenceConfig ? referenceLightingPromptCatalog(referenceConfig, referenceKind).defaultVersion : selectedVersion,
+    selected: () => referenceConfig ? referenceLightingPromptCatalog(referenceConfig, referenceKind).versions[0]
       : currentConfig.versions?.find((entry) => entry.version === selectedVersion && entry.published === true) };
 }

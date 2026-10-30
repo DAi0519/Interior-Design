@@ -88,7 +88,8 @@ export function resultMetadata(result, sync = result.sync) {
       : result.refinedLighting.mode === "reference" ? "氛围参考图" : "原始光影"
       : result.refinedRender ? describeRefinedRender(result.refinedRender) : null,
     result.refinedLighting?.mode === "preset" && result.refinedLighting.execution === "prompt-only" ? "仅提示词"
-      : result.refinedLighting?.mode === "preset" && result.refinedLighting.execution === "prompt-and-reference" ? "提示词＋参考图" : null,
+      : result.refinedLighting?.mode === "preset" && result.refinedLighting.execution === "prompt-and-reference" ? "参考图迁移"
+      : result.refinedLighting?.mode === "preset" && result.refinedLighting.execution === "prompt-with-reference" ? "氛围词＋参考图" : null,
     result.promptAgent ? `Prompt Agent v${result.promptAgent.version}` : null,
     result.promptAgent?.reused ? "提示词已复用" : null,
     result.request.referenceImageCount > 0

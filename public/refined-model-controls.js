@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖精模Prompt版本、光影预设两执行方式/上传直参控制器、公开模型能力/实时权限与上传策略
- * [OUTPUT]: 对外提供纯词预设基础Prompt/预设图文和上传专用迁移版本统一分流、共享光影/刷新、独立准入及Banana2.1默认/跨功能模型恢复
- * [POS]: public 的主工作台精模组合控制器，将光影两路径选择与默认模型策略从 app.js 分离
+ * [INPUT]: 依赖精模Prompt版本、光影预设三执行方式/上传直参控制器、公开模型能力/实时权限与上传策略
+ * [OUTPUT]: 对外提供纯词基础、专用迁移与氛围词前置版本分流、显式启用光影多选/刷新、selections光影×模式投影及双图来源查询与独立准入及Banana2.1默认/跨功能模型恢复
+ * [POS]: public 的主工作台精模组合控制器，将光影三模式选择与默认模型策略从 app.js 分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { bindRefinedPromptVersionSelect } from "./refined-prompt-version-select.js";
-import { bindRefinedLightingControls, usesRefinedLightingReferencePrompt } from "./refined-lighting-controls.js";
+import { bindRefinedLightingControls } from "./refined-lighting-controls.js";
+import { isLightingReference, refinedLightingPromptKind } from "./refined-flux-reference.js";
 
 export const DEFAULT_REFINED_MODEL_KEY = "banana21";
 
@@ -52,9 +53,10 @@ export function bindRefinedModelControls({ elements, onChange, getPolicy, showTo
   const version = bindRefinedPromptVersionSelect({ availability: elements.refinedPromptAvailability,
     note: elements.refinedPromptNote, select: elements.refinedPromptVersionSelect });
   let lightingConfig = {};
-  const syncPromptSource = () => version.setReferenceConfig(usesRefinedLightingReferencePrompt(controls.requestFields().refinedLighting) ? lightingConfig : null);
+  const syncPromptSource = () => { const kind = refinedLightingPromptKind(controls.requestFields().refinedLighting);
+    version.setReferenceConfig(kind === "base" ? null : lightingConfig, kind); };
   const controls = bindControls({ root: elements.refinedRenderSection,
-    storageKey: "canvas-lab.refined-lighting", withConfigRefresh: true,
+    storageKey: "canvas-lab.refined-lighting", withConfigRefresh: true, allowMultiplePresets: true,
     onChange() { syncPromptSource(); onChange(); }, getPolicy, showToast });
   try { if (!sessionStorage.getItem("canvas-lab.refined-lighting")) {
     const legacy = sessionStorage.getItem("canvas-lab.refined-render");
@@ -72,7 +74,9 @@ export function bindRefinedModelControls({ elements, onChange, getPolicy, showTo
     setPolicy: policy => controls.setPolicy(policy),
     promptVersion: version.value,
     requestFields: () => controls.requestFields(),
-    validation: () => !usesRefinedLightingReferencePrompt(controls.requestFields().refinedLighting) && !version.value()
+    selections: () => controls.selections?.() || [controls.requestFields().refinedLighting].filter(Boolean),
+    usesReference: () => isLightingReference(controls.requestFields().refinedLighting),
+    validation: () => refinedLightingPromptKind(controls.requestFields().refinedLighting) === "base" && !version.value()
       ? "飞书精模 Prompt 没有可用版本" : controls.validation(),
     setVisible(visible) {
       elements.refinedPromptSection.classList.toggle("hidden", !visible);

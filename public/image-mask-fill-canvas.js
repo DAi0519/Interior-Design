@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖原图解码尺寸、原生Canvas2D、指针捕获与缩放坐标/矩形/多边形规则、共享蓝色及点数上限，以及画笔/擦除/框选/圈选/清空/撤销控件
- * [OUTPUT]: 对外提供bindMaskFillCanvas、始终可见且非GPT禁用提示的蓝色矩形/自由圈选入口、归一化坐标、三份历史、触屏取消和原图等尺寸黑底白编辑区PNG
+ * [OUTPUT]: 对外提供bindMaskFillCanvas、受模型能力约束的setTool、始终可见且非GPT禁用提示的蓝色矩形/自由圈选入口、归一化坐标、三份历史、触屏取消和原图等尺寸黑底白编辑区PNG
  * [POS]: public 的区域编辑画布层，当前工具决定遮罩或矩形/多边形，切换保留各自完成状态，不重新编码或发送原图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,7 +31,7 @@ export function bindMaskFillCanvas({ preview, toolbar, getBrushSize, onChange = 
   let dirty = true;
   let nonEmpty = false;
   let maskOptional = false;
-  const emptyCopy = () => maskOptional ? "上传原图，可涂抹、框选或圈选编辑物体，也可直接填写指令" : "上传原图，在这里涂抹需要填充的区域";
+  const emptyCopy = () => maskOptional ? "上传原图，可涂抹、框选或圈选编辑物体，也可直接填写指令" : "上传原图，在这里涂抹需要编辑的区域";
   const isBoxSelection = () => tool === "box";
   const isLassoSelection = () => tool === "lasso";
   const isSelection = () => isBoxSelection() || isLassoSelection();
@@ -103,7 +103,7 @@ export function bindMaskFillCanvas({ preview, toolbar, getBrushSize, onChange = 
     clear.disabled = history.length === 0;
     canvas.classList.toggle("box-selection", isSelection());
     canvas.setAttribute("aria-label", isLassoSelection() ? "按住画笔圈选需要编辑的物体，松开自动闭合，支持鼠标和触屏"
-      : isBoxSelection() ? "拖动框选需要编辑的物体，支持鼠标和触屏" : "用画笔涂白需要填充的区域，支持鼠标和触屏");
+      : isBoxSelection() ? "拖动框选需要编辑的物体，支持鼠标和触屏" : "用画笔涂白需要编辑的区域，支持鼠标和触屏");
     toolbar.querySelector(".mask-fill-brush").hidden = isSelection();
     status.textContent = source ? `${source.width} × ${source.height} · ${isBoxSelection()
       ? "拖动框选编辑物体，生成后移除圈选标记；可不框选仅用指令"
@@ -217,15 +217,18 @@ export function bindMaskFillCanvas({ preview, toolbar, getBrushSize, onChange = 
   });
   canvas.addEventListener("pointerup", event => finish(event));
   ["pointercancel", "lostpointercapture"].forEach(name => canvas.addEventListener(name, event => finish(event, true)));
-  toolbar.querySelectorAll("[data-mask-tool]").forEach(button => button.addEventListener("click", () => {
-    if (["box", "lasso"].includes(button.dataset.maskTool) && !boxSelectionAvailable) return;
-    finish(); tool = button.dataset.maskTool; repaint(); onChange();
-  }));
+  function setTool(nextTool) {
+    if (!["brush", "erase", "box", "lasso"].includes(nextTool)
+      || ["box", "lasso"].includes(nextTool) && !boxSelectionAvailable) return;
+    finish(); tool = nextTool; repaint(); onChange();
+  }
+  toolbar.querySelectorAll("[data-mask-tool]").forEach(button => button.addEventListener("click", () => setTool(button.dataset.maskTool)));
   undo.addEventListener("click", () => { finish(); currentHistory().pop(); repaint(); onChange(); });
   clear.addEventListener("click", () => { finish(); currentHistory().length = 0; repaint(); onChange(); });
   renderControls();
 
   return {
+    setTool,
     setBoxSelectionAvailable(value) {
       boxSelectionAvailable = Boolean(value);
       if (!boxSelectionAvailable && isSelection()) { finish(); tool = "brush"; repaint(); }

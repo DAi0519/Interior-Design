@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 依赖room-renovation 的空房模式判定、工作台已归一化的功能/模型/Prompt/图片/尺寸、精模预设提示词/上传参考及旧参数兼容、效果图氛围转换时段天气、美化强度色调、全景美化与设计双模式状态
- * [OUTPUT]: 对外提供buildGenerationInput，质感增强只冻结飞书版本且不携自定义正负向词，精模纯词预设基础版本/预设图文和上传专用迁移版本统一投影，卡图服务端读取/上传图独立携带，不泄漏基础身份；省略来源兼容旧参数，旧房携独立Agent版本
+ * [INPUT]: 依赖质感增强飞书Prompt版本、room-renovation 的空房模式判定、工作台已归一化的功能/模型/Prompt/图片/尺寸、精模预设提示词/上传参考及旧参数兼容、效果图氛围转换时段天气、美化强度色调、全景美化与设计双模式状态
+ * [OUTPUT]: 光影转换仅传独立补充要求/卡片规则身份；全景独立光影模板与用户要求透传；对外提供buildGenerationInput，质感增强只冻结飞书版本且不携自定义正负向词，精模纯词基础、迁移/上传与氛围词前置版本独立投影，卡图服务端读取/上传图独立携带；旧房携独立Agent版本
  * [POS]: public 的生成输入领域映射层，隔离页面编排与服务端请求字段契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
-import { usesRefinedLightingReferencePrompt } from "./refined-lighting-controls.js";
+import { refinedLightingPromptKind } from "./refined-flux-reference.js";
 
 function compactImages(images = []) {
   return images.map(({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type }));
@@ -31,6 +31,7 @@ export function buildGenerationInput({
   ratio,
   ratioMode,
   refinedRender,
+  panoramaLighting,
   refinedLighting,
   lightingReferenceImages,
   refinedAtmospherePromptVersion,
@@ -52,11 +53,12 @@ export function buildGenerationInput({
     featureMode: featureMode === "roomRenovation" ? "emptyRoom" : featureMode,
     ...(featureMode === "roomRenovation" ? { designScenario: "room-renovation" } : {}),
     modelKey: model?.key,
-    negativePrompt: textureEnhancement ? "" : String(negativePrompt || "").trim(),
+    negativePrompt: textureEnhancement || featureMode === "lightingTransfer" ? "" : String(negativePrompt || "").trim(),
     outputFormat: "png",
-    prompt: featureMode === "refinedModel"
+    prompt: featureMode === "lightingTransfer" ? String(prompt.lightingTransfer || "").trim() : featureMode === "refinedModel"
       ? prompt.refined
-      : effectEnhancement || effectBeautificationRequest || textureEnhancement || panoramaEnhancement ? "" : prompt.free,
+      : panoramaEnhancement ? String(prompt.panorama || "").trim()
+      : effectEnhancement || effectBeautificationRequest || textureEnhancement ? "" : prompt.free,
     quality: model?.qualityOptions.length ? quality || undefined : undefined,
     ratio,
     ratioMode,
@@ -65,6 +67,8 @@ export function buildGenerationInput({
     resolution,
     ...(textureEnhancement ? { textureEnhancementPromptVersion } : {}),
     ...(effectEnhancement ? { effectTime, effectWeather } : {}),
+    ...(panoramaEnhancement ? { panoramaLighting: panoramaLighting || null } : {}),
+    ...(featureMode === "lightingTransfer" ? { refinedLighting } : {}),
     ...(featureMode === "refinedModel" ? refinedLighting !== undefined
       ? { refinedLighting: ["preset", "reference"].includes(refinedLighting?.mode) ? refinedLighting : null,
         ...(refinedLighting?.mode === "reference" ? { lightingReferenceImages: compactImages(lightingReferenceImages || []) } : {}) }
@@ -95,7 +99,7 @@ export function buildGenerationInput({
     styleCode: renderMode.styleCode || undefined,
     promptAgentModelKey,
     promptAgentVersion: whiteModel ? promptAgentVersion : undefined,
-    promptVersion: featureMode === "refinedModel" && usesRefinedLightingReferencePrompt(refinedLighting)
-      ? refinedLighting.ruleVersion : promptVersion,
+    promptVersion: featureMode === "lightingTransfer" || featureMode === "refinedModel" && refinedLightingPromptKind(refinedLighting) !== "base"
+      ? refinedLighting?.ruleVersion : promptVersion,
   };
 }

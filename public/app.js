@@ -1,25 +1,27 @@
 /**
- * [INPUT]: 依赖质感增强飞书固定Prompt版本目录、精模预设提示词/上传参考两路径版本组合控制器、GPT打光/Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
- * [OUTPUT]: 对外提供质感增强运行进程/飞书Prompt可用性门禁、版本冻结与单图入口、GPT点线面打光/逐灯两模式、遮罩填充与URL功能直达、按功能任务恢复与飞书记录、生图/遮罩填充与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设提示词/上传参考与补充要求、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型多选/单模型多张与独立飞书反馈
+ * [INPUT]: 依赖质感增强飞书固定Prompt版本目录、精模预设多模式对比/上传参考版本组合控制器、GPT打光/Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
+ * [OUTPUT]: AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js?v=2";
 import { designPromptConfiguration, designSourceValidation, platformStyleAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=2";
 import { bindDesignInputs } from "./design-inputs.js?v=2";
+import { bindPanoramaLightingControls } from "./panorama-lighting-controls.js";
+import { bindLightingTransferControls } from "./lighting-transfer-controls.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
+import { bindGenerationSizeControls } from "./generation-size-controls.js";
 import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js";
 import { bindGenerationResults } from "./generation-results.js";
 import { bindGenerationTaskController } from "./generation-task-controller.js";
 import { bindImageTools } from "./image-tools.js?v=4";
-import { buildGenerationJobRequest, generationItemsForSelection, generationLoadingCopy } from "./generation-task-request.js";
+import { buildGenerationJobRequest, generationItemsForSelection, generationLoadingCopy, panoramaItemsForSelection } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
@@ -28,7 +30,7 @@ import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedModelControls, createRefinedModelSelection } from "./refined-model-controls.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
-import { generationFeatureUnavailableReason, referenceCapability, referenceSubject, sizeControlState, sizeSummary } from "./model-capabilities.js";
+import { generationFeatureUnavailableReason, referenceCapability, referenceSubject } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
 import "./custom-select.js?v=9";
 const state = {
@@ -55,6 +57,7 @@ const refinedModelSelection = createRefinedModelSelection();
 let referenceUpload;
 let styleReferenceUpload;
 const elements = createAppElements();
+const panoramaLighting = bindPanoramaLightingControls({ root: elements.panoramaLightingSection, storage: sessionStorage, storageKey: "canvas-lab:panorama-lighting:main", reload: () => api("/api/config/refresh", { method: "POST" }), onChange: () => generationActions.refresh(), showToast });
 const effectBeautification = bindEffectBeautificationControls({
   root: elements.effectBeautificationSection,
   onChange: () => generationActions.refresh(),
@@ -74,8 +77,18 @@ const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
 });
-const refinedModel = bindRefinedModelControls({ elements, onChange: () => generationActions.refresh(),
+const refinedModel = bindRefinedModelControls({ elements, onChange: () => { if (state.catalog?.length && selectedModel() && state.featureMode === "refinedModel") { configureSizeControls({ preserveResolution: true }); updateComputedSize(); fluxNegativePrompt.render(refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode); } generationActions.refresh(); },
   getPolicy: () => state.referencePolicy, showToast });
+const lightingTransfer = bindLightingTransferControls({ root: elements.lightingTransferSection,
+  getPolicy: () => state.referencePolicy, showToast, onChange: () => {
+    if (state.featureMode === "lightingTransfer" && selectedModel()) { configureSizeControls({ preserveResolution: true }); updateComputedSize(); }
+    generationActions.refresh();
+  } });
+function activeLighting() { return state.featureMode === "lightingTransfer" ? lightingTransfer : refinedModel; }
+const generationSize = bindGenerationSizeControls({ elements, getContext: () => ({
+  featureMode: state.featureMode, refinedLighting: activeLighting().requestFields().refinedLighting,
+  model: selectedModel(), sourceImage: selectedSourceImage(), ratioMode: state.ratioMode,
+}) });
 const imageTools = bindImageTools({ api, elements, getSourceImage: () => selectedSourceImage(),
   onChange: () => generationActions.refresh(), showToast });
 const { upscale: imageUpscale, outpaint: imageOutpaint } = imageTools;
@@ -121,7 +134,7 @@ function updateReferenceRequirements() {
 }
 function selectFeatureMode(featureMode) {
   const supported = [
-    "effectEnhancement", "effectBeautification", "textureEnhancement", "emptyRoom", "roomRenovation", "free",
+    "effectEnhancement", "effectBeautification", "textureEnhancement", "lightingTransfer", "emptyRoom", "roomRenovation", "free",
     "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
@@ -150,7 +163,6 @@ function selectFeatureMode(featureMode) {
     button.classList.toggle("selected", selected);
     button.ariaChecked = String(selected);
   }
-
   for (const control of elements.generationControls) {
     control.classList.toggle("hidden", isStyleDna);
   }
@@ -163,7 +175,6 @@ function selectFeatureMode(featureMode) {
     generationActions.setBusy(false);
     return;
   }
-
   const platformStyles = platformStyleAvailability(featureMode, styleReferenceImages().length);
   whiteModelRenderMode.setDesignContext({ featureMode, platformStyles,
     reference: state.styleTransferConfig.reference, referenceCount: styleReferenceImages().length });
@@ -192,8 +203,10 @@ function selectFeatureMode(featureMode) {
   elements.whiteModelRenderModeList.setAttribute("aria-label",
     isStyleTransfer ? "风格转换目标风格" : featureMode === "roomRenovation" ? "旧房改造风格选择" : isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   refinedModel.setVisible(isRefinedModel);
+  lightingTransfer.setVisible(featureMode === "lightingTransfer");
+  panoramaLighting.setVisible(isPanoramaEnhancement);
   elements.promptSection.classList.toggle(
-    "hidden", isRefinedModel || isEffectEnhancement || isEffectBeautification || isTextureEnhancement || isPanoramaEnhancement || Boolean(imageTool),
+    "hidden", featureMode === "lightingTransfer" || isRefinedModel || isEffectEnhancement || isEffectBeautification || isTextureEnhancement || isPanoramaEnhancement || Boolean(imageTool),
   );
   elements.ratioField.classList.toggle("hidden", Boolean(imageTool));
   elements.generationCountField.classList.toggle("hidden", Boolean(imageTool));
@@ -208,6 +221,7 @@ function selectFeatureMode(featureMode) {
 }
 function renderModelSelect() {
   refinedModel.setModels(selectedModels());
+  lightingTransfer.setModels(selectedModels());
   modelMultiSelect.render(state.catalog, state.modelKeys);
   const count = state.modelKeys.length;
   elements.modelNote.textContent = !count ? "当前默认模型不可用，请检查 API 权限或手动选择。" : count === 1
@@ -219,11 +233,10 @@ function configurePrimaryModel() {
   if (selectedSourceImage()) state.ratioMode = "auto";
   const model = selectedModel();
   renderModelSelect();
-  fluxNegativePrompt.render(state.modelKeys, state.featureMode);
+  fluxNegativePrompt.render(state.featureMode === "lightingTransfer" || state.featureMode === "refinedModel" && refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode);
   generationCount.setSingleModel(state.modelKeys.length === 1);
   updateReferenceRequirements();
   configureSizeControls();
-
   if (model.qualityOptions.length > 0) {
     elements.qualityField.classList.remove("hidden");
     elements.qualityLabel.textContent = "生成质量";
@@ -250,7 +263,6 @@ function configurePrimaryModel() {
     elements.qualityField.classList.add("hidden");
     elements.qualitySelect.replaceChildren();
   }
-
   updateComputedSize();
   referenceUpload.render();
 }
@@ -258,53 +270,8 @@ function selectModels(modelKeys) {
   state.modelKeys = refinedModelSelection.chooseByUser(state.featureMode, modelKeys);
   configurePrimaryModel();
 }
-function configureSizeControls({
-  preserveResolution = false,
-  ratioMode = state.ratioMode,
-} = {}) {
-  const model = selectedModel();
-  const sourceImage = selectedSourceImage();
-  const controls = sizeControlState({
-    currentRatio: elements.ratioSelect.value,
-    currentResolution: elements.resolutionSelect.value,
-    featureMode: state.featureMode,
-    model,
-    preserveResolution,
-    ratioMode,
-    sourceImage,
-  });
-  fillSelect(elements.ratioSelect, controls.ratioOptions, controls.ratio);
-  fillSelect(
-    elements.resolutionSelect,
-    controls.resolutionOptions,
-    controls.resolution,
-  );
-  elements.ratioSelect.disabled = controls.ratioDisabled;
-  elements.resolutionSelect.disabled = controls.resolutionDisabled;
-}
-function updateComputedSize() {
-  const model = selectedModel();
-  const ratio = elements.ratioSelect.value;
-  const sourceImage = selectedSourceImage();
-  const summary = sizeSummary({
-    featureMode: state.featureMode,
-    model,
-    ratio,
-    ratioMode: state.ratioMode,
-    resolution: elements.resolutionSelect.value,
-    sourceImage,
-  });
-  if (summary.resolution !== elements.resolutionSelect.value) {
-    fillSelect(
-      elements.resolutionSelect,
-      Object.keys(model.sizes[ratio]),
-      summary.resolution,
-    );
-  }
-  elements.exactSize.textContent = summary.exactSize;
-  elements.emptyModel.textContent = model.label;
-  elements.emptySize.textContent = summary.emptySize;
-}
+function configureSizeControls(options) { generationSize.configure(options); }
+function updateComputedSize() { generationSize.renderSummary(); }
 function generationInput() {
   const renderMode = whiteModelRenderMode.current();
   return buildGenerationInput({
@@ -320,11 +287,14 @@ function generationInput() {
     prompt: {
       free: elements.promptInput.value.trim(),
       refined: elements.refinedPromptInput.value.trim(),
+      panorama: panoramaLighting.requestFields().prompt,
+      lightingTransfer: lightingTransfer.promptValue(),
     },
     promptAgentModelKey: state.promptAgentModelKey,
     promptAgentVersion: promptAgentVersionSelect.value(),
     promptVersion: refinedModel.promptVersion(),
-    ...refinedModel.requestFields(),
+    ...activeLighting().requestFields(),
+    panoramaLighting: panoramaLighting.requestFields().panoramaLighting,
     quality: elements.qualitySelect.value,
     ratio: elements.ratioSelect.value,
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
@@ -362,7 +332,6 @@ function showToast(message) {
     elements.toast.classList.add("hidden");
   }, 2400);
 }
-
 const generationResults = bindGenerationResults({ api, showToast });
 const generationTasks = bindGenerationTaskController({
   generationResults,
@@ -370,7 +339,6 @@ const generationTasks = bindGenerationTaskController({
   onBusy: (busy) => { generationActions.setBusy(busy); imageTools.setStage(generationTasks.view().stage, generationTasks.task()); },
 });
 function renderActiveGenerationTask() { generationTasks.render(); }
-
 const modelMultiSelect = bindModelMultiSelect({
   container: elements.modelSelect,
   onChange: selectModels,
@@ -380,7 +348,6 @@ const modelMultiSelect = bindModelMultiSelect({
     ? { label: `${model.label} · 不支持 2:1`, selectable: false }
     : describeFinalModelOption(model),
 });
-
 async function checkAvailableModels() {
   if (!state.connected) return;
   try {
@@ -418,7 +385,6 @@ function resetModelAvailability() {
   renderPromptAgentModels();
   renderModelSelect();
 }
-
 async function generate({ forcePromptRegeneration = false } = {}) {
   const featureMode = state.featureMode;
   const unavailableReason = generationUnavailableReason();
@@ -440,6 +406,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const effectEnhancementRequest = featureMode === "effectEnhancement";
   const effectBeautificationRequest = featureMode === "effectBeautification";
   const textureEnhancementRequest = featureMode === "textureEnhancement";
+  const lightingTransferRequest = featureMode === "lightingTransfer";
   const panoramaEnhancementRequest = featureMode === "panoramaEnhancement";
   if (effectBeautificationRequest && !state.effectBeautificationPrompt.available) {
     showToast(state.effectBeautificationPrompt.reason || "效果图美化 Prompt 不可用，请刷新飞书配置"); return;
@@ -507,11 +474,13 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       return;
     }
   }
-  if ((effectEnhancementRequest || effectBeautificationRequest || textureEnhancementRequest || panoramaEnhancementRequest)
+  if (panoramaEnhancementRequest && panoramaLighting.validation()) { showToast(panoramaLighting.validation()); return; }
+  if (panoramaEnhancementRequest && selectedSourceImage() && selectedSourceImage().width !== selectedSourceImage().height * 2) { showToast("请上传2:1等距柱状全景图"); return; }
+  if ((lightingTransferRequest || effectEnhancementRequest || effectBeautificationRequest || textureEnhancementRequest || panoramaEnhancementRequest)
     && referenceImages().length !== 1) {
     showToast(panoramaEnhancementRequest
       ? "全景图美化需要且只允许 1 张待美化全景图"
-      : `${textureEnhancementRequest ? "质感增强" : effectEnhancementRequest ? "效果图氛围转换" : "效果图美化"}需要且只允许 1 张效果图`);
+      : `${lightingTransferRequest ? "光影转换" : textureEnhancementRequest ? "质感增强" : effectEnhancementRequest ? "效果图氛围转换" : "效果图美化"}需要且只允许 1 张效果图`);
     return;
   }
   if (
@@ -543,7 +512,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     effectEnhancementRequest,
     effectBeautificationRequest,
     textureEnhancementRequest,
+    lightingTransferRequest,
     panoramaEnhancementRequest,
+    panoramaLightingSelections: panoramaLighting.getSelections(),
     forcePromptRegeneration,
     generationCount: generationCount.value(),
     models,
@@ -555,7 +526,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   });
   const generationItems = localImageRequest
     ? models
-    : generationItemsForSelection(models, generationCount.value());
+    : panoramaEnhancementRequest ? panoramaItemsForSelection(models, generationCount.value(), panoramaLighting.getSelections())
+    : generationItemsForSelection(models, generationCount.value(), refinedModelRequest ? refinedModel.selections() : null);
   const sourceImage = selectedSourceImage();
   const task = createGenerationTask({
     featureMode,
@@ -591,7 +563,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     }
     showToast(completed === generationItems.length
       ? localImageRequest
-        ? `${completed} 张图片${featureMode === "imageRelight" ? "打光" : featureMode === "imageMaskFill" ? "遮罩填充" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${["imageMaskFill", "imageRelight"].includes(featureMode) ? "，正在同步飞书" : ""}`
+        ? `${completed} 张图片${featureMode === "imageRelight" ? "打光" : featureMode === "imageMaskFill" ? "二次编辑" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${["imageMaskFill", "imageRelight"].includes(featureMode) ? "，正在同步飞书" : ""}`
         : `${completed} 张图已完成，正在分别同步飞书`
       : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
@@ -604,11 +576,12 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     if (state.featureMode === featureMode) renderActiveGenerationTask();
   }
 }
+
 function generationUnavailableReason() {
-  return generationFeatureUnavailableReason(state.featureMode, state.generationFeatureModes)
-    || (state.featureMode === "refinedModel" ? refinedModel.validation()
-      : state.featureMode === "textureEnhancement" && !effectEnhancementPromptStatus(state.textureEnhancementPrompt).ready
-        ? state.textureEnhancementPrompt.reason || "未读取到质感增强的上架 Prompt，请刷新飞书配置" : null);
+  return generationFeatureUnavailableReason(state.featureMode, state.generationFeatureModes, selectedModels())
+    || (state.featureMode === "lightingTransfer" ? lightingTransfer.validation() : state.featureMode === "refinedModel" ? refinedModel.validation()
+      : state.featureMode === "textureEnhancement" && !effectEnhancementPromptStatus(state.textureEnhancementPrompt).ready ? state.textureEnhancementPrompt.reason || "未读取到质感增强的上架 Prompt，请刷新飞书配置"
+      : state.featureMode === "panoramaEnhancement" ? panoramaLighting.validation() : null);
 }
 const generationActions = bindGenerationActions({ getUnavailableReason: generationUnavailableReason,
   getPromptIdentity: () => JSON.stringify([
@@ -668,14 +641,16 @@ async function initialize() {
     api("/api/image-upscale/config"),
     api("/api/image-outpaint/config"),
     api("/api/image-multi-angle/config"),
-    api("/api/image-mask-fill/config").catch(() => ({ available: false, reason: "遮罩填充配置读取失败，请重新启动本机工作台", modes: [] })),
+    api("/api/image-mask-fill/config").catch(() => ({ available: false, reason: "二次编辑配置读取失败，请重新启动本机工作台", modes: [] })),
     api("/api/image-relight/config").catch(() => ({ available: false, reason: "打光配置读取失败，请重新启动本机工作台" })).then(config => { imageTools.relight.configure(config); return config; }),
   ]);
   state.catalog = catalogBody.models;
   state.generationFeatureModes = catalogBody.generationFeatureModes;
+  panoramaLighting.setCapabilities(catalogBody.generationFeatureCapabilities);
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
   refinedModel.setPolicy(state.referencePolicy);
+  lightingTransfer.setPolicy(state.referencePolicy);
   imageUpscale.configure(imageUpscaleConfig);
   imageOutpaint.configure(imageOutpaintConfig);
   imageTools.multiAngle.configure(multiAngleConfig);
@@ -701,7 +676,8 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
 });
 const loadConfiguration = bindConfigRefresh({
   api,
-  onRefinedLighting: refinedModel.setLightingConfig,
+  onRefinedLighting(config) { refinedModel.setLightingConfig(config); lightingTransfer.setLightingConfig(config); panoramaLighting.configure(config); },
+  onLightingTransferPrompt(config) { lightingTransfer.setPromptConfig(config); },
   onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
   onTextureEnhancementPrompt(config) { state.textureEnhancementPrompt = config; generationActions.refresh(); },
   onEmptyRoom(config) {

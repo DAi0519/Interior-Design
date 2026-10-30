@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖sharp真实PNG、打光归档/含质感增强普通功能的飞书Schema边界、打光资产离线种子和内存CLI替身
+ * [INPUT]: 依赖sharp真实PNG、打光归档/含光影转换/质感增强普通功能的飞书Schema边界、打光资产离线种子和内存CLI替身
  * [OUTPUT]: 验证v10整体原灯/可选精修计划及飞书资产冻结、历史v1-v9原摘要与Prompt不重写、动作摘要与单双图字段附件双回读
  * [POS]: test 的 GPT 打光飞书归档合同测试，不调用真实模型、CLI 或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -53,7 +53,7 @@ function schemaFields({ relight = true } = {}) {
     { id: LARK_SYNC_CONFIG.resultFieldId, name: "结果图", type: "attachment" },
     { id: LARK_SYNC_CONFIG.styleReferenceFieldId, name: "风格参考图", type: "attachment" },
     select("Prompt融合", publicAgentModelCatalog().filter(model => model.imageInput).map(model => model.label)),
-    select("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "质感增强", "AI扩图", "多角度", ...(relight ? ["打光"] : [])]),
+    select("功能", ["自由生图", "白模渲染", "空房设计", "风格转换", "精模渲染", "效果图氛围转换", "效果图美化", "全景图美化", "质感增强", "光影转换", "AI扩图", "多角度", ...(relight ? ["打光"] : [])]),
     select("状态", ["成功", "生成失败", "同步失败"]),
     select("生图模型", [...publicModelCatalog().map(model => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS]),
     select("空间类型", EMPTY_ROOM_TYPES), select("设计方式", ["智能默认", "平台风格", "参考图风格"]), select("景别", ["特写", "标准", "远景"]),
@@ -127,7 +127,7 @@ test("逐光源两模式、实际完整 Prompt、费用和原图引导图次序�
   assert.equal(fields["功能"], "打光");
   assert.equal(fields["耗时（秒）"], 3.21);
   assert.deepEqual(JSON.parse(fields["生成参数"]).workflow.usageCost, { totalCost: 0.12 });
-  assert.equal(Object.hasOwn(fields, "遮罩填充模式"), false);
+  assert.equal(Object.hasOwn(fields, "二次编辑模式"), false);
 });
 
 test("归档拒绝来源/引导/结果字节漂移、模式参数漂移、错模型及尺寸回执", () => {

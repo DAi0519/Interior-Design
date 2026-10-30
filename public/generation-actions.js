@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成动作DOM、可选当前功能不可用原因、调用方的设计Prompt输入指纹与生成/强制重新生成回调
- * [OUTPUT]: 对外提供设计Prompt复用动作、固定START/RUNNING…文案及中文动作语义、运行态语义与可恢复配置门禁，导出generationActionState/bindGenerationActions
+ * [OUTPUT]: 对外提供设计Prompt复用动作、固定START/RUNNING…文案及二次编辑等中文动作语义、运行态语义与可恢复配置门禁，导出generationActionState/bindGenerationActions
  * [POS]: public 的生成动作状态层，负责首次单按钮与提示词可复用后的双按钮切换
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,7 +26,7 @@ export function generationActionState({
           : hasReusablePrompt ? "再次渲染" : "开始渲染"
         : featureMode === "imageMultiAngle" ? "开始多角度编辑"
         : featureMode === "imageOutpaint" ? "开始扩图"
-        : featureMode === "imageMaskFill" ? "开始遮罩填充"
+        : featureMode === "imageMaskFill" ? "开始二次编辑"
         : featureMode === "imageRelight" ? "开始打光"
           : featureMode === "imageUpscale" ? "开始超分" : "开始生成",
   };

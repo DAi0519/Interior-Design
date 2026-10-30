@@ -1,11 +1,17 @@
 /**
- * [INPUT]: 依赖浏览器解码后的主图/参考图尺寸、指针与画布边界、遮罩PNG/归一化矩形或圈选轮廓和用户填充参数
- * [OUTPUT]: 模型/遮罩/矩形/多边形准入、GPT参考模式可空指令与物品/材质用途归一化、共享蓝线与点数上限、圈选坐标归一化及互斥请求；GPT尺寸由服务端目录注入
- * [POS]: public 的遮罩填充纯规则层，由画布与功能控制器共同消费，不访问DOM或网络
+ * [INPUT]: 依赖浏览器解码后的主图/参考图尺寸、指针与画布边界、遮罩PNG/归一化矩形或圈选轮廓和用户编辑参数
+ * [OUTPUT]: 模型/遮罩/矩形/多边形准入、局部消除独立操作与版本合同、GPT参考模式可空指令与物品/材质用途归一化、共享蓝线与点数上限、圈选坐标归一化及互斥请求；GPT尺寸由服务端目录注入
+ * [POS]: public 的二次编辑纯规则层，由画布与功能控制器共同消费，不访问DOM或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export const MASK_FILL_SELECTION_COLOR = "#3b82f6";
+export const MASK_FILL_REMOVAL_PROMPT_VERSION = "2026-10-29.removal.1";
+export function normalizeMaskFillOperation(value, mode) {
+  if (value === undefined) return undefined;
+  if (value !== "remove" || mode !== "prompt") throw new TypeError("局部消除操作仅支持提示词模式");
+  return value;
+}
 export const MASK_FILL_MAX_SELECTION_POINTS = 2048;
 export const MASK_FILL_IMAGE_POLICY = Object.freeze({
   accept: ["image/png", "image/jpeg", "image/webp"],
@@ -14,8 +20,8 @@ export const MASK_FILL_IMAGE_POLICY = Object.freeze({
   maxInputEdge: 4096,
 });
 export const MASK_FILL_MODES = Object.freeze({
-  prompt: { key: "flux2MaskPrompt", label: "Flux2 遮罩提示词填充", expand: 10 },
-  reference: { key: "flux2MaskReference", label: "Flux2 遮罩参考图填充", expand: 80 },
+  prompt: { key: "flux2MaskPrompt", label: "Flux2 提示词编辑", expand: 10 },
+  reference: { key: "flux2MaskReference", label: "Flux2 参考图编辑", expand: 80 },
 });
 export const MASK_FILL_MODELS = Object.freeze([
   Object.freeze({ key: "flux2Klein", label: "Flux2 Klein 9B", provider: "comfyui" }),
@@ -24,7 +30,7 @@ export const MASK_FILL_MODELS = Object.freeze([
 ]);
 export function maskFillModel(key = "flux2Klein") {
   const model = MASK_FILL_MODELS.find(entry => entry.key === key);
-  if (!model) throw new TypeError("不支持的遮罩填充模型");
+  if (!model) throw new TypeError("不支持的二次编辑模型");
   return model;
 }
 export const DEFAULT_MASK_FILL_PROMPT = "Remove the refrigerator completely. Fill the masked region with the same plain beige wall and floor as the surrounding area. Leave no refrigerator or other object. Preserve the surrounding room.";
@@ -75,7 +81,7 @@ export function maskFillInferenceTier(value, modelKey = "flux2Klein") {
     return { key: resolution.toLowerCase(), label: resolution, maxEdge: null };
   }
   if (modelKey === "qwenImageEdit2511") {
-    if (value !== undefined && value !== "1mp") throw new TypeError("Qwen遮罩填充当前固定约1MP推理");
+    if (value !== undefined && value !== "1mp") throw new TypeError("Qwen二次编辑当前固定约1MP推理");
     return QWEN_MASK_FILL_INFERENCE_TIERS[0];
   }
   const tier = MASK_FILL_INFERENCE_TIERS.find(entry => entry.key === (value === undefined ? "2k" : value));
@@ -104,7 +110,7 @@ export const MASK_FILL_REFERENCE_PURPOSES = Object.freeze([
 ]);
 export function maskFillReferencePurpose(value, modelKey, mode) {
   if (!maskFillPromptOptional(modelKey, mode)) {
-    if (value !== undefined) throw new TypeError("参考用途仅支持GPT参考图填充模式");
+    if (value !== undefined) throw new TypeError("参考用途仅支持GPT参考图编辑模式");
     return null;
   }
   const purpose = value === undefined ? "object" : value;
@@ -183,20 +189,22 @@ export function maskFillImageIssue(image, subject = "原图") {
 
 const descriptor = ({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type });
 
-export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillReferenceImage, fillReferencePurpose, mode, prompt,
+export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillReferenceImage, fillReferencePurpose, mode, prompt, maskFillOperation,
   inferenceTier, outputResolution, quality = "medium", maskExpand, jobId, maskFillModel: modelKey = "flux2Klein" }) {
   const model = maskFillModel(modelKey);
   if (model.provider === "oneapi") outputResolution = maskFillGptResolution(outputResolution, inferenceTier);
   else inferenceTier = maskFillInferenceTier(inferenceTier, model.key).key;
   const selectedMode = maskFillMode(mode);
+  const operation = normalizeMaskFillOperation(maskFillOperation, selectedMode);
   const referencePurpose = maskFillReferencePurpose(fillReferencePurpose, model.key, selectedMode);
   const issue = maskFillImageIssue(image) || (selectedMode === "reference"
-    ? maskFillImageIssue(fillReferenceImage, "填充参考图") : "");
+    ? maskFillImageIssue(fillReferenceImage, "编辑参考图") : "");
   if (issue) throw new Error(issue);
   const region = normalizeMaskFillEditRegion(editRegion);
   const hasMask = Boolean(maskImage?.dataUrl);
   if (region && model.key !== "gptImage25Sunburst") throw new Error("当前模型不支持框选，请使用画笔涂抹编辑区域");
   if (region && hasMask) throw new Error("框选区域与遮罩不能同时提交");
+  if (operation === "remove" && !region && !hasMask) throw new Error("请先框选、圈选或涂抹需要消除的物品");
   if (!hasMask && model.key !== "gptImage25Sunburst") throw new Error("请先在原图上涂抹需要编辑的区域");
   if (prompt !== undefined && typeof prompt !== "string") throw new Error("编辑指令必须是文本");
   const instruction = (prompt ?? "").trim();
@@ -208,9 +216,10 @@ export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillRefe
     sharedInput: { referenceImages: [descriptor(image)], ...(hasMask ? { maskImage: descriptor(maskImage) } : {}),
       ...(selectedMode === "reference" ? { fillReferenceImage: descriptor(fillReferenceImage) } : {}) },
     items: [{ key: model.key === "flux2Klein" ? MASK_FILL_MODES[selectedMode].key : `${model.key}-${selectedMode}`,
-      label: model.key === "flux2Klein" ? MASK_FILL_MODES[selectedMode].label : `${model.label} · ${selectedMode === "prompt" ? "提示词填充" : "参考图填充"}`, provider: model.provider,
+      label: model.key === "flux2Klein" ? MASK_FILL_MODES[selectedMode].label : `${model.label} · ${selectedMode === "prompt" ? "提示词编辑" : "参考图编辑"}`, provider: model.provider,
       input: { ...(model.key !== "flux2Klein" ? { maskFillModel: model.key } : {}),
         maskFillMode: selectedMode, prompt: instruction, ...(model.provider === "oneapi" ? { outputResolution, quality } : { inferenceTier }),
+        ...(operation ? { maskFillOperation: operation } : {}),
         ...(referencePurpose ? { fillReferencePurpose: referencePurpose } : {}),
         ...(region ? { editRegion: region } : {}),
         ...(hasMask ? { maskExpand: Number(expand) } : {}) } }],
