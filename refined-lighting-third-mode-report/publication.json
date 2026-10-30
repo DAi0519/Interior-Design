@@ -28,8 +28,8 @@
       "sha256": "37b175b2ec36729fb2a548b9d615c2a9bedb81ee179de744f6672a36662505c1"
     },
     "refined-lighting-third-mode-report/comparison-report.html": {
-      "bytes": 28847357,
-      "sha256": "6fd62b1349226de2d4dc1cc89b509c6a6ccc03939ab28250c00c1f2aaacae373"
+      "bytes": 28847375,
+      "sha256": "459d8a6485c3b36623b80f66bf898a36bd42cea7935fa6a1515aa93d8047a70f"
     },
     "refined-lighting-third-mode-report/index.html": {
       "bytes": 28812264,
@@ -40,8 +40,8 @@
       "sha256": "36f01494be311fcada861ce71d46edad01f11fb301deaafd8d252770767221f9"
     },
     "refined-lighting-third-mode-report/report.js": {
-      "bytes": 19223,
-      "sha256": "c0d62d1717bf29990d462e9794e8e407ebb2f500d60658b7cbe8eae20b72f01e"
+      "bytes": 19241,
+      "sha256": "dd619c39a8c705ad93cbd30c8bd3d1891d4dffb753a6f84d862ec593ae62bf74"
     }
   }
 }
