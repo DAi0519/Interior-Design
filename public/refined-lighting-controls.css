@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖白模同源panel-section/共享上传、银灰主题与Main/Beta宿主布局
- * [OUTPUT]: 对外提供统一12px单行光影入口/44px缩略图、11px正常名称与图卡/渲染方式小勾、全景标题行清空/独立要求、窄栏两列和键盘焦点、失败重试及上传锁定，无选中高亮框
- * [POS]: public 的精模/全景/光影转换共享光影视觉层，Main/Beta同源呈现
+ * [OUTPUT]: 对外提供统一12px单行光影入口/44px缩略图、11px正常名称与图卡/渲染方式小勾、全景原光影首卡/标题行清空/独立要求、窄栏两列和键盘焦点、失败重试及上传锁定，无选中高亮框
+ * [POS]: public 的白模可选光影与精模/全景/光影转换共享视觉层，Main/Beta同源呈现
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 .refined-lighting-section + .refined-lighting-section { border-top: 1px solid var(--line, #ddd); margin-top: 18px; padding-top: 18px; }
@@ -41,6 +41,8 @@
 [data-panorama-lighting] .section-heading { flex-wrap: wrap; gap: 8px; }
 [data-panorama-lighting] .section-heading-actions { margin-left: auto; }
 .panorama-lighting-clear { color: var(--muted); }
+.panorama-lighting-original-preview { align-items: center; aspect-ratio: 1936 / 1090; background: var(--panel, #fcfcfd); border-radius: 5px; display: flex; justify-content: center; width: 100%; }
+.panorama-lighting-original-preview svg { fill: none; height: 32px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; width: 32px; }
 .panorama-lighting-prompt { display: grid; gap: 8px; margin-top: 16px; }
 .panorama-lighting-prompt > span { margin: 0; }
 .panorama-lighting-prompt textarea { min-height: 96px; }
@@ -49,5 +51,5 @@
 @media (max-width: 380px) { .refined-lighting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* --- 效果图光影转换只保留模板与独立补充要求 --- */
-#lightingTransferSection [data-lighting-preset-section] { border-top: 0; margin-top: 0; padding-top: 0; }
+:is(#lightingTransferSection, #whiteModelLightingSection) [data-lighting-preset-section] { border-top: 0; margin-top: 0; padding-top: 0; }
 .lighting-transfer-supplement, .lighting-transfer-version { margin-top: 18px; }

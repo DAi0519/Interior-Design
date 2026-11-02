@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖飞书光影库脱敏预设/版本化预览、共享光影卡片样式、DOM与可选轻量草稿存储
- * [OUTPUT]: 对外提供共享小勾图卡/单行数量摘要与标题行清空、全景连续多选/取消、稳定预览和键盘焦点、独立草稿/要求、逐卡版本/运行能力准入及单项请求投影
+ * [OUTPUT]: 对外提供默认原光影首卡/模板互斥复位、共享小勾图卡/单行数量摘要与标题行清空、连续多选/取消、稳定预览和键盘焦点、独立草稿/要求、逐卡准入及单项请求投影
  * [POS]: public 的Main/Beta共用全景光影输入层，与精模光影状态和双图执行方式隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -43,6 +43,20 @@ export function bindPanoramaLightingControls({ root, onChange = () => {}, storag
   const dom = root.ownerDocument || document;
   const at = name => root.querySelector(`[data-panorama-${name}]`);
   const toggle = at("toggle"), grid = at("grid"), prompt = at("prompt"), refresh = at("refresh");
+  const originalCard = dom.createElement("button"), originalPreview = dom.createElement("span");
+  originalCard.type = "button"; originalCard.className = "refined-lighting-card";
+  originalCard.setAttribute("data-panorama-original", "");
+  originalPreview.className = "panorama-lighting-original-preview";
+  originalPreview.setAttribute("aria-hidden", "true");
+  originalPreview.innerHTML = '<svg viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="3"/><circle cx="12" cy="11" r="2"/><path d="m5 23 7-8 6 6 4-4 5 6"/></svg>';
+  const originalName = dom.createElement("span"), originalCheck = dom.createElement("span");
+  originalName.className = "refined-lighting-card-label"; originalName.textContent = "保留原光影";
+  originalCheck.className = "refined-lighting-check"; originalCheck.setAttribute("aria-hidden", "true");
+  originalCard.append(originalPreview, originalName, originalCheck);
+  originalCard.addEventListener("click", () => {
+    if (busy) return;
+    selections = []; prompt.value = ""; changed(); originalCard.focus();
+  });
   let renderedPresets = null, cardViews = [];
   prompt.value = typeof restored.prompt === "string" ? restored.prompt.slice(0, 8000) : "";
   const persist = () => { if (storage && storageKey) { try {
@@ -75,7 +89,7 @@ export function bindPanoramaLightingControls({ root, onChange = () => {}, storag
     refresh.disabled = busy || !reload;
     const focusedIndex = [...grid.children].indexOf(dom.activeElement);
     if (renderedPresets !== config.presets) {
-      renderedPresets = config.presets; cardViews = []; grid.replaceChildren();
+      renderedPresets = config.presets; cardViews = []; grid.replaceChildren(originalCard);
       for (const preset of config.presets) {
         const button = dom.createElement("button");
         button.type = "button"; button.disabled = busy; button.className = "refined-lighting-card";
@@ -90,12 +104,15 @@ export function bindPanoramaLightingControls({ root, onChange = () => {}, storag
           const index = selections.findIndex(selection => selection.presetId === preset.id);
           if (index >= 0) selections.splice(index, 1);
           else selections.push(normalizePanoramaLighting({ presetId: preset.id, version: preset.version, sha256: preset.sha256 }));
-          changed(); grid.children[config.presets.indexOf(preset)]?.focus();
+          changed(); button.focus();
         });
         grid.append(button);
         cardViews.push({ button, check, preset });
       }
     }
+    const originalSelected = !selections.length && !prompt.value.trim();
+    originalCard.disabled = busy; originalCard.setAttribute("aria-pressed", String(originalSelected));
+    originalCheck.hidden = !originalSelected;
     for (const { button, check, preset } of cardViews) {
       const selected = selections.some(selection => selection.presetId === preset.id
         && selection.version === preset.version && selection.sha256 === preset.sha256);

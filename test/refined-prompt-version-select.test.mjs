@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、精模 Prompt 版本控制器与内存 DOM/sessionStorage 替身
- * [OUTPUT]: 对外提供基础版本独立记忆/目录回退、迁移及氛围词前置只读版本及不污染基础记忆、普通说明清空与真实错误显隐回归
+ * [OUTPUT]: 对外提供三方式统一命名、完整纯词版本记忆/目录回退、双图只读版本与同表维护地址、真实错误显隐回归
  * [POS]: test 的精模 Prompt 下拉状态测试，不启动浏览器或发送外部请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,11 +8,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { bindRefinedPromptVersionSelect } from "../public/refined-prompt-version-select.js";
+import { bindRefinedPromptVersionSelect, referenceLightingPromptCatalog } from "../public/refined-prompt-version-select.js";
 
 const STORAGE_KEY = "canvas-lab.refined-lighting-base-version";
 const version = (number, published = true) => ({
-  name: "精模忠实渲染",
+  name: "精模渲染 · 仅提示词",
   published,
   version: number,
 });
@@ -148,7 +148,7 @@ test("用户切换已上架版本后即时记忆且后续渲染保持选择", (t
   assert.equal(fixture.storage.get(STORAGE_KEY), "2");
   assert.deepEqual(fixture.select.children.map((entry) => entry.selected), [false, true]);
   assert.deepEqual(fixture.select.children.map((entry) => entry.textContent), [
-    "精模忠实渲染 · v3", "精模忠实渲染 · v2",
+    "精模渲染 · 仅提示词 · v3", "精模渲染 · 仅提示词 · v2",
   ]);
 });
 
@@ -159,7 +159,7 @@ test("上传使用专用光影迁移版本，基础配置刷新不覆盖或污�
   fixture.controller.setReferenceConfig(reference);
   assert.equal(fixture.controller.value(), 1);
   assert.equal(fixture.select.disabled, true);
-  assert.deepEqual(fixture.select.children.map(entry => entry.textContent), ["参考图光影迁移 · v1"]);
+  assert.deepEqual(fixture.select.children.map(entry => entry.textContent), ["精模渲染 · 参考图迁移 · v1"]);
   assert.equal(fixture.storage.get(STORAGE_KEY), "2");
   fixture.change("3");
   assert.equal(fixture.controller.value(), 1, "禁用版本事件不能切回基础Prompt");
@@ -192,17 +192,20 @@ test("上传专用Prompt缺失时明确报错，不回退基础Prompt，恢复�
 test("第三模式前置版本独立只读，切迁移/基础不污染版本且缺失不回退", t => {
   const fixture = createFixture(t, 2);
   const config = { hybridAvailable: true, hybridRuleVersion: 1, hybridRuleSha256: "h".repeat(64),
-    referenceAvailable: true, referenceRuleVersion: 4, referenceRuleSha256: "r".repeat(64) };
+    referenceAvailable: true, referenceRuleVersion: 4, referenceRuleSha256: "r".repeat(64),
+    promptTableUrl: "https://test.feishu.cn/base/prompts" };
+  assert.equal(referenceLightingPromptCatalog(config, "hybrid").tableUrl, config.promptTableUrl);
+  assert.equal(referenceLightingPromptCatalog(config).tableUrl, config.promptTableUrl);
   fixture.controller.render({ defaultVersion: 2, versions: [version(2)] });
   fixture.controller.setReferenceConfig(config, "hybrid");
   assert.equal(fixture.controller.value(), 1);
-  assert.deepEqual(fixture.select.children.map(x => x.textContent), ["氛围词参考前置 · v1"]);
+  assert.deepEqual(fixture.select.children.map(x => x.textContent), ["精模渲染 · 氛围词＋参考图 · v1"]);
   assert.equal(fixture.select.disabled, true);
   fixture.controller.setReferenceConfig(config);
   assert.equal(fixture.controller.value(), 4);
   fixture.controller.setReferenceConfig({ ...config, hybridAvailable: false }, "hybrid");
   assert.equal(fixture.controller.value(), null);
-  assert.match(fixture.note.textContent, /前置 Prompt 不可用/);
+  assert.match(fixture.note.textContent, /氛围词＋参考图 Prompt 不可用/);
   fixture.controller.setReferenceConfig(null);
   assert.equal(fixture.controller.value(), 2);
   assert.equal(fixture.storage.get(STORAGE_KEY), "2");

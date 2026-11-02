@@ -1,14 +1,14 @@
 /**
- * [INPUT]: 依赖纯词独立基础、迁移与氛围词双图专用规则/原件冻结、旧精模模块及氛围 Prompt
- * [OUTPUT]: 对外提供基础词、迁移和氛围词前置规则分路的code/版本/正文SHA冻结、历史兼容与执行前复核
- * [POS]: src 的精模Prompt来源边界，纯词读基础；迁移/上传和氛围词双图各自只读专用规则
+ * [INPUT]: 依赖同一精模Prompt表的完整纯词/参考迁移/氛围词双图资产、卡片与原件冻结、旧精模模块及氛围Prompt
+ * [OUTPUT]: 对外提供三模式完整Prompt的code/版本/正文SHA/真实表来源冻结、历史兼容与执行前复核
+ * [POS]: src 的精模Prompt统一来源边界；纯词不再拼独立公共规则，旧结果按原身份保留
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from "node:crypto";
 import { parseRefinedRenderPromptAsset } from "./refined-render-prompt-asset.mjs";
 import { resolveRefinedLightingInput, usesReferencePrompt, usesHybridPrompt } from "./refined-lighting.mjs";
-import { REFINED_LIGHTING_LIBRARY_CONFIG, REFINED_LIGHTING_REFERENCE_RULE_CODE, REFINED_LIGHTING_HYBRID_RULE_CODE } from "./refined-lighting-library.mjs";
+import { REFINED_LIGHTING_REFERENCE_RULE_CODE, REFINED_LIGHTING_HYBRID_RULE_CODE } from "./refined-lighting-library.mjs";
 import {
   DEFAULT_EFFECT_ENHANCEMENT_PROMPT_CODE,
   EFFECT_ENHANCEMENT_PROMPT_CONFIG,
@@ -90,14 +90,14 @@ export async function resolveRefinedRenderInput(input, {
       throw assetError("参考图渲染专用规则版本已变更，请刷新配置后重新提交");
     }
     const promptAsset = { ...rule, published: true };
-    const promptIdentity = assetIdentity(promptAsset, REFINED_LIGHTING_LIBRARY_CONFIG, rule.prompt);
+    const promptIdentity = assetIdentity(promptAsset, { tableId: rule.tableId || REFINED_MODEL_PROMPT_CONFIG.tableId }, rule.prompt);
     verifyIdentity(promptIdentity, input.refinedPromptSha256, "光影参考");
     return { selection, promptAsset, promptIdentity, promptDefinition: { format: "plain", main: rule.prompt },
       atmosphereAsset: null, lightingAssets: resolved };
   }
   const lighting = Object.hasOwn(input, "refinedLighting");
   if (lighting && input.promptCode !== undefined && input.promptCode !== REFINED_LIGHTING_BASE_PROMPT_CODE) {
-    throw assetError("光影渲染必须使用独立基础 Prompt，请刷新配置后重新提交");
+    throw assetError("光影渲染必须使用完整精模渲染 Prompt，请刷新配置后重新提交");
   }
   const code = lighting ? REFINED_LIGHTING_BASE_PROMPT_CODE : input.promptCode || DEFAULT_REFINED_MODEL_PROMPT_CODE;
   const promptAsset = await loadPrompt(
@@ -105,7 +105,7 @@ export async function resolveRefinedRenderInput(input, {
     { allowDraft: false, version: input.promptVersion },
   );
   if (lighting && promptAsset.code !== REFINED_LIGHTING_BASE_PROMPT_CODE) {
-    throw assetError("光影基础 Prompt 编码不匹配，请刷新配置后重新提交");
+    throw assetError("精模渲染 Prompt 编码不匹配，请刷新配置后重新提交");
   }
   const source = lighting ? promptAsset.prompt : promptAsset.renderPrompt || promptAsset.prompt;
   const promptIdentity = assetIdentity(promptAsset, REFINED_MODEL_PROMPT_CONFIG, source);
@@ -113,7 +113,7 @@ export async function resolveRefinedRenderInput(input, {
   if (promptAsset.renderPromptError) throw assetError(promptAsset.renderPromptError);
   const promptDefinition = parseRefinedRenderPromptAsset(source);
   if (lighting && promptDefinition.format !== "plain") {
-    throw assetError("光影基础 Prompt 必须是独立纯文本");
+    throw assetError("精模渲染 Prompt 必须是完整纯文本");
   }
   const atmosphereAsset = !lighting && promptDefinition.format === "plain" && requiresRefinedAtmosphere(selection)
     ? await getRefinedRenderAtmosphere({

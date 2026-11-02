@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖质感增强飞书Prompt版本、room-renovation 的空房模式判定、工作台已归一化的功能/模型/Prompt/图片/尺寸、精模预设提示词/上传参考及旧参数兼容、效果图氛围转换时段天气、美化强度色调、全景美化与设计双模式状态
- * [OUTPUT]: 光影转换仅传独立补充要求/卡片规则身份；全景独立光影模板与用户要求透传；对外提供buildGenerationInput，质感增强只冻结飞书版本且不携自定义正负向词，精模纯词基础、迁移/上传与氛围词前置版本独立投影，卡图服务端读取/上传图独立携带；旧房携独立Agent版本
+ * [OUTPUT]: 白模仅传自动null或单卡身份且跨功能剥离；光影转换/全景/精模独立光影投影；对外提供buildGenerationInput，质感固定词、旧房独立Agent版本与各功能参数隔离
  * [POS]: public 的生成输入领域映射层，隔离页面编排与服务端请求字段契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
 import { refinedLightingPromptKind } from "./refined-flux-reference.js";
+import { whiteModelLightingRequestFields } from "./white-model-lighting.js";
 
 function compactImages(images = []) {
   return images.map(({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type }));
@@ -39,6 +40,7 @@ export function buildGenerationInput({
   renderMode,
   resolution,
   styleReferenceImages,
+  whiteModelLighting,
 }) {
   const emptyRoom = isEmptyRoomDesign(featureMode);
   const renovation = featureMode === "roomRenovation";
@@ -68,6 +70,7 @@ export function buildGenerationInput({
     ...(textureEnhancement ? { textureEnhancementPromptVersion } : {}),
     ...(effectEnhancement ? { effectTime, effectWeather } : {}),
     ...(panoramaEnhancement ? { panoramaLighting: panoramaLighting || null } : {}),
+    ...whiteModelLightingRequestFields(featureMode, whiteModelLighting),
     ...(featureMode === "lightingTransfer" ? { refinedLighting } : {}),
     ...(featureMode === "refinedModel" ? refinedLighting !== undefined
       ? { refinedLighting: ["preset", "reference"].includes(refinedLighting?.mode) ? refinedLighting : null,

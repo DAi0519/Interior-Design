@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模多选投影、逐模型请求适配、真实任务准入/冻结/编译与内存任务注册表；模型和飞书均为替身
- * [OUTPUT]: 验证光影乘三模式乘模型展开、共享一次底图、逐卡提示词/图序/标签与版本隔离，以及每光影每模式限额和防重复绕过
+ * [OUTPUT]: 验证三模式完整Prompt的光影乘模型展开、纯词无分散规则/共享一次底图、双图正文SHA一致、逐卡图序/标签与版本隔离及每组合限额
  * [POS]: test 的精模多光影/多模式对比跨层合同，不调用网络或收费生成
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,14 +19,13 @@ import { executeRefinedModelWorkflow } from "../src/refined-model-workflow.mjs";
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
 const hash = text => createHash("sha256").update(text).digest("hex");
 const rule = { id: "rec-rule", code: "lighting-prompt-render", prompt: "TEXT RULE", version: 3, sha256: hash("text") };
-const referenceRule = { id: "rec-ref", code: "lighting-reference-transfer", prompt: "TRANSFER RULE", version: 4, sha256: hash("ref") };
-const hybridRule = { id: "rec-hybrid", code: "lighting-prompt-reference", prompt: "IMAGE ROLE PREFIX", version: 1, sha256: hash("hybrid") };
+const referenceRule = { id: "rec-ref", code: "lighting-reference-transfer", prompt: "TRANSFER RULE", version: 4, sha256: hash("TRANSFER RULE") };
+const hybridRule = { id: "rec-hybrid", code: "lighting-prompt-reference", prompt: "IMAGE ROLE PREFIX", version: 1, sha256: hash("IMAGE ROLE PREFIX") };
 const preset = { id: "rec-night", code: "night", name: "夜景", version: 3, prompt: "NIGHT LIGHTING", sha256: hash("night") };
 const selection = { mode: "preset", presetId: preset.id, version: preset.version, sha256: preset.sha256,
-  execution: "prompt-only", ruleVersion: rule.version, ruleSha256: rule.sha256,
+  execution: "prompt-only",
   executions: ["prompt-only", "prompt-and-reference", "prompt-with-reference"] };
-const config = { ruleVersion: rule.version, ruleSha256: rule.sha256,
-  referenceRuleVersion: referenceRule.version, referenceRuleSha256: referenceRule.sha256,
+const config = { referenceRuleVersion: referenceRule.version, referenceRuleSha256: referenceRule.sha256,
   hybridRuleVersion: hybridRule.version, hybridRuleSha256: hybridRule.sha256 };
 const selections = refinedLightingSelections(selection, config);
 const models = publicModelCatalog().filter(x => ["gptImage2", "banana21"].includes(x.key));
@@ -76,9 +75,14 @@ for (const count of [1, 2]) test(`${count}模型的三模式对比通过真实�
     assert.equal(value.images.length, execution === "prompt-only" ? 1 : 2);
     assert.equal(value.prompt, execution === "prompt-and-reference" ? "TRANSFER RULE\n\nUSER"
       : execution === "prompt-with-reference" ? "IMAGE ROLE PREFIX\n\nNIGHT LIGHTING\n\nUSER"
-      : "BASE QUALITY\n\nTEXT RULE\n\nNIGHT LIGHTING\n\nUSER");
+      : "BASE QUALITY\n\nNIGHT LIGHTING\n\nUSER");
   }
   assert.ok(archived.every(x => x.workflow.batchCount === count * 3));
+  for (const value of archived) {
+    const lighting = value.workflow.refinedLighting;
+    if (lighting.execution === "prompt-only") assert.equal(lighting.rule, undefined);
+    else assert.equal(value.workflow.promptSha256, lighting.ruleSha256);
+  }
   assert.equal(new Set(job.result.outcomes.map(x => x.item.label)).size, count * 3);
   assert.ok(job.result.outcomes.every(x => x.status === "fulfilled"));
 });
@@ -155,7 +159,7 @@ test("两光影×三方式×两模型逐卡冻结与实际编译，12项不合�
     assert.equal(entry.request.images.length, entry.execution === "prompt-only" ? 1 : 2);
     assert.equal(entry.request.prompt, entry.execution === "prompt-and-reference" ? "TRANSFER RULE\n\nUSER"
       : entry.execution === "prompt-with-reference" ? `IMAGE ROLE PREFIX\n\n${target.prompt}\n\nUSER`
-      : `BASE QUALITY\n\nTEXT RULE\n\n${target.prompt}\n\nUSER`);
+      : `BASE QUALITY\n\n${target.prompt}\n\nUSER`);
     assert.equal(entry.request.images[0].fileName, "source.png");
     if (entry.execution !== "prompt-only") assert.equal(entry.request.images[1].fileName, `${target.code}.png`);
   }

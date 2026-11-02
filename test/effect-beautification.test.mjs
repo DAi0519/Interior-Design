@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、独立六预设 Prompt 读取器、共享效果图工作流、含质感增强/光影库/旧房/全景/风格转换脱敏目录的配置聚合、飞书同步/Beta 投影与 generation-job-api
- * [OUTPUT]: 对外提供OneAPI六预设原样/Flux专属LoRA触发词和空默认负向、节点准入、版本脱敏与实际参数归档，以及旧房/空房配置刷新回归
+ * [OUTPUT]: 对外提供六预设送模/实际归档与准入、旧房/空房配置刷新、精模Prompt故障隔离及其余配置异常保留的回归保障
  * [POS]: test 的效果图美化服务端合同测试，模型与飞书只用内存替身，不生成或写入真实数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -238,4 +238,36 @@ test("配置目录与刷新共用独立读取器，刷新穿透各来源且保�
   assert.equal(calls.length, 13);
   assert.equal(calls.some((call) => call.key === "roomRenovation"), true);
   assert.equal(calls.every((call) => call.forceRefresh === true), true);
+});
+
+test("精模Prompt读取失败只清空其版本目录，日常读取和主动刷新仍提供共享卡片及其他功能", async () => {
+  const cards = { available: false, promptAvailable: false, referenceAvailable: false, hybridAvailable: false,
+    reason: "精模Prompt表不可用", presets: [{ id: "recSoft", name: "柔光", version: 5, sha256: "a".repeat(64) }] };
+  const keys = ["styles", "promptAgents", "refinedPrompt", "refinedLighting", "effectEnhancementPrompt",
+    "effectBeautificationPrompt", "textureEnhancementPrompt", "panoramaEnhancementPrompt", "smartDefault",
+    "emptyRoom", "roomRenovation", "styleTransfer", "lightingTransferPrompt", "styleDna"];
+  const readers = Object.fromEntries(keys.map(key => [key, async () => {
+    if (key === "styles" || key === "promptAgents") return [];
+    if (key === "refinedLighting") return cards;
+    return { available: true, version: 1, code: key };
+  }]));
+  for (const forceRefresh of [false, true]) {
+    const message = forceRefresh ? "精模Prompt刷新无权限" : "精模Prompt网络失败";
+    const failedPrompt = forceRefresh
+      ? async (options) => { assert.equal(options.forceRefresh, true); throw new Error(message); }
+      : (options) => { assert.equal(options.forceRefresh, false); throw new Error(message); };
+    const config = await readGenerationConfig({ forceRefresh, readers: { ...readers, refinedPrompt: failedPrompt } });
+    assert.deepEqual(config.refinedPrompt, { defaultVersion: null, versions: [], reason: message });
+    assert.deepEqual(config.refinedLighting.presets, cards.presets);
+    assert.deepEqual(config.styles, []);
+    for (const key of ["smartDefault", "emptyRoom", "panoramaEnhancementPrompt", "lightingTransferPrompt"]) {
+      assert.deepEqual(config[key], { available: true, version: 1, code: key });
+    }
+  }
+  const unrelated = new Error("风格目录真实故障");
+  await assert.rejects(readGenerationConfig({ readers: { ...readers, styles: async () => { throw unrelated; } } }),
+    error => error === unrelated);
+  const refreshError = new Error("Style DNA刷新真实故障");
+  await assert.rejects(readGenerationConfig({ forceRefresh: true,
+    readers: { ...readers, styleDna: async () => { throw refreshError; } } }), error => error === refreshError);
 });

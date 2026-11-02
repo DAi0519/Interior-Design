@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta精模光影适配器与共享控制器替身及真实来源校验
- * [OUTPUT]: 验证纯词基础版本、迁移及氛围词前置版本分流、光影乘三模式展开与单项settings、光影方式独立计数摘要、多光影显式启用、三规则身份/独立准入/基础记忆隔离和双图模型准入
+ * [OUTPUT]: 验证三方式统一命名、纯词旧规则身份清理/完整版本、双图版本分流、光影乘三模式单项settings、独立准入/纯词记忆和双图模型准入
  * [POS]: test 的 Beta 精模光影交互合同测试，不访问浏览器、飞书或付费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,8 +10,7 @@ import test from "node:test";
 import { betaRefinedLightingRunSummary, createBetaRefinedRenderConfiguration } from "../public/beta-refined-render.js";
 import { normalizeRefinedLighting, refinedLightingSelections, refinedLightingValidation } from "../public/refined-lighting-controls.js";
 
-const preset = { mode: "preset", execution: "prompt-only", presetId: "rec-light", version: 2, sha256: "a".repeat(64),
-  ruleVersion: 1, ruleSha256: "b".repeat(64) };
+const preset = { mode: "preset", execution: "prompt-only", presetId: "rec-light", version: 2, sha256: "a".repeat(64) };
 
 test("Beta计划分别展示光影与方式，三卡单方式不误报成三种模式", () => {
   const presets = ["day", "night", "film"].map(id => ({ presetId: id, version: 1, sha256: "a".repeat(64) }));
@@ -37,7 +36,7 @@ function fixture() {
       { name: "精模渲染", version: 7, published: true },
       { name: "旧版本", version: 3, published: false },
     ] },
-    refinedLighting: { available: true, promptAvailable: true, presetExecutions: ["prompt-only", "prompt-and-reference"], referenceAvailable: true, referenceRuleVersion: 3, referenceRuleSha256: "c".repeat(64), ruleVersion: 1, ruleSha256: "b".repeat(64), hybridAvailable: true, hybridRuleVersion: 1, hybridRuleSha256: "d".repeat(64),
+    refinedLighting: { available: true, promptAvailable: true, presetExecutions: ["prompt-only", "prompt-and-reference"], referenceAvailable: true, referenceRuleVersion: 3, referenceRuleSha256: "c".repeat(64), promptTableUrl: "https://test.feishu.cn/base/prompts", hybridAvailable: true, hybridRuleVersion: 1, hybridRuleSha256: "d".repeat(64),
       presets: [{ id: preset.presetId, name: "自然柔光", version: 2, sha256: preset.sha256 }] },
   } };
   const elements = { refinedRenderFields: { classList: { toggle() {} } },
@@ -100,17 +99,21 @@ test("Beta精模只投影新光影身份，Prompt切换不再借用旧氛围表"
   elements.refinedPromptSelect.value = "10";
   assert.equal(configuration.settings().promptVersion, 10);
   assert.deepEqual(configuration.settings().refinedLighting, preset);
+  const oldDraft = { ...preset, ruleVersion: 4, ruleSha256: "b".repeat(64) };
+  configuration.restore(oldDraft);
+  assert.deepEqual(configuration.snapshot(), preset);
+  assert.deepEqual(configuration.settings(oldDraft).refinedLighting, preset, "旧纯词单项入参不再携公共规则身份");
 });
 
 test("Beta氛围词双图使用独立前置版本，三路往返不污染基础选择", () => {
   const { configuration, elements, state } = fixture();
   state.stylesConfig.refinedLighting.presetExecutions.push("prompt-with-reference");
   configuration.render();
-  const hybrid = { ...preset, execution: "prompt-with-reference", ruleSha256: "d".repeat(64) };
+  const hybrid = { ...preset, execution: "prompt-with-reference", ruleVersion: 1, ruleSha256: "d".repeat(64) };
   configuration.restore(hybrid); configuration.render();
   assert.equal(elements.refinedPromptSelect.disabled, true);
   assert.equal(configuration.settings().promptVersion, 1);
-  assert.deepEqual(elements.refinedPromptSelect.options, [{ label: "氛围词参考前置 · v1", value: 1 }]);
+  assert.deepEqual(elements.refinedPromptSelect.options, [{ label: "精模渲染 · 氛围词＋参考图 · v1", value: 1 }]);
   assert.deepEqual(configuration.settings().refinedLighting, hybrid);
   configuration.restore({ ...preset, execution: "prompt-and-reference", ruleVersion: 3, ruleSha256: "c".repeat(64) });
   assert.equal(configuration.settings().promptVersion, 3);
@@ -185,7 +188,7 @@ test("Beta上传专用光影迁移Prompt只读且不依赖基础，清除上传�
   configuration.render();
   const reference = { mode: "reference", ruleVersion: 3, ruleSha256: "c".repeat(64) };
   configuration.restore(reference); setImages([{ name: "mood.png", dataUrl: "data:image/png;base64,AA==" }]);
-  assert.deepEqual(elements.refinedPromptSelect.options, [{ label: "参考图光影迁移 · v3", value: 3 }]);
+  assert.deepEqual(elements.refinedPromptSelect.options, [{ label: "精模渲染 · 参考图迁移 · v3", value: 3 }]);
   assert.equal(elements.refinedPromptSelect.disabled, true);
   assert.equal(configuration.settings().promptVersion, 3);
   assert.equal(configuration.basePromptVersion(), "7");
@@ -249,7 +252,7 @@ test("Beta预设图文与上传共用迁移版本，缺基础Prompt仍可用且�
   const paired = { ...preset, execution: "prompt-and-reference", ruleVersion: 3, ruleSha256: "c".repeat(64) };
   configuration.restore(paired);
   assert.equal(elements.refinedPromptSelect.disabled, true);
-  assert.deepEqual(elements.refinedPromptSelect.options, [{ label: "参考图光影迁移 · v3", value: 3 }]);
+  assert.deepEqual(elements.refinedPromptSelect.options, [{ label: "精模渲染 · 参考图迁移 · v3", value: 3 }]);
   assert.equal(configuration.settings().promptVersion, 3);
   assert.equal(configuration.basePromptVersion(), "7");
   state.stylesConfig.refinedPrompt = { available: false, versions: [] };

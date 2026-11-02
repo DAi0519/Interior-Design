@@ -1,25 +1,30 @@
 /**
- * [INPUT]: 依赖服务端脱敏精模基础目录/迁移和氛围词双图各自规则身份、原生 select 与独立 sessionStorage
- * [OUTPUT]: 对外提供基础版本独立记忆、迁移/氛围词前置只读目录和真实错误；迁移版本不覆盖基础记忆，无说明小字
+ * [INPUT]: 依赖服务端同表三类精模完整Prompt目录/双图身份与维护地址、原生 select 和兼容 sessionStorage
+ * [OUTPUT]: 对外提供三方式统一名称、纯词版本独立记忆/下架回退、双图只读目录和真实错误，不接收Prompt正文
  * [POS]: public 的精模固定 Prompt 配置控制器，绝不接收或展示 Prompt 正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 const STORAGE_KEY = "canvas-lab.refined-lighting-base-version";
+export const REFINED_RENDER_PROMPT_NAMES = Object.freeze({
+  base: "精模渲染 · 仅提示词",
+  reference: "精模渲染 · 参考图迁移",
+  hybrid: "精模渲染 · 氛围词＋参考图",
+});
 
 export function referenceLightingPromptCatalog(config = {}, kind = "reference") {
   if (kind === "hybrid") {
     const ready = config?.hybridAvailable === true && Number.isInteger(config.hybridRuleVersion)
       && config.hybridRuleVersion > 0 && Boolean(config.hybridRuleSha256);
-    return { defaultVersion: ready ? config.hybridRuleVersion : null,
-      reason: "氛围词参考前置 Prompt 不可用，请刷新配置",
-      versions: ready ? [{ name: "氛围词参考前置", version: config.hybridRuleVersion, published: true }] : [] };
+    return { defaultVersion: ready ? config.hybridRuleVersion : null, tableUrl: config.promptTableUrl,
+      reason: `${REFINED_RENDER_PROMPT_NAMES.hybrid} Prompt 不可用，请刷新配置`,
+      versions: ready ? [{ name: REFINED_RENDER_PROMPT_NAMES.hybrid, version: config.hybridRuleVersion, published: true }] : [] };
   }
   const ready = config?.referenceAvailable === true && Number.isInteger(config.referenceRuleVersion)
     && config.referenceRuleVersion > 0 && Boolean(config.referenceRuleSha256);
-  return { defaultVersion: ready ? config.referenceRuleVersion : null,
-    reason: config?.referenceReason || "参考图光影迁移 Prompt 不可用，请刷新配置",
-    versions: ready ? [{ name: "参考图光影迁移", version: config.referenceRuleVersion, published: true }] : [] };
+  return { defaultVersion: ready ? config.referenceRuleVersion : null, tableUrl: config.promptTableUrl,
+    reason: config?.referenceReason || `${REFINED_RENDER_PROMPT_NAMES.reference} Prompt 不可用，请刷新配置`,
+    versions: ready ? [{ name: REFINED_RENDER_PROMPT_NAMES.reference, version: config.referenceRuleVersion, published: true }] : [] };
 }
 
 export function bindRefinedPromptVersionSelect({ availability, note, select }) {
@@ -52,7 +57,7 @@ export function bindRefinedPromptVersionSelect({ availability, note, select }) {
         const option = document.createElement("option");
         option.value = String(entry.version);
         option.selected = entry.version === activeVersion;
-        option.textContent = `${entry.name} · v${entry.version}`;
+        option.textContent = `${referenceConfig ? entry.name : REFINED_RENDER_PROMPT_NAMES.base} · v${entry.version}`;
         return option;
       }),
     );

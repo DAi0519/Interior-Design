@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、临时文件与 sharp，注入飞书光影库记录及附件替身
- * [OUTPUT]: 对外提供光影库上架/重复/分页/正文脱敏、光影多选/三模式及三规则独立能力和原图完整字节/轻量预览身份的离线合同测试
+ * [INPUT]: 依赖 node:test/assert、临时文件与 sharp，注入光影卡片、独立精模Prompt及附件替身
+ * [OUTPUT]: 对外提供卡片与控制Prompt分表/故障隔离、三模式目录脱敏、分页与原件/轻量预览身份的离线合同测试
  * [POS]: test 的光影资产边界验证，与预设单双图编译及浏览器测试分工，无真实飞书或生图调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,66 +10,117 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import sharp from "sharp";
 import { loadRefinedLightingAssets, loadRefinedLightingReference, parseRefinedLightingLibrary,
-  publicRefinedLightingLibrary, readRefinedLightingPreview } from "../src/refined-lighting-library.mjs";
+  publicRefinedLightingLibrary, readRefinedLightingPreview, loadRefinedRenderAssets } from "../src/refined-lighting-library.mjs";
 
 const fields = ["名称", "编码", "类型", "分类", "说明", "氛围参考图", "光影提示词", "版本", "上架状态", "排序"];
 const rule = ["参考规则", "lighting-prompt-render", ["参考规则"], ["规则"], "规则说明", [], "PRIVATE RULE", 1, ["上架"], 0];
 const preset = ["自然柔光", "natural-soft", ["光影预设"], ["自然光"], "柔和漫射", [{file_token:"file-token",name:"soft.png",size:100}], "PRIVATE PRESET", 1, ["上架"], 1];
 const envelope = (rows = [rule, preset]) => ({ ok: true, data: { fields, data: structuredClone(rows),
   record_id_list: rows.map((_, i) => `rec${i + 1}`), has_more: false } });
+const promptAsset = (code, version) => ({ code, version, prompt: "PRIVATE CONTROL", published: true,
+  sha256: "a".repeat(64), source: `feishu:prompts:${code}@v${version}`, tableId: "prompts" });
+const promptAssets = {
+  purePrompt: promptAsset("refined-lighting-base", 5),
+  referenceRule: promptAsset("lighting-reference-transfer", 7),
+  hybridRule: promptAsset("lighting-prompt-reference", 4),
+  promptTableUrl: "https://example.test/base/prompts",
+};
+const noPrompts = { purePrompt: null, referenceRule: null, hybridRule: null, promptTableUrl: promptAssets.promptTableUrl };
+const loadPrompts = async () => structuredClone(promptAssets);
 
-test("光影库只解析上架资产，正文/图片变化改变摘要，缺图与重复版本阻断", async () => {
+test("光影库只解析上架卡片且忽略旧控制规则，正文/图片变化改变摘要，缺图与重复版本阻断", async () => {
   const draft = [...preset]; draft[8] = ["下架"]; draft[5] = [];
-  const entries = parseRefinedLightingLibrary(envelope([rule, preset, draft]));
-  assert.equal(entries.length, 2);
+  const unknownRule = structuredClone(rule); unknownRule[1] = "unknown-old-rule"; unknownRule[6] = "";
+  const entries = parseRefinedLightingLibrary(envelope([rule, unknownRule, preset, draft]));
+  assert.equal(entries.length, 1);
   const changed = [...preset]; changed[6] = "changed";
-  assert.notEqual(entries[1].sha256, parseRefinedLightingLibrary(envelope([changed]))[0].sha256);
+  assert.notEqual(entries[0].sha256, parseRefinedLightingLibrary(envelope([changed]))[0].sha256);
+  const changedImage = structuredClone(preset); changedImage[5][0].file_token = "replacement";
+  assert.notEqual(entries[0].sha256, parseRefinedLightingLibrary(envelope([changedImage]))[0].sha256);
   const bad = [...preset]; bad[5] = [];
   assert.throws(() => parseRefinedLightingLibrary(envelope([bad])), /需要一张/);
   await assert.rejects(loadRefinedLightingAssets({ run: async () => envelope([rule, preset, preset]) }), /重复上架版本/);
 });
 
-test("公开光影目录不含正文和附件token，保留版本摘要和同源预览；错误仅禁用光影模式", async () => {
-  const config = await publicRefinedLightingLibrary({ run: async () => envelope() });
+test("共享卡片读取不调用精模Prompt，组合读取分别传递库和Prompt配置", async () => {
+  const run = async (_config, args) => {
+    const filter = JSON.parse(args[args.indexOf("--filter-json") + 1]);
+    assert.ok(filter.conditions.some(condition => condition[0] === "类型" && condition[2][0] === "光影预设"));
+    return envelope();
+  };
+  const library = await loadRefinedLightingAssets({ run,
+    loadPrompts: () => assert.fail("共享卡片不读取精模Prompt") });
+  assert.deepEqual(Object.keys(library).sort(), ["presets", "tableUrl"]);
+  assert.equal(library.presets.length, 1);
+  let promptQueries = 0;
+  const combined = await loadRefinedRenderAssets({ run, forceRefresh: true,
+    config: { baseToken: "cards", tableId: "cards-table" }, promptOptions: { marker: "prompt-only" },
+    loadPrompts: async options => {
+      promptQueries += 1;
+      assert.deepEqual(options, { marker: "prompt-only", forceRefresh: true });
+      return structuredClone(promptAssets);
+    } });
+  assert.equal(promptQueries, 1);
+  assert.equal(combined.presets.length, 1);
+  assert.equal(combined.purePrompt.version, 5);
+  assert.equal(combined.referenceRule.tableId, "prompts");
+  assert.equal(combined.rule, undefined);
+  assert.match(combined.tableUrl, /base\/cards\?table=cards-table$/);
+  assert.equal(combined.promptTableUrl, promptAssets.promptTableUrl);
+});
+
+test("公开目录以精模表三模式决定能力，纯词不再公开独立rule身份且正文附件脱敏", async () => {
+  const config = await publicRefinedLightingLibrary({ run: async () => envelope(), loadPrompts });
   assert.equal(config.available, true);
   assert.equal(config.promptAvailable, true);
   assert.equal(config.multiplePresetSelections, true);
-  assert.equal(config.referenceAvailable, false);
-  assert.deepEqual(config.presetExecutions, ["prompt-only"], "氛围词双图需要独立前置规则");
+  assert.equal(config.referenceAvailable, true);
+  assert.equal(config.hybridAvailable, true);
+  assert.deepEqual(config.presetExecutions, ["prompt-only", "prompt-and-reference", "prompt-with-reference"]);
+  assert.equal(config.ruleVersion, null);
+  assert.equal(config.ruleSha256, null);
+  assert.equal(config.referenceRuleVersion, 7);
+  assert.equal(config.hybridRuleVersion, 4);
+  assert.equal(config.referenceRuleSha256, promptAssets.referenceRule.sha256);
+  assert.equal(config.hybridRuleSha256, promptAssets.hybridRule.sha256);
+  assert.equal(config.promptTableUrl, promptAssets.promptTableUrl);
   assert.equal(config.presets[0].name, "自然柔光");
   assert.match(config.presets[0].previewUrl, /^\/api\/refined-lighting\/preview\?.*&sha256=[a-f0-9]{64}$/);
   assert.doesNotMatch(JSON.stringify(config), /PRIVATE|file-token|fileToken|"prompt"/);
-  const missing = await publicRefinedLightingLibrary({ run: async () => envelope([preset]) });
-  assert.equal(missing.referenceAvailable, false);
+  for (const [key, execution] of [["purePrompt", "prompt-only"], ["referenceRule", "prompt-and-reference"], ["hybridRule", "prompt-with-reference"]]) {
+    const one = await publicRefinedLightingLibrary({ run: async () => envelope([preset]),
+      loadPrompts: async () => ({ ...noPrompts, [key]: promptAssets[key] }) });
+    assert.deepEqual(one.presetExecutions, [execution]);
+    assert.equal(one.presets.length, 1);
+  }
+});
+
+test("精模Prompt缺失或读取失败仍保留共享卡片，旧库规则不能充当回退", async () => {
+  const missing = await publicRefinedLightingLibrary({ run: async () => envelope(), loadPrompts: async () => noPrompts });
+  assert.equal(missing.available, false);
   assert.equal(missing.promptAvailable, false);
-  const oldRule = structuredClone(rule); oldRule[1] = "lighting-reference-transfer";
-  const legacy = await publicRefinedLightingLibrary({ run: async () => envelope([oldRule, preset]) });
-  assert.equal(legacy.available, true);
-  assert.equal(legacy.promptAvailable, false);
-  assert.deepEqual(legacy.presetExecutions, ["prompt-and-reference"]);
-  assert.equal(legacy.referenceAvailable, true);
-  assert.equal(legacy.ruleVersion, null);
-  assert.equal(legacy.referenceRuleVersion, 1);
-  const both = await publicRefinedLightingLibrary({ run: async () => envelope([rule, oldRule, preset]) });
-  assert.equal(both.promptAvailable, true);
-  assert.equal(both.referenceAvailable, true);
-  assert.deepEqual(both.presetExecutions, ["prompt-only", "prompt-and-reference"]);
-  assert.match(both.referenceRuleSha256, /^[a-f0-9]{64}$/);
-  const hybridRule = structuredClone(rule); hybridRule[1] = "lighting-prompt-reference";
-  const hybrid = await publicRefinedLightingLibrary({ run: async () => envelope([hybridRule, preset]) });
-  assert.equal(hybrid.hybridAvailable, true);
-  assert.equal(hybrid.hybridRuleVersion, 1);
-  assert.match(hybrid.hybridRuleSha256, /^[a-f0-9]{64}$/);
-  assert.deepEqual(hybrid.presetExecutions, ["prompt-with-reference"]);
-  const all = await publicRefinedLightingLibrary({ run: async () => envelope([rule, oldRule, hybridRule, preset]) });
-  assert.deepEqual(all.presetExecutions, ["prompt-only", "prompt-and-reference", "prompt-with-reference"]);
-  const unknown = structuredClone(rule); unknown[1] = "unknown-rule";
-  const invalid = await publicRefinedLightingLibrary({ run: async () => envelope([rule, unknown, preset]) });
-  assert.equal(invalid.available, false);
-  assert.match(invalid.reason, /未知规则编码/);
-  const unavailable = await publicRefinedLightingLibrary({ run: async () => { throw new Error("光影表不可用"); } });
+  assert.deepEqual(missing.presetExecutions, []);
+  assert.equal(missing.presets.length, 1);
+  assert.match(missing.reason, /精模渲染 Prompt 表/);
+  const isolated = await publicRefinedLightingLibrary({ run: async () => envelope(),
+    loadPrompts: async () => { throw new Error("精模Prompt无权限"); } });
+  assert.equal(isolated.available, false);
+  assert.equal(isolated.referenceAvailable, false);
+  assert.equal(isolated.hybridAvailable, false);
+  assert.equal(isolated.presets.length, 1);
+  assert.match(isolated.reason, /精模Prompt无权限/);
+  const syncFailure = await loadRefinedRenderAssets({ run: async () => envelope(),
+    promptOptions: { config: { tableUrl: "https://example.test/unavailable-prompts" } },
+    loadPrompts: () => { throw new Error("Prompt配置错误"); } });
+  assert.equal(syncFailure.presets.length, 1);
+  assert.equal(syncFailure.purePrompt, null);
+  assert.equal(syncFailure.promptTableUrl, "https://example.test/unavailable-prompts");
+  assert.match(syncFailure.promptReason, /Prompt配置错误/);
+  const unavailable = await publicRefinedLightingLibrary({ loadPrompts,
+    run: async () => { throw new Error("光影表不可用"); } });
   assert.equal(unavailable.available, false);
   assert.deepEqual(unavailable.presetExecutions, []);
+  assert.deepEqual(unavailable.presets, []);
   assert.match(unavailable.reason, /光影表不可用/);
 });
 
@@ -85,7 +136,7 @@ test("光影库分页不悄悄丢弃第201条，并只公开同编码最新上�
     const offset = args[args.indexOf("--offset")+1]; offsets.push(offset);
     return offset === "0" ? first : second;
   };
-  const result = await publicRefinedLightingLibrary({ run });
+  const result = await publicRefinedLightingLibrary({ run, loadPrompts });
   assert.deepEqual(offsets,["0","200"]);
   assert.equal(result.presets.length,199);
   assert.equal(result.presets.find(item => item.code === "preset-0").version,2);

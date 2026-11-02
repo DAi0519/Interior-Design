@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖GPT打光及独立飞书Prompt准备服务、光影转换双图/独立Prompt、R5_4全景专用客户端、独立质感增强Prompt读取与共享工作流、模型/批次契约、OneAPI客户端和注入目录/同步调度
- * [OUTPUT]: 对外提供打光服务器Prompt快照准备和执行透传、按显式功能冻结输入的统一生成路由及执行前权限/Schema门禁
+ * [INPUT]: 依赖白模纯词光影功能守卫、GPT打光及独立飞书Prompt准备服务、光影转换双图/独立Prompt、R5_4全景专用客户端、独立质感增强Prompt读取与共享工作流、模型/批次契约、OneAPI客户端和注入目录/同步调度
+ * [OUTPUT]: 对外提供打光服务器Prompt快照准备和执行透传、按显式功能冻结输入的统一生成路由、白模光影跨入口校验及执行前权限/Schema门禁
  * [POS]: src 的日常生图应用服务，从 HTTP 入口拆出 Provider 与工作流编排
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,7 @@ import { createOneApiClient } from "./oneapi-client.mjs";
 import { executeRefinedModelWorkflow } from "./refined-model-workflow.mjs";
 import { executeLightingTransferWorkflow } from "./lighting-transfer-workflow.mjs";
 import { executeWhiteModelWorkflow } from "./white-model-workflow.mjs";
+import { assertWhiteModelLightingFeature } from "./white-model-lighting.mjs";
 
 export function createGenerationService({
   getSessionModelCatalog,
@@ -51,6 +52,7 @@ export function createGenerationService({
   archiveImageUpscale = false,
 }) {
   async function executeFree(input) {
+    assertWhiteModelLightingFeature(input, "free");
     const generation = createGenerationRequest({ ...input, featureMode: "free" }, {
       preferSourceAspect: input.ratioMode === "auto",
     });
@@ -105,6 +107,7 @@ export function createGenerationService({
   }
 
   async function executeRefined(input) {
+    assertWhiteModelLightingFeature(input, "refinedModel");
     const oneApiClient = imageProviderForModel(input.modelKey) === "oneapi"
       ? createOneApiClient(requireApiKey())
       : null;
@@ -115,6 +118,7 @@ export function createGenerationService({
   }
 
   async function executeLightingTransfer(input) {
+    assertWhiteModelLightingFeature(input, "lightingTransfer");
     return executeLightingTransferWorkflow(input, {
       imageClient: imageClientForModel(input.modelKey),
       ...(getLightingTransferPrompt ? { loadPrompt: getLightingTransferPrompt } : {}),
@@ -125,6 +129,7 @@ export function createGenerationService({
   }
 
   async function executeEffectEnhancement(input, options = {}) {
+    assertWhiteModelLightingFeature(input, "effectEnhancement");
     const oneApiClient = imageProviderForModel(input.modelKey) === "oneapi"
       ? createOneApiClient(requireApiKey())
       : null;
@@ -140,6 +145,7 @@ export function createGenerationService({
   }
 
   async function executeDesign(input) {
+    assertWhiteModelLightingFeature(input);
     const client = createOneApiClient(requireApiKey());
     const imageClient = imageClientForModel(input.modelKey, {
       oneApiClient: client,
@@ -157,6 +163,7 @@ export function createGenerationService({
 
   // -------- Beta 使用独立归档投影；日常超分沿用本机结果 --------
   async function executeUpscale(input, options = {}) {
+    assertWhiteModelLightingFeature(input, "imageUpscale");
     const result = await executeImageUpscale(input, { imageClient: imageUpscaleClient, onProgress: options.onProgress });
     if (!archiveImageUpscale) return result;
     const workflow = imageUpscaleWorkflow(input.upscaleWorkflowKey);
@@ -170,6 +177,7 @@ export function createGenerationService({
 
   function executeForMode(featureMode, requestInput, options = {}) {
     const input = { ...requestInput, featureMode };
+    assertWhiteModelLightingFeature(input, featureMode);
     if (featureMode === "imageRelight") {
       const imageClient = imageClientForModel(RELIGHT_MODEL_KEY);
       return executeImageRelight(input, { imageClient, onProgress: options.onProgress,

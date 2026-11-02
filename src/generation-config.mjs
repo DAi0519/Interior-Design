@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖独立光影转换/质感增强Prompt目录、精模光影基础/氛围库、风格目录、白模/空房/旧房/风格转换/Style DNA Agent及各功能Prompt
- * [OUTPUT]: 对外提供日常生图与 Beta 共用的配置快照及统一主动刷新，保留独立 Prompt 来源和正文边界
+ * [INPUT]: 依赖独立光影转换/质感增强Prompt目录、精模完整Prompt/共享卡片库、风格目录、白模/空房/旧房/风格转换/Style DNA Agent及各功能Prompt
+ * [OUTPUT]: 对外提供生图/Beta共用配置与主动刷新，仅将精模Prompt读取失败降级为空版本目录，保留其他功能与异常边界
  * [POS]: src 的生图配置聚合边界，由 server 的 /api/styles 与 /api/config/refresh 共用，避免目录和刷新合同分叉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -51,7 +51,13 @@ export async function readGenerationConfig({
     "effectBeautificationPrompt", "textureEnhancementPrompt", "panoramaEnhancementPrompt", "smartDefault", "emptyRoom", "roomRenovation", "styleTransfer",
     ...(typeof readers.lightingTransferPrompt === "function" ? ["lightingTransferPrompt"] : [])];
   const values = await Promise.all([
-    ...keys.map((key) => readers[key]({ forceRefresh })),
+    ...keys.map(async (key) => {
+      try { return await readers[key]({ forceRefresh }); }
+      catch (error) {
+        if (key !== "refinedPrompt") throw error;
+        return { defaultVersion: null, versions: [], reason: String(error?.message || error || "精模渲染 Prompt 不可用") };
+      }
+    }),
     ...(forceRefresh ? [readers.styleDna({ forceRefresh })] : []),
   ]);
   const config = Object.fromEntries(keys.map((key, index) => [key, values[index]]));

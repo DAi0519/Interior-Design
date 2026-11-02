@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+white-model-lighting.mjs: 白模可选纯词光影规范化、卡片版本SHA入队/执行复核、Agent输入优先级与脱敏归档身份，自动不读库，不加载精模规则或卡片原图
 lighting-transfer-prompt.mjs: 独立飞书光影转换Prompt表tblOQOF7m7eKMIAA的上架版本/正文SHA与脱敏目录，缺失下架阻断，不改精模迁移规则
 lighting-transfer-workflow.mjs: 已有效果图与库卡片原图固定双图迁移，独立保护设计材质机位Prompt/版本冻结及原件SHA和图序归档
 beta-panorama-archive-contract.mjs: Beta全景纯词光影/原图SHA/卡片与Prompt版本冻结，R5_4实际原尺寸及产物SHA强核验和旧美化恢复边界
@@ -10,10 +11,10 @@ panorama-client.mjs: 全景专用ComfyUI适配器，真实2:1与23类节点/模�
 panorama-lighting.mjs: 纯词全景光影合同/卡片版本SHA冻结，保护结构材质且允许按目标改光照，无第二张参考图或精模规则
 texture-enhancement-prompt.mjs: 独立飞书质感增强Prompt表/上架版本唯一读取器，默认tblQJtk95Sr5IueL；最新或指定版本/正文SHA与脱敏目录、forceRefresh，缺失下架拒绝且无本地/跨表回退
 refined-flux-reference.mjs: 精模与效果图光影转换共用4步/CFG1/Euler双图图工厂，节点模型预验、1K/2K独立长边、普通单图路由与SHA元数据
-refined-lighting-library.mjs: 独立飞书光影库唯一读取器，三规则/版本摘要/分页/发布身份与预设三执行/多光影运行能力；原附件供预设参考生成并支持forceRefresh，预览独立轻量化；无本地fallback
-refined-lighting.mjs: usesReferencePrompt/usesHybridPrompt区分迁移/上传专用规则、纯词基础+text规则+反推与图序前置+卡片词；独立迁移编码可注入供效果图复用，原卡图下载/普通双图或精模Flux专用1K2K门槛/真实SHA冻结复核、旧冻结拒绝与历史兼容
+refined-lighting-library.mjs: loadRefinedLightingAssets独立只读卡片/原附件与轻量预览，loadRefinedRenderAssets组合精模完整Prompt目录；Prompt失败保留共享卡片，无旧规则或本地fallback
+refined-lighting.mjs: 纯词完整Prompt+卡片、参考迁移/氛围词双图分路；纯词拒旧公共规则冻结，双图独立Prompt及原件图序/SHA复核，效果图迁移编码可注入且共享卡片隔离
 refined-render-prompt-asset.mjs: 精模四块资产纯解析器，将主正文与三列JSON模块规范化为内部MAIN/TIME/WEATHER/TONE，三列全空兼容旧纯文本，缺组/错型/未知键/空模块以409阻断
-refined-render-prompt.mjs: 纯词固定独立基础；迁移/上传为lighting-reference-transfer，氛围词双图为lighting-prompt-reference，双图均零基础/旧模块读取，按真实表/code/版本/正文SHA冻结并拒旧基础身份，旧API兼容
+refined-render-prompt.mjs: 精模同表完整纯词/迁移/氛围词双图的code版本正文SHA/source冻结与执行前复核；纯词无分散规则，双图不回退纯词，历史结果保留
 image-relight-prompt.mjs: 独立飞书打光JSON资产唯一读取器，复用同构版本/上架/缓存，校验完整结构与版本重复/正文SHA，无本地或跨表回退，公开脱敏版本与表链接
 image-relight-presets.mjs: 飞书bundle的场景/摄影规则编译器，五模板/局部/三旧方案路由，整体原灯/单灯/新增补光的同源优先级保留代码，不持有运营正文
 image-relight-service.mjs: 飞书上架Prompt配置/服务端快照准入，Key/Schema/资产三门禁，旧省略模板兼容及真实图片/整体原灯三选/空标注有效动作准入、模板拒绝整体暗参/Prompt脱敏与归档
@@ -46,8 +47,8 @@ app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 �
 model-config.mjs: Seedream 5.0 Lite 完整名/稳定API ID与legacyLabels历史别名真源；全景Flux公开R5_4原尺寸目录、空默认负向/无超分请求；模型参数真源，维护七个 OneAPI 模型（含独立 Banana 2.1 十四比例/1K-4K、GPT Image 2.5 Sunburst/Flare）与默认 9B FP8/7 steps 的 Flux2 Klein、Provider、参考图能力、Flux 正负 Prompt/旧房场景准入及独立默认、原有四模型 2:1 与 2.5 九比例/五质量档、GPT 按比例的 16px/655360–8294400像素/3840边长尺寸映射（1K 16:9 为1536x864）、Seedream 5.0 Pro 仅全景可用的 3040x1520 4K 实验档，以及精模/效果图光影转换参考来源的独立双图长边1K/2K请求与普通 Flux 原图比例 1K/2K 原生输出与同图 2K→4K/6K 攸行超分请求契约
 generation-batch.mjs: 单模型多张/多模型生成批次契约，批次总数不受模型数量上限约束，严格校验共同批次 ID、正安全整数总数与批内序号；单模型张数由任务入口独立约束
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败、进程内任务查询、领域阶段快照透传及有界结果保留；只读hasActiveJobs守护running任务供原地更新准入
-generation-job-api.mjs: 局部消除Prompt版本准入与操作身份冻结；光影转换独立Prompt/卡片及原附件SHA入队冻结/去重，全景纯词卡片入队前冻结/去重，按模型/光影ID限额且版本SHA不另开计数，排队执行阶段透传；supportedGenerationFeatureModes/supportedGenerationFeatureCapabilities公开运行进程功能及全景多光影能力目录；精模入队必选光影来源或明确有效旧参数，冻结独立基础code/版本/SHA及规则/卡片/实际氛围图身份并去重，兼容旧四块/双资产；GPT打光单图/模板融合/整体原灯及真实局部光源深冻结及独立scope、日常生成后台任务 HTTP 适配层，普通生图含质感增强按真实目录准入；精模按模型/光影ID/模式计数，每组合单模型1–4张/多模型各1张且版本SHA不另开限额，两路并发；旧房与空房共用普通任务与按张数进度；需归档先验飞书Schema；超分最多4项/扩图1项，扩图固定2K且按引擎权限准入，多角度单图机位准入；二次编辑仅单项、真实主图/遮罩及GPT归一化矩形或多边形前验、分模式能力/GPT参考用途与圈选参数冻结、透传上游后台任务ID/状态并以独立imageMaskFill scope校验飞书新增字段，仅超分豁免飞书
-generation-service.mjs: 光影转换独立双图工作流/Prompt与卡片读取器可注入，质感独立Prompt读取器可注入且生产默认飞书；Main/Beta全景按feature/provider路由专用客户端、缺配置拒绝回退及进度透传；独立GPT打光/执行前Schema及显式功能路由统一覆盖输入身份，自由生图直接入口也固定free以拒绝冒用旧房场景，含风格转换、氛围转换、美化与质感增强固定词；旧房入口直接复用emptyRoom单流程；扩图取Flux/Qwen或Sunburst编辑客户端并归档；日常超分本机结果/Beta独立归档，二次编辑独立客户端/配置、GPU前专属Schema复核与飞书同步，多角度按冻结模型分流并重查权限
+generation-job-api.mjs: 白模promptLighting能力/卡片入队规范化与冻结、跨功能拒绝；局部消除Prompt版本准入与操作身份冻结；光影转换独立Prompt/卡片及原附件SHA入队冻结/去重，全景纯词卡片入队前冻结/去重，按模型/光影ID限额且版本SHA不另开计数，排队执行阶段透传；supportedGenerationFeatureModes/supportedGenerationFeatureCapabilities公开运行进程功能及全景多光影能力目录；精模入队必选光影来源或明确有效旧参数，冻结独立基础code/版本/SHA及规则/卡片/实际氛围图身份并去重，兼容旧四块/双资产；GPT打光单图/模板融合/整体原灯及真实局部光源深冻结及独立scope、日常生成后台任务 HTTP 适配层，普通生图含质感增强按真实目录准入；精模按模型/光影ID/模式计数，每组合单模型1–4张/多模型各1张且版本SHA不另开限额，两路并发；旧房与空房共用普通任务与按张数进度；需归档先验飞书Schema；超分最多4项/扩图1项，扩图固定2K且按引擎权限准入，多角度单图机位准入；二次编辑仅单项、真实主图/遮罩及GPT归一化矩形或多边形前验、分模式能力/GPT参考用途与圈选参数冻结、透传上游后台任务ID/状态并以独立imageMaskFill scope校验飞书新增字段，仅超分豁免飞书
+generation-service.mjs: 白模专属光影字段在直调与按功能执行入口前隔离；光影转换独立双图工作流/Prompt与卡片读取器可注入，质感独立Prompt读取器可注入且生产默认飞书；Main/Beta全景按feature/provider路由专用客户端、缺配置拒绝回退及进度透传；独立GPT打光/执行前Schema及显式功能路由统一覆盖输入身份，自由生图直接入口也固定free以拒绝冒用旧房场景，含风格转换、氛围转换、美化与质感增强固定词；旧房入口直接复用emptyRoom单流程；扩图取Flux/Qwen或Sunburst编辑客户端并归档；日常超分本机结果/Beta独立归档，二次编辑独立客户端/配置、GPU前专属Schema复核与飞书同步，多角度按冻结模型分流并重查权限
 image-upscale-service.mjs: 主/Beta共享源图真实尺寸与节点准入，KS直入6K固定5K和其他KS面积策略保留15分钟执行/5分钟排队、冻结版本/Prompt追踪、精确PNG与所有异常不自动重提
 image-upscale-workflow.mjs: 六套SeedVR2真源；直入27.1的6K在已有节点内固定5120推理/6144交付，其他KS仍strict20MP，原图比例最近偶数/独立元数据及旧面积helper供恢复，普通四套不变
 beta-upscale-archive-contract.mjs: 从Base提取的纯超分合同，当前fixed5K与20MP严格分开，旧直入26.3/更早历史仅原件恢复，源/目标/推理/成品/SHA逐字段验证
@@ -90,16 +91,16 @@ benchmark-workbench.mjs: 当前及历史图片列兼容模型准入；Benchmark 
 benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成与 AI 评分公开阶段、Base 落库状态、起止时间、进度、主动取消、结果和可诊断失败消息；只读 hasActiveJobs 同时保护 running/cancelling，容量清理不得移除未结算取消任务
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模/空房及独立旧房表的智能默认/平台融合、独立风格转换表的平台风格及参考图、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取
-refined-model-prompt.mjs: 同表独立refined-lighting-base纯文本与旧精模编码隔离目录/版本读取，新基础不查询旧三列，旧精模模块兼容；仅完整上架版本可读且下架409不可绕过
-refined-model-workflow.mjs: 纯词基础+反推单图、氛围词加卡图双图、迁移预设/上传专用迁移词双图；已验资产复用、显式精模路由到Flux双图/其他模型，实际Prompt来源及原件图序归档，无旧moduleKeys，历史兼容和脱敏响应
-white-model-workflow.mjs: 白模/空房按智能默认及平台融合选独立Agent，空房在Agent前校验房型/详情/家具；旧房原图复用空房单流程，按designScenario读取独立旧房表/Agent/版本，表内正文为唯一真源且不覆盖Agent最终JSON，缓存按实际Agent编码/版本/正文隔离；风格转换正式/Beta共用独立来源和版本，非法目标前置阻断；按功能/房型/家具/Prompt/风格图完整指纹复用提示词，最终模型仅接收主图并统一双Provider归档
+refined-model-prompt.mjs: loadRefinedLightingPromptAssets同表读取三模式完整纯文本与正文SHA/真实来源；版本目录与旧精模编码/模块隔离，完整上架准入且下架409不可绕过
+refined-model-workflow.mjs: 完整纯词Prompt+卡片单图、迁移完整Prompt双图与氛围词完整前置+卡片双图；真实Prompt表来源/版本SHA与原件图序归档，历史兼容和脱敏响应
+white-model-workflow.mjs: 白模自动兼容原Agent输入，所选光影词进入两种Agent与缓存指纹/归档，执行前复核且最终仍单图；白模/空房按智能默认及平台融合选独立Agent，空房在Agent前校验房型/详情/家具；旧房原图复用空房单流程，按designScenario读取独立旧房表/Agent/版本，表内正文为唯一真源且不覆盖Agent最终JSON，缓存按实际Agent编码/版本/正文隔离；风格转换正式/Beta共用独立来源和版本，非法目标前置阻断；按功能/房型/家具/Prompt/风格图完整指纹复用提示词，最终模型仅接收主图并统一双Provider归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件
 reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高
 runtime-cache.mjs: 运行时缓存基础设施，提供异步加载并发去重、五分钟 TTL 与主动失效
 sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询；只读 hasActiveJobs 在 pending 同步结束前阻断原地更新
 
-generation-config.mjs: 包含独立光影转换/质感增强Prompt的生图与Beta共用脱敏配置聚合器，精模仅公开独立基础编码目录，光影卡片及风格/Agent/各功能Prompt独立；统一主动刷新，正文与附件token留服务端
+generation-config.mjs: 生图与Beta共用脱敏配置/统一刷新，精模完整Prompt读取故障仅降级对应目录并保留真实错误，不牵连白模/全景/光影转换与共享卡片；其他配置错误继续抛出，正文与附件token留服务端
 effect-beautification-prompt.mjs: 独立效果图美化固定 Prompt 真源，读取 effect-render-beautification 上架版本，复用执行预设真源准入LOW/HIGH×NATURAL/WARM/COOL，默认low/natural、拒绝未知值、逐字选择正向正文，公开脱敏目录且禁止跨表回退
 effect-beautification-workflow.mjs: CF六原图的共享美化阶段及参数真源，LoRA0.45/0.7、2/4步、ab匹配及按mode旁路的亮度/色温，1920等比/右下16补边/裁剪/输出档适配、触发词幂等、实际元数据与接口枚举准入
 

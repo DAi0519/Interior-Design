@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供Beta默认模型、精模预设两执行方式/旧草稿恢复、上传迁移版本与基础记忆独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
+ * [OUTPUT]: 对外提供Beta默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -92,15 +92,15 @@ test("Beta精模模板与自定义时段天气色调独立往返，损坏存储�
     { preset: "preserve", time: "preserve", weather: "preserve", tone: "preserve" });
 });
 
-test("Beta光影只保存来源和版本，参考图刷新后仍须重新上传", () => {
+test("Beta纯词草稿剥离旧规则身份，双图保留版本且参考图刷新后须重新上传", () => {
   const storage = memoryStorage();
-  const selection = { mode: "preset", execution: "prompt-only", presetId: "rec-preset", version: 2, sha256: "a".repeat(64),
-    ruleVersion: 1, ruleSha256: "b".repeat(64) };
+  const pureSelection = { mode: "preset", execution: "prompt-only", presetId: "rec-preset", version: 2, sha256: "a".repeat(64) };
+  const selection = { ...pureSelection, ruleVersion: 1, ruleSha256: "b".repeat(64) };
   saveBetaPageState(storage, { controls: { refinedLighting: selection } });
-  assert.deepEqual(readBetaPageState(storage).controls.refinedLighting, selection);
+  assert.deepEqual(readBetaPageState(storage).controls.refinedLighting, pureSelection);
   const legacy = { ...selection }; delete legacy.execution;
   saveBetaPageState(storage, { controls: { refinedLighting: legacy } });
-  assert.deepEqual(readBetaPageState(storage).controls.refinedLighting, selection);
+  assert.deepEqual(readBetaPageState(storage).controls.refinedLighting, pureSelection);
   const combined = { ...selection, execution: "prompt-and-reference", ruleVersion: 3, ruleSha256: "c".repeat(64) };
   saveBetaPageState(storage, { controls: { refinedLighting: combined } });
   assert.deepEqual(readBetaPageState(storage).controls.refinedLighting, combined);

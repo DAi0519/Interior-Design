@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖全景光影控件、共享输入/逐模型适配/尺寸规则与内存DOM/存储替身
- * [OUTPUT]: 验证共享小勾/紧凑数量、全景连续多选/取消/清空、同ID版本漂移勾选与准入一致、草稿隔离、用户词透传和模型/旧进程门禁
+ * [INPUT]: 依赖全景光影控件、共享输入/逐模型适配/光影批次展开/尺寸规则与内存DOM/存储替身
+ * [OUTPUT]: 验证原光影首卡默认/互斥/复位且不额外展开、稳定卡片与键盘焦点、刷新忙碌门禁、全景多选/取消/清空、版本漂移阻断、草稿隔离、用户词透传和模型/旧进程门禁
  * [POS]: test 的全景光影浏览器交互与请求合同测试，不访问网络、飞书或GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import { bindPanoramaLightingControls, normalizePanoramaLighting, panoramaLightingValidation } from "../public/panorama-lighting-controls.js";
 import { buildGenerationInput } from "../public/generation-input.js";
 import { adaptGenerationInputForModel } from "../public/generation-batch.js";
+import { panoramaItemsForSelection } from "../public/generation-task-request.js";
 import { betaSizeOptions } from "../public/beta-model-rules.js";
 import { generationFeatureUnavailableReason, sizeControlState, sizeSummary } from "../public/model-capabilities.js";
 
@@ -23,21 +24,22 @@ const flux = { key: "aiTextureEnhancement", label: "Flux2 Klein", provider: "com
 const oneapi = { key: "seedream5Pro", label: "Seedream", provider: "oneapi", defaultRatio: "2:1", defaultResolution: "2K",
   sizes: { "2:1": { "1K": "1440x720", "2K": "2880x1440" } }, formats: ["png"], qualityOptions: [], defaultFormat: "png" };
 
-function fixture(storage = new Map(), storageKey = "main") {
-  const document = { activeElement: null, createElement: () => element() };
-  function element() {
-    return { ownerDocument: document, value: "", textContent: "", children: [], attributes: new Map(), listeners: new Map(),
+function fixture(storage = new Map(), storageKey = "main", { reload = null } = {}) {
+  const document = { activeElement: null, createElement: tagName => element(tagName) };
+  function element(tagName = "div") {
+    return { ownerDocument: document, tagName, value: "", textContent: "", children: [], attributes: new Map(), listeners: new Map(),
       classList: { toggle() {} },
       setAttribute(name, value) { this.attributes.set(name, String(value)); }, removeAttribute(name) { this.attributes.delete(name); },
       addEventListener(name, listener) { this.listeners.set(name, listener); },
       append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; },
+      querySelectorAll(tag) { return this.children.flatMap(child => [...(child.tagName === tag ? [child] : []), ...child.querySelectorAll(tag)]); },
       focus() { document.activeElement = this; }, fire(name, event = {}) { return this.listeners.get(name)?.(event); },
     };
   }
   const nodes = new Map();
   const root = element();
   root.querySelector = selector => { if (!nodes.has(selector)) nodes.set(selector, element()); return nodes.get(selector); };
-  const controller = bindPanoramaLightingControls({ root, storageKey, storage: {
+  const controller = bindPanoramaLightingControls({ root, storageKey, reload, storage: {
     getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value),
   } });
   controller.configure({ available: true, presets: [preset, secondPreset] });
@@ -45,17 +47,28 @@ function fixture(storage = new Map(), storageKey = "main") {
   return { controller, storage, at: key => nodes.get(`[data-panorama-${key}]`) };
 }
 
-test("全景光影默认原光影，选卡保持展开并保留焦点，清空后允许直接手写", () => {
+test("原光影首卡默认勾选且不增加请求，模板/自定义互斥并可明确复位", () => {
   const ui = fixture();
+  const originalCard = ui.at("grid").children[0], firstCard = ui.at("grid").children[1];
+  assert.equal(originalCard.attributes.has("data-panorama-original"), true);
+  assert.equal(originalCard.children[1].textContent, "保留原光影");
+  assert.equal(originalCard.attributes.get("aria-pressed"), "true");
+  assert.equal(originalCard.children[2].hidden, false);
+  assert.deepEqual(ui.controller.getSelections(), []);
   assert.deepEqual(ui.controller.requestFields(), { panoramaLighting: null, prompt: "" });
   assert.equal(ui.controller.requiresOriginalPrompt(), true);
+  assert.equal(panoramaItemsForSelection([flux], 1, ui.controller.getSelections()).length, 1);
   ui.at("toggle").fire("click");
   assert.equal(ui.at("grid").hidden, false);
-  ui.at("grid").children[0].fire("click");
+  firstCard.fire("click");
   assert.deepEqual(ui.controller.requestFields().panoramaLighting, selection);
+  assert.equal(originalCard.attributes.get("aria-pressed"), "false");
   assert.equal(ui.at("grid").hidden, false);
-  assert.equal(ui.at("grid").children[0].ownerDocument.activeElement, ui.at("grid").children[0]);
+  assert.equal(firstCard.ownerDocument.activeElement, firstCard);
   assert.equal(ui.at("name").textContent, "斜阳长影");
+  firstCard.fire("click");
+  assert.equal(originalCard.attributes.get("aria-pressed"), "true", "取消最后模板自动恢复原光影");
+  firstCard.fire("click");
   ui.at("prompt").value = "  改成暖灯夜景  "; ui.at("prompt").fire("input");
   assert.equal(ui.controller.requestFields().prompt, "改成暖灯夜景");
   ui.at("clear").fire("click");
@@ -63,27 +76,36 @@ test("全景光影默认原光影，选卡保持展开并保留焦点，清空�
   assert.equal(ui.controller.requiresOriginalPrompt(), false);
   assert.equal(ui.at("name").textContent, "自定义光影");
   assert.equal(ui.controller.requestFields().prompt, "改成暖灯夜景");
-  ui.at("prompt").value = ""; ui.at("prompt").fire("input");
+  assert.equal(originalCard.attributes.get("aria-pressed"), "false");
+  firstCard.fire("click"); originalCard.fire("click");
+  assert.deepEqual(ui.controller.getSelections(), []);
+  assert.deepEqual(ui.controller.requestFields(), { panoramaLighting: null, prompt: "" });
+  assert.deepEqual(JSON.parse(ui.storage.get("main")), { selections: [], prompt: "" });
   assert.equal(ui.at("name").textContent, "保留原光影");
   assert.equal(ui.controller.requiresOriginalPrompt(), true);
+  assert.equal(originalCard.attributes.get("aria-pressed"), "true");
+  assert.equal(panoramaItemsForSelection([flux, oneapi], 1, ui.controller.getSelections()).length, 2);
+  ui.at("prompt").value = "  "; ui.at("prompt").fire("input");
+  assert.equal(originalCard.attributes.get("aria-pressed"), "true", "空白要求沿用原光影合同");
 });
 
 test("全景连续多选/重复取消、全部清空与独立要求保留，刷新恢复每张身份", () => {
   const ui = fixture();
   ui.at("toggle").fire("click");
-  const firstCard = ui.at("grid").children[0];
-  ui.at("grid").children[0].fire("click");
-  ui.at("grid").children[1].fire("click");
+  const firstCard = ui.at("grid").children[1];
+  firstCard.fire("click");
+  ui.at("grid").children[2].fire("click");
   assert.equal(ui.controller.getSelections().length, 2);
   assert.equal(ui.at("name").textContent, "2 种光影");
-  assert.deepEqual(ui.at("grid").children.map(card => card.children[2].hidden), [false, false]);
-  assert.deepEqual(ui.at("grid").children.map(card => card.children[1].textContent), [preset.name, secondPreset.name]);
+  assert.deepEqual(ui.at("grid").children.map(card => card.children[2].hidden), [true, false, false]);
+  assert.deepEqual(ui.at("grid").children.map(card => card.children[1].textContent), ["保留原光影", preset.name, secondPreset.name]);
+  assert.equal(panoramaItemsForSelection([flux, oneapi], 1, ui.controller.getSelections()).length, 4, "不多展开默认原光影");
   assert.equal(ui.controller.validation(), null);
   const restored = fixture(ui.storage);
   assert.deepEqual(restored.controller.getSelections(), ui.controller.getSelections());
   ui.at("prompt").value = "保留材质颜色"; ui.at("prompt").fire("input");
-  assert.equal(ui.at("grid").children[0], firstCard);
-  ui.at("grid").children[0].fire("click");
+  assert.equal(ui.at("grid").children[1], firstCard);
+  firstCard.fire("click");
   assert.equal(ui.controller.getSelections().length, 1);
   assert.equal(ui.controller.getSelections()[0].presetId, secondPreset.id);
   ui.at("clear").fire("click");
@@ -94,7 +116,7 @@ test("全景连续多选/重复取消、全部清空与独立要求保留，刷�
 
 test("全景多选逐卡检查下架与旧进程能力，不因首卡有效放行其他卡", () => {
   const ui = fixture();
-  ui.at("grid").children[0].fire("click"); ui.at("grid").children[1].fire("click");
+  ui.at("grid").children[1].fire("click"); ui.at("grid").children[2].fire("click");
   ui.controller.setCapabilities({});
   assert.match(ui.controller.validation(), /尚未支持多光影/);
   ui.controller.setCapabilities({ panoramaEnhancement: { multipleLightingSelections: true } });
@@ -102,19 +124,65 @@ test("全景多选逐卡检查下架与旧进程能力，不因首卡有效放�
   assert.match(ui.controller.validation(), /更新或下架/);
 });
 
-test("全景同ID模板版本漂移不显示有效勾选，保留失效草稿并可直接清空", () => {
+test("全景同ID模板漂移不误勾原光影，保留失效草稿并可用原光影明确恢复", () => {
   const ui = fixture();
-  ui.at("grid").children[0].fire("click");
+  ui.at("grid").children[1].fire("click");
   ui.controller.configure({ presets: [{ ...preset, version: 4, sha256: "c".repeat(64) }] });
   assert.equal(ui.at("grid").children[0].attributes.get("aria-pressed"), "false");
   assert.equal(ui.at("grid").children[0].children[2].hidden, true);
+  assert.equal(ui.at("grid").children[1].attributes.get("aria-pressed"), "false");
+  assert.equal(ui.at("grid").children[1].children[2].hidden, true);
   assert.match(ui.controller.validation(), /更新或下架/);
   assert.deepEqual(ui.controller.requestFields().panoramaLighting, selection);
   assert.equal(ui.at("name").textContent, "重新选择光影模板");
   assert.equal(ui.at("clear").hidden, false);
+  ui.at("grid").children[0].fire("click");
+  assert.equal(ui.controller.validation(), null);
+  assert.deepEqual(ui.controller.getSelections(), []);
+  assert.equal(ui.at("grid").children[0].attributes.get("aria-pressed"), "true");
+  ui.at("grid").children[1].fire("click");
+  ui.controller.configure({ presets: [] });
+  assert.match(ui.controller.validation(), /更新或下架/);
   ui.at("clear").fire("click");
   assert.equal(ui.controller.validation(), null);
   assert.deepEqual(ui.controller.getSelections(), []);
+});
+
+test("首位原光影加入键盘导航，选模板与填写要求保留卡片图片节点和焦点", () => {
+  const ui = fixture();
+  ui.at("toggle").fire("click");
+  const grid = ui.at("grid"), cards = [...grid.children], preview = cards[1].children[0];
+  const key = value => grid.fire("keydown", { key: value, preventDefault() {} });
+  cards[0].focus(); key("ArrowRight");
+  assert.equal(cards[0].ownerDocument.activeElement, cards[1]);
+  cards[1].fire("click");
+  assert.equal(cards[0].ownerDocument.activeElement, cards[1], "预设点击不能错位聚焦原光影");
+  ui.at("prompt").value = "保留材质"; ui.at("prompt").fire("input");
+  cards.forEach((card, index) => assert.equal(grid.children[index], card));
+  assert.equal(grid.children[1].children[0], preview);
+  assert.equal(preview.src, preset.previewUrl);
+  key("End"); assert.equal(cards[0].ownerDocument.activeElement, cards[2]);
+  key("Home"); assert.equal(cards[0].ownerDocument.activeElement, cards[0]);
+  key("Escape");
+  assert.equal(grid.hidden, true);
+  assert.equal(cards[0].ownerDocument.activeElement, ui.at("toggle"));
+});
+
+test("刷新期间原光影与模板都禁用，不能清掉既有选择和要求", async () => {
+  let finishRefresh;
+  const ui = fixture(new Map(), "main", { reload: () => new Promise(resolve => { finishRefresh = resolve; }) });
+  ui.at("grid").children[1].fire("click");
+  ui.at("prompt").value = "傍晚"; ui.at("prompt").fire("input");
+  const refresh = ui.at("refresh").fire("click");
+  assert.equal(ui.at("refresh").disabled, true);
+  assert.ok(ui.at("grid").children.every(card => card.disabled));
+  ui.at("grid").children[0].fire("click");
+  assert.deepEqual(ui.controller.requestFields(), { panoramaLighting: selection, prompt: "傍晚" });
+  finishRefresh({ refinedLighting: { presets: [preset, secondPreset] } });
+  await refresh;
+  assert.equal(ui.at("refresh").disabled, false);
+  assert.ok(ui.at("grid").children.every(card => !card.disabled));
+  assert.deepEqual(ui.controller.requestFields(), { panoramaLighting: selection, prompt: "傍晚" });
 });
 
 test("旧单卡草稿迁移与重复身份去重，不持久化预览和正文", () => {
@@ -126,11 +194,12 @@ test("旧单卡草稿迁移与重复身份去重，不持久化预览和正文",
 
 test("全景卡片下架阻断选择，Main/Beta草稿互相隔离且不保存正文", () => {
   const storage = new Map(), main = fixture(storage, "main");
-  main.at("grid").children[0].fire("click");
+  main.at("grid").children[1].fire("click");
   main.at("prompt").value = "傍晚"; main.at("prompt").fire("input");
   const restored = fixture(storage, "main"), beta = fixture(storage, "beta");
   assert.deepEqual(restored.controller.requestFields(), { panoramaLighting: selection, prompt: "傍晚" });
   assert.equal(beta.controller.requestFields().panoramaLighting, null);
+  assert.equal(beta.at("grid").children[0].attributes.get("aria-pressed"), "true");
   restored.controller.configure({ presets: [] });
   assert.match(restored.controller.validation(), /更新或下架/);
   assert.deepEqual(normalizePanoramaLighting(selection), selection);

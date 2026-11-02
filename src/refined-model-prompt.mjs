@@ -1,16 +1,33 @@
 /**
- * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs、旧精模模块解析与同表独立光影基础资产
- * [OUTPUT]: 对外提供按编码隔离的版本目录/正文读取、独立纯文本光影基础目录和旧精模模块兼容
- * [POS]: src 的同构版本化 Prompt 读取基础设施，新光影基础与旧精模编码隔离，正文仅服务端消费
+ * [INPUT]: 依赖 lark-cli.mjs 的只读 Base 查询、runtime-cache.mjs 与旧精模模块解析
+ * [OUTPUT]: 对外提供同表三种精模完整纯文本 Prompt、正文SHA/真实来源、按编码版本目录及旧精模兼容
+ * [POS]: src 的精模控制 Prompt 唯一读取边界，三种执行与旧精模编码隔离，正文仅服务端消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { createHash } from "node:crypto";
 import { runLarkCli } from "./lark-cli.mjs";
 import { createAsyncTtlCache } from "./runtime-cache.mjs";
 import { combineRefinedRenderPromptColumns, parseRefinedRenderPromptAsset } from "./refined-render-prompt-asset.mjs";
 
 export const DEFAULT_REFINED_MODEL_PROMPT_CODE = "refined-model-render";
 export const REFINED_LIGHTING_BASE_PROMPT_CODE = "refined-lighting-base";
+export const REFINED_LIGHTING_REFERENCE_RULE_CODE = "lighting-reference-transfer";
+export const REFINED_LIGHTING_HYBRID_RULE_CODE = "lighting-prompt-reference";
+
+const LIGHTING_PROMPT_CODES = Object.freeze({
+  purePrompt: REFINED_LIGHTING_BASE_PROMPT_CODE,
+  referenceRule: REFINED_LIGHTING_REFERENCE_RULE_CODE,
+  hybridRule: REFINED_LIGHTING_HYBRID_RULE_CODE,
+});
+const plainPromptCodes = new Set(Object.values(LIGHTING_PROMPT_CODES));
+const promptTableUrl = (config) => config.tableUrl || `https://lq9n5lvfn2i.feishu.cn/base/${encodeURIComponent(config.baseToken)}?table=${encodeURIComponent(config.tableId)}`;
+
+function assertPlainPrompt(prompt) {
+  if (parseRefinedRenderPromptAsset(prompt).format !== "plain") {
+    throw Object.assign(new Error("精模执行 Prompt 必须是独立纯文本"), { statusCode: 409 });
+  }
+}
 
 const refinedPromptCache = createAsyncTtlCache();
 const PROMPT_FIELDS = [
@@ -49,7 +66,7 @@ export function parseRefinedModelPromptEnvelope(body, { label = "精模" } = {})
     throw new Error(`飞书${label} Prompt 表缺少字段：${missing.join("、")}`);
   }
   const at = (row, name) => row[fields.indexOf(name)];
-  return body.data.data.map((row) => {
+  return body.data.data.map((row, index) => {
     const code = String(at(row, "Prompt 编码") || "").trim();
     const name = String(at(row, "Prompt 名称") || "").trim();
     const prompt = String(at(row, "Prompt 正文") || "").trim();
@@ -67,6 +84,7 @@ export function parseRefinedModelPromptEnvelope(body, { label = "精模" } = {})
       } catch (error) { renderPromptError = error.message; }
     }
     return {
+      ...(body.data.record_id_list?.[index] ? { id: body.data.record_id_list[index] } : {}),
       changeNote: String(at(row, "变更说明") || "").trim(),
       code,
       name,
@@ -126,15 +144,13 @@ export async function publicRefinedModelPromptConfig({ code = DEFAULT_REFINED_MO
     .filter((entry) => entry.code === code && entry.validPrompt && entry.published)
     .sort((left, right) => right.version - left.version);
   const config = options.config || REFINED_MODEL_PROMPT_CONFIG;
-  const tableUrl = config.tableUrl || `https://lq9n5lvfn2i.feishu.cn/base/${encodeURIComponent(config.baseToken)}?table=${encodeURIComponent(config.tableId)}`;
+  const tableUrl = promptTableUrl(config);
   const prompts = [], reasons = [];
   for (const entry of candidates) {
     try {
       if (entry.renderPromptError) throw new Error(entry.renderPromptError);
-      const asset = parseRefinedRenderPromptAsset(code === REFINED_LIGHTING_BASE_PROMPT_CODE ? entry.prompt : entry.renderPrompt || entry.prompt);
-      if (code === REFINED_LIGHTING_BASE_PROMPT_CODE && asset.format !== "plain") {
-        throw new Error("光影基础 Prompt 必须是独立纯文本");
-      }
+      const asset = parseRefinedRenderPromptAsset(plainPromptCodes.has(code) ? entry.prompt : entry.renderPrompt || entry.prompt);
+      if (plainPromptCodes.has(code)) assertPlainPrompt(entry.prompt);
       prompts.push({ ...entry, ...(asset.format === "modular" ? {
         atmosphereSource: "refined-prompt", atmosphereAvailable: true, tableUrl,
       } : {}) });
@@ -156,6 +172,28 @@ export async function publicRefinedModelPromptConfig({ code = DEFAULT_REFINED_MO
 
 export function publicRefinedLightingBasePromptConfig(options = {}) {
   return publicRefinedModelPromptConfig({ ...options, code: REFINED_LIGHTING_BASE_PROMPT_CODE });
+}
+
+export async function loadRefinedLightingPromptAssets(options = {}) {
+  const config = options.config || REFINED_MODEL_PROMPT_CONFIG;
+  const entries = await listRefinedModelPrompts({ ...options, includeRefinedModules: false });
+  const assets = Object.fromEntries(Object.entries(LIGHTING_PROMPT_CODES).map(([key, code]) => {
+    const candidates = entries.filter(entry => entry.code === code && entry.validPrompt && entry.published)
+      .sort((left, right) => right.version - left.version);
+    const versions = new Set();
+    for (const entry of candidates) {
+      if (versions.has(entry.version)) {
+        throw Object.assign(new Error(`精模 Prompt 存在重复上架版本：${code}@${entry.version}`), { statusCode: 409 });
+      }
+      versions.add(entry.version);
+    }
+    const entry = candidates[0];
+    if (!entry) return [key, null];
+    assertPlainPrompt(entry.prompt);
+    return [key, { ...entry, sha256: createHash("sha256").update(entry.prompt).digest("hex"),
+      source: `feishu:${config.tableId}:${code}@v${entry.version}`, tableId: config.tableId }];
+  }));
+  return { ...assets, promptTableUrl: promptTableUrl(config) };
 }
 
 export async function getRefinedModelPrompt(
@@ -199,9 +237,6 @@ export async function getRefinedModelPrompt(
     if (prompt.renderPromptError) throw Object.assign(new Error(prompt.renderPromptError), { statusCode: 409 });
     parseRefinedRenderPromptAsset(prompt.renderPrompt || prompt.prompt);
   }
-  if (normalizedCode === REFINED_LIGHTING_BASE_PROMPT_CODE
-    && parseRefinedRenderPromptAsset(prompt.prompt).format !== "plain") {
-    throw Object.assign(new Error("光影基础 Prompt 必须是独立纯文本"), { statusCode: 409 });
-  }
+  if (plainPromptCodes.has(normalizedCode)) assertPlainPrompt(prompt.prompt);
   return prompt;
 }

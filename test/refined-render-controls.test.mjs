@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、精模共享控制器、真实模型目录与主工作台请求/结果摘要映射
- * [OUTPUT]: 对外提供旧三下拉/历史恢复、主页面预设基础/上传迁移Prompt独立切换准入及版本恢复、无说明和跨功能隔离回归
+ * [OUTPUT]: 对外提供旧三下拉/历史恢复、主页面同表精模Prompt统一命名与纯词/双图独立准入及版本恢复、无说明和跨功能隔离回归
  * [POS]: test 的精模氛围交互合同测试，不访问飞书或调用图像模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -148,7 +148,7 @@ test("主工作台预设图文和上传统一迁移Prompt，基础不可用仍�
   selection = { mode: "preset", execution: "prompt-and-reference", presetId: "card", ruleVersion: 1, ruleSha256: "a".repeat(64) }; changed();
   assert.equal(model.promptVersion(), 1);
   assert.equal(select.disabled, true);
-  assert.deepEqual(select.options.map(option => option.textContent), ["参考图光影迁移 · v1"]);
+  assert.deepEqual(select.options.map(option => option.textContent), ["精模渲染 · 参考图迁移 · v1"]);
   model.setPromptConfig({ available: false, versions: [] });
   assert.equal(model.validation(), null);
   assert.equal(model.promptVersion(), 1);

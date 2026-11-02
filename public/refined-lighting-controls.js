@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖飞书三规则脱敏目录/多光影及预设执行能力/版本化预览、精模Flux独立双图能力及共享参考图上传与图片策略
- * [OUTPUT]: 对外提供共享小勾图卡/单行光影摘要和无计数小勾渲染方式、统一Prompt分流、稳定预览/有限重试、光影×方式投影/轻量草稿、失效身份阻断与上传互斥/单双图准入
- * [POS]: public 的精模光影选择层，卡图由服务端读取、上传图直接参考，无选中高亮框或说明段，不持有Prompt正文或密钥
+ * [INPUT]: 依赖统一精模Prompt可用性/双图身份、多光影及预设执行能力/版本化预览、精模Flux双图能力及共享参考图上传与图片策略
+ * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、可选纯卡片自动模式、失效阻断和上传互斥
+ * [POS]: public 的白模可选纯词/精模光影共享选择层，卡图由服务端读取、上传图直接参考，无选中高亮框或说明段，不持有Prompt正文或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { isLightingReference, REFINED_LIGHTING_PRESET_EXECUTIONS, refinedLightingPromptKind, supportsLightingReference } from "./refined-flux-reference.js";
@@ -14,8 +14,9 @@ export function usesRefinedLightingReferencePrompt(value) {
 
 function ruleIdentityFor(config, value) {
   const kind = refinedLightingPromptKind(value);
-  const version = kind === "reference" ? config.referenceRuleVersion : kind === "hybrid" ? config.hybridRuleVersion : config.ruleVersion;
-  const sha256 = kind === "reference" ? config.referenceRuleSha256 : kind === "hybrid" ? config.hybridRuleSha256 : config.ruleSha256;
+  if (kind === "base") return {};
+  const version = kind === "reference" ? config.referenceRuleVersion : config.hybridRuleVersion;
+  const sha256 = kind === "reference" ? config.referenceRuleSha256 : config.hybridRuleSha256;
   return { ...(version ? { ruleVersion: version } : {}), ...(sha256 ? { ruleSha256: sha256 } : {}) };
 }
 
@@ -48,7 +49,8 @@ export function normalizeRefinedLighting(value = { mode: "unselected" }) {
       if (executions.length !== 1) result.executions = executions;
     }
   }
-  for (const key of value.mode === "preset" ? ["presetId", "version", "sha256", "ruleVersion", "ruleSha256"] : ["ruleVersion", "ruleSha256"]) {
+  const ruleKeys = refinedLightingPromptKind(result) === "base" ? [] : ["ruleVersion", "ruleSha256"];
+  for (const key of value.mode === "preset" ? ["presetId", "version", "sha256", ...ruleKeys] : ruleKeys) {
     if (value[key] === undefined) continue;
     if (key === "version" || key === "ruleVersion") {
       if (!Number.isInteger(value[key]) || value[key] < 1) throw new TypeError("光影版本无效，请重新选择");
@@ -138,8 +140,7 @@ export function refinedLightingValidation(selection, config = {}, models = [], r
   if (selection.mode === "preset") {
     if (!(config.presetExecutions || ["prompt-only"]).includes(execution)) return "当前服务不支持所选渲染方式，请刷新配置或改用仅提示词";
     if (!referencePrompt && !hybridPrompt) {
-      if (config.promptAvailable !== true) return config.reason || "光影提示词规则不可用，请刷新飞书配置";
-      if (selection.ruleVersion !== config.ruleVersion || selection.ruleSha256 !== config.ruleSha256) return "光影提示词规则已更新，请重新选择预设";
+      if (config.promptAvailable !== true) return config.reason || "精模渲染 · 仅提示词 Prompt 不可用，请刷新飞书配置";
     }
     const preset = (config.presets || []).find(item => item.id === selection.presetId
       && item.version === selection.version && item.sha256 === selection.sha256);
@@ -150,11 +151,15 @@ export function refinedLightingValidation(selection, config = {}, models = [], r
 
 export function bindRefinedLightingControls({ root, onChange = () => {}, storageKey = null,
   getPolicy = () => null, showToast = () => {}, bindUpload = bindReferenceUpload,
-  withConfigRefresh = false, allowReferenceUpload = true, presetExecution = null, allowMultiplePresets = false }) {
+  withConfigRefresh = false, allowReferenceUpload = true, presetExecution = null, allowMultiplePresets = false,
+  optionalPreset = false }) {
   root.setAttribute("data-refined-lighting", "");
   let selection = { mode: "unselected" }, config = { loading: true, presets: [] }, models = [], policy, expanded = false;
   if (storageKey) { try { const saved = sessionStorage.getItem(storageKey);
-    if (saved) selection = normalizeRefinedLighting(JSON.parse(saved));
+    if (saved) {
+      selection = normalizeRefinedLighting(JSON.parse(saved));
+      sessionStorage.setItem(storageKey, JSON.stringify(selection));
+    }
   } catch { /* --- 损坏草稿恢复为未选，不自动套用预设 --- */ } }
   if (!allowReferenceUpload && selection.mode === "reference") selection = { mode: "unselected" };
   if (presetExecution && selection.mode === "preset" && (selection.execution !== presetExecution || selection.executions)) selection = { mode: "unselected" };
@@ -171,6 +176,7 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     <section class="refined-lighting-section" data-lighting-preset-section aria-label="光影选择">
       <div class="section-heading"><h2>光影选择</h2><div class="section-heading-actions">
         <span data-lighting-availability class="micro-status">读取中</span>
+        ${optionalPreset ? `<button type="button" data-lighting-automatic class="config-refresh-button" aria-label="光影设为自动" hidden>自动</button>` : ""}
         ${withConfigRefresh ? `<button type="button" class="config-refresh-button" data-config-refresh aria-label="刷新光影预设" title="立即读取飞书光影预设"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M6.1 9A7 7 0 0 1 18 6.5L20 9" /><path d="M17.9 15A7 7 0 0 1 6 17.5L4 15" /></svg><span data-refresh-label>刷新</span></button>` : ""}
       </div></div>
       <button type="button" data-lighting-toggle class="refined-lighting-picker-trigger" aria-expanded="false">
@@ -202,9 +208,9 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
       update(images.length ? { mode: "reference", ...ruleIdentity({ mode: "reference" }) } : { mode: "unselected" });
     } });
   function ruleIdentity(value) {
-    return ruleIdentityFor(config, value);
+    return optionalPreset ? {} : ruleIdentityFor(config, value);
   }
-  function hasPresetRule() { return config.promptAvailable === true
+  function hasPresetRule() { return optionalPreset ? (config.presets || []).length > 0 : config.promptAvailable === true
     || config.hybridAvailable === true || config.referenceAvailable === true && (config.presetExecutions || []).includes("prompt-and-reference"); }
   function previewUrl(item) { return `/api/refined-lighting/preview?id=${encodeURIComponent(item.id)}&version=${encodeURIComponent(item.version)}&sha256=${encodeURIComponent(item.sha256)}`; }
   function referenceImages() { return selection.mode === "reference" ? upload.images() : []; }
@@ -215,6 +221,12 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     && item.version === selection.version && item.sha256 === selection.sha256); }
   function validation(candidateModels = models) {
     if (selection.presets && !allowMultiplePresets) return "此功能仅支持单个光影预设";
+    if (optionalPreset) {
+      if (selection.mode === "unselected") return null;
+      if (selection.mode !== "preset") return "请选择有效的光影预设或设为自动";
+      if (config.available !== true) return config.reason || "白模光影库暂不可用，请刷新配置";
+      return currentPreset() ? null : "所选光影预设已更新或下架，请打开光影库重新选择";
+    }
     return refinedLightingValidation(selection, config, candidateModels, referenceImages().length);
   }
   function renderCard({ item, button, name, check, preview }) {
@@ -273,13 +285,14 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     const selected = currentPreset(), identities = selectedPresets();
     const error = selected && selectedPreview.failed() ? " · 预览失败，点击重试" : "";
     const label = identities.length > 1 ? `${identities.length} 种光影` : selected ? selected.name
-      : selection.mode === "preset" ? "重新选择光影模板" : "选择光影模板";
+      : selection.mode === "preset" ? "重新选择光影模板" : optionalPreset ? "自动" : "选择光影模板";
     by("[data-lighting-selected-name]").textContent = `${label}${error}`;
     by("[data-lighting-toggle]").title = identities.map(identity => (config.presets || []).find(item => item.id === identity.presetId)?.name || identity.presetId).join("、") + error;
   }
   function render() {
     by("[data-lighting-reference]").hidden = !allowReferenceUpload;
     const presetSelected = selection.mode === "preset";
+    if (optionalPreset) by("[data-lighting-automatic]").hidden = !presetSelected;
     const locked = referenceImages().length > 0;
     if (locked) expanded = false;
     by("[data-lighting-input]").disabled = !allowReferenceUpload;
@@ -351,6 +364,9 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     if (referenceImages().length) return;
     if (currentPreset() && selectedPreview.failed()) selectedPreview.retry();
     expanded = !expanded; render();
+  });
+  if (optionalPreset) by("[data-lighting-automatic]").addEventListener("click", () => {
+    expanded = false; update({ mode: "unselected" });
   });
   grid.addEventListener("keydown", event => {
     if (event.key !== "Escape" || !expanded) return;

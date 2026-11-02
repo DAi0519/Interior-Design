@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模常显图卡控制器、实际模型目录与请求投影，以及内存DOM/上传替身
- * [OUTPUT]: 验证共享小勾/纯名称/单行光影数量及无计数渲染方式、单选收起/多选保持展开、失效阻断/预览复用、光影×方式分流和上传互斥/草稿恢复
+ * [OUTPUT]: 验证纯词仅卡片身份/旧规则草稿迁移、共享小勾/名称/光影数量、失效阻断/预览复用、光影×方式分流和上传互斥
  * [POS]: test 的精模光影库浏览器合同验证，不访问飞书或调用图像模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,8 +16,8 @@ const rule = { ruleVersion: 1, ruleSha256: "a".repeat(64) };
 const referenceRule = { ruleVersion: 3, ruleSha256: "c".repeat(64) };
 const hybridRule = { ruleVersion: 4, ruleSha256: "d".repeat(64) };
 const preset = { id: "preset-soft", code: "soft", name: "自然柔光", description: "柔和漫射光", category: "日光", version: 2, sha256: "b".repeat(64) };
-const config = { available: true, promptAvailable: true, presetExecutions: ["prompt-only", "prompt-and-reference"], referenceAvailable: true, referenceRuleVersion: referenceRule.ruleVersion, referenceRuleSha256: referenceRule.ruleSha256, hybridAvailable: true, hybridRuleVersion: hybridRule.ruleVersion, hybridRuleSha256: hybridRule.ruleSha256, tableUrl: "https://test.feishu.cn/base/lighting", ...rule, presets: [preset] };
-const selection = { mode: "preset", execution: "prompt-only", presetId: preset.id, version: preset.version, sha256: preset.sha256, ...rule };
+const config = { available: true, promptAvailable: true, presetExecutions: ["prompt-only", "prompt-and-reference"], referenceAvailable: true, referenceRuleVersion: referenceRule.ruleVersion, referenceRuleSha256: referenceRule.ruleSha256, hybridAvailable: true, hybridRuleVersion: hybridRule.ruleVersion, hybridRuleSha256: hybridRule.ruleSha256, tableUrl: "https://test.feishu.cn/base/lighting", promptTableUrl: "https://test.feishu.cn/base/prompts", presets: [preset] };
+const selection = { mode: "preset", execution: "prompt-only", presetId: preset.id, version: preset.version, sha256: preset.sha256 };
 const combinedSelection = { ...selection, execution: "prompt-and-reference", ...referenceRule };
 const source = { dataUrl: "data:image/png;base64,AA==", name: "model.png", size: 1, type: "image/png" };
 const reference = { ...source, name: "light.png", dataUrl: "data:image/png;base64,AQ==" };
@@ -69,7 +69,8 @@ test("仅保存有效光影身份，旧原始模式迁移为未选并剥离参�
   assert.deepEqual(normalizeRefinedLighting(), { mode: "unselected" });
   assert.deepEqual(normalizeRefinedLighting({ mode: "original", time: "night", presetId: "x", referenceImages: [reference] }), { mode: "unselected" });
   assert.deepEqual(normalizeRefinedLighting({ ...selection, prompt: "private", image: reference }), selection);
-  const legacy = { ...selection }; delete legacy.execution;
+  assert.deepEqual(normalizeRefinedLighting({ ...selection, ...rule }), selection, "旧纯词公共规则身份不进入新草稿和请求");
+  const legacy = { ...selection, ...rule }; delete legacy.execution;
   assert.deepEqual(normalizeRefinedLighting(legacy), selection);
   assert.deepEqual(normalizeRefinedLighting(combinedSelection), combinedSelection);
   assert.equal(usesRefinedLightingReferencePrompt(selection), false);
@@ -122,7 +123,7 @@ test("多光影共享执行方式并逐卡核验版本，配置变更不自动�
   f.choose(0); f.choose(1);
   f.node('[data-lighting-execution="prompt-and-reference"]').click();
   assert.equal(f.controller.selections().length, 4);
-  assert.deepEqual(f.controller.selections().map(item => item.ruleVersion), [rule.ruleVersion, referenceRule.ruleVersion, rule.ruleVersion, referenceRule.ruleVersion]);
+  assert.deepEqual(f.controller.selections().map(item => item.ruleVersion), [undefined, referenceRule.ruleVersion, undefined, referenceRule.ruleVersion]);
   const stale = f.cards()[1], before = f.controller.value();
   f.controller.setAvailability({ ...multiPresetConfig, presets: [preset, { ...nightPreset, version: 4 }, filmPreset] });
   assert.deepEqual(f.controller.value(), before);
@@ -273,11 +274,12 @@ test("主工作台恢复旧原始或损坏草稿不会默认套卡，须重新�
 test("主工作台旧预设草稿默认为仅提示词，新双图方式轻量保存并恢复同一卡片", t => {
   const previousStorage = globalThis.sessionStorage;
   t.after(() => { globalThis.sessionStorage = previousStorage; });
-  const legacy = { ...selection }; delete legacy.execution;
+  const legacy = { ...selection, ...rule }; delete legacy.execution;
   let saved = JSON.stringify(legacy);
   globalThis.sessionStorage = { getItem: () => saved, setItem(key, value) { saved = value; } };
   const f = fixture("canvas-lab.refined-lighting");
   assert.deepEqual(f.controller.value(), selection);
+  assert.deepEqual(JSON.parse(saved), selection, "恢复时清理持久化旧公共规则身份");
   f.node('[data-lighting-execution="prompt-and-reference"]').click();
   assert.deepEqual(JSON.parse(saved), combinedSelection);
   const restored = fixture("canvas-lab.refined-lighting");
@@ -291,9 +293,9 @@ test("光影必须选择有效来源，预设提示词支持单图模型并阻�
   }
   assert.equal(refinedLightingValidation(selection, config, [multi]), null);
   assert.equal(refinedLightingValidation(selection, config, [multi, single]), null);
-  assert.match(refinedLightingValidation(selection, { ...config, promptAvailable: undefined }, [multi]), /光影提示词规则不可用/);
+  assert.match(refinedLightingValidation(selection, { ...config, promptAvailable: undefined }, [multi]), /仅提示词 Prompt 不可用/);
   assert.match(refinedLightingValidation({ ...selection, sha256: "old" }, config, [multi]), /已更新或下架/);
-  assert.match(refinedLightingValidation(selection, { ...config, ruleSha256: "new" }, [multi]), /规则已更新/);
+  assert.equal(refinedLightingValidation({ ...selection, ...rule }, { ...config, ruleSha256: "new" }, [multi]), null, "纯词新提交不再依赖旧公共规则身份");
   assert.match(refinedLightingValidation({ mode: "reference", ...referenceRule }, config, [multi], 0), /重新上传/);
   assert.equal(refinedLightingValidation({ mode: "reference", ...referenceRule }, config, [multi], 1), null);
   assert.match(refinedLightingValidation({ mode: "reference", ...referenceRule }, config, [single], 1), /Flux.*不支持双图/);
@@ -423,7 +425,7 @@ test("三种渲染方式独立勾选、身份逐模式分流，空选阻断且�
   const value = f.controller.value();
   assert.deepEqual(value.executions, ["prompt-only", "prompt-and-reference", "prompt-with-reference"]);
   assert.deepEqual(f.controller.selections().map(x => [x.execution, x.ruleVersion]),
-    [["prompt-only", 1], ["prompt-and-reference", 3], ["prompt-with-reference", 4]]);
+    [["prompt-only", undefined], ["prompt-and-reference", 3], ["prompt-with-reference", 4]]);
   assert.ok(f.controller.selections().every(x => !Object.hasOwn(x, "executions")));
   assert.equal(usesRefinedLightingReferencePrompt(value), false);
   assert.equal(f.controller.validation(), null);
@@ -482,7 +484,7 @@ test("仅迁移规则可用时卡片仍可选，默认纯词明确报错，显�
   assert.deepEqual(f.controller.requestFields(), { refinedLighting: combinedSelection });
   f.controller.setAvailability(config);
   f.node('[data-lighting-execution="prompt-only"]').click();
-  assert.deepEqual(f.controller.value(), selection, "切回纯词重新绑定文字rule");
+  assert.deepEqual(f.controller.value(), selection, "切回纯词只保留卡片身份");
   f.node('[data-lighting-execution="prompt-and-reference"]').click();
   f.choose();
   assert.deepEqual(f.controller.value(), combinedSelection, "图文模式换卡保持专用rule");

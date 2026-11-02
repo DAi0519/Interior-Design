@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖共享光影控制器、单项光影请求投影、飞书三规则脱敏配置/双图专用Prompt目录、基础Prompt版本、Beta模型和轻量恢复值
- * [OUTPUT]: 对外提供纯词基础、迁移/上传与氛围词前置Prompt分流、光影×模式selections/单项settings、光影与方式独立计数摘要、独立版本准入和基础草稿记忆，不持久化上传图片
+ * [INPUT]: 依赖共享光影控制器、单项请求投影、同表三类精模完整Prompt目录/统一名称、Beta模型和轻量恢复值
+ * [OUTPUT]: 对外提供纯词完整Prompt与双图版本分流、纯词旧规则身份清理、光影×模式settings、独立计数/准入及纯词草稿记忆，不持久化上传图片
  * [POS]: public 的 Beta 精模光影适配器，与设计风格/旧时段天气参数隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { bindRefinedLightingControls, refinedLightingSelections } from "./refined-lighting-controls.js";
-import { referenceLightingPromptCatalog } from "./refined-prompt-version-select.js";
+import { bindRefinedLightingControls, normalizeRefinedLighting, refinedLightingSelections } from "./refined-lighting-controls.js";
+import { referenceLightingPromptCatalog, REFINED_RENDER_PROMPT_NAMES } from "./refined-prompt-version-select.js";
 import { refinedLightingPromptKind } from "./refined-flux-reference.js";
 import { refinedLightingRequestSelection } from "./generation-task-request.js";
 
@@ -51,12 +51,12 @@ export function createBetaRefinedRenderConfiguration({ elements, fillSelect, get
     const selected = reference ? promptConfig.defaultVersion
       : versions.some(entry => String(entry.version) === String(baseVersion)) ? baseVersion : promptConfig?.defaultVersion;
     fillSelect(elements.refinedPromptSelect, versions.map(entry => ({
-      label: `${entry.name} · v${entry.version}`, value: entry.version,
+      label: `${REFINED_RENDER_PROMPT_NAMES[kind]} · v${entry.version}`, value: entry.version,
     })), selected);
     if (!reference && promptConfig) baseVersion = elements.refinedPromptSelect.value;
     referenceDisplayed = reference;
     elements.refinedPromptSelect.disabled = reference || versions.length === 0;
-    const name = kind === "hybrid" ? "氛围词参考前置" : reference ? "参考图光影迁移" : "精模";
+    const name = REFINED_RENDER_PROMPT_NAMES[kind];
     elements.configStatus.textContent = `${name} Prompt ${versions.length ? "已就绪" : "不可用"}`;
   }
 
@@ -85,7 +85,7 @@ export function createBetaRefinedRenderConfiguration({ elements, fillSelect, get
     validate,
     settings(selection = null) {
       validate();
-      const selected = refinedLightingRequestSelection(selection || controls.value());
+      const selected = normalizeRefinedLighting(refinedLightingRequestSelection(selection || controls.value()));
       return {
         promptVersion: refinedLightingPromptKind(selected) !== "base"
           ? selected.ruleVersion : Number(referenceDisplayed ? baseVersion : elements.refinedPromptSelect.value),

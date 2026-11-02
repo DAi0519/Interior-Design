@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖白模/空房/旧房/风格转换的独立飞书Agent、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
- * [OUTPUT]: 对外提供白模/空房/旧房及风格转换Agent分流与单次出图归档；旧房独立读取上架Prompt及版本，System Prompt与Agent输出不拼接或覆盖，缓存按实际Agent正文和版本隔离
+ * [INPUT]: 依赖白模/空房/旧房/风格转换的独立飞书Agent、白模可选纯词光影、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
+ * [OUTPUT]: 对外提供设计Agent分流与单次出图归档；白模光影进入Agent输入与缓存身份，自动兼容原流程；System Prompt与Agent输出不拼接或覆盖
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,6 +24,7 @@ import {
 } from "./prompt-agent.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getPublishedStyle } from "./style-library.mjs";
+import { resolveWhiteModelLightingInput, WHITE_MODEL_LIGHTING_TARGET_FIELD } from "./white-model-lighting.mjs";
 
 export const SMART_DEFAULT_RENDER_MODE = "smart-default";
 export const STYLE_DNA_RENDER_MODE = "style-dna";
@@ -111,6 +112,7 @@ function styleReferenceContract(hasStyleReference) {
 
 export function buildPromptAgentInput({
   hasStyleReference = false,
+  lightingPrompt = null,
   styleDna,
   userRequirements,
 }) {
@@ -123,11 +125,13 @@ export function buildPromptAgentInput({
     "user_requirements:",
     String(userRequirements || "").trim() || "无补充要求",
     ...styleReferenceContract(hasStyleReference),
+    ...(lightingPrompt ? ["", lightingPrompt] : []),
   ].join("\n");
 }
 
 export function buildSmartDefaultPromptAgentInput({
   hasStyleReference = false,
+  lightingPrompt = null,
   userRequirements,
 }) {
   return [
@@ -139,6 +143,7 @@ export function buildSmartDefaultPromptAgentInput({
     "user_requirements:",
     String(userRequirements || "").trim() || "无补充要求",
     ...styleReferenceContract(hasStyleReference),
+    ...(lightingPrompt ? ["", lightingPrompt] : []),
   ].join("\n");
 }
 
@@ -293,6 +298,7 @@ function promptResultCacheKey({
   styleReference,
   userRequirements,
   whiteModel,
+  whiteModelLighting,
 }) {
   const hash = createHash("sha256");
   const parts = [
@@ -316,6 +322,7 @@ function promptResultCacheKey({
     styleReference?.imageUrl,
     styleReference?.width,
     styleReference?.height,
+    ...(whiteModelLighting?.promptSha256 ? [JSON.stringify(whiteModelLighting)] : []),
   ];
   for (const part of parts) {
     hash.update(String(part ?? ""));
@@ -332,6 +339,7 @@ export async function executeWhiteModelWorkflow(
     imageClient = client,
     loadAgent = getPublishedPromptAgent,
     loadStyle = getPublishedStyle,
+    loadLightingAssets,
     promptResultCache = null,
     refreshModels = null,
     scheduleSync = null,
@@ -402,6 +410,9 @@ export async function executeWhiteModelWorkflow(
   if (emptyRoom && !smartDefault && styleReferences.length > 0) {
     throw workflowError("空房平台风格模式不接收风格参考图，请改用智能默认");
   }
+  const lighting = await resolveWhiteModelLightingInput({ ...input, featureMode }, {
+    ...(loadLightingAssets ? { loadAssets: loadLightingAssets } : {}),
+  });
   let style = null;
   let agent;
   if (styleTransfer) {
@@ -446,6 +457,9 @@ export async function executeWhiteModelWorkflow(
         version: input.promptAgentVersion,
       }),
     ]);
+  }
+  if (lighting.selection && !agent.systemPrompt.includes(WHITE_MODEL_LIGHTING_TARGET_FIELD)) {
+    throw workflowError("当前白模 Agent 版本不支持光影选择，请刷新配置并选择最新版本，或改为自动", 409);
   }
   let modelCatalog = availableModels || (await client.listModels());
   let availableIds = new Set(
@@ -513,10 +527,12 @@ export async function executeWhiteModelWorkflow(
         : smartDefault
           ? buildSmartDefaultPromptAgentInput({
               hasStyleReference: styleReferences.length > 0,
+              lightingPrompt: lighting.prompt,
               userRequirements,
             })
           : buildPromptAgentInput({
               hasStyleReference: styleReferences.length > 0,
+              lightingPrompt: lighting.prompt,
               styleDna: style.styleDna,
               userRequirements,
             }),
@@ -541,6 +557,7 @@ export async function executeWhiteModelWorkflow(
           styleReference: styleReferences[0],
           userRequirements,
           whiteModel: sourceImages[0],
+          whiteModelLighting: lighting.metadata,
         }),
         generateFinalPrompt,
         { force: forcePromptRegeneration },
@@ -596,6 +613,7 @@ export async function executeWhiteModelWorkflow(
     promptDurationMs,
     promptReused,
     renderMode,
+    ...(lighting.metadata ? { whiteModelLighting: lighting.metadata } : {}),
     ...(roomType ? { roomType } : {}),
     ...(roomTypeDetail ? { roomTypeDetail } : {}),
     ...(emptyRoom ? { furnitureSelection } : {}),
@@ -630,6 +648,7 @@ export async function executeWhiteModelWorkflow(
   return {
     durationMs,
     featureMode,
+    ...(featureMode === WHITE_MODEL_FEATURE_MODE ? { whiteModelLighting: lighting.selection } : {}),
     ...(designScenario ? { designScenario } : {}),
     images: result.images,
     promptAgent: {

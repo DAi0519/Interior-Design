@@ -1,6 +1,8 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
 Node.js 24+ + 原生 HTTP + undici 7.30.1 + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.5 + lark-cli 1.0.77
 
+白模光影法则：主工作台设计风格后可选既有库单卡，默认自动沿用原照明；仅将三段光影词交给白模智能默认/平台风格Agent整合，所选光影优先于风格隐含照明、用户补充优先于预设，白模空间事实始终优先。入队/执行校验卡片版本SHA，缓存与归档纳入照明身份；不加载卡片原图或精模规则，最终仍白模单图，不增加Agent或出图阶段。实际目录须声明whiteModel.promptLighting，Beta不新增控件。详见docs/white-model-lighting.md。
+
 Seedream命名法则：`seedream5` 的完整型号为 Seedream 5.0 Lite，OneAPI ID `doubao-seedream-5.0` 对应上游 `doubao-seedream-5-0-260128`；界面与新归档必须写 Lite，不另设“5.0标准版”。Pro 独立保留；Flash 未向当前Key开放。稳定 key/API ID 不因展示改名变更，历史“Seedream 5.0”别名由模型真源维护，旧评测配置、附件列及Beta冻结快照继续兼容，禁止重复收费生成。
 
 2026-11-02发布范围：最新main的v0.1.21收录固定144px功能目录/参数独立伸缩收起及旧偏好迁移、Seedream Lite完整型号/历史兼容、ComfyUI分段耗时和失败view响应连接释放；Agent对话分支不进入本版。沿用发布脚本的白名单、源码/测试/依赖准入、真实干净安装/启动冒烟与GitHub附件SHA校验。
@@ -17,13 +19,13 @@ Seedream命名法则：`seedream5` 的完整型号为 Seedream 5.0 Lite，OneAPI
 
 精模默认模型法则：主/Beta自动默认继续优先Banana2.1，不因光影来源或渲染方式暗中换模型。新任务必须选择预设或上传参考图；光影预设与prompt-only底图单图、prompt-and-reference参考图迁移、prompt-with-reference专用图序前置＋氛围词加卡片原图三种方式均可多选，按光影×模型×方式展开独立请求，结果标注光影与方式，单模型每组合1–4张/多模型每组合一张；多光影须实际目录声明multiplePresetSelections，限额按模型/光影ID/方式分组；纯词可用单图模型，两种加图预设与用户上传reference均要求至少双图能力；Flux仅在精模参考来源使用独立双图分支：长边1K=1024/2K=2048、16px对齐、4步/CFG1/Euler、无后置超分；普通Flux/纯词仍是单图与原尺寸合同，不丢弃第二图。
 
-光影反推法则：每张卡片正文统一三段：氛围主题与基调；光源安排（时段/天气、自然与人工、方向/软硬及主次强弱）；色温与曝光（光源K与白平衡分开、亮暗/光比/高光/暗部及摄影响应）。逐张原图判断，不把家具材质本色当光色；K值和曝光级差为渲染目标而非照片实测。当前九卡WebP（八卡v5＋金色夕照v3，电影柔光用原透帘柔光横图、正文不变，独立透帘卡与暗调洗墙下架）进入纯词和新增氛围词双图编译，参考图链路仍用图2迁移规则，基础与公共规则不随卡片重写。
+光影反推法则：每张卡片正文统一三段：氛围主题与基调；光源安排（时段/天气、自然与人工、方向/软硬及主次强弱）；色温与曝光（光源K与白平衡分开、亮暗/光比/高光/暗部及摄影响应）。逐张原图判断，不把家具材质本色当光色；K值和曝光级差为渲染目标而非照片实测。当前九卡WebP（八卡v5＋金色夕照v3，电影柔光用原透帘柔光横图、正文不变，独立透帘卡与暗调洗墙下架）进入纯词和新增氛围词双图编译，参考图链路仍用图2迁移规则，完整控制Prompt不随卡片重写。
 
-纯词Prompt分工法则：refined-lighting-base v4写设计/材质保护、成像品质及既有门窗外缺失环境的克制补全，并逐字保留用户完整室内外曝光/阴影细节/接触阴影/明暗过渡/空间纵深/外景真实克制柔和段；lighting-prompt-render v3只写布光/曝光/WB边界，然后接所选卡片当前版本三段目标与用户补充。白平衡按氛围目标确定后固定，不恢复重复英文长段和相机参数；旧基础/规则下架留档。
+精模Prompt统一管理法则：三种完整控制Prompt统一在精模渲染Prompt表tblrj2xypwHnh97E维护：refined-lighting-base v5为“精模渲染 · 仅提示词”，合并原base4与textRule4；lighting-reference-transfer v7为“精模渲染 · 参考图迁移”，原v6原文迁入；lighting-prompt-reference v4为“精模渲染 · 氛围词＋参考图”，原v3原文迁入。光影库只读卡片，旧规则下架留档且不运行回退。纯词只拼完整Prompt＋卡片词＋补充，无独立ruleVersion/SHA；双图各自按完整资产冻结，全部promptSource指向精模表。旧分散冻结409要求刷新重提，旧结果不改写。发布/运行核验以outputs/refined-lighting-final/prompt-management-unified.json为准。
 
-参考光影迁移法则：当前lighting-reference-transfer v6在同一次双图生成中按主题基调、布光主次、色温曝光三方面读取图2并适配图1；夜间或人工主导且日光可忽略时压低冲突日光，日光主导暗调仍保留窗主光。图1保设计/材质本色/机位，不复制图2家具、材料色盘、开口或外景；预设参考图迁移与上传共用，不追加base或卡片词；prompt-with-reference使用保留原英文图序前置、外景段及用户完整中文曝光段的lighting-prompt-reference v3＋卡片词，零基础读取，不增加分析调用。三路径均保留有效外景，仅补全真实门窗外空白/未建模环境，尺度透视与目标时段/天气/曝光/反射一致，尊重夜暗和雾度；不改室内/开口/机位、不新增阳台、无开口不强加外景。三份当前Prompt均逐字追加用户完整曝光/阴影/纵深/外景段，旧base3/reference5/hybrid2只下架留档，卡片与短衔接不动。
+参考光影迁移法则：同表lighting-reference-transfer v7在同一次双图生成中按主题基调、布光主次、色温曝光读取图2并适配图1；预设迁移与用户上传共用完整正文，不追加纯词Prompt或卡片反推。lighting-prompt-reference v4负责图序前置，后接卡片词与补充。图1保结构、开口、机位、物体及材质本色，图2不提供设计或外景复制授权；时段、天气、曝光及反射适配真实既有开口，尊重夜暗与雾度，不新增阳台或开口。纯词完整Prompt含无窗保持封闭/画外柔光与反射、结构优先边界。完整曝光/阴影/纵深段保留，旧Prompt与归档仅留历史，不从快照补词。
 
-参数面板呈现法则：Main/Beta统一移除控件外说明小字和飞书维护链接，保留字段标签、必填/数量、上传限制、真实错误与历史恢复异常；共享panel-copy.css管理展示，控制器显式标记.error避免隐藏故障原因。精模/全景/光影转换统一12px正常字重入口与44px缩略图，单选名称/多选仅“N 种光影”，11px正常图卡名和16px右上角黑底白勾，不追加已选/加粗或整卡选中框；容器≤280px或窗口≤380px统一两列。全景清空并入标题行，删除重复摘要/名称列表，16px独立要求和真实失效错误保留；精模默认收起、多选保持展开/重复取消、无清除，单选宿主选后收起。白模和精模导航归AI渲染，AI设计保留空房/旧房/风格转换。渲染方式在面板外，正常字重/选中小勾/不显示已选数量，不加选中高亮框。精模无清除入口；预设可直接上传，读取成功才替换整组并锁模板，删图回未选解锁，取消/非法上传保留原预设组。
+参数面板呈现法则：Main/Beta统一移除控件外说明小字和飞书维护链接，保留字段标签、必填/数量、上传限制、真实错误与历史恢复异常；共享panel-copy.css管理展示，控制器显式标记.error避免隐藏故障原因。精模/全景/光影转换统一12px正常字重入口与44px缩略图，单选名称/多选仅“N 种光影”，11px正常图卡名和16px右上角黑底白勾，不追加已选/加粗或整卡选中框；容器≤280px或窗口≤380px统一两列。全景增加默认勾选的独立原光影首卡，与模板/自定义要求互斥，点击复位沿用空请求且不增张数；清空并入标题行且保留要求，删除重复摘要/名称列表，16px独立要求和真实失效错误保留；精模默认收起、多选保持展开/重复取消、无清除，单选宿主选后收起。白模和精模导航归AI渲染，AI设计保留空房/旧房/风格转换。渲染方式在面板外，正常字重/选中小勾/不显示已选数量，不加选中高亮框。精模无清除入口；预设可直接上传，读取成功才替换整组并锁模板，删图回未选解锁，取消/非法上传保留原预设组。
 
 产物保留法则：每功能只保留最终报告、必要原件、最终工作流和一份精简任务/SHA证据；临时脚本、日志、调试截图和重复包完成后移出，不持续堆叠日期目录。原始数据、源码、发布仓库、任务防重复账本及活跃工作例外保留；清理后的恢复清单只放废纸篓。
 
@@ -32,12 +34,12 @@ Seedream命名法则：`seedream5` 的完整型号为 Seedream 5.0 Lite，OneAPI
 光影转换法则：AI渲染新增`lightingTransfer`，单张已有效果图＋现有光影库卡片固定双图迁移。独立“光影转换 Prompt”表`tblOQOF7m7eKMIAA`的`lighting-render-transfer`只约束保留设计/材质本色/纹理/机位并重建目标照明，不拼精模规则/基础/卡片词且不走Agent；卡片/规则/实际双图SHA入队与执行复核，独立“光影转换”归档，旧进程目录未声明即阻断。Flux复用原比例1K/2K双图分支，图卡与补充要求草稿独立；4192活跃批次期间不得重启。详见`docs/lighting-transfer.md`。
 
 <directory>
-.codex/ - 本项目桌面运行与停止动作，复用本机端口真源（1子目录：environments）
+.codex/ - 本项目桌面运行与停止动作，短命令委托脚本以避免终端截断，复用本机端口真源（1子目录：environments）
 competitor-profiles/ - 建筑学长模型渲染的模板与交互对齐研究，区分原始证据和方案推断
 .impeccable/ - Impeccable 项目级设计配置与验收证据（2 个子目录：live、review）
 public/ - 浏览器工作台界面（含AI编辑GPT光照模板优先/自定义整体原灯无需标注/可选点线面光源编辑与逐灯两模式及 icons/ 图标资产模块、功能目录固定144px/仅参数栏伸缩及完全收起/总宽368px以上可用中间态/旧80px偏好迁移/参数容器按实宽重排、900px以下同DOM配置抽屉：运营连接中心、三页共享版本检测与用户确认后安装、含跨功能复用的飞书图片样本库、默认 Flux、本机配置恢复、默认攸行 3B 的六套 SeedVR2 图片超分（含 7B 原图直入与 KS直入6K固定5120推理/6144交付及其他KS20MP策略）、默认 ComfyUI 参数 1082、可选 Qwen Image Edit 2511 原生遮罩及 Sunburst API 的三引擎单图扩图/兼容Flux Fill模型选择/原比例/预设比例与固定2K输出/Sunburst超限等比适配及超宽保全图补边/固定输出的主区域棋盘格构图/四角等比缩放/倍率设置/浮点transform连续构图与整数提交隔离/上传默认预览与结果切换/各自尺寸合同与动态准入、时间追溯 Run ID、异常预警与仅失败项RETRY的十功能 Beta跑图（含四工作流扩图与六工作流超分多选对比）、效果图氛围转换当前上架 Prompt 版本及天气/时段选项、独立六预设的效果图美化强度/色调控件、独立R5_4原尺寸/纯词光影库与自定义光影要求及按需Pannellum 360°预览的全景图美化、精模飞书九卡1936×1090横图单图文字/附原卡图对比和独立上传氛围双图选择/白模/空房设计/旧房改造/风格转换/自由生图、Flux 普通/旧房独立默认与分范围自定义负向 Prompt、按功能及跨页恢复的后台生成任务、无图标 Smiley Sans 展示字体主动作、空房必填房间类型、设计主图与风格参考双上传及单图拖入替换、智能默认/平台风格选择、单模型 1–4 张向上展开下拉或共享简洁搜索的单选风格与不限模型数批量与结果画廊、Benchmark 五步流程、Style DNA 对话、自定义下拉、静态首帧加 140ms 导航前双层 transform 的三工作台切换、共享 `#f37021` 标志性盒橙功能色与 Raycast 向近白银灰 Light Command Center 样式）
-src/ - 独立GPT重建照明模板/保留设计材质与可选光源编辑、单图或双图后台生成/原生PNG及照明计划摘要飞书归档、GitHub 正式 Release 更新检测/受信安装与共享 HTTP 边界、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、含 Flux/Qwen ComfyUI 与 Sunburst 扩图/方向归一化/所选引擎节点或 Key 权限准入的独立图片工具、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图美化独立六预设LoRA阶段、氛围普通Flux及全景R5_4球面工作流/纯词光影库、各自独立飞书Prompt、精模独立飞书光影库与预设文字/图文对比和上传双图、三规则/卡片/实际图片SHA冻结及MAIN品质/旧四块双资产兼容/批次契约、旧房独立Agent/默认负向与共享空房单流程、空房房间类型真源、Style DNA/白模/空房设计/独立风格转换编排及 Benchmark 运行层（96 个模块）
-docs/ - 精模光影库九卡横图文本单图/上传双图与三规则/分路模型门槛/基础品质及旧四块资产冻结、Flux/Qwen/Sunburst二次编辑测试与飞书归档、图片超分输出尺寸与混选合同、图片扩图目标分辨率/可交互构图，以及旧房v3大改/独立负向与同种子对照证据的使用维护说明（无子目录）
+src/ - 独立GPT重建照明模板/保留设计材质与可选光源编辑、单图或双图后台生成/原生PNG及照明计划摘要飞书归档、GitHub 正式 Release 更新检测/受信安装与共享 HTTP 边界、本机设置、飞书 Setup、图片尺寸/产物/下载、模型与 Agent 配置、OneAPI、Flux2 Klein 与 SeedVR2 图片超分 ComfyUI、含 Flux/Qwen ComfyUI 与 Sunburst 扩图/方向归一化/所选引擎节点或 Key 权限准入的独立图片工具、日常生图后台任务/应用服务、Beta跑图独立新 Base/批量任务、效果图美化独立六预设LoRA阶段、氛围普通Flux及全景R5_4球面工作流/纯词光影库、各自独立飞书Prompt、精模独立飞书光影库与预设文字/图文对比和上传双图、同表三种完整Prompt/卡片/实际图片SHA冻结及旧四块双资产兼容/批次契约、旧房独立Agent/默认负向与共享空房单流程、空房房间类型真源、Style DNA/白模/空房设计/独立风格转换编排及 Benchmark 运行层（97 个模块）
+docs/ - 精模光影库九卡横图文本单图/上传双图与同表三种完整Prompt/分路模型门槛/成像品质及旧四块资产冻结、Flux/Qwen/Sunburst二次编辑测试与飞书归档、图片超分输出尺寸与混选合同、图片扩图目标分辨率/可交互构图，以及旧房v3大改/独立负向与同种子对照证据的使用维护说明（无子目录）
 test/ - Node 原生测试（含共享交互夹具、配置栏宽度/折叠/原生抽屉迁移，覆盖版本检查/失败降级/更新提示与安装摘要/目录保护/完整进度终态、共享重点色、三工作台导航、默认攸行 3B 的 SeedVR2 六工作流与 4K/6K/8K 或KS预缩放/原图直入2X/4K/6K图片超分、三引擎扩图来源/EXIF/Qwen遮罩采样与无回贴整图恢复/原生JSON导出/ComfyUI32与8规则/Sunburst固定2K画幅/16384px原图与3840px实际输入适配/超宽补边/透明PNG与mask/收费POST及产物合同、Beta跑图独立 Base/样本集/默认 Flux/配置恢复/时间追溯 Run ID/任务/UI/四工作流扩图对比与正式执行归档跨层合同、功能/模型选择按钮与生成张数下拉、连接与飞书、双 Provider、可恢复生成任务、Flux 普通/旧房独立默认与分范围自定义负向 Prompt、效果图/全景图美化正向 Prompt 拼接与全景专属 360°预览、精模独立Prompt及光影卡片/参考图与模型门槛/历史恢复/资产冻结归档防篡改/跨功能隔离及固定Prompt上架准入与下架选择回退、空房必填房间类型、白模渲染方式、风格转换显式双来源与Beta版本冻结/三图归档、多模型批次、图片下载、模型/附件/工作流与 Benchmark 全链路）
 workflows/ - 可独立导入 ComfyUI 的 Flux Fill OneReward 扩图画布、Qwen 扩图画布/API JSON 与使用说明，以及SeedVR2 7B/KS来源和原图直入两倍画布、精模Flux双图1K/2K画布及独立4096推理直出4K与5120推理插值6K的现有MaaS节点交接（3个子目录：panorama-enhancement/R5_4全景原图与说明、flux2-mask-fill/兼容图与验证、effect-beautification/六原始美化画布与参数说明）
 scripts/ - 独立4175摄影机球多角度试跑（大图压到长边2K直接推理）、工作流导出与源码发布工具（白名单规则、发布准入、确定性打包、干净安装/启动冒烟、GitHub Release 上传校验及规则测试）
@@ -54,7 +56,7 @@ start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launc
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总多候选 Agent/Style/融合模型且仅在显式 --execute 后调用模型并写回 Base
 benchmark-backfill.mjs - 历史横评数据迁移入口，不调用模型，将宽表附件补齐为一图一行的模型结果真源
-.codex/environments/environment.toml - Codex 通过 npm start 一键后台启动并打开本地工作台的 macOS 动作
+.codex/environments/environment.toml - Codex 运行短命令委托同目录 run-workspace.sh，按需后台启动并打开本地工作台的 macOS 动作
 .env.example - 可复制为 .env.local 的 OneAPI、ComfyUI 地址与飞书资源配置模板
 README.md - 工作台功能简介、Windows/macOS 快速启动、连接配置、检查/下载/安装更新及 Issue/PR 协作入口
 RELEASE.md - 维护者版本更新、发布准入、白名单 ZIP、SHA-256、manifest 与 GitHub Release 操作协议
@@ -79,7 +81,7 @@ Beta跑图法则：作为与生图工作台、模型评测并列的独立第三�
 
 风格转换法则：AI设计下的 `styleTransfer` 复用现有风格库、双上传、统一生图、后台任务与生成归档；独立飞书“风格转换 Prompt”提供 `style-transfer-reference` 与 `style-transfer-fusion`，不得跨表回退白模或空房 Agent。主图必填，必须明确选择平台风格或上传风格参考图，不提供智能默认或自动选风格；参考图仅供参考图 Agent 提取风格，上传后禁选平台风格，最终模型只接收主图。保留原空间结构、机位及功能布局，转换材质、色彩、家具和软装风格；功能、独立版本及参考图进入缓存身份。生成记录新增“风格转换”功能选项，复用已有设计方式、风格、Prompt融合、输入图、风格参考图及结果字段。
 
-精模渲染法则：prompt-only预设使用独立refined-lighting-base纯文本基础＋lighting-prompt-render规则3＋卡片反推正文＋可选补充，保留设计/材质/机位及渲染品质，不读取旧四块。preset prompt-and-reference和用户上传image-reference统一只用lighting-reference-transfer规则4＋可选补充，不拼基础、文字规则、卡片反推或额外角色段；图1保留设计、图2迁移光影。图文模式读取飞书卡图原件并冻结preset身份/原图SHA，上传使用用户原件；两路的ruleVersion/SHA与实际Prompt code/version/正文SHA/source都来自专用规则。图文/上传版本行固定迁移规则，切回纯词恢复独立基础记忆，双图不依赖基础可用性。execution及实际资产身份进入去重、正式/Beta归档和回读，原件漂移/模型不支持/旧冻结拒绝于收费前；已有历史结果仍可恢复。仅上传和预设互斥，模型不暗换，选中无高亮框。当前八卡WebP v5＋金色夕照v3/文字规则v3/基础v2与迁移规则v4版本化维护；历史同文只加图方案已由本规则替代。详见docs/refined-rendering.md、docs/refined-lighting-library.md及outputs/refined-lighting-final/evidence.json/，测试不代表真实画质通过。
+精模渲染法则：精模Prompt表的三个稳定编码对应三种完整控制Prompt，光影库仅管理卡片正文和原件。prompt-only为refined-lighting-base＋卡片反推＋可选补充，单图且无独立公共规则身份；prompt-and-reference与用户上传image-reference为lighting-reference-transfer＋补充；prompt-with-reference为lighting-prompt-reference＋卡片词＋补充，两种加图模式均真实双图。三路按真实表/code/version/正文SHA/source冻结与归档，双图的兼容ruleVersion/SHA由同一完整Prompt派生；卡片与实际第二图原件另冻身份。缺失/下架/非法/漂移拒绝于收费前，旧分散冻结不得自动套新词重跑，历史已有结果可恢复。Main/Beta展示同一完整名称与版本，纯词记忆不被双图覆盖；默认Banana2.1不暗换。白模、全景、效果图光影转换仅共享卡片，保留各自Prompt。详见docs/refined-rendering.md、docs/refined-lighting-library.md。
 
 生图法则：白模、空房设计、风格转换与自由生图默认 Flux2 Klein；精模使用本页独立Banana2.1默认策略，自由生图正向提示词初始为空且不展示预置文案；精模旧请求允许把可选要求前置，新精模预设按基础/氛围/用户要求编译，上传仅专用参考规则/用户要求，并分别归档原始/最终 Prompt；白模与空房前端显式区分智能默认和已上架 Style DNA，两者复用最终单主图出图与批次归档链路，但分别按 `white-model-smart-default`/`white-model-fusion` 与 `empty-room-smart-default`/`empty-room-fusion` 路由；空房必须由客户从十个受控值中显式选择房间类型且不设默认，选择“其他”时还必须填写不超过 40 字的具体空间类型；服务端在 Agent 调用前校验并把 `room_type`/`room_type_detail` 同时纳入两种模式的 Prompt、缓存指纹、响应和生成记录“空间类型”/“其他空间类型”，图片、Style DNA 或补充要求不得改判；白模与空房的风格参考图只可进入各自智能默认 Agent，空房上传后必须自动切回智能默认并禁选平台风格，平台融合只接收主图、Style DNA 与用户要求；缓存指纹包含功能且不得串用；统一出图入口暴露七个 OneAPI 模型与 Flux2 Klein，Seedream 5.0 Pro 使用独立 `doubao-seedream-5.0-pro` 路由和 1K/2K 像素合同，不冒充或覆盖普通 5.0；原有四个 OneAPI 模型包含 2:1，两款 GPT Image 2.5 仅开放模板列出的九种非 2:1 比例，新增 Banana 2.1 使用独立 gemini-nano-banana-2.1 路由和十四种非 2:1 比例/1K–4K 合同，三者在全景图美化禁选；Flux 按源图动态支持 2:1 并确保 16 像素对齐，日常生图固定 PNG；Flux 原生 1K/2K 仍按约 1MP/4MP 推理与输出，4K/6K 固定先按 2K 推理，再在同一个 ComfyUI Prompt 图内把生成结果直连攸行 SeedVR2 3B，保留其 DiT/VAE GPU 缓存与 CUDA 驻留以真实暴露同生命周期显存风险，不拆成二次任务或静默降档；单模型允许生成 1–4 张，多模型不设选择数量上限且每模型各一张，按原两路并发排队执行；选中 Flux 时显示可选负向 Prompt，空值按普通/旧房场景选默认，旧房与普通内存草稿独立、非空仍整段覆盖/8000字符且不传给 OneAPI；Prompt 正文仅在服务端，每张图片独立返回并异步归档 Provider、批次、Prompt 版本、2K 推理尺寸、最终尺寸与超分工作流元数据。
 

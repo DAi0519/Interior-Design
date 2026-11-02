@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖光影转换/精模及全景光影版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
- * [OUTPUT]: 对外提供局部消除独立Prompt版本准入与操作冻结、运行进程功能及全景多光影能力目录、精模每模型每光影每模式与全景每模型每光影限额/独立批次冻结、打光正文冻结和任务入队/查询及全景排队/执行阶段
+ * [INPUT]: 依赖白模纯词/光影转换/精模及全景光影版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
+ * [OUTPUT]: 对外提供局部消除独立Prompt版本准入与操作冻结、运行进程功能及白模纯词/全景多光影能力目录、白模卡片独立冻结、精模每模型每光影每模式与全景每模型每光影限额/独立批次冻结、打光正文冻结和任务入队/查询及全景排队/执行阶段
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,6 +19,7 @@ import { assertOutpaintResolution } from "../public/image-outpaint-geometry.js";
 import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
 import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
 import { normalizePanoramaLighting, preparePanoramaLightingInput } from "./panorama-lighting.mjs";
+import { normalizeWhiteModelLighting, prepareWhiteModelLightingInput } from "./white-model-lighting.mjs";
 import { REFINED_LIGHTING_PRESET_EXECUTIONS } from "../public/refined-flux-reference.js";
 import { prepareLightingTransferInput, validateLightingTransferInput } from "./lighting-transfer-workflow.mjs";
 
@@ -45,7 +46,10 @@ export function supportedGenerationFeatureModes() {
 }
 
 export function supportedGenerationFeatureCapabilities() {
-  return Object.freeze({ panoramaEnhancement: Object.freeze({ multipleLightingSelections: true }) });
+  return Object.freeze({
+    panoramaEnhancement: Object.freeze({ multipleLightingSelections: true }),
+    whiteModel: Object.freeze({ promptLighting: true }),
+  });
 }
 
 export function createGenerationJobApiHandler({
@@ -58,6 +62,7 @@ export function createGenerationJobApiHandler({
   prepareRefinedInput = prepareRefinedRenderInput,
   prepareRefinedLighting = prepareRefinedLightingInput,
   preparePanoramaLighting = preparePanoramaLightingInput,
+  prepareWhiteModelLighting = prepareWhiteModelLightingInput,
   prepareLightingTransfer = prepareLightingTransferInput,
   getImageOutpaintConfig = async () => publicImageOutpaintConfig(),
   readJson,
@@ -93,6 +98,11 @@ export function createGenerationJobApiHandler({
     }
     if (!FEATURE_MODES.has(featureMode)) {
       sendJson(response, 400, { error: "不支持的生成功能" });
+      return true;
+    }
+    if (featureMode !== "whiteModel" && [sharedInput, ...items.map(item => item?.input)]
+      .some(input => input?.whiteModelLighting != null)) {
+      sendJson(response, 400, { error: "白模光影选择仅适用于白模渲染" });
       return true;
     }
     if (items.length < 1) {
@@ -252,6 +262,20 @@ export function createGenerationJobApiHandler({
       // -------- 兼容尚未携带 Provider 的旧 Sunburst 目录，Qwen 始终走 ComfyUI --------
       const provider = engine.provider || (engineKey === ONEAPI_OUTPAINT_ENGINE_KEY ? "oneapi" : "comfyui");
       if (provider === "oneapi") imageStage = "imageEdit";
+    }
+    if (featureMode === "whiteModel") {
+      try {
+        const prepared = new Map();
+        for (let index = 0; index < items.length; index += 1) {
+          const input = { ...sharedInput, ...items[index].input };
+          const selection = normalizeWhiteModelLighting(input.whiteModelLighting);
+          const key = JSON.stringify([selection, input.lightingReferenceImages, input.refinedLighting]);
+          if (!prepared.has(key)) prepared.set(key,
+            await prepareWhiteModelLighting({ ...input, whiteModelLighting: selection }));
+          items[index] = { ...items[index], input: { ...items[index].input,
+            whiteModelLighting: structuredClone(prepared.get(key).whiteModelLighting) } };
+        }
+      } catch (error) { sendJson(response, error.statusCode || 409, { error: error.message }); return true; }
     }
     if (featureMode === "panoramaEnhancement") {
       try {

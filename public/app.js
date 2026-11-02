@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖质感增强飞书固定Prompt版本目录、精模预设多模式对比/上传参考版本组合控制器、GPT打光/Flux/Sunburst遮罩控制器与换Key权限刷新、共享任务/飞书状态、旧房/空房模式、共享下拉/DOM/sessionStorage、配置/生成任务、天气美化/全景门槛、机位/超分/扩图控制器、设计参数/Prompt/模型目录、上传/画廊/对比、连接中心与Style DNA
- * [OUTPUT]: AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
+ * [INPUT]: 依赖白模可选纯词光影与运行门禁、质感固定Prompt、精模多模式/上传光影、图片工具、共享任务/飞书状态、设计参数/Prompt/模型、上传/结果、连接中心与Style DNA
+ * [OUTPUT]: 白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,6 +30,7 @@ import { bindReferenceUpload } from "./reference-upload.js?v=2";
 import { bindRefinedModelControls, createRefinedModelSelection } from "./refined-model-controls.js";
 import { bindStyleDnaChat } from "./style-dna-chat.js";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
+import { bindWhiteModelLighting } from "./white-model-lighting.js";
 import { generationFeatureUnavailableReason, referenceCapability, referenceSubject } from "./model-capabilities.js";
 import { api, fillSelect } from "./workbench-utils.js";
 import "./custom-select.js?v=9";
@@ -85,6 +86,8 @@ const lightingTransfer = bindLightingTransferControls({ root: elements.lightingT
     generationActions.refresh();
   } });
 function activeLighting() { return state.featureMode === "lightingTransfer" ? lightingTransfer : refinedModel; }
+const whiteModelLighting = bindWhiteModelLighting({ root: elements.whiteModelLightingSection, showToast,
+  onChange: () => generationActions.clearReusable() });
 const generationSize = bindGenerationSizeControls({ elements, getContext: () => ({
   featureMode: state.featureMode, refinedLighting: activeLighting().requestFields().refinedLighting,
   model: selectedModel(), sourceImage: selectedSourceImage(), ratioMode: state.ratioMode,
@@ -203,6 +206,7 @@ function selectFeatureMode(featureMode) {
   elements.whiteModelRenderModeList.setAttribute("aria-label",
     isStyleTransfer ? "风格转换目标风格" : featureMode === "roomRenovation" ? "旧房改造风格选择" : isEmptyRoom ? "空房设计风格选择" : "白模风格选择");
   refinedModel.setVisible(isRefinedModel);
+  whiteModelLighting.setVisible(isWhiteModel);
   lightingTransfer.setVisible(featureMode === "lightingTransfer");
   panoramaLighting.setVisible(isPanoramaEnhancement);
   elements.promptSection.classList.toggle(
@@ -294,6 +298,7 @@ function generationInput() {
     promptAgentVersion: promptAgentVersionSelect.value(),
     promptVersion: refinedModel.promptVersion(),
     ...activeLighting().requestFields(),
+    ...whiteModelLighting.requestFields(state.featureMode),
     panoramaLighting: panoramaLighting.requestFields().panoramaLighting,
     quality: elements.qualitySelect.value,
     ratio: elements.ratioSelect.value,
@@ -580,6 +585,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
 function generationUnavailableReason() {
   return generationFeatureUnavailableReason(state.featureMode, state.generationFeatureModes, selectedModels())
     || (state.featureMode === "lightingTransfer" ? lightingTransfer.validation() : state.featureMode === "refinedModel" ? refinedModel.validation()
+      : state.featureMode === "whiteModel" ? whiteModelLighting.validation()
       : state.featureMode === "textureEnhancement" && !effectEnhancementPromptStatus(state.textureEnhancementPrompt).ready ? state.textureEnhancementPrompt.reason || "未读取到质感增强的上架 Prompt，请刷新飞书配置"
       : state.featureMode === "panoramaEnhancement" ? panoramaLighting.validation() : null);
 }
@@ -594,6 +600,7 @@ const generationActions = bindGenerationActions({ getUnavailableReason: generati
     whiteModelRenderMode.current().agentVersion,
     elements.promptInput.value.trim(), state.promptAgentModelKey,
     promptAgentVersionSelect.value(),
+    state.featureMode === "whiteModel" ? whiteModelLighting.value() : null,
   ]),
   onGenerate: () => void generate(),
   onRegenerate: () => void generate({ forcePromptRegeneration: true }),
@@ -647,6 +654,7 @@ async function initialize() {
   state.catalog = catalogBody.models;
   state.generationFeatureModes = catalogBody.generationFeatureModes;
   panoramaLighting.setCapabilities(catalogBody.generationFeatureCapabilities);
+  whiteModelLighting.setCapabilities(catalogBody.generationFeatureCapabilities);
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
   refinedModel.setPolicy(state.referencePolicy);
@@ -676,7 +684,7 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
 });
 const loadConfiguration = bindConfigRefresh({
   api,
-  onRefinedLighting(config) { refinedModel.setLightingConfig(config); lightingTransfer.setLightingConfig(config); panoramaLighting.configure(config); },
+  onRefinedLighting(config) { refinedModel.setLightingConfig(config); lightingTransfer.setLightingConfig(config); panoramaLighting.configure(config); whiteModelLighting.setLightingConfig(config); generationActions.refresh(); },
   onLightingTransferPrompt(config) { lightingTransfer.setPromptConfig(config); },
   onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
   onTextureEnhancementPrompt(config) { state.textureEnhancementPrompt = config; generationActions.refresh(); },

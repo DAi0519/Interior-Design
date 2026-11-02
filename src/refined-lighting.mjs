@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖飞书光影三类规则/预设原附件、可注入独立迁移规则编码、旧精模参数、模型目录和原图字节校验
- * [OUTPUT]: 对外提供基础+氛围单图、专用迁移双图及图序前置+氛围双图编译、精模Flux独立双图准入与原图SHA冻结复核
+ * [INPUT]: 依赖精模完整Prompt/光影卡片与原附件、可注入独立迁移规则编码、旧精模参数、模型目录和原图字节校验
+ * [OUTPUT]: 对外提供完整Prompt+氛围单图、专用迁移双图及图序前置+氛围双图编译，拒绝旧纯词分散规则身份并冻结卡片与实际图片
  * [POS]: src 的精模预设三执行模式与上传参考边界，旧请求不读新库，Prompt与卡片原图仅服务端读取
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,7 @@ import { isLightingReference, REFINED_LIGHTING_PRESET_EXECUTIONS, supportsLighti
 import { MODEL_CONFIGS } from "./model-config.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { normalizeRefinedRender, requiresRefinedAtmosphere } from "../public/refined-render-presets.js";
-import { loadRefinedLightingAssets, loadRefinedLightingReference, REFINED_LIGHTING_PROMPT_RULE_CODE, REFINED_LIGHTING_REFERENCE_RULE_CODE, REFINED_LIGHTING_HYBRID_RULE_CODE } from "./refined-lighting-library.mjs";
+import { loadRefinedRenderAssets, loadRefinedLightingReference, REFINED_LIGHTING_REFERENCE_RULE_CODE, REFINED_LIGHTING_HYBRID_RULE_CODE } from "./refined-lighting-library.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
@@ -116,7 +116,7 @@ export function refinedLightingFreezeKey(input = {}) {
 }
 
 export async function resolveRefinedLightingInput(input = {}, {
-  loadAssets = loadRefinedLightingAssets,
+  loadAssets = loadRefinedRenderAssets,
   loadReference = loadRefinedLightingReference,
   referenceRuleCode = REFINED_LIGHTING_REFERENCE_RULE_CODE,
 } = {}) {
@@ -139,12 +139,16 @@ export async function resolveRefinedLightingInput(input = {}, {
   }
   if (referenceRequired && model.refinedLightingReference && !["1K", "2K"].includes(input.resolution || "2K")) throw fail(`${featureLabel}Flux双图只支持1K/2K`, 409);
   if (referenceMode && input.lightingReferenceImages?.length !== 1) throw fail("请上传且仅上传1张氛围参考图");
+  if (!referencePrompt && !hybridPrompt && (selection.ruleVersion !== undefined || selection.ruleSha256 !== undefined)) {
+    throw fail("精模纯词已整合为完整渲染 Prompt，请刷新配置后重新提交；不能沿用旧公共规则身份", 409);
+  }
   const library = await loadAssets({ forceRefresh: true });
-  const rule = referencePrompt ? library?.referenceRule : hybridPrompt ? library?.hybridRule : library?.rule;
-  verifyAsset(rule, selection.ruleVersion, selection.ruleSha256, referencePrompt ? "光影参考规则" : hybridPrompt ? "氛围词参考前置规则" : "光影提示词规则");
-  const expectedRuleCode = referencePrompt ? referenceRuleCode
-    : hybridPrompt ? REFINED_LIGHTING_HYBRID_RULE_CODE : REFINED_LIGHTING_PROMPT_RULE_CODE;
-  if (rule.code !== expectedRuleCode) throw fail("光影来源与规则不匹配，请刷新配置", 409);
+  const rule = referencePrompt ? library?.referenceRule : hybridPrompt ? library?.hybridRule : null;
+  if (referencePrompt || hybridPrompt) {
+    verifyAsset(rule, selection.ruleVersion, selection.ruleSha256, referencePrompt ? "精模参考图迁移 Prompt" : "精模氛围词参考图 Prompt");
+    const expectedRuleCode = referencePrompt ? referenceRuleCode : REFINED_LIGHTING_HYBRID_RULE_CODE;
+    if (rule.code !== expectedRuleCode) throw fail("光影来源与 Prompt 不匹配，请刷新配置", 409);
+  }
   const preset = referenceMode ? null : library.presets?.find(entry => entry.id === selection.presetId);
   if (preset) verifyAsset(preset, selection.version, selection.sha256, "光影卡片");
   else if (!referenceMode) throw fail("飞书光影卡片资产不完整或尚未上架", 409);
@@ -155,12 +159,12 @@ export async function resolveRefinedLightingInput(input = {}, {
     throw fail("光影参考图已变更，请重新选择后提交", 409);
   }
   const frozen = { ...selection, execution: referenceMode ? "image-reference" : selection.execution || "prompt-only",
-    ruleVersion: rule.version, ruleSha256: rule.sha256.toLowerCase(),
+    ...(rule ? { ruleVersion: rule.version, ruleSha256: rule.sha256.toLowerCase() } : {}),
     ...(preset ? { version: preset.version, sha256: preset.sha256.toLowerCase() } : {}),
     ...(summary ? { referenceSha256: summary.sha256 } : {}) };
   return { selection: frozen, rule, preset, referenceImages: reference ? [reference] : [], metadata: {
     ...frozen, name: preset?.name || "参考图氛围", ...(preset ? { presetName: preset.name } : {}),
-    rule: { id: rule.id, code: rule.code, version: rule.version, sha256: rule.sha256 },
+    ...(rule ? { rule: { id: rule.id, code: rule.code, version: rule.version, sha256: rule.sha256 } } : {}),
     ...(preset ? { preset: { id: preset.id, code: preset.code, name: preset.name, version: preset.version, sha256: preset.sha256 } } : {}),
     ...(summary ? { reference: summary } : {}),
     digestScope: reference ? "input-originals" : "source-original",
@@ -184,6 +188,5 @@ export function composeRefinedLightingPrompt(basePrompt, assets, userPrompt = ""
   if (usesHybridPrompt(assets.selection)) {
     return [assets.rule?.prompt, assets.preset?.prompt, custom].filter(Boolean).join("\n\n");
   }
-  const atmospherePrompt = [assets.rule?.prompt, assets.preset?.prompt].filter(Boolean).join("\n\n");
-  return [String(basePrompt || "").trim(), atmospherePrompt, custom].filter(Boolean).join("\n\n");
+  return [String(basePrompt || "").trim(), assets.preset?.prompt, custom].filter(Boolean).join("\n\n");
 }
