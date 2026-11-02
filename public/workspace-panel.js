@@ -1,35 +1,29 @@
 /**
  * [INPUT]: 依赖生图工作台原配置栏/功能按钮、原生 dialog、共享 select 适配、指针/RAF/观察器和可选本机存储
- * [OUTPUT]: 对外提供含质感增强的紧凑目录标签、布局偏好归一化、目录缩窄/参数自适应几何与窄尾吸附，以及保留原节点的分割线拖宽、键盘调整和移动抽屉
+ * [OUTPUT]: 对外提供固定144px功能目录、旧布局偏好迁移、仅参数栏自适应/完全收起几何与窄尾吸附，以及保留原节点的分割线拖宽、键盘调整和移动抽屉
  * [POS]: public 的生图工作台布局控制器，仅维护面板呈现，不改变上传、生成配置或后台任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export const WORKSPACE_PANEL_STORAGE_KEY = "canvas-lab.workspace-panel";
-const MIN_WIDTH = 80;
+const NAVIGATION_WIDTH = 144;
+const MIN_WIDTH = NAVIGATION_WIDTH;
 const DEFAULT_MIN_WIDTH = 448;
 const MAX_WIDTH = 620;
-const NAVIGATION_WIDTH = 144;
-const COMPACT_NAVIGATION_WIDTH = 80;
 const MIN_PARAMETER_WIDTH = 304;
 const MAX_PARAMETER_WIDTH = 476;
 const MIN_READABLE_PARAMETER_WIDTH = 224;
-const MIN_READABLE_PANEL_WIDTH = COMPACT_NAVIGATION_WIDTH + MIN_READABLE_PARAMETER_WIDTH;
+const MIN_READABLE_PANEL_WIDTH = NAVIGATION_WIDTH + MIN_READABLE_PARAMETER_WIDTH;
 const controllers = new WeakMap();
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const positiveNumber = value => typeof value === "number" && Number.isFinite(value) && value > 0;
-const COMPACT_LABELS = Object.freeze({
-  whiteModel: "白模渲染", emptyRoom: "空房设计", styleTransfer: "风格转换", refinedModel: "精模渲染",
-  effectBeautification: "效果美化", effectEnhancement: "氛围转换", panoramaEnhancement: "全景美化", textureEnhancement: "质感增强",
-  imageUpscale: "图片超分", imageOutpaint: "AI扩图", imageMultiAngle: "多角度", styleDna: "风格反推", free: "自由生图",
-});
 
 export function normalizeWorkspacePanelState(value) {
-  // -------- 存储中的 parameterWidth 沿用展开基准，实际宽度由几何逐帧计算 --------
+  // -------- 保留展开基准；旧80px目录和不可读的参数尾段迁入完整状态 --------
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   if (Object.hasOwn(source, "width") || Object.hasOwn(source, "parameterWidth")) {
     return {
-      width: positiveNumber(source.width) ? Math.round(clamp(source.width, MIN_WIDTH, MAX_WIDTH)) : null,
+      width: positiveNumber(source.width) ? snapWorkspacePanelWidth(Math.round(source.width), source.parameterWidth) : null,
       parameterWidth: positiveNumber(source.parameterWidth)
         ? Math.round(clamp(source.parameterWidth, MIN_PARAMETER_WIDTH, MAX_PARAMETER_WIDTH)) : null,
     };
@@ -37,8 +31,7 @@ export function normalizeWorkspacePanelState(value) {
   const base = positiveNumber(source.expandedWidth)
     ? Math.round(clamp(source.expandedWidth, DEFAULT_MIN_WIDTH, MAX_WIDTH)) : null;
   return {
-    width: source.collapsed === true ? MIN_WIDTH : base === null ? null
-      : base - (source.navigationCollapsed === true || source.navCollapsed === true ? 64 : 0),
+    width: source.collapsed === true ? MIN_WIDTH : base,
     parameterWidth: base === null ? null : base - NAVIGATION_WIDTH,
   };
 }
@@ -55,7 +48,7 @@ export function workspacePanelGeometry(width, parameterWidth = MIN_PARAMETER_WID
   let parameterBasis = clamp(positiveNumber(parameterWidth) ? parameterWidth : MIN_PARAMETER_WIDTH,
     MIN_PARAMETER_WIDTH, MAX_PARAMETER_WIDTH);
   if (total > parameterBasis + NAVIGATION_WIDTH) parameterBasis = Math.min(MAX_PARAMETER_WIDTH, total - NAVIGATION_WIDTH);
-  const navigationWidth = clamp(total - parameterBasis, COMPACT_NAVIGATION_WIDTH, NAVIGATION_WIDTH);
+  const navigationWidth = NAVIGATION_WIDTH;
   const available = Math.max(0, total - navigationWidth);
   const actualParameterWidth = Math.max(MIN_READABLE_PARAMETER_WIDTH, Math.min(parameterBasis, available));
   const parameterVisible = Math.min(available, actualParameterWidth);
@@ -63,9 +56,9 @@ export function workspacePanelGeometry(width, parameterWidth = MIN_PARAMETER_WID
   return {
     width: total, parameterBasis, parameterWidth: actualParameterWidth, navigationWidth, parameterVisible,
     parameterProgress: parameterVisible / actualParameterWidth,
-    stage: total < parameterBasis + COMPACT_NAVIGATION_WIDTH ? 2 : navigationWidth < NAVIGATION_WIDTH ? 1 : 0,
+    stage: parametersClipping ? 2 : 0,
     collapsed: total === MIN_WIDTH,
-    navigationCollapsed: navigationWidth < 128,
+    navigationCollapsed: false,
     parametersClipping,
   };
 }
@@ -169,14 +162,13 @@ export function bindWorkspacePanel({
     resizer.setAttribute("aria-valuemin", String(limits.min));
     resizer.setAttribute("aria-valuemax", String(limits.max));
     resizer.setAttribute("aria-valuenow", String(Math.round(current.width)));
-    resizer.setAttribute("aria-valuetext", `${Math.round(current.width)} 像素；功能目录 ${Math.round(current.navigationWidth)} 像素`);
+    resizer.setAttribute("aria-valuetext", `参数配置 ${Math.round(current.parameterVisible)} 像素；功能目录固定 ${NAVIGATION_WIDTH} 像素`);
     updateLabels();
   }
 
-  // -------- 原功能按钮仍是业务真源，紧凑标签不替换原文与无障碍名称 --------
+  // -------- 功能目录始终保留完整名称，抽屉选择复用同一组业务按钮 --------
   featureSelect.replaceChildren(...buttons.map(button => {
     const label = button.textContent.trim();
-    button.dataset.compactLabel = COMPACT_LABELS[button.dataset.featureMode] || Array.from(label).slice(0, 4).join("");
     if (!button.getAttribute("aria-label")) button.setAttribute("aria-label", label);
     if (!button.title) button.title = label;
     const option = doc.createElement("option");option.value = button.dataset.featureMode;
@@ -268,7 +260,7 @@ export function bindWorkspacePanel({
   });
   listen(dialog, "click", event => { if (event.target === dialog) close(); });
 
-  // -------- 分割线先收目录再自适应参数；展开基准只随本次拖动峰值增长 --------
+  // -------- 分割线只调整参数；固定目录不参与收缩，展开基准随拖动峰值增长 --------
   function queueDrag(event) {
     if (!drag || drag.id !== event.pointerId || !Number.isFinite(event.clientX)) return;
     const width = clamp(drag.start.width + event.clientX - drag.x, MIN_WIDTH, bounds().max);

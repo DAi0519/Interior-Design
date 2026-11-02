@@ -119,7 +119,7 @@ generation-task-request.test.mjs: 全景六光影×每卡张数/模型独立展�
 image-upscale.test.mjs: 六套SeedVR2来源/输入预处理与原字节保真，KS两套2X/4K/6K目标及非法8K/输入边界、节点max/倍率元数据、源/请求/实际尺寸、Flux嵌入兼容与时限、本机结果和OneAPI/飞书豁免；无GPU
 effect-render-enhancement.test.mjs: 效果图氛围转换旧编码/新展示名、环境模块与全景纯文本/开放 MAIN JSON和指定冻结版本、Seedream 全景 4K、普通 Flux 工作流、单图/原比例、脱敏响应与归档元数据内存集成测试；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除
 model-multi-select.test.mjs: 共享单/多选下拉的摘要/平铺搜索、筛选全选/取消与单选即选即关、至少一项/不限数量、禁选/首选保序、同宽4px邻接定位、普通单选空键初始化/禁选跳过/首尾与确认、搜索结果键盘导航、模态内浮层迁移及归焦合同测试
-workspace-panel.test.mjs: 配置栏基准/实际宽度分离、304px以上中间值原样持久与可交互、80px执行区禁用、尾段吸附/旧偏好迁移、预览保护、连续拖动/反向/只松手保存/取消、键盘及窄屏同DOM抽屉焦点回归，不启动服务或提交生成
+workspace-panel.test.mjs: 固定144px目录与参数独立伸缩、368px以上任意可读中间值持久化、144px参数收空/旧80及304/320偏好迁移、RAF/取消/键盘/预览保护和同DOM移动抽屉焦点回归，不启动服务或提交生成
 comfyui-client.test.mjs: ComfyUI 健康、取消、Base64 原子提交、WebSocket 阶段、队列兜底、超时、`completed=false` OOM 即时报错、网关恢复、节点详情、唯一产物、旧图拒绝、404 恢复、输出指纹与参考图边界测试，不提交真实任务
 comfyui-timing.test.mjs: 可控时钟精确分离POST/History/view headers/body/等待/空轮询与HTTP重试计数，跨时钟保留负差/缺失不伪造、仅数字脱敏/快照及并发隔离；25次404 body取消、非图片/终止错误不阻塞、原PNG/SHA与一次POST不变，纯替身零GPU
 comfyui-workflow.test.mjs: Flux 9B FP8/7 steps、1K/2K、4K/6K 同图无 Prompt 攸行超分、全景复用普通 `euler` 与空 Latent 工作流、废弃全景采样字段隔离和 Prompt 注入的工作流图合同测试
