@@ -38,3 +38,7 @@ Codex运行动作只执行 `bash .codex/environments/run-workspace.sh`；端口�
 2026-10-28第三模式纠正：4192再次按用户要求重载，运行目录确认`lighting-prompt-reference` v1及三模式多选；第三模式为图序前置词＋卡片三段词，真实资产/模型替身编译核验通过，无收费生成。其他服务和报告进程未执行停止或重启操作。浏览器连接异常，当前UI未重新验收，详见`refined-rendering.md`。
 
 2026-10-29全景多光影：确认Main/Beta待运行、4192无外部连接后重载主服务；`/api/catalog`已回读 `generationFeatureCapabilities.panoramaEnhancement.multipleLightingSelections=true` 和 `panorama-r5-4@2026-10-28.1`。4193保留，日常全景验收使用4192。1512项全测通过，桌面/360px窄屏检查通过；未新增收费生成。
+
+2026-11-03效果图美化光影扩展：代码位于 `codex/effect-beautification-lighting`，原六氛围保持六工作流，新增九卡仅复用低自然；1700项离线测试与Main/Beta、390px浏览器互斥及旧进程门禁检查通过。4192的45张全景批次仍运行（观察时生成与同步均5/45），故保持PID59215且不重载。实际目录尚无effectBeautification.promptLighting能力，新后端待批次和归档终态后加载；未新增收费出图或正式发布，详见effect-beautification.md。
+
+2026-11-03独立美化预览：用户明确选择“另开独立预览端口，保留当前批次”后，使用专属launchctl服务 `com.canvas-lab.effect-beautification-preview` 启动4195（PID1603），入口为 `http://127.0.0.1:4195/?feature=effectBeautification`。实际 `/api/catalog` 已声明 `effectBeautification.promptLighting=true`，`/api/styles` 返回九卡及旧六档Prompt v2；浏览器选中暖灯静夜后无旧后端阻断提示。4192仍PID59215，4193仍PID49795，未改.env.local/默认端口或触碰原45张批次。仅运行目录和交互验证，未提交收费生成或正式发布。

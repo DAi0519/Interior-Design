@@ -254,7 +254,7 @@ test("Main在START和重试前复核所选模型，Beta批次准入和按钮均�
   assert.ok(admission);
   assert.match(admission, /generationFeatureUnavailableReason\(state\.featureMode, state\.catalog\.generationFeatureModes, selectedModels\(\)\)/);
   assert.match(admission, /if \(unavailableReason\) throw new Error\(unavailableReason\)/);
-  assert.match(beta, /const lightingIssue = [^\n]*generationFeatureUnavailableReason\(state\.featureMode, state\.catalog\.generationFeatureModes, selectedModels\(\)\)/);
+  assert.match(beta, /const lightingIssue = [^;]*?generationFeatureUnavailableReason\(state\.featureMode, state\.catalog\.generationFeatureModes, selectedModels\(\)\)/);
 });
 
 

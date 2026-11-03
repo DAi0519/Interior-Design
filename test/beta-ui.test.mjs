@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十功能目录、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供十功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
+ * [OUTPUT]: 对外提供美化六氛围与新增模板共用控件/身份和能力接线、十功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -99,7 +99,7 @@ test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索�
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=38/);
+  assert.match(html, /beta-app\.js\?v=39/);
   assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
   assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
   assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
@@ -217,7 +217,7 @@ test("Beta跑图是独立第三工作台，十功能任务使用共享可搜索�
   assert.match(css, /\.run-bar \.generation-actions \.generate-button\s*\{[^}]*min-height:\s*54px/s);
 });
 
-test("Beta效果图美化与氛围转换分别准入和传参，强度色调复用主工作台控件并恢复", async () => {
+test("Beta效果图美化复用六氛围及新增模板控件，与氛围转换分别准入和传参", async () => {
   const [html, source, configuration, css, featureRules] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -225,14 +225,16 @@ test("Beta效果图美化与氛围转换分别准入和传参，强度色调复�
     readFile(new URL("../public/beta.css", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-model-rules.js", import.meta.url), "utf8"),
   ]);
-  assert.match(html, /effect-beautification\.css\?v=1/);
-  assert.match(html, /id="effectBeautificationIntensityOptions"[^>]*role="radiogroup"/);
-  assert.match(html, /id="effectBeautificationToneOptions"[^>]*role="radiogroup"[^>]*data-effect-tones/);
-  assert.deepEqual([...html.matchAll(/data-effect-intensity="([^"]+)"/g)].map((match) => match[1]), ["low", "high"]);
-  assert.deepEqual([...html.matchAll(/data-effect-tone="([^"]+)"/g)].map((match) => match[1]), ["natural", "warm", "cool"]);
+  assert.match(html, /effect-beautification\.css\?v=2/);
+  assert.match(html, /id="effectBeautificationFields"[^>]*aria-label="效果图光影氛围"/);
+  assert.match(source, /bindEffectBeautificationControls\(\{\s*root: elements\.effectBeautificationFields/);
+  assert.match(source, /effectBeautificationControls\.setCapabilities\(catalog\.generationFeatureCapabilities\)/);
+  assert.match(source, /effectBeautificationControls\.setLightingConfig\(state\.stylesConfig\.refinedLighting\)/);
+  assert.match(source, /effectBeautificationControls\.validation\(\)/);
   assert.match(featureRules, /promptConfig: "effectBeautificationPrompt"/);
   assert.match(featureRules, /promptConfig: "effectEnhancementPrompt"/);
   assert.match(source, /effectBeautification: effectBeautificationControls\.value\(\)/);
+  assert.match(source, /\.\.\.effectBeautificationControls\.requestFields\(state\.featureMode\)/);
   assert.match(source, /effectBeautificationPromptVersion: state\.stylesConfig\?\.effectBeautificationPrompt\?\.version/);
   assert.match(source, /\|\| !effectReady/);
   const promptExpression = source.match(/\n\s+prompt: ([^\n]+),\n/)?.[1];
@@ -249,6 +251,7 @@ test("Beta效果图美化与氛围转换分别准入和传参，强度色调复�
   assert.match(configuration, /effectBeautificationControls\.restore\(/);
   assert.match(configuration, /effectBeautificationIntensity: beautification\.intensity/);
   assert.match(configuration, /effectBeautificationTone: beautification\.tone/);
+  assert.match(configuration, /effectBeautificationControls\.setLightingValue\?\.\(controlsToRestore\.effectBeautificationLighting\)/);
   assert.doesNotMatch(css, /\.feature-options \.feature-mode-option:last-child/);
 });
 
@@ -261,6 +264,58 @@ test("原 Benchmark 保留独立页面和原评测编排器", async () => {
   assert.match(benchmarkHtml, /benchmark-app\.js/);
   assert.match(benchmarkHtml, /id="reviewButton"/);
   assert.doesNotMatch(benchmarkHtml, /beta-app\.js/);
+});
+
+test("Beta美化新增模板无需旧六档Prompt，但失效卡片必须在提交前阻断", async () => {
+  const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
+  const functionSource = source.match(/function assertFeatureConfig\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(functionSource);
+  let selection = null, issue = null;
+  const context = {
+    state: { featureMode: "effectBeautification", catalog: {}, stylesConfig: { effectBeautificationPrompt: { available: false } } },
+    generationFeatureUnavailableReason: () => null,
+    selectedModels: () => [], sampleLibrary: { assertRoomTypes() {} }, FEATURE_COPY: BETA_FEATURE_COPY,
+    effectBeautificationControls: { lightingValue: () => selection, validation: () => issue },
+  };
+  const validate = new Function(...Object.keys(context), `return (${functionSource})();`);
+  assert.throws(() => validate(...Object.values(context)), /效果图美化 Prompt 不可用/);
+  selection = { presetId: "recBeautificationNight", version: 5, sha256: "a".repeat(64) };
+  assert.doesNotThrow(() => validate(...Object.values(context)));
+  issue = "美化光影已更新，请重新选择";
+  assert.throws(() => validate(...Object.values(context)), /美化光影已更新/);
+});
+
+test("Beta实际美化批次将模板身份随每个模型提交，原六档不携模板图片", async () => {
+  const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
+  const functionSource = source.match(/function buildItems\(startedAt = new Date\(\)\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(functionSource);
+  const lighting = { presetId: "recBeautificationNight", version: 5, sha256: "a".repeat(64) };
+  let selection = lighting;
+  const context = {
+    assertFeatureConfig() {}, currentCases: () => [{ caseId: "SAMPLE-1", label: "客厅", referenceImages: [{ name: "原图" }] }],
+    selectedModels: () => [{ key: "flux", label: "Flux", defaultRatio: "4:3" }, { key: "seedream", label: "Seedream", defaultRatio: "4:3" }],
+    state: { featureMode: "effectBeautification", stylesConfig: { effectBeautificationPrompt: { version: 2 } } },
+    elements: Object.fromEntries(["ratioSelect", "negativePromptInput", "qualitySelect", "resolutionSelect"].map(key => [key, { value: key === "resolutionSelect" ? "2K" : "" }])),
+    FEATURE_COPY: BETA_FEATURE_COPY,
+    effectBeautificationControls: {
+      value: () => selection ? { intensity: "low", tone: "natural" } : { intensity: "high", tone: "cool" },
+      requestFields: () => ({ effectBeautificationLighting: selection }),
+    },
+    adaptGenerationInputForModel: input => input, createBetaRunId: ({ sequence }) => `RUN-${sequence}`,
+  };
+  const build = new Function(...Object.keys(context), `return (${functionSource})();`);
+  for (const selected of [lighting, null]) {
+    selection = selected;
+    const batch = packBatchAssets(build(...Object.values(context)), "effectBeautification");
+    assert.deepEqual(batch.assets, {});
+    assert.equal(batch.items.length, 2);
+    for (const { input } of batch.items) {
+      assert.deepEqual(input.effectBeautificationLighting, selected);
+      assert.deepEqual(input.effectBeautification, selected ? { intensity: "low", tone: "natural" } : { intensity: "high", tone: "cool" });
+      assert.equal("lightingReferenceImages" in input, false);
+      assert.equal("refinedLighting" in input, false);
+    }
+  }
 });
 
 test("已有样本跨模型只发送稳定 ID 且风格图仅携带一份", () => {

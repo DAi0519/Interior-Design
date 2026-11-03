@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
- * [OUTPUT]: 对外提供三表Schema/十功能快照、当前模型完整名称与受信历史别名兼容、精模图序及全景光影卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
+ * [OUTPUT]: 对外提供三表Schema/十功能快照、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -124,6 +124,7 @@ export function betaSceneParameters(input = {}) {
     effectTime: input.effectTime,
     effectWeather: input.effectWeather,
     effectBeautification: input.effectBeautification,
+    effectBeautificationLighting: input.featureMode === "effectBeautification" ? input.effectBeautificationLighting : undefined,
     refinedRender: input.featureMode === "refinedModel" ? input.refinedRender : undefined,
     refinedLighting: input.featureMode === "refinedModel" ? input.refinedLighting : undefined,
     renderMode: input.renderMode,
@@ -159,6 +160,7 @@ export function betaConfigSnapshot(input = {}) {
     refinedAtmospherePromptVersion: input.featureMode === "refinedModel" ? input.refinedAtmospherePromptVersion : undefined,
     refinedAtmospherePromptSha256: input.featureMode === "refinedModel" ? input.refinedAtmospherePromptSha256 : undefined,
     effectBeautificationPromptVersion: input.effectBeautificationPromptVersion,
+    effectBeautificationLighting: input.featureMode === "effectBeautification" ? input.effectBeautificationLighting : undefined,
     panoramaPromptVersion: input.panoramaPromptVersion,
     panoramaLighting: input.featureMode === "panoramaEnhancement" ? input.panoramaLighting : undefined,
     ...panoramaArchiveSnapshot(input),
@@ -178,6 +180,7 @@ export function betaResultVersion(result = {}) {
   const atmospherePrompt = result.atmospherePrompt || result.workflow?.atmospherePrompt;
   const lighting = result.refinedLighting || result.workflow?.refinedLighting;
   const panoramaLighting = result.panoramaLighting || result.workflow?.panoramaLighting || result.request?.panoramaLighting;
+  const beautificationLighting = result.effectBeautificationLighting || result.workflow?.effectBeautificationLighting || result.request?.effectBeautificationLighting;
   const values = [
     workflowKey && workflowVersion ? `${workflowKey}@${workflowVersion}` : null,
     result.prompt?.code && result.prompt?.version
@@ -193,6 +196,8 @@ export function betaResultVersion(result = {}) {
     ...[lighting?.rule, lighting?.preset].map(asset => asset?.code && asset?.version ? `${asset.code}@v${asset.version}` : null),
     panoramaLighting?.preset?.code && panoramaLighting.preset.version
       ? `${panoramaLighting.preset.code}@v${panoramaLighting.preset.version}` : null,
+    beautificationLighting?.preset?.code && beautificationLighting.preset.version
+      ? `${beautificationLighting.preset.code}@v${beautificationLighting.preset.version}` : null,
     lighting?.mode === "preset" && isLightingReference(lighting) ? lighting.execution : null,
   ].filter(Boolean);
   return [...new Set(values)].join(" · ");

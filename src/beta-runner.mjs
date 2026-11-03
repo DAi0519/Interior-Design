@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖任务批处理、generation-service、精模及全景光影版本/SHA冻结、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
+ * [INPUT]: 依赖任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
  * [OUTPUT]: 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和十功能两路并发执行、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -13,6 +13,7 @@ import { normalizeStyleTransferSelection } from "./white-model-workflow.mjs";
 import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
 import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
 import { normalizePanoramaLighting, preparePanoramaLightingInput } from "./panorama-lighting.mjs";
+import { assertEffectBeautificationLightingFeature, prepareEffectBeautificationLightingInput } from "./effect-beautification-lighting.mjs";
 import { normalizeImageOutpaintInput } from "./image-outpaint-service.mjs";
 import { BETA_OUTPAINT_WORKFLOWS, normalizeBetaOutpaintInput, publicBetaOutpaintConfig, verifyBetaOutpaintBatch } from "./beta-outpaint.mjs";
 import { normalizeBetaUpscaleInput, publicBetaUpscaleConfig, validateBetaUpscaleSource, verifyBetaUpscaleBatch } from "./beta-upscale.mjs";
@@ -275,6 +276,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
       ...(lightingReferenceImages ? { lightingReferenceImages } : {}),
     };
+    assertEffectBeautificationLightingFeature(input, featureMode);
     if (featureMode === "styleTransfer") {
       if (!sharedStyleReferences.has(styleReferenceImages)) {
         sharedStyleReferences.set(styleReferenceImages, singleSharedImages(styleReferenceImages, "风格参考图"));
@@ -315,6 +317,7 @@ export function createBetaRunnerService({
   prepareRefinedInput = prepareRefinedRenderInput,
   prepareRefinedLighting = prepareRefinedLightingInput,
   preparePanoramaLighting = preparePanoramaLightingInput,
+  prepareEffectBeautificationLighting = prepareEffectBeautificationLightingInput,
   jobs = createGenerationJobRegistry({ maxJobs: 12 }),
   maxAttempts = BETA_MAX_ATTEMPTS,
   sleep = delay,
@@ -476,6 +479,25 @@ export function createBetaRunnerService({
   const admitBatch = (batch, previous = null) => afterSchemaVerification(() => {
     const bindAndEnqueue = () => baseStore.getSampleSet
       ? bindBatchSamples(batch, baseStore, { preserveInput: Boolean(previous) }).then(() => enqueueBatch(batch, previous)) : enqueueBatch(batch, previous);
+    if (batch.featureMode === "effectBeautification") {
+      const prepareItems = async () => {
+        const prepared = new Map();
+        for (const [index, item] of batch.items.entries()) {
+          const state = previous?.states[index];
+          if (state?.synced || state?.result || state?.recoverArchived) continue;
+          const key = JSON.stringify([item.input.effectBeautificationLighting, item.input.prompt,
+            item.input.lightingReferenceImages, item.input.styleReferenceImages]);
+          if (!prepared.has(key)) prepared.set(key, await prepareEffectBeautificationLighting(item.input));
+          const frozen = prepared.get(key);
+          item.input.effectBeautificationLighting = structuredClone(frozen.effectBeautificationLighting);
+          if (frozen.effectBeautificationLighting) {
+            item.input.effectBeautification = structuredClone(frozen.effectBeautification);
+            item.input.prompt = frozen.prompt;
+          }
+        }
+      };
+      return prepareItems().then(bindAndEnqueue);
+    }
     if (batch.featureMode === "panoramaEnhancement") {
       const prepareItems = async () => {
         const prepared = new Map();

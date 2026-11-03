@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
+ * [INPUT]: 依赖效果图美化新增光影身份投影、node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
  * [OUTPUT]: 对外提供全景多光影×模型/每卡张数逐项投影和标签、共享底图去重，生图/二次编辑及扩图的前台飞书同步合同阻断与仅本机超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、效果图美化六组合/非法值缺省/Prompt隔离、全景连续性/光影目标加载文案与批任务只传一份图片载荷的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -212,6 +212,33 @@ test("效果图美化六组合在后台任务中完整穿透，主图只共享�
         assert.equal("referenceImages" in item.input, false);
       }
     }
+  }
+});
+
+test("效果图美化新增光影逐模型保留身份且强制低自然，切回六档和其他功能隔离", () => {
+  const lighting = { presetId: "recBeautificationLight", version: 5, sha256: "a".repeat(64) };
+  const models = publicModelCatalog().slice(0, 2);
+  const image = { dataUrl: "data:image/png;base64,AA==", name: "render.png", size: 1, type: "image/png" };
+  const defaults = { model: models[0], prompt: { free: "", refined: "" }, referenceImages: [image],
+    styleReferenceImages: [], renderMode: { mode: "smart-default" }, ratio: "4:3", resolution: "2K",
+    effectBeautification: { intensity: "high", tone: "cool" } };
+  const input = buildGenerationInput({ ...defaults, featureMode: "effectBeautification", effectBeautificationLighting: lighting });
+  assert.deepEqual(input.effectBeautification, { intensity: "low", tone: "natural" });
+  assert.deepEqual(input.effectBeautificationLighting, lighting);
+  const job = buildGenerationJobRequest({ baseInput: input, featureMode: "effectBeautification", models,
+    sourceImage: { width: 1200, height: 900 } });
+  assert.equal(job.sharedInput.referenceImages.length, 1);
+  for (const item of job.items) {
+    assert.deepEqual(item.input.effectBeautificationLighting, lighting);
+    assert.deepEqual(item.input.effectBeautification, { intensity: "low", tone: "natural" });
+    assert.equal("lightingReferenceImages" in item.input, false);
+  }
+  const original = buildGenerationInput({ ...defaults, featureMode: "effectBeautification", effectBeautificationLighting: null });
+  assert.deepEqual(original.effectBeautification, { intensity: "high", tone: "cool" });
+  assert.equal(original.effectBeautificationLighting, null);
+  for (const featureMode of ["free", "whiteModel", "emptyRoom", "refinedModel", "effectEnhancement", "panoramaEnhancement"]) {
+    const other = buildGenerationInput({ ...defaults, featureMode, effectBeautificationLighting: { invalid: true } });
+    assert.equal("effectBeautificationLighting" in other, false);
   }
 });
 

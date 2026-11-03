@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖统一精模Prompt可用性/双图身份、多光影及预设执行能力/版本化预览、精模Flux双图能力及共享参考图上传与图片策略
- * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、可选纯卡片自动模式、失效阻断和上传互斥
+ * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、可选纯卡片模式及可配置的原光影标签、失效阻断和上传互斥
  * [POS]: public 的白模可选纯词/精模光影共享选择层，卡图由服务端读取、上传图直接参考，无选中高亮框或说明段，不持有Prompt正文或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -152,7 +152,7 @@ export function refinedLightingValidation(selection, config = {}, models = [], r
 export function bindRefinedLightingControls({ root, onChange = () => {}, storageKey = null,
   getPolicy = () => null, showToast = () => {}, bindUpload = bindReferenceUpload,
   withConfigRefresh = false, allowReferenceUpload = true, presetExecution = null, allowMultiplePresets = false,
-  optionalPreset = false }) {
+  optionalPreset = false, optionalPresetLabel = "自动" }) {
   root.setAttribute("data-refined-lighting", "");
   let selection = { mode: "unselected" }, config = { loading: true, presets: [] }, models = [], policy, expanded = false;
   if (storageKey) { try { const saved = sessionStorage.getItem(storageKey);
@@ -195,6 +195,10 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
       <p data-lighting-error class="refined-render-error" role="status" hidden></p>
     </section>`;
   const by = selector => root.querySelector(selector);
+  if (optionalPreset) {
+    by("[data-lighting-automatic]").textContent = optionalPresetLabel;
+    by("[data-lighting-automatic]").setAttribute("aria-label", `光影设为${optionalPresetLabel}`);
+  }
   const grid = by("[data-lighting-grid]");
   let renderedPresets = null, cardViews = [];
   const selectedPreview = bindPreviewImage(by("[data-lighting-selected-preview]"), renderSelectedLabel);
@@ -223,7 +227,7 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     if (selection.presets && !allowMultiplePresets) return "此功能仅支持单个光影预设";
     if (optionalPreset) {
       if (selection.mode === "unselected") return null;
-      if (selection.mode !== "preset") return "请选择有效的光影预设或设为自动";
+      if (selection.mode !== "preset") return `请选择有效的光影预设或设为${optionalPresetLabel}`;
       if (config.available !== true) return config.reason || "白模光影库暂不可用，请刷新配置";
       return currentPreset() ? null : "所选光影预设已更新或下架，请打开光影库重新选择";
     }
@@ -285,7 +289,7 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     const selected = currentPreset(), identities = selectedPresets();
     const error = selected && selectedPreview.failed() ? " · 预览失败，点击重试" : "";
     const label = identities.length > 1 ? `${identities.length} 种光影` : selected ? selected.name
-      : selection.mode === "preset" ? "重新选择光影模板" : optionalPreset ? "自动" : "选择光影模板";
+      : selection.mode === "preset" ? "重新选择光影模板" : optionalPreset ? optionalPresetLabel : "选择光影模板";
     by("[data-lighting-selected-name]").textContent = `${label}${error}`;
     by("[data-lighting-toggle]").title = identities.map(identity => (config.presets || []).find(item => item.id === identity.presetId)?.name || identity.presetId).join("、") + error;
   }

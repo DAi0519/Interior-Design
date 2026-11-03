@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖美化强度/色调单选组与主题共享选择控件、品牌键面令牌
- * [OUTPUT]: 对外提供两列强度、三列色调的 38px 同构单选按钮、可读错误提示与氛围转换版本/刷新完整换行及焦点/按压反馈
+ * [INPUT]: 依赖美化六氛围/旧强度色调单选组、共享光影图卡与品牌键面令牌
+ * [OUTPUT]: 对外提供六氛围三列文字小勾、模板独立分组及窄栏两列，保留旧控件/错误提示与版本刷新换行
  * [POS]: public 的效果图美化增量视觉层，由生图工作台与 Beta 共用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,6 +15,15 @@
 .effect-beautification-label { color: var(--brand-key-strong-ink); font-size: 11px; font-weight: 500; margin: 0 0 8px; }
 .effect-beautification-options { display: grid; gap: var(--choice-control-gap, 8px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .effect-beautification-options[data-effect-tones] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.effect-beautification-atmospheres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.effect-beautification-atmosphere { font-weight: 400; }
+.effect-beautification-lighting { margin-top: 18px; }
+.effect-beautification-lighting :is(.micro-status, .config-refresh-button) { color: var(--muted); }
+[data-effect-beautification-lighting] [data-lighting-preset-section] { border-top: 0; margin-top: 0; padding-top: 0; }
+[data-effect-beautification-lighting] [data-lighting-automatic] { display: none; }
+[data-effect-beautification-controls] [hidden] { display: none; }
+@container workspace-parameters (max-width: 280px) { .effect-beautification-atmospheres { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px) { .effect-beautification-atmospheres { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .feature-choice-option {
   background: var(--brand-key-bg);
   border: 1px solid var(--brand-key-border);

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 精模Flux参考来源切换触发1K/2K输出目录， 依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
- * [OUTPUT]: 全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
+ * [INPUT]: 依赖共享美化六氛围/新增光影卡片互斥控制与运行能力；精模Flux参考来源切换触发1K/2K输出目录，依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
+ * [OUTPUT]: 效果图美化保留六原工作流、新卡片单图纯词及low/natural执行身份；全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,8 +8,8 @@ import { isLightingReference } from "./refined-flux-reference.js";
 import { generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
 import "./custom-select.js?v=9";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=8";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=8";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=9";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=9";
 import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=5";
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
 import { createBetaUpscaleConfiguration } from "./beta-upscale.js?v=3";
@@ -17,7 +17,7 @@ import { createBetaDesignConfiguration } from "./beta-design-config.js";
 import { betaRefinedLightingRunSummary, createBetaRefinedRenderConfiguration } from "./beta-refined-render.js";
 import { createRefinedModelSelection } from "./refined-model-controls.js";
 import { bindPanoramaLightingControls } from "./panorama-lighting-controls.js";
-import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=1";
+import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=2";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
@@ -36,7 +36,6 @@ const elements = Object.fromEntries([
   "betaGenerationActions",
   "commonPromptField", "commonPromptInput", "commonPromptLabel",
   "configStatus", "designFields", "effectFields", "effectTimeSelect", "effectBeautificationFields",
-  "effectBeautificationIntensityOptions", "effectBeautificationToneOptions",
   "effectWeatherSelect", "emptyRoomFields", "freePromptList", "freePromptsField",
   "freePromptsInput", "freeReferenceDropZone", "freeReferenceField",
   "freeReferenceInput", "freeReferenceList", "generationProgressBar",
@@ -95,9 +94,10 @@ const modelSelection = bindModelMultiSelect({
   },
 });
 const effectBeautificationControls = bindEffectBeautificationControls({
-  intensityGroup: elements.effectBeautificationIntensityOptions,
-  onChange: saveConfiguration,
-  toneGroup: elements.effectBeautificationToneOptions,
+  root: elements.effectBeautificationFields,
+  withPromptStatus: false,
+  reload: async () => (state.stylesConfig = await api("/api/config/refresh", { method: "POST" })),
+  onChange() { renderFeature(); saveConfiguration(); },
 });
 const outpaintConfiguration = createBetaOutpaintConfiguration({
   elements,
@@ -199,12 +199,9 @@ function selectedModels() {
 }
 function selectedCandidates() {
   if (state.featureMode === "imageUpscale") return upscaleConfiguration.selectedWorkflows();
-  return state.featureMode === "imageOutpaint"
-    ? outpaintConfiguration.selectedWorkflows() : selectedModels();
+  return state.featureMode === "imageOutpaint" ? outpaintConfiguration.selectedWorkflows() : selectedModels();
 }
-function sampleCount() {
-  return sampleLibrary.sampleCount();
-}
+function sampleCount() { return sampleLibrary.sampleCount(); }
 function runCount() {
   return sampleCount() * selectedCandidates().length
     * (state.featureMode === "refinedModel" ? refinedRenderConfiguration.selections().length
@@ -287,9 +284,13 @@ function renderRunSummary() {
   const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
   const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
   const effectPromptKey = FEATURE_COPY[state.featureMode].promptConfig;
-  const effectReady = !effectPromptKey || state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt() || state.stylesConfig?.[effectPromptKey]?.available;
+  const effectReady = !effectPromptKey || state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt()
+    || state.featureMode === "effectBeautification" && Boolean(effectBeautificationControls.lightingValue())
+    || state.stylesConfig?.[effectPromptKey]?.available;
   const targetReady = state.featureMode !== "styleTransfer" || designConfiguration.ready();
-  const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation() : state.featureMode === "panoramaEnhancement" ? generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()) || panoramaLighting.validation() : null;
+  const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation()
+    : state.featureMode === "effectBeautification" ? effectBeautificationControls.validation()
+    : state.featureMode === "panoramaEnhancement" ? generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()) || panoramaLighting.validation() : null;
   const workflowConfiguration = upscale ? upscaleConfiguration : outpaintConfiguration;
   const workflowsReady = !(outpaint || upscale) || workflowConfiguration.ready();
   if (upscale) showStatus(workflowsReady ? "ComfyUI 已就绪" : "超分工作流未就绪", { ready: workflowsReady });
@@ -368,7 +369,6 @@ function renderOutputControls() {
 }
 
 function renderDesignConfig() { designConfiguration.render(); }
-
 function renderFeature() {
   const copy = FEATURE_COPY[state.featureMode];
   elements.betaFeatureSelect.value = state.featureMode;
@@ -403,7 +403,8 @@ function renderFeature() {
   if (design) renderDesignConfig();
   if (effect) {
     const effectConfig = state.stylesConfig?.[copy.promptConfig];
-    elements.configStatus.textContent = effectConfig?.available
+    elements.configStatus.textContent = state.featureMode === "effectBeautification" && effectBeautificationControls.lightingValue()
+      ? "光影模板" : effectConfig?.available
       ? `Prompt v${effectConfig.version}` : `${copy.label} Prompt 不可用`;
   }
   refinedRenderConfiguration.render();
@@ -415,10 +416,8 @@ function renderFeature() {
 function currentCases() {
   return sampleLibrary.currentCases({
     commonPrompt: ["imageOutpaint", "imageUpscale"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
-    freeReference: state.freeReference,
-  });
+    freeReference: state.freeReference });
 }
-
 function designSettings() { return designConfiguration.settings(); }
 
 function assertFeatureConfig() {
@@ -426,9 +425,12 @@ function assertFeatureConfig() {
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
   if (state.featureMode === "refinedModel") refinedRenderConfiguration.validate();
+  if (state.featureMode === "effectBeautification" && effectBeautificationControls.validation()) throw new Error(effectBeautificationControls.validation());
   if (state.featureMode === "panoramaEnhancement" && panoramaLighting.validation()) throw new Error(panoramaLighting.validation());
   const effectCopy = FEATURE_COPY[state.featureMode];
-  if (effectCopy.promptConfig && !(state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt()) && !state.stylesConfig?.[effectCopy.promptConfig]?.available) {
+  if (effectCopy.promptConfig && !(state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt())
+    && !(state.featureMode === "effectBeautification" && effectBeautificationControls.lightingValue())
+    && !state.stylesConfig?.[effectCopy.promptConfig]?.available) {
     throw new Error(`${effectCopy.label} Prompt 不可用`);
   }
   if (state.featureMode === "panoramaEnhancement" && panoramaLighting.requiresOriginalPrompt()
@@ -472,6 +474,7 @@ function buildItems(startedAt = new Date()) {
       } : {}),
       ...(state.featureMode === "effectBeautification" ? {
         effectBeautification: effectBeautificationControls.value(),
+        ...effectBeautificationControls.requestFields(state.featureMode),
         effectBeautificationPromptVersion: state.stylesConfig?.effectBeautificationPrompt?.version,
       } : {}),
       ...(state.featureMode === "panoramaEnhancement" ? {
@@ -733,6 +736,7 @@ async function load() {
     ]);
     state.catalog = catalog;
     panoramaLighting.setCapabilities(catalog.generationFeatureCapabilities);
+    effectBeautificationControls.setCapabilities(catalog.generationFeatureCapabilities);
     state.connected = session.connected === true;
     state.betaConfig = betaConfig;
     outpaintConfiguration.configure(betaConfig.outpaint);
@@ -766,6 +770,7 @@ async function load() {
     if (stylesResult.status === "fulfilled") {
       state.stylesConfig = stylesResult.value;
       panoramaLighting.configure(state.stylesConfig.refinedLighting);
+      effectBeautificationControls.setLightingConfig(state.stylesConfig.refinedLighting);
       renderFeature();
     } else {
       elements.configStatus.textContent = "配置读取失败";

@@ -618,3 +618,12 @@ test("结果摘要明确区分两种新预设执行方式，上传图与旧历�
   const legacy = { ...selection }; delete legacy.execution;
   assert.doesNotMatch(summary(legacy), /仅提示词|提示词＋参考图/);
 });
+
+test("可选光影共享原卡片交互并显示宿主原光影标签，白模默认仍自动", () => {
+  const normal = fixture(null, { optionalPreset: true, allowReferenceUpload: false, presetExecution: "prompt-only" });
+  const studio = fixture(null, { optionalPreset: true, optionalPresetLabel: "原光影", allowReferenceUpload: false, presetExecution: "prompt-only" });
+  assert.equal(normal.root.querySelector("[data-lighting-selected-name]").textContent, "自动");
+  assert.equal(studio.root.querySelector("[data-lighting-selected-name]").textContent, "原光影");
+  assert.equal(studio.root.querySelector("[data-lighting-automatic]").textContent, "原光影");
+  assert.equal(studio.root.querySelector("[data-lighting-automatic]").attributes["aria-label"], "光影设为原光影");
+});

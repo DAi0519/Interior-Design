@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供Beta默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
+ * [OUTPUT]: 对外提供Beta美化六档/新增卡片身份独立保存恢复、默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -75,6 +75,22 @@ test("效果图美化六组合和氛围转换样本集分别持久保存", () =>
   assert.equal(invalid.controls.effectBeautificationTone, "natural");
 });
 
+test("Beta美化新增模板仅保存卡片身份，旧六档保持可恢复且损坏身份归一化", () => {
+  const storage = memoryStorage();
+  const lighting = { presetId: "recBeautificationNight", version: 5, sha256: "A".repeat(64) };
+  saveBetaPageState(storage, { featureMode: "effectBeautification", controls: {
+    effectBeautificationIntensity: "high", effectBeautificationTone: "cool", effectBeautificationLighting: lighting,
+    lightingReferenceImages: [{ dataUrl: "private-image" }],
+  } });
+  const controls = readBetaPageState(storage).controls;
+  assert.deepEqual(controls.effectBeautificationLighting, { ...lighting, sha256: "a".repeat(64) });
+  assert.equal(controls.effectBeautificationIntensity, "high");
+  assert.equal(controls.effectBeautificationTone, "cool");
+  assert.equal("lightingReferenceImages" in controls, false);
+  saveBetaPageState(storage, { controls: { effectBeautificationLighting: { ...lighting, prompt: "untrusted" } } });
+  assert.equal(readBetaPageState(storage).controls.effectBeautificationLighting, null);
+});
+
 test("Beta精模模板与自定义时段天气色调独立往返，损坏存储回退默认精模", () => {
   const storage = memoryStorage();
   const refinedRender = { preset: "custom", time: "night", weather: "rainy", tone: "cool" };
@@ -120,7 +136,8 @@ test("Beta恢复已保存美化控件，并把新选择落盘", () => {
   const storage = memoryStorage();
   const modelKeys = publicModelCatalog().map((model) => model.key);
   const restoredPageState = saveBetaPageState(storage, {
-    controls: { effectBeautificationIntensity: "high", effectBeautificationTone: "warm" },
+    controls: { effectBeautificationIntensity: "high", effectBeautificationTone: "warm",
+      effectBeautificationLighting: { presetId: "recBeautificationDay", version: 3, sha256: "a".repeat(64) } },
     featureMode: "effectBeautification",
     selectedModelKeys: modelKeys,
   });
@@ -133,11 +150,14 @@ test("Beta恢复已保存美化控件，并把新选择落盘", () => {
   elements.betaForm = { dataset: {} };
   elements.roomTypeDetailField = { classList: { toggle() {} } };
   let selection = { intensity: "low", tone: "natural" };
+  let lightingSelection = null;
   const persistence = createBetaConfigurationPersistence({
     currentState: () => ({ ...restoredPageState, stylesReady: true }),
     effectBeautificationControls: {
       restore(value) { selection = { ...value }; },
       value: () => ({ ...selection }),
+      lightingValue: () => lightingSelection,
+      setLightingValue(value) { lightingSelection = value; },
     },
     elements,
     renderFeature() {},
@@ -148,12 +168,15 @@ test("Beta恢复已保存美化控件，并把新选择落盘", () => {
   });
   persistence.restore();
   assert.deepEqual(selection, { intensity: "high", tone: "warm" });
+  assert.deepEqual(lightingSelection, restoredPageState.controls.effectBeautificationLighting);
   persistence.markReady();
   selection = { intensity: "low", tone: "cool" };
+  lightingSelection = null;
   persistence.save();
   const saved = readBetaPageState(storage);
   assert.equal(saved.controls.effectBeautificationIntensity, "low");
   assert.equal(saved.controls.effectBeautificationTone, "cool");
+  assert.equal(saved.controls.effectBeautificationLighting, null);
   assert.deepEqual(saved.selectedModelKeys, modelKeys);
   assert.equal(elements.betaForm.dataset.configurationState, "saved");
 });

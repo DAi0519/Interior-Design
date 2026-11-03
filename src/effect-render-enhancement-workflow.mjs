@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖含质感增强的四张独立飞书Prompt表、全景纯词光影编译器、美化六预设/LoRA、真实单图、模型矩阵与客户端及归档
- * [OUTPUT]: 对外提供单轮氛围/美化/全景/质感增强服务、全景2:1及光影目标隔离、实际正文/卡片版本SHA归档与脱敏摘要
+ * [INPUT]: 依赖含质感增强的四张独立飞书Prompt表、全景及美化纯词光影编译器、美化六预设/LoRA、真实单图、模型矩阵与客户端及归档
+ * [OUTPUT]: 对外提供六旧美化工作流保留/新增卡片固定低自然、全景2:1及光影目标隔离、单轮执行与实际正文/卡片版本SHA归档和脱敏摘要
  * [POS]: src 的效果图与全景图应用服务，各自隔离 Prompt 真源并复用普通出图基础设施，不经过 Prompt Agent
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,6 +23,12 @@ import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getTextureEnhancementPrompt } from "./texture-enhancement-prompt.mjs";
 import { PANORAMA_LIGHTING_IDENTITY, resolvePanoramaLightingInput } from "./panorama-lighting.mjs";
 import {
+  assertEffectBeautificationLightingFeature,
+  EFFECT_BEAUTIFICATION_LIGHTING_IDENTITY,
+  EFFECT_BEAUTIFICATION_LIGHTING_WORKFLOW,
+  resolveEffectBeautificationLightingInput,
+} from "./effect-beautification-lighting.mjs";
+import {
   EFFECT_BEAUTIFICATION_REQUIRED_NODES,
   composeFluxBeautificationPrompt,
   effectBeautificationMetadata,
@@ -44,6 +50,7 @@ export async function executeEffectRenderEnhancementWorkflow(
     loadPanoramaPrompt = getPanoramaEnhancementPrompt,
     loadTexturePrompt = getTextureEnhancementPrompt,
     loadPanoramaLightingAssets,
+    loadBeautificationLightingAssets,
     onProgress,
     signal,
     scheduleSync = null,
@@ -56,7 +63,9 @@ export async function executeEffectRenderEnhancementWorkflow(
   const beautification = input.featureMode === "effectBeautification";
   const texture = input.featureMode === "textureEnhancement";
   const featureLabel = texture ? "质感增强" : panorama ? "全景图美化" : beautification ? "效果图美化" : "效果图氛围转换";
-  const selection = beautification ? normalizeEffectBeautification(input.effectBeautification) : null;
+  const lightingSelection = assertEffectBeautificationLightingFeature(input);
+  const selection = beautification ? (lightingSelection ? { ...EFFECT_BEAUTIFICATION_LIGHTING_WORKFLOW }
+    : normalizeEffectBeautification(input.effectBeautification)) : null;
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   if (referenceImages.length !== 1) {
     throw workflowError(`${featureLabel}需要且只允许 1 张${panorama ? "待美化全景图" : "待处理效果图"}`);
@@ -66,12 +75,15 @@ export async function executeEffectRenderEnhancementWorkflow(
   }
   const panoramaLighting = panorama ? await resolvePanoramaLightingInput(input,
     loadPanoramaLightingAssets ? { loadAssets: loadPanoramaLightingAssets } : {}) : null;
+  const beautificationLighting = lightingSelection ? await resolveEffectBeautificationLightingInput(input,
+    loadBeautificationLightingAssets ? { loadAssets: loadBeautificationLightingAssets } : {}) : null;
 
-  const promptAsset = await (panoramaLighting?.prompt ? PANORAMA_LIGHTING_IDENTITY : texture
+  const promptAsset = await (beautificationLighting?.prompt ? EFFECT_BEAUTIFICATION_LIGHTING_IDENTITY
+    : panoramaLighting?.prompt ? PANORAMA_LIGHTING_IDENTITY : texture
     ? loadTexturePrompt({ version: input.textureEnhancementPromptVersion }) : beautification
     ? loadBeautificationPrompt({ version: input.effectBeautificationPromptVersion })
     : panorama ? loadPanoramaPrompt({ version: input.panoramaPromptVersion }) : loadEffectPrompt());
-  let finalPrompt = panoramaLighting?.prompt || (texture ? promptAsset.prompt : panorama
+  let finalPrompt = beautificationLighting?.prompt || panoramaLighting?.prompt || (texture ? promptAsset.prompt : panorama
     ? composePanoramaEnhancementPrompt(promptAsset.prompt)
     : beautification ? composeEffectBeautificationPrompt(promptAsset.prompt, selection)
       : composeEffectEnhancementPrompt(promptAsset.prompt, {
@@ -119,6 +131,7 @@ export async function executeEffectRenderEnhancementWorkflow(
       verifyEffectBeautificationCapabilities(objectInfo, selection);
     }
   }
+  if (beautificationLighting) beautificationLighting.metadata.promptSha256 = createHash("sha256").update(finalPrompt).digest("hex");
   const startedAt = Date.now();
   const generationOptions = onProgress || signal ? { ...(onProgress ? { onProgress } : {}), ...(signal ? { signal } : {}) } : undefined;
   const result = await imageClient.generateImage(generation.request, generationOptions);
@@ -134,6 +147,7 @@ export async function executeEffectRenderEnhancementWorkflow(
     quality: result.quality ?? generation.preview.quality,
     transport: result.transport || "responses",
     ...(selection ? { effectBeautification: selection } : {}),
+    ...(beautificationLighting ? { effectBeautificationLighting: beautificationLighting.metadata } : {}),
     ...(panoramaLighting ? { panoramaLighting: panoramaLighting.metadata } : {}),
   };
   const imageModel = publicModelCatalog().find(
@@ -161,6 +175,7 @@ export async function executeEffectRenderEnhancementWorkflow(
     ...(generation.workflowMetadata || {}),
     ...(result.metadata || {}),
     ...(panoramaLighting ? { panoramaLighting: panoramaLighting.metadata } : {}),
+    ...(beautificationLighting ? { effectBeautificationLighting: beautificationLighting.metadata } : {}),
   };
   const sync = scheduleSync
     ? scheduleSync({
@@ -170,7 +185,7 @@ export async function executeEffectRenderEnhancementWorkflow(
         preview,
         referenceImages: archivedReferences,
         resultImage,
-        sourcePrompt: panorama ? String(input.prompt || "").trim() : "",
+        sourcePrompt: panorama || beautificationLighting ? String(input.prompt || "").trim() : "",
         workflow,
       })
     : { generationId: null, status: "skipped" };

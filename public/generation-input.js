@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖质感增强飞书Prompt版本、room-renovation 的空房模式判定、工作台已归一化的功能/模型/Prompt/图片/尺寸、精模预设提示词/上传参考及旧参数兼容、效果图氛围转换时段天气、美化强度色调、全景美化与设计双模式状态
- * [OUTPUT]: 白模仅传自动null或单卡身份且跨功能剥离；光影转换/全景/精模独立光影投影；对外提供buildGenerationInput，质感固定词、旧房独立Agent版本与各功能参数隔离
+ * [INPUT]: 依赖质感增强飞书Prompt版本、room-renovation 的空房模式判定、工作台已归一化的功能/模型/Prompt/图片/尺寸、精模预设提示词/上传参考及旧参数兼容、效果图氛围转换时段天气、美化六档与新增光影身份、全景美化与设计双模式状态
+ * [OUTPUT]: 美化六档原样投影/新增光影固定low-natural且跨功能剥离；白模仅传自动null或单卡身份；光影转换/全景/精模独立光影投影；对外提供buildGenerationInput，质感固定词、旧房独立Agent版本与各功能参数隔离
  * [POS]: public 的生成输入领域映射层，隔离页面编排与服务端请求字段契约
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import { isEmptyRoomDesign } from "./room-renovation.js";
 import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
 import { refinedLightingPromptKind } from "./refined-flux-reference.js";
 import { whiteModelLightingRequestFields } from "./white-model-lighting.js";
+import { effectBeautificationLightingRequestFields } from "./effect-beautification-lighting.js";
 
 function compactImages(images = []) {
   return images.map(({ dataUrl, name, size, type }) => ({ dataUrl, name, size, type }));
@@ -16,6 +17,7 @@ function compactImages(images = []) {
 
 export function buildGenerationInput({
   effectBeautification,
+  effectBeautificationLighting,
   effectBeautificationPromptVersion,
   textureEnhancementPromptVersion,
   effectTime,
@@ -77,7 +79,9 @@ export function buildGenerationInput({
         ...(refinedLighting?.mode === "reference" ? { lightingReferenceImages: compactImages(lightingReferenceImages || []) } : {}) }
       : { refinedRender, refinedAtmospherePromptVersion } : {}),
     ...(effectBeautificationRequest ? {
-      effectBeautification: normalizeEffectBeautification(effectBeautification),
+      effectBeautification: normalizeEffectBeautification(effectBeautificationLighting
+        ? { intensity: "low", tone: "natural" } : effectBeautification),
+      ...effectBeautificationLightingRequestFields(featureMode, effectBeautificationLighting),
       effectBeautificationPromptVersion,
     } : {}),
     renderMode: renderMode.mode,

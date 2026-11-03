@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖白模可选纯词光影与运行门禁、质感固定Prompt、精模多模式/上传光影、图片工具、共享任务/飞书状态、设计参数/Prompt/模型、上传/结果、连接中心与Style DNA
- * [OUTPUT]: 白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
+ * [INPUT]: 依赖效果图美化六氛围/新增纯词光影的互斥控制器与能力门禁，依赖白模可选纯词光影与运行门禁、质感固定Prompt、精模多模式/上传光影、图片工具、共享任务/飞书状态、设计参数/Prompt/模型、上传/结果、连接中心与Style DNA
+ * [OUTPUT]: 提供效果图美化原六氛围/新增纯词卡片互斥与运行门禁；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -62,6 +62,7 @@ const panoramaLighting = bindPanoramaLightingControls({ root: elements.panoramaL
 const effectBeautification = bindEffectBeautificationControls({
   root: elements.effectBeautificationSection,
   onChange: () => generationActions.refresh(),
+  showToast,
 });
 const emptyRoomType = bindDesignInputs({ root: document.querySelector("#emptyRoomTypeList"),
   onChange: () => generationActions.clearReusable() });
@@ -280,6 +281,7 @@ function generationInput() {
   const renderMode = whiteModelRenderMode.current();
   return buildGenerationInput({
     effectBeautification: effectBeautification.value(),
+    effectBeautificationLighting: effectBeautification.lightingValue(),
     effectBeautificationPromptVersion: state.effectBeautificationPrompt.version,
     textureEnhancementPromptVersion: state.textureEnhancementPrompt.version,
     effectTime: elements.effectTimeSelect.value,
@@ -413,8 +415,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const textureEnhancementRequest = featureMode === "textureEnhancement";
   const lightingTransferRequest = featureMode === "lightingTransfer";
   const panoramaEnhancementRequest = featureMode === "panoramaEnhancement";
-  if (effectBeautificationRequest && !state.effectBeautificationPrompt.available) {
+  if (effectBeautificationRequest && !effectBeautification.lightingValue() && !state.effectBeautificationPrompt.available) {
     showToast(state.effectBeautificationPrompt.reason || "效果图美化 Prompt 不可用，请刷新飞书配置"); return;
+  }
+  if (effectBeautificationRequest && effectBeautification.validation()) {
+    showToast(effectBeautification.validation()); return;
   }
   const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
   if (roomTypeValidation?.message) {
@@ -506,7 +511,6 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     showToast("请先输入至少 3 个字符的提示词");
     return;
   }
-
   const promptIdentity = designPromptRequest
     ? generationActions.currentIdentity()
     : null;
@@ -586,6 +590,9 @@ function generationUnavailableReason() {
   return generationFeatureUnavailableReason(state.featureMode, state.generationFeatureModes, selectedModels())
     || (state.featureMode === "lightingTransfer" ? lightingTransfer.validation() : state.featureMode === "refinedModel" ? refinedModel.validation()
       : state.featureMode === "whiteModel" ? whiteModelLighting.validation()
+      : state.featureMode === "effectBeautification" ? effectBeautification.validation()
+        || (!effectBeautification.lightingValue() && !state.effectBeautificationPrompt.available
+          ? state.effectBeautificationPrompt.reason || "效果图美化 Prompt 不可用，请刷新飞书配置" : null)
       : state.featureMode === "textureEnhancement" && !effectEnhancementPromptStatus(state.textureEnhancementPrompt).ready ? state.textureEnhancementPrompt.reason || "未读取到质感增强的上架 Prompt，请刷新飞书配置"
       : state.featureMode === "panoramaEnhancement" ? panoramaLighting.validation() : null);
 }
@@ -655,6 +662,7 @@ async function initialize() {
   state.generationFeatureModes = catalogBody.generationFeatureModes;
   panoramaLighting.setCapabilities(catalogBody.generationFeatureCapabilities);
   whiteModelLighting.setCapabilities(catalogBody.generationFeatureCapabilities);
+  effectBeautification.setCapabilities(catalogBody.generationFeatureCapabilities);
   state.promptAgentCatalog = catalogBody.agentModels;
   state.referencePolicy = catalogBody.referenceImage;
   refinedModel.setPolicy(state.referencePolicy);
@@ -684,7 +692,7 @@ elements.promptAgentModelSelect.addEventListener("change", (event) => {
 });
 const loadConfiguration = bindConfigRefresh({
   api,
-  onRefinedLighting(config) { refinedModel.setLightingConfig(config); lightingTransfer.setLightingConfig(config); panoramaLighting.configure(config); whiteModelLighting.setLightingConfig(config); generationActions.refresh(); },
+  onRefinedLighting(config) { refinedModel.setLightingConfig(config); lightingTransfer.setLightingConfig(config); panoramaLighting.configure(config); whiteModelLighting.setLightingConfig(config); effectBeautification.setLightingConfig(config); generationActions.refresh(); },
   onLightingTransferPrompt(config) { lightingTransfer.setPromptConfig(config); },
   onEffectBeautificationPrompt(config) { state.effectBeautificationPrompt = config; },
   onTextureEnhancementPrompt(config) { state.textureEnhancementPrompt = config; generationActions.refresh(); },
