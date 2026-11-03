@@ -1,6 +1,7 @@
-# 精模光影报告静态站
+# Canvas Lab评测报告静态站
 HTML + CSS + JavaScript + 内嵌WebP
 
+jzxz-style-atlas/ - 建筑学长固定单图34款预设总览，21通用＋13特殊，34成功、35内嵌图。
 refined-lighting-third-mode-report/ - 三种链路的420槽位对比，419成功、1待核查；保留432张内嵌图。
 
 此分支只部署报告，不包含应用源码、密钥、本机路径或飞书链接。

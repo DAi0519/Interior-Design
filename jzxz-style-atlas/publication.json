@@ -1,0 +1,35 @@
+{
+  "title": "建筑学长·单图全风格总览",
+  "url": "https://dai0519.github.io/Interior-Design/jzxz-style-atlas/",
+  "testDate": "2026-11-02",
+  "publicationDate": "2026-11-03",
+  "presets": 34,
+  "common": 21,
+  "special": 13,
+  "success": 34,
+  "failed": 0,
+  "pending": 0,
+  "embeddedImages": 35,
+  "renderMode": "全能模式",
+  "resolution": "1.5K高清",
+  "actualOutputPixels": [
+    1536,
+    864
+  ],
+  "singleSource": true,
+  "imageQualityAccepted": false,
+  "files": {
+    "index.html": {
+      "bytes": 14480429,
+      "sha256": "8344a32017286320ad7cfea0e5f33b8f8a7f409ec3aedc1ae339dedc49f63bc5"
+    },
+    "report.css": {
+      "bytes": 7293,
+      "sha256": "6bb94a3df1255d6e99413321b970f6dd67929f2abed887807321f631ae4809b1"
+    },
+    "report.js": {
+      "bytes": 2884,
+      "sha256": "9f59f1ec2155abb9e30b5f23b9f2b624e1ca6fa9cd4aded84b0680d08a8712be"
+    }
+  }
+}
