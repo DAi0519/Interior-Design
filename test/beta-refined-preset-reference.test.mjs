@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta归档、精模实际工作流、原卡图解析与sharp；飞书和模型均使用替身
- * [OUTPUT]: 提供迁移/氛围词双图预设原附件归档及版本区分、客户端零卡图载荷及原件漂移建档前阻断保障
+ * [OUTPUT]: 提供迁移/氛围词双图用户要求前置一次及送模/最终Prompt持久化逐字一致、原附件归档及漂移建档前阻断保障
  * [POS]: test 的精模图文对比Beta持久化合同，不访问网络或调用收费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,7 +40,7 @@ async function fixture(execution = "prompt-and-reference") {
   const lighting = { loadAssets: async () => ({ rule, referenceRule, hybridRule, presets: [preset] }), loadReference: async () => original };
   const input = { featureMode: "refinedModel", modelKey: "gptImage2", outputFormat: "png", resolution: "1K", ratio: "4:3",
     referenceImages: [image(sourceBytes, "source.png")], promptVersion: execution === "prompt-with-reference" ? 1 : 3,
-    refinedLighting: { mode: "preset", execution, presetId: preset.id } };
+    refinedLighting: { mode: "preset", execution, presetId: preset.id }, prompt: "USER BETA REQUIREMENT" };
   const prepared = await prepareRefinedLightingInput(input, lighting);
   return { sourceBytes, cardBytes, prepared, lighting, changeOriginal: value => { original = value; } };
 }
@@ -76,18 +76,23 @@ for (const execution of ["prompt-and-reference", "prompt-with-reference"]) test(
   const snapshot = JSON.parse(written["配置快照"]);
   assert.equal(snapshot.refinedLighting.execution, execution);
   assert.equal(snapshot.refinedLighting.referenceSha256, sha(cardBytes));
+  let sentPrompt;
   const result = await executeRefinedModelWorkflow(prepared, {
     loadPrompt() { assert.fail("两种双图模式均不能读取旧基础Prompt"); },
     loadLightingAssets: lighting.loadAssets, loadLightingReference: lighting.loadReference,
     imageClient: { async generateImage(request) {
       assert.equal(request.images.length, 2);
       assert.equal(request.images[1].image_url, image(cardBytes, "card-original.png").dataUrl);
-      assert.equal(request.prompt, execution === "prompt-with-reference"
-        ? "IMAGE ROLE PREFIX\n\nLIGHTING PLAN" : "IMAGE 1 DESIGN; IMAGE 2 LIGHTING");
+      sentPrompt = request.prompt;
+      assert.equal(sentPrompt, execution === "prompt-with-reference"
+        ? "USER BETA REQUIREMENT\n\nIMAGE ROLE PREFIX\n\nLIGHTING PLAN" : "USER BETA REQUIREMENT\n\nIMAGE 1 DESIGN; IMAGE 2 LIGHTING");
+      assert.equal(sentPrompt.split("USER BETA REQUIREMENT").length - 1, 1);
       return { images: [{ url: image(sourceBytes, "result.png").dataUrl }] };
     } }, scheduleSync: captureBetaGenerationArchive,
   });
   await store.completeRun("rec-paired", result);
+  assert.equal(result.sync.archiveFields["最终 Prompt"], sentPrompt);
+  assert.equal(written["最终 Prompt"], sentPrompt);
   assert.ok(written["Prompt / 工作流版本"].includes(execution));
   assert.equal(JSON.parse(written["生成参数"]).referenceImageCount, 2);
 });

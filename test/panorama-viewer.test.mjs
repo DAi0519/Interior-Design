@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖全景预览纯功能判定与页面/结果层接线源码
+ * [INPUT]: 依赖全景预览纯功能判定、页面/结果层接线源码与共享HTTP安全策略
  * [OUTPUT]: 对外提供仅全景图美化可用、360° dialog 和本地 Pannellum 资产接入的回归保障
  * [POS]: test 的全景预览专项测试，不加载真实图片或启动 WebGL
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { isPanoramaPreviewFeature } from "../public/panorama-viewer.js";
+import { SECURITY_HEADERS } from "../src/http-security.mjs";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -41,8 +42,8 @@ test("页面从本地依赖加载 Pannellum 并提供可关闭预览 dialog", as
   assert.match(html, /panorama-viewer\.css\?v=2/);
   assert.match(server, /"\/vendor\/pannellum\.js"/);
   assert.match(server, /"\/vendor\/pannellum\.css"/);
-  assert.match(server, /img-src 'self' data: blob: https:/);
-  assert.match(server, /connect-src 'self' blob:/);
+  assert.match(SECURITY_HEADERS["Content-Security-Policy"], /img-src 'self' data: blob: https:/);
+  assert.match(SECURITY_HEADERS["Content-Security-Policy"], /connect-src 'self' blob:/);
   assert.match(css, /var\(--panel, #fcfcfd\)/);
   assert.match(css, /var\(--brand-key-bg, #fff\)/);
   assert.match(css, /var\(--functional-action-bg, #f37021\)/);

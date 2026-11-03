@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖脱敏GPT光照模板/飞书Prompt版本身份/历史参数/光源编辑目录、共享整体原灯/标注/图片/输出规则、主图上传、画布交互与统一任务/摘要回调
- * [OUTPUT]: 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、整体/标注草稿隔离与换图清除、历史参数/保护只读恢复、两灯具模式即时保存、下拉回显同步和光标保持、整体操作/Prompt身份冻结及只读刷新
+ * [OUTPUT]: 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
  * [POS]: public 的AI编辑打光控制器，复用既有主图与后台任务，不持有服务地址、模型密钥或Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -86,7 +86,8 @@ const template = `
 `;
 
 export function bindImageRelight({ root, getSourceImage, onChange = () => {}, onSourceChange = () => {},
-  showToast = () => {}, onRefresh = null, emptyModel, emptySize, exactSize }) {
+  showToast = () => {}, onRefresh = null, emptyModel, emptySize, exactSize,
+  allowMaterialRender = false, promptCode = "image-relight" }) {
   root.innerHTML = template;
   const by = selector => root.querySelector(selector);
   const list = by("[data-relight-list]"), properties = by("[data-relight-properties]");
@@ -110,7 +111,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     ? "当前服务尚不支持所选照明方案或调光动作，请重新启动工作台" : "";
   const normalizedLights = () => {
     const lights = normalizeRelightLights(drawing.value(), { allowEmpty: true });
-    if (templateKey === "custom" && originalLights.action === "keep" && lights.every(light => light.action === "preserve")) {
+    if (!allowMaterialRender && templateKey === "custom" && originalLights.action === "keep" && lights.every(light => light.action === "preserve")) {
       throw new TypeError(`请选择整体减弱、全部关闭，或添加可选光源编辑${lights.length ? "；仅保持不变无需生成" : ""}`);
     }
     return lights;
@@ -284,7 +285,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
 
   const promptIdentity = () => {
     const prompt = config.prompt;
-    return prompt?.available === true && prompt.code === "image-relight" && Number.isSafeInteger(prompt.version) && prompt.version > 0
+    return prompt?.available === true && prompt.code === promptCode && Number.isSafeInteger(prompt.version) && prompt.version > 0
       && typeof prompt.sha256 === "string" && /^[a-f0-9]{64}$/i.test(prompt.sha256)
       ? { relightPromptVersion: prompt.version, relightPromptSha256: prompt.sha256 } : null;
   };
@@ -303,7 +304,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     || "未读取到可用的打光Prompt版本，请刷新飞书配置" : !supportsOriginalLights() ? "当前服务尚不支持整体原灯操作，请重新启动工作台" : modelConfig().reason || "打光模型配置未更新，请重启工作台");
 
   function validate() {
-    const sourceIssue = relightImageIssue(getSourceImage());
+    const sourceIssue = relightImageIssue(getSourceImage(), config.imagePolicy || RELIGHT_IMAGE_POLICY);
     if (!available()) return { message: unavailableReason() };
     if (sourceIssue || fieldIssue || planIssue()) return { message: sourceIssue || fieldIssue || planIssue() };
     try {
@@ -325,7 +326,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     refresh.disabled = pending || !onRefresh; refresh.setAttribute("aria-busy", String(pending));
     by("[data-relight-refresh-label]").textContent = pending ? "刷新中" : "刷新";
     const source = getSourceImage();
-    const issue = !available() ? unavailableReason() : source && relightImageIssue(source) || fieldIssue || planIssue() || "";
+    const issue = !available() ? unavailableReason() : source && relightImageIssue(source, config.imagePolicy || RELIGHT_IMAGE_POLICY) || fieldIssue || planIssue() || "";
     status.textContent = issue; status.hidden = !issue; status.classList.toggle("error", Boolean(issue));
   }
 
@@ -385,7 +386,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   ["input", "change", "compositionend"].forEach(name => fixture.addEventListener(name, commitFixture));
 
   function renderSummary() {
-    const source = getSourceImage(), issue = source && relightImageIssue(source);
+    const source = getSourceImage(), issue = source && relightImageIssue(source, config.imagePolicy || RELIGHT_IMAGE_POLICY);
     const nextSourceKey = source?.id || source?.dataUrl || null;
     if (draftSourceKey !== nextSourceKey) { manualDraft = []; originalLights = { action: "keep" }; restoredTemplateEdits = false; draftSourceKey = nextSourceKey; }
     drawing.setSource(issue ? null : source); onSourceChange(source);
@@ -408,7 +409,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     },
     activate: renderSummary, renderSummary, validate,
     currentItem: () => ({ key: RELIGHT_MODEL_KEY, label: "GPT Image 2.5 Sunburst", provider: "oneapi" }),
-    inputPolicy: () => ({ ...RELIGHT_IMAGE_POLICY, maxCount: 1 }),
+    inputPolicy: () => ({ ...(config.imagePolicy || RELIGHT_IMAGE_POLICY), maxCount: 1 }),
     isAvailable: () => !validate(), availabilityReason: () => validate()?.message || "",
     loadingCopy: () => templateKey === "custom" ? "正在调整原有灯光与自定义光源…" : "正在根据当前场景生成所选光照效果…",
     value: () => ({ lights: drawing.value(), originalLights: appliedOriginalLights(), templateKey, blendMode, outputResolution, quality }),

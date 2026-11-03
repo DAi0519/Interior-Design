@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖beta.html的十功能样本集/独立扩图和超分工作流/双阶段监控语义、Raycast银灰令牌与共享动作/下拉控件
- * [OUTPUT]: 对外提供共享任务下拉的页面布局与逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动逐项异常预警
+ * [OUTPUT]: 对外提供共享任务下拉的页面布局与逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、精模光影标题到控件12px留白与辅助文字层级、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动逐项异常预警
  * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、生成/同步异常可见和窄屏自然单栏为边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -173,6 +173,13 @@ button { cursor: pointer; }
 .section-heading-meta .sample-set-sync-status { color: var(--muted); font-weight: 500; }
 .section-heading-meta .sample-set-sync-status[data-state="success"] { color: var(--ink); }
 .section-heading-meta .sample-set-sync-status[data-state="error"] { color: var(--danger); }
+
+/* --- 精模光影子分区独立留白，不继承外层网格标题的负间距 --- */
+#refinedRenderFields .section-heading { flex-wrap: wrap; gap: 8px 12px; margin-bottom: 12px; }
+#refinedRenderFields .section-heading h2 { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+#refinedRenderFields .optional { color: var(--muted); font-size: 10px; font-weight: 400; }
+#refinedRenderFields .micro-status { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
 .model-options {
   display: grid;
   gap: var(--choice-control-gap);

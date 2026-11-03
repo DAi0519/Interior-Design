@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模完整Prompt/光影卡片与原附件、可注入独立迁移规则编码、旧精模参数、模型目录和原图字节校验
- * [OUTPUT]: 对外提供完整Prompt+氛围单图、专用迁移双图及图序前置+氛围双图编译，拒绝旧纯词分散规则身份并冻结卡片与实际图片
+ * [OUTPUT]: 对外提供用户补充前置的完整Prompt+氛围单图、专用迁移双图及图序前置+氛围双图编译，拒绝旧纯词分散规则身份并冻结卡片与实际图片
  * [POS]: src 的精模预设三执行模式与上传参考边界，旧请求不读新库，Prompt与卡片原图仅服务端读取
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -183,10 +183,10 @@ export function composeRefinedLightingPrompt(basePrompt, assets, userPrompt = ""
   const custom = String(userPrompt || "").trim();
   if (custom.length > 8000) throw fail("精模自定义要求不能超过 8000 个字符");
   if (usesReferencePrompt(assets.selection)) {
-    return [assets.rule?.prompt, custom].filter(Boolean).join("\n\n");
+    return [custom, assets.rule?.prompt].filter(Boolean).join("\n\n");
   }
   if (usesHybridPrompt(assets.selection)) {
-    return [assets.rule?.prompt, assets.preset?.prompt, custom].filter(Boolean).join("\n\n");
+    return [custom, assets.rule?.prompt, assets.preset?.prompt].filter(Boolean).join("\n\n");
   }
-  return [String(basePrompt || "").trim(), assets.preset?.prompt, custom].filter(Boolean).join("\n\n");
+  return [custom, String(basePrompt || "").trim(), assets.preset?.prompt].filter(Boolean).join("\n\n");
 }

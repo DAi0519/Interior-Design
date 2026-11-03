@@ -7,6 +7,10 @@
 
 # 本机统一工作台入口
 
+2026-11-02 精模用户补充前置：只读核对用户三图同批归档，“纯室内，背光场景”均实际传入最终Prompt恰一次，旧代码将其放末尾。现三预设方式与上传参考统一先放用户补充，再接完整控制Prompt与适用卡片正文；Main/Beta/Flux实际送模与归档同文，空补充不改正文，控制Prompt仍v6/v8/v5且卡片不变。1603项全测通过；等待该组三项飞书同步全部success、服务无子进程，并检查Beta待运行/评测已停止后重载4192，PID由29717变为80040，工作目录仍为主目录，完整配置读回与重载前一致。未刷新用户原页面以保留已上传图和结果，本轮未新增收费调用；前置效果仍需后续新图验收。证据见`outputs/refined-lighting-final/user-prompt-first.json`。
+
+2026-11-02 精模光源合理性与点灯优化：三条完整Prompt升至纯词v6/参考迁移v8/氛围词双图v5并上架，原v5/v7/v4仅下架留档。主工作台等待生成、Beta待运行、评测已停止，进程未见上游连接后通过`POST /api/config/refresh`刷新配置，无服务重启；PID仍29717，实际目录读回6/8/5及对应双图SHA。九卡与其余十二项配置目录保持不变，56项真实工作流替身编译/两项漂移零调用与103项定向回归通过。Main/Beta三模式均显示6/8/5；Beta旧草稿按既有规则阻断后显式重选原电影柔光，并恢复氛围词双图方式，新版就绪。未点击START或新增收费出图，质量仍待真实图片验收；证据见`outputs/refined-lighting-final/lighting-plausibility-v1.json`。
+
 2026-11-02 精模 Prompt 统一管理：等待用户原有两项光影对比生成均已出图且同步飞书终态后，才从主工作目录重载4192，其他端口未触动。实际运行目录已读回同一精模表的完整纯词v5、参考迁移v7与氛围词双图v4，光影库不再提供上架控制规则；九卡目录和效果图光影转换目录与切换前完全一致。1598项全测与54项九卡×三方式×两模型替身编译通过，整合前后最终Prompt字节相同，本轮未新增收费生成。此处只记录发布和运行回读，浏览器展示与真实成图质量另行验收；证据见`outputs/refined-lighting-final/prompt-management-unified.json`，维护入口见`refined-lighting-library.md`。
 
 2026-11-02 白模纯词光影：检查 Main/Beta/评测及进程连接，未见在途生成或同步后，从主目录重载4192；实际目录回读`generationFeatureCapabilities.whiteModel.promptLighting=true`，配置回读白模智能默认v4、融合默认v8和九卡。主工作台默认自动，选卡只传提示词，原单图出图与其他功能隔离；1592项全测和浏览器自动/选卡/恢复/跨功能切换通过。未新增收费调用，其他端口保持不变，详见`white-model-lighting.md`。
@@ -39,6 +43,12 @@ Codex运行动作只执行 `bash .codex/environments/run-workspace.sh`；端口�
 
 2026-10-29全景多光影：确认Main/Beta待运行、4192无外部连接后重载主服务；`/api/catalog`已回读 `generationFeatureCapabilities.panoramaEnhancement.multipleLightingSelections=true` 和 `panorama-r5-4@2026-10-28.1`。4193保留，日常全景验收使用4192。1512项全测通过，桌面/360px窄屏检查通过；未新增收费生成。
 
+2026-11-03 AI渲染台：主工作台AI渲染新增正式目录，直达`http://127.0.0.1:4192/?feature=aiRenderStudio`。空闲时重载到PID46926，真实config为2026-11-02.ai-render-studio.1、独立Prompt表v1可用且同步Schema就绪；原件单次生成/归档成功，画质部分通过而非精准控光已解决。见ai-render-studio.md与outputs/ai-render-studio/report.md。
+
+2026-11-03九卡/界面修订：4192空闲重载为PID59215，/api/ai-render-studio/config?refresh=1返回2026-11-03.ai-render-studio.2、真实九卡、仅custom底层与同步可用；1681项全测和桌面/390px界面检查通过，无新增收费出图。旧首图/飞书记录保留历史，不代表新九卡画质验收。
+
 2026-11-03效果图美化光影扩展：代码位于 `codex/effect-beautification-lighting`，原六氛围保持六工作流，新增九卡仅复用低自然；1700项离线测试与Main/Beta、390px浏览器互斥及旧进程门禁检查通过。4192的45张全景批次仍运行（观察时生成与同步均5/45），故保持PID59215且不重载。实际目录尚无effectBeautification.promptLighting能力，新后端待批次和归档终态后加载；未新增收费出图或正式发布，详见effect-beautification.md。
 
 2026-11-03独立美化预览：用户明确选择“另开独立预览端口，保留当前批次”后，使用专属launchctl服务 `com.canvas-lab.effect-beautification-preview` 启动4195（PID1603），入口为 `http://127.0.0.1:4195/?feature=effectBeautification`。实际 `/api/catalog` 已声明 `effectBeautification.promptLighting=true`，`/api/styles` 返回九卡及旧六档Prompt v2；浏览器选中暖灯静夜后无旧后端阻断提示。4192仍PID59215，4193仍PID49795，未改.env.local/默认端口或触碰原45张批次。仅运行目录和交互验证，未提交收费生成或正式发布。
+
+2026-11-03美化合并后重启：用户要求重启日常工作台，确认4192无在途连接/子进程、评测未运行后，通过既有主服务重载，PID59215→57921。主支本机入口已回读 `effectBeautification.promptLighting=true`、九卡及美化Prompt v2，新页面显示连接已就绪及六氛围/九预设；4193（PID49795）、4195（PID1603）未动，未刷新用户原任务页或提交生成。分支已本地合入main，未推送/正式发布；排队超时修复不在本次重启范围内。

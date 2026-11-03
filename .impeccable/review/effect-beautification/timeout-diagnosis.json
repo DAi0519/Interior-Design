@@ -1,0 +1,54 @@
+{
+  "observedAt": "2026-11-03T04:12:50.793Z",
+  "promptId": "ac6babb4-feaf-4bfd-9172-d6bc5a7286cb",
+  "number": 856,
+  "status": "success",
+  "completed": true,
+  "contractMatches": true,
+  "sourceSha256": "519f14beab79704c9d005807f04e94f46cf2b283927437160edcb6b41c3a50c5",
+  "sourceBytes": 1676388,
+  "promptSha256": "1d452bb73967d5f23a98dda6deb8e116580fca2d6d29bb2c8cac3475b258ad12",
+  "steps": 2,
+  "loraStrength": 0.45,
+  "events": [
+    {
+      "name": "execution_start",
+      "timestamp": 1793678803946
+    },
+    {
+      "name": "execution_cached",
+      "timestamp": 1793678803949
+    },
+    {
+      "name": "execution_success",
+      "timestamp": 1793678837549
+    }
+  ],
+  "images": [
+    {
+      "filename": "CanvasLab_Flux2Klein_f2fa54c1-ab49-410c-b0eb-2af942710f46_00001_.png",
+      "subfolder": "",
+      "type": "output"
+    }
+  ],
+  "extraDataKeys": [
+    "client_id",
+    "create_time",
+    "prompt_id"
+  ],
+  "sourceMatchesBrowserUpload": true,
+  "createdAt": "2026-11-03T04:01:25.923Z",
+  "rawCreateTime": 1793678485923,
+  "executionStartedAt": "2026-11-03T04:06:43.946Z",
+  "executionFinishedAt": "2026-11-03T04:07:17.549Z",
+  "queueWaitMs": 318023,
+  "executionMs": 33603,
+  "recoveredResult": {
+    "path": "/Users/dai/Work_qunhe/Interior Design/.impeccable/review/effect-beautification/recovered-result.png",
+    "bytes": 3592294,
+    "sha256": "08ce0acc7befb15957c76392f4982e8a0205a9fa8ba922cc9214b44ff6b17957",
+    "height": 2496,
+    "width": 1664
+  },
+  "submittedAdditionalGeneration": false
+}

@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: 对外提供运行进程功能及全景多光影能力目录、生图工作台、独立 Beta跑图和模型评测页面/API，以及版本更新/安装、连接、配置、飞书合同与模型权限准入、生成和下载；打光/遮罩填充提供独立任务、能力目录与飞书归档；Beta 十功能复用正式扩图/超分客户端与独立归档、逐张上传样本、按样本 ID 入队并提供轻量预览，超分独立复核ComfyUI节点且不依赖OneAPI，JSON 单次请求保留 30MB 保护
+ * [INPUT]: 依赖ai-render-studio-api的独立生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [OUTPUT]: 对外提供AI渲染台独立任务/飞书同步与更新忙碌守卫、生图/Beta/模型评测页面及配置/连接/生成下载API；原打光/遮罩填充和飞书归档边界保持，JSON单次请求保留30MB保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createReadStream, existsSync } from "node:fs";
 import { createServer } from "node:http";
+import { SECURITY_HEADERS, staticSecurityHeaders } from "./src/http-security.mjs";
 import { randomUUID } from "node:crypto";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +26,7 @@ import { createBetaApiHandler, createBetaRunnerService } from "./src/beta-runner
 import { readGenerationConfig } from "./src/generation-config.mjs";
 import { createGenerationJobApiHandler, supportedGenerationFeatureCapabilities, supportedGenerationFeatureModes } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
+import { createAiRenderStudioApiHandler } from "./src/ai-render-studio-api.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
 import { readMultiAngleConfig } from "./src/image-multi-angle-service.mjs";
 import { IMAGE_MASK_FILL_CLIENT_OPTIONS } from "./src/image-mask-fill-workflow.mjs";
@@ -73,22 +75,16 @@ let activeApiMutations = 0;
 const handleAppUpdateApi = createAppUpdateApiHandler({
   appUpdates, appInstaller, readJson, sendJson,
   hasActiveJobs: () => activeApiMutations > 0 || generationJobs.hasActiveJobs()
-    || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs(),
+    || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs()
+    || handleAiRenderStudioApi.hasActiveJobs(),
 });
 const PUBLIC_DIR = join(ROOT_DIR, "public");
-const INTER_VARIABLE_LATIN_FONT = join(
-  ROOT_DIR,
-  "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
-);
+const INTER_VARIABLE_LATIN_FONT = join(ROOT_DIR, "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2");
 const PANNELLUM_ASSETS = Object.freeze({
   "/vendor/pannellum.css": join(ROOT_DIR, "node_modules/pannellum/build/pannellum.css"),
   "/vendor/pannellum.js": join(ROOT_DIR, "node_modules/pannellum/build/pannellum.js"),
 });
-const BENCHMARK_STATE_FILE = join(
-  fileURLToPath(new URL(".", import.meta.url)),
-  ".benchmark-workbench",
-  "state.json",
-);
+const BENCHMARK_STATE_FILE = join(ROOT_DIR, ".benchmark-workbench", "state.json");
 const MAX_JSON_BYTES = 30 * 1024 * 1024;
 const WHITE_MODEL_PROMPT_CACHE_MAX_ENTRIES = 50;
 const WHITE_MODEL_PROMPT_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -142,14 +138,6 @@ const MIME_TYPES = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
-};
-const SECURITY_HEADERS = {
-  "Cache-Control": "no-store",
-  "Content-Security-Policy":
-    "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self'; script-src 'self'; connect-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-  "Referrer-Policy": "no-referrer",
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
 };
 function normalizeApiKey(value) {
   const key = String(value || "").trim();
@@ -342,6 +330,11 @@ const generationService = createGenerationService({
   scheduleGenerationSync,
   verifyRelightSyncContract: () => verifyLarkSyncSchema(undefined, { scope: "imageRelight" }),
 });
+const handleAiRenderStudioApi = createAiRenderStudioApiHandler({
+  getImageClient: (modelKey) => imageClientForModel(modelKey),
+  getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey())),
+  readJson, sendJson,
+});
 const betaGenerationService = createGenerationService({
   archiveImageUpscale: true,
   getSessionModelCatalog,
@@ -389,7 +382,7 @@ function serveStatic(response, pathname) {
   if (!filePath || !existsSync(filePath)) return false;
 
   response.writeHead(200, {
-    ...SECURITY_HEADERS,
+    ...staticSecurityHeaders(pathname),
     "Cache-Control": "no-cache",
     "Content-Type": MIME_TYPES[extname(filePath)] || "application/octet-stream",
   });
@@ -401,6 +394,8 @@ function serveStatic(response, pathname) {
 
 async function handleApi(request, response, pathname) {
   if (await handleAppUpdateApi(request, response, pathname)) return;
+
+  if (await handleAiRenderStudioApi(request, response, pathname)) return;
 
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;

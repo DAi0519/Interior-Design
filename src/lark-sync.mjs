@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:fs/os/path/crypto/util、模型/空房/遮罩/打光归档真源、图片产物/尺寸/飞书 CLI、生图结果及原图/实际提交的引导图附件、已创建飞书 Base
- * [OUTPUT]: 原始/最终Prompt及真实尺寸同步；二次编辑新标签/字段写入及历史模型标签规范化，包含光影转换/质感增强功能标签准入，二次编辑与打光独立scope校验附件，字段/token/字节双回读后成功
+ * [OUTPUT]: 提供可复用的飞书字段/记录/附件I/O和强回读供独立渲染台归档消费；原始/最终Prompt及真实尺寸同步；二次编辑新标签/字段写入及历史模型标签规范化，包含光影转换/质感增强功能标签准入，二次编辑与打光独立scope校验附件，字段/token/字节双回读后成功
  * [POS]: src 的飞书同步边界，将生成输入、模型选择与实际出图结果归档成一条 Base 记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -297,7 +297,7 @@ export async function verifyLarkSyncSchema(config = LARK_SYNC_CONFIG, { scope = 
   return assertLarkSyncSchema(body, { config, scope });
 }
 
-async function createRecord(config, fields, run = runLarkCli) {
+export async function createRecord(config, fields, run = runLarkCli) {
   const entries = Object.entries(fields);
   return run(config, [
     "base",
@@ -316,7 +316,7 @@ async function createRecord(config, fields, run = runLarkCli) {
   ]);
 }
 
-async function upsertRecord(config, fields, recordId = null, run = runLarkCli) {
+export async function upsertRecord(config, fields, recordId = null, run = runLarkCli) {
   const args = [
     "base",
     "+record-upsert",
@@ -341,7 +341,7 @@ function safeFileName(value, fallback) {
   return name || fallback;
 }
 
-async function uploadAttachments(config, recordId, fieldId, fileNames, cwd, run = runLarkCli) {
+export async function uploadAttachments(config, recordId, fieldId, fileNames, cwd, run = runLarkCli) {
   if (fileNames.length === 0) return null;
   const args = [
     "base",
@@ -361,7 +361,7 @@ async function uploadAttachments(config, recordId, fieldId, fileNames, cwd, run 
   return run(config, args, { cwd });
 }
 
-async function materializeReferenceImages(
+export async function materializeReferenceImages(
   images = [],
   temporaryDirectory,
   { prefix = "" } = {},
@@ -386,7 +386,7 @@ async function materializeReferenceImages(
   return fileNames;
 }
 
-function recordUrl(config, recordId) {
+export function recordUrl(config, recordId) {
   const url = new URL(config.baseUrl);
   url.searchParams.set("table", config.tableId);
   if (recordId) url.searchParams.set("record", recordId);
@@ -394,7 +394,7 @@ function recordUrl(config, recordId) {
 }
 
 // -------- 遮罩与打光归档启用回读；普通同步保持既有字段与调用范围 --------
-async function readVerifiedArchiveRecord(config, recordId, run, label = "遮罩") {
+export async function readVerifiedArchiveRecord(config, recordId, run, label = "遮罩") {
   const body = await run(config, ["base", "+record-get", "--as", "user", "--base-token", config.baseToken,
     "--table-id", config.tableId, "--record-id", recordId, "--format", "json"]);
   const record = body?.data?.record || body?.record;
@@ -410,7 +410,7 @@ async function readVerifiedArchiveRecord(config, recordId, run, label = "遮罩"
   throw new Error(`${label}归档记录回读格式不正确或记录身份不符`);
 }
 
-function verifyArchiveFields(actual, expected, label = "遮罩") {
+export function verifyArchiveFields(actual, expected, label = "遮罩") {
   for (const [name, value] of Object.entries(expected)) {
     let found = actual[name];
     if (Array.isArray(found)) {
@@ -426,7 +426,7 @@ function verifyArchiveFields(actual, expected, label = "遮罩") {
   }
 }
 
-function verifyArchiveAttachments(fields, manifest, identities = null, label = "遮罩") {
+export function verifyArchiveAttachments(fields, manifest, identities = null, label = "遮罩") {
   const current = {};
   for (const [name, expected] of Object.entries(manifest)) {
     const files = fields[name] ?? [];

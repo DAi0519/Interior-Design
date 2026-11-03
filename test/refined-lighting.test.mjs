@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test/assert、精模光影原图/文本编译、正式工作流与队列/Beta；飞书与出图均替身
- * [OUTPUT]: 对外提供完整纯词Prompt单次编译/旧分散规则冻结阻断、同表迁移双图与氛围词图序前置、实际来源冻结/原件图序及历史兼容保障
+ * [OUTPUT]: 对外提供三模式及上传补充要求前置/空白无污染/单次编译与送模归档一致、旧冻结阻断、实际来源及原件图序保障
  * [POS]: test 的精模光影库跨层合同测试，不访问网络或调用付费生成
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -63,7 +63,9 @@ test("氛围词双图仅拼图序前置和卡片正文，实际双图有序且�
       imageClient: { async generateImage(request) { sent = request; return { images: [{ url: png }] }; } },
       scheduleSync(value) { archived = value; return captureBetaGenerationArchive(value); },
     });
-    assert.equal(sent.prompt, [hybridRule.prompt, preset.prompt, "USER"].join("\n\n"));
+    assert.equal(sent.prompt, ["USER", hybridRule.prompt, preset.prompt].join("\n\n"));
+    assert.equal(sent.prompt.split("USER").length - 1, 1);
+    assert.equal(archived.finalPrompt, sent.prompt);
     assert.equal(sent.prompt.split(hybridRule.prompt).length - 1, 1);
     assert.doesNotMatch(sent.prompt, /SERVER REFERENCE RULE|SERVER MAIN QUALITY|SERVER RULE/);
     assert.equal(sent.images.length, 2);
@@ -213,10 +215,29 @@ test("纯词只冻结卡片身份，不读取独立公共规则或携带第二�
   assert.equal(prepared.refinedLighting.referenceSha256, undefined);
   assert.equal(prepared.refinedLighting.execution, "prompt-only");
   const assets = await resolveRefinedLightingInput(prepared, deps);
-  assert.equal(composeRefinedLightingPrompt("MAIN", assets, "USER"), ["MAIN", preset.prompt, "USER"].join("\n\n"));
+  assert.equal(composeRefinedLightingPrompt("MAIN", assets, "USER"), ["USER", "MAIN", preset.prompt].join("\n\n"));
   assert.deepEqual(assets.referenceImages, []);
   assert.deepEqual(assets.metadata.imageRoles, { source: 1 });
   assert.equal(assets.metadata.reference, undefined);
+});
+
+test("精模三种预设及上传只前置一次用户要求，空白补充保持原控制正文与卡片顺序", () => {
+  const hybridRule = { prompt: "IMAGE ROLE PREFIX" };
+  const cases = [
+    [{ selection: { mode: "preset", execution: "prompt-only" }, preset }, ["MAIN", preset.prompt]],
+    [{ selection: { mode: "preset", execution: "prompt-and-reference" }, rule: referenceRule, preset }, [referenceRule.prompt]],
+    [{ selection: { mode: "preset", execution: "prompt-with-reference" }, rule: hybridRule, preset }, [hybridRule.prompt, preset.prompt]],
+    [{ selection: { mode: "reference" }, rule: referenceRule, preset }, [referenceRule.prompt]],
+  ];
+  const custom = "保留材质本色\n降低主灯亮度";
+  for (const [assets, paragraphs] of cases) {
+    for (const blank of [undefined, "", " \n\t "]) {
+      assert.equal(composeRefinedLightingPrompt("MAIN", assets, blank), paragraphs.join("\n\n"));
+    }
+    const compiled = composeRefinedLightingPrompt("MAIN", assets, `  ${custom}  `);
+    assert.equal(compiled, [custom, ...paragraphs].join("\n\n"));
+    assert.equal(compiled.split(custom).length - 1, 1);
+  }
 });
 
 test("预设原图与用户上传使用完全相同专用Prompt，原图不同且两路均零基础读取", async () => {
@@ -381,8 +402,10 @@ test("正式精模只发源图和文本，MAIN质量/卡片提示词保留且归
     assert.equal(sent.images.length, 1);
     assert.equal(sent.images[0].fileName, "source.png");
     assert.equal(sent.images[1], undefined);
-    assert.ok(sent.prompt.startsWith(bundle.MAIN));
-    assert.ok(sent.prompt.endsWith("USER REQUIREMENT"));
+    assert.equal(sent.prompt, ["USER REQUIREMENT", bundle.MAIN, preset.prompt].join("\n\n"));
+    assert.equal(sent.prompt.split("USER REQUIREMENT").length - 1, 1);
+    assert.equal(archived.finalPrompt, sent.prompt);
+    assert.equal(archived.sourcePrompt, "USER REQUIREMENT");
     assert.doesNotMatch(sent.prompt, /OLD TIME|OLD WEATHER|OLD TONE/);
     assert.equal(result.renderPrompt, undefined);
     assert.equal(archived.workflow.renderPrompt, undefined);
@@ -464,7 +487,8 @@ test("上传准备与执行仅使用专用规则和补充要求，来源及正�
     scheduleSync(value) { archived = value; return captureBetaGenerationArchive(value); },
   });
   assert.equal(reads, 1);
-  assert.equal(sent.prompt, `${referenceRule.prompt}\n\n${supplementary}`);
+  assert.equal(sent.prompt, `${supplementary}\n\n${referenceRule.prompt}`);
+  assert.equal(sent.prompt.split(supplementary).length - 1, 1);
   assert.equal(archived.finalPrompt, sent.prompt);
   assert.equal(archived.workflow.promptCode, referenceRule.code);
   assert.equal(archived.workflow.promptSha256, hash(referenceRule.prompt));
@@ -622,7 +646,7 @@ test("Beta按预设单图/上传双图归档，附件数量、图序与身份漂
   const output = `data:image/png;base64,${outputBytes.toString("base64")}`;
   const sourceBytes = Buffer.from(png.split(",")[1], "base64").length;
   for (const mode of ["preset", "reference"]) for (const drift of [null, "reference-count", "image-count", "roles", "reference-sha", "identity"]) {
-    const prepared = await prepareRefinedLightingInput(input(mode), deps);
+    const prepared = await prepareRefinedLightingInput({ ...input(mode), prompt: "USER BETA REQUIREMENT" }, deps);
     const referenceMode = mode === "reference";
     const written = {};
     const store = createBetaBaseStore({ async run(_config, args) {
@@ -642,9 +666,13 @@ test("Beta按预设单图/上传双图归档，附件数量、图序与身份漂
     } });
     await store.beginRun({ batchId: "BETA-lighting-archive", featureMode: "refinedModel", testTime: "2026-10-26 12:00:00",
       item: { caseId: "CASE-1", runId: "RUN-lighting-archive", input: prepared } });
+    let sentPrompt;
     const result = await executeRefinedModelWorkflow(prepared, { ...coreDeps,
       loadLightingAssets: deps.loadAssets, loadLightingReference: deps.loadReference,
-      imageClient: { async generateImage() { return { images: [{ url: output }] }; } }, scheduleSync: captureBetaGenerationArchive });
+      imageClient: { async generateImage(request) { sentPrompt = request.prompt; return { images: [{ url: output }] }; } }, scheduleSync: captureBetaGenerationArchive });
+    assert.equal(sentPrompt, ["USER BETA REQUIREMENT", ...(referenceMode ? [referenceRule.prompt] : [bundle.MAIN, preset.prompt])].join("\n\n"));
+    assert.equal(sentPrompt.split("USER BETA REQUIREMENT").length - 1, 1);
+    assert.equal(result.sync.archiveFields["最终 Prompt"], sentPrompt);
     if (["identity", "image-count", "roles", "reference-sha"].includes(drift)) {
       const parameters = JSON.parse(result.sync.archiveFields["生成参数"]);
       if (drift === "identity") {
@@ -665,6 +693,7 @@ test("Beta按预设单图/上传双图归档，附件数量、图序与身份漂
       assert.equal(archived.recordId, "rec-lighting");
       assert.match(written["Prompt / 工作流版本"], referenceMode ? new RegExp(`lighting-reference-transfer@v${referenceRule.version}`) : /refined-lighting-base@v1.*soft-light@v3/);
       assert.equal(JSON.parse(written["生成参数"]).referenceImageCount, referenceMode ? 2 : 1);
+      assert.equal(written["最终 Prompt"], sentPrompt);
     }
   }
 });

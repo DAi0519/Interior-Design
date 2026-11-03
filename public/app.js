@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖效果图美化六氛围/新增纯词光影的互斥控制器与能力门禁，依赖白模可选纯词光影与运行门禁、质感固定Prompt、精模多模式/上传光影、图片工具、共享任务/飞书状态、设计参数/Prompt/模型、上传/结果、连接中心与Style DNA
- * [OUTPUT]: 提供效果图美化原六氛围/新增纯词卡片互斥与运行门禁；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
+ * [INPUT]: 依赖效果图美化六氛围/新增纯词光影的互斥控制器与能力门禁，依赖ai-render-studio-host的保活功能宿主、白模纯词光影、质感Prompt、精模多模式/上传光影、图片工具、共享任务/飞书状态、设计参数/模型、上传/结果、连接中心与Style DNA
+ * [OUTPUT]: 提供效果图美化原六氛围/新增纯词卡片互斥与运行门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { isEmptyRoomDesign } from "./room-renovation.js";
+import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=1";
 import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js?v=2";
@@ -58,6 +59,7 @@ const refinedModelSelection = createRefinedModelSelection();
 let referenceUpload;
 let styleReferenceUpload;
 const elements = createAppElements();
+const aiRenderStudioHost = bindAiRenderStudioHost();
 const panoramaLighting = bindPanoramaLightingControls({ root: elements.panoramaLightingSection, storage: sessionStorage, storageKey: "canvas-lab:panorama-lighting:main", reload: () => api("/api/config/refresh", { method: "POST" }), onChange: () => generationActions.refresh(), showToast });
 const effectBeautification = bindEffectBeautificationControls({
   root: elements.effectBeautificationSection,
@@ -136,12 +138,15 @@ function updateReferenceRequirements() {
     policy: state.referencePolicy,
   });
 }
-function selectFeatureMode(featureMode) {
+function selectFeatureMode(featureMode, { navigation = false } = {}) {
+  if (featureMode === "aiRenderStudio") { aiRenderStudioHost.show(); return; }
+  if (aiRenderStudioHost.isActive() && !navigation) return;
   const supported = [
     "effectEnhancement", "effectBeautification", "textureEnhancement", "lightingTransfer", "emptyRoom", "roomRenovation", "free",
     "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
+  aiRenderStudioHost.hide(featureMode);
   state.modelKeys = refinedModelSelection.forFeature(featureMode, state.modelKeys, state.catalog);
   state.featureMode = featureMode;
   if (featureMode === "panoramaEnhancement" && state.catalog.length) {
@@ -393,6 +398,7 @@ function resetModelAvailability() {
   renderModelSelect();
 }
 async function generate({ forcePromptRegeneration = false } = {}) {
+  if (aiRenderStudioHost.isActive()) return;
   const featureMode = state.featureMode;
   const unavailableReason = generationUnavailableReason();
   if (unavailableReason) { showToast(unavailableReason); return; }
@@ -647,7 +653,7 @@ const connectionCenter = bindConnectionCenter({
 
 async function initialize() {
   const initialFeature = new URLSearchParams(window.location.search).get("feature");
-  if (imageTools.forMode(initialFeature)) selectFeatureMode(initialFeature);
+  if (initialFeature === "aiRenderStudio" || imageTools.forMode(initialFeature)) selectFeatureMode(initialFeature);
   generationTasks.resume();
   const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig, relightConfig] = await Promise.all([
     api("/api/catalog"),
@@ -675,7 +681,8 @@ async function initialize() {
   emptyRoomType.setOptions(catalogBody.emptyRoomTypes, catalogBody.emptyRoomTypeDetailMaxLength, catalogBody.emptyRoomFurniture, catalogBody.otherFurnitureMaxLength);
   styleDnaChat.setCatalog(catalogBody.agentModels);
   renderPromptAgentModels();
-  selectFeatureMode(elements.featureModeButtons.some(button => button.dataset.featureMode === initialFeature) ? initialFeature : state.featureMode);
+  const requestedFeature = new URLSearchParams(window.location.search).get("feature");
+  selectFeatureMode(elements.featureModeButtons.some(button => button.dataset.featureMode === requestedFeature) ? requestedFeature : state.featureMode);
   await loadConfiguration();
   referenceUpload.render();
   styleReferenceUpload.render();
@@ -684,7 +691,7 @@ async function initialize() {
   if (sessionBody.connected) await checkAvailableModels();
 }
 for (const button of elements.featureModeButtons) {
-  button.addEventListener("click", () => selectFeatureMode(button.dataset.featureMode));
+  button.addEventListener("click", () => selectFeatureMode(button.dataset.featureMode, { navigation: true }));
 }
 elements.promptAgentModelSelect.addEventListener("change", (event) => {
   selectPromptAgent(event.target.value);

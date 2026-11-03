@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖服务端冻结的飞书Prompt资产、原图/可选几何标注、整体原灯与新增光源分离的typed安全合同、模型目录、sharp和OneAPI异步编辑客户端
- * [OUTPUT]: 对外提供v10显式飞书bundle编译、无标注整体原灯及无源不涂暗的安全指令、可选四色编号引导及单/双图请求、原生PNG/实际Prompt和资产版本SHA来源回执
+ * [OUTPUT]: 对外提供v10飞书bundle编译、独立typed光源动作、可注入编译器的单/双图引导与原生PNG请求及资产回执；默认打光行为保持
  * [POS]: src 的 GPT 打光适配器，复用无 mask 后台编辑传输，不回贴、不调色、不缩放模型返回结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,9 +47,7 @@ function originalLightInstructions(originalLights) {
   return `WHOLE-SCENE ORIGINAL LIGHTS: identify the original artificial light sources from image 1 without requiring user marks or an extra recognition pass. ${intent} Preserve all physical fixture bodies, scene geometry, material identities and object positions. Change the original source contributions rather than lowering whole-image or regional exposure, painting dark receiving surfaces, suppressing window/exterior daylight or darkening unlit objects. If no original artificial source is identifiable, leave the scene unchanged by this action instead of forcing a darker image or inventing a source. This handling does not dim, turn off or suppress any separately requested new illumination or newly added fixture; execute new lights independently. Marked PRESERVE content has the highest priority, including over this whole-scene instruction.`;
 }
 
-export function buildRelightPrompt({ lights = [], originalLights: requestedOriginalLights, prompt = "", templateKey, blendMode, relightPromptSnapshot }) {
-  if (!relightPromptSnapshot?.bundle) throw fail("打光 Prompt 资产未加载，已阻止生成", 409);
-  const bundle = relightPromptSnapshot.bundle;
+export function buildRelightActionInstructions({ lights = [], originalLights: requestedOriginalLights, templateKey, blendMode }) {
   const settings = normalizeRelightSettings({ templateKey, blendMode });
   const originalLights = normalizeRelightOriginalLights(requestedOriginalLights);
   if (settings.templateKey !== "custom" && originalLights !== null) throw fail("光照模板按方案重建照明，请在自定义中设置原有灯光");
@@ -78,6 +76,14 @@ export function buildRelightPrompt({ lights = [], originalLights: requestedOrigi
     const extent = light.type === "line" ? " Stop the emitter at its marked endpoints. Do not extend it along the wall edge, around corners or into the existing cove network." : light.type === "area" ? " Keep the emitting area inside the marked polygon; illumination may fall onto nearby surfaces with plausible falloff." : "";
     return `Light ${index + 1}: [blue +, BRIGHTEN] ADD NEW LIGHT: add a new illumination contribution from ${geometry} ${light.points.map(displayPoint).join(" → ")}.${extent} Aim toward the visible scene surface at ${displayPoint(light.target)} (the arrow endpoint). Correlated color temperature intent: ${light.kelvin} K; relative brightness: ${light.intensity} (1 is a moderate local contribution matched to ${contributionBaseline}, not a global exposure increase; lower values create a dimmer new light, not a request to dim an existing source); ${light.softness === "soft" ? "soft, broad light with gentle shadow transitions" : "focused light with crisp shadow transitions"}. ${fixture} Marked preserve, turn-off and darken actions constrain this contribution only where it would counteract the identified original emitter or protected appearance. Whole-scene original-light handling does not suppress this separate new contribution.`;
   });
+  return [...(originalLights ? [originalLightInstructions(originalLights)] : []), ...lightInstructions];
+}
+
+export function buildRelightPrompt({ lights = [], originalLights: requestedOriginalLights, prompt = "", templateKey, blendMode, relightPromptSnapshot }) {
+  if (!relightPromptSnapshot?.bundle) throw fail("打光 Prompt 资产未加载，已阻止生成", 409);
+  const bundle = relightPromptSnapshot.bundle;
+  const settings = normalizeRelightSettings({ templateKey, blendMode });
+  const rebuildLighting = relightRebuildsLighting(settings);
   const mode = rebuildLighting ? "REBUILD" : "LOCAL";
   return [
     bundle.ADAPTER.INTRO[mode],
@@ -87,8 +93,7 @@ export function buildRelightPrompt({ lights = [], originalLights: requestedOrigi
     relightSceneInstructions(settings, bundle),
     bundle.ADAPTER.SCENE_CONSTRAINT[mode],
     relightPhotographicInstructions(settings, bundle),
-    ...(originalLights ? [originalLightInstructions(originalLights)] : []),
-    ...lightInstructions,
+    ...buildRelightActionInstructions({ lights, originalLights: requestedOriginalLights, ...settings }),
     ...(prompt ? [`Additional user lighting instruction: ${JSON.stringify(prompt)}. Apply it within the typed action priority and scene-preservation constraints above.`] : []),
     bundle.ADAPTER.OUTPUT[lights.length ? "GUIDED" : "PLAIN"],
   ].join("\n\n");
@@ -120,7 +125,7 @@ function guideSvg(lights, width, height) {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${plans.join("")}</svg>`);
 }
 
-export async function prepareRelightInput(validated) {
+export async function prepareRelightInput(validated, { buildPrompt = buildRelightPrompt } = {}) {
   const { source, lights, outputResolution, quality } = validated;
   const target = relightOutputSize(source, outputResolution, RELIGHT_ONEAPI_MODEL.sizes);
   const sourceBytes = await sharp(Buffer.from(source.imageUrl.split(",")[1], "base64")).png().toBuffer();
@@ -128,16 +133,18 @@ export async function prepareRelightInput(validated) {
     ? await sharp(sourceBytes).composite([{ input: guideSvg(lights, source.width, source.height) }]).png().toBuffer() : null;
   const images = [sourceBytes, ...(guideBytes ? [guideBytes] : [])].map(bytes => ({ image_url: pngUrl(bytes) }));
   if (images.some(image => image.image_url.length > MAX_IMAGE_URL_CHARACTERS)) throw fail("转换PNG后超过GPT单图20MiB的image_url字符限制，请减小原图");
+  const prompt = buildPrompt(validated);
+  if (typeof prompt !== "string" || !prompt.trim()) throw fail("图像生成 Prompt 编译失败，已阻止提交", 409);
   return { sourceBytes, guideBytes, target,
     guideImage: guideBytes ? { imageUrl: images[1].image_url, mimeType: "image/png", fileName: "submitted-relight-guide.png", size: guideBytes.length } : null,
-    request: { model: RELIGHT_ONEAPI_MODEL.id, images, prompt: buildRelightPrompt(validated), size: `${target.width}x${target.height}`,
+    request: { model: RELIGHT_ONEAPI_MODEL.id, images, prompt, size: `${target.width}x${target.height}`,
       quality: relightQuality(quality), n: 1, output_format: "png", response_format: "b64_json" } };
 }
 
-export async function executeRelightOneApi(validated, { imageClient, onProgress = () => {} }) {
+export async function executeRelightOneApi(validated, { imageClient, onProgress = () => {}, buildPrompt = buildRelightPrompt }) {
   if (typeof imageClient?.editImageAsync !== "function") throw fail("GPT打光客户端尚未配置", 409);
   const originalLights = normalizeRelightOriginalLights(validated.originalLights);
-  const prepared = await prepareRelightInput({ ...validated, originalLights });
+  const prepared = await prepareRelightInput({ ...validated, originalLights }, { buildPrompt });
   const startedAt = Date.now();
   onProgress({ phase: "executing", message: validated.lights.length ? "GPT 正在协调照明方案与标注动作" : originalLights ? "GPT 正在整体调整原有灯光" : "GPT 正在适配原图风格与亮暗" });
   const generated = await imageClient.editImageAsync(prepared.request, {

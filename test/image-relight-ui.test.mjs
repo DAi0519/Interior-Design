@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖重建光影模板/脱敏Prompt身份/专用刷新/自定义直接编辑/历史参数目录、真实打光控制器/画布和共享原生下拉适配器、模型尺寸真源与内存DOM/指针/显示尺寸/DPR事件替身
- * [OUTPUT]: 验证无标注整体原灯三选/幅度即时冻结与旧服务门禁、整体及标注草稿隔离/换源重置和历史恢复、CSS尺寸/DPR高清坐标命中不漂移、可选新增/单灯精修混用与禁止跨类转换、旧保护只读/删除、Prompt冻结刷新/历史参数、点线面与两灯具模式、编号/触屏/键盘/撤销及中文输入光标保持
+ * [OUTPUT]: 验证渲染台显式零标注/8MiB与独立资产身份，旧打光6MiB/空操作门禁保持；验证无标注整体原灯三选/幅度即时冻结与旧服务门禁、整体及标注草稿隔离/换源重置和历史恢复、CSS尺寸/DPR高清坐标命中不漂移、可选新增/单灯精修混用与禁止跨类转换、旧保护只读/删除、Prompt冻结刷新/历史参数、点线面与两灯具模式、编号/触屏/键盘/撤销及中文输入光标保持
  * [POS]: test 的GPT打光前端交互回归，不访问浏览器网络、付费模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,9 +12,9 @@ import { enhanceSearchableSelect } from "../public/custom-select.js";
 import { MODEL_CONFIGS } from "../src/model-config.mjs";
 import { RELIGHT_TEMPLATES, RELIGHT_BLEND_MODES, RELIGHT_LEGACY_TEMPLATES, RELIGHT_DEFAULT_TEMPLATE_KEY, normalizeRelightSettings } from "../public/image-relight-presets.js";
 
-import { RELIGHT_ACTIONS, RELIGHT_ORIGINAL_LIGHT_ACTIONS } from "../public/image-relight-geometry.js";
+import { RELIGHT_ACTIONS, RELIGHT_ORIGINAL_LIGHT_ACTIONS, RELIGHT_IMAGE_POLICY } from "../public/image-relight-geometry.js";
 
-function fixture({ manual = false, onRefresh = null, canvasOnly = false, pixelRatio = 1 } = {}) {
+function fixture({ manual = false, onRefresh = null, canvasOnly = false, pixelRatio = 1, controllerOptions = {} } = {}) {
   const nodes = new Map(), calls = [], groups = new Map(), paintState = {}, resizeObservers = [], mediaQueries = [], viewListeners = new Map();
   let bounds = { left: 100, top: 50, width: 800, height: 400 };
   const view = { devicePixelRatio: pixelRatio, MutationObserver: class { observe() {} disconnect() {} },
@@ -79,7 +79,7 @@ function fixture({ manual = false, onRefresh = null, canvasOnly = false, pixelRa
     originalLightActions: RELIGHT_ORIGINAL_LIGHT_ACTIONS, defaultOriginalLights: { action: "keep" },
     blendModes: RELIGHT_BLEND_MODES, defaultTemplateKey: "naturalFill", defaultBlendMode: "balanced" };
   const drawing = canvasOnly ? bindRelightCanvas({ preview: node(".relight-preview"), toolbar: node(".relight-toolbar") }) : null;
-  const controller = canvasOnly ? null : bindImageRelight({ root: node("root"), getSourceImage: () => source, onRefresh });
+  const controller = canvasOnly ? null : bindImageRelight({ root: node("root"), getSourceImage: () => source, onRefresh, ...controllerOptions });
   if (controller) controller.configure(config);
   if (drawing) { drawing.setSource(source); drawing.setEditing(true); }
   if (manual && controller) templates.find(button => button.dataset.relightTemplate === "custom").fire("click");
@@ -730,4 +730,22 @@ test("刷新失败保留编辑并可重试，飞书管理链接拒绝非HTTPS或
     assert.equal(f.node("[data-relight-prompt-link]").hidden, true);
     assert.equal(f.controller.isAvailable(), true, "管理链接无效不篡改已验证的Prompt身份");
   }
+});
+
+test("渲染台显式复用控光允许保原灯零标注与8MiB原图，旧打光和资产身份隔离", () => {
+  const old = fixture({ manual: true });
+  assert.ok(old.controller.validate(), "旧打光零操作继续阻断收费");
+  const studio = fixture({ manual: true, controllerOptions: { allowMaterialRender: true, promptCode: "ai-render-studio" } });
+  assert.equal(studio.controller.isAvailable(), false, "新功能不能误用旧打光Prompt身份");
+  const imagePolicy = { ...RELIGHT_IMAGE_POLICY, maxBytesPerImage: 8 * 1024 * 1024, maxTotalBytes: 8 * 1024 * 1024 };
+  const config = { ...studio.config, imagePolicy, prompt: { ...studio.config.prompt, code: "ai-render-studio" } };
+  studio.controller.configure(config);
+  assert.equal(studio.controller.validate(), null);
+  studio.setSource({ ...studio.source(), size: 6371448 });
+  assert.equal(studio.controller.validate(), null);
+  assert.equal(studio.controller.inputPolicy().maxBytesPerImage, 8 * 1024 * 1024);
+  studio.setSource({ ...studio.source(), size: imagePolicy.maxBytesPerImage + 1 });
+  assert.match(studio.controller.validate().message, /8MB/);
+  old.setSource({ ...old.source(), size: 6371448 });
+  assert.match(old.controller.validate().message, /6MB/);
 });

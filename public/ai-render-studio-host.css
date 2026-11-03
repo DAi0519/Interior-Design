@@ -1,0 +1,26 @@
+/**
+ * [INPUT]: 依赖主工作台固定功能目录、移动配置抽屉及AI渲染台保活iframe宿主
+ * [OUTPUT]: 提供正式渲染台模式的144px目录与独立操作区，隔离旧参数/动作/结果且兼容移动导航
+ * [POS]: public 的主工作台宿主布局覆盖层，不改变独立AI渲染台页面内部样式
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.ai-render-studio-host[hidden] { display: none !important; }
+.ai-render-studio-host { grid-column: 2; grid-row: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; }
+.ai-render-studio-frame { background: transparent; border: 0; display: block; height: 100%; min-height: 0; width: 100%; }
+body.is-ai-render-studio #configurationPanel > :is(.control-panel-scroll, .action-section),
+body.is-ai-render-studio .workspace > .result-panel,
+body.is-ai-render-studio #workspacePanelResize { display: none !important; }
+
+@media (min-width: 901px) {
+  .workspace.workspace-panel-layout.is-ai-render-studio { grid-template-columns: 144px minmax(0, 1fr); }
+  body.is-ai-render-studio #configurationPanel.workspace-configuration-panel { grid-template-columns: 144px; grid-template-rows: 44px minmax(0, 1fr); }
+  body.is-ai-render-studio #configurationPanel > .workspace-panel-header { grid-template-columns: 144px; }
+  body.is-ai-render-studio #configurationPanel .workspace-panel-title { display: none; }
+}
+
+@media (max-width: 900px) {
+  .workspace.is-ai-render-studio > .ai-render-studio-host { grid-column: 1; grid-row: 2; }
+  body.is-ai-render-studio #workspacePanelDialog { height: auto; max-height: min(70dvh, 440px); }
+  body.is-ai-render-studio #workspacePanelDialog > #configurationPanel.workspace-configuration-panel { grid-template-rows: 52px; height: auto; }
+}

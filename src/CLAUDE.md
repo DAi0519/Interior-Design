@@ -3,6 +3,16 @@
 
 成员清单
 effect-beautification-lighting.mjs: 新增光影纯词照明保护合同/三字段身份、入队和执行卡片版本SHA复核、固定low/natural与归档元数据；原六档无库依赖
+ai-render-studio-lighting.mjs: 共享飞书氛围库九卡纯词读取、单卡ID/版本/SHA与正文冻结及执行重验，原光影零库依赖/脱敏目录/完整计划摘要
+
+ai-render-studio-archive.mjs: 专属13列/枚举与附件ID Schema门禁、实际Prompt/计划/原件/guide/原生结果SHA尺寸防漂移manifest与字段投影
+ai-render-studio-sync.mjs: 按真实任务ID查重与既有记录续传，字段/token回读和附件下载SHA核验，失败只同步不重跑生成
+
+http-security.mjs: HTTP安全头真源，仅AI渲染台页面允许同源嵌入，其余页面与API禁止嵌入
+ai-render-studio-definitions.mjs: 独立8MiB/4096px输入、单次工作流版本与保原材质/四种渲染风格目录
+ai-render-studio-prompt.mjs: 独立飞书AI渲染台Prompt表tbl9Djf4iVWzRxf5的完整JSON严格解析/唯一上架版本SHA与脱敏配置，禁止跨表回退
+ai-render-studio-service.mjs: 同库九卡原词/原光影与typed控光/四种风格同次Sunburst渲染，用户补充前置/快照冻结/权限门禁/原生PNG与私有实际Prompt回执
+ai-render-studio-api.mjs: 独立config/jobs与当前进程幂等、只读恢复/同步状态和仅归档重试，忙碌检查包括生成与同步
 white-model-lighting.mjs: 白模可选纯词光影规范化、卡片版本SHA入队/执行复核、Agent输入优先级与脱敏归档身份，自动不读库，不加载精模规则或卡片原图
 lighting-transfer-prompt.mjs: 独立飞书光影转换Prompt表tblOQOF7m7eKMIAA的上架版本/正文SHA与脱敏目录，缺失下架阻断，不改精模迁移规则
 lighting-transfer-workflow.mjs: 已有效果图与库卡片原图固定双图迁移，独立保护设计材质机位Prompt/版本冻结及原件SHA和图序归档
@@ -13,7 +23,7 @@ panorama-lighting.mjs: 纯词全景光影合同/卡片版本SHA冻结，保护�
 texture-enhancement-prompt.mjs: 独立飞书质感增强Prompt表/上架版本唯一读取器，默认tblQJtk95Sr5IueL；最新或指定版本/正文SHA与脱敏目录、forceRefresh，缺失下架拒绝且无本地/跨表回退
 refined-flux-reference.mjs: 精模与效果图光影转换共用4步/CFG1/Euler双图图工厂，节点模型预验、1K/2K独立长边、普通单图路由与SHA元数据
 refined-lighting-library.mjs: loadRefinedLightingAssets独立只读卡片/原附件与轻量预览，loadRefinedRenderAssets组合精模完整Prompt目录；Prompt失败保留共享卡片，无旧规则或本地fallback
-refined-lighting.mjs: 纯词完整Prompt+卡片、参考迁移/氛围词双图分路；纯词拒旧公共规则冻结，双图独立Prompt及原件图序/SHA复核，效果图迁移编码可注入且共享卡片隔离
+refined-lighting.mjs: 精模用户补充统一前置，再接纯词完整Prompt+卡片或参考迁移/氛围词双图正文；纯词拒旧公共规则冻结，双图独立Prompt及原件图序/SHA复核，效果图迁移编码可注入且共享卡片隔离
 refined-render-prompt-asset.mjs: 精模四块资产纯解析器，将主正文与三列JSON模块规范化为内部MAIN/TIME/WEATHER/TONE，三列全空兼容旧纯文本，缺组/错型/未知键/空模块以409阻断
 refined-render-prompt.mjs: 精模同表完整纯词/迁移/氛围词双图的code版本正文SHA/source冻结与执行前复核；纯词无分散规则，双图不回退纯词，历史结果保留
 image-relight-prompt.mjs: 独立飞书打光JSON资产唯一读取器，复用同构版本/上架/缓存，校验完整结构与版本重复/正文SHA，无本地或跨表回退，公开脱敏版本与表链接
@@ -74,7 +84,7 @@ comfyui-timing.mjs: 请求内单调时钟分段与HTTP状态/尝试计数，仅�
 lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
 lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
-lark-sync.mjs: 二次编辑新字段/选项写入与历史Flux模型标签补归档规范化，保留内部feature与模式key；光影转换与质感增强独立功能枚举/固定词归档，含打光独立scope/原件与实际引导图双参考附件/参数及字段附件双回读的飞书生成记录同步边界，既有Schema/字段/附件与生成投影保持原范围；遮罩专属scope要求七列/模式/功能/模型枚举并动态解析附件ID，原图/结果/遮罩/编辑参考图/框选原图分列，框图实际PNG/size/送模SHA校验，GPT无mask时附件留空并校验hasMask，结果真实SHA与附件manifest留档、字段和token/字节两次回读通过才成功；失败只标同步失败，不重跑GPU
+lark-sync.mjs: 导出既有记录/附件I/O及字段/token回读供独立渲染台复用；二次编辑新字段/选项写入与历史Flux模型标签补归档规范化，保留内部feature与模式key；光影转换与质感增强独立功能枚举/固定词归档，含打光独立scope/原件与实际引导图双参考附件/参数及字段附件双回读的飞书生成记录同步边界，既有Schema/字段/附件与生成投影保持原范围；遮罩专属scope要求七列/模式/功能/模型枚举并动态解析附件ID，原图/结果/遮罩/编辑参考图/框选原图分列，框图实际PNG/size/送模SHA校验，GPT无mask时附件留空并校验hasMask，结果真实SHA与附件manifest留档、字段和token/字节两次回读通过才成功；失败只标同步失败，不重跑GPU
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览
 image-download.mjs: 生成结果下载边界，复用受限图片读取并生成跨域安全的字节、MIME、文件名与附件响应头
 benchmark-base-schema.mjs: comparisonModelLabels按稳定ID优先解析当前名/历史别名；Benchmark Base Schema 适配层，维护五张运行表投影字段，按实时字段存在性/可写类型/单选选项校验全部普通回填，并以稳定编码解析冻结配置展示名、剥离默认 medium 后缀、阻止未建模质量档
@@ -93,7 +103,7 @@ benchmark-jobs.mjs: Benchmark 后台任务注册表，为长耗时批量生成�
 style-library.mjs: Style DNA 风格目录边界，将基础编码与版本合成唯一运行时编码，默认最新版并支持精确读取历史版本
 prompt-agent.mjs: 统一 Prompt 资产边界，维护 `AI 生图` Base 内白模/空房及独立旧房表的智能默认/平台融合、独立风格转换表的平台风格及参考图、风格反推配置，以 Agent 编码稳定路由并支持可选展示名，用五分钟进程缓存输出脱敏已上架版本目录、单 Agent 可用性与默认最高/指定版本读取
 refined-model-prompt.mjs: loadRefinedLightingPromptAssets同表读取三模式完整纯文本与正文SHA/真实来源；版本目录与旧精模编码/模块隔离，完整上架准入且下架409不可绕过
-refined-model-workflow.mjs: 完整纯词Prompt+卡片单图、迁移完整Prompt双图与氛围词完整前置+卡片双图；真实Prompt表来源/版本SHA与原件图序归档，历史兼容和脱敏响应
+refined-model-workflow.mjs: 用户补充统一前置的完整纯词Prompt+卡片单图、迁移完整Prompt双图与氛围词完整前置+卡片双图；真实Prompt表来源/版本SHA与原件图序归档，历史兼容和脱敏响应
 white-model-workflow.mjs: 白模自动兼容原Agent输入，所选光影词进入两种Agent与缓存指纹/归档，执行前复核且最终仍单图；白模/空房按智能默认及平台融合选独立Agent，空房在Agent前校验房型/详情/家具；旧房原图复用空房单流程，按designScenario读取独立旧房表/Agent/版本，表内正文为唯一真源且不覆盖Agent最终JSON，缓存按实际Agent编码/版本/正文隔离；风格转换正式/Beta共用独立来源和版本，非法目标前置阻断；按功能/房型/家具/Prompt/风格图完整指纹复用提示词，最终模型仅接收主图并统一双Provider归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件

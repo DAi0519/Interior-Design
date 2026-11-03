@@ -16,6 +16,7 @@ public/model-render-latency-report
 output/
 generated/
 *.png
+!public/ai-render-studio-example.png
 *.jpg
 *.jpeg
 *.webp
@@ -36,3 +37,4 @@ dist/
 .benchmark-workbench/
 tmp/
 *.log
+/public/jzxz-style-atlas

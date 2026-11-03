@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖原图尺寸、整体原灯处理与归一化新增光源/原灯减弱关闭/历史保护标注、新光源照射目标与动作专属参数，复用 GPT 尺寸真源的纯几何规划
- * [OUTPUT]: 对外提供RELIGHT_ORIGINAL_LIGHT_ACTIONS目录与normalizeRelightOriginalLights严格整体原灯合同、新增光源/减弱原灯/关闭原灯/保护动作及颜色符号、兼容历史字段的归一化合同与打光模型/容量/参数目录、可选无标注模板的光源深拷贝及非退化方向准入、画布坐标、输入问题及输出尺寸规划
+ * [OUTPUT]: 对外提供整体原灯与点线面合同、模型/容量目录、可按功能注入容量的图片校验及GPT输出尺寸规划；旧打光默认6MiB
  * [POS]: public 的打光纯规则层，由浏览器光源编辑器与服务端共同消费，不访问 DOM 或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -130,12 +130,12 @@ export function relightPoint(event, bounds) {
   return { x: clamp((event.clientX - bounds.left) / bounds.width), y: clamp((event.clientY - bounds.top) / bounds.height) };
 }
 
-export function relightImageIssue(image) {
+export function relightImageIssue(image, policy = RELIGHT_IMAGE_POLICY) {
   if (!image?.dataUrl) return "请先上传1张原图";
-  if (!RELIGHT_IMAGE_POLICY.accept.includes(image.type)) return "原图仅支持PNG、JPEG或WebP";
-  if (image.size > RELIGHT_IMAGE_POLICY.maxBytesPerImage) return "原图不能超过6MB";
+  if (!policy.accept.includes(image.type)) return "原图仅支持PNG、JPEG或WebP";
+  if (image.size > policy.maxBytesPerImage) return `原图不能超过${policy.maxBytesPerImage / 1024 / 1024}MB`;
   if (!Number.isSafeInteger(image.width) || !Number.isSafeInteger(image.height) || image.width < 1 || image.height < 1) return "原图尺寸读取失败，请重新上传";
-  if (Math.max(image.width, image.height) > RELIGHT_IMAGE_POLICY.maxInputEdge || image.width * image.height > RELIGHT_IMAGE_POLICY.maxPixels) return "原图单边不能超过4096px";
+  if (Math.max(image.width, image.height) > policy.maxInputEdge || image.width * image.height > policy.maxPixels) return `原图单边不能超过${policy.maxInputEdge}px`;
   if (Math.max(image.width / image.height, image.height / image.width) > 3) return "GPT打光支持1:3至3:1的原图比例";
   return "";
 }

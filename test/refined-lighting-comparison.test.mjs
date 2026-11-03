@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模多选投影、逐模型请求适配、真实任务准入/冻结/编译与内存任务注册表；模型和飞书均为替身
- * [OUTPUT]: 验证三模式完整Prompt的光影乘模型展开、纯词无分散规则/共享一次底图、双图正文SHA一致、逐卡图序/标签与版本隔离及每组合限额
+ * [OUTPUT]: 验证三模式完整Prompt的光影乘模型展开、用户要求逐项前置一次及送模归档一致、纯词无分散规则、图序/版本和每组合限额
  * [POS]: test 的精模多光影/多模式对比跨层合同，不调用网络或收费生成
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,10 +73,13 @@ for (const count of [1, 2]) test(`${count}模型的三模式对比通过真实�
   assert.equal(sent.length, count * 3);
   for (const { execution, request: value } of sent) {
     assert.equal(value.images.length, execution === "prompt-only" ? 1 : 2);
-    assert.equal(value.prompt, execution === "prompt-and-reference" ? "TRANSFER RULE\n\nUSER"
-      : execution === "prompt-with-reference" ? "IMAGE ROLE PREFIX\n\nNIGHT LIGHTING\n\nUSER"
-      : "BASE QUALITY\n\nNIGHT LIGHTING\n\nUSER");
+    assert.equal(value.prompt, execution === "prompt-and-reference" ? "USER\n\nTRANSFER RULE"
+      : execution === "prompt-with-reference" ? "USER\n\nIMAGE ROLE PREFIX\n\nNIGHT LIGHTING"
+      : "USER\n\nBASE QUALITY\n\nNIGHT LIGHTING");
+    assert.equal(value.prompt.split("USER").length - 1, 1);
   }
+  assert.deepEqual(archived.map(value => value.finalPrompt).sort(), sent.map(value => value.request.prompt).sort());
+  assert.ok(archived.every(value => value.sourcePrompt === "USER"));
   assert.ok(archived.every(x => x.workflow.batchCount === count * 3));
   for (const value of archived) {
     const lighting = value.workflow.refinedLighting;
@@ -157,12 +160,15 @@ test("两光影×三方式×两模型逐卡冻结与实际编译，12项不合�
   for (const entry of sent) {
     const target = entry.presetId === preset.id ? preset : dayPreset;
     assert.equal(entry.request.images.length, entry.execution === "prompt-only" ? 1 : 2);
-    assert.equal(entry.request.prompt, entry.execution === "prompt-and-reference" ? "TRANSFER RULE\n\nUSER"
-      : entry.execution === "prompt-with-reference" ? `IMAGE ROLE PREFIX\n\n${target.prompt}\n\nUSER`
-      : `BASE QUALITY\n\n${target.prompt}\n\nUSER`);
+    assert.equal(entry.request.prompt, entry.execution === "prompt-and-reference" ? "USER\n\nTRANSFER RULE"
+      : entry.execution === "prompt-with-reference" ? `USER\n\nIMAGE ROLE PREFIX\n\n${target.prompt}`
+      : `USER\n\nBASE QUALITY\n\n${target.prompt}`);
+    assert.equal(entry.request.prompt.split("USER").length - 1, 1);
     assert.equal(entry.request.images[0].fileName, "source.png");
     if (entry.execution !== "prompt-only") assert.equal(entry.request.images[1].fileName, `${target.code}.png`);
   }
+  assert.deepEqual(archived.map(value => value.finalPrompt).sort(), sent.map(value => value.request.prompt).sort());
+  assert.ok(archived.every(value => value.sourcePrompt === "USER"));
   assert.ok(archived.every(value => value.workflow.batchCount === 12));
   assert.deepEqual(archived.map(value => value.workflow.refinedLighting.preset.id).sort(),
     Array(6).fill(preset.id).concat(Array(6).fill(dayPreset.id)).sort());

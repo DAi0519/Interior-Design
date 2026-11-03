@@ -1,0 +1,71 @@
+<!--
+  [INPUT]: 依赖AI渲染台编排、共享九卡光影/下拉/打光控件、工作台参数/结果/START视觉及后台任务/归档接口
+  [OUTPUT]: 对外提供368px参数栏与结果区、原光影或库卡选择、简洁渲染风格与按需精细控光的正式功能页面
+  [POS]: public 的AI渲染台同源嵌入入口，不新增独立导航或替换现有功能目录
+  [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <link rel="preload" href="/smiley-sans-v2.0.1.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/styles.css?v=12" />
+    <link rel="stylesheet" href="/result.css?v=14" />
+    <link rel="stylesheet" href="/theme.css?v=35" />
+    <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
+    <link rel="stylesheet" href="/custom-select.css?v=10" />
+    <link rel="stylesheet" href="/refined-lighting-controls.css?v=3" />
+    <link rel="stylesheet" href="/image-relight.css" />
+    <link rel="stylesheet" href="/generation-actions.css?v=16" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=42" />
+    <link rel="stylesheet" href="/ai-render-studio.css?v=2" />
+    <title>Canvas Lab · AI渲染台</title>
+  </head>
+  <body class="studio-page">
+    <main class="studio-shell" aria-label="AI渲染台">
+      <aside id="studioRenderSettings" class="control-panel studio-render-settings" aria-labelledby="renderSettingsTitle">
+        <header class="studio-panel-heading"><h2 id="renderSettingsTitle">参数配置</h2></header>
+        <div class="control-panel-scroll studio-settings-scroll">
+          <section class="panel-section" aria-labelledby="sourceTitle">
+            <div class="section-heading"><h2 id="sourceTitle">模型图 <span class="optional">必填</span></h2><span id="studioSourceCount" class="reference-count">0 / 1</span></div>
+            <input id="studioSourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            <button id="studioUpload" class="reference-drop-zone studio-upload" type="button" aria-controls="studioSourceInput">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" /></svg>
+              <strong>添加或拖入模型图</strong><small id="studioUploadPolicy">PNG / JPEG / WebP · 最大 8MB</small>
+            </button>
+            <div id="studioSourceSummary" class="studio-source-summary reference-item" hidden>
+              <!-- impeccable-disable-next-line broken-image: 上传解码通过后设置src，摘要在无图时隐藏 -->
+              <img id="studioSourceThumbnail" alt="当前模型图缩略图" />
+              <div><strong id="studioSourceName"></strong><span id="studioSourceDimensions"></span></div>
+              <button id="studioRemoveSource" class="studio-icon-button" type="button" aria-label="移除当前模型图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+            </div>
+            <p id="studioUploadError" class="studio-error" role="alert" hidden></p>
+          </section>
+          <section id="studioLightingPresets" class="panel-section" aria-label="光影选择"></section>
+          <section class="panel-section studio-advanced-section">
+            <button id="studioAdvancedToggle" class="studio-advanced-toggle" type="button" aria-expanded="false" aria-controls="studioAdvancedPanel"><span>精细控光</span><span id="studioLightCount" class="micro-status"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button>
+            <div id="studioAdvancedPanel" hidden></div>
+          </section>
+          <section class="panel-section">
+            <label class="field" for="studioRenderStyle"><span>渲染风格</span><select id="studioRenderStyle" aria-label="渲染风格"><option value="photoreal">写实摄影</option><option value="soft">柔和表现</option><option value="cinematic">电影质感</option><option value="film">胶片质感</option></select></label>
+          </section>
+          <section class="panel-section studio-prompt-section" aria-labelledby="studioPromptTitle">
+            <div class="section-heading"><h2 id="studioPromptTitle">补充要求 <span class="optional">可选</span></h2><span id="studioPromptCount" class="reference-count">0 / 2000</span></div>
+            <textarea id="studioPrompt" rows="4" maxlength="2000" aria-label="渲染补充要求" placeholder="描述需要保留或调整的画面要求"></textarea>
+          </section>
+        </div>
+        <footer class="studio-submit-area">
+          <p id="studioSubmitNote" class="studio-submit-note" role="status" hidden></p>
+          <p id="studioRequestError" class="studio-error" role="alert" hidden></p>
+          <div id="studioActions" class="generation-actions"><button id="studioGenerate" class="generate-button functional-accent-button" type="button" aria-label="开始生成" disabled><span class="button-label"><span id="studioGenerateLabel">START</span></span></button></div>
+          <button id="studioResume" class="studio-secondary" type="button" hidden>检查现有任务</button>
+        </footer>
+      </aside>
+      <div id="studioLighting" class="studio-lighting"></div>
+    </main>
+    <div id="studioToast" class="studio-toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="/ai-render-studio.js?v=2"></script>
+  </body>
+</html>

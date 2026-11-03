@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-03",
+  "branch": "codex/effect-beautification-lighting",
+  "scope": "保留六氛围原工作流；新增九卡仅Flux固定低自然；Main/Beta纯词单图",
+  "tests": {
+    "total": 1700,
+    "passed": 1700,
+    "failed": 0,
+    "paidGeneration": 0,
+    "remoteWrites": 0
+  },
+  "ui": {
+    "desktop": "desktop.png",
+    "mobile": "mobile.png",
+    "mobileViewport": [
+      390,
+      844
+    ],
+    "sixAtmospheresAndLibraryExclusive": true,
+    "oldRuntimeBlocked": true,
+    "detector": [],
+    "beta": "beta.png",
+    "betaSelectedNewTemplateAndOldRuntimeBlocked": true
+  },
+  "runtime": {
+    "port": 4192,
+    "pid": 59215,
+    "restarted": false,
+    "reason": "全景45张批次仍运行，观察时生成/同步均5/45",
+    "effectBeautificationPromptLightingLoaded": false
+  },
+  "sha256": {
+    "public/effect-beautification-controls.js": "9dd6a1193096afb0dee52661f4ee6d9a1b205c489aa099eb9793b29d6202ae39",
+    "public/effect-beautification-lighting.js": "9057c21612b7bf1a68ef8d2be51acbe4eeb61c4f2086edb9927cba7b1394b714",
+    "public/effect-beautification.css": "7aeccc5d21ba01c75af153119879db965c68bc03df2af9cee896f19f5d3be83f",
+    "public/generation-input.js": "6d85272b7593db238045fcead9d3f09967019383cd3c9377911f57a5cced1177",
+    "public/app.js": "db55a3b4af06436c60b55b37e60072171a3c3ce1c9547f8ffcf5007932aae902",
+    "public/beta-app.js": "bfbe9f25697318bb1c85a3427a66e416017ab81c60bab09d3e20584508053dc9",
+    "src/effect-beautification-lighting.mjs": "cb2eca9ae2cb34d6e88be4ad77ea308bbd34ffe4639575adc46649c31d0d1250",
+    "src/effect-render-enhancement-workflow.mjs": "1ab63bd4398f278ba817cf4a29456e0f97f570c81e102a7b7650acfe4b234b92",
+    "src/generation-job-api.mjs": "eafd4a04f06c6f9bfd98272117ef7d5dc1c0f7d7fdd92353682d58cfe9f64c8d",
+    "src/generation-service.mjs": "d48730aa4f7da3350be1fc0fa45998faa8491207655c0abf96c35e72de35a70f",
+    "src/beta-runner.mjs": "21e10002af6cb35f8cd7c2485561ac7e754eba6a8f0579db46e6d07b5af6b64f",
+    "src/beta-base.mjs": "15f57c9c6cfd5ac337ca7d2863b7c5d4ce145174fc9afc036da9d2a05066d6d2"
+  },
+  "review": {
+    "independent": "passed",
+    "closedItems": [
+      "产品/设计与L3同步",
+      "新模板微状态/刷新改用muted保证小字对比",
+      "Beta最终截图状态与门禁一致"
+    ],
+    "paidQualityAcceptance": false,
+    "release": false
+  },
+  "preview": {
+    "port": 4195,
+    "url": "http://127.0.0.1:4195/?feature=effectBeautification",
+    "pid": 1603,
+    "service": "com.canvas-lab.effect-beautification-preview",
+    "explicitUserAuthorization": true,
+    "effectBeautificationPromptLightingLoaded": true,
+    "cards": 9,
+    "originalPromptVersion": 2,
+    "selectedTemplate": "暖灯静夜",
+    "oldBackendErrorVisible": false,
+    "original4192Pid": 59215,
+    "original4193Pid": 49795,
+    "defaultPortChanged": false,
+    "paidGeneration": 0,
+    "screenshot": "/Users/dai/.codex/visualizations/2026/11/03/01a19f28-1e70-7780-909d-9141fa7dbf95/beautification-4195.jpg",
+    "observedGenerationStatus": "running",
+    "generationSubmittedByChecks": false
+  },
+  "mainRestart": {
+    "verifiedAt": "2026-11-03T07:46:50.573218+00:00",
+    "port": 4192,
+    "previousPid": 59215,
+    "pid": 57921,
+    "branch": "main",
+    "commit": "2ba579d4cf625c3f7b1b4b12d9ae505dfb65cf6e",
+    "effectBeautificationPromptLightingLoaded": true,
+    "lightingPresetCount": 9,
+    "effectBeautificationPromptVersion": 2,
+    "browserConnectionReady": true,
+    "browserOriginalAtmosphereCount": 6,
+    "untouchedServices": {
+      "4193": 49795,
+      "4195": 1603
+    },
+    "newGenerationSubmitted": false,
+    "pushed": false,
+    "screenshot": "/Users/dai/.codex/visualizations/2026/11/03/01a19f28-1e70-7780-909d-9141fa7dbf95/workbench-restarted-4192.jpg"
+  }
+}

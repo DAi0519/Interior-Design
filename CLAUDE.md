@@ -1,4 +1,6 @@
 # Canvas Lab - 公司图像模型的本地运营与测试工作台
+
+AI渲染台法则：主工作台AI渲染新增aiRenderStudio，使用同源保活独立操作区，旧参数/START/结果隔离且切回保留。工作流2026-11-03.ai-render-studio.2直接复用现有九卡氛围库、单选收起/默认原光影、参数栏＋结果区及默认收起精细控光；卡片准备/执行冻结并复核ID/版本/SHA/正文，不读旧精模控制Prompt。单张带材质模型图（8MiB/4096px/16MP）与按需点线面/原灯控制、四种摄影渲染风格同次Sunburst出一张原生PNG，默认1K/medium；材质固定保原，风格不覆盖typed照明。独立飞书“AI渲染台 Prompt”表tbl9Djf4iVWzRxf5、code ai-render-studio、v1严格JSON全资产冻结，缺失/非法/下架阻断，无旧精模或打光正文回退。生成记录表追加功能枚举和13列，完整Prompt/原件/实际标注/结果/参数同步；归档失败只重试已有成品同步。未进入Beta/Benchmark或版本发布，本机1681项全测及九卡/UI运行检查通过；首版单次真实生成/归档已通过；画质单例仅部分通过（新增未确认光源、背光方向不足），见docs/ai-render-studio.md。
 Node.js 24+ + 原生 HTTP + undici 7.30.1 + HTML + CSS Transitions + JavaScript + Inter Variable 5.3.0 + Pannellum 2.5.7 + sharp 0.35.5 + lark-cli 1.0.77
 
 白模光影法则：主工作台设计风格后可选既有库单卡，默认自动沿用原照明；仅将三段光影词交给白模智能默认/平台风格Agent整合，所选光影优先于风格隐含照明、用户补充优先于预设，白模空间事实始终优先。入队/执行校验卡片版本SHA，缓存与归档纳入照明身份；不加载卡片原图或精模规则，最终仍白模单图，不增加Agent或出图阶段。实际目录须声明whiteModel.promptLighting，Beta不新增控件。详见docs/white-model-lighting.md。
@@ -21,9 +23,9 @@ Seedream命名法则：`seedream5` 的完整型号为 Seedream 5.0 Lite，OneAPI
 
 光影反推法则：每张卡片正文统一三段：氛围主题与基调；光源安排（时段/天气、自然与人工、方向/软硬及主次强弱）；色温与曝光（光源K与白平衡分开、亮暗/光比/高光/暗部及摄影响应）。逐张原图判断，不把家具材质本色当光色；K值和曝光级差为渲染目标而非照片实测。当前九卡WebP（八卡v5＋金色夕照v3，电影柔光用原透帘柔光横图、正文不变，独立透帘卡与暗调洗墙下架）进入纯词和新增氛围词双图编译，参考图链路仍用图2迁移规则，完整控制Prompt不随卡片重写。
 
-精模Prompt统一管理法则：三种完整控制Prompt统一在精模渲染Prompt表tblrj2xypwHnh97E维护：refined-lighting-base v5为“精模渲染 · 仅提示词”，合并原base4与textRule4；lighting-reference-transfer v7为“精模渲染 · 参考图迁移”，原v6原文迁入；lighting-prompt-reference v4为“精模渲染 · 氛围词＋参考图”，原v3原文迁入。光影库只读卡片，旧规则下架留档且不运行回退。纯词只拼完整Prompt＋卡片词＋补充，无独立ruleVersion/SHA；双图各自按完整资产冻结，全部promptSource指向精模表。旧分散冻结409要求刷新重提，旧结果不改写。发布/运行核验以outputs/refined-lighting-final/prompt-management-unified.json为准。
+精模Prompt统一管理法则：三种完整控制Prompt统一在精模渲染Prompt表tblrj2xypwHnh97E维护：refined-lighting-base v6为“精模渲染 · 仅提示词”；lighting-reference-transfer v8为“精模渲染 · 参考图迁移”；lighting-prompt-reference v5为“精模渲染 · 氛围词＋参考图”。三路均按真实开口/可行光源优先适配氛围；无证据不造直射日斑/窗格影/叶影/阳光束，画外光仅克制补光；现有灯具按目标承担主辅并落实发光/受光/遮挡衰减，隐蔽发光部位保持遮挡，不自动全开。光影库只读卡片，旧规则下架留档且不运行回退。用户补充在三种方式及上传参考中统一放最终正文首段，再接完整控制Prompt与适用卡片词，空补充不增加占位；纯词无独立ruleVersion/SHA，双图各自按完整资产冻结，全部promptSource指向精模表。旧分散冻结409要求刷新重提，旧结果不改写。光源规则证据见outputs/refined-lighting-final/lighting-plausibility-v1.json；用户前置编译与运行核验见同目录user-prompt-first.json；同表整合历史见prompt-management-unified.json。
 
-参考光影迁移法则：同表lighting-reference-transfer v7在同一次双图生成中按主题基调、布光主次、色温曝光读取图2并适配图1；预设迁移与用户上传共用完整正文，不追加纯词Prompt或卡片反推。lighting-prompt-reference v4负责图序前置，后接卡片词与补充。图1保结构、开口、机位、物体及材质本色，图2不提供设计或外景复制授权；时段、天气、曝光及反射适配真实既有开口，尊重夜暗与雾度，不新增阳台或开口。纯词完整Prompt含无窗保持封闭/画外柔光与反射、结构优先边界。完整曝光/阴影/纵深段保留，旧Prompt与归档仅留历史，不从快照补词。
+参考光影迁移法则：同表lighting-reference-transfer v8在同一次双图生成中按主题基调、布光主次、色温曝光读取图2并适配图1；预设迁移与用户上传共用完整正文，不追加纯词Prompt或卡片反推。lighting-prompt-reference v5负责图序前置与同级光源/灯具适配，后接卡片词；两路用户补充均先于完整控制Prompt。图1保结构、开口、机位、物体及材质本色，图2不提供设计或外景复制授权；窗光主光须有真实室外开口与可行入射路径，不用假想隐藏窗解释投影。目标无法成立时保留冷暖/柔和度/明暗层次并弱化特定光向与投影；日光主导可弱人工灯，人工/混合/夜景用可识别既有灯具承担照明，不靠全局提亮代替点灯。时段、天气、曝光及反射适配真实既有开口，尊重夜暗与雾度。完整曝光/阴影/纵深段保留，旧Prompt与归档仅留历史，不从快照补词；本轮无新增收费成图。
 
 参数面板呈现法则：Main/Beta统一移除控件外说明小字和飞书维护链接，保留字段标签、必填/数量、上传限制、真实错误与历史恢复异常；共享panel-copy.css管理展示，控制器显式标记.error避免隐藏故障原因。精模/全景/光影转换统一12px正常字重入口与44px缩略图，单选名称/多选仅“N 种光影”，11px正常图卡名和16px右上角黑底白勾，不追加已选/加粗或整卡选中框；容器≤280px或窗口≤380px统一两列。全景增加默认勾选的独立原光影首卡，与模板/自定义要求互斥，点击复位沿用空请求且不增张数；清空并入标题行且保留要求，删除重复摘要/名称列表，16px独立要求和真实失效错误保留；精模默认收起、多选保持展开/重复取消、无清除，单选宿主选后收起。白模和精模导航归AI渲染，AI设计保留空房/旧房/风格转换。渲染方式在面板外，正常字重/选中小勾/不显示已选数量，不加选中高亮框。精模无清除入口；预设可直接上传，读取成功才替换整组并锁模板，删图回未选解锁，取消/非法上传保留原预设组。
 
@@ -51,7 +53,7 @@ outputs/ - 忽略的最终评测与真实原件；KS、精模、打光、旧房�
 package.json - 固定 Node 版本、OneAPI 专用 undici 连接、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli/Pannellum 版本
 launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
-server.mjs - 运行进程全景多光影能力目录、Main/Beta注入独立R5_4全景客户端，含精模光影库同源版本化预览的本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立风格转换配置与双 Agent 连接校验、独立图片工具配置与共享扩图动态能力准入、精模Flux单双图上下文路由、ComfyUI 图片超分、Flux/Qwen/Sunburst三引擎扩图与二次编辑独立客户端、精模/白模/Style DNA、Beta跑图独立新 Base/Flux与Qwen专用扩图客户端及Sunburst复用归档，与 Benchmark API 路由入口
+server.mjs - 独立AI渲染台任务/同步路由及忙碌守卫、单页同源嵌入安全头、运行进程全景多光影能力目录、Main/Beta注入独立R5_4全景客户端，含精模光影库同源版本化预览的本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立风格转换配置与双 Agent 连接校验、独立图片工具配置与共享扩图动态能力准入、精模Flux单双图上下文路由、ComfyUI 图片超分、Flux/Qwen/Sunburst三引擎扩图与二次编辑独立客户端、精模/白模/Style DNA、Beta跑图独立新 Base/Flux与Qwen专用扩图客户端及Sunburst复用归档，与 Benchmark API 路由入口
 start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总多候选 Agent/Style/融合模型且仅在显式 --execute 后调用模型并写回 Base

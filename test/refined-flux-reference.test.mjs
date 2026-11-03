@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模Flux工厂/模型请求/共享尺寸规则、真实节点只读快照、独立导入画布及内存ComfyUI替身
- * [OUTPUT]: 验证双图顺序/4步采样/1K2K尺寸、普通Flux隔离、节点前置阻断/正式发送归档及画布控件连线一致
+ * [OUTPUT]: 验证双图顺序/4步采样/1K2K尺寸、用户要求前置及实际文本节点与归档逐字一致、普通Flux隔离与节点准入
  * [POS]: test的精模Flux双图跨层合同，无网络或收费GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -109,7 +109,9 @@ test("正式精模图文及上传均走Flux双图，参考Prompt/图序及送模
       imageClient: t.client, loadPrompt() { assert.fail("不得读取基础"); }, loadLightingAssets: async () => ({ referenceRule, presets: [preset] }),
       loadLightingReference: async () => image(atmosphere, "atmosphere.png"), scheduleSync(value) { archived = value; return { status: "mock" }; },
     });
-    assert.equal(archived.finalPrompt, `${referenceRule.prompt}\n\n保留灯具`);
+    assert.equal(archived.finalPrompt, `保留灯具\n\n${referenceRule.prompt}`);
+    assert.equal(t.graph().positive.inputs.text, archived.finalPrompt);
+    assert.equal(archived.finalPrompt.split("保留灯具").length - 1, 1);
     assert.equal(archived.workflow.workflowId, "refined-flux-reference");
     assert.equal(archived.workflow.promptVersion, 4);
     assert.equal(archived.styleReferenceImages.length, 1);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立飞书打光Prompt资产、整体原灯处理、五模板/旧方案与四动作图片合同、sharp、GPT适配器、实时模型权限及飞书同步
- * [OUTPUT]: 对外提供脱敏配置、上架Prompt快照准备、自定义整体原灯无标注/模板禁暗参准入、服务器快照执行和实际Prompt归档，正文不进入任务结果
+ * [OUTPUT]: 提供可信调用方独立imagePolicy容量与仅材质渲染准入，客户端不能自行扩大限制；对外提供脱敏配置、Prompt冻结/执行及原图几何准入；可信allowMaterialRender允许独立渲染台空灯质感执行，旧打光默认仍拒空操作
  * [POS]: src 的独立 AI 打光应用服务，固定 GPT Image 2.5 Sunburst，复用后台任务与同步且不重试付费请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -69,17 +69,17 @@ export async function prepareImageRelightPrompt(input = {}, { getPrompt = getIma
   return checkedSnapshot(await getPrompt({ ...selection, forceRefresh: true }), input);
 }
 
-async function decodeSource(input) {
-  const source = normalizeReferenceImage(input, { accept: RELIGHT_IMAGE_POLICY.accept, maxBytesPerImage: RELIGHT_IMAGE_POLICY.maxBytesPerImage });
+async function decodeSource(input, imagePolicy) {
+  const source = normalizeReferenceImage(input, { accept: imagePolicy.accept, maxBytesPerImage: imagePolicy.maxBytesPerImage });
   if (!source) throw fail("打光需要上传1张原图");
   const bytes = Buffer.from(source.imageUrl.split(",")[1], "base64");
   try {
-    const pipeline = sharp(bytes, { failOn: "error", limitInputPixels: RELIGHT_IMAGE_POLICY.maxPixels });
+    const pipeline = sharp(bytes, { failOn: "error", limitInputPixels: imagePolicy.maxPixels });
     const metadata = await pipeline.metadata();
     const mime = ({ png: "image/png", jpeg: "image/jpeg", webp: "image/webp" })[metadata.format];
     if (!mime || mime !== source.mimeType) throw fail("原图声明格式与真实图片字节不一致");
-    if (!metadata.width || !metadata.height || Math.max(metadata.width, metadata.height) > RELIGHT_IMAGE_POLICY.maxInputEdge
-      || metadata.width * metadata.height > RELIGHT_IMAGE_POLICY.maxPixels || (metadata.pages || 1) !== 1) throw fail("原图需为单帧PNG/JPEG/WebP，单边不超过4096px");
+    if (!metadata.width || !metadata.height || Math.max(metadata.width, metadata.height) > imagePolicy.maxInputEdge
+      || metadata.width * metadata.height > imagePolicy.maxPixels || (metadata.pages || 1) !== 1) throw fail("原图需为单帧PNG/JPEG/WebP，单边不超过4096px");
     const decoded = await pipeline.autoOrient().toBuffer({ resolveWithObject: true });
     const oriented = Boolean(metadata.orientation && metadata.orientation !== 1), actualBytes = oriented ? decoded.data : bytes;
     return { ...source, imageUrl: `data:${mime};base64,${actualBytes.toString("base64")}`, size: actualBytes.length,
@@ -91,7 +91,7 @@ async function decodeSource(input) {
   }
 }
 
-export async function validateRelightInput(input = {}) {
+export async function validateRelightInput(input = {}, { allowMaterialRender = false, imagePolicy = RELIGHT_IMAGE_POLICY } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw fail("打光请求必须是有效对象");
   const selection = promptSelection(input);
   for (const key of ["modelKey", "relightModel"]) if (input[key] !== undefined && input[key] !== RELIGHT_MODEL_KEY) throw fail("打光仅支持GPT Image 2.5 Sunburst");
@@ -106,9 +106,9 @@ export async function validateRelightInput(input = {}) {
     originalLights = normalizeRelightOriginalLights(input.originalLights);
     if (settings.templateKey !== "custom" && originalLights !== null) throw new TypeError("光照模板按方案重建照明，请在自定义中设置原有灯光");
     const wholeSceneEdit = originalLights?.action === "darken" || originalLights?.action === "turnOff";
-    const allowEmpty = settings.templateKey !== "custom" || wholeSceneEdit;
+    const allowEmpty = settings.templateKey !== "custom" || wholeSceneEdit || allowMaterialRender;
     lights = normalizeRelightLights(input.lights === undefined && allowEmpty ? [] : input.lights, { allowEmpty });
-    if (settings.templateKey === "custom" && !wholeSceneEdit && lights.every(light => light.action === "preserve")) {
+    if (!allowMaterialRender && settings.templateKey === "custom" && !wholeSceneEdit && lights.every(light => light.action === "preserve")) {
       throw new TypeError("自定义需要减弱/关闭原有灯光，或至少一项新增光源/单灯调整；仅保持不变无需生成");
     }
     quality = relightQuality(input.quality);
@@ -116,7 +116,7 @@ export async function validateRelightInput(input = {}) {
     if (!RELIGHT_RESOLUTIONS.includes(outputResolution)) throw new TypeError("GPT输出档位请选择1K、2K或4K");
   } catch (error) { throw fail(error.message); }
   if (!Array.isArray(input.referenceImages) || input.referenceImages.length !== 1) throw fail("打光需要且只允许1张原图");
-  const source = await decodeSource(input.referenceImages[0]);
+  const source = await decodeSource(input.referenceImages[0], imagePolicy);
   let target;
   try { target = relightOutputSize(source, outputResolution, RELIGHT_ONEAPI_MODEL.sizes); }
   catch (error) { throw fail(error.message); }
