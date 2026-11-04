@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 已核验的逐张结果、五张原图及场景定位点
- * [OUTPUT]: 场景与档位导航、原图与模型全图常显、下排原件同步拖动及定点缩放
+ * [OUTPUT]: 场景与档位导航、原图与模型全图常显、下排原件同步取景、建筑学长同图基准与逐图及五场景耗时
  * [POS]: 本地网页的交互层，放大时读取原件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -112,7 +112,9 @@ function pane(name,r){
  const p={box,img};panes.push(p);bindZoom(p);
  img.onload=draw;img.onerror=()=>box.replaceChildren(el('span','原件加载失败'));img.src=r.url;
  const meta=el('div');meta.className='meta';meta.append(link('原尺寸 ↗',r.url));
- const dims=el('small',r.width?r.width+' × '+r.height:'输入原图');card.append(dims,meta);
+ const dims=el('small',r.width?r.width+' × '+r.height:'输入原图');card.append(dims);
+ if(r.durationMs)card.append(el('small','耗时 '+seconds(r.durationMs)));
+ card.append(meta);
  let drag=null;
  box.onpointerdown=e=>{if(point===-1||!p.dw)return;drag=[e.clientX,e.clientY,...focus];box.setPointerCapture(e.pointerId)};
  box.onpointermove=e=>{if(!drag)return;const dx=e.clientX-drag[0],dy=e.clientY-drag[1];if(!dx&&!dy)return;
@@ -120,13 +122,33 @@ function pane(name,r){
  box.onpointerup=box.onpointercancel=()=>{drag=null};
  return card;
 }
+const seconds=ms=>(ms/1000).toFixed(1)+' 秒';
+function timingTable(){
+ const table=$('timings');
+ const head=el('tr');
+ for(const title of ['模型 / 工具','2K','4K','平台输出'])head.append(el('th',title));
+ table.replaceChildren(head);
+ for(const [key,name] of [...models,['jzxz','建筑学长 · 低强度']]){
+  const line=el('tr');line.append(el('th',name));
+  for(const size of ['2K','4K','平台输出']){
+   const times=rows.filter(r=>r.key===key&&r.tier===size).map(r=>r.durationMs).sort((a,b)=>a-b);
+   line.append(el('td',times.length===5?seconds(times[2]):'—'));
+  }
+  table.append(line);
+ }
+}
 function render(){
  $('compare').style.setProperty('--scene-aspect',String(scene[0]==='029'?4/3:16/9));nav();$('observation').textContent=notes[scene[0]];panes=[];
  const cards=[pane('输入原图',{url:'images/'+scene[0]+'.jpg'})];
+ for(const [key,label] of [['jzxz','低'],['jzxz-high','高']]){
+  const reference=rows.find(r=>r.scene===scene[0]&&r.key===key);
+  if(reference)cards.push(pane('建筑学长 · '+label+'强度',reference));
+ }
  for(const [key,name] of models){
   const r=rows.find(a=>a.scene===scene[0]&&a.key===key&&a.tier===tier);
   cards.push(pane(name+(key==='aiTextureEnhancement'&&tier==='4K'?' · KS 超分':''),r));
  }
+ $('compare').style.setProperty('--columns',cards.length);
  $('compare').replaceChildren(...cards);draw();
 }
-window.addEventListener('hashchange',()=>setScene());window.addEventListener('resize',draw);setScene(initial.get('detail'));
+window.addEventListener('hashchange',()=>setScene());window.addEventListener('resize',draw);setScene(initial.get('detail'));timingTable();
