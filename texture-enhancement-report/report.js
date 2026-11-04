@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 已核验的逐张结果、五张原图及场景定位点
- * [OUTPUT]: 场景与档位导航、固定原图与所选结果并排并记住选择、下排原件同步取景、建筑学长同图基准与逐图及跨场景耗时
+ * [INPUT]: 已核验的逐张结果、七张原图、场景定位点及 Flux 4K 直出对照元数据
+ * [OUTPUT]: 场景与档位导航、固定原图与所选结果并排并记住选择、下排原件同步取景、建筑学长同图基准、Flux 4K 路线对照与逐图及跨场景耗时
  * [POS]: 本地网页的交互层，放大时读取原件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,9 +18,15 @@ const comparisonOptions = [
  ['jzxz','建筑学长 · 低强度'],
  ['jzxz-high','建筑学长 · 高强度'],
  ...models,
+ ['fluxNative4k','Flux2 Klein · 4K直出'],
 ];
 const preferenceKey = 'texture-report:comparison:v1';
 function readSelection(){
+ const sharedSelection = new URLSearchParams(location.search).get('compare');
+ if(sharedSelection !== null){
+  const keys = sharedSelection.split(',').filter(key=>comparisonOptions.some(([id])=>id===key));
+  return new Set(keys);
+ }
  try{
   const saved = JSON.parse(localStorage.getItem(preferenceKey));
   if(Array.isArray(saved))return new Set(saved.filter(key=>comparisonOptions.some(([id])=>id===key)));
@@ -132,6 +138,11 @@ function pane(name,r){
  const meta=el('div');meta.className='meta';meta.append(link('原尺寸 ↗',r.url));
  const dims=el('small',r.width?r.width+' × '+r.height:'输入原图');card.append(dims);
  if(r.durationMs)card.append(el('small',r.durationUpperBound?'耗时 ≤ '+seconds(Math.ceil(r.durationMs/100)*100):'耗时 '+seconds(r.durationMs)));
+ if(Number.isFinite(r.executionDurationMs)){
+  const timing = ['执行 '+seconds(r.executionDurationMs)];
+  if(Number.isFinite(r.queueDurationMs))timing.push('排队 '+seconds(r.queueDurationMs));
+  card.append(el('small',timing.join(' · ')));
+ }
  card.append(meta);
  let drag=null;
  box.onpointerdown=e=>{if(point===-1||!p.dw)return;drag=[e.clientX,e.clientY,...focus];box.setPointerCapture(e.pointerId)};
@@ -146,7 +157,7 @@ function timingTable(){
  const head=el('tr');
  for(const title of ['模型 / 工具','2K','4K','平台输出'])head.append(el('th',title));
  table.replaceChildren(head);
- for(const [key,name] of [...models,...comparisonOptions.filter(([key])=>key.startsWith('jzxz'))]){
+ for(const [key,name] of [...models,...comparisonOptions.filter(([key])=>key.startsWith('jzxz')||key==='fluxNative4k')]){
   const line=el('tr');line.append(el('th',name));
   for(const size of ['2K','4K','平台输出']){
    const times=rows.filter(r=>r.key===key&&r.tier===size&&!r.durationUpperBound).map(r=>r.durationMs).sort((a,b)=>a-b);
@@ -155,6 +166,20 @@ function timingTable(){
    line.append(el('td',times.length?seconds(median)+'（'+times.length+' 张）':'—'));
   }
   table.append(line);
+ }
+}
+function nativeSummary(){
+ const summary = $('nativeSummary');
+ for(const id of ['101','102']){
+  const native = rows.find(row=>row.scene===id&&row.key==='fluxNative4k'&&row.tier==='4K');
+  const baseline = rows.find(row=>row.scene===id&&row.key==='aiTextureEnhancement'&&row.tier==='4K');
+  if(!native || !baseline)continue;
+  const line = el('p');
+  line.append(el('b',scenes.find(scene=>scene[0]===id)[1]+'　'));
+  const describe = result=>result.width+' × '+result.height+' · '+seconds(result.durationMs);
+  const seed = native.seed == null?'':'，种子 '+native.seed;
+  line.append(document.createTextNode('KS 4K '+describe(baseline)+'，直出 4K '+describe(native)+seed+'，7 步。'));
+  summary.append(line);
  }
 }
 function render(){
@@ -170,7 +195,10 @@ function render(){
   button.dataset.key = key;
   button.disabled = !result;
   button.setAttribute('aria-pressed',String(Boolean(result && selected)));
-  if(!result)button.textContent += key==='jzxz-high'?'（本场景未测）':'（仅 2K）';
+  if(!result){
+   if(key==='fluxNative4k')button.textContent += ['101','102'].includes(scene[0])?'（仅 4K）':'（本场景未测）';
+   else button.textContent += key==='jzxz-high'?'（本场景未测）':'（仅 2K）';
+  }
   button.onclick = ()=>{
    if(selectedModels.has(key))selectedModels.delete(key);
    else selectedModels.add(key);
@@ -190,4 +218,4 @@ function render(){
  $('compare').classList.toggle('source-only',cards.length===1);
  $('compare').replaceChildren(...cards);draw();
 }
-window.addEventListener('hashchange',()=>setScene());window.addEventListener('resize',draw);setScene(initial.get('detail'));timingTable();
+window.addEventListener('hashchange',()=>setScene());window.addEventListener('resize',draw);setScene(initial.get('detail'));timingTable();nativeSummary();

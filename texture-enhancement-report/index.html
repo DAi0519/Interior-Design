@@ -1,9 +1,9 @@
 <!doctype html>
-<!-- [INPUT]: data.js 的核验结果和 images/ 原件；[OUTPUT]: 按所选结果并列展示原图及模型的全图、同区放大及逐图与分档中位耗时；[POS]: Beta 质感增强报告入口
+<!-- [INPUT]: data.js 的核验结果和 images/ 原件；[OUTPUT]: 按所选结果并列展示原图及模型的全图、同区放大及逐图与分档中位耗时及固定条件的 Flux 4K 路线对照；[POS]: Beta 质感增强报告入口
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md -->
 <html lang="zh-CN">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>质感增强 · 模型对照</title><link rel="stylesheet" href="style.css?v=8">
+<title>质感增强 · 模型对照</title><link rel="stylesheet" href="style.css?v=9">
 <main>
 <header><h1>质感增强 <span>/ 模型对照</span></h1></header>
 <nav id="scenes" aria-label="场景"></nav>
@@ -16,5 +16,6 @@
 <p class="hint" id="hint"></p><p id="emptySelection" hidden>当前没有可展示的对比项。展开「选择对比项」添加结果。</p><div class="scroll"><div id="compare"></div></div>
 </section>
 <details><summary>耗时对比 · 各档位中位数</summary><table id="timings"></table><p>每张图下方显示本次成功出图耗时。Beta 从服务调用生成到返回结果，不含飞书归档。卧室两张 Flux 使用恢复记录中的队列与执行时长之和。建筑学长从点击生成到页面出现保存按钮，不含上传和保存下载。两端计时边界不同。新两图的建筑学长任务在结果出现后才读到完成状态，耗时标 ≤，不计入中位数。</p><p>建筑学长使用 AI 质感增强 v3.0。别墅选择建筑类型，其余选择室内。七个场景均有低强度结果，别墅、红沙发客厅及卧室另测高强度。两档视图共用同一张平台输出。</p></details>
-<details><summary>场景观察与测试说明</summary><p id="observation"></p><p>两档独立生成，变化也可能来自采样。Flux 4K 使用 KS 超分；Seedream 5.0 Pro 仅测原生 2K。</p></details>
-</main><script src="data.js?v=8"></script><script src="report.js?v=8"></script></html>
+<details><summary>Flux 4K 直出对照</summary><p>别墅与红沙发客厅分别沿用对应 KS 成品的原图、提示词和种子，采样固定 7 步、CFG 1、Euler。原图参考条件保持原来的 2K 尺寸，直出实验改为在 4K 画布上采样。</p><div id="nativeSummary"></div><p>客厅直出为 4096 × 3040，满足 16 像素对齐。对应 KS 成品为 4096 × 3044。图下耗时从生成调用到成品返回，包含排队与取图，不含飞书归档。</p></details>
+<details><summary>场景观察与测试说明</summary><p id="observation"></p><p>两档独立生成，变化也可能来自采样。Flux2 Klein 的普通 4K 项使用 KS 超分，直出实验单列选择；Seedream 5.0 Pro 仅测原生 2K。</p></details>
+</main><script src="data.js?v=9"></script><script src="report.js?v=9"></script></html>
