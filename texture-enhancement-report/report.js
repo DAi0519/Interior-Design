@@ -1,10 +1,12 @@
 /**
  * [INPUT]: 已核验的逐张结果、五张原图及场景定位点
- * [OUTPUT]: 场景与档位导航、固定原图与所选结果并排并记住选择、下排原件同步取景、建筑学长同图基准与逐图及五场景耗时
+ * [OUTPUT]: 场景与档位导航、固定原图与所选结果并排并记住选择、下排原件同步取景、建筑学长同图基准与逐图及跨场景耗时
  * [POS]: 本地网页的交互层，放大时读取原件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 const scenes = [
+ ['101','别墅外立面','观察屋瓦分缝、入户木门纹理和庭院树叶。',[['入户木门',.50,.63],['屋瓦',.58,.38],['树叶',.81,.47],['廊架',.81,.57]]],
+ ['102','红沙发客厅','观察红沙发面料、天花石膏线和电视柜门缝。',[['红沙发',.27,.69],['石膏线',.27,.22],['电视柜',.84,.52],['地毯',.44,.81]]],
  ['003','客厅','看沙发的暗部纹理、木饰面拼缝，以及地毯边缘有没有被锐化。',[['沙发',.49,.65],['木饰面',.53,.42],['地毯',.36,.78],['钢琴',.70,.61]]],
  ['029','卧室','比较床品的织纹与褶皱，再看藤编椅背上的细孔是否连续。',[['床品',.46,.74],['编织椅',.82,.65],['木门',.12,.51]]],
  ['036','厨房','对照不锈钢挡板的拉丝和反射层次，也可以看柜门接缝。',[['金属挡板',.65,.44],['柜门接缝',.32,.76],['台面',.67,.66]]],
@@ -29,6 +31,8 @@ const selectedModels = readSelection();
 const rows = window.ASSETS, $ = id => document.getElementById(id);
 const sceneFromHash=()=>scenes.find(s=>s[0]===location.hash.slice(1))||scenes[0];
 const notes={
+ '101':'重点看入户木门的人字拼纹路，以及廊架竖杆有没有增减。',
+ '102':'重点看红沙发的绒面明暗过渡和石膏线浮雕有没有变形。',
  '003':'沙发靠背在 GPT 4K 中亮暗起伏明显，木墙纹理也更突出。Flux 4K 在木墙和地毯上出现了更强的投影。',
  '029':'Banana 两档的床罩绗缝都较浅。Flux 2K 加深了缝线阴影，Flux 4K 的床面光照和毛毯高光也发生了变化。',
  '044':'壁灯右侧能同时看木纹和板缝。Banana 4K 保留了接近原图的细竖纹，GPT 4K 把壁灯旁的暖色光晕提亮，板缝也显得更深。',
@@ -127,7 +131,7 @@ function pane(name,r){
  img.onload=draw;img.onerror=()=>box.replaceChildren(el('span','原件加载失败'));img.src=r.url;
  const meta=el('div');meta.className='meta';meta.append(link('原尺寸 ↗',r.url));
  const dims=el('small',r.width?r.width+' × '+r.height:'输入原图');card.append(dims);
- if(r.durationMs)card.append(el('small','耗时 '+seconds(r.durationMs)));
+ if(r.durationMs)card.append(el('small',r.durationUpperBound?'耗时 ≤ '+seconds(Math.ceil(r.durationMs/100)*100):'耗时 '+seconds(r.durationMs)));
  card.append(meta);
  let drag=null;
  box.onpointerdown=e=>{if(point===-1||!p.dw)return;drag=[e.clientX,e.clientY,...focus];box.setPointerCapture(e.pointerId)};
@@ -142,18 +146,20 @@ function timingTable(){
  const head=el('tr');
  for(const title of ['模型 / 工具','2K','4K','平台输出'])head.append(el('th',title));
  table.replaceChildren(head);
- for(const [key,name] of [...models,['jzxz','建筑学长 · 低强度']]){
+ for(const [key,name] of [...models,...comparisonOptions.filter(([key])=>key.startsWith('jzxz'))]){
   const line=el('tr');line.append(el('th',name));
   for(const size of ['2K','4K','平台输出']){
-   const times=rows.filter(r=>r.key===key&&r.tier===size).map(r=>r.durationMs).sort((a,b)=>a-b);
-   line.append(el('td',times.length===5?seconds(times[2]):'—'));
+   const times=rows.filter(r=>r.key===key&&r.tier===size&&!r.durationUpperBound).map(r=>r.durationMs).sort((a,b)=>a-b);
+   const mid=Math.floor(times.length/2);
+   const median=times.length%2?times[mid]:(times[mid-1]+times[mid])/2;
+   line.append(el('td',times.length?seconds(median)+'（'+times.length+' 张）':'—'));
   }
   table.append(line);
  }
 }
 function render(){
  $('compare').style.setProperty('--scene-aspect',String(scene[0]==='029'?4/3:16/9));nav();$('observation').textContent=notes[scene[0]];panes=[];
- const cards=[pane('输入原图',{url:'images/'+scene[0]+'.jpg'})];
+ const cards=[pane('输入原图',{url:'images/'+scene[0]+(['101','102'].includes(scene[0])?'.png':'.jpg')})];
  const choices = [];
  const visibleNames = [];
  for(const [key,name] of comparisonOptions){
@@ -164,7 +170,7 @@ function render(){
   button.dataset.key = key;
   button.disabled = !result;
   button.setAttribute('aria-pressed',String(Boolean(result && selected)));
-  if(!result)button.textContent += key==='jzxz-high'?'（仅卧室）':'（仅 2K）';
+  if(!result)button.textContent += key==='jzxz-high'?'（本场景未测）':'（仅 2K）';
   button.onclick = ()=>{
    if(selectedModels.has(key))selectedModels.delete(key);
    else selectedModels.add(key);
