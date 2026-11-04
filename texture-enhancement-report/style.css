@@ -1,0 +1,19 @@
+/* [INPUT]: 横向比较页的语义结构；[OUTPUT]: 上下对齐的全图与局部、无高亮框的文字选项；[POS]: 静态报告视觉层
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md */
+*{box-sizing:border-box}body{margin:0;background:#faf9f6;color:#252921;font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+main{max-width:1880px;margin:auto;padding:30px clamp(16px,3vw,56px)}header,.controls,nav,#tiers,#points,.meta{display:flex;align-items:center;flex-wrap:wrap}
+header{justify-content:space-between;gap:10px}h1{font-size:clamp(23px,2.5vw,36px);letter-spacing:-.05em;margin:0}h1 span{font-weight:450;color:#63695f}
+a,summary{color:#535e52;font-size:13px;text-underline-offset:3px}nav{gap:6px 20px;margin:16px 0 8px;padding-bottom:10px;border-bottom:1px solid #d6d9d0}
+button{appearance:none;background:transparent;border:0;box-shadow:none;border-radius:0;color:#586155;font:inherit;cursor:pointer;padding:5px 0;-webkit-tap-highlight-color:transparent}
+button::after{content:'✓';display:inline-block;margin-left:4px;visibility:hidden;font-size:.8em}button[aria-pressed=true]{color:#243c2a;font-weight:650}button[aria-pressed=true]::after{visibility:visible}
+button:focus{outline:0}button:focus-visible,a:focus-visible,summary:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.controls{gap:8px 22px}#points,#tiers{gap:8px}.controls button{font-size:14px}.hint,small{color:#666e63;font-size:12px}.hint{margin:4px 0 16px}
+.scroll{overflow-x:auto;padding-bottom:8px}#compare{display:grid;grid-template-columns:repeat(6,minmax(184px,1fr));gap:10px}
+h2{font-size:clamp(13px,1.1vw,17px);margin:0 0 6px;line-height:1.5}.frame{position:relative;display:grid;place-items:center;overflow:hidden;background:#e9ebe5;color:#60685e;aspect-ratio:4/5}
+.frame img{position:absolute;user-select:none;pointer-events:none}.frame:has(img){cursor:grab;touch-action:pan-y}.frame:has(img):active{cursor:grabbing}
+small{display:block;margin:6px 0 2px;font-variant-numeric:tabular-nums}.meta{gap:12px}.meta a{font-size:12px}details{margin-top:18px;padding-top:12px;border-top:1px solid #d6d9d0}summary{width:fit-content;cursor:pointer}details p{font-size:14px;max-width:68em}
+@media(max-width:700px){main{padding-top:18px}nav{gap:2px 12px}.controls{gap:2px 12px}#compare{grid-template-columns:repeat(6, max(165px,43vw))}.hint{margin-bottom:10px}.scroll{overscroll-behavior-x:contain}}
+
+.overview{display:grid;place-items:center;width:100%;aspect-ratio:var(--scene-aspect,1.5);background:#e9ebe5;color:#60685e;margin-bottom:6px;overflow:hidden}.overview img{display:block;width:100%;height:100%;min-height:0;object-fit:contain}.whole-only .frame{display:none}
+
+#magnification>span:first-child{font-size:12px;color:#666e63;margin-right:4px}#zoom button+button{margin-left:6px}
