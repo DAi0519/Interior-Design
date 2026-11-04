@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
- * [OUTPUT]: 对外提供三表Schema/十功能快照、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
+ * [OUTPUT]: 对外提供三表Schema/十一功能快照、旧房独立场景/版本快照与实际Agent一致性、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -82,6 +82,7 @@ const FEATURE_LABELS = Object.freeze({
   effectBeautification: "效果图美化",
   panoramaEnhancement: "全景图美化",
   emptyRoom: "空房设计",
+  roomRenovation: "旧房改造",
   free: "自由生图",
   imageOutpaint: "AI扩图",
   imageUpscale: "AI超分",
@@ -120,6 +121,7 @@ export function betaFeatureLabel(featureMode) {
 export function betaSceneParameters(input = {}) {
   return compactObject({
     featureMode: input.featureMode,
+    designScenario: input.designScenario,
     furnitureSelection: input.furnitureSelection,
     effectTime: input.effectTime,
     effectWeather: input.effectWeather,
@@ -142,6 +144,8 @@ export function betaConfigSnapshot(input = {}) {
   return compactObject({
     emptyRoomPromptAgentVersion: input.emptyRoomPromptAgentVersion,
     emptyRoomSmartDefaultVersion: input.emptyRoomSmartDefaultVersion,
+    roomRenovationPromptAgentVersion: input.roomRenovationPromptAgentVersion,
+    roomRenovationSmartDefaultVersion: input.roomRenovationSmartDefaultVersion,
     modelKey: input.modelKey,
     outpaintEngine: input.featureMode === "imageOutpaint" ? input.outpaintEngine : undefined,
     outpaintModel: input.featureMode === "imageOutpaint" ? input.outpaintModel : undefined,
@@ -172,6 +176,19 @@ export function betaConfigSnapshot(input = {}) {
     styleTransferPromptAgentVersion: input.renderMode === "style-dna" ? input.styleTransferPromptAgentVersion : undefined,
     styleTransferReferenceVersion: input.renderMode === "style-reference" ? input.styleTransferReferenceVersion : undefined,
   });
+}
+
+function verifyRoomRenovationArchive(fields, snapshot) {
+  const smart = snapshot.roomRenovationSmartDefaultVersion != null;
+  const code = smart ? "room-renovation-smart-default" : "room-renovation-fusion";
+  const version = Number(smart ? snapshot.roomRenovationSmartDefaultVersion : snapshot.roomRenovationPromptAgentVersion);
+  let workflow;
+  try { workflow = JSON.parse(fields["生成参数"]).workflow; }
+  catch { throw betaBaseContractError("旧房改造缺少实际生成参数"); }
+  if (!(version > 0) || fields["Agent 编码"] !== code || Number(fields["Agent 版本"]) !== version
+    || workflow?.designScenario !== "room-renovation" || workflow?.agentCode !== code || Number(workflow?.agentVersion) !== version) {
+    throw betaBaseContractError("旧房改造实际Agent、版本或场景与独立冻结配置不一致");
+  }
 }
 
 export function betaResultVersion(result = {}) {
@@ -496,7 +513,7 @@ export function createBetaBaseStore({
           styleFiles.files,
           directory,
         );
-        if (["styleTransfer", "imageOutpaint", "imageUpscale", "panoramaEnhancement"].includes(featureMode)
+        if (["roomRenovation", "styleTransfer", "imageOutpaint", "imageUpscale", "panoramaEnhancement"].includes(featureMode)
           || featureMode === "refinedModel" && hasRefinedLightingInput(item.input)) {
           inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
         }
@@ -523,6 +540,7 @@ export function createBetaBaseStore({
           "尺寸": actualImageSize(resultBytes),
         };
         const frozen = runArchives.get(recordId)?.fields;
+        if (frozen?.["功能"] === "旧房改造") verifyRoomRenovationArchive(generatedFields, JSON.parse(frozen["配置快照"]));
         if (frozen?.["功能"] === "精模渲染") verifyLightingArchive(generatedFields, JSON.parse(frozen["配置快照"]));
         if (frozen?.["功能"] === "全景图美化") {
           if (result.images.length !== 1) throw betaBaseContractError("全景结果必须是唯一图片");
@@ -616,7 +634,7 @@ export function createBetaBaseStore({
       delete frozen["错误信息"];
       delete frozen["Prompt / 工作流版本"];
       const fieldsToRead = [...new Set([...Object.keys(frozen), "状态", "错误信息", "结果图", "输入图", "风格参考图",
-        "生成参数", "最终 Prompt", "尺寸", "时延（ms）", "费用（USD）", "Prompt融合", "Prompt / 工作流版本"])];
+        "生成参数", "最终 Prompt", "尺寸", "时延（ms）", "费用（USD）", "Prompt融合", "Agent 编码", "Agent 版本", "Prompt / 工作流版本"])];
       const archived = await getRecord(run, config, config.tableId, candidate.recordId, fieldsToRead);
       const fields = archived?.fields || {};
       if (featureMode === "imageUpscale") {
@@ -656,7 +674,7 @@ export function createBetaBaseStore({
         }
       }
       const styleAttachments = fields["风格参考图"] || [];
-      const styleCount = lightingReferences(item.input, featureMode)?.length || 0;
+      const styleCount = (await lightingReferences(item.input, featureMode, resolveLighting))?.length || 0;
       if (styleAttachments.length !== styleCount || styleAttachments.some((file) => !file.file_token || !(Number(file.size) > 0))) {
         throw betaBaseContractError("已有结果的风格参考附件不可恢复");
       }
@@ -664,6 +682,7 @@ export function createBetaBaseStore({
       try { parameters = JSON.parse(fields["生成参数"]); }
       catch { throw betaBaseContractError("已有结果缺少可信的生成参数"); }
       const workflow = parameters.workflow || {};
+      if (featureMode === "roomRenovation") verifyRoomRenovationArchive(fields, JSON.parse(frozen["配置快照"]));
       if (featureMode === "refinedModel") verifyLightingArchive(fields, JSON.parse(frozen["配置快照"]));
       if (featureMode === "panoramaEnhancement") verifyPanoramaArchive(fields, JSON.parse(frozen["配置快照"]), { recovering: true });
       if ((featureMode !== "imageUpscale" && !fields["最终 Prompt"])

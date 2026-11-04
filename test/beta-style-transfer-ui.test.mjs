@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、Beta 设计配置控制器、十功能目录、轻量页面状态及共享参考图资产打包器
- * [OUTPUT]: 对外提供 Beta 风格转换明确目标/两路独立版本、真实下拉切换与参考图互斥/删除重选、十功能恢复和多样本共享参考图去重回归保障
+ * [INPUT]: 依赖 node:test/assert、Beta 设计配置控制器、含旧房的十一功能目录、轻量页面状态及共享参考图资产打包器
+ * [OUTPUT]: 对外提供 Beta 风格转换明确目标/两路独立版本、真实下拉切换与参考图互斥/删除重选、非设计页恢复/异步回调不覆写字段状态，以及多样本共享参考图去重回归
  * [POS]: test 的 Beta 风格转换浏览器合同测试，使用内存 DOM/配置替身，不调用模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,7 +26,13 @@ const config = {
 function fixture(restoredPageState = { featureMode: "whiteModel", controls: {} }) {
   const elements = Object.fromEntries(["renderModeSelect", "styleSelect", "promptAgentVersionSelect",
     "styleField", "promptAgentVersionField", "styleReferenceField", "configStatus", "promptAgentModelSelect"]
-    .map((id) => [id, { value: "", options: [], hidden: false, classList: { toggle() {} } }]));
+    .map((id) => {
+      const classes = new Set();
+      return [id, { value: "", options: [], hidden: false, classList: {
+        toggle(name, enabled) { classes[enabled ? "add" : "delete"](name); },
+        contains: name => classes.has(name),
+      } }];
+    }));
   elements.promptAgentModelSelect.value = "gemini3pro";
   const state = { featureMode: restoredPageState.featureMode, stylesConfig: config, styleReference: null,
     agentAccess: new Map([["gemini3pro", { selectable: true }]]), agentAccessChecked: true };
@@ -39,8 +45,28 @@ function fixture(restoredPageState = { featureMode: "whiteModel", controls: {} }
   return { controller, elements, state };
 }
 
-test("Beta 十功能目录保留风格转换空间图和补充要求，缺目标及旧智能默认均不可入队", () => {
-  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 10);
+test("非设计功能的恢复change与迟到参考图回调不能覆盖配置状态或露出风格参考图", () => {
+  const { controller, elements, state } = fixture();
+  controller.render();
+  for (const featureMode of Object.keys(BETA_FEATURE_COPY).filter(mode => !["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(mode))) {
+    state.featureMode = featureMode;
+    elements.configStatus.textContent = `${featureMode} 当前配置`;
+    elements.styleReferenceField.classList.toggle("hidden", true);
+    const before = [elements.renderModeSelect.value, elements.styleSelect.value, elements.promptAgentVersionSelect.value];
+    controller.render();
+    controller.referenceChanged();
+    assert.equal(elements.configStatus.textContent, `${featureMode} 当前配置`);
+    assert.equal(elements.styleReferenceField.classList.contains("hidden"), true);
+    assert.deepEqual([elements.renderModeSelect.value, elements.styleSelect.value, elements.promptAgentVersionSelect.value], before);
+  }
+  state.featureMode = "whiteModel";
+  controller.render();
+  assert.equal(elements.configStatus.textContent, "智能默认 v6");
+  assert.equal(elements.styleReferenceField.classList.contains("hidden"), false);
+});
+
+test("Beta 十一功能目录保留风格转换空间图和补充要求，缺目标及旧智能默认均不可入队", () => {
+  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 11);
   assert.equal(BETA_FEATURE_COPY.styleTransfer.source, "待转换空间图");
   assert.equal(BETA_FEATURE_COPY.styleTransfer.prompt, "补充要求（可选）");
   for (const renderMode of ["", "smart-default", "style-dna"]) {
@@ -104,7 +130,7 @@ test("Beta 下拉不继承白模风格或自动首项，参考图上传锁平台
   assert.equal(elements.styleSelect.value, style.code);
 });
 
-test("Beta 恢复参考图模式但不保存图片，重新上传前阻断，十功能样本选择完整往返", () => {
+test("Beta 恢复参考图模式但不保存图片，重新上传前阻断，十一功能样本选择完整往返", () => {
   const values = new Map();
   const storage = { getItem: (key) => values.get(key), setItem: (key, value) => values.set(key, value) };
   const sampleSetIds = Object.fromEntries(Object.keys(BETA_FEATURE_COPY).map((feature) => [feature, `SET-${feature}`]));

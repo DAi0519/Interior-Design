@@ -1,13 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "功能栏固定为144px，仅参数配置栏可连续缩放并完全收起；旧窄栏偏好自动迁移，收放与窄屏切换保留输入和任务状态。",
-    "出图模型明确标为Seedream 5.0 Lite与Pro，保留现有接口、历史评测图片和归档兼容，避免旧结果重复生成。",
-    "补充ComfyUI生成耗时分段记录，修复结果读取失败时的连接释放，改善异常诊断。"
+    "Beta跑图新增旧房改造，支持逐图房型、独立旧房提示词版本、智能默认与平台风格、多模型批测及飞书独立归档。",
+    "主工作台新增AI渲染台和效果图美化光影模板，沿用独立Prompt配置、光影资产校验与生成归档。",
+    "完善精模Prompt统一管理、白模光影选择和全景默认原光影交互，保留已完成结果与原有生成流程。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

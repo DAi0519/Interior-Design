@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖共享效果图美化六氛围/新增光影模板互斥控件；依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
-  [OUTPUT]: 提供美化六档与新增卡片共用容器、默认原光影独立首卡/全景光影模板/用户要求与原尺寸输出、不展示普通辅助说明/维护入口且实际状态可见的参数面板、标题与控件独立留白的精模必选预设/参考光影、可搜索十任务与独立参数、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
+  [OUTPUT]: 提供含旧房改造的可搜索十一任务、独立旧房配置/逐图房型与负向草稿、美化光影/精模预设及全景光影、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
   [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -195,7 +195,7 @@
                 <label class="field"><span>分辨率</span><select id="resolutionSelect" data-dropdown-placement="top"></select></label>
                 <label id="qualityField" class="field"><span>质量档</span><select id="qualitySelect" data-dropdown-placement="top"></select></label>
               </div>
-              <label id="negativePromptField" class="field hidden"><span>Flux 负向提示词（可选）</span><textarea id="negativePromptInput" rows="2" placeholder="留空使用系统默认"></textarea></label>
+              <label id="negativePromptField" class="field hidden"><span>Flux 负向提示词（可选） <span id="negativePromptCount" class="character-count">0 / 8000</span></span><textarea id="negativePromptInput" rows="2" maxlength="8000" aria-describedby="negativePromptNote" placeholder="留空使用当前功能默认"></textarea><span id="negativePromptNote" class="compact-config-note"></span></label>
               </div>
             </section>
             </div>
@@ -271,6 +271,6 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=39"></script>
+    <script type="module" src="/beta-app.js?v=40"></script>
   </body>
 </html>

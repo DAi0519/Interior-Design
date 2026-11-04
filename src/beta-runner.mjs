@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
- * [OUTPUT]: 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和十功能两路并发执行、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
+ * [INPUT]: 依赖任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换/旧房独立Agent版本、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
+ * [OUTPUT]: 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和十一功能两路并发执行，旧房独立归档并映射空房单流程、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,7 @@ import {
 export const BETA_FEATURE_MODES = Object.freeze([
   "whiteModel",
   "emptyRoom",
+  "roomRenovation",
   "styleTransfer",
   "refinedModel",
   "effectEnhancement",
@@ -81,7 +82,7 @@ function inputError(message) {
 }
 
 export function assertBetaPromptAgentAccess(batch, agentModels) {
-  if (!["whiteModel", "emptyRoom", "styleTransfer"].includes(batch?.featureMode)) return;
+  if (!["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(batch?.featureMode)) return;
   const available = new Map(agentModels.map((model) => [model.key, model]));
   const keys = new Set((batch.items || []).map((item) => item?.input?.promptAgentModelKey));
   for (const key of keys) {
@@ -122,12 +123,12 @@ function normalizeSampleSet(body = {}) {
       }
       const roomType = normalizeEmptyRoomType(sample.roomType);
       const roomTypeDetail = roomType === "其他" ? normalizeEmptyRoomTypeDetail(sample.roomTypeDetail) : "";
-      if (featureMode === "emptyRoom" && (!roomType || (roomType === "其他"
+      if (["emptyRoom", "roomRenovation"].includes(featureMode) && (!roomType || (roomType === "其他"
         && (!roomTypeDetail || roomTypeDetail.length > EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH)))) {
         throw inputError(`第 ${index + 1} 个样本需要有效房间类型；其他类型需填写 1–40 字详情`);
       }
       return {
-        ...(featureMode === "emptyRoom" ? { roomType, roomTypeDetail } : {}),
+        ...(["emptyRoom", "roomRenovation"].includes(featureMode) ? { roomType, roomTypeDetail } : {}),
         image: ["panoramaEnhancement", "styleTransfer"].includes(featureMode) ? normalizeBetaSampleImage(image, featureMode) : {
           dataUrl: String(image.dataUrl),
           name: String(image.name || `sample-${index + 1}`).slice(0, 160),
@@ -206,16 +207,42 @@ async function bindBatchSamples(batch, baseStore, { preserveInput = false } = {}
     item.sourceSetRecordId = set.recordId;
     item.input.styleReferenceImages = sharedImages(item.input.styleReferenceImages, "风格参考图");
     if (batch.featureMode === "refinedModel") item.input.lightingReferenceImages = sharedImages(item.input.lightingReferenceImages, "光影参考图");
-    if (batch.featureMode === "emptyRoom") {
+    if (["emptyRoom", "roomRenovation"].includes(batch.featureMode)) {
       const roomType = normalizeEmptyRoomType(item.input.roomType || sample.roomType);
       const roomTypeDetail = roomType === "其他" ? normalizeEmptyRoomTypeDetail(item.input.roomTypeDetail || sample.roomTypeDetail) : "";
       if (!roomType || (roomType === "其他" && (!roomTypeDetail || roomTypeDetail.length > EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH))) {
-        throw inputError("每个空房样本需要有效房间类型；其他类型需填写 1–40 字详情");
+        throw inputError("每个设计样本需要有效房间类型；其他类型需填写 1–40 字详情");
       }
       Object.assign(item.input, { roomType, roomTypeDetail });
     }
   }
   return batch;
+}
+
+function normalizeBetaDesignInput(input, featureMode) {
+  const fields = ["roomRenovationSmartDefaultVersion", "roomRenovationPromptAgentVersion"];
+  if (featureMode !== "roomRenovation") {
+    if (input.designScenario !== undefined || fields.some(field => input[field] !== undefined)) {
+      throw inputError("旧房场景与提示词版本仅支持旧房改造 Beta 功能");
+    }
+    return input;
+  }
+  if (input.designScenario !== undefined && input.designScenario !== "room-renovation") {
+    throw inputError("旧房改造场景不匹配");
+  }
+  const renderMode = String(input.renderMode || "").trim();
+  if (!["smart-default", "style-dna"].includes(renderMode)) throw inputError("旧房改造请选择智能默认或平台风格");
+  const versionField = renderMode === "smart-default" ? fields[0] : fields[1];
+  const version = Number(input[versionField]);
+  if (!Number.isInteger(version) || version < 1) throw inputError("旧房改造需要冻结所选独立 Prompt Agent 版本");
+  const references = singleSharedImages(input.styleReferenceImages, "旧房风格参考图");
+  if (renderMode === "style-dna" && (references.length || !String(input.styleCode || "").trim())) {
+    throw inputError("旧房平台风格需要选择风格，且不能同时使用风格参考图");
+  }
+  const next = { ...input, featureMode: "emptyRoom", designScenario: "room-renovation", renderMode,
+    styleReferenceImages: references, [versionField]: version };
+  for (const field of [...fields.filter(field => field !== versionField), "emptyRoomSmartDefaultVersion", "emptyRoomPromptAgentVersion"]) delete next[field];
+  return next;
 }
 
 function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
@@ -260,6 +287,8 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
     if (!item.input || typeof item.input !== "object") {
       throw inputError(`第 ${index + 1} 个 Run 缺少生成输入`);
     }
+    if (featureMode === "roomRenovation" && item.input.featureMode != null
+      && !["roomRenovation", "emptyRoom"].includes(item.input.featureMode)) throw inputError("旧房改造输入功能不匹配");
     const referenceImages = item.referenceAssetKey
       ? assetImages(assets, item.referenceAssetKey, `第 ${index + 1} 个输入图片资产`)
       : item.input.referenceImages;
@@ -276,6 +305,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
       ...(lightingReferenceImages ? { lightingReferenceImages } : {}),
     };
+    input = normalizeBetaDesignInput(input, featureMode);
     assertEffectBeautificationLightingFeature(input, featureMode);
     if (featureMode === "styleTransfer") {
       if (!sharedStyleReferences.has(styleReferenceImages)) {
@@ -434,7 +464,7 @@ export function createBetaRunnerService({
                   state.archive = await baseStore.beginRun({ batchId: batch.batchId,
                     featureMode: batch.featureMode, item: currentItem, testTime: batch.testTime });
                   state.stage = "generation";
-                  state.result = await generationService.executeForMode(batch.featureMode, singleRunGenerationInput(currentItem.input));
+                  state.result = await generationService.executeForMode(batch.featureMode === "roomRenovation" ? "emptyRoom" : batch.featureMode, singleRunGenerationInput(currentItem.input));
                   state.generated = true;
                   state.stage = "sync";
                   updateStages(`已生成 ${count("generated")} / ${batch.items.length} · 正在同步飞书`);
@@ -694,7 +724,7 @@ export function createBetaApiHandler({ getAgentModels, readJson, sendImage, send
     }
     if (request.method === "POST" && pathname === "/api/beta/jobs") {
       const body = await readJson(request);
-      if (["whiteModel", "emptyRoom", "styleTransfer"].includes(body.featureMode)) {
+      if (["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(body.featureMode)) {
         assertBetaPromptAgentAccess(body, await getAgentModels());
       }
       sendJson(response, 202, { job: await service.start(body) });

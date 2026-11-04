@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖主工作目录PORT真源、Codex短命令启动脚本、各功能运行目录与生成/评测/飞书同步空闲检查
-[OUTPUT]: 对外提供4192统一入口、空闲重载与实际版本回读规范，以及历史独立预览例外与验证边界
+[OUTPUT]: 对外提供Beta旧房十一功能实际目录和独立v4回读、4192统一入口、空闲重载与实际版本回读规范，以及历史独立预览例外与验证边界
 [POS]: docs 的本机服务入口和运行态记录，链接各功能合同，不把源码更新等同运行发布
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -52,3 +52,5 @@ Codex运行动作只执行 `bash .codex/environments/run-workspace.sh`；端口�
 2026-11-03独立美化预览：用户明确选择“另开独立预览端口，保留当前批次”后，使用专属launchctl服务 `com.canvas-lab.effect-beautification-preview` 启动4195（PID1603），入口为 `http://127.0.0.1:4195/?feature=effectBeautification`。实际 `/api/catalog` 已声明 `effectBeautification.promptLighting=true`，`/api/styles` 返回九卡及旧六档Prompt v2；浏览器选中暖灯静夜后无旧后端阻断提示。4192仍PID59215，4193仍PID49795，未改.env.local/默认端口或触碰原45张批次。仅运行目录和交互验证，未提交收费生成或正式发布。
 
 2026-11-03美化合并后重启：用户要求重启日常工作台，确认4192无在途连接/子进程、评测未运行后，通过既有主服务重载，PID59215→57921。主支本机入口已回读 `effectBeautification.promptLighting=true`、九卡及美化Prompt v2，新页面显示连接已就绪及六氛围/九预设；4193（PID49795）、4195（PID1603）未动，未刷新用户原任务页或提交生成。分支已本地合入main，未推送/正式发布；排队超时修复不在本次重启范围内。
+
+2026-11-04 Beta旧房改造：启动前4192无监听且无原主服务，使用既有run-workspace.sh从主工作目录启动，不另开端口。实际/api/beta/config.features返回十一功能含roomRenovation，/api/styles返回旧房智能默认/融合均独立v4；空房目录保持其既有智能默认v34及融合v35/v34。真实Beta样本集/明细两表原功能字段仅追加“旧房改造”，完整三表Schema回读通过。1728项全测通过，浏览器已见旧房入口、逐图房型、旧房融合v4和空房智能默认v34切换隔离；未提交START或新增收费生成，未执行正式版本发布。

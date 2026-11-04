@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖共享美化六氛围/新增光影卡片互斥控制与运行能力；精模Flux参考来源切换触发1K/2K输出目录，依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
- * [OUTPUT]: 效果图美化保留六原工作流、新卡片单图纯词及low/natural执行身份；全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
+ * [INPUT]: 依赖旧房独立Agent目录/空房共享判定和Flux负向草稿，依赖共享美化六氛围/新增光影卡片互斥控制与运行能力；精模Flux参考来源切换触发1K/2K输出目录，依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十一功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
+ * [OUTPUT]: 提供旧房逐图房型/独立版本与空房单流程映射、旧进程门禁；效果图美化保留六原工作流、新卡片单图纯词及low/natural执行身份；全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十一功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,9 @@ import { generationFeatureUnavailableReason } from "./model-capabilities.js";
 import "./custom-select.js?v=9";
 import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=9";
 import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=9";
-import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=5";
+import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaFeatureUnavailableReason, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=5";
+import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
+import { isEmptyRoomDesign } from "./room-renovation.js";
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
 import { createBetaUpscaleConfiguration } from "./beta-upscale.js?v=3";
 import { createBetaDesignConfiguration } from "./beta-design-config.js";
@@ -43,7 +45,7 @@ const elements = Object.fromEntries([
   "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
   "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
   "monitorWarnings", "monitorWarningsCount",
-  "negativePromptField", "negativePromptInput", "promptAgentAvailability", "promptAgentModelSelect",
+  "negativePromptField", "negativePromptInput", "negativePromptCount", "negativePromptNote", "promptAgentAvailability", "promptAgentModelSelect",
   "ordinaryOutputFields", "outpaintFields", "outpaintWorkflowOptions", "outpaintRatioSelect",
   "outpaintMultipleSelect", "outpaintAvailability", "outputSettingsHint", "taskSettingsSection",
   "upscaleFields", "upscaleWorkflowOptions", "upscaleResolutionField", "upscaleResolutionSelect", "upscaleResolutionNote", "upscaleAvailability",
@@ -78,6 +80,8 @@ const state = {
   styleReference: null,
   stylesConfig: null,
 };
+const negativePrompt = bindFluxNegativePrompt({ count: elements.negativePromptCount, note: elements.negativePromptNote,
+  root: elements.negativePromptField, textarea: elements.negativePromptInput });
 const modelSelection = bindModelMultiSelect({
   container: elements.modelOptions,
   onChange(keys) {
@@ -280,14 +284,16 @@ function renderRunSummary() {
     renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, 0, total);
   }
   const running = state.job?.status === "running" || state.submitting;
-  const needsPromptAgent = ["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode);
+  const needsPromptAgent = ["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode);
   const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
   const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
   const effectPromptKey = FEATURE_COPY[state.featureMode].promptConfig;
   const effectReady = !effectPromptKey || state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt()
     || state.featureMode === "effectBeautification" && Boolean(effectBeautificationControls.lightingValue())
     || state.stylesConfig?.[effectPromptKey]?.available;
-  const targetReady = state.featureMode !== "styleTransfer" || designConfiguration.ready();
+  const targetIssue = betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
+    || (["styleTransfer", "roomRenovation"].includes(state.featureMode) ? designConfiguration.unavailableReason() : null);
+  const targetReady = !targetIssue;
   const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation()
     : state.featureMode === "effectBeautification" ? effectBeautificationControls.validation()
     : state.featureMode === "panoramaEnhancement" ? generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()) || panoramaLighting.validation() : null;
@@ -299,7 +305,7 @@ function renderRunSummary() {
       ? "提示词模型不可用，请选择当前 Key 已开放的模型"
       : "正在检测提示词模型权限";
   }
-  if (!failed && !targetReady && agentReady && !running) elements.runHint.textContent = "请选择平台风格，或上传风格参考图";
+  if (!failed && !targetReady && agentReady && !running) elements.runHint.textContent = targetIssue;
   if (!failed && !workflowsReady && !running) elements.runHint.textContent = workflowConfiguration.unavailableReason() || `请选择${upscale ? "超分" : "扩图"}工作流`;
   if (!failed && lightingIssue && !running) elements.runHint.textContent = lightingIssue;
   elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !state.connected)
@@ -315,13 +321,11 @@ function renderRunSummary() {
   elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "仅重试当前批次的失败项" : "开始批量运行");
   elements.betaGenerationActions.classList.toggle("is-busy", running);
 }
-
 function modelAvailable(model) {
   if (!state.modelAccessChecked) return true;
   const access = state.modelAccess.get(model.key);
   return access ? access.available : model.provider === "comfyui";
 }
-
 function renderModels() {
   state.selectedModelKeys = refinedModelSelection.forFeature(state.featureMode, state.selectedModelKeys, state.catalog.models, state.modelAccessChecked ? [...state.modelAccess.values()] : undefined);
   if (["imageOutpaint", "imageUpscale"].includes(state.featureMode)) { renderOutputControls(); return; }
@@ -337,7 +341,6 @@ function renderModels() {
   modelSelection.render(runnable, state.selectedModelKeys);
   renderOutputControls();
 }
-
 function renderOutputControls() {
   if (state.featureMode === "imageUpscale") { upscaleConfiguration.render(); renderRunSummary(); return; }
   if (state.featureMode === "imageOutpaint") {
@@ -361,13 +364,13 @@ function renderOutputControls() {
   })), qualities.includes(elements.qualitySelect.value)
     ? elements.qualitySelect.value
     : models[0]?.defaultQuality || qualities[0]);
+  negativePrompt.render(models.map(model => model.key), state.featureMode);
   elements.negativePromptField.classList.toggle(
     "hidden",
     state.featureMode === "panoramaEnhancement" || !models.some((model) => model.provider === "comfyui") || state.featureMode === "refinedModel" && isLightingReference(refinedRenderConfiguration.snapshot()),
   );
   renderRunSummary();
 }
-
 function renderDesignConfig() { designConfiguration.render(); }
 function renderFeature() {
   const copy = FEATURE_COPY[state.featureMode];
@@ -375,8 +378,7 @@ function renderFeature() {
   const free = state.featureMode === "free";
   const outpaint = state.featureMode === "imageOutpaint";
   const upscale = state.featureMode === "imageUpscale";
-  const design = ["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode);
-  const emptyRoom = state.featureMode === "emptyRoom";
+  const design = ["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode);
   const effect = Boolean(copy.promptConfig);
   const refined = state.featureMode === "refinedModel";
   elements.taskSettingsSection.classList.toggle("hidden", outpaint || upscale);
@@ -412,16 +414,15 @@ function renderFeature() {
   renderRunSummary();
   renderModels();
 }
-
 function currentCases() {
   return sampleLibrary.currentCases({
     commonPrompt: ["imageOutpaint", "imageUpscale"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
     freeReference: state.freeReference });
 }
 function designSettings() { return designConfiguration.settings(); }
-
 function assertFeatureConfig() {
-  const unavailableReason = generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels());
+  const unavailableReason = betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
+    || generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels());
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
   if (state.featureMode === "refinedModel") refinedRenderConfiguration.validate();
@@ -439,7 +440,6 @@ function assertFeatureConfig() {
     throw new Error("全景图美化 Prompt 版本不可用");
   }
 }
-
 function buildItems(startedAt = new Date()) {
   assertFeatureConfig();
   const cases = currentCases();
@@ -458,7 +458,7 @@ function buildItems(startedAt = new Date()) {
   const ratioAuto = elements.ratioSelect.value === "auto";
   return cases.flatMap((currentCase, caseIndex) => models.map((model, modelIndex) => {
     const input = {
-      featureMode: state.featureMode,
+      featureMode: state.featureMode === "roomRenovation" ? "emptyRoom" : state.featureMode,
       modelKey: model.key,
       negativePrompt: elements.negativePromptInput.value.trim(),
       outputFormat: "png",
@@ -482,8 +482,8 @@ function buildItems(startedAt = new Date()) {
         panoramaPromptVersion: state.stylesConfig?.panoramaEnhancementPrompt?.version,
       } : {}),
       ...(state.featureMode === "refinedModel" ? refinedRenderConfiguration.settings(model.lightingSelection) : {}),
-      ...(["whiteModel", "emptyRoom", "styleTransfer"].includes(state.featureMode) ? designSettings() : {}),
-      ...(state.featureMode === "emptyRoom" ? {
+      ...(["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode) ? designSettings() : {}),
+      ...(isEmptyRoomDesign(state.featureMode) ? {
         roomType: currentCase.roomType,
         ...(currentCase.roomType === "其他"
           ? { roomTypeDetail: currentCase.roomTypeDetail.trim() }

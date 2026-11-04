@@ -1,11 +1,12 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary，跨图像任务复用已有样本ID/轻量预览并隔离free提示词集、按目标功能校验元信息与记忆选集、防旧异步响应串功能、新建按当前功能逐张上传及稳定ID续传、仅本次房型补选与回读同步回执
+ * [OUTPUT]: 对外提供 createBetaSampleLibrary，跨图像任务复用已有样本ID/轻量预览并隔离free提示词集、按目标功能校验与记忆选集、防旧异步串功能、逐张上传及稳定ID续传、空房/旧房逐图房型补选与回读同步回执
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
+import { isEmptyRoomDesign } from "./room-renovation.js";
 
 function imageIdentity(image) {
   return `${image.name}:${image.size}:${image.lastModified || 0}`;
@@ -120,7 +121,7 @@ export function createBetaSampleLibrary({
         render();
       },
     });
-    if (state.featureMode === "emptyRoom") {
+    if (isEmptyRoomDesign(state.featureMode)) {
       [...elements.sampleList.children].forEach((item, index) => {
         const image = state.sourceImages[index];
         const field = document.createElement("label");
@@ -448,7 +449,7 @@ export function createBetaSampleLibrary({
   }
 
   function assertRoomTypes() {
-    if (state.featureMode !== "emptyRoom") return;
+    if (!isEmptyRoomDesign(state.featureMode)) return;
     state.sourceImages.forEach((image, index) => {
       if (!image.roomType) throw new Error(`请为第 ${index + 1} 张样本选择房间类型`);
       if (image.roomType === "其他" && !image.roomTypeDetail?.trim()) {

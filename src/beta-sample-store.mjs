@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖飞书记录/附件及 {id} 对象关联 CellValue、参考图真实字节/MIME/尺寸/8MB与全景2:1校验和轻量预览，接收样本集 ID 和逐张样本上传
+ * [INPUT]: 依赖飞书记录/附件及 {id} 对象关联 CellValue、旧房/空房共享房型、参考图真实字节/MIME/尺寸/8MB与全景2:1校验和轻量预览，接收样本集 ID 和逐张样本上传
  * [OUTPUT]: 对外提供按来源功能创建的草稿样本集、单样本幂等保存、完成回读、无原图元数据与跨功能按需读取；执行时由目标功能决定真实图片/全景2:1准入，省略目标时沿用来源合同，保留ID关联/8MB保护及扩图真实源尺寸
  * [POS]: src 的 Beta 样本资产边界，被 beta-base.mjs 组合；可用状态只在全部选定样本确认后写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -142,7 +142,7 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
         const row = rows.find(({ fields }) => fields["样本 ID"] === sample.sampleId);
         const fields = { "样本 ID": sample.sampleId, "样本集": [{ id: set.recordId }],
           "提示词": sample.prompt || "", "文件名": image?.name || "",
-          ...(set.featureMode === "emptyRoom" ? { "空间类型": sample.roomType, "其他空间类型": sample.roomTypeDetail || "" } : {}) };
+          ...(["emptyRoom", "roomRenovation"].includes(set.featureMode) ? { "空间类型": sample.roomType, "其他空间类型": sample.roomTypeDetail || "" } : {}) };
         const sameField = (field, value, actual) => field === "样本集"
           ? String(links(actual)) === String(links(value)) : String(actual ?? "") === String(value);
         if (selectValue(row?.fields["状态"]) === "可用" && Object.entries(fields)

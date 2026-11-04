@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:test/assert、sharp 真实图片夹具、Beta 样本/批次/归档边界、独立全景工作流和浏览器模型尺寸规则
+ * [INPUT]: 依赖 node:test/assert、sharp 真实图片夹具、Beta 样本/批次/归档边界、独立全景工作流、共享设计模式判定和浏览器模型尺寸规则
  * [OUTPUT]: 对外提供全景真实2:1、ID惰性取图、多光影逐样本模型展开/计数/标签/身份冻结、非2:1模型零调用准入、冻结Prompt版本、重试归档、Seedream全景4K与R5_4独立Flux请求合同
  * [POS]: test 的 Beta 全景跨层合同测试，使用内存 Store/模型替身，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -16,6 +16,7 @@ import { normalizeBetaSampleImage } from "../src/beta-sample-store.mjs";
 import { executeEffectRenderEnhancementWorkflow } from "../src/effect-render-enhancement-workflow.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
 import { adaptGenerationInputForModel } from "../public/generation-batch.js";
+import { isEmptyRoomDesign } from "../public/room-renovation.js";
 import { panoramaItemsForSelection, panoramaLightingRequestSelection } from "../public/generation-task-request.js";
 import { preparePanoramaLightingInput } from "../src/panorama-lighting.mjs";
 import { assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "../public/beta-model-rules.js";
@@ -377,7 +378,7 @@ test("Beta实际页面批次按样本×模型×光影展开，逐项只携一份
       qualitySelect: { value: "" }, resolutionSelect: { value: "2K" } },
     assertFeatureConfig() {}, currentCases: () => cases, selectedModels: () => selected,
     selectedCandidates: () => selected, sampleCount: () => cases.length,
-    panoramaLighting: lighting, panoramaItemsForSelection, panoramaLightingRequestSelection,
+    panoramaLighting: lighting, panoramaItemsForSelection, panoramaLightingRequestSelection, isEmptyRoomDesign,
     adaptGenerationInputForModel, createBetaRunId: ({ sequence }) => `RUN-LIGHTING-${sequence}`,
   };
   const build = new Function(...Object.keys(context), `return (${functionSource})();`);

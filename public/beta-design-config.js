@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖白模风格控制器的明确平台/参考图选择纯规则、Beta DOM/状态、脱敏 Agent 配置、下拉渲染与已恢复表单状态
- * [OUTPUT]: 对外提供风格转换两路请求合同及 Beta 设计配置控制器，保留白模/空房原合同，隔离风格转换选择、无目标阻断和参考图上传/删除状态
+ * [INPUT]: 依赖白模风格控制器的明确平台/参考图选择纯规则、旧房独立Agent目录、Beta DOM/状态、下拉渲染与已恢复表单状态
+ * [OUTPUT]: 对外提供白模/空房/旧房/风格转换配置，旧房独立选择/版本快照与场景请求，缺失或下架零回退，隔离非设计功能的字段/状态与异步回调
  * [POS]: public 的 Beta 设计配置组合层，从 beta-app 分离设计方式、版本、共享参考图和请求投影
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -34,15 +34,20 @@ export function betaStyleTransferSettings({ config = {}, renderMode, promptAgent
 
 export function createBetaDesignConfiguration({ elements, fillSelect, getState, restoredPageState }) {
   const restored = restoredPageState.controls || {};
+  const separateDesign = ["styleTransfer", "roomRenovation"].includes(restoredPageState.featureMode);
   const transferControls = {
     renderMode: restored.styleTransferRenderMode || (restoredPageState.featureMode === "styleTransfer" ? restored.renderMode : ""),
     styleCode: restored.styleTransferStyleCode || (restoredPageState.featureMode === "styleTransfer" ? restored.styleCode : ""),
     promptAgentVersion: restored.styleTransferPromptAgentVersion || "",
   };
   const selections = new Map([[true, transferControls], [false, {
-    renderMode: restoredPageState.featureMode === "styleTransfer" ? "smart-default" : restored.renderMode || "smart-default",
-    styleCode: restoredPageState.featureMode === "styleTransfer" ? "" : restored.styleCode,
-    promptAgentVersion: restoredPageState.featureMode === "styleTransfer" ? "" : restored.promptAgentVersion,
+    renderMode: separateDesign ? "smart-default" : restored.renderMode || "smart-default",
+    styleCode: separateDesign ? "" : restored.styleCode,
+    promptAgentVersion: separateDesign ? "" : restored.promptAgentVersion,
+  }], ["renovation", {
+    renderMode: restored.roomRenovationRenderMode || "smart-default",
+    styleCode: restored.roomRenovationStyleCode || "",
+    promptAgentVersion: restored.roomRenovationPromptAgentVersion || "",
   }]]);
   let active = null;
 
@@ -53,15 +58,18 @@ export function createBetaDesignConfiguration({ elements, fillSelect, getState, 
 
   function render() {
     const state = getState();
+    if (!["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode)) return;
     const config = state.stylesConfig || {};
     const transfer = state.featureMode === "styleTransfer";
-    if (active !== null && active !== transfer) selections.set(active, readSelection());
-    const values = active === transfer ? readSelection() : selections.get(transfer);
-    active = transfer;
+    const selectionKey = state.featureMode === "roomRenovation" ? "renovation" : transfer;
+    if (active !== null && active !== selectionKey) selections.set(active, readSelection());
+    const values = active === selectionKey ? readSelection() : selections.get(selectionKey);
+    active = selectionKey;
     const emptyRoom = state.featureMode === "emptyRoom";
-    const smartConfig = emptyRoom ? config.emptyRoom?.smartDefault : config.smartDefault;
+    const designConfig = state.featureMode === "roomRenovation" ? config.roomRenovation : emptyRoom ? config.emptyRoom : config;
+    const smartConfig = designConfig?.smartDefault;
     const promptConfig = transfer ? config.styleTransfer?.promptAgent
-      : emptyRoom ? config.emptyRoom?.promptAgent : config.promptAgent;
+      : designConfig?.promptAgent;
     const reference = transfer && Boolean(state.styleReference);
     const choices = transfer ? styleTransferRenderModeOptions(config.styles || [], {
       reference: config.styleTransfer?.reference, referenceCount: reference ? 1 : 0,
@@ -92,7 +100,7 @@ export function createBetaDesignConfiguration({ elements, fillSelect, getState, 
         : styleMode && elements.styleSelect.value ? "风格转换平台风格已就绪" : "请选择平台风格，或上传风格参考图"
       : styleMode ? choices.length && promptConfig?.versions?.length ? "平台风格已就绪" : "平台风格配置不可用"
         : smartConfig?.available ? `智能默认 v${smartConfig.version}` : "智能默认配置不可用";
-    selections.set(transfer, readSelection());
+    selections.set(selectionKey, readSelection());
   }
 
   function settings() {
@@ -105,10 +113,18 @@ export function createBetaDesignConfiguration({ elements, fillSelect, getState, 
     if (state.featureMode === "styleTransfer") return betaStyleTransferSettings({ config,
       ...readSelection(), reference: state.styleReference, promptAgentModelKey: elements.promptAgentModelSelect.value });
     const emptyRoom = state.featureMode === "emptyRoom";
+    const renovation = state.featureMode === "roomRenovation";
     const smartDefault = elements.renderModeSelect.value === "smart-default";
-    const smartConfig = emptyRoom ? config.emptyRoom?.smartDefault : config.smartDefault;
-    const promptConfig = emptyRoom ? config.emptyRoom?.promptAgent : config.promptAgent;
+    const designConfig = renovation ? config.roomRenovation : emptyRoom ? config.emptyRoom : config;
+    const smartConfig = designConfig?.smartDefault;
+    const promptConfig = designConfig?.promptAgent;
     if (smartDefault && !smartConfig?.available) throw new Error("当前智能默认 Agent 不可用");
+    if (renovation && (smartDefault ? !Number.isInteger(smartConfig?.version) || smartConfig.version < 1
+      : !promptConfig?.versions?.some(entry => entry.version === Number(elements.promptAgentVersionSelect.value)))) {
+      throw new Error("旧房改造 Agent 版本不可用，请刷新配置");
+    }
+    if (renovation && !smartDefault && !config.styles?.some(style => style.code === elements.styleSelect.value
+      && style.published && style.validDna)) throw new Error("旧房改造平台风格已下架或不可用，请重新选择");
     if (!smartDefault && (!elements.styleSelect.value || !elements.promptAgentVersionSelect.value)) {
       throw new Error("平台风格或融合 Agent 版本不可用");
     }
@@ -117,7 +133,10 @@ export function createBetaDesignConfiguration({ elements, fillSelect, getState, 
       promptAgentModelKey: elements.promptAgentModelSelect.value,
       styleCode: smartDefault ? undefined : elements.styleSelect.value,
       styleReferenceImages: smartDefault && state.styleReference ? [state.styleReference] : [],
-      ...(emptyRoom ? smartDefault ? { emptyRoomSmartDefaultVersion: smartConfig.version }
+      ...(renovation ? { designScenario: "room-renovation", ...(smartDefault
+        ? { roomRenovationSmartDefaultVersion: smartConfig.version }
+        : { roomRenovationPromptAgentVersion: Number(elements.promptAgentVersionSelect.value) }) }
+        : emptyRoom ? smartDefault ? { emptyRoomSmartDefaultVersion: smartConfig.version }
         : { emptyRoomPromptAgentVersion: Number(elements.promptAgentVersionSelect.value || promptConfig?.defaultVersion) }
         : smartDefault ? { smartDefaultAgentVersion: smartConfig.version }
           : { promptAgentVersion: Number(elements.promptAgentVersionSelect.value || promptConfig?.defaultVersion) }),
@@ -127,6 +146,7 @@ export function createBetaDesignConfiguration({ elements, fillSelect, getState, 
   return {
     render, settings,
     ready() { try { settings(); return true; } catch { return false; } },
+    unavailableReason() { try { settings(); return null; } catch (error) { return error.message; } },
     referenceChanged() {
       if (!getState().styleReference) {
         if (getState().featureMode === "styleTransfer") {
@@ -139,7 +159,11 @@ export function createBetaDesignConfiguration({ elements, fillSelect, getState, 
     snapshot() {
       const state = getState();
       const values = active === true ? readSelection() : selections.get(true);
+      const renovation = active === "renovation" ? readSelection() : selections.get("renovation");
       return {
+        roomRenovationRenderMode: renovation.renderMode || "smart-default",
+        roomRenovationStyleCode: renovation.styleCode || "",
+        roomRenovationPromptAgentVersion: String(renovation.promptAgentVersion || ""),
         styleTransferRenderMode: values.renderMode || "", styleTransferStyleCode: values.styleCode || "",
         styleTransferReferenceVersion: String(state.stylesConfig?.styleTransfer?.reference?.version || restored.styleTransferReferenceVersion || ""),
         styleTransferPromptAgentVersion: String(values.promptAgentVersion || restored.styleTransferPromptAgentVersion || ""),
