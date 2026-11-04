@@ -1,4 +1,4 @@
-/* [INPUT]: 横向比较页的语义结构；[OUTPUT]: 上下对齐的全图与局部、无高亮框的文字选项；[POS]: 静态报告视觉层
+/* [INPUT]: 横向比较页的语义结构；[OUTPUT]: 原图固定、所选结果同行对齐的全图与局部、无高亮框的文字选项；[POS]: 静态报告视觉层
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md */
 *{box-sizing:border-box}body{margin:0;background:#faf9f6;color:#252921;font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
 main{max-width:1880px;margin:auto;padding:30px clamp(16px,3vw,56px)}header,.controls,nav,#tiers,#points,.meta{display:flex;align-items:center;flex-wrap:wrap}
@@ -8,16 +8,25 @@ button{appearance:none;background:transparent;border:0;box-shadow:none;border-ra
 button::after{content:'✓';display:inline-block;margin-left:4px;visibility:hidden;font-size:.8em}button[aria-pressed=true]{color:#243c2a;font-weight:650}button[aria-pressed=true]::after{visibility:visible}
 button:focus{outline:0}button:focus-visible,a:focus-visible,summary:focus-visible{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
 .controls{gap:8px 22px}#points,#tiers{gap:8px}.controls button{font-size:14px}.hint,small{color:#666e63;font-size:12px}.hint{margin:4px 0 16px}
-.scroll{overflow-x:auto;padding-bottom:8px}#compare{display:grid;grid-template-columns:repeat(var(--columns,7),minmax(184px,1fr));gap:10px}
-h2{font-size:clamp(13px,1.1vw,17px);margin:0 0 6px;line-height:1.5}.frame{position:relative;display:grid;place-items:center;overflow:hidden;background:#e9ebe5;color:#60685e;aspect-ratio:4/5}
+.scroll{overflow-x:auto;padding-bottom:8px}#compare{display:grid;grid-template-columns:repeat(var(--columns,7),minmax(245px,1fr));gap:10px}
+h2{font-size:clamp(13px,1.1vw,17px);margin:0 0 6px;line-height:1.5}.frame{position:relative;display:grid;place-items:center;overflow:hidden;background:#e9ebe5;color:#60685e;height:clamp(195px,31vh,360px)}
 .frame img{position:absolute;user-select:none;pointer-events:none}.frame:has(img){cursor:grab;touch-action:pan-y}.frame:has(img):active{cursor:grabbing}
 small{display:block;margin:6px 0 2px;font-variant-numeric:tabular-nums}.meta{gap:12px}.meta a{font-size:12px}details{margin-top:18px;padding-top:12px;border-top:1px solid #d6d9d0}summary{width:fit-content;cursor:pointer}details p{font-size:14px;max-width:68em}
 @media(max-width:700px){main{padding-top:18px}nav{gap:2px 12px}.controls{gap:2px 12px}#compare{grid-template-columns:repeat(var(--columns,7), max(165px,43vw))}.hint{margin-bottom:10px}.scroll{overscroll-behavior-x:contain}}
 
-.overview{display:grid;place-items:center;width:100%;aspect-ratio:var(--scene-aspect,1.5);background:#e9ebe5;color:#60685e;margin-bottom:6px;overflow:hidden}.overview img{display:block;width:100%;height:100%;min-height:0;object-fit:contain}.whole-only .frame{display:none}
+.overview{display:grid;place-items:center;width:100%;aspect-ratio:var(--scene-aspect,1.5);background:#e9ebe5;color:#60685e;margin-bottom:6px;overflow:hidden}.overview{max-height:clamp(140px,25vh,280px)}.overview img{display:block;width:100%;height:100%;min-height:0;object-fit:contain}.whole-only .frame{display:none}
 
 #magnification>span:first-child{font-size:12px;color:#666e63;margin-right:4px}#zoom button+button{margin-left:6px}
 
 #timings{border-collapse:collapse;margin:10px 0;font-size:13px;font-variant-numeric:tabular-nums}#timings td,#timings th{text-align:right;padding:4px 12px;border-bottom:1px solid #e4e6df}#timings th:first-child{text-align:left;padding-left:0}
 
-#compare article>h2{min-height:3em}
+#compare article>h2{height:2rem;line-height:2rem;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#compare article:first-child{position:sticky;left:0;z-index:1;background:#faf9f6}
+#compare.source-only{grid-template-columns:minmax(165px,min(100%,430px))}
+details.picker{border:0;border-bottom:1px solid #d6d9d0;padding:0 0 9px;margin:0 0 8px}
+.picker summary{width:100%;font-size:14px;color:#354337}
+.picker summary strong{font-weight:650}.picker summary span{margin-left:12px;color:#676e65;font-size:13px}
+#modelChoices{display:flex;flex-wrap:wrap;gap:2px 16px;margin:6px 0 0}
+#modelChoices button{font-size:14px}button:disabled{color:#878a81;cursor:default}
+#emptySelection{color:#62695f;font-size:14px}
+@media(max-width:700px){.picker summary span{display:block;margin:2px 0 0 15px}#compare article>h2{font-size:13px}}

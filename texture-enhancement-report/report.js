@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 已核验的逐张结果、五张原图及场景定位点
- * [OUTPUT]: 场景与档位导航、原图与模型全图常显、下排原件同步取景、建筑学长同图基准与逐图及五场景耗时
+ * [OUTPUT]: 场景与档位导航、固定原图与所选结果并排并记住选择、下排原件同步取景、建筑学长同图基准与逐图及五场景耗时
  * [POS]: 本地网页的交互层，放大时读取原件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,20 @@ const scenes = [
  ['044','过道','比较两侧木饰面的竖纹、墙脚石材分缝和地面反射。',[['墙面木纹',.22,.50],['石材地面',.53,.86],['远端石墙',.52,.49]]],
 ];
 const models = [['banana21','Banana 2.1'],['gptImage25Sunburst','GPT Image 2.5 Sunburst'],['aiTextureEnhancement','Flux2 Klein'],['seedream5Pro','Seedream 5.0 Pro'],['seedream5','Seedream 5.0 Lite']];
+const comparisonOptions = [
+ ['jzxz','建筑学长 · 低强度'],
+ ['jzxz-high','建筑学长 · 高强度'],
+ ...models,
+];
+const preferenceKey = 'texture-report:comparison:v1';
+function readSelection(){
+ try{
+  const saved = JSON.parse(localStorage.getItem(preferenceKey));
+  if(Array.isArray(saved))return new Set(saved.filter(key=>comparisonOptions.some(([id])=>id===key)));
+ }catch{}
+ return new Set(['jzxz','banana21']);
+}
+const selectedModels = readSelection();
 const rows = window.ASSETS, $ = id => document.getElementById(id);
 const sceneFromHash=()=>scenes.find(s=>s[0]===location.hash.slice(1))||scenes[0];
 const notes={
@@ -140,15 +154,34 @@ function timingTable(){
 function render(){
  $('compare').style.setProperty('--scene-aspect',String(scene[0]==='029'?4/3:16/9));nav();$('observation').textContent=notes[scene[0]];panes=[];
  const cards=[pane('输入原图',{url:'images/'+scene[0]+'.jpg'})];
- for(const [key,label] of [['jzxz','低'],['jzxz-high','高']]){
-  const reference=rows.find(r=>r.scene===scene[0]&&r.key===key);
-  if(reference)cards.push(pane('建筑学长 · '+label+'强度',reference));
+ const choices = [];
+ const visibleNames = [];
+ for(const [key,name] of comparisonOptions){
+  const result = rows.find(row=>row.scene===scene[0] && row.key===key && (row.tier===tier || row.tier==='平台输出'));
+  const selected = selectedModels.has(key);
+  const button = el('button',name);
+  button.type = 'button';
+  button.dataset.key = key;
+  button.disabled = !result;
+  button.setAttribute('aria-pressed',String(Boolean(result && selected)));
+  if(!result)button.textContent += key==='jzxz-high'?'（仅卧室）':'（仅 2K）';
+  button.onclick = ()=>{
+   if(selectedModels.has(key))selectedModels.delete(key);
+   else selectedModels.add(key);
+   try{localStorage.setItem(preferenceKey,JSON.stringify([...selectedModels]))}catch{}
+   render();
+   $('modelChoices').querySelector('[data-key="'+key+'"]').focus({preventScroll:true});
+  };
+  choices.push(button);
+  if(!result || !selected)continue;
+  visibleNames.push(name);
+  cards.push(pane(name+(key==='aiTextureEnhancement'&&tier==='4K'?' · KS 超分':''),result));
  }
- for(const [key,name] of models){
-  const r=rows.find(a=>a.scene===scene[0]&&a.key===key&&a.tier===tier);
-  cards.push(pane(name+(key==='aiTextureEnhancement'&&tier==='4K'?' · KS 超分':''),r));
- }
+ $('modelChoices').replaceChildren(...choices);
+ $('selectedNames').textContent=visibleNames.length?visibleNames.join(' ＋ '):'未选择';
+ $('emptySelection').hidden=visibleNames.length!==0;
  $('compare').style.setProperty('--columns',cards.length);
+ $('compare').classList.toggle('source-only',cards.length===1);
  $('compare').replaceChildren(...cards);draw();
 }
 window.addEventListener('hashchange',()=>setScene());window.addEventListener('resize',draw);setScene(initial.get('detail'));timingTable();
