@@ -1,13 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "Beta跑图新增旧房改造，支持逐图房型、独立旧房提示词版本、智能默认与平台风格、多模型批测及飞书独立归档。",
-    "主工作台新增AI渲染台和效果图美化光影模板，沿用独立Prompt配置、光影资产校验与生成归档。",
-    "完善精模Prompt统一管理、白模光影选择和全景默认原光影交互，保留已完成结果与原有生成流程。"
+    "修复空房设计、旧房改造因提示词Agent输出字段变化而无法出图的问题，支持自定义JSON和纯文本。",
+    "空房与旧房的用户补充要求前置，提示词缓存和飞书归档继续保留完整实际正文。",
+    "保留空回复、损坏JSON与长度检查；白模、风格转换及其他功能沿用原有流程。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

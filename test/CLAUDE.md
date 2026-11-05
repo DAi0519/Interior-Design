@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+room-design-prompt-output.test.mjs: 空房/旧房任意JSON及纯文本/围栏/段落标签/字符串、用户原文/缓存/同文归档、无效正文与8000/32000边界、白模/风格转换正式基线行为隔离；双Provider纯内存回归
 beta-room-renovation.test.mjs: 旧房独立版本/权限/房型准入、跨功能字段拒绝、单流程执行/同步失败零重生成、三表独立功能/实际Agent和附件回读及带参考图冷恢复，八项替身合同
 beta-room-renovation-ui.test.mjs: 旧房独立配置/版本切换恢复、缺失下架阻断、逐图房型临时补选、样本×模型/共享参考图和负向草稿隔离，七项无收费行为回归
 effect-beautification-lighting.test.mjs: 新卡Flux/OneAPI单图编译与实际低自然图/元数据、入队去重冻结及执行漂移零收费、旧六档隔离与Beta身份归档，全部替身

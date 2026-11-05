@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖主工作台与Beta旧房入口、逐图房型/独立配置和三表归档、独立飞书旧房Prompt表、共享空房输入与单阶段生成/归档、Flux旧房专属默认负向及独立前端草稿，以及2026-10-23首轮三图、同种子负向对照及v4先清旧再设计的实际执行图、产物、双人视觉评审与飞书回读证据，及final目录保留的原字节媒体与合并证据
-[OUTPUT]: 对外提供旧房独立提示词v4先清旧后完整新设计/大改、专属默认负向与版本/隔离/单流程合同，以及首轮四维评审、仅变负向三图像素相同、v4同seed首句落实/新图偏差和CFG1机制/几何/稳定性证据边界
+[OUTPUT]: 对外提供空房/旧房自由输出、用户原文前置/缓存/长度与单张Sunburst验收，以及旧房独立提示词v4先清旧后完整新设计/大改、专属默认负向与版本/隔离/单流程合同，以及首轮四维评审、仅变负向三图像素相同、v4同seed首句落实/新图偏差和CFG1机制/几何/稳定性证据边界
 [POS]: docs 的旧房改造运行说明，与根及 public/src 地图共同维护
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -18,14 +18,14 @@
 
 生成记录继续归档在现有空房设计功能下，只产生一条普通设计记录；生成参数保存 `designScenario`、实际 `agentCode` 与 `agentVersion`，原始 Prompt 保持用户原文，最终 Prompt 与实际送模正文一致。主工作台不新增飞书功能单选，Benchmark不变；Beta从2026-11-04起使用下述独立任务及功能单选，页面不接收完整 Prompt。
 
-旧房当前v4沿用v2的全面大改边界：只保留真实围合墙体与隔墙（含非承重隔墙）、柱梁、楼板层高、真实门窗洞口的位置/尺寸和原机位画幅。墙地顶饰面、非结构吊顶造型、护墙/背景墙、装饰拱/假柱、门窗框扇装饰、柜体、固定装饰、灯具、家电及全部家具软装都可重新设计；固定、嵌入或定制不等于结构。新方案按房型、明确家具需求、补充要求及目标风格统筹重做，不能退化为同布局换色或换材质。原装修轮廓、分缝、材质、配色、物件及摆放不作为保留依据；去除旧物后，可在同一画幅内露出更多有结构依据的墙地顶表面，不锁定旧遮挡范围。独立风格参考图仍只提供风格，不能迁移结构或布局。
+旧房v4沿用v2的全面大改边界：只保留真实围合墙体与隔墙（含非承重隔墙）、柱梁、楼板层高、真实门窗洞口的位置/尺寸和原机位画幅。墙地顶饰面、非结构吊顶造型、护墙/背景墙、装饰拱/假柱、门窗框扇装饰、柜体、固定装饰、灯具、家电及全部家具软装都可重新设计；固定、嵌入或定制不等于结构。新方案按房型、明确家具需求、补充要求及目标风格统筹重做，不能退化为同布局换色或换材质。原装修轮廓、分缝、材质、配色、物件及摆放不作为保留依据；去除旧物后，可在同一画幅内露出更多有结构依据的墙地顶表面，不锁定旧遮挡范围。独立风格参考图仍只提供风格，不能迁移结构或布局。
 
 ## 独立提示词维护
 
 唯一正文真源为飞书 [旧房改造 Prompt](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tbl9aFZzK7AwF8qk&view=vewptTZ0Rh)，与「空房设计prompt」分表：
 
 - 智能默认（含可选风格参考图）：`room-renovation-smart-default`，当前独立 v4；请求字段 `roomRenovationSmartDefaultVersion`。
-- 平台风格融合：`room-renovation-fusion`，当前独立 v4；请求字段 `roomRenovationPromptAgentVersion`。
+- 平台风格融合：`room-renovation-fusion`，2026-11-05实际目录默认v5、可选v5/v4；请求字段 `roomRenovationPromptAgentVersion`。
 
 v1 从空房两条 v34 复制为独立记录，再仅在旧房副本写入“原图只参考结构、家具软装及原装修不作依据”的规则。发布前后逐条回读，原空房表31条记录的已投影字段完全一致；新表两条正文均按字符数与SHA-256回读匹配。
 
@@ -35,13 +35,13 @@ v1 从空房两条 v34 复制为独立记录，再仅在旧房副本写入“原
 
 以后在此独立表编辑 `System Prompt`；需要保留历史时复制记录、递增版本，完成后设为“上架”。工作台点击刷新配置读取新版本，智能默认使用当前已上架版本，平台融合可选择指定版本。旧房版本记忆与空房分开；未上架或表不可用时只阻断旧房，禁止回退到空房提示词。全下架不会令空房/白模连接失效。
 
-程序直接发送表中的完整 `System Prompt`，Agent 返回的 JSON 仅校验并格式化后原样进入最终出图；不再追加代码内固定提示词，不覆盖 `scene_preservation`。提示词缓存按独立Agent编码、实际版本、完整正文及输入指纹隔离，修改旧房正文可独立生效。可用 `LARK_ROOM_RENOVATION_PROMPT_BASE_TOKEN` / `LARK_ROOM_RENOVATION_PROMPT_TABLE_ID` 指向同结构的独立表。
+程序直接发送表中的完整`System Prompt`。v0.1.23起，空房与旧房的智能默认/参考图智能默认/平台风格接受非空纯文本或任意字段、层级的JSON，不再要求scene_preservation及visual_application三字段，不因新增字段拒绝。两场景用户消息以user_requirements开头；有补充时，对象JSON首字段保留用户原文，纯文本/数组在正文前独立前置原文，无补充不加占位。JSON字符串只解包一次，代码围栏先剥壳；空白、无非空文字叶子的JSON和明显损坏JSON在出图前拒绝，普通[SCENE]标签可用。用户补充仍限制8000字符，服务端编译正文独立上限32000，不截断正文，外部请求字段不能开启内部额度。缓存纳入两场景专用组装/输出版本、独立Agent全文/版本及完整输入身份；实际送模与归档同文。白模/风格转换的输入顺序、最终正文和字段校验沿用v0.1.22。飞书当前Agent正文/版本未因程序修复而改写，下文v4为历史写作合同；不把其字段结构当作新程序准入要求。
 
 v3发布阶段完成两路发布、独立表正文及 `getPublishedPromptAgent` 实际读取正文的SHA-256匹配，原空房表31条记录全字段读回一致。调用 `POST /api/config/refresh` 后，`GET /api/styles` 回读旧房智能默认/融合均为v3、空房两路仍为v34；浏览器刷新已看到旧房风格融合Agent v3，并恢复原智能默认模式。该发布阶段未调用付费模型或执行真实生成；随后2026-10-23已完成以下三张真实样本，发布回读与成图质量分开验收。
 
 ## v4最终提示词先清旧、再完整设计
 
-两路独立旧房Agent当前均上架v4；v1–v3保留下架历史。最终JSON层级和字段名不变，第一叶字符串`scene_preservation`强制逐字以以下两句开头，不能先写Preserve或其他前言：
+以下为两路独立旧房Agent v4的历史正文合同与评测，当前目录版本见上文；v1–v3保留下架历史。v4最终JSON层级和字段名不变，第一叶字符串`scene_preservation`强制逐字以以下两句开头，不能先写Preserve或其他前言：
 
 > Clear out all existing furniture, soft furnishings, cabinets, appliances, lighting fixtures, surface finishes and non-structural decoration from image 1; discard their original arrangement, decorative forms, materials and colors. In this same image, create a completely new, fully finished and fully furnished interior using the resolved furniture placements, layout, architectural finishes, joinery, lighting and styling specified below, never an empty room, demolition view or intermediate stage.
 
@@ -50,6 +50,14 @@ v3发布阶段完成两路发布、独立表正文及 `getPublishedPromptAgent` 
 旧柜轮廓、装饰拱、镜/框玻璃、包边、假凹位不自动视为受保护结构；单图无法确认的底层几何不能臆断。旧植物、书堆、矮凳等不是默认保留需求。Task、Priority、边界、设计规则、字段合同、Schema、quality及静默自检一起更新，程序不拼前缀、不改写Agent输出，不重新引入清空图或第二次生图。
 
 v4正文发布记录：智能默认`reczz28QkkCCmNEr`、融合`reczz28QkkDrzc0f`；先创建下架草稿，完整回读后上架，再下架v3。两份全文SHA匹配；原空房表31条全字段前后相同。4173刷新后旧房两路均v4、空房仍v34，浏览器显示旧房融合v4并恢复智能默认。发布证据与全文见[合并Prompt发布证据](../outputs/room-renovation/final/evidence.json)。实际新正向同种子验证另行记录，不沿用v3最终Prompt，也不将新一轮结果当作负向单变量实验。
+
+## 2026-11-05 自由输出真实单张验收
+
+复用用户截图失败的同一客厅原图和参数：旧房融合v5/奶油法式v5、Gemini 3.1 Pro、GPT Image 2.5 Sunburst、2K/low、跟随原图4:3。通过日常4192正式任务只生成一张，没有付费重试；Agent新调用12.1秒、出图61.7秒，总计73.8秒，交付2048×1536原生PNG并归档成功。
+
+实际Agent仅返回prompt字段的JSON，对同一完整正文运行旧严格解析仍报“Prompt Agent 返回内容缺少必需字段”，新链路已交付成图，因此该单例直接验证固定结构限制已放开。24项任务/版本/参数/尺寸检查通过，飞书原图与结果两附件实际下载后的字节数、SHA256与原件/原生结果匹配，原Beta失败记录保持历史。完整原件与私有归档证据保留本机，不收进发布运行包。
+
+主审与独立复核认为改造明显、现代奶油法式匹配较好，画面略偏暖。主要空间关系大体延续，但竖线扶正及部分柜体/装饰重释使严格几何和原机位保持仍不能判通过；一次结果不外推稳定性。
 
 ## Beta 批量旧房改造（2026-11-04）
 

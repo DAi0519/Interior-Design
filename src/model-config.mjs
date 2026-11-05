@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 对外提供含完整型号与历史别名的模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、全景R5_4原尺寸/空默认负向合同，以及普通Flux推理/超分和精模/光影转换双图独立1K/2K请求构造器
+ * [OUTPUT]: 对外提供服务端编译正文32000/直接输入8000字符准入、含完整型号与历史别名的模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、全景R5_4原尺寸/空默认负向合同，以及普通Flux推理/超分和精模/光影转换双图独立1K/2K请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -321,7 +321,7 @@ export function imageProviderForModel(modelKey) {
 
 export function createGenerationRequest(
   input,
-  { preferSourceAspect = false, sourceDimensions = null } = {},
+  { compiledPrompt = false, preferSourceAspect = false, sourceDimensions = null } = {},
 ) {
   if (input.designScenario !== undefined
     && (input.featureMode !== "emptyRoom" || input.designScenario !== "room-renovation")) {
@@ -347,6 +347,14 @@ export function createGenerationRequest(
   const prompt = String(input.prompt || "").trim();
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
+  // -------- 用户输入与服务端合成正文分开计长；请求字段不能开启内部额度 --------
+  const maxPromptLength = compiledPrompt === true ? 32_000 : 8000;
+  if ((compiledPrompt === true || model.provider !== "comfyui")
+    && (prompt.length < 3 || prompt.length > maxPromptLength)) {
+    const error = new Error(`提示词长度需要在 3–${maxPromptLength} 字符之间`);
+    error.statusCode = 400;
+    throw error;
+  }
 
   if (model.provider === "comfyui") {
     const dual = isRefinedFluxReference(input);
@@ -452,12 +460,6 @@ export function createGenerationRequest(
         } : {}),
       },
     };
-  }
-
-  if (prompt.length < 3 || prompt.length > 8000) {
-    const error = new Error("提示词长度需要在 3–8000 字符之间");
-    error.statusCode = 400;
-    throw error;
   }
 
   if (preferSourceAspect && !validDimensions(resolvedSourceDimensions)) {

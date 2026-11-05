@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖白模/空房/旧房/风格转换的独立飞书Agent、白模可选纯词光影、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
- * [OUTPUT]: 对外提供设计Agent分流与单次出图归档；白模光影进入Agent输入与缓存身份，自动兼容原流程；System Prompt与Agent输出不拼接或覆盖
+ * [OUTPUT]: 对外提供设计Agent分流及单次出图归档；空房/旧房接受自由JSON/纯文本并前置用户原文，独立缓存及32000字符额度，白模/风格转换沿用原合同
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -34,6 +34,8 @@ export const WHITE_MODEL_FEATURE_MODE = "whiteModel";
 export const STYLE_TRANSFER_FEATURE_MODE = "styleTransfer";
 
 const ROOM_RENOVATION_SCENARIO = "room-renovation";
+const DESIGN_PROMPT_ASSEMBLY_VERSION = "user-requirements-first-v1";
+const ROOM_DESIGN_PROMPT_OUTPUT_VERSION = "flexible-output-v1";
 
 function workflowError(message, statusCode = 400) {
   const error = new Error(message);
@@ -97,6 +99,46 @@ export function parsePromptAgentOutput(text, { strict = false } = {}) {
   return payload;
 }
 
+function normalizeRoomDesignPromptOutput(text) {
+  const normalized = typeof text === "string"
+    ? text.trim().replace(/^```(?:json|text|markdown)?(?=\s|$)\s*/i, "").replace(/\s*```$/, "").trim()
+    : "";
+  if (!normalized) throw workflowError("Prompt Agent 返回内容为空", 502);
+  let payload;
+  try {
+    payload = JSON.parse(normalized);
+  } catch {
+    // -------- 明显截断的 JSON 不作为纯文本继续收费出图 --------
+    if (/^\{/.test(normalized) || /^\[\s*(?:["{[\]\d-]|true\b|false\b|null\b|$)/.test(normalized)) {
+      throw workflowError("Prompt Agent 没有返回合法 JSON", 502);
+    }
+    return normalized;
+  }
+  const hasText = (value) => {
+    if (typeof value === "string") return Boolean(value.trim());
+    return value !== null && typeof value === "object"
+      && Object.values(value).some(hasText);
+  };
+  if (!hasText(payload)) throw workflowError("Prompt Agent 返回内容为空", 502);
+  return JSON.stringify(typeof payload === "string" ? payload.trim() : payload, null, 2);
+}
+
+function prependDesignUserRequirements(agentPrompt, userRequirements) {
+  let payload;
+  try {
+    payload = JSON.parse(agentPrompt);
+  } catch {
+    // -------- 纯文本保留正文；用户原文独立放在首段 --------
+  }
+  const body = typeof payload === "string" ? payload : agentPrompt;
+  if (!userRequirements) return body;
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    delete payload.user_requirements;
+    return JSON.stringify({ user_requirements: userRequirements, ...payload }, null, 2);
+  }
+  return `user_requirements:\n${userRequirements}\n\n${body}`;
+}
+
 function styleReferenceContract(hasStyleReference) {
   if (!hasStyleReference) return [];
   return [
@@ -152,10 +194,14 @@ export function buildEmptyRoomSmartDefaultPromptAgentInput({
   hasStyleReference = false,
   roomType,
   roomTypeDetail,
+  taskName = "空房",
   userRequirements,
 }) {
   return [
-    "请执行空房智能默认设计任务。",
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
+    `请执行${taskName}智能默认设计任务。`,
     "",
     "room_type:",
     String(roomType || "").trim(),
@@ -166,9 +212,6 @@ export function buildEmptyRoomSmartDefaultPromptAgentInput({
     "",
     "style_reference_present:",
     hasStyleReference ? "true" : "false",
-    "",
-    "user_requirements:",
-    String(userRequirements || "").trim() || "无补充要求",
   ].join("\n");
 }
 
@@ -177,10 +220,14 @@ export function buildEmptyRoomFusionPromptAgentInput({
   roomType,
   roomTypeDetail,
   styleDna,
+  taskName = "空房",
   userRequirements,
 }) {
   return [
-    "请执行空房平台风格融合任务。",
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
+    `请执行${taskName}平台风格融合任务。`,
     "",
     "room_type:",
     String(roomType || "").trim(),
@@ -191,17 +238,13 @@ export function buildEmptyRoomFusionPromptAgentInput({
     "",
     "style_dna:",
     JSON.stringify(styleDna),
-    "",
-    "user_requirements:",
-    String(userRequirements || "").trim() || "无补充要求",
   ].join("\n");
 }
 
 function buildRoomRenovationPromptAgentInput({ smartDefault, ...options }) {
-  const prompt = smartDefault
-    ? buildEmptyRoomSmartDefaultPromptAgentInput(options)
-    : buildEmptyRoomFusionPromptAgentInput(options);
-  return prompt.replace(/^请执行空房/, "请执行旧房改造");
+  return smartDefault
+    ? buildEmptyRoomSmartDefaultPromptAgentInput({ ...options, taskName: "旧房改造" })
+    : buildEmptyRoomFusionPromptAgentInput({ ...options, taskName: "旧房改造" });
 }
 
 export function buildStyleTransferPromptAgentInput({
@@ -302,6 +345,8 @@ function promptResultCacheKey({
 }) {
   const hash = createHash("sha256");
   const parts = [
+    ...(featureMode === EMPTY_ROOM_FEATURE_MODE
+      ? [DESIGN_PROMPT_ASSEMBLY_VERSION, ROOM_DESIGN_PROMPT_OUTPUT_VERSION] : []),
     agent.code,
     agent.version,
     agent.systemPrompt,
@@ -537,12 +582,12 @@ export async function executeWhiteModelWorkflow(
               userRequirements,
             }),
     });
-    const payload = parsePromptAgentOutput(promptResult.text, {
-      strict: smartDefault || emptyRoom || styleTransfer,
-    });
-    return JSON.stringify(payload, null, 2);
+    if (emptyRoom) return normalizeRoomDesignPromptOutput(promptResult.text);
+    return JSON.stringify(parsePromptAgentOutput(promptResult.text, {
+      strict: smartDefault || styleTransfer,
+    }), null, 2);
   };
-  const finalPrompt = promptResultCache
+  const agentPrompt = promptResultCache
     ? await promptResultCache.get(
         promptResultCacheKey({
           agent,
@@ -563,6 +608,9 @@ export async function executeWhiteModelWorkflow(
         { force: forcePromptRegeneration },
       )
     : await generateFinalPrompt();
+  // -------- 空房/旧房用户原文前置；其他设计功能沿用既有合同 --------
+  const finalPrompt = emptyRoom
+    ? prependDesignUserRequirements(agentPrompt, userRequirements) : agentPrompt;
   const promptDurationMs = Date.now() - promptStartedAt;
   const promptReused = Boolean(promptResultCache && !promptGenerated);
   const generation = createGenerationRequest(
@@ -571,6 +619,7 @@ export async function executeWhiteModelWorkflow(
       prompt: finalPrompt,
     },
     {
+      compiledPrompt: emptyRoom,
       preferSourceAspect: input.ratioMode !== "manual",
       sourceDimensions: {
         height: sourceImages[0].height,
