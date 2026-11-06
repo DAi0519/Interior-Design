@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖共享效果图美化六氛围/新增光影模板互斥控件；依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
-  [OUTPUT]: 提供含旧房改造的可搜索十一任务、独立旧房配置/逐图房型与负向草稿、美化光影/精模预设及全景光影、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
+  [OUTPUT]: 新增户型布局配置与标注弹窗； 提供含旧房改造的可搜索十二任务、独立旧房配置/逐图房型与负向草稿、美化光影/精模预设及全景光影、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
   [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -13,6 +13,7 @@
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · Beta跑图</title>
     <link rel="stylesheet" href="/beta.css?v=25" />
+    <link rel="stylesheet" href="/beta-house-plan.css?v=1" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
     <link rel="stylesheet" href="/effect-beautification.css?v=2" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
@@ -118,6 +119,12 @@
                 <span id="commonPromptLabel">补充要求（可选）</span>
                 <textarea id="commonPromptInput" rows="3" placeholder="整批共用的补充要求"></textarea>
               </label>
+              <div id="housePlanFields" class="hidden">
+                <div class="section-heading"><h3>布局规划 Agent</h3><div class="section-heading-meta"><small id="housePlanStatus">读取中</small><button id="housePlanRefresh" class="quiet-button" type="button">刷新</button></div></div>
+                <label class="field"><span>提示词版本</span><select id="housePlanVersion" aria-label="布局提示词版本"></select></label>
+                <label class="field"><span>布局分析模型</span><select id="housePlanAgent" aria-label="布局分析模型"></select></label>
+                <a id="housePlanPromptLink" target="_blank" rel="noopener noreferrer">在飞书中管理提示词</a>
+              </div>
               <div id="designFields" class="field-grid">
                 <label class="field"><span>设计方式</span><select id="renderModeSelect"><option value="smart-default">智能默认</option><option value="style-dna">平台风格</option></select></label>
                 <label id="styleField" class="field hidden"><span>平台风格</span><select id="styleSelect" data-searchable="true" aria-label="平台风格" data-placeholder="请选择平台风格" data-search-placeholder="搜索风格名称"></select></label>
@@ -271,6 +278,17 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=40"></script>
+    <script type="module" src="/beta-app.js?v=41"></script>
+    <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
+      <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>
+      <p id="housePlanAnnotationHint">先拖动框选主卧</p>
+      <div class="house-plan-beta-stage"><canvas id="housePlanAnnotationCanvas" aria-label="框选户型空间" tabindex="0"></canvas></div>
+      <div class="house-plan-beta-tools">
+        <label class="field"><span>空间名称</span><input id="housePlanSpace" list="housePlanSpaceOptions" maxlength="40" value="主卧" /></label>
+        <datalist id="housePlanSpaceOptions"><option value="主卧"></option><option value="次卧"></option><option value="客厅"></option><option value="餐厅"></option><option value="厨房"></option><option value="卫生间"></option><option value="阳台"></option><option value="书房"></option></datalist>
+        <button id="housePlanAnnotationUndo" class="quiet-button" type="button">撤销</button><button id="housePlanAnnotationClear" class="quiet-button" type="button">清空</button>
+        <button id="housePlanAnnotationSave" class="quiet-button" type="button">保存标注</button>
+      </div>
+    </dialog>
   </body>
 </html>

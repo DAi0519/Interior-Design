@@ -1,0 +1,56 @@
+/**
+ * [INPUT]: 依赖固定版编辑器 DOM 与 Canvas Lab 外层平面/预览及方案保存入口
+ * [OUTPUT]: 平面保留墙门窗/家具/属性，空间预览隐藏编辑侧栏，保存由宿主统一承接
+ * [POS]: 第三方 CSS 后置覆盖层，不修改 vendor 原样式或扩大主页面 CSP
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+:root {
+  --accent: #242424;
+  --accent-soft: #ededed;
+  --bg: #f5f5f5;
+  --text: #242424;
+  --line: #e5e5e5;
+}
+header { height: 44px; padding: 0 12px; gap: 6px; }
+.brand { pointer-events: none; margin-right: 8px; }
+.brand small, .brand .logo { display: none; }
+.brand b { font-size: 12px; font-weight: 500; max-width: 140px; }
+#schemeBtn { cursor: default; }
+#viewSeg, #toolSeg [data-tool="elec"], #toolSeg [data-tool="demolish"],
+#exportMenu, #moreMenu, #quoteBtn, #checkBtn, #phaseBtn, #saveBtn,
+#layerSeg, #mepBtn, #smartBtn, #renderBtn, #panoBtn, #lightBtn, #lightPop,
+#floorDock, #floor3d, #shareBanner, #glbBtn, #glbFile, #fileIn,
+#ulFile, #ulBtn, #demoPlan, #newPlan, #ulCal, #ulDel,
+[data-tab="mep"], [data-tool="pipe"], [data-tool="demolish"],
+#leftPanel .underlay, #leftPanel .ul-preview,
+#camSeg [data-cam="pano"] { display: none !important; }
+#leftPanel .sec:has([data-addf]), #leftPanel .sec:has(#phaseSeg),
+#leftPanel .sec:has(#ulFile), #leftPanel [data-op="garage"],
+#leftPanel [data-st="drain"], #leftPanel [data-st="sewer"] { display: none !important; }
+#inspector .tips:has(kbd), .smart-ui { display: none !important; }
+main:has(#stage[data-view="3d"]) > aside { display: none !important; }
+body:has(#stage[data-view="3d"]) header { display: none !important; }
+#toolSeg [data-tool="measure"], #toolSeg [data-tool="comment"] { display: none !important; }
+header > .sep { display: none; }
+header .btn, header .iconbtn, .seg button { font-size: 12px; }
+aside { width: 218px; }
+aside.right { width: 236px; }
+.tabs button.on { border-bottom-color: #242424; }
+.lib-subs button.on { background: #242424; border-color: #242424; }
+.lib-strip button, .btn, .tbtn, .ibtn, .seg button { border-radius: 5px; }
+input[type="file"] { display: none !important; }
+.lib-cats [data-lc="我的模型"], .lib-style, .lib-row:has(#glbBtn):not(:has(#libSearch)) { display: none !important; }
+.stage[data-view="2d"] .pane2d { background: #fafafa; }
+#stSave { visibility: hidden; }
+#inspector .fgrid:has(#fBrand), #inspector .ins > div:has(+ .fgrid #fBrand) { display: none !important; }
+#camSeg { display: flex; }
+#lookBtn { font-size: 0; }
+#lookBtn::after { content: '显示'; font-size: 12px; }
+#lookStyle [data-style="colorplan"], #lookPose, #ptProg { display: none !important; }
+.fphint { font-size: 11px; max-width: min(560px, calc(100vw - 32px)); }
+@media (max-width: 800px) {
+  header { gap: 4px; padding: 0 8px; }
+  .brand { display: none; }
+  #toolSeg button { padding: 5px 7px; }
+  #toolSeg button svg { display: none; }
+}

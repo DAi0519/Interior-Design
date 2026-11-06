@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模实际光影和旧氛围摘要、浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
- * [OUTPUT]: 对外提供同源API/格式化/文件读取、含精模实际光影及预设执行方式的结果摘要、质感固定词无负向时省略负向标记、ComfyUI分段耗时和原生下拉工具；旧结果不补造执行方式
+ * [OUTPUT]: 同源请求保留HTTP状态供任务恢复判定； 对外提供同源API/格式化/文件读取、含精模实际光影及预设执行方式的结果摘要、质感固定词无负向时省略负向标记、ComfyUI分段耗时和原生下拉工具；旧结果不补造执行方式
  * [POS]: public 的无状态浏览器基础设施，被生成、Benchmark 与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,7 +17,7 @@ export async function api(pathname, options = {}) {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body.error || `请求失败（${response.status}）`);
+    throw Object.assign(new Error(body.error || `请求失败（${response.status}）`), { statusCode: response.status, code: body.code || null });
   }
   return body;
 }

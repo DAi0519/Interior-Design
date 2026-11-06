@@ -1,0 +1,96 @@
+/**
+ * [INPUT]: 依赖工作台令牌、二次编辑表单/工具栏和共享START按钮
+ * [OUTPUT]: 提供参数栏与大画布、底部框选工具、固定START及窄屏分区
+ * [POS]: public 的户型平面布局局部样式，与二次编辑保持相同操作层级
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+.house-plan-page { margin: 0; min-width: 0; height: 100dvh; overflow: hidden; background: transparent; }
+.house-plan-shell { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; height: 100%; min-height: 0; }
+.house-plan-shell [hidden] { display: none !important; }
+.house-plan-settings, .house-plan-workspace { min-width: 0; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.house-plan-settings { display: flex; flex-direction: column; }
+.house-plan-panel-header { height: 44px; flex: none; padding: 0 16px; display: flex; align-items: center; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 600; }
+.house-plan-settings-scroll { flex: 1; min-height: 0; overflow: auto; }
+.house-plan-upload-section, .house-plan-generation { padding: 20px; border-bottom: 1px solid var(--line); }
+.house-plan-shell .section-heading h2 { font-size: 12px; margin: 0; }
+.house-plan-shell .optional { margin-left: 5px; font-size: 10px; font-weight: 400; color: var(--muted); }
+.house-plan-upload { display: flex; align-items: center; gap: 12px; padding: 12px; width: 100%; border: 1px dashed var(--line-strong, #c4c4c9); border-radius: 6px; background: var(--panel-soft); text-align: left; color: var(--text); cursor: pointer; }
+.house-plan-upload svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
+.house-plan-upload img { width: 48px; height: 56px; object-fit: contain; background: white; flex: none; }
+.house-plan-upload span { min-width: 0; }
+.house-plan-upload strong { display: block; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.house-plan-upload small { display: block; margin-top: 6px; color: var(--muted); font-size: 10px; }
+.house-plan-upload.is-dragging { border-color: var(--text); background: var(--panel); }
+.house-plan-shell textarea { width: 100%; box-sizing: border-box; resize: vertical; font-size: 12px; line-height: 1.8; min-height: 128px; }
+.house-plan-actions { flex: none; border-top: 1px solid var(--line); padding: 12px; }
+.house-plan-actions #status { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 0 0 8px; }
+.house-plan-actions .generate-button { justify-content: center; }
+.house-plan-actions .button-label { font-size: 21px; }
+.house-plan-error { margin: 0; color: #b02c25; font-size: 12px; line-height: 1.7; }
+.house-plan-workspace { display: flex; flex-direction: column; padding: 0 20px 16px; }
+.house-plan-tabs { height: 44px; margin: 0; gap: 24px; }
+.house-plan-tabs button { height: 44px; padding: 0; }
+.house-plan-tabs .house-plan-download { margin-left: auto; font-weight: 400; }
+.house-plan-viewer { flex: 1; min-height: 0; min-width: 0; overflow: auto; display: grid; padding: 24px 0; }
+.house-plan-empty { display: grid; place-content: center; text-align: center; color: var(--muted); font-size: 13px; }
+#sourceView { display: grid; place-items: center; min-height: 0; container-type: size; }
+.house-plan-viewer canvas { display: block; max-width: 100%; max-height: 100cqh; width: auto; height: auto; touch-action: none; cursor: crosshair; background: white; }
+#resultView { min-width: 0; }
+.house-plan-viewer img { display: block; width: 100%; max-height: calc(100dvh - 220px); object-fit: contain; }
+.house-plan-note, #plan p { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.house-plan-tools { flex: none; padding-top: 12px; gap: 10px; }
+.house-plan-tool-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+.house-plan-tool-label { font-size: 12px; margin-right: 4px; }
+.house-plan-tool-row > .model-picker { width: 130px; flex: none; }
+.house-plan-tool-row > select { width: 130px; }
+.house-plan-tool-row input { width: 130px; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 12px; }
+.house-plan-annotations { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.house-plan-annotations:empty { display: none; }
+.house-plan-annotations li { display: flex; align-items: center; gap: 6px; background: var(--panel-soft); border-radius: 4px; padding: 3px 6px 3px 8px; font-size: 11px; }
+.house-plan-annotations button { border: 0; background: transparent; color: var(--muted); cursor: pointer; min-width: 24px; min-height: 24px; font-size: 16px; }
+.house-plan-shell :is(button, input, canvas, summary):focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
+.house-plan-shell button:disabled { cursor: default; }
+@media (max-width: 760px) {
+  .house-plan-page { overflow: auto; }
+  .house-plan-shell { display: flex; flex-direction: column; height: auto; min-height: 100%; gap: 12px; }
+  .house-plan-settings { flex: none; }
+  .house-plan-settings-scroll { overflow: visible; }
+  .house-plan-upload-section, .house-plan-generation { padding: 16px; }
+  .house-plan-workspace { min-height: 520px; height: 72dvh; flex: none; padding: 0 12px 12px; order: 1; }
+  .house-plan-settings { display: contents; }
+  .house-plan-panel-header { display: none; }
+  .house-plan-settings-scroll { order: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .house-plan-actions { order: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .house-plan-viewer { padding: 16px 0; }
+}
+
+/* --- 嵌入时复用主工作台的参数宽度、伸缩、抽屉与跨栏START --- */
+.house-plan-integrated .house-plan-shell { display: block; height: 100%; }
+.house-plan-integrated .house-plan-workspace { height: 100%; margin: 0; box-sizing: border-box; }
+.house-plan-parent-settings { grid-column: 2; grid-row: 2; min-height: 0; min-width: 0; overflow: auto; }
+.house-plan-parent-actions { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
+.house-plan-parent-settings[hidden], .house-plan-parent-actions[hidden], .house-plan-parent-settings [hidden] { display: none !important; }
+
+.house-plan-parent-settings .house-plan-error { color: #b02c25; }
+.house-plan-parent-settings .mask-fill-instruction textarea { box-sizing: border-box; width: 100%; font-size: 12px; line-height: 1.8; }
+.house-plan-parent-settings .section-heading h2 { font-size: 12px; }
+.house-plan-parent-settings .house-plan-settings-scroll { overflow: visible; }
+.house-plan-parent-actions .house-plan-actions { margin: 0; padding: 12px; }
+@media (min-width: 901px) {
+  .workspace.workspace-panel-layout.is-house-plan { grid-template-columns: var(--workspace-panel-width, clamp(448px, 33vw, 490px)) minmax(0, 1fr); }
+  body.is-house-plan #configurationPanel.workspace-configuration-panel { grid-template-columns: 144px minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr) auto; }
+  body.is-house-plan #configurationPanel > .workspace-panel-header { grid-template-columns: 144px minmax(0, 1fr); }
+  body.is-house-plan #configurationPanel .workspace-panel-title { display: flex; }
+  body.is-house-plan #workspacePanelResize { display: block !important; }
+  body.is-house-plan #configurationPanel:is(.is-parameters-clipping, .is-panel-collapsed) > :is(.house-plan-parent-settings, .house-plan-parent-actions) { display: none !important; }
+}
+@media (max-width: 900px) {
+  body.is-house-plan #workspacePanelDialog { height: min(90dvh, 900px); max-height: 90dvh; }
+  body.is-house-plan #workspacePanelDialog > #configurationPanel.workspace-configuration-panel { height: 100%; grid-template-rows: 52px minmax(0, 1fr) auto; }
+  .house-plan-parent-settings { grid-column: 1 / -1; }
+  .house-plan-integrated { overflow: hidden; }
+  .house-plan-integrated .house-plan-workspace { min-height: 0; }
+}
+
+.house-plan-agent { padding: 20px; border-bottom: 1px solid var(--line); }
+.house-plan-prompt-link { display: inline-block; margin-top: 12px; font-size: 11px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }

@@ -1,9 +1,10 @@
 /**
- * [INPUT]: 依赖旧房独立Agent目录/空房共享判定和Flux负向草稿，依赖共享美化六氛围/新增光影卡片互斥控制与运行能力；精模Flux参考来源切换触发1K/2K输出目录，依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十一功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
- * [OUTPUT]: 提供旧房逐图房型/独立版本与空房单流程映射、旧进程门禁；效果图美化保留六原工作流、新卡片单图纯词及low/natural执行身份；全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十一功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
+ * [INPUT]: 依赖旧房独立Agent目录/空房共享判定和Flux负向草稿，依赖共享美化六氛围/新增光影卡片互斥控制与运行能力；精模Flux参考来源切换触发1K/2K输出目录，依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十二功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
+ * [OUTPUT]: 新增户型布局逐样本标注、版本/Agent配置与默认GPT2.5模型对比； 提供旧房逐图房型/独立版本与空房单流程映射、旧进程门禁；效果图美化保留六原工作流、新卡片单图纯词及low/natural执行身份；全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十二功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { createBetaHousePlanConfiguration } from "./beta-house-plan.js";
 import { isLightingReference } from "./refined-flux-reference.js";
 import { generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
@@ -24,7 +25,7 @@ import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
 import { createBetaSampleLibrary } from "./beta-sample-library.js?v=8";
-import { renderBetaWarnings } from "./beta-results.js?v=2";
+import { fillBetaSelect as fillSelect, renderBetaProgress as renderProgress, renderBetaWarnings } from "./beta-results.js?v=2";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 import { readImageDimensions } from "./image-ratio.js";
@@ -126,6 +127,8 @@ const sampleLibrary = createBetaSampleLibrary({
   readImage,
   validateSourceImage: assertBetaPanoramaSource,
 });
+const housePlanConfiguration = createBetaHousePlanConfiguration({ getState: () => state, sampleLibrary, fillSelect,
+  onChange() { if (state.featureMode === "housePlanLayout") renderModels(); }, onError: reportUploadError });
 const designConfiguration = createBetaDesignConfiguration({ elements, fillSelect, getState: () => state, restoredPageState });
 const refinedRenderConfiguration = createBetaRefinedRenderConfiguration({ elements, fillSelect, getState: () => state,
   getModels: selectedModels, showToast: message => { elements.runHint.textContent = message; },
@@ -153,20 +156,6 @@ const configuration = createBetaConfigurationPersistence({
 });
 function saveConfiguration() {
   configuration.save();
-}
-function fillSelect(select, options, current = "") {
-  const selected = options.find((option) => String(option.value) === String(current) && !option.disabled)
-    || options.find((option) => !option.disabled);
-  select.replaceChildren(...options.map((entry) => {
-    const { disabled = false, label, value } = entry;
-    const option = document.createElement("option");
-    option.value = String(value);
-    option.textContent = label;
-    option.disabled = disabled;
-    option.selected = entry === selected;
-    return option;
-  }));
-  if (!selected) select.value = "";
 }
 function renderPromptAgentModels() {
   const models = state.catalog.agentModels.filter((model) => model.imageInput);
@@ -258,6 +247,7 @@ function renderReferenceInputs() {
 }
 
 function renderRunSummary() {
+  housePlanConfiguration.decorateSamples();
   elements.betaFeatureSelect.disabled = sampleLibrary.isBusy();
   const total = runCount();
   const samples = sampleCount();
@@ -291,7 +281,7 @@ function renderRunSummary() {
   const effectReady = !effectPromptKey || state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt()
     || state.featureMode === "effectBeautification" && Boolean(effectBeautificationControls.lightingValue())
     || state.stylesConfig?.[effectPromptKey]?.available;
-  const targetIssue = betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
+  const targetIssue = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
     || (["styleTransfer", "roomRenovation"].includes(state.featureMode) ? designConfiguration.unavailableReason() : null);
   const targetReady = !targetIssue;
   const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation()
@@ -327,14 +317,15 @@ function modelAvailable(model) {
   return access ? access.available : model.provider === "comfyui";
 }
 function renderModels() {
+  if (state.featureMode === "housePlanLayout" && !housePlanConfiguration.configured()) { renderOutputControls(); return; }
   state.selectedModelKeys = refinedModelSelection.forFeature(state.featureMode, state.selectedModelKeys, state.catalog.models, state.modelAccessChecked ? [...state.modelAccess.values()] : undefined);
   if (["imageOutpaint", "imageUpscale"].includes(state.featureMode)) { renderOutputControls(); return; }
-  const runnable = state.catalog.models.filter((model) => modelAvailable(model));
+  const runnable = state.catalog.models.filter((model) => modelAvailable(model) && housePlanConfiguration.selectable(model));
   const selectable = runnable.filter((model) => betaModelSelectable(model, state.featureMode));
   state.selectedModelKeys = state.selectedModelKeys.filter((key) =>
     selectable.some((model) => model.key === key));
   if (!state.selectedModelKeys.length && selectable[0] && state.featureMode !== "refinedModel") {
-    const defaultModel = selectable.find((model) => model.key === DEFAULT_BETA_MODEL_KEY)
+    const defaultModel = selectable.find((model) => model.key === (state.featureMode === "housePlanLayout" ? "gptImage25Sunburst" : DEFAULT_BETA_MODEL_KEY))
       || selectable[0];
     state.selectedModelKeys = [defaultModel.key];
   }
@@ -348,6 +339,7 @@ function renderOutputControls() {
     renderRunSummary();
     return;
   }
+  if (state.featureMode === "housePlanLayout") { elements.negativePromptField.classList.add("hidden"); renderRunSummary(); return; }
   const models = selectedModels();
   refinedRenderConfiguration.setModels(models);
   const sizes = betaSizeOptions({ models, featureMode: state.featureMode, refinedLighting: refinedRenderConfiguration.snapshot(),
@@ -373,6 +365,7 @@ function renderOutputControls() {
 }
 function renderDesignConfig() { designConfiguration.render(); }
 function renderFeature() {
+  housePlanConfiguration.render();
   const copy = FEATURE_COPY[state.featureMode];
   elements.betaFeatureSelect.value = state.featureMode;
   const free = state.featureMode === "free";
@@ -385,7 +378,8 @@ function renderFeature() {
   elements.outpaintFields.classList.toggle("hidden", !outpaint);
   elements.upscaleFields.classList.toggle("hidden", !upscale);
   elements.ordinaryOutputFields.classList.toggle("hidden", outpaint || upscale);
-  elements.outputSettingsHint.textContent = upscale ? "对比超分工作流 · 保持原图比例" : outpaint ? "对比不同扩图工作流 · 固定 2K" : "可多选全部可用模型";
+  elements.ordinaryOutputFields.classList.toggle("is-house-plan", state.featureMode === "housePlanLayout");
+  elements.outputSettingsHint.textContent = state.featureMode === "housePlanLayout" ? "沿用户型布局默认参数 · 可多选模型对比" : upscale ? "对比超分工作流 · 保持原图比例" : outpaint ? "对比不同扩图工作流 · 固定 2K" : "可多选全部可用模型";
   elements.commonPromptField.classList.toggle("hidden", free || effect || outpaint || upscale);
   if (!upscale) showStatus(state.connected ? "服务已连接" : "请先连接 API", { ready: state.connected });
   elements.designFields.classList.toggle("hidden", !design);
@@ -421,8 +415,8 @@ function currentCases() {
 }
 function designSettings() { return designConfiguration.settings(); }
 function assertFeatureConfig() {
-  const unavailableReason = betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
-    || generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels());
+  const unavailableReason = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
+    || (state.featureMode === "housePlanLayout" ? null : generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()));
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
   if (state.featureMode === "refinedModel") refinedRenderConfiguration.validate();
@@ -443,6 +437,7 @@ function assertFeatureConfig() {
 function buildItems(startedAt = new Date()) {
   assertFeatureConfig();
   const cases = currentCases();
+  if (state.featureMode === "housePlanLayout") return housePlanConfiguration.buildItems(cases, selectedModels(), startedAt);
   if (state.featureMode === "imageOutpaint") return outpaintConfiguration.buildItems(cases, startedAt);
   if (state.featureMode === "imageUpscale") return upscaleConfiguration.buildItems(cases, startedAt);
   const models = state.featureMode === "refinedModel"
@@ -509,15 +504,6 @@ function buildItems(startedAt = new Date()) {
       }),
     };
   }));
-}
-
-function renderProgress(track, bar, count, value, total) {
-  const normalizedValue = Math.max(0, Math.min(Number(value) || 0, Number(total) || 0));
-  const normalizedTotal = Math.max(0, Number(total) || 0);
-  count.textContent = `${normalizedValue} / ${normalizedTotal}`;
-  bar.style.transform = `scaleX(${normalizedTotal ? normalizedValue / normalizedTotal : 0})`;
-  track.setAttribute("aria-valuemax", String(normalizedTotal));
-  track.setAttribute("aria-valuenow", String(normalizedValue));
 }
 
 function renderJob(job) {
@@ -645,6 +631,7 @@ function bindEvents() {
     const featureMode = elements.betaFeatureSelect.value;
     if (sampleLibrary.isBusy() || !Object.hasOwn(FEATURE_COPY, featureMode) || featureMode === state.featureMode) return;
     state.featureMode = featureMode;
+    if (featureMode === "housePlanLayout") { state.selectedModelKeys = ["gptImage25Sunburst"]; void housePlanConfiguration.refresh(); }
     renderFeature();
     sampleLibrary.setFeatureMode(
       state.featureMode,
@@ -739,6 +726,7 @@ async function load() {
     effectBeautificationControls.setCapabilities(catalog.generationFeatureCapabilities);
     state.connected = session.connected === true;
     state.betaConfig = betaConfig;
+    if (state.featureMode === "housePlanLayout") await housePlanConfiguration.refresh();
     outpaintConfiguration.configure(betaConfig.outpaint);
     upscaleConfiguration.configure(betaConfig.upscale);
     elements.monitorBaseLink.href = betaConfig.baseUrl;

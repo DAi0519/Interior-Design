@@ -1,13 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "修复空房设计、旧房改造因提示词Agent输出字段变化而无法出图的问题，支持自定义JSON和纯文本。",
-    "空房与旧房的用户补充要求前置，提示词缓存和飞书归档继续保留完整实际正文。",
-    "保留空回复、损坏JSON与长度检查；白模、风格转换及其他功能沿用原有流程。"
+    "新增户型平面布局：上传户型图、框选主卧并补充需求，先分析空间再生成二维家具布局，默认 GPT Image 2.5 Sunburst。",
+    "布局提示词由独立飞书表维护，可选择已上架版本；参数面板、画布和 START 与工作台统一。",
+    "原平面布局更名为设计实验室 · Beta；Beta跑图新增户型平面布局，支持逐图标注、多模型对比及飞书归档。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

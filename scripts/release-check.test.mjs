@@ -1,10 +1,11 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 release-check 的源码契约聚合、macOS 启动权限及可注入有限重试边界
- * [OUTPUT]: 对外提供全部超限文件一次汇总、启动权限、瞬时失败恢复、连续失败阻断与重试间隔回归保障
+ * [OUTPUT]: 验证第三方SHA限定豁免及篡改/其他路径阻断； 对外提供全部超限文件一次汇总、启动权限、瞬时失败恢复、连续失败阻断与重试间隔回归保障
  * [POS]: scripts 的发布准入重试单元测试，不执行真实 Git、npm、网络或等待
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -75,4 +76,12 @@ test("连续失败达到上限后仍阻断发布", async () => {
     /still offline/,
   );
   assert.equal(calls, 2);
+});
+
+test("第三方引擎豁免限定路径和原件SHA，不允许任意vendor文件或改写产物", async () => {
+  const file = "public/vendor/house-plan-designer/engine.js";
+  const text = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+  assert.doesNotThrow(() => assertSourceContractEntries([{ file, text }]));
+  assert.throws(() => assertSourceContractEntries([{ file, text: text + "\n" }]), /第三方产物SHA不匹配/);
+  assert.throws(() => assertSourceContractEntries([{ file: "public/vendor/other.js", text }]), /超过 800 行上限/);
 });

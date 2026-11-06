@@ -1,0 +1,90 @@
+<!--
+[INPUT]: 依赖共享工作台主题、二次编辑表单/画布工具栏及独立户型布局控制器
+[OUTPUT]: 提供左侧上传/生成设置/常显Agent版本与基模/START、右侧画布/底部空间框选与结果下载
+[POS]: public 的户型平面布局独立入口，沿用二次编辑操作分区
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/styles.css?v=12" /><link rel="stylesheet" href="/theme.css?v=35" />
+  <link rel="stylesheet" href="/custom-select.css?v=10" /><link rel="stylesheet" href="/config-refresh-button.css?v=1" />
+  <link rel="stylesheet" href="/image-outpaint.css?v=1" /><link rel="stylesheet" href="/image-mask-fill.css?v=1" />
+  <link rel="stylesheet" href="/generation-actions.css?v=1" /><link rel="stylesheet" href="/house-plan.css?v=4" /><link rel="stylesheet" href="/raycast-accent.css?v=42" /><title>Canvas Lab · 户型平面布局</title>
+</head>
+<body class="house-plan-page">
+<main class="house-plan-shell" aria-label="户型平面布局">
+  <aside class="house-plan-settings" aria-label="布局设置">
+    <header class="house-plan-panel-header">参数配置</header>
+    <div class="house-plan-settings-scroll">
+      <section class="house-plan-upload-section">
+        <div class="section-heading"><h2>户型原图 <span class="optional">必填 · 1张</span></h2><span id="sourceCount" class="reference-count">0 / 1</span></div>
+        <button id="upload" class="house-plan-upload" type="button">
+          <svg id="uploadIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5M5 14v6h14v-6"/></svg>
+          <img id="sourceThumbnail" alt="户型原图缩略图" hidden />
+          <span><strong id="sourceName">添加或拖入户型原图</strong><small>PNG / JPEG / WebP · 单张8MB</small></span>
+        </button>
+      </section>
+      <section class="mask-fill-settings house-plan-generation">
+        <div class="section-heading"><h2>生成设置</h2></div>
+        <label class="field"><span>生图模型</span><select id="model" aria-label="生图模型" disabled><option>读取中…</option></select></label>
+        <label class="mask-fill-instruction"><span>补充需求 <span class="optional">可选</span></span>
+          <textarea id="requirements" maxlength="4000" rows="5" placeholder="例如：增加书房、去客厅化，或主卧增加收纳。&#10;留空则按普通家庭需求布置。"></textarea></label>
+      </section>
+      <section class="panel-section house-plan-agent" aria-labelledby="housePlanAgentTitle">
+        <div class="section-heading"><h2 id="housePlanAgentTitle">布局规划 Agent</h2>
+          <div class="section-heading-actions"><span id="promptAvailability" class="micro-status">读取中</span>
+            <button id="refresh" class="config-refresh-button" type="button" aria-label="刷新飞书提示词版本">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18 6.5L20 9M17.9 15A7 7 0 0 1 6 17.5L4 15"/></svg><span id="refreshLabel">刷新</span>
+            </button>
+          </div>
+        </div>
+        <div class="compact-config-stack">
+          <label class="compact-config-label" for="promptVersion">Prompt 版本</label>
+          <div class="compact-config-field"><select id="promptVersion" aria-label="户型布局Prompt版本" disabled><option value="">读取中…</option></select></div>
+          <label class="compact-config-label" for="agentModel">规划基模</label>
+          <div class="compact-config-field"><select id="agentModel" aria-label="布局分析模型" disabled><option>读取中…</option></select></div>
+        </div>
+        <a id="promptLink" class="house-plan-prompt-link" target="_blank" rel="noopener noreferrer" hidden>在飞书中管理提示词</a>
+        <p id="status" class="house-plan-note" role="status" aria-live="polite">上传户型图开始</p>
+        <p id="error" class="house-plan-error" role="alert" hidden></p>
+      </section>
+    </div>
+    <footer class="action-section house-plan-actions">
+      
+      <div class="generation-actions"><button id="generate" class="generate-button functional-accent-button" type="button" aria-label="生成户型布局" disabled><span id="generateLabel" class="button-label">START</span></button></div>
+      
+    </footer>
+  </aside>
+  <section class="house-plan-workspace" aria-label="户型布局工作区">
+    <header class="outpaint-workspace-tabs house-plan-tabs">
+      <button id="showSource" type="button" aria-pressed="true" aria-selected="true">标注户型</button>
+      <button id="showResult" type="button" aria-pressed="false" aria-selected="false" disabled>布局结果</button>
+      <button id="download" class="house-plan-download" type="button" hidden disabled>下载图片</button>
+    </header>
+    <div class="house-plan-viewer">
+      <div id="empty" class="house-plan-empty"><p>上传户型原图，在画布上框选主卧</p></div>
+      <section id="sourceView" aria-label="户型标注" hidden><canvas id="canvas" aria-label="户型标注画布：拖动框选区域" tabindex="0"></canvas></section>
+      <section id="resultView" aria-label="布局结果" hidden>
+        <img id="result" alt="AI生成的户型平面布局图" />
+        <p id="resultMeta" class="house-plan-note"></p>
+        <details><summary>查看布局方案</summary><div id="plan"></div></details>
+      </section>
+    </div>
+    <footer id="drawingTools" class="mask-fill-toolbar house-plan-tools" aria-label="空间标注工具">
+      <div class="house-plan-tool-row">
+        <span class="house-plan-tool-label">框选空间</span>
+        <select id="spaceType" aria-label="框选空间类型"><option>主卧</option><option>次卧</option><option>儿童房</option><option>书房</option><option>客厅</option><option>餐厅</option><option>厨房</option><option>卫生间</option><option>阳台</option><option value="custom">自定义</option></select>
+        <input id="spaceName" aria-label="自定义空间名称" maxlength="40" placeholder="空间名称" hidden />
+        <div class="mask-fill-drawing-actions"><button id="undo" type="button" disabled>撤销</button><button id="clear" type="button" disabled>清空</button></div>
+      </div>
+      <ul id="annotations" class="house-plan-annotations" aria-label="已标注空间"></ul>
+      <p id="drawingHint" class="compact-config-note" role="status">上传原图后，拖动框选主卧</p>
+    </footer>
+  </section>
+</main>
+<input id="sourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+<script type="module" src="/house-plan.js?v=4"></script>
+</body></html>

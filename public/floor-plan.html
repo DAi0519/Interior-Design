@@ -1,0 +1,104 @@
+<!--
+[INPUT]: 依赖共享工作台主题/下拉、平面布局模型目录、图片编排和独立图片任务API
+[OUTPUT]: 提供上传户型/选择模型/生成平面结果，并保留文字调整及室内多角度预览
+[POS]: public 的AI设计设计实验室 Beta 入口，图片流程与按需打开的家具/3D工作区
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/styles.css?v=12" />
+  <link rel="stylesheet" href="/theme.css?v=35" />
+  <link rel="stylesheet" href="/custom-select.css?v=10" />
+  <link rel="stylesheet" href="/floor-plan.css?v=4" />
+  <title>Canvas Lab · 设计实验室 Beta</title>
+</head>
+<body class="floor-plan-page">
+  <main class="floor-plan-shell" aria-label="设计实验室 Beta">
+    <header class="floor-plan-toolbar">
+      <h1>设计实验室 · Beta</h1>
+      <div class="floor-plan-tabs" role="tablist" aria-label="方案视图">
+        <button id="floorPlanTabLayout" type="button" role="tab" aria-selected="true" aria-controls="floorPlanLayout">平面方案</button>
+        <button id="floorPlanTabInterior" type="button" role="tab" aria-selected="false" aria-controls="floorPlanInterior" disabled>室内预览</button>
+      </div>
+      <button id="floorPlanEditFurniture" type="button">家具编辑 / 3D</button>
+      <button id="floorPlanDownload" type="button" disabled>下载图片</button>
+    </header>
+    <p id="floorPlanError" class="floor-plan-error" role="alert" hidden></p>
+    <section id="floorPlanLayout" class="floor-plan-content" role="tabpanel" aria-label="平面方案">
+      <aside class="floor-plan-inputs" aria-label="布局要求">
+        <button id="floorPlanUpload" class="floor-plan-upload" type="button" aria-controls="floorPlanSourceInput">
+          <img id="floorPlanSourcePreview" alt="已上传的原始户型图" hidden />
+          <svg id="floorPlanUploadIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg>
+          <span id="floorPlanSourceName">上传户型图</span><small>PNG / JPEG / WebP · 最大8MB</small>
+        </button>
+        <label for="floorPlanModel">生成模型</label>
+        <select id="floorPlanModel" aria-label="平面布局生成模型" disabled><option value="">读取模型中…</option></select>
+        <p id="floorPlanModelNote" class="floor-plan-note" role="status" hidden></p>
+        <label for="floorPlanRequirements">布局要求（可选）</label>
+        <textarea id="floorPlanRequirements" rows="4" maxlength="4000" placeholder="例如：两间卧室，客厅增加收纳，餐桌放在厨房旁。"></textarea>
+        <button id="floorPlanGenerate" class="floor-plan-primary" type="button" disabled>生成平面布局</button>
+        <p class="floor-plan-note">保留户型结构，根据你的需求安排家具。</p>
+        <div id="floorPlanAdjustPanel" class="floor-plan-adjust" hidden>
+          <label for="floorPlanAdjustment">继续调整</label>
+          <textarea id="floorPlanAdjustment" rows="3" maxlength="4000" placeholder="例如：餐桌改为四人圆桌，沙发向阳台移动。"></textarea>
+          <button id="floorPlanAdjust" type="button" disabled>修改当前方案</button>
+        </div>
+        <button id="floorPlanGoInterior" class="floor-plan-next" type="button" hidden>查看室内效果 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg></button>
+      </aside>
+      <div class="floor-plan-viewer">
+        <div id="floorPlanEmpty" class="floor-plan-empty"><h2>从户型，开始设计</h2><p>上传户型图，选择模型，生成平面布局。</p></div>
+        <img id="floorPlanLayoutImage" class="floor-plan-result" alt="AI生成的平面家具布局方案" hidden />
+        <div id="floorPlanLayoutMeta" class="floor-plan-image-meta" hidden></div>
+      </div>
+    </section>
+    <section id="floorPlanInterior" class="floor-plan-content" role="tabpanel" aria-label="室内预览" hidden>
+      <aside class="floor-plan-inputs" aria-label="室内预览设置">
+        <label for="floorPlanInteriorRequirements">想看哪个空间</label>
+        <textarea id="floorPlanInteriorRequirements" rows="4" maxlength="4000" placeholder="例如：客餐厅，站在入户处看向阳台，原木简约风。"></textarea>
+        <button id="floorPlanRenderInterior" class="floor-plan-primary" type="button" disabled>生成室内预览</button>
+        <p class="floor-plan-note">根据当前平面方案生成室内效果。</p>
+        <div id="floorPlanCameraPanel" class="floor-plan-camera-panel" hidden>
+          <p>生成其他角度</p>
+          <div class="floor-plan-directions" role="group" aria-label="生成新的预览角度">
+            <button data-camera="270" type="button">左侧</button>
+            <button data-camera="180" type="button">反向</button>
+            <button data-camera="90" type="button">右侧</button>
+          </div>
+          <div id="floorPlanShots" class="floor-plan-shots" role="group" aria-label="已生成的机位"></div>
+          <p class="floor-plan-note">AI 推断新视角，空间与家具细节可能有偏差。</p>
+        </div>
+      </aside>
+      <div class="floor-plan-viewer">
+        <div id="floorPlanInteriorEmpty" class="floor-plan-empty"><h2>把布局变成室内效果</h2><p>选择想看的空间和风格，生成第一张预览。</p></div>
+        <img id="floorPlanInteriorImage" class="floor-plan-result" alt="基于平面方案生成的AI室内预览" hidden />
+        <div id="floorPlanInteriorMeta" class="floor-plan-image-meta" hidden></div>
+      </div>
+    </section>
+    <footer class="floor-plan-statusbar"><span id="floorPlanStatus" role="status" aria-live="polite">上传户型图开始</span><span id="floorPlanConfigNote"></span><button id="floorPlanRefresh" type="button">刷新配置</button></footer>
+  </main>
+  <dialog id="geometryDialog" aria-labelledby="geometryTitle">
+    <div class="geometry-toolbar"><h2 id="geometryTitle">家具编辑 / 3D</h2>
+      <button id="geometry2d" type="button" aria-pressed="true">编辑家具</button>
+      <button id="geometry3d" type="button" aria-pressed="false">查看 3D</button>
+      <button id="geometrySave" type="button">保存方案</button>
+      <button id="geometryExport" type="button">导出方案</button>
+      <button id="geometryImport" type="button">导入方案</button>
+      <button id="geometryClose" type="button">返回布局</button>
+    </div>
+    <div class="geometry-source"><label for="geometryModel">OneAPI 识图模型</label>
+      <select id="geometryModel" aria-label="OneAPI 识图模型" disabled><option value="">读取中…</option></select>
+      <button id="geometryRecognize" type="button" disabled>识别当前图并建模</button>
+      <button id="geometryDemo" type="button">体验示例</button>
+    </div>
+    <p id="geometryStatus" role="status"></p>
+    <iframe id="geometryFrame" title="可编辑户型及几何3D视图"></iframe>
+    <input id="geometryFile" type="file" accept=".json,application/json" hidden />
+  </dialog>
+  <input id="floorPlanSourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+  <script type="module" src="/floor-plan.js?v=4"></script>
+</body>
+</html>

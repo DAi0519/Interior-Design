@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十一功能目录/旧房准入与共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供美化六氛围与新增模板共用控件/身份和能力接线、十一功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
+ * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十二功能目录/旧房准入与共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
+ * [OUTPUT]: 对外提供美化六氛围与新增模板共用控件/身份和能力接线、十二功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -50,7 +50,7 @@ test("Beta提示词模型正常授权不显示说明，检测/断连/权限失�
   }
 });
 
-test("Beta跑图是独立第三工作台，十一功能任务使用共享可搜索下拉并保留配置与监控", async () => {
+test("Beta跑图是独立第三工作台，十二功能任务使用共享可搜索下拉并保留配置与监控", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -71,7 +71,7 @@ test("Beta跑图是独立第三工作台，十一功能任务使用共享可搜�
   assert.match(featureSelect, /aria-label="选择任务"/);
   assert.doesNotMatch(html, /betaFeatureOptions|data-feature-mode=/);
   assert.deepEqual(Object.entries(BETA_FEATURE_COPY).map(([key, copy]) => [key, copy.label]), [
-    ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["roomRenovation", "旧房改造"], ["styleTransfer", "风格转换"],
+    ["housePlanLayout", "户型平面布局"], ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["roomRenovation", "旧房改造"], ["styleTransfer", "风格转换"],
     ["refinedModel", "精模渲染"], ["effectEnhancement", "效果图氛围转换"],
     ["effectBeautification", "效果图美化"], ["panoramaEnhancement", "全景图美化"],
     ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageUpscale", "AI超分"],
@@ -83,7 +83,7 @@ test("Beta跑图是独立第三工作台，十一功能任务使用共享可搜�
   const featureChange = source.match(/elements\.betaFeatureSelect\.addEventListener\("change", \(\) => \{([\s\S]*?)\n  \}\);/)?.[1] || "";
   assert.match(featureChange, /const featureMode = elements\.betaFeatureSelect\.value/);
   assert.match(featureChange, /if \(sampleLibrary\.isBusy\(\) \|\| !Object\.hasOwn\(FEATURE_COPY, featureMode\) \|\| featureMode === state\.featureMode\) return/);
-  assert.match(featureChange, /state\.featureMode = featureMode;\s*renderFeature\(\);\s*sampleLibrary\.setFeatureMode\(\s*state\.featureMode,\s*state\.sampleSetIds\[state\.featureMode\],\s*\)\.then\(saveConfiguration\)\.catch\(reportUploadError\)/);
+  assert.match(featureChange, /state\.featureMode = featureMode;[\s\S]*?renderFeature\(\);\s*sampleLibrary\.setFeatureMode\(\s*state\.featureMode,\s*state\.sampleSetIds\[state\.featureMode\],\s*\)\.then\(saveConfiguration\)\.catch\(reportUploadError\)/);
   assert.doesNotMatch(source, /betaFeatureOptions|button\.dataset\.featureMode/);
   assert.doesNotMatch(html, /styleDnaReverse|风格反推/);
   assert.match(html, /id="sourceFilesInput"[^>]*multiple/);
@@ -100,7 +100,7 @@ test("Beta跑图是独立第三工作台，十一功能任务使用共享可搜�
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=40/);
+  assert.match(html, /beta-app\.js\?v=41/);
   assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
   assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
   assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
@@ -143,7 +143,7 @@ test("Beta跑图是独立第三工作台，十一功能任务使用共享可搜�
   assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
   assert.match(source, /sampleId: currentCase\.caseId/);
   assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
-  assert.match(source, /import \{ renderBetaWarnings \} from "\.\/beta-results\.js\?v=2"/);
+  assert.match(source, /import \{ [^}]*renderBetaWarnings \} from "\.\/beta-results\.js\?v=2"/);
   assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=2"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
   assert.match(source, /DEFAULT_BETA_MODEL_KEY/);
@@ -154,7 +154,7 @@ test("Beta跑图是独立第三工作台，十一功能任务使用共享可搜�
   assert.match(configuration, /window\.addEventListener\("pagehide", save\)/);
   assert.match(configuration, /document\.visibilityState === "hidden"/);
   assert.match(source, /state\.sampleSetIds\[state\.featureMode\]/);
-  assert.match(source, /selectable\.find\(\(model\) => model\.key === DEFAULT_BETA_MODEL_KEY\)/);
+  assert.match(source, /selectable\.find\(\(model\) => model\.key === \(state\.featureMode === "housePlanLayout" \? "gptImage25Sunburst" : DEFAULT_BETA_MODEL_KEY\)\)/);
   assert.match(source, /bindImageDrop/);
   assert.match(source, /createBetaSampleLibrary/);
   assert.match(source, /runButtonLabel\.textContent = running \? "RUNNING…" : failed \? "RETRY" : "START"/);
@@ -274,7 +274,7 @@ test("Beta美化新增模板无需旧六档Prompt，但失效卡片必须在提�
   let selection = null, issue = null;
   const context = {
     state: { featureMode: "effectBeautification", catalog: {}, stylesConfig: { effectBeautificationPrompt: { available: false } } },
-    generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason,
+    housePlanConfiguration: { reason: () => null }, generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason,
     selectedModels: () => [], sampleLibrary: { assertRoomTypes() {} }, FEATURE_COPY: BETA_FEATURE_COPY,
     effectBeautificationControls: { lightingValue: () => selection, validation: () => issue },
   };

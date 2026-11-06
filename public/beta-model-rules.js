@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 model-capabilities 的按功能及精模Flux双图尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
- * [OUTPUT]: 对外提供含旧房改造的十一功能文案目录、旧进程旧房准入、独立AI超分图像任务、风格转换空间图/补充要求、全景2:1/R5_4原尺寸准入与普通输出控件状态
+ * [OUTPUT]: 对外提供含户型布局的十二功能文案目录、旧进程旧房准入、独立AI超分图像任务、风格转换空间图/补充要求、全景2:1/R5_4原尺寸准入与普通输出控件状态
  * [POS]: public 的 Beta 功能与模型纯规则层，供页面编排、持久配置和测试复用，不读取 DOM 或图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { sizeControlState } from "./model-capabilities.js";
 
 export const BETA_FEATURE_COPY = Object.freeze({
+  housePlanLayout: { label: "户型平面布局", prompt: "补充需求（可选）", source: "户型原图" },
   whiteModel: { label: "白模渲染", prompt: "补充要求（可选）", source: "白模图" },
   emptyRoom: { label: "空房设计", prompt: "补充要求（可选）", source: "空房图" },
   roomRenovation: { label: "旧房改造", prompt: "补充要求（可选）", source: "旧房照片" },
@@ -22,8 +23,8 @@ export const BETA_FEATURE_COPY = Object.freeze({
 });
 
 export function betaFeatureUnavailableReason(featureMode, config) {
-  return featureMode === "roomRenovation" && !config?.features?.includes(featureMode)
-    ? "当前服务尚未加载 Beta 旧房改造，请更新工作台服务后刷新" : null;
+  return ["housePlanLayout", "roomRenovation"].includes(featureMode) && !config?.features?.includes(featureMode)
+    ? `当前服务尚未加载 Beta ${BETA_FEATURE_COPY[featureMode].label}，请更新工作台服务后刷新` : null;
 }
 
 export function betaModelSelectable(model, featureMode) {

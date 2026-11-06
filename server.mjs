@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖ai-render-studio-api的独立生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: 对外提供AI渲染台独立任务/飞书同步与更新忙碌守卫、生图/Beta/模型评测页面及配置/连接/生成下载API；原打光/遮罩填充和飞书归档边界保持，JSON单次请求保留30MB保护
+ * [INPUT]: 依赖beta-house-plan的主服务适配； 依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [OUTPUT]: Beta新增户型布局批跑及同源版本准入； 提供户型平面布局Agent生图、实验室/AI渲染台独立任务与更新忙碌守卫、渲染台飞书同步、生图/Beta/模型评测页面及配置/连接/生成下载API；原打光/遮罩填充和飞书归档边界保持，JSON单次请求保留30MB保护
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ import { createRefinedFluxClient } from "./src/refined-flux-reference.mjs";
 import { createPanoramaClient } from "./src/panorama-client.mjs";
 import { EMPTY_ROOM_FURNITURE, OTHER_FURNITURE_MAX_LENGTH } from "./src/empty-room-furniture.mjs";
 import { EMPTY_ROOM_TYPES, EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH } from "./src/empty-room-type.mjs";
+import { createBetaHousePlanService } from "./src/beta-house-plan.mjs";
 import { captureBetaGenerationArchive, createBetaBaseStore } from "./src/beta-base.mjs";
 import { readBetaUpscaleConfig } from "./src/beta-upscale.mjs";
 import { createBetaApiHandler, createBetaRunnerService } from "./src/beta-runner.mjs";
@@ -27,6 +28,8 @@ import { readGenerationConfig } from "./src/generation-config.mjs";
 import { createGenerationJobApiHandler, supportedGenerationFeatureCapabilities, supportedGenerationFeatureModes } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createAiRenderStudioApiHandler } from "./src/ai-render-studio-api.mjs";
+import { createFloorPlanApiHandler } from "./src/floor-plan-api.mjs";
+import { readHousePlanConfig, prepareHousePlanInput, executeHousePlan } from "./src/house-plan-service.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
 import { readMultiAngleConfig } from "./src/image-multi-angle-service.mjs";
 import { IMAGE_MASK_FILL_CLIENT_OPTIONS } from "./src/image-mask-fill-workflow.mjs";
@@ -76,7 +79,7 @@ const handleAppUpdateApi = createAppUpdateApiHandler({
   appUpdates, appInstaller, readJson, sendJson,
   hasActiveJobs: () => activeApiMutations > 0 || generationJobs.hasActiveJobs()
     || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs()
-    || handleAiRenderStudioApi.hasActiveJobs(),
+    || handleAiRenderStudioApi.hasActiveJobs() || handleFloorPlanApi.hasActiveJobs() || handleHousePlanApi.hasActiveJobs(),
 });
 const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(ROOT_DIR, "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2");
@@ -321,12 +324,13 @@ function scheduleGenerationSync(input) {
   };
   return syncJobs.enqueue(generationId, () => syncGenerationToLark(syncInput));
 }
-const generationService = createGenerationService({
-  getSessionModelCatalog,
-  imageClientForModel,
-  imageUpscaleClient, panoramaClient, imageOutpaintClient, qwenImageClient, imageMultiAngleClient, imageMaskFillClient, qwenMaskFillClient,
+const generationDependencies = {
+  getSessionModelCatalog, imageClientForModel, requireApiKey,
+  imageUpscaleClient, panoramaClient, imageOutpaintClient, qwenImageClient,
   promptResultCache: whiteModelPromptResultCache,
-  requireApiKey,
+};
+const generationService = createGenerationService({
+  ...generationDependencies, imageMultiAngleClient, imageMaskFillClient, qwenMaskFillClient,
   scheduleGenerationSync,
   verifyRelightSyncContract: () => verifyLarkSyncSchema(undefined, { scope: "imageRelight" }),
 });
@@ -335,18 +339,18 @@ const handleAiRenderStudioApi = createAiRenderStudioApiHandler({
   getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey())),
   readJson, sendJson,
 });
-const betaGenerationService = createGenerationService({
-  archiveImageUpscale: true,
-  getSessionModelCatalog,
-  imageClientForModel,
-  imageUpscaleClient, panoramaClient, imageOutpaintClient, qwenImageClient,
-  promptResultCache: whiteModelPromptResultCache,
-  requireApiKey,
+const floorPlanRuntime = { getClient: () => createOneApiClient(requireApiKey()), requireKey: requireApiKey, readJson, sendJson,
+  getModels: ({ forceRefresh } = {}) => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: forceRefresh }) };
+const handleFloorPlanApi = createFloorPlanApiHandler(floorPlanRuntime);
+const handleHousePlanApi = createFloorPlanApiHandler({ ...floorPlanRuntime, prefix: "/api/house-plan", featureMode: "housePlanLayout",
+  geometryEnabled: false, readConfig: readHousePlanConfig, prepareInput: prepareHousePlanInput, execute: executeHousePlan });
+const betaGenerationService = createGenerationService({ ...generationDependencies, archiveImageUpscale: true,
   scheduleGenerationSync: captureBetaGenerationArchive,
 });
 const betaRunner = createBetaRunnerService({
   baseStore: createBetaBaseStore(),
   generationService: betaGenerationService,
+  housePlanService: createBetaHousePlanService(floorPlanRuntime),
   getOutpaintConfig: getImageOutpaintConfig,
   getUpscaleConfig: () => readBetaUpscaleConfig(imageUpscaleClient),
 });
@@ -396,6 +400,8 @@ async function handleApi(request, response, pathname) {
   if (await handleAppUpdateApi(request, response, pathname)) return;
 
   if (await handleAiRenderStudioApi(request, response, pathname)) return;
+  if (await handleFloorPlanApi(request, response, pathname)) return;
+  if (await handleHousePlanApi(request, response, pathname)) return;
 
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;

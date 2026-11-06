@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 任务快照的逐项异常、阶段、样本/模型标签、飞书记录链接与页面请求错误
- * [OUTPUT]: 对外提供 betaJobWarnings 异常归一化与 renderBetaWarnings 预警列表渲染，不展示结果图片
+ * [OUTPUT]: 对外提供 betaJobWarnings 异常归一化与 renderBetaWarnings 预警列表渲染，含Beta下拉与双阶段进度DOM工具，不展示结果图片
  * [POS]: public 的 Beta跑图监控预警组件，以安全文本呈现生成/归档/连接问题，结果继续在飞书查看
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -61,4 +61,27 @@ export function renderBetaWarnings({ container, count, job = null, error = "" })
     return;
   }
   container.replaceChildren(...warnings.map(warningRow));
+}
+
+export function fillBetaSelect(select, options, current = "") {
+  const selected = options.find((option) => String(option.value) === String(current) && !option.disabled)
+    || options.find((option) => !option.disabled);
+  select.replaceChildren(...options.map((entry) => {
+    const { disabled = false, label, value } = entry;
+    const option = document.createElement("option");
+    option.value = String(value);
+    option.textContent = label;
+    option.disabled = disabled;
+    option.selected = entry === selected;
+    return option;
+  }));
+  if (!selected) select.value = "";
+}
+export function renderBetaProgress(track, bar, count, value, total) {
+  const normalizedValue = Math.max(0, Math.min(Number(value) || 0, Number(total) || 0));
+  const normalizedTotal = Math.max(0, Number(total) || 0);
+  count.textContent = `${normalizedValue} / ${normalizedTotal}`;
+  bar.style.transform = `scaleX(${normalizedTotal ? normalizedValue / normalizedTotal : 0})`;
+  track.setAttribute("aria-valuemax", String(normalizedTotal));
+  track.setAttribute("aria-valuenow", String(normalizedValue));
 }

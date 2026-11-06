@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖HTTP安全头与静态路径策略
- * [OUTPUT]: 验证AI渲染台仅允许同源嵌入且其他静态页面/API保持原拒绝策略
+ * [OUTPUT]: 验证独立工作区只允许同源嵌入且其他静态页面/API保持原拒绝策略
  * [POS]: test 的嵌入边界合同，无浏览器或网络调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,4 +17,10 @@ test("渲染台只开放同源宿主嵌入，其他安全指令不变", () => {
     assert.strictEqual(staticSecurityHeaders(path), SECURITY_HEADERS);
   }
   assert.equal(SECURITY_HEADERS["X-Frame-Options"], "DENY");
+});
+
+test("平面布局同源嵌入，其他路径保持默认拒绝策略", () => {
+  const page = staticSecurityHeaders("/floor-plan.html");
+  assert.equal(page["X-Frame-Options"], "SAMEORIGIN");
+  assert.strictEqual(staticSecurityHeaders("/other/floor-plan.html"), SECURITY_HEADERS);
 });

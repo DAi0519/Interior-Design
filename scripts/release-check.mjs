@@ -1,10 +1,11 @@
 /**
  * [INPUT]: 依赖 Git 工作区、package/lock、Node/npm、发布白名单与项目源码文档契约
- * [OUTPUT]: 对外提供可复用 runReleaseChecks 与源码契约聚合断言，并执行干净提交、启动权限、测试、依赖与安全检查
+ * [OUTPUT]: 固定第三方引擎按路径/SHA豁免行数，其余契约与安全检查不变； 对外提供可复用 runReleaseChecks 与源码契约聚合断言，并执行干净提交、启动权限、测试、依赖与安全检查
  * [POS]: scripts 的发布准入门，一次汇总全部超长文件与契约缺失，并阻断脏工作区、版本漂移和疑似密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
@@ -19,6 +20,10 @@ import {
 export const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 export const MAX_SOURCE_LINES = 800;
+// --- 固定第三方构建产物仅豁免行数；路径与原件SHA必须同时匹配。 ---
+const VENDORED_SOURCE_SHA256 = Object.freeze({
+  "public/vendor/house-plan-designer/engine.js": "83f91e5702fab44a5a5bf52e0e57c7d3c9fcaea843f608129b7b539a6981b47d",
+});
 
 export function runCommand(label, command, args, {
   capture = false,
@@ -117,7 +122,10 @@ export function assertSourceContractEntries(entries) {
   const issues = [];
   for (const { file, text } of entries) {
     const count = lineCount(text);
-    if (count > MAX_SOURCE_LINES) {
+    const vendorDigest = VENDORED_SOURCE_SHA256[file];
+    const pinnedVendor = vendorDigest && createHash("sha256").update(text).digest("hex") === vendorDigest;
+    if (vendorDigest && !pinnedVendor) issues.push(`${file} 第三方产物SHA不匹配，需复核来源和许可证`);
+    if (count > MAX_SOURCE_LINES && !pinnedVendor) {
       issues.push(`${file} 为 ${count} 行，超过 ${MAX_SOURCE_LINES} 行上限`);
     }
     if (![".js", ".mjs"].includes(extname(file))) continue;

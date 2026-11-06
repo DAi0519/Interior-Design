@@ -1,0 +1,25 @@
+{
+  "upstream": "https://github.com/ZWD11/house-plan-designer",
+  "commit": "b94183f9ce2215db9a178da89a90d2ecefb18497",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 ZWD11",
+  "template": {
+    "path": "assets/template.html",
+    "bytes": 2024422,
+    "sha256": "8d0de9d3c35a9b60f64d97e16431860dad77828cc9e5b20960e15722505e6b9d"
+  },
+  "transformation": "Extract inline module and stylesheet without changing their content; add external bootstrap, product CSS and a same-origin host bridge. Original TypeScript source is not included by upstream.",
+  "verification": "Passed Node syntax checks, exact upstream JS/CSS extraction checks, no inline executable HTML, same-directory asset resolution, MIT copy equality, and six host-bridge behavior tests including unified Ctrl/Cmd+S. Browser acceptance is recorded separately.",
+  "extractedBodySha256": {
+    "engine.js": "b242e16064db77be332df471e41776e1b29108596f91b38bf50e4939eb44ad8d",
+    "engine.css": "84af08ff875578f8e48cb128ae9b7e9ba20a37d5eef139de067fc76a4a79516a"
+  },
+  "artifacts": {
+    "editor.html": "463be579c0de77663d8ece5d2fcb35bedba20e3955686f60c2a91c004edaabd5",
+    "engine.js": "83f91e5702fab44a5a5bf52e0e57c7d3c9fcaea843f608129b7b539a6981b47d",
+    "engine.css": "ad60759c7e84c8e51fee2d3d1ecaf68f72bdbbbcc6a22a747caea02b5c45eb69",
+    "bootstrap.js": "ea53edeb7d0efbf118a5a6a8f626b9a506d8844610dbd4d41aa9dfa7ee334b29",
+    "integration.css": "16785ccba2cf24dbec026e016389456f0a442c8c50e8661ca8ab6340ccba5f7e",
+    "LICENSE": "c4cc143edbe5e2d4bdcf75e94c3bb2091195f2327bc164d0ebfc384694358de7"
+  }
+}

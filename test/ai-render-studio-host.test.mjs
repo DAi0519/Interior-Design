@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式渲染台宿主、主目录/编排/布局源码和内存DOM/历史记录替身
- * [OUTPUT]: 验证正式入口、旧START隔离、iframe保活、移动抽屉退出、原功能输入/任务保存及URL直达
+ * [OUTPUT]: 验证正式入口、实验室Beta命名、旧START隔离、iframe保活、移动抽屉退出、原功能输入/任务保存及URL直达
  * [POS]: test 的主工作台渲染台集成合同，不加载真实iframe、不调用网络或生图模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -139,4 +139,25 @@ test("旧生成函数在渲染台模式直接退出，布局同时隔离旧执�
   assert.match(css, /body\.is-ai-render-studio #configurationPanel > :is\(\.control-panel-scroll, \.action-section\)/);
   assert.match(css, /grid-template-columns: 144px minmax\(0, 1fr\)/);
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?grid-column: 1; grid-row: 2/);
+});
+
+test("平面布局与渲染台共用保活边界，跨独立工作区切换不重载或泄漏旧START", () => {
+  const f = fixture();
+  f.host.show("floorPlan");
+  const floorFrame = f.created.find((node) => node.title === "设计实验室 · Beta");
+  assert.equal(floorFrame.src, "/floor-plan.html?embedded=1");
+  assert.equal(f.floorFrame, undefined);
+  floorFrame.editedPlan = { furniture: ["用户拖动的沙发"] };
+  f.host.show();
+  assert.equal(floorFrame.hidden, true);
+  assert.equal(floorFrame.inert, true);
+  f.host.show("floorPlan");
+  assert.equal(floorFrame.sourceWrites, 1);
+  assert.deepEqual(floorFrame.editedPlan, { furniture: ["用户拖动的沙发"] });
+  assert.equal(floorFrame.hidden, false);
+  assert.equal(f.actions.hidden, true);
+  assert.equal(f.doc.defaultView.location.href, "http://127.0.0.1:4192/?other=keep&feature=floorPlan#result");
+  f.host.hide("whiteModel");
+  assert.equal(f.actions.hidden, false);
+  assert.equal(f.scroll.inputValue, "旧功能用户输入");
 });

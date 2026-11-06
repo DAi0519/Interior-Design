@@ -1,0 +1,172 @@
+<!doctype html>
+<!--
+[INPUT]: 依赖同目录 bootstrap.js 的干净预设、engine.js/CSS 固定引擎与 integration.css 产品边界
+[OUTPUT]: 提供不含内联脚本的同源平面布局 iframe，调试 API 仅供父页桥接
+[POS]: public/vendor/house-plan-designer 的唯一浏览器入口
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>平面布局 · Canvas Lab</title>
+  <script src="./bootstrap.js"></script>
+<script type="module" src="./engine.js"></script>
+  <link rel="stylesheet" href="./engine.css">
+<link rel="stylesheet" href="./integration.css">
+</head>
+<body>
+<div class="app">
+<header>
+  <button class="iconbtn mobile-only" id="leftToggle" title="面板">☰</button>
+  <div class="brand" id="schemeBtn" title="方案管理：多方案切换与对比">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></div>
+    <div><b id="planTitle">户型装修设计器</b><small><span id="phaseTag" class="phase">拆改设计</span> <span class="muted">· 方案 ▾</span></small></div>
+  </div>
+  <div class="seg" id="viewSeg">
+    <button data-view="2d" class="on" title="2D 平面 (1)"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h9V3M12 12v9"/></svg>2D</button>
+    <button data-view="split" title="分屏 (2)"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M12 4v16"/></svg>分屏</button>
+    <button data-view="3d" title="3D 空间 (3)"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>3D</button>
+  </div>
+  <div class="sep"></div>
+  <div class="seg" id="toolSeg">
+    <button data-tool="select" class="on" title="选择 / 移动 (V)"><svg class="i" viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L10 19z"/></svg>选择</button>
+    <button data-tool="wall" title="画墙 (W)"><svg class="i" viewBox="0 0 24 24"><path d="M4 19V5h16"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="1.5"/></svg>画墙</button>
+    <button data-tool="rect" title="画房间 (B)"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14"/></svg>房间</button>
+    <button data-tool="opening" title="门窗"><svg class="i" viewBox="0 0 24 24"><path d="M4 20V4h1M5 4a15 15 0 0 1 15 15"/><path d="M3 20h18"/></svg>门窗</button>
+    <button data-tool="elec" title="水电点位 (E)"><svg class="i" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>水电</button>
+    <button data-tool="pipe" title="画管线：自定义连接电线管 / 网线 / 水管 / 排水管（水电图层）"><svg class="i" viewBox="0 0 24 24"><path d="M4 18h6V8h10"/><circle cx="4" cy="18" r="2"/><circle cx="20" cy="8" r="2"/></svg>管线</button>
+    <button data-tool="free" title="自由模型：画轮廓拉伸成造型（地台、异形吊顶、背景墙造型……）"><svg class="i" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></svg>造型</button>
+    <button data-tool="comment" title="批注留言 (C)"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>批注</button>
+    <button data-tool="measure" title="测量 (M)"><svg class="i" viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg>测量</button>
+    <button data-tool="demolish" title="拆墙 (D)"><svg class="i" viewBox="0 0 24 24"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M9 9l6 6"/></svg>拆墙</button>
+  </div>
+  <div class="grow"></div>
+  <button class="btn" id="undoBtn" title="撤销 (Ctrl+Z)"><svg class="i" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+  <button class="btn" id="redoBtn" title="重做 (Ctrl+Y)"><svg class="i" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+  <button class="btn" id="quoteBtn" title="算量报价"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h3"/></svg>报价</button>
+  <button class="btn" id="saveBtn" title="保存到本地 (Ctrl+S)"><svg class="i" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 21v-7h8v7"/></svg>保存</button>
+  <div class="menu" id="exportMenu">
+    <button class="btn primary"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 16l-5-5-8 8"/></svg>导出图纸 ▾</button>
+    <div class="dropdown">
+      <button data-exp="pdf"><b>整套施工图（A3 PDF）</b></button>
+      <button data-exp="dxf"><b>CAD 平面布置图（DXF · 国标）</b>（三道尺寸：门窗洞口 / 轴线 / 总尺寸）</button>
+      <button data-exp="dxf-deco"><b>CAD 平面布置图（DXF · 装修）</b>（四道尺寸：多一道墙厚 + 净距）</button>
+      <button data-exp="dxf-mep"><b>CAD 水电点位图（DXF）</b>（插座 / 开关 / 灯 / 给排水，带离地高度）</button>
+      <button data-exp="share"><b>分享文件</b>（发给别人查看、留言、确认）</button>
+      <button data-exp="original">原始结构图</button>
+      <button data-exp="demolition">拆改图（新砌 / 拆除）</button>
+      <button data-exp="layout">平面布置图</button>
+      <button data-exp="floor">地面铺装图</button>
+      <button data-exp="ceiling">顶面布置图</button>
+      <button data-exp="mep">水电点位图</button>
+      <button data-exp="3d">当前 3D 画面</button>
+      <button data-exp="colorplan">彩平图（高清 PNG）</button>
+    </div>
+  </div>
+  <button class="iconbtn mobile-only" id="rightToggle" title="属性">ⓘ</button>
+  <div class="menu" id="moreMenu">
+    <button class="btn" title="更多">⋯</button>
+    <div class="dropdown">
+      <button data-act="exportJson">导出方案文件 (.json)</button>
+      <button data-act="importJson">导入方案文件…</button>
+      <button data-act="clearMeasure">清除全部测量</button>
+      <button data-act="restoreWalls">恢复所有拆除的墙</button>
+    </div>
+  </div>
+</header>
+<main>
+  <aside id="leftPanel"></aside>
+  <section class="stage" id="stage" data-view="2d">
+    <div class="floordock glass" id="floorDock" style="display:none"></div>
+    <div class="pane" id="pane2d">
+      <canvas id="c2d" tabindex="0"></canvas>
+      <input id="dimInput" type="number" step="10">
+      <div class="overlay ov-br">
+        <button class="iconbtn" id="zoomOut" title="缩小">－</button>
+        <button class="iconbtn" id="zoomIn" title="放大">＋</button>
+        <button class="iconbtn" id="fitBtn" title="适应窗口 (F)"><svg class="i" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+      <div class="overlay ov-tl"><div class="glass chip" id="toolHint"></div></div>
+      <div class="overlay ov-tr"><div class="seg glass" id="layerSeg">
+        <button data-layer="layout" class="on" title="F5">布置</button><button data-layer="mep" title="F6">水电</button><button data-layer="ceiling" title="F7">顶面</button><button data-layer="floor" title="F8">铺装</button><button data-layer="demolition" title="F9">拆改</button>
+      </div></div>
+    </div>
+    <div class="pane" id="pane3d">
+      <canvas id="c3d" tabindex="0"></canvas>
+      <div class="loading3d" id="loading3d">正在准备 3D 场景…</div>
+      <div class="floor3d glass" id="floor3d" style="display:none"></div>
+      <div class="overlay ov-tl">
+        <div class="seg glass" id="camSeg">
+          <button data-cam="bird" class="on"><svg class="i" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>鸟瞰</button>
+          <button data-cam="fp"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v6l-3 8M12 13l3 8M8 10h8"/></svg>漫游</button>
+        </div>
+        <button class="iconbtn" id="lightBtn" title="光照：时间、朝向、开灯">☀</button>
+        <button class="iconbtn" id="lockBtn" title="锁定：3D 里不能拖动、选中家具，防误触（开关、门照样能点）">🔓</button>
+        <button class="btn glass" id="mepBtn" title="管线透视：把强电、照明、网线、冷热水、排水的走线按真实高度显示在模型里，墙变半透明（显示哪些管线跟水电面板里的勾选一致）">⚡ 管线</button>
+        <button class="btn glass" id="lookBtn" title="3D 视觉风格与配色（鸟瞰、漫游、出图都生效）">🎨 风格</button>
+        <button class="btn glass" id="smartBtn" title="智能中控：把方案当成装好智能家居的房子来用——灯光色温亮度、窗帘、空调、扫地机、门窗安防">🏠 智能中控</button>
+        <button class="btn glass" id="renderBtn" title="高清渲染出图">渲染出图</button>
+        <button class="btn glass" id="panoBtn" title="在漫游位置生成 720° 全景图">720° 全景</button>
+        <button class="iconbtn" id="camReset" title="重置视角"><svg class="i" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/></svg></button>
+      </div>
+      <div class="glass pop" id="lightPop">
+        <div class="poprow"><span>城市</span><select id="cityIn"></select></div>
+        <div class="poprow"><span>月份</span><input type="range" id="monthIn" min="1" max="12" step="1" value="9"><b id="monthOut">9 月</b></div>
+        <div class="poprow"><span>时间</span><input type="range" id="timeIn" min="0" max="24" step="0.25" value="15"><b id="timeOut">15:00</b></div>
+        <div class="poprow"><span>正北</span><input type="range" id="northIn" min="-180" max="180" step="5" value="0"><b id="northOut">0°</b></div>
+        <p class="hint" style="margin:2px 0 6px">正北 = 户型图上指北针指的方向（相对图纸上方顺时针多少度）。朝南的房子：指北针朝上就是 0°。</p>
+        <div class="suninfo" id="sunInfo"></div>
+        <label class="row"><input type="checkbox" id="lampIn"> 打开全部室内灯光（夜晚自动打开）</label>
+        <div class="poprow"><span>方式</span><select id="rendMode"><option value="raster">实时画面（几秒）</option><option value="pt">光线追踪（约 1~3 分钟，最真实）</option></select></div>
+        <div class="poprow"><span>出图</span><select id="resIn"><option value="1920x1080">1920×1080</option><option value="2560x1440" selected>2560×1440</option><option value="3840x2160">3840×2160（4K）</option></select></div>
+        <div class="btnrow"><button class="btn primary" id="sunDemo">▶ 日照演示（日出到深夜）</button></div>
+      </div>
+      <div class="glass pop look" id="lookPop">
+        <div class="seg full" id="lookStyle"><button data-style="real">写实</button><button data-style="diorama">沙盘效果图</button><button data-style="colorplan">彩平图</button></div>
+        <div class="lk-h">配色 <em>只改 3D 显示，不改方案材质</em></div>
+        <div class="swatches" id="lookPal"></div>
+        <div class="cp-dims" id="cpDims"><span class="lk-h" style="margin:0">彩平图尺寸</span><div class="seg"><button data-d="none">不标</button><button data-d="simple">简洁</button><button data-d="full">完整</button></div></div>
+        <div class="lk-h">画质 <em>电脑卡就选流畅；默认按显卡自动选</em></div>
+        <div class="seg full" id="lookQ"><button data-q="fast">流畅</button><button data-q="balanced">均衡</button><button data-q="high">高画质</button></div>
+        <div class="lk-opts" id="lookOpts">
+          <label class="row"><input type="checkbox" data-opt="glow"> 灯带辉光</label>
+          <label class="row"><input type="checkbox" data-opt="labels"> 地面房间名</label>
+          <label class="row"><input type="checkbox" data-opt="round"> 圆润家具</label>
+          <label class="row"><input type="checkbox" data-opt="tilt"> 微缩景深（鸟瞰）</label>
+        </div>
+        <div class="btnrow"><button class="btn" id="lookPose">沙盘俯视视角</button></div>
+      </div>
+      <div class="pt-prog glass" id="ptProg"><b>光线追踪出图</b><div class="bar"><i></i></div><span></span><button class="btn">提前结束并保存</button></div>
+      <div class="joy" id="joy"><i></i></div>
+      <div class="crosshair" id="crosshair"></div>
+      <div class="walk-ctl glass" id="walkCtl">
+        <div class="wc-h">漫游视角</div>
+        <label>视高 <b id="wcEyeV"></b><input type="range" id="wcEye" min="600" max="3000" step="50"></label>
+        <div class="wc-pre" id="wcEyePre"><button data-eh="1100">儿童</button><button data-eh="1600">成人</button><button data-eh="1750">高个</button><button data-eh="2600">高处</button></div>
+        <label>视距 <b id="wcDistV"></b><input type="range" id="wcDist" min="0" max="6000" step="100"></label>
+        <div class="wc-pre" id="wcDistPre"><button data-cd="0">第一人称</button><button data-cd="1500">近跟随</button><button data-cd="3000">远跟随</button></div>
+        <label>视角 <b id="wcFovV"></b><input type="range" id="wcFov" min="35" max="100" step="1"></label>
+        <label class="wc-hud"><input type="checkbox" id="wcHud"> 点位标记 <span>T</span></label>
+        <div class="wc-pre" id="wcHudCats"><button data-hc="switch">开关</button><button data-hc="socket">插座</button><button data-hc="small">小物件</button></div>
+        <p>R / F 升降视高 · 滚轮调视距 · Ctrl + 滚轮调视角 · 空格 / 回车 操作准星对着的开关、灯、门</p>
+      </div>
+      <div class="fphint" id="fphint">W A S D 移动 · 拖动鼠标转向 · 点标记或按空格操作开关 / 灯 / 门 · T 显示标记 · R / F 视高 · Esc 退出</div>
+    </div>
+  </section>
+  <aside class="right" id="inspector"></aside>
+</main>
+<footer>
+  <span id="stCoord">X — · Y —</span>
+  <span id="stZoom">缩放 100%</span>
+  <span id="stArea"></span>
+  <span class="grow"></span>
+  <span id="stSave">未保存</span>
+</footer>
+</div>
+<div id="toast"></div>
+<div id="shareBanner"></div>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+
+</body>
+</html>

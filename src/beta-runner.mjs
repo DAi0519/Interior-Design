@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换/旧房独立Agent版本、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
- * [OUTPUT]: 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和十一功能两路并发执行，旧房独立归档并映射空房单流程、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
+ * [INPUT]: 依赖户型布局适配器； 依赖任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换/旧房独立Agent版本、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
+ * [OUTPUT]: 新增户型布局版本/标注冻结与单次生图/只同步重试； 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和十二功能两路并发执行，旧房独立归档并映射空房单流程、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { normalizeBetaHousePlanInput } from "./beta-house-plan.mjs";
 import { normalizeEmptyRoomType, normalizeEmptyRoomTypeDetail, EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH } from "./empty-room-type.mjs";
 import { normalizeBetaSampleImage } from "./beta-sample-store.mjs";
 import { normalizeReferenceImages, REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
@@ -24,6 +25,7 @@ import {
 } from "./generation-jobs.mjs";
 
 export const BETA_FEATURE_MODES = Object.freeze([
+  "housePlanLayout",
   "whiteModel",
   "emptyRoom",
   "roomRenovation",
@@ -305,6 +307,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
       ...(lightingReferenceImages ? { lightingReferenceImages } : {}),
     };
+    if (featureMode === "housePlanLayout") input = normalizeBetaHousePlanInput(input);
     input = normalizeBetaDesignInput(input, featureMode);
     assertEffectBeautificationLightingFeature(input, featureMode);
     if (featureMode === "styleTransfer") {
@@ -342,6 +345,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
 export function createBetaRunnerService({
   baseStore,
   generationService,
+  housePlanService = null,
   getOutpaintConfig = null,
   getUpscaleConfig = null,
   prepareRefinedInput = prepareRefinedRenderInput,
@@ -434,7 +438,7 @@ export function createBetaRunnerService({
             }
           }
           if (batch.featureMode === "refinedModel" && !state.result) assertRefinedLightingAdmission(item.input);
-          const attempts = batch.featureMode === "panoramaEnhancement" && MODEL_CONFIGS[item.input.modelKey]?.panoramaWorkflow
+          const attempts = batch.featureMode === "housePlanLayout" || batch.featureMode === "panoramaEnhancement" && MODEL_CONFIGS[item.input.modelKey]?.panoramaWorkflow
             || batch.featureMode === "imageOutpaint" && item.input.outpaintEngine === "gptImage25Sunburst"
             ? 1 : maxAttempts;
           try {
@@ -460,11 +464,12 @@ export function createBetaRunnerService({
                     verifyBetaUpscaleBatch({ ...batch, items: [currentItem] }, getUpscaleConfig ? await getUpscaleConfig() : {});
                     validateBetaUpscaleSource(currentItem.input);
                   }
+                  const housePlan = batch.featureMode === "housePlanLayout" ? await housePlanService.prepare(currentItem.input) : null;
                   state.stage = "archive";
                   state.archive = await baseStore.beginRun({ batchId: batch.batchId,
                     featureMode: batch.featureMode, item: currentItem, testTime: batch.testTime });
                   state.stage = "generation";
-                  state.result = await generationService.executeForMode(batch.featureMode === "roomRenovation" ? "emptyRoom" : batch.featureMode, singleRunGenerationInput(currentItem.input));
+                  state.result = housePlan ? await housePlanService.execute(housePlan) : await generationService.executeForMode(batch.featureMode === "roomRenovation" ? "emptyRoom" : batch.featureMode, singleRunGenerationInput(currentItem.input));
                   state.generated = true;
                   state.stage = "sync";
                   updateStages(`已生成 ${count("generated")} / ${batch.items.length} · 正在同步飞书`);
@@ -509,6 +514,11 @@ export function createBetaRunnerService({
   const admitBatch = (batch, previous = null) => afterSchemaVerification(() => {
     const bindAndEnqueue = () => baseStore.getSampleSet
       ? bindBatchSamples(batch, baseStore, { preserveInput: Boolean(previous) }).then(() => enqueueBatch(batch, previous)) : enqueueBatch(batch, previous);
+    if (batch.featureMode === "housePlanLayout") {
+      if (!housePlanService) throw inputError("当前服务未加载户型布局");
+      const pending = { ...batch, items: batch.items.filter((_, index) => !previous?.states[index]?.result && !previous?.states[index]?.synced && !previous?.states[index]?.recoverArchived) };
+      return (pending.items.length ? housePlanService.verify(pending) : Promise.resolve()).then(bindAndEnqueue);
+    }
     if (batch.featureMode === "effectBeautification") {
       const prepareItems = async () => {
         const prepared = new Map();
@@ -589,7 +599,7 @@ export function createBetaRunnerService({
     async config() {
       return {
         baseUrl: baseStore.config.baseUrl,
-        features: BETA_FEATURE_MODES,
+        features: BETA_FEATURE_MODES.filter(mode => mode !== "housePlanLayout" || housePlanService),
         tableId: baseStore.config.tableId,
         outpaint: publicBetaOutpaintConfig(getOutpaintConfig ? await getOutpaintConfig() : {}),
         upscale: publicBetaUpscaleConfig(getUpscaleConfig ? await getUpscaleConfig() : {}),

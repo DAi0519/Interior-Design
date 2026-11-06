@@ -1,0 +1,20 @@
+/**
+ * [INPUT]: 依赖Beta共享field/quiet-button/银灰令牌和户型标注弹窗
+ * [OUTPUT]: 提供布局空间标注自适应画布与底部工具条
+ * [POS]: public 的Beta布局局部样式，不改变其他功能面板
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+#housePlanFields { display: grid; gap: 14px; }
+#housePlanFields.hidden { display: none; }
+.house-plan-beta-dialog { width: min(1000px, calc(100vw - 32px)); max-height: 92dvh; border: 1px solid var(--line); border-radius: 12px; padding: 20px; color: var(--ink); background: var(--panel); }
+.house-plan-beta-dialog::backdrop { background: rgb(20 20 24 / 35%); }
+.house-plan-beta-stage { display: grid; place-items: center; min-height: 160px; margin: 16px 0; background: var(--panel-soft); }
+#housePlanAnnotationCanvas { display: block; max-width: 100%; max-height: 60dvh; object-fit: contain; touch-action: none; cursor: crosshair; }
+.house-plan-beta-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.house-plan-beta-tools .field { flex: 1; min-width: 150px; }
+#housePlanPromptLink { color: var(--muted); font-size: 12px; text-underline-offset: 3px; }
+
+#ordinaryOutputFields.is-house-plan .output-grid { display: none; }
+
+.reference-item [data-house-plan-annotation] { grid-column: 1 / -1; justify-self: start; width: auto; max-width: 100%; white-space: nowrap; }
+#housePlanFields h3 { font-size: 12px; font-weight: 600; margin: 0; }

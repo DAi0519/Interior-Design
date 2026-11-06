@@ -1,12 +1,17 @@
 /**
- * [INPUT]: 依赖主工作台功能目录、配置/结果原节点，以及同源AI渲染台独立页面
- * [OUTPUT]: 对外提供正式功能入口的保活iframe宿主，切换时隔离旧START/参数/结果并保留两路输入和任务
- * [POS]: public 的主工作台与独立渲染台页面边界，不向普通生成接口注册占位功能或提交请求
+ * [INPUT]: 依赖主工作台功能目录、配置/结果原节点，以及同源AI渲染台和平面布局独立页面
+ * [OUTPUT]: 对外提供AI渲染台、户型平面布局与设计实验室 Beta 的保活iframe宿主，户型布局参数/START挂入原工作台容器；切换时隔离旧START/参数/结果并保留各路输入和任务
+ * [POS]: public 的共享独立工作区边界，不向普通生成接口注册占位功能或提交请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 const FEATURE_MODE = "aiRenderStudio";
 const FRAME_URL = "/ai-render-studio.html?embedded=1";
+const WORKSPACES = Object.freeze({
+  aiRenderStudio: { title: "AI渲染台", url: FRAME_URL },
+  housePlanLayout: { title: "户型平面布局", url: "/house-plan.html?embedded=1" },
+  floorPlan: { title: "设计实验室 · Beta", url: "/floor-plan.html?embedded=1" },
+});
 
 export function bindAiRenderStudioHost({ root = typeof document === "undefined" ? null : document.querySelector(".workspace") } = {}) {
   if (!root) return { show() {}, hide() {}, isActive: () => false };
@@ -23,7 +28,13 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
   host.hidden = true;
   host.inert = true;
   root.append(host);
-  let active = false, frame = null, previous = [];
+  const houseSettings = doc.createElement("div");
+  houseSettings.id = "housePlanSettingsMount"; houseSettings.className = "house-plan-parent-settings"; houseSettings.hidden = true;
+  const houseActions = doc.createElement("div");
+  houseActions.id = "housePlanActionsMount"; houseActions.className = "house-plan-parent-actions"; houseActions.hidden = true;
+  panel?.append(houseSettings, houseActions);
+  let active = false, previous = [];
+  const frames = new Map();
 
   function updateUrl(featureMode) {
     if (!win?.location?.href || !win.history?.replaceState) return;
@@ -38,16 +49,26 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
       button.setAttribute("aria-checked", String(selected));
     }
   }
-  function show() {
+  function show(mode = FEATURE_MODE) {
+    const workspace = WORKSPACES[mode];
+    if (!workspace) return;
+    let frame = frames.get(mode);
     if (!frame) {
       frame = doc.createElement("iframe");
-      frame.title = "AI渲染台";
+      frame.title = workspace.title;
       frame.className = "ai-render-studio-frame";
-      frame.src = FRAME_URL;
+      frame.src = workspace.url;
+      frames.set(mode, frame);
       host.append(frame);
     }
+    for (const [key, node] of frames) { node.hidden = key !== mode; node.inert = key !== mode; }
+    host.setAttribute("aria-label", workspace.title);
     if (!active) previous = legacy.map((node) => ({ node, hidden: node.hidden, inert: node.inert }));
     active = true;
+    const house = mode === "housePlanLayout";
+    root.classList.toggle("is-house-plan", house);
+    doc.body.classList.toggle("is-house-plan", house);
+    houseSettings.hidden = houseActions.hidden = !house;
     root.classList.add("is-ai-render-studio");
     doc.body.classList.add("is-ai-render-studio");
     for (const node of legacy) { node.hidden = true; node.inert = true; }
@@ -58,12 +79,14 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
     if (dialog?.open) dialog.close();
     host.hidden = false;
     host.inert = false;
-    selectButton(FEATURE_MODE);
-    updateUrl(FEATURE_MODE);
+    selectButton(mode);
+    updateUrl(mode);
   }
   function hide(featureMode) {
     if (!active) return;
     active = false;
+    root.classList.remove("is-house-plan"); doc.body.classList.remove("is-house-plan");
+    houseSettings.hidden = houseActions.hidden = true;
     host.hidden = true;
     host.inert = true;
     root.classList.remove("is-ai-render-studio");
@@ -74,5 +97,13 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
     // --- 视口可能已在渲染台停留期间改变，交给现有控制器重新计算抽屉/参数可用性 ---
     if (win?.Event && win.dispatchEvent) win.dispatchEvent(new win.Event("resize"));
   }
+  // --- 独立工作区共享原控制器的隔离守卫，旧功能的异步配置刷新不会抢回页面 ---
+  for (const button of buttons) {
+    if (["floorPlan", "housePlanLayout"].includes(button.dataset.featureMode)) {
+      button.addEventListener?.("click", () => show(button.dataset.featureMode));
+    }
+  }
+  const initialMode = win?.location?.href && new URL(win.location.href).searchParams.get("feature");
+  if (["floorPlan", "housePlanLayout"].includes(initialMode)) show(initialMode);
   return { show, hide, isActive: () => active };
 }
