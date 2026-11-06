@@ -1,9 +1,10 @@
 /**
  * [INPUT]: 依赖独立飞书打光Prompt资产、整体原灯处理、五模板/旧方案与四动作图片合同、sharp、GPT适配器、实时模型权限及飞书同步
- * [OUTPUT]: 提供可信调用方独立imagePolicy容量与仅材质渲染准入，客户端不能自行扩大限制；对外提供脱敏配置、Prompt冻结/执行及原图几何准入；可信allowMaterialRender允许独立渲染台空灯质感执行，旧打光默认仍拒空操作
- * [POS]: src 的独立 AI 打光应用服务，固定 GPT Image 2.5 Sunburst，复用后台任务与同步且不重试付费请求
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 提供可信调用方独立imagePolicy容量与仅材质渲染准入，客户端不能自行扩大限制；对外提供脱敏配置、Prompt冻结/执行及原图几何准入；可信allowMaterialRender允许独立渲染台空灯质感执行，旧打光默认仍拒空操作
+ * [POS]: src 的独立 AI 打光应用服务，支持GPT Image 2.5 Sunburst及2.6双模型，复用后台任务与同步且不重试付费请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { MODEL_CONFIGS } from "./model-config.mjs";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import sharp from "sharp";
@@ -11,8 +12,8 @@ import { normalizeReferenceImage } from "./reference-image.mjs";
 import { verifyLarkSyncSchema } from "./lark-sync.mjs";
 import { buildImageRelightArchive } from "./image-relight-archive.mjs";
 import { getImageRelightPrompt, publicImageRelightPromptConfig } from "./image-relight-prompt.mjs";
-import { RELIGHT_ONEAPI_MODEL, RELIGHT_WORKFLOW_VERSION, relightQuality, executeRelightOneApi } from "./image-relight-oneapi.mjs";
-import { RELIGHT_MODEL_KEY, RELIGHT_IMAGE_POLICY, RELIGHT_LIMITS, RELIGHT_TYPES, RELIGHT_MODES, RELIGHT_ACTIONS, RELIGHT_ORIGINAL_LIGHT_ACTIONS, RELIGHT_RESOLUTIONS,
+import { RELIGHT_WORKFLOW_VERSION, relightQuality, executeRelightOneApi } from "./image-relight-oneapi.mjs";
+import { RELIGHT_MODEL_KEY, RELIGHT_MODEL_KEYS, RELIGHT_IMAGE_POLICY, RELIGHT_LIMITS, RELIGHT_TYPES, RELIGHT_MODES, RELIGHT_ACTIONS, RELIGHT_ORIGINAL_LIGHT_ACTIONS, RELIGHT_RESOLUTIONS,
   normalizeRelightLights, normalizeRelightOriginalLights, relightOutputSize } from "../public/image-relight-geometry.js";
 import { RELIGHT_TEMPLATES, RELIGHT_LEGACY_TEMPLATES, RELIGHT_BLEND_MODES, RELIGHT_DEFAULT_TEMPLATE_KEY, RELIGHT_DEFAULT_BLEND_MODE,
   normalizeRelightSettings } from "../public/image-relight-presets.js";
@@ -21,21 +22,29 @@ const fail = (message, statusCode = 400) => Object.assign(new Error(message), { 
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 
 export async function readImageRelightConfig({ getOneApiModels, forceRefresh = false, readPromptConfig = publicImageRelightPromptConfig } = {}) {
-  let available = false, reason = "请连接有Sunburst权限的OneAPI Key";
+  let catalog = [], catalogError = null;
+  let available = false, reason = "请连接有GPT图像权限的OneAPI Key";
   try {
     if (getOneApiModels) {
-      available = (await getOneApiModels()).some(entry => entry.id === RELIGHT_ONEAPI_MODEL.id);
-      reason = available ? null : "当前OneAPI Key没有Sunburst权限";
+      catalog = await getOneApiModels();
+      available = RELIGHT_MODEL_KEYS.some(key => catalog.some(entry => entry.id === MODEL_CONFIGS[key].id));
+      reason = available ? null : "当前OneAPI Key没有所选GPT图像模型权限";
     }
-  } catch (error) { reason = `GPT打光不可用：${String(error.message).slice(0, 180)}`; }
+  } catch (error) { catalogError = `GPT打光不可用：${String(error.message).slice(0, 180)}`; reason = catalogError; }
   let prompt;
   try { prompt = await readPromptConfig({ forceRefresh }); }
   catch (error) { prompt = { available: false, reason: String(error.message).slice(0, 180) }; }
   if (!prompt?.available) { available = false; reason = prompt?.reason || "飞书打光Prompt尚未上架"; }
-  const model = { key: RELIGHT_MODEL_KEY, label: RELIGHT_ONEAPI_MODEL.label, provider: "oneapi", available, reason,
-    qualityOptions: RELIGHT_ONEAPI_MODEL.qualityOptions, defaultQuality: RELIGHT_ONEAPI_MODEL.defaultQuality,
-    outputResolutions: RELIGHT_RESOLUTIONS, defaultOutputResolution: "1K", sizes: RELIGHT_ONEAPI_MODEL.sizes };
-  return { available, reason, modelKey: RELIGHT_MODEL_KEY, model, models: [model], defaultModel: RELIGHT_MODEL_KEY,
+  const models = RELIGHT_MODEL_KEYS.map(key => {
+    const definition = MODEL_CONFIGS[key];
+    const permitted = catalog.some(entry => entry.id === definition.id);
+    return { key, label: definition.label, provider: "oneapi", available: permitted && Boolean(prompt?.available),
+      reason: catalogError || (!permitted ? `当前Key没有${definition.label}权限` : prompt?.reason || null),
+      qualityOptions: definition.qualityOptions, defaultQuality: definition.defaultQuality,
+      outputResolutions: Object.keys(Object.values(definition.sizes)[0]), defaultOutputResolution: "1K", sizes: definition.sizes };
+  });
+  const model = models.find(entry => entry.key === RELIGHT_MODEL_KEY);
+  return { available, reason, modelKey: RELIGHT_MODEL_KEY, model, models, defaultModel: RELIGHT_MODEL_KEY,
     qualityOptions: model.qualityOptions, defaultQuality: model.defaultQuality, outputResolutions: RELIGHT_RESOLUTIONS,
     defaultOutputResolution: "1K", sizes: model.sizes, imagePolicy: RELIGHT_IMAGE_POLICY, limits: RELIGHT_LIMITS,
     lightTypes: RELIGHT_TYPES, modes: RELIGHT_MODES, actions: RELIGHT_ACTIONS, originalLightActions: RELIGHT_ORIGINAL_LIGHT_ACTIONS, defaultOriginalLights: { action: "keep" }, templates: RELIGHT_TEMPLATES, legacyTemplates: RELIGHT_LEGACY_TEMPLATES, blendModes: RELIGHT_BLEND_MODES,
@@ -94,7 +103,8 @@ async function decodeSource(input, imagePolicy) {
 export async function validateRelightInput(input = {}, { allowMaterialRender = false, imagePolicy = RELIGHT_IMAGE_POLICY } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw fail("打光请求必须是有效对象");
   const selection = promptSelection(input);
-  for (const key of ["modelKey", "relightModel"]) if (input[key] !== undefined && input[key] !== RELIGHT_MODEL_KEY) throw fail("打光仅支持GPT Image 2.5 Sunburst");
+  const modelKey = input.modelKey ?? input.relightModel ?? RELIGHT_MODEL_KEY;
+  if (!RELIGHT_MODEL_KEYS.includes(modelKey) || input.relightModel !== undefined && input.relightModel !== modelKey) throw fail("请选择支持的GPT打光模型");
   if (input.provider !== undefined && input.provider !== "oneapi") throw fail("打光仅支持GPT模型通道");
   if (input.maskImage != null || input.mask != null || input.editRegion != null) throw fail("打光使用光源标注，不接受局部编辑遮罩或圈选");
   if (input.prompt !== undefined && typeof input.prompt !== "string") throw fail("补充打光要求必须是文本");
@@ -118,9 +128,9 @@ export async function validateRelightInput(input = {}, { allowMaterialRender = f
   if (!Array.isArray(input.referenceImages) || input.referenceImages.length !== 1) throw fail("打光需要且只允许1张原图");
   const source = await decodeSource(input.referenceImages[0], imagePolicy);
   let target;
-  try { target = relightOutputSize(source, outputResolution, RELIGHT_ONEAPI_MODEL.sizes); }
+  try { target = relightOutputSize(source, outputResolution, MODEL_CONFIGS[modelKey].sizes); }
   catch (error) { throw fail(error.message); }
-  return { modelKey: RELIGHT_MODEL_KEY, provider: "oneapi", source, lights, originalLights, prompt, quality, outputResolution, target, ...settings,
+  return { modelKey, provider: "oneapi", source, lights, originalLights, prompt, quality, outputResolution, target, ...settings,
     ...(selection.version !== undefined ? { relightPromptVersion: selection.version } : {}),
     ...(selection.expectedSha256 !== undefined ? { relightPromptSha256: selection.expectedSha256 } : {}) };
 }
@@ -129,7 +139,7 @@ export async function executeImageRelight(input, { imageClient, getOneApiModels,
   getPrompt = getImageRelightPrompt, relightPromptSnapshot = null,
   verifySyncContract = () => verifyLarkSyncSchema(undefined, { scope: "imageRelight" }) } = {}) {
   const validated = await validateRelightInput(input);
-  if (!getOneApiModels || !(await getOneApiModels()).some(entry => entry.id === RELIGHT_ONEAPI_MODEL.id)) throw fail("当前OneAPI Key没有Sunburst权限，请重新连接", 409);
+  if (!getOneApiModels || !(await getOneApiModels()).some(entry => entry.id === MODEL_CONFIGS[validated.modelKey].id)) throw fail("当前OneAPI Key没有所选GPT图像模型权限，请重新连接", 409);
   if (scheduleSync) {
     try { await verifySyncContract(); }
     catch (error) { throw fail(`飞书同步合同未通过，已阻止打光生成：${String(error.message)}`, 409); }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生图工作台 document 与稳定 DOM id/data 属性
- * [OUTPUT]: 对外提供 createAppElements，集中解析白模可选光影、光影转换、质感固定Prompt、全景/精模光影氛围及其他工作台元素
+ * [OUTPUT]: 对外提供 createAppElements，集中解析独立超分双噪声、白模光影、光影转换、质感固定Prompt及其他工作台元素
  * [POS]: public 的生图页 DOM 查询边界，避免业务编排器重复持有选择器细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,6 +27,8 @@ export function createAppElements(root = document) {
     imageRelightSection: byId("imageRelightSection"),
     imageOutpaintSection: byId("imageOutpaintSection"),
     imageUpscaleAvailability: byId("imageUpscaleAvailability"),
+    imageUpscaleInputNoiseScale: byId("imageUpscaleInputNoiseScale"),
+    imageUpscaleLatentNoiseScale: byId("imageUpscaleLatentNoiseScale"),
     imageUpscaleNote: byId("imageUpscaleNote"),
     imageUpscaleSection: byId("imageUpscaleSection"),
     imageUpscaleWorkflowList: byId("imageUpscaleWorkflowList"),

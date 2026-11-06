@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test、sharp真实像素、遮罩服务/OneAPI适配器、模型配置与归档投影
- * [OUTPUT]: GPT参考模式换物品/换材质的三定位空指令前端到执行归档合同、用途默认/非法/冻结、其它模式指令必填与坏参考零调用、用户原文/双图保留、异步/同步分流/蓝选和原生字节归档、权限/Schema零收费测试
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； GPT参考模式换物品/换材质的三定位空指令前端到执行归档合同、用途默认/非法/冻结、其它模式指令必填与坏参考零调用、用户原文/双图保留、异步/同步分流/蓝选和原生字节归档、权限/Schema零收费测试
  * [POS]: test 的Sunburst局部重绘合同测试，全部上游/同步替身，不调用CLI、网络或付费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -514,7 +514,7 @@ test("Flux节点不可用不阻断已授权Sunburst，目录不暴露密钥或Pr
   assert.deepEqual(config.models[1].qualityOptions, ["low", "medium", "high", "xhigh", "max"]);
   assert.deepEqual(config.models[1].referencePurposes.map(value => value.key), ["object", "material"]);
   assert.equal(config.models[1].defaultReferencePurpose, "object");
-  for (const model of config.models.filter(model => model.key !== "gptImage25Sunburst")) assert.equal(model.referencePurposes, undefined);
+  for (const model of config.models.filter(model => model.provider !== "oneapi")) assert.equal(model.referencePurposes, undefined);
   const disconnected = await readImageMaskFillConfig(null);
   assert.equal(disconnected.models[1].available, false);
 });

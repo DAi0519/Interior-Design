@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖六套SeedVR2参数、原图真实尺寸、20MP整图预算或固定5K节点合同、Base64与冻结版本/产物键
- * [OUTPUT]: 对外提供目录/尺寸、KS直入6K固定5120推理后6144交付、其他KS档位20MP计划、旧面积几何及版本化元数据
+ * [INPUT]: 依赖六套SeedVR2参数、独立超分双噪声数值合同、原图真实尺寸、20MP整图预算或固定5K节点合同、Base64与冻结版本/产物键
+ * [OUTPUT]: 对外提供目录/尺寸、双噪声规范化与实际送模元数据、KS直入6K固定5120推理后6144交付、其他KS档位20MP计划、旧面积几何与独立Flux后置默认键
  * [POS]: src 的图片超分工作流真源，把编辑器 JSON 收敛为可独立提交或嵌入 Flux 的最小执行图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export const IMAGE_UPSCALE_OUTPUT_NODE_ID = "76";
+export const IMAGE_UPSCALE_NOISE_PARAMETERS = Object.freeze({ min: 0, max: 1, step: 0.001, default: 0 });
 export const KS_UPSCALE_AREA_POLICY = Object.freeze({
   version: "ks-whole-area-cap-v3", pixelLimit: 20_000_000, paddingMultiple: 16,
 });
@@ -30,6 +31,7 @@ const KS_RESOLUTIONS = Object.freeze([
 ]);
 
 export const IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY = "youxing_seedvr2_3b";
+export const FLUX_POST_UPSCALE_WORKFLOW_KEY = "ks_seedvr2_2x_direct";
 
 export const IMAGE_UPSCALE_WORKFLOWS = Object.freeze({
   youxing_seedvr2_3b: Object.freeze({
@@ -141,6 +143,22 @@ function validationError(message) {
   const error = new Error(message);
   error.statusCode = 400;
   return error;
+}
+
+// -------- 省略沿用零；拒绝类型强转与不符合0.001步长的数值 --------
+export function normalizeImageUpscaleNoise(input = {}) {
+  const values = {};
+  const precision = 1 / IMAGE_UPSCALE_NOISE_PARAMETERS.step;
+  for (const [key, label] of [["upscaleInputNoiseScale", "输入噪声"], ["upscaleLatentNoiseScale", "潜空间噪声"]]) {
+    const value = input?.[key] === undefined ? IMAGE_UPSCALE_NOISE_PARAMETERS.default : input[key];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < IMAGE_UPSCALE_NOISE_PARAMETERS.min
+      || value > IMAGE_UPSCALE_NOISE_PARAMETERS.max
+      || Math.abs(value * precision - Math.round(value * precision)) > 1e-8) {
+      throw validationError(`${label}需要是0–1之间、步长0.001的数字`);
+    }
+    values[key] = Math.round(value * precision) / precision;
+  }
+  return values;
 }
 
 export function imageUpscaleWorkflow(workflowKey) {
@@ -270,6 +288,8 @@ export function imageUpscaleArtifactPrefix(artifactKey) {
 export function publicImageUpscaleConfig() {
   return {
     defaultWorkflowKey: IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+    supportsNoiseControls: true,
+    noiseParameters: { ...IMAGE_UPSCALE_NOISE_PARAMETERS },
     resolutions: LONG_EDGE_RESOLUTIONS.map((resolution) => ({ ...resolution })),
     workflows: Object.values(IMAGE_UPSCALE_WORKFLOWS).map((workflow) => ({
       description: workflow.description,
@@ -301,6 +321,7 @@ export function createSeedVrUpscaleStage({
   width,
 }) {
   const workflow = imageUpscaleWorkflow(generationRequest?.upscaleWorkflowKey);
+  const noise = normalizeImageUpscaleNoise(generationRequest);
   const targetLongEdge = Math.max(width, height);
   if (![width, height].every((value) => Number.isInteger(value) && value > 0)) {
     throw validationError("图片超分目标尺寸必须是正整数");
@@ -369,8 +390,8 @@ export function createSeedVrUpscaleStage({
         enable_debug: false,
         image: workflow.areaCap ? [ids.canvas, 0]
           : workflow.inputMegapixels === null ? image : [ids.preprocess, 0],
-        input_noise_scale: 0,
-        latent_noise_scale: 0,
+        input_noise_scale: noise.upscaleInputNoiseScale,
+        latent_noise_scale: noise.upscaleLatentNoiseScale,
         max_resolution: plan.seedVrMaxResolution,
         offload_device: "cpu",
         prepend_frames: 0,
@@ -480,6 +501,7 @@ export function imageUpscaleWorkflowMetadata({
   width,
 }) {
   const workflow = imageUpscaleWorkflow(generationRequest?.upscaleWorkflowKey);
+  const noise = normalizeImageUpscaleNoise(generationRequest);
   if (generationRequest?.resolution && resolution && generationRequest.resolution !== resolution) {
     throw validationError("图片超分请求与产物档位不一致");
   }
@@ -491,6 +513,7 @@ export function imageUpscaleWorkflowMetadata({
     sourceWidth: generationRequest?.sourceWidth, sourceHeight: generationRequest?.sourceHeight });
   return {
     artifactKey,
+    ...noise,
     engine: "comfyui",
     executionDurationMs,
     inputMegapixels: workflow.inputMegapixels,

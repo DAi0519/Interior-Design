@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖单图安全校验、sharp方向归一化与等比缩放、共享原比例/预设固定2K画幅与缩放计划、三引擎合同、归档投影及扩图客户端/同步调度
- * [OUTPUT]: 对外提供三引擎独立准入与固定2K脱敏配置、Flux模型选择/枚举校验、Sunburst大图单次等比适配及狭长原比例最小目标补边追溯、真实构图与旧四边2K目标校验、实际尺寸通过后的飞书同步结果
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供三引擎独立准入与固定2K脱敏配置、Flux模型选择/枚举校验、Sunburst大图单次等比适配及狭长原比例最小目标补边追溯、真实构图与旧四边2K目标校验、实际尺寸通过后的飞书同步结果
  * [POS]: src 的 AI 扩图应用边界，真实工作流适配器与浏览器任务之间的单一校验入口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,7 +11,7 @@ import { OUTPAINT_LONG_EDGE, OUTPAINT_RESOLUTION, assertOutpaintResolution, outp
 import { createAsyncTtlCache } from "./runtime-cache.mjs";
 import { buildImageOutpaintArchive } from "./image-outpaint-archive.mjs";
 import {
-  ONEAPI_OUTPAINT_ENGINE_KEY, assertOneApiOutpaintTarget, executeOneApiOutpaint,
+  ONEAPI_OUTPAINT_ENGINE_KEY, ONEAPI_OUTPAINT_ENGINE_KEYS, assertOneApiOutpaintTarget, executeOneApiOutpaint,
   oneApiOutpaintPreparedDimensions, publicOneApiOutpaintConfig,
 } from "./image-outpaint-oneapi.mjs";
 import { MODEL_CONFIGS } from "./model-config.mjs";
@@ -115,14 +115,14 @@ export function createImageOutpaintConfigReader(imageClient, { getOneApiModels =
       return publicImageOutpaintConfig({ reason: `扩图服务暂不可用：${String(error.message).slice(0, 500)}` });
     }
   }
-  async function oneApiConfig() {
-    if (!getOneApiModels) return publicOneApiOutpaintConfig();
+  async function oneApiConfig(modelKey) {
+    if (!getOneApiModels) return publicOneApiOutpaintConfig({ modelKey });
     try {
       const models = await getOneApiModels();
-      const available = models.some((model) => (model.id || model.name) === MODEL_CONFIGS[ONEAPI_OUTPAINT_ENGINE_KEY].id);
-      return publicOneApiOutpaintConfig({ available, reason: "当前 OneAPI Key 未开放 GPT Image 2.5 Sunburst" });
+      const available = models.some((model) => (model.id || model.name) === MODEL_CONFIGS[modelKey].id);
+      return publicOneApiOutpaintConfig({ modelKey, available, reason: `当前 OneAPI Key 未开放 ${MODEL_CONFIGS[modelKey].label}` });
     } catch {
-      return publicOneApiOutpaintConfig({ reason: "OneAPI 未连接或模型权限读取失败，请检查连接后重试" });
+      return publicOneApiOutpaintConfig({ modelKey, reason: "OneAPI 未连接或模型权限读取失败，请检查连接后重试" });
     }
   }
   async function qwenConfig() {
@@ -137,8 +137,8 @@ export function createImageOutpaintConfigReader(imageClient, { getOneApiModels =
     }
   }
   return async () => {
-    const [comfy, oneApi, qwen] = await Promise.all([comfyConfig(), oneApiConfig(), qwenConfig()]);
-    return { ...comfy, engines: [{ ...comfy, key: "comfyui", label: "Flux Fill", provider: "comfyui" }, oneApi, qwen] };
+    const [comfy, oneApi, qwen] = await Promise.all([comfyConfig(), Promise.all(ONEAPI_OUTPAINT_ENGINE_KEYS.map(oneApiConfig)), qwenConfig()]);
+    return { ...comfy, engines: [{ ...comfy, key: "comfyui", label: "Flux Fill", provider: "comfyui" }, ...oneApi, qwen] };
   };
 }
 
@@ -180,9 +180,9 @@ function sourceAdaptationMetadata(normalized) {
 
 export function imageOutpaintEngineKey(input = {}) {
   const key = input.outpaintEngine ?? "comfyui";
-  if (!["comfyui", ONEAPI_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_ENGINE_KEY].includes(key)) throw inputError("不支持的扩图引擎");
+  if (!["comfyui", ...ONEAPI_OUTPAINT_ENGINE_KEYS, QWEN_OUTPAINT_ENGINE_KEY].includes(key)) throw inputError("不支持的扩图引擎");
   if (key !== "comfyui" && input.outpaintModel != null && input.outpaintModel !== "") {
-    throw inputError(`${key === ONEAPI_OUTPAINT_ENGINE_KEY ? "Sunburst" : "Qwen"} 扩图不支持 Flux Fill 模型选择`);
+    throw inputError(`${ONEAPI_OUTPAINT_ENGINE_KEYS.includes(key) ? "Sunburst" : "Qwen"} 扩图不支持 Flux Fill 模型选择`);
   }
   return key;
 }
@@ -191,7 +191,7 @@ export async function normalizeImageOutpaintInput(input = {}) {
   assertOutpaintResolution(input.resolution);
   assertOutpaintResolution(input.outpaintCanvas?.resolution);
   const engineKey = imageOutpaintEngineKey(input);
-  const oneApi = engineKey === ONEAPI_OUTPAINT_ENGINE_KEY;
+  const oneApi = ONEAPI_OUTPAINT_ENGINE_KEYS.includes(engineKey);
   const qwen = engineKey === QWEN_OUTPAINT_ENGINE_KEY;
   const dimensions = oneApi ? oneApiOutpaintPreparedDimensions : qwen ? qwenOutpaintPreparedDimensions : imageOutpaintPreparedDimensions;
   const assertTarget = oneApi ? assertOneApiOutpaintTarget : qwen ? assertQwenOutpaintTarget : assertImageOutpaintAlignedTarget;
@@ -255,7 +255,7 @@ export async function normalizeImageOutpaintInput(input = {}) {
     throw inputError("目标画布超过本机请求保护上限，请减少扩展尺寸");
   }
   assertTarget({ width, height });
-  if (engineKey !== ONEAPI_OUTPAINT_ENGINE_KEY && Math.max(width, height) !== OUTPAINT_LONG_EDGE) {
+  if (!ONEAPI_OUTPAINT_ENGINE_KEYS.includes(engineKey) && Math.max(width, height) !== OUTPAINT_LONG_EDGE) {
     throw inputError(`AI扩图固定使用${OUTPAINT_RESOLUTION}，旧四边请求的输出长边必须为${OUTPAINT_LONG_EDGE}px`);
   }
   return { expansion, height, prepared, source, width, originalSource, sourceResized: false };
@@ -271,8 +271,8 @@ export async function executeImageOutpaint(input, { imageClient = null, onProgre
   if (!imageClient) throw Object.assign(new Error(IMAGE_OUTPAINT_PENDING_REASON), { statusCode: 409 });
   const normalized = await normalizeImageOutpaintInput(input);
   const engineKey = imageOutpaintEngineKey(input);
-  if (engineKey === ONEAPI_OUTPAINT_ENGINE_KEY) {
-    const result = await executeOneApiOutpaint(normalized, { imageClient, onProgress });
+  if (ONEAPI_OUTPAINT_ENGINE_KEYS.includes(engineKey)) {
+    const result = await executeOneApiOutpaint(normalized, { imageClient, onProgress, modelKey: engineKey });
     result.upstream.metadata = { ...result.upstream.metadata, ...sourceAdaptationMetadata(normalized) };
     if (normalized.outpaintCanvas) result.request.outpaintCanvas = normalized.outpaintCanvas;
     return archiveOutpaintResult(input, normalized, result, scheduleSync);

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖含质感增强的四张独立飞书Prompt表、全景及美化纯词光影编译器、美化六预设/LoRA、真实单图、模型矩阵与客户端及归档
+ * [INPUT]: 依赖含质感增强的Beta质感固定版本/正文SHA、四张独立飞书Prompt表、全景及美化纯词光影编译器、美化六预设/LoRA、真实单图、模型矩阵与客户端及归档
  * [OUTPUT]: 对外提供六旧美化工作流保留/新增卡片固定低自然、全景2:1及光影目标隔离、单轮执行与实际正文/卡片版本SHA归档和脱敏摘要
  * [POS]: src 的效果图与全景图应用服务，各自隔离 Prompt 真源并复用普通出图基础设施，不经过 Prompt Agent
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -83,6 +83,11 @@ export async function executeEffectRenderEnhancementWorkflow(
     ? loadTexturePrompt({ version: input.textureEnhancementPromptVersion }) : beautification
     ? loadBeautificationPrompt({ version: input.effectBeautificationPromptVersion })
     : panorama ? loadPanoramaPrompt({ version: input.panoramaPromptVersion }) : loadEffectPrompt());
+  if (texture && input.textureEnhancementPromptSha256 != null
+    && (input.textureEnhancementPromptVersion !== promptAsset.version
+      || input.textureEnhancementPromptSha256 !== createHash("sha256").update(promptAsset.prompt).digest("hex"))) {
+    throw workflowError("质感增强固定 Prompt 与批次快照不一致，请刷新配置", 409);
+  }
   let finalPrompt = beautificationLighting?.prompt || panoramaLighting?.prompt || (texture ? promptAsset.prompt : panorama
     ? composePanoramaEnhancementPrompt(promptAsset.prompt)
     : beautification ? composeEffectBeautificationPrompt(promptAsset.prompt, selection)

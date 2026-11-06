@@ -1,12 +1,13 @@
 /**
  * [INPUT]: 依赖原图尺寸、整体原灯处理与归一化新增光源/原灯减弱关闭/历史保护标注、新光源照射目标与动作专属参数，复用 GPT 尺寸真源的纯几何规划
- * [OUTPUT]: 对外提供整体原灯与点线面合同、模型/容量目录、可按功能注入容量的图片校验及GPT输出尺寸规划；旧打光默认6MiB
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供整体原灯与点线面合同、模型/容量目录、可按功能注入容量的图片校验及GPT输出尺寸规划；旧打光默认6MiB
  * [POS]: public 的打光纯规则层，由浏览器光源编辑器与服务端共同消费，不访问 DOM 或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { maskFillGptOutputSize } from "./image-mask-fill-geometry.js";
 
 export const RELIGHT_MODEL_KEY = "gptImage25Sunburst";
+export const RELIGHT_MODEL_KEYS = Object.freeze([RELIGHT_MODEL_KEY, "gptImage26Sunburst", "gptImage26Flare"]);
 export const RELIGHT_IMAGE_POLICY = Object.freeze({ accept: ["image/png", "image/jpeg", "image/webp"],
   maxBytesPerImage: 6 * 1024 * 1024, maxTotalBytes: 6 * 1024 * 1024, maxInputEdge: 4096, maxEdge: 4096, maxPixels: 16 * 1024 * 1024 });
 export const RELIGHT_LIMITS = Object.freeze({ maxLights: 12, maxPoints: 64, minTargetDistance: 0.005, minTargetPixels: 2, minKelvin: 2000, maxKelvin: 10000,

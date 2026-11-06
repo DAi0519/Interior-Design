@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享九卡光影/下拉/可选打光编辑、HTTP/文件/尺寸工具及独立任务/飞书同步接口
- * [OUTPUT]: 对外提供原光影或真实库卡选择、风格下拉、按需精细控光、单次提交/只读恢复、结果对比下载与独立归档重试
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供原光影或真实库卡选择、风格下拉、按需精细控光、单次提交/只读恢复、结果对比下载与独立归档重试
  * [POS]: public 的独立AI渲染台浏览器编排层，仅保存任务ID，不持有模型密钥或运营Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -256,7 +256,7 @@ generate.addEventListener("click", async () => {
   if (!identity?.available || identity.code !== "ai-render-studio" || !identity.version || !identity.sha256) { showError("studioRequestError", "渲染配置未完整加载，请先刷新光线设置。"); return; }
   const jobId = `studio-${crypto.randomUUID()}`;
   const submitted = { ...relight.value(), templateKey: "custom", lightingPreset: lightingPreset(), referenceImages: [{ name: source.name, type: source.type, size: source.size, dataUrl: source.dataUrl }],
-    modelKey: RELIGHT_MODEL_KEY, materialMode: "faithful", renderStyle, prompt: by("studioPrompt").value.trim(), studioPromptVersion: identity.version, studioPromptSha256: identity.sha256 };
+    modelKey: relight.value().modelKey || RELIGHT_MODEL_KEY, materialMode: "faithful", renderStyle, prompt: by("studioPrompt").value.trim(), studioPromptVersion: identity.version, studioPromptSha256: identity.sha256 };
   comparisonSource = source.dataUrl; result = null;
   job = { jobId, status: "running", message: "正在准备光源方案与材质表现…" };
   generating = true; saveJobId(jobId); clearResult(); showError("studioRequestError"); resume.hidden = true;

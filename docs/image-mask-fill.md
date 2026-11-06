@@ -1,4 +1,14 @@
+<!--
+[INPUT]: 依赖二次编辑三模型、用户原文、选区/参考用途与实际请求归档合同
+[OUTPUT]: 提供用户原文前置、局部消除直投及三模型能力/历史验证边界
+[POS]: docs 的二次编辑功能说明，与GPT合同及交接模板共同维护
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
 # 二次编辑测试与飞书归档
+
+2026-11-06模型扩展：新增GPT Image 2.6 Sunburst/Flare，保留原2.5默认与历史任务；下文原有固定模型描述以本条为准。实际范围、4K文生图证据和图生图预算拦截见[gpt26-integration.md](gpt26-integration.md)。
+
+通用顺序见[工作台Prompt顺序](workbench-prompt-order.md)：GPT有用户补充时，`User instruction`在完整正文首段，再接定位/参考用途和输出规则。无补充的参考模式不插空行或假原文；Flux/Qwen及独立局部消除保持原文直投。以下版本记录中的历史追加位置不代表当前编译顺序。
 
 2026-10-29线上回读：已原地更新功能、模式、Flux专属模型选项及三项专属列名，34个字段ID和全部选项ID/颜色均保留；抽样3条历史记录的版本与附件token未变，普通与imageMaskFill专属Schema均通过。全量1502项测试通过；4192在全景生成终态及同步终态后重载，实际三模型目录均返回“提示词编辑／参考图编辑”。本次未新增收费生成。此前全景任务生成成功、结果附件上传超时，完整PNG及任务快照已另行保留，不将其计入本功能改名验收。
 
@@ -8,7 +18,7 @@
 
 当前Sunburst适配器版本为2026-10-29.sunburst.16。无mask的蓝色矩形框选、自由圈选和纯指令编辑改走`POST /v1/responses`后台任务：`background:true`，完整指令为input_text，原图/可选参考图依次为input_image，原PNG data URL不拼接；image_generation工具保持所选size/quality、n=1、PNG及b64_json。收到HTTP 202和resp_...任务ID后，每1.5秒GET同一`/v1/responses/{id}`到completed，从output的image_generation_call.result读取URL或Base64。总等待600秒且只POST一次；failed/cancelled/incomplete报错，本地超时不等于上游已取消，禁止据此自动重发。有透明mask时仍同步调用`POST /v1/images/edits`，不能为了异步省略遮罩或把mask塞入Responses。
 
-sunburst.15目标与参考规则：仅GPT参考图模式新增`fillReferencePurpose`，`object`为换物品（默认）、`material`为换材质，由调用方明确选择，不自动猜用途。换物品按图2对应物品替换目标；换材质把图2材质应用到目标，保持原有形态、结构和位置，匹配场景尺度、透视与光影。两用途都保留无关内容；补充指令仍可省略、为空字符串或纯空白，有文字才追加实际`User instruction`行，不伪造用户指令。蓝圈、透明mask及无选区均适用；GPT无参考图模式和Flux/Qwen仍必填指令且不提交用途字段。原始`sourcePrompt`可为空，实际完整Prompt仍保存所选固定规则。本版本仅有合同测试与导出一致性核对，尚未新增真实出图。
+sunburst.15目标与参考规则：仅GPT参考图模式新增`fillReferencePurpose`，`object`为换物品（默认）、`material`为换材质，由调用方明确选择，不自动猜用途。换物品按图2对应物品替换目标；换材质把图2材质应用到目标，保持原有形态、结构和位置，匹配场景尺度、透视与光影。两用途都保留无关内容；补充指令可省略、为空字符串或纯空白，有文字才加入实际`User instruction`行；当前统一放首段，不伪造用户指令。蓝圈、透明mask及无选区均适用；GPT无参考图模式和Flux/Qwen仍必填指令且不提交用途字段。原始`sourcePrompt`可为空，实际完整Prompt仍保存所选固定规则。本版本仅有合同测试与导出一致性核对，尚未新增真实出图。
 
 sunburst.14历史：参考图模式允许无补充指令，未新增真实出图。
 

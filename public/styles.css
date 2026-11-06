@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 index.html 的语义类名与各浏览器控制器写入的 hidden/selected/loading/refreshing/dragging 状态
- * [OUTPUT]: 对外提供页面基础、纯文字品牌锚点、输入控制、单模型生成张数参数、单图拖放替换反馈、配置刷新、按压反馈、基础对话框和响应式适配
+ * [OUTPUT]: 含独立超分双噪声字段间距；对外提供页面基础、纯文字品牌锚点、输入控制、单模型生成张数参数、单图拖放替换反馈、配置刷新、按压反馈、基础对话框和响应式适配
  * [POS]: public 的基础样式入口，与 connection-center.css/result.css 分担连接、输入和输出视觉职责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -410,6 +410,10 @@ input::placeholder {
   height: 40px;
   padding: 0 11px;
   width: 100%;
+}
+
+.image-upscale-noise-fields {
+  margin-top: 14px;
 }
 
 .action-section {

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta跑图任务服务与内存 Base/生成替身
- * [OUTPUT]: 对外提供超分旧版本零入队阻断、精模模板/双Prompt版本摘要冻结与漂移阻断、异构光影配置串行准备/重复去重及失败零入队、十二功能样本准入、Agent权限门禁、409不重试、两路并发单图隔离/保序归档、生成/同步双阶段与仅同步重试、终态前忙碌守卫回归保障
+ * [OUTPUT]: 对外提供超分旧版本零入队阻断、精模模板/双Prompt版本摘要冻结与漂移阻断、异构光影配置串行准备/重复去重及失败零入队、含质感增强的十二功能样本准入、Agent权限门禁、409不重试、两路并发单图隔离/保序归档、生成/同步双阶段与仅同步重试、终态前忙碌守卫回归保障
  * [POS]: test 的 Beta跑图应用服务内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -100,7 +100,7 @@ test("Beta 批次入队及飞书同步期间保持忙碌，成功或失败终态
   assert.equal(service.hasActiveJobs(), false);
 });
 
-test("Beta跑图公开十二个场景且不发布结果数量上限", () => {
+test("Beta跑图公开十三个场景且不发布结果数量上限", () => {
   assert.deepEqual(BETA_FEATURE_MODES, [
     "housePlanLayout",
     "whiteModel",
@@ -108,6 +108,7 @@ test("Beta跑图公开十二个场景且不发布结果数量上限", () => {
     "roomRenovation",
     "styleTransfer",
     "refinedModel",
+    "textureEnhancement",
     "effectEnhancement",
     "effectBeautification",
     "panoramaEnhancement",

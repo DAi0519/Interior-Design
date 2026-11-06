@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Node 测试/断言、sharp 真实2:1图片、全景光影编译器与可注入共享美化服务
- * [OUTPUT]: 对外提供卡片版本SHA冻结/下架阻断、无冲突光影目标、纯词及自定义路由、实际Prompt脱敏归档与真实2:1准入测试
+ * [OUTPUT]: 对外提供用户要求首段/空补充兼容、卡片版本SHA冻结/下架阻断、无冲突光影目标、纯词及自定义路由、实际Prompt脱敏归档与真实2:1准入测试
  * [POS]: test 的全景光影服务合同测试，使用内存光影库和模型，不调用GPU或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -42,7 +42,7 @@ test("未选模板且无自定义光影要求时保留独立全景Prompt，不�
   assert.equal(result.request.panoramaLighting.mode, "preserve");
 });
 
-test("卡片与自定义词使用独立光影合同，强制读回并冻结卡片身份，正文不进入元数据", async () => {
+test("用户要求在卡片组合中位于首段，后接独立光影合同与卡片，身份冻结且正文不进入元数据", async () => {
   let options;
   const value = await resolvePanoramaLightingInput({ panoramaLighting: selection, prompt: "稍微压暗窗外" }, {
     loadAssets: async received => { options = received; return library; },
@@ -52,8 +52,7 @@ test("卡片与自定义词使用独立光影合同，强制读回并冻结卡�
   assert.match(value.prompt, /Change the time-of-day appearance/);
   assert.match(value.prompt, /Suppress source illumination that conflicts/);
   assert.match(value.prompt, /left and right image edges are adjacent/);
-  assert.ok(value.prompt.includes(preset.prompt));
-  assert.ok(value.prompt.endsWith("稍微压暗窗外"));
+  assert.equal(value.prompt, `[USER LIGHTING REFINEMENTS]\n稍微压暗窗外\n\n${PANORAMA_LIGHTING_CONTRACT}\n\n[LIGHTING PRESET]\n${preset.prompt}`);
   assert.doesNotMatch(value.prompt, /Use only existing illumination|same-condition restoration/);
   assert.equal(value.metadata.mode, "preset");
   assert.equal(value.metadata.preset.version, 3);
@@ -64,6 +63,22 @@ test("卡片与自定义词使用独立光影合同，强制读回并冻结卡�
   assert.deepEqual(prepared.panoramaLighting, selection);
   assert.notEqual(prepared.panoramaLighting, selection);
   assert.equal(prepared.prompt, "test");
+});
+
+test("空白或省略用户要求不增加占位段，卡片正文和原光影分支保持不变", async () => {
+  for (const prompt of [undefined, "", " \n "]) {
+    const value = await resolvePanoramaLightingInput({ panoramaLighting: selection, prompt }, {
+      loadAssets: async () => library,
+    });
+    assert.equal(value.prompt, `${PANORAMA_LIGHTING_CONTRACT}\n\n[LIGHTING PRESET]\n${preset.prompt}`);
+    assert.equal(value.metadata.customPromptUsed, false);
+    assert.equal("customPromptSha256" in value.metadata, false);
+    const preserve = await resolvePanoramaLightingInput({ prompt }, {
+      loadAssets: () => { throw new Error("原光影不应读库"); },
+    });
+    assert.equal(preserve.prompt, null);
+    assert.equal(preserve.metadata.mode, "preserve");
+  }
 });
 
 test("缺失/非法卡片身份、漂移或下架模板在提交模型前拒绝", async () => {
@@ -81,12 +96,15 @@ test("缺失/非法卡片身份、漂移或下架模板在提交模型前拒绝"
   }
 });
 
-test("自定义光影可独立执行，不读取全景旧词和卡片库，用户词长度及格式前置准入", async () => {
-  const result = await resolvePanoramaLightingInput({ prompt: "Convert to blue hour with warm interior lights." }, {
+test("自定义光影独立执行时用户原文同样前置，不读取全景旧词和卡片库，长度及格式前置准入", async () => {
+  const custom = "Convert to blue hour with warm interior lights.\nKeep the existing lamp positions.";
+  const result = await resolvePanoramaLightingInput({ prompt: `  ${custom}\n` }, {
     loadAssets: () => { throw new Error("无需卡片"); },
   });
   assert.equal(result.metadata.mode, "custom");
-  assert.ok(result.prompt.startsWith(PANORAMA_LIGHTING_CONTRACT));
+  assert.equal(result.prompt, `[USER LIGHTING REFINEMENTS]\n${custom}\n\n${PANORAMA_LIGHTING_CONTRACT}`);
+  assert.equal(result.metadata.customPromptSha256, createHash("sha256").update(custom).digest("hex"));
+  assert.equal(result.metadata.promptSha256, createHash("sha256").update(result.prompt).digest("hex"));
   assert.equal("preset" in result.metadata, false);
   for (const prompt of [[], 5, "x".repeat(8001)]) {
     await assert.rejects(() => resolvePanoramaLightingInput({ prompt }), error => error.statusCode === 400);
@@ -106,6 +124,7 @@ test("OneAPI光影目标只通过Prompt发送，最终正文/用户词/卡片SHA
   assert.equal("workflow_kind" in request, false);
   assert.equal("panoramaLighting" in request, false);
   assert.equal(request.images.length, 1);
+  assert.ok(request.prompt.startsWith("[USER LIGHTING REFINEMENTS]\nKeep the lamps slightly dimmer.\n\n"));
   assert.ok(request.prompt.includes(preset.prompt));
   assert.equal(archived.finalPrompt, request.prompt);
   assert.equal(archived.sourcePrompt, "Keep the lamps slightly dimmer.");

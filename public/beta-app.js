@@ -1,17 +1,17 @@
 /**
- * [INPUT]: 依赖旧房独立Agent目录/空房共享判定和Flux负向草稿，依赖共享美化六氛围/新增光影卡片互斥控制与运行能力；精模Flux参考来源切换触发1K/2K输出目录，依赖Beta DOM/共享选择、精模预设多模式×模型展开/上传双图及逐模式版本准入、独立扩图/超分、十二功能尺寸目录、设计及持久配置、样本库/预警/Run ID和共享API工具
- * [OUTPUT]: 新增户型布局逐样本标注、版本/Agent配置与默认GPT2.5模型对比； 提供旧房逐图房型/独立版本与空房单流程映射、旧进程门禁；效果图美化保留六原工作流、新卡片单图纯词及low/natural执行身份；全景多光影×模型×样本独立展开/计数/标签与R5_4原尺寸控制/旧进程多选及冻结任务重试阻断；精模Flux参考时隐藏CFG1无效负向，提供十二功能可恢复配置/模型权限真实状态、精模光影×方式×模型×样本独立计数摘要/Run ID及逐模式Prompt、共享参考/样本ID批次、冻结RETRY和双阶段监控；正常权限说明隐藏
+ * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta含户型布局的十三功能目录、旧房设计配置/空房判定、Flux负向草稿、扩图/超分、持久配置、样本库/预警/Run ID和API工具
+ * [OUTPUT]: 户型布局逐图标注/版本选择与同源执行； 提供旧房样本×模型批测、逐图房型/独立Agent版本与场景投影及旧进程门禁；美化/精模/全景按光影×模型×样本展开、尺寸与Prompt准入、可恢复配置、仅失败项冻结RETRY和生成/归档双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createBetaHousePlanConfiguration } from "./beta-house-plan.js";
 import { isLightingReference } from "./refined-flux-reference.js";
-import { generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
+import { beautificationItemsForSelection, beautificationSettingsForSelection, generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
 import "./custom-select.js?v=9";
 import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=9";
 import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=9";
-import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaFeatureUnavailableReason, betaModelSelectable, betaSizeOptions } from "./beta-model-rules.js?v=5";
+import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=6";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
@@ -100,6 +100,7 @@ const modelSelection = bindModelMultiSelect({
 });
 const effectBeautificationControls = bindEffectBeautificationControls({
   root: elements.effectBeautificationFields,
+  multiple: true,
   withPromptStatus: false,
   reload: async () => (state.stylesConfig = await api("/api/config/refresh", { method: "POST" })),
   onChange() { renderFeature(); saveConfiguration(); },
@@ -195,9 +196,11 @@ function selectedCandidates() {
   return state.featureMode === "imageOutpaint" ? outpaintConfiguration.selectedWorkflows() : selectedModels();
 }
 function sampleCount() { return sampleLibrary.sampleCount(); }
+function postUpscaleIssue() { if (state.featureMode === "housePlanLayout") return null; return betaPostUpscaleUnavailableReason({ featureMode: state.featureMode, models: selectedModels(), resolution: elements.resolutionSelect.value, sources: state.featureMode === "free" && state.freeReference ? [state.freeReference] : sampleLibrary.sourceDimensions(), refinedLighting: refinedRenderConfiguration.snapshot() }); }
 function runCount() {
   return sampleCount() * selectedCandidates().length
     * (state.featureMode === "refinedModel" ? refinedRenderConfiguration.selections().length
+      : state.featureMode === "effectBeautification" ? effectBeautificationControls.selections().length
       : state.featureMode === "panoramaEnhancement" ? Math.max(1, panoramaLighting.getSelections().length) : 1);
 }
 function showStatus(message, { error = false, ready = false } = {}) {
@@ -245,7 +248,6 @@ function renderReferenceInputs() {
   renderSingleReference("styleReference", elements.styleReferenceList, elements.styleReferenceDropZone);
   renderSingleReference("freeReference", elements.freeReferenceList, elements.freeReferenceDropZone);
 }
-
 function renderRunSummary() {
   housePlanConfiguration.decorateSamples();
   elements.betaFeatureSelect.disabled = sampleLibrary.isBusy();
@@ -258,6 +260,7 @@ function renderRunSummary() {
   elements.runSummary.textContent = samples && models
     ? state.featureMode === "refinedModel"
       ? betaRefinedLightingRunSummary({ selections: refinedRenderConfiguration.selections(), samples, models })
+      : state.featureMode === "effectBeautification" ? `${samples} 个样本 × ${effectBeautificationControls.selections().length} 种光影 × ${models} 个模型 = ${total} 张结果`
       : state.featureMode === "panoramaEnhancement" && panoramaLighting.getSelections().length > 1
         ? `${samples} 个样本 × ${models} 个模型 × ${panoramaLighting.getSelections().length} 种光影 = ${total} 张结果`
       : `${samples} 个样本 × ${models} 个${candidateLabel} = ${total} 张结果`
@@ -279,9 +282,9 @@ function renderRunSummary() {
   const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
   const effectPromptKey = FEATURE_COPY[state.featureMode].promptConfig;
   const effectReady = !effectPromptKey || state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt()
-    || state.featureMode === "effectBeautification" && Boolean(effectBeautificationControls.lightingValue())
+    || state.featureMode === "effectBeautification" && !effectBeautificationControls.requiresOriginalPrompt()
     || state.stylesConfig?.[effectPromptKey]?.available;
-  const targetIssue = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
+  const targetIssue = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || postUpscaleIssue()
     || (["styleTransfer", "roomRenovation"].includes(state.featureMode) ? designConfiguration.unavailableReason() : null);
   const targetReady = !targetIssue;
   const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation()
@@ -357,9 +360,8 @@ function renderOutputControls() {
     ? elements.qualitySelect.value
     : models[0]?.defaultQuality || qualities[0]);
   negativePrompt.render(models.map(model => model.key), state.featureMode);
-  elements.negativePromptField.classList.toggle(
-    "hidden",
-    state.featureMode === "panoramaEnhancement" || !models.some((model) => model.provider === "comfyui") || state.featureMode === "refinedModel" && isLightingReference(refinedRenderConfiguration.snapshot()),
+  elements.negativePromptField.classList.toggle("hidden",
+    ["panoramaEnhancement", "textureEnhancement"].includes(state.featureMode) || !models.some((model) => model.provider === "comfyui") || state.featureMode === "refinedModel" && isLightingReference(refinedRenderConfiguration.snapshot()),
   );
   renderRunSummary();
 }
@@ -399,8 +401,8 @@ function renderFeature() {
   if (design) renderDesignConfig();
   if (effect) {
     const effectConfig = state.stylesConfig?.[copy.promptConfig];
-    elements.configStatus.textContent = state.featureMode === "effectBeautification" && effectBeautificationControls.lightingValue()
-      ? "光影模板" : effectConfig?.available
+    elements.configStatus.textContent = state.featureMode === "effectBeautification" && !effectBeautificationControls.requiresOriginalPrompt()
+      ? `已选 ${effectBeautificationControls.selections().length} 种光影` : effectConfig?.available
       ? `Prompt v${effectConfig.version}` : `${copy.label} Prompt 不可用`;
   }
   refinedRenderConfiguration.render();
@@ -410,12 +412,12 @@ function renderFeature() {
 }
 function currentCases() {
   return sampleLibrary.currentCases({
-    commonPrompt: ["imageOutpaint", "imageUpscale"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
+    commonPrompt: ["imageOutpaint", "imageUpscale", "textureEnhancement"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
     freeReference: state.freeReference });
 }
 function designSettings() { return designConfiguration.settings(); }
 function assertFeatureConfig() {
-  const unavailableReason = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig)
+  const unavailableReason = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || postUpscaleIssue()
     || (state.featureMode === "housePlanLayout" ? null : generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()));
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
@@ -424,7 +426,7 @@ function assertFeatureConfig() {
   if (state.featureMode === "panoramaEnhancement" && panoramaLighting.validation()) throw new Error(panoramaLighting.validation());
   const effectCopy = FEATURE_COPY[state.featureMode];
   if (effectCopy.promptConfig && !(state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt())
-    && !(state.featureMode === "effectBeautification" && effectBeautificationControls.lightingValue())
+    && !(state.featureMode === "effectBeautification" && !effectBeautificationControls.requiresOriginalPrompt())
     && !state.stylesConfig?.[effectCopy.promptConfig]?.available) {
     throw new Error(`${effectCopy.label} Prompt 不可用`);
   }
@@ -442,6 +444,7 @@ function buildItems(startedAt = new Date()) {
   if (state.featureMode === "imageUpscale") return upscaleConfiguration.buildItems(cases, startedAt);
   const models = state.featureMode === "refinedModel"
     ? generationItemsForSelection(selectedModels(), 1, refinedRenderConfiguration.selections())
+    : state.featureMode === "effectBeautification" ? beautificationItemsForSelection(selectedModels(), effectBeautificationControls.selections())
     : state.featureMode === "panoramaEnhancement" ? panoramaItemsForSelection(selectedModels(), 1, panoramaLighting.getSelections()) : selectedModels();
   if (!cases.length) throw new Error("请先添加批量样本");
   if (!models.length) throw new Error("请选择出图模型");
@@ -455,7 +458,7 @@ function buildItems(startedAt = new Date()) {
     const input = {
       featureMode: state.featureMode === "roomRenovation" ? "emptyRoom" : state.featureMode,
       modelKey: model.key,
-      negativePrompt: elements.negativePromptInput.value.trim(),
+      negativePrompt: state.featureMode === "textureEnhancement" ? "" : elements.negativePromptInput.value.trim(),
       outputFormat: "png",
       prompt: state.featureMode === "panoramaEnhancement" ? panoramaLighting.requestFields().prompt : FEATURE_COPY[state.featureMode].promptConfig ? "" : currentCase.prompt,
       quality: elements.qualitySelect.value,
@@ -463,15 +466,12 @@ function buildItems(startedAt = new Date()) {
       ratioMode: ratioAuto ? "auto" : "manual",
       referenceImages: currentCase.referenceImages,
       resolution: elements.resolutionSelect.value || model.defaultResolution,
+      ...(state.featureMode === "textureEnhancement" ? { textureEnhancementPromptVersion: state.stylesConfig.textureEnhancementPrompt.version, textureEnhancementPromptSha256: state.stylesConfig.textureEnhancementPrompt.sha256 } : {}),
       ...(state.featureMode === "effectEnhancement" ? {
         effectTime: elements.effectTimeSelect.value,
         effectWeather: elements.effectWeatherSelect.value,
       } : {}),
-      ...(state.featureMode === "effectBeautification" ? {
-        effectBeautification: effectBeautificationControls.value(),
-        ...effectBeautificationControls.requestFields(state.featureMode),
-        effectBeautificationPromptVersion: state.stylesConfig?.effectBeautificationPrompt?.version,
-      } : {}),
+      ...(state.featureMode === "effectBeautification" ? beautificationSettingsForSelection(model.beautificationSelection, state.stylesConfig?.effectBeautificationPrompt?.version) : {}),
       ...(state.featureMode === "panoramaEnhancement" ? {
         panoramaLighting: panoramaLightingRequestSelection(model.panoramaLightingSelection || panoramaLighting.requestFields().panoramaLighting),
         panoramaPromptVersion: state.stylesConfig?.panoramaEnhancementPrompt?.version,

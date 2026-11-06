@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 十二功能目录/旧房准入与共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供美化六氛围与新增模板共用控件/身份和能力接线、十二功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
+ * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 含户型布局的十三功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
+ * [OUTPUT]: 对外提供美化六氛围/模板混合多选×样本×模型独立展开、RunID/标签/计数与混合Prompt准入，十功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import { packBatchAssets } from "../public/beta-assets.js";
 import { BETA_FEATURE_COPY, betaFeatureUnavailableReason } from "../public/beta-model-rules.js";
 import { isEmptyRoomDesign } from "../public/room-renovation.js";
 import { betaJobWarnings, renderBetaWarnings } from "../public/beta-results.js";
+import { beautificationItemsForSelection, beautificationSettingsForSelection } from "../public/generation-task-request.js";
 
 test("Beta提示词模型正常授权不显示说明，检测/断连/权限失败与自动候补仍可见", async () => {
   const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
@@ -50,7 +51,7 @@ test("Beta提示词模型正常授权不显示说明，检测/断连/权限失�
   }
 });
 
-test("Beta跑图是独立第三工作台，十二功能任务使用共享可搜索下拉并保留配置与监控", async () => {
+test("Beta跑图是独立第三工作台，含户型布局的十三功能任务使用共享可搜索下拉并保留配置与监控", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -72,11 +73,11 @@ test("Beta跑图是独立第三工作台，十二功能任务使用共享可搜�
   assert.doesNotMatch(html, /betaFeatureOptions|data-feature-mode=/);
   assert.deepEqual(Object.entries(BETA_FEATURE_COPY).map(([key, copy]) => [key, copy.label]), [
     ["housePlanLayout", "户型平面布局"], ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["roomRenovation", "旧房改造"], ["styleTransfer", "风格转换"],
-    ["refinedModel", "精模渲染"], ["effectEnhancement", "效果图氛围转换"],
+    ["refinedModel", "精模渲染"], ["textureEnhancement", "质感增强"], ["effectEnhancement", "效果图氛围转换"],
     ["effectBeautification", "效果图美化"], ["panoramaEnhancement", "全景图美化"],
     ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageUpscale", "AI超分"],
   ]);
-  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=5"/);
+  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=6"/);
   assert.match(source, /fillSelect\(elements\.betaFeatureSelect,\s*Object\.entries\(FEATURE_COPY\)\.map/);
   assert.match(source, /elements\.betaFeatureSelect\.value = state\.featureMode/);
   assert.match(source, /elements\.betaFeatureSelect\.disabled = sampleLibrary\.isBusy\(\)/);
@@ -234,9 +235,9 @@ test("Beta效果图美化复用六氛围及新增模板控件，与氛围转换�
   assert.match(source, /effectBeautificationControls\.validation\(\)/);
   assert.match(featureRules, /promptConfig: "effectBeautificationPrompt"/);
   assert.match(featureRules, /promptConfig: "effectEnhancementPrompt"/);
-  assert.match(source, /effectBeautification: effectBeautificationControls\.value\(\)/);
-  assert.match(source, /\.\.\.effectBeautificationControls\.requestFields\(state\.featureMode\)/);
-  assert.match(source, /effectBeautificationPromptVersion: state\.stylesConfig\?\.effectBeautificationPrompt\?\.version/);
+  assert.match(source, /multiple: true/);
+  assert.match(source, /beautificationItemsForSelection\(selectedModels\(\), effectBeautificationControls\.selections\(\)\)/);
+  assert.match(source, /beautificationSettingsForSelection\(model\.beautificationSelection, state\.stylesConfig\?\.effectBeautificationPrompt\?\.version\)/);
   assert.match(source, /\|\| !effectReady/);
   const promptExpression = source.match(/\n\s+prompt: ([^\n]+),\n/)?.[1];
   assert.ok(promptExpression, "批次构造必须显式决定实际用户Prompt");
@@ -271,52 +272,80 @@ test("Beta美化新增模板无需旧六档Prompt，但失效卡片必须在提�
   const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
   const functionSource = source.match(/function assertFeatureConfig\(\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(functionSource);
-  let selection = null, issue = null;
+  let requiresOriginalPrompt = true, issue = null;
   const context = {
     state: { featureMode: "effectBeautification", catalog: {}, stylesConfig: { effectBeautificationPrompt: { available: false } } },
-    housePlanConfiguration: { reason: () => null }, generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason,
+    housePlanConfiguration: { reason: () => null }, generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason, postUpscaleIssue: () => null,
     selectedModels: () => [], sampleLibrary: { assertRoomTypes() {} }, FEATURE_COPY: BETA_FEATURE_COPY,
-    effectBeautificationControls: { lightingValue: () => selection, validation: () => issue },
+    effectBeautificationControls: { requiresOriginalPrompt: () => requiresOriginalPrompt, validation: () => issue },
   };
   const validate = new Function(...Object.keys(context), `return (${functionSource})();`);
   assert.throws(() => validate(...Object.values(context)), /效果图美化 Prompt 不可用/);
-  selection = { presetId: "recBeautificationNight", version: 5, sha256: "a".repeat(64) };
+  requiresOriginalPrompt = false;
+  assert.doesNotThrow(() => validate(...Object.values(context)));
+  requiresOriginalPrompt = true;
+  assert.throws(() => validate(...Object.values(context)), /效果图美化 Prompt 不可用/, "混选旧氛围仍须检查原六档Prompt");
+  context.state.stylesConfig.effectBeautificationPrompt.available = true;
   assert.doesNotThrow(() => validate(...Object.values(context)));
   issue = "美化光影已更新，请重新选择";
   assert.throws(() => validate(...Object.values(context)), /美化光影已更新/);
 });
 
-test("Beta实际美化批次将模板身份随每个模型提交，原六档不携模板图片", async () => {
+test("Beta美化按样本×原氛围/新模板×模型构造独立任务，保持各自工作流和模板身份", async () => {
   const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
   const functionSource = source.match(/function buildItems\(startedAt = new Date\(\)\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(functionSource);
   const lighting = { presetId: "recBeautificationNight", version: 5, sha256: "a".repeat(64) };
-  let selection = lighting;
+  const original = { key: "atmosphere:high-cool", name: "静谧柔光", effectBeautification: { intensity: "high", tone: "cool" }, effectBeautificationLighting: null };
+  const natural = { key: "atmosphere:low-natural", name: "明亮自然", effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: null };
+  const template = { key: "lighting:recBeautificationNight", name: "暖灯静夜", effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: lighting };
+  let selections = [template];
   const context = {
     assertFeatureConfig() {}, currentCases: () => [{ caseId: "SAMPLE-1", label: "客厅", referenceImages: [{ name: "原图" }] }],
     selectedModels: () => [{ key: "flux", label: "Flux", defaultRatio: "4:3" }, { key: "seedream", label: "Seedream", defaultRatio: "4:3" }],
     state: { featureMode: "effectBeautification", stylesConfig: { effectBeautificationPrompt: { version: 2 } } },
     elements: Object.fromEntries(["ratioSelect", "negativePromptInput", "qualitySelect", "resolutionSelect"].map(key => [key, { value: key === "resolutionSelect" ? "2K" : "" }])),
-    FEATURE_COPY: BETA_FEATURE_COPY, isEmptyRoomDesign,
-    effectBeautificationControls: {
-      value: () => selection ? { intensity: "low", tone: "natural" } : { intensity: "high", tone: "cool" },
-      requestFields: () => ({ effectBeautificationLighting: selection }),
-    },
+    FEATURE_COPY: BETA_FEATURE_COPY,
+    effectBeautificationControls: { selections: () => selections },
+    beautificationItemsForSelection, beautificationSettingsForSelection, isEmptyRoomDesign,
     adaptGenerationInputForModel: input => input, createBetaRunId: ({ sequence }) => `RUN-${sequence}`,
   };
   const build = new Function(...Object.keys(context), `return (${functionSource})();`);
-  for (const selected of [lighting, null]) {
-    selection = selected;
+  for (const selected of [template, original]) {
+    selections = [selected];
     const batch = packBatchAssets(build(...Object.values(context)), "effectBeautification");
     assert.deepEqual(batch.assets, {});
     assert.equal(batch.items.length, 2);
     for (const { input } of batch.items) {
-      assert.deepEqual(input.effectBeautificationLighting, selected);
-      assert.deepEqual(input.effectBeautification, selected ? { intensity: "low", tone: "natural" } : { intensity: "high", tone: "cool" });
+      assert.deepEqual(input.effectBeautificationLighting, selected.effectBeautificationLighting);
+      assert.deepEqual(input.effectBeautification, selected.effectBeautification);
       assert.equal("lightingReferenceImages" in input, false);
       assert.equal("refinedLighting" in input, false);
     }
   }
+  selections = [original, natural, template];
+  context.currentCases = () => ["SAMPLE-1", "SAMPLE-2"].map((caseId, index) => ({ caseId, label: `客厅${index + 1}`, referenceImages: [{ name: `${caseId}.png` }] }));
+  const items = build(...Object.values(context));
+  assert.equal(items.length, 12);
+  assert.equal(new Set(items.map(item => item.runId)).size, 12);
+  assert.equal(new Set(items.map(item => item.label)).size, 12);
+  assert.deepEqual([...new Set(items.map(item => item.modelLabel))], ["Flux", "Seedream"]);
+  for (const sampleId of ["SAMPLE-1", "SAMPLE-2"]) for (const modelKey of ["flux", "seedream"]) {
+    const group = items.filter(item => item.sampleId === sampleId && item.input.modelKey === modelKey);
+    assert.equal(group.length, 3);
+    assert.deepEqual(group.map(item => item.input.effectBeautification), selections.map(item => item.effectBeautification));
+    assert.deepEqual(group.map(item => item.input.effectBeautificationLighting), [null, null, lighting]);
+    assert.ok(group.every(item => item.input.effectBeautificationPromptVersion === 2));
+    assert.ok(group.every(item => item.input.referenceImages.length === 1));
+  }
+  const countSource = source.match(/function runCount\(\) \{[\s\S]*?\n\}/)?.[0];
+  const count = new Function("sampleCount", "selectedCandidates", "state", "effectBeautificationControls", `return (${countSource})();`);
+  assert.equal(count(() => 2, context.selectedModels, context.state, context.effectBeautificationControls), 12);
+  const summaryExpression = source.match(/elements\.runSummary\.textContent = ([\s\S]*?);\n/)?.[1];
+  const summary = new Function("samples", "models", "state", "effectBeautificationControls", "total", `return (${summaryExpression});`);
+  assert.equal(summary(2, 2, context.state, context.effectBeautificationControls, 12), "2 个样本 × 3 种光影 × 2 个模型 = 12 张结果");
+  selections = [];
+  assert.equal(count(() => 2, context.selectedModels, context.state, context.effectBeautificationControls), 0);
 });
 
 test("已有样本跨模型只发送稳定 ID 且风格图仅携带一份", () => {

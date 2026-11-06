@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Flux/Qwen/Sunburst 扩图模型真源、固定2K合同与运行时只读能力目录，接收 Beta 工作流键及固定构图参数
- * [OUTPUT]: 对外提供四工作流脱敏目录、严格生成输入归一化与入队前可用性核验，冻结真实模型身份并拒绝客户端覆盖
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供四工作流脱敏目录、严格生成输入归一化与入队前可用性核验，冻结真实模型身份并拒绝客户端覆盖
  * [POS]: src 的 Beta扩图合同边界，与正式扩图共用模型及执行链路，不复制推理或归档逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,6 +17,8 @@ export const BETA_OUTPAINT_WORKFLOWS = Object.freeze([
   fluxWorkflow("outpaint-flux-dev", IMAGE_OUTPAINT_MODELS.find((model) => model.key === "fluxFillDev")),
   { key: "outpaint-qwen-2511", label: QWEN_OUTPAINT_WORKFLOW.label, provider: "comfyui", engine: QWEN_OUTPAINT_ENGINE_KEY, model: QWEN_OUTPAINT_ENGINE_KEY },
   { key: "outpaint-sunburst", label: MODEL_CONFIGS[ONEAPI_OUTPAINT_ENGINE_KEY].label, provider: "oneapi", engine: ONEAPI_OUTPAINT_ENGINE_KEY, model: ONEAPI_OUTPAINT_ENGINE_KEY },
+  ...["Sunburst", "Flare"].map(variant => ({ key: `outpaint-gpt26-${variant.toLowerCase()}`,
+    label: MODEL_CONFIGS[`gptImage26${variant}`].label, provider: "oneapi", engine: `gptImage26${variant}`, model: `gptImage26${variant}` })),
 ].map(Object.freeze));
 const RATIOS = Object.freeze(["original", "1:1", "4:3", "16:9", "3:4", "9:16"]);
 const SCALES = Object.freeze([1 / 1.5, 1 / 2, 1 / 3]);

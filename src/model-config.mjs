@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→4K/6K 攸行超分契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 对外提供服务端编译正文32000/直接输入8000字符准入、含完整型号与历史别名的模型公开目录、Provider 查询、按功能覆盖尺寸的参数解析、全景R5_4原尺寸/空默认负向合同，以及普通Flux推理/超分和精模/光影转换双图独立1K/2K请求构造器
+ * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→KS直入4K/6K超分与历史攸行冻结契约、普通/旧房独立负向 Prompt 及参考图安全校验
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供模型目录/Provider、服务端编译正文独立长度准入、功能尺寸解析、全景R5_4原尺寸与Flux后置超分/双图请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,9 +10,19 @@ import { PANORAMA_WORKFLOW } from "./panorama-workflow.mjs";
 import { resolveAiTextureNegativePrompt } from "./ai-texture-workflow.mjs";
 import {
   IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+  FLUX_POST_UPSCALE_WORKFLOW_KEY,
+  imageUpscaleWorkflow,
   imageUpscaleTargetDimensions,
 } from "./image-upscale-workflow.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
+
+const FLUX_POST_UPSCALE_WORKFLOW = imageUpscaleWorkflow(FLUX_POST_UPSCALE_WORKFLOW_KEY);
+const FLUX_POST_UPSCALE_CAPABILITY = Object.freeze({
+  workflowKey: FLUX_POST_UPSCALE_WORKFLOW.key,
+  workflowVersion: FLUX_POST_UPSCALE_WORKFLOW.version,
+  workflowLabel: FLUX_POST_UPSCALE_WORKFLOW.shortLabel,
+  inputSize: FLUX_POST_UPSCALE_WORKFLOW.inputSize,
+});
 
 // -- GPT 尺寸合同 -----------------------------------------------------------
 // 1K/2K/4K 是工作台档位，实际尺寸按比例满足 16px 对齐、655360-8294400 像素、边长 <=3840。
@@ -166,12 +176,19 @@ export const MODEL_CONFIGS = Object.freeze({
     qualityOptions: ["low", "medium", "high", "xhigh", "max"],
     sizes: GPT_IMAGE_25_SIZES,
   },
+  ...Object.fromEntries(["Sunburst", "Flare"].map(variant => [`gptImage26${variant}`, {
+    accent: "blue", defaultFormat: "png", defaultQuality: "medium", defaultRatio: "4:3", defaultResolution: "2K",
+    description: "GPT Image 2.6 · 支持图像生成与编辑",
+    formats: ["png", "jpeg", "webp"], id: `gpt-image-2.6-${variant.toLowerCase()}`, label: `GPT Image 2.6 ${variant}`,
+    qualityOptions: ["low", "medium", "high", "xhigh", "max"],
+    sizes: GPT_IMAGE_25_SIZES,
+  }])),
   aiTextureEnhancement: {
     accent: "lime",
     defaultFormat: "png",
     defaultRatio: "source",
     defaultResolution: "2K",
-    description: "ComfyUI · Flux2 Klein，1K/2K 原生输出，4K/6K 在同一工作流接攸行超分",
+    description: "ComfyUI · Flux2 Klein，1K/2K 原生输出，4K/6K 在同一工作流接 KS直入7B，6K以5K推理后交付",
     formats: ["png"],
     id: "comfyui:ai-texture-enhancement",
     label: "Flux2 Klein",
@@ -180,8 +197,8 @@ export const MODEL_CONFIGS = Object.freeze({
     refinedLightingReference: REFINED_FLUX_REFERENCE,
     provider: "comfyui",
     postUpscale: {
-      "4K": { longEdge: 4096, sourceResolution: "2K" },
-      "6K": { longEdge: 6144, sourceResolution: "2K" },
+      "4K": { longEdge: 4096, sourceResolution: "2K", ...FLUX_POST_UPSCALE_CAPABILITY },
+      "6K": { longEdge: 6144, sourceResolution: "2K", ...FLUX_POST_UPSCALE_CAPABILITY },
     },
     qualityOptions: [],
     requiresReferenceImage: true,
@@ -319,6 +336,29 @@ export function imageProviderForModel(modelKey) {
   return modelOrThrow(String(modelKey || "")).provider || "oneapi";
 }
 
+export function normalizeFluxPostUpscaleInput(input, { legacy = false } = {}) {
+  const hasKey = input.postUpscaleWorkflowKey !== undefined;
+  const hasVersion = input.postUpscaleWorkflowVersion !== undefined;
+  const ordinary = ["free", "whiteModel", "emptyRoom", "roomRenovation", "styleTransfer", "refinedModel",
+    "effectEnhancement", "effectBeautification", "textureEnhancement"].includes(input.featureMode || "free");
+  const enabled = input.modelKey === "aiTextureEnhancement" && ["4K", "6K"].includes(input.resolution)
+    && ordinary && !isRefinedFluxReference(input);
+  if (!enabled) {
+    if (hasKey || hasVersion) throw Object.assign(new Error("后置超分身份仅支持普通Flux的4K/6K档位"), { statusCode: 400, retryable: false });
+    return input;
+  }
+  if (hasKey !== hasVersion) throw Object.assign(new Error("后置超分工作流和版本必须同时冻结，请刷新配置"), { statusCode: 409, retryable: false });
+  const key = hasKey ? input.postUpscaleWorkflowKey : legacy ? IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY : FLUX_POST_UPSCALE_WORKFLOW_KEY;
+  if (![FLUX_POST_UPSCALE_WORKFLOW_KEY, IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY].includes(key)) {
+    throw Object.assign(new Error("Flux后置超分工作流不受支持"), { statusCode: 400, retryable: false });
+  }
+  const workflow = imageUpscaleWorkflow(key);
+  if (hasVersion && input.postUpscaleWorkflowVersion !== workflow.version) {
+    throw Object.assign(new Error("后置超分工作流版本已变化，请刷新配置后重新运行"), { statusCode: 409, retryable: false });
+  }
+  return { ...input, postUpscaleWorkflowKey: workflow.key, postUpscaleWorkflowVersion: workflow.version };
+}
+
 export function createGenerationRequest(
   input,
   { compiledPrompt = false, preferSourceAspect = false, sourceDimensions = null } = {},
@@ -329,6 +369,7 @@ export function createGenerationRequest(
     error.statusCode = 400;
     throw error;
   }
+  input = normalizeFluxPostUpscaleInput(input);
   const modelKey = String(input.modelKey || "");
   const model = modelOrThrow(modelKey);
   const featureSizeOverrides = model.featureSizeOverrides?.[input.featureMode] || {};
@@ -386,8 +427,9 @@ export function createGenerationRequest(
       resolvedSourceDimensions,
       Number(model.sizes.source[inferenceResolution]),
     );
+    const upscaleWorkflow = postUpscale ? imageUpscaleWorkflow(input.postUpscaleWorkflowKey) : null;
     const outputDimensions = postUpscale
-      ? imageUpscaleTargetDimensions(dimensions, resolution)
+      ? imageUpscaleTargetDimensions(dimensions, resolution, upscaleWorkflow.key)
       : dimensions;
     const panoramaNegative = String(input.negativePrompt || "").trim();
     const negativePrompt = dual ? { text: "", mode: "disabled-cfg1" }
@@ -419,7 +461,9 @@ export function createGenerationRequest(
         ...(postUpscale ? {
           inferenceResolution,
           inferenceSize: `${dimensions.width}x${dimensions.height}`,
-          upscaleWorkflowKey: IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+          upscaleWorkflowKey: upscaleWorkflow.key,
+          upscaleWorkflowVersion: upscaleWorkflow.version,
+          upscaleWorkflowLabel: upscaleWorkflow.shortLabel,
         } : {}),
       },
       provider: "comfyui",
@@ -445,7 +489,10 @@ export function createGenerationRequest(
           upscale_height: outputDimensions.height,
           upscale_resolution: resolution,
           upscale_width: outputDimensions.width,
-          upscale_workflow_key: IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+          upscale_workflow_key: upscaleWorkflow.key,
+          upscale_workflow_version: upscaleWorkflow.version,
+          upscale_source_width: dimensions.width,
+          upscale_source_height: dimensions.height,
         } : {}),
       },
       workflowMetadata: {
@@ -456,7 +503,9 @@ export function createGenerationRequest(
           inferenceResolution,
           inferenceSize: `${dimensions.width}x${dimensions.height}`,
           upscaleResolution: resolution,
-          upscaleWorkflowKey: IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY,
+          upscaleWorkflowKey: upscaleWorkflow.key,
+          upscaleWorkflowVersion: upscaleWorkflow.version,
+          upscaleWorkflowLabel: upscaleWorkflow.shortLabel,
         } : {}),
       },
     };

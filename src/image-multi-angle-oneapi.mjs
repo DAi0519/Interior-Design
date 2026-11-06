@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型尺寸目录、共享英文镜头语义/版本、图片读取、sharp与注入的OneAPI客户端
- * [OUTPUT]: 三方多角度候选与质量档位校验、共用英文机位指令及保留实际档位/费用/真实尺寸的长边2K结果
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 三方多角度候选与质量档位校验、共用英文机位指令及保留实际档位/费用/真实尺寸的长边2K结果
  * [POS]: src 的多角度三方适配层，与Qwen工作流并列，复用OneAPI请求封装
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@ import { MULTI_ANGLE_IMAGE_POLICY } from "./image-multi-angle-image.mjs";
 
 export const multiAngleApiPrompt = multiAnglePrompt;
 
-export const MULTI_ANGLE_API_MODELS = ["banana21", "gptImage25Sunburst"].map(key => ({
+export const MULTI_ANGLE_API_MODELS = ["banana21", "gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare"].map(key => ({
   key, label: MODEL_CONFIGS[key].label, provider: "oneapi", id: MODEL_CONFIGS[key].id,
   qualityOptions: [...MODEL_CONFIGS[key].qualityOptions], defaultQuality: MODEL_CONFIGS[key].defaultQuality || null,
 }));
@@ -41,7 +41,7 @@ export async function executeOneApiMultiAngle({ model, pose, inferenceBytes, pla
     images: [{ image_url: `data:image/png;base64,${inferenceBytes.toString("base64")}` }] };
   const startedAt = Date.now();
   onProgress({ phase: "executing", message: `${model.label} 正在生成新的镜头视角` });
-  const result = model.key === "gptImage25Sunburst"
+  const result = model.id.startsWith("gpt-image-")
     ? await imageClient.editImage(request) : await imageClient.generateImage(request);
   if (result.images?.length !== 1) throw new Error("多角度未返回唯一图片结果");
   const bytes = await loadImageBytes(result.images[0].url);

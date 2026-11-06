@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+upscale-trials/ - SUPIR Q与原生SDXL Tile的室内保真Prompt双支试验，共享编码/同seed参数、默认仅准备/单POST账本，不进入主/Beta目录
 panorama-enhancement/ - R5_4原始执行图与来源SHA、20视角球面链路/原尺寸/输入保存适配和纯词光影说明
 Flux2-Klein-精模双图-1K.json: 用户双图骨架的独立可导入画布，图1保设计/图2光影；源比例长边1024、16px对齐、4步CFG1Euler与referenceRule4静态快照
 Flux2-Klein-精模双图-2K.json: 同合同长边2048画布，普通Flux及原附件不改，无SeedVR2后置超分

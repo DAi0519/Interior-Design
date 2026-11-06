@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立渲染台服务、OneAPI权限、共享生成/同步注册表及可续传飞书归档执行器
- * [OUTPUT]: 对外提供config/jobs/sync-retry路由、生成幂等与实时归档状态；私有图像/Prompt闭包不进入HTTP结果
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供config/jobs/sync-retry路由、生成幂等与实时归档状态；私有图像/Prompt闭包不进入HTTP结果
  * [POS]: src 的AI渲染台HTTP边界，归档失败只重试原图结果同步，忙碌守卫覆盖生成与同步
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -63,7 +63,7 @@ export function createAiRenderStudioApiHandler({ getImageClient, getOneApiModels
       identities.set(jobId, fingerprint);
       return generationJobs.enqueue(jobId, { featureMode: "aiRenderStudio", total: 1 }, async (update) => {
         let imageClient;
-        try { imageClient = await getImageClient(RELIGHT_MODEL_KEY); }
+        try { imageClient = await getImageClient(prepared.validated?.modelKey || input.modelKey || RELIGHT_MODEL_KEY); }
         catch { throw fail("AI渲染台模型连接不可用，请检查设置", 409); }
         return execute(prepared, { imageClient, getOneApiModels, onReceipt, verifySyncContract, jobId, loadLightingAssets,
           scheduleSync: (factory) => startSync(jobId, factory),

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公开二次编辑目录、主图上传、共享参考图上传、画笔/矩形/自由圈选交互、纯请求规则与主工作台任务/摘要和飞书同步回调
- * [OUTPUT]: 对外提供三模型两模式与局部消除独立Prompt操作（默认GPT框选/精简消除指令/必选区域/独立草稿/旧后端阻断）、GPT参考模式换物品/换材质与可空补充指令、三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供三模型两模式与局部消除独立Prompt操作（默认GPT框选/精简消除指令/必选区域/独立草稿/旧后端阻断）、GPT参考模式换物品/换材质与可空补充指令、三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
  * [POS]: public 的区域编辑控制器，不持有上游地址或工作流正文；换模型保留三类独立历史，当前工具决定请求，权限失效及旧服务缺少对应选区能力时阻断原选择
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -110,7 +110,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
   const selectedModelConfig = () => config.models?.find(entry => entry.key === modelSelect.value);
   const selectedConfig = () => (selectedModelConfig()?.modes
     || (selectedModel().key === "flux2Klein" ? config.modes : []))?.find(entry => entry.key === mode);
-  const gptConfig = () => config.models?.find(entry => entry.key === "gptImage25Sunburst");
+  const gptConfig = () => config.models?.find(entry => entry.key === selectedModel().key);
   const missingModelConfig = () => Boolean(config.version) && config.available === true && !config.reason
     && selectedModel().key !== "flux2Klein" && !selectedModelConfig();
   const staleGpt = () => selectedModel().provider === "oneapi" && selectedConfig()?.available
@@ -200,7 +200,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
   brush.addEventListener("input", () => { brushSize.textContent = `${brush.value}px`; });
 
   function renderMaskControls() {
-    const optional = selectedModel().key === "gptImage25Sunburst";
+    const optional = selectedModel().provider === "oneapi";
     const selection = optional && drawing.isSelection();
     by("[data-mask-expand-field]").hidden = selection;
     by("[data-mask-parameters]").hidden = selection;
@@ -248,7 +248,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
       || (mode === "reference" ? maskFillImageIssue(referenceUpload.images()[0], "编辑参考图") : "")
       || (!prompt.value.trim() && !maskFillPromptOptional(selectedModel().key, mode) ? "请填写明确的编辑指令" : "")
       || (selectedMode === "remove" && !drawing.editRegion() && !hasMask ? "请先框选、圈选或涂抹需要消除的物品" : "")
-      || (!hasMask && selectedModel().key !== "gptImage25Sunburst" ? "请先在原图上涂抹需要编辑的区域" : "")
+      || (!hasMask && selectedModel().provider !== "oneapi" ? "请先在原图上涂抹需要编辑的区域" : "")
       || (hasMask && (!Number.isInteger(Number(expand.value)) || Number(expand.value) < 0 || Number(expand.value) > 256) ? "遮罩扩展应为0–256的整数" : "");
     return message ? { message } : null;
   }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖精模实际光影和旧氛围摘要、浏览器 fetch、FileReader 与原生 select/option DOM，接收统一生成/同步结果和通用展示值
- * [OUTPUT]: 同源请求保留HTTP状态供任务恢复判定； 对外提供同源API/格式化/文件读取、含精模实际光影及预设执行方式的结果摘要、质感固定词无负向时省略负向标记、ComfyUI分段耗时和原生下拉工具；旧结果不补造执行方式
+ * [OUTPUT]: 提供同源API、格式化/文件读取、从冻结元数据读取独立超分双噪声与实际后置KS摘要、精模光影、ComfyUI耗时和下拉工具
  * [POS]: public 的无状态浏览器基础设施，被生成、Benchmark 与对话控制器复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -68,7 +68,18 @@ export async function readFileAsInput(file) {
   };
 }
 
+function postUpscaleSummary(metadata) {
+  if (!metadata?.upscaleResolution) return null;
+  const key = metadata.postUpscale?.workflowId || metadata.upscaleWorkflowKey;
+  const label = metadata.upscaleWorkflowLabel || (key === "ks_seedvr2_2x_direct"
+    ? "KS直入 · 7B" : !key || key === "youxing_seedvr2_3b" ? "攸行" : "超分");
+  return `2K→${label} ${metadata.upscaleResolution}${metadata.postUpscale?.fixedInferenceLongEdge === 5120 ? "（5K推理）" : ""}`;
+}
+
 export function resultMetadata(result, sync = result.sync) {
+  const noise = result.upstream?.metadata;
+  const noiseSummary = Number.isFinite(noise?.upscaleInputNoiseScale) && Number.isFinite(noise?.upscaleLatentNoiseScale)
+    ? `输入噪声 ${noise.upscaleInputNoiseScale} · 潜空间噪声 ${noise.upscaleLatentNoiseScale}` : null;
   const syncLabel =
     result.request?.syncMode === "local-only"
       ? result.upstream?.metadata?.provider === "oneapi" ? "仅本机结果" : "仅 ComfyUI 本机结果"
@@ -101,9 +112,8 @@ export function resultMetadata(result, sync = result.sync) {
         ? "自定义负向"
         : "默认负向"
       : null,
-    result.upstream?.metadata?.upscaleResolution
-      ? `2K→攸行 ${result.upstream.metadata.upscaleResolution}`
-      : null,
+    postUpscaleSummary(result.upstream?.metadata),
+    noiseSummary,
     result.upstream?.metadata?.engine === "comfyui" &&
     Number.isFinite(result.promptAgent?.durationMs)
       ? `Prompt ${(result.promptAgent.durationMs / 1000).toFixed(1)}s`

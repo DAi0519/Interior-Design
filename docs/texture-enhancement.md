@@ -1,5 +1,7 @@
 # 质感增强
 
+Beta 跑图选择「质感增强」，选已有图片样本集或上传新集，再选模型和分辨率。每个样本与每个模型各生成一张，每批一个分辨率。固定提示词来自同一上架配置，各 Run 保存版本和正文 SHA，送模前校验。原图、结果、实际尺寸和最终提示词归档到 Beta 跑图明细。Banana 2.1、GPT Image 2.5 支持模型各自的 2K/4K 档；Flux 2K 原生，4K 接 KS 超分；Seedream 5.0 Pro 按质感增强的原生 1K/2K 目录执行。
+
 AI渲染 → 质感增强（`textureEnhancement`）。上传一张待增强效果图，选择出图模型与通用参数后使用 START；支持原有单模型1–4张、多模型对比、原图/结果对比、下载与按功能恢复后台任务。
 
 固定提示词的唯一真源为飞书独立[“质感增强 Prompt”表](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblQJtk95Sr5IueL)。`src/texture-enhancement-prompt.mjs`复用现有只读版本读取器，仅读取该表完整上架正文；缺表、下架、读取失败均阻断，无本地正文回退。v1记录`reczz28SmznxCOYf`逐字保存用户342字原文，SHA-256为`a964b78cdbf5bb75f9670a59ab2c9924b3363a9527c644bc43b7100385ce4f8a`。

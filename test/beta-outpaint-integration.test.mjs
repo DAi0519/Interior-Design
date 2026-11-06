@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta扩图页面纯请求、Runner、正式生成服务、三引擎扩图合同、Beta归档投影及sharp真实图片
- * [OUTPUT]: 对外提供样本乘工作流从页面到真实执行适配器和独立Beta归档的跨层验证，以及普通配置/扩图状态隔离保障
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供样本乘工作流从页面到真实执行适配器和独立Beta归档的跨层验证，以及普通配置/扩图状态隔离保障
  * [POS]: test 的Beta扩图跨层回归，模型与Base均使用内存替身，不提交GPU、收费请求或飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,7 +21,8 @@ import { publicOneApiOutpaintConfig } from "../src/image-outpaint-oneapi.mjs";
 function rawConfig() {
   const flux = publicImageOutpaintConfig({ available: true });
   return { ...flux, engines: [{ ...flux, key: "comfyui" },
-    publicQwenOutpaintConfig({ available: true }), publicOneApiOutpaintConfig({ available: true })] };
+    publicQwenOutpaintConfig({ available: true }), publicOneApiOutpaintConfig({ available: true }),
+    ...["gptImage26Sunburst", "gptImage26Flare"].map(modelKey => publicOneApiOutpaintConfig({ available: true, modelKey }))] };
 }
 
 async function image(width, height) {
@@ -54,7 +55,7 @@ test("Beta扩图页面展开四工作流，经正式执行适配器捕获实际P
   };
   const generationService = createGenerationService({
     imageOutpaintClient: comfyClient("flux"), qwenImageClient: comfyClient("qwen"),
-    imageClientForModel(key) { assert.equal(key, "gptImage25Sunburst"); return apiClient; },
+    imageClientForModel(key) { assert.ok(["gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare"].includes(key)); return apiClient; },
     scheduleGenerationSync: captureBetaGenerationArchive,
   });
   const baseStore = {
@@ -97,15 +98,15 @@ test("Beta扩图页面展开四工作流，经正式执行适配器捕获实际P
   }
   const job = runner.getJob("beta-integration001");
   assert.equal(job.status, "success", job.message);
-  assert.deepEqual(job.stages, { generated: 4, synced: 4 });
-  assert.equal(completed.length, 4);
-  assert.equal(submitted.length, 4);
+  assert.deepEqual(job.stages, { generated: 6, synced: 6 });
+  assert.equal(completed.length, 6);
+  assert.equal(submitted.length, 6);
   assert.deepEqual(submitted.filter(({ engine }) => engine === "flux").map(({ request }) => request.outpaintModel).sort(),
     ["fluxFillDev", "oneRewardFp8"]);
   assert.equal(submitted.filter(({ engine }) => engine === "qwen").length, 1);
-  assert.equal(submitted.filter(({ engine }) => engine === "sunburst").length, 1);
-  assert.equal(events.filter((event) => event === "source").length, 4);
-  assert.equal(job.result.results.length, 4);
+  assert.equal(submitted.filter(({ engine }) => engine === "sunburst").length, 3);
+  assert.equal(events.filter((event) => event === "source").length, 6);
+  assert.equal(job.result.results.length, 6);
   assert.ok(job.result.results.every(({ previewUrl, recordUrl }) => previewUrl && recordUrl));
 });
 

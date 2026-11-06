@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、图片超分浏览器控制器、服务端公开目录与内存 DOM/sessionStorage 替身
- * [OUTPUT]: 提供六工作流/节点能力、KS最终尺寸与缓存、正常说明移除/异常原因可见、输入范围及单份图片/冻结版本请求保障
+ * [INPUT]: 依赖node:test/assert、超分控制器/结果摘要、服务端目录与DOM/sessionStorage替身
+ * [OUTPUT]: 验证六工作流/尺寸、双噪声校验/恢复/冻结请求、旧进程门禁、运行锁定与历史实际参数摘要
  * [POS]: test 的图片超分交互测试，不提交 ComfyUI 任务或访问网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import test from "node:test";
 
 import { bindImageUpscale, targetDimensions } from "../public/image-upscale.js";
 import { imageUpscaleTargetDimensions, publicImageUpscaleConfig } from "../src/image-upscale-workflow.mjs";
+import { resultMetadata } from "../public/workbench-utils.js";
 
 const STORAGE_KEY = "canvas-lab.image-upscale-selection";
 const DIRECT_KEY = "seedvr2_7b_direct";
@@ -32,6 +33,8 @@ function element() {
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
     click() { listeners.get("click")?.(); },
+    input(value) { this.value = value; listeners.get("input")?.(); },
+    setCustomValidity(value) { this.validationMessage = value; },
   };
 }
 
@@ -48,7 +51,7 @@ function fixture(t, { remembered, source = { width: 1280, height: 720 }, brokenS
     globalThis.document = originalDocument;
     globalThis.sessionStorage = originalStorage;
   });
-  const ui = Object.fromEntries(["availability", "emptyModel", "emptySize", "exactSize", "note", "resolutionSelect", "workflowList"]
+  const ui = Object.fromEntries(["availability", "emptyModel", "emptySize", "exactSize", "note", "resolutionSelect", "workflowList", "inputNoiseInput", "latentNoiseInput"]
     .map((name) => [name, element()]));
   let input = source;
   let changes = 0;
@@ -189,6 +192,7 @@ for (const key of KS_KEYS) {
     const request = ui.controller.jobRequest({ image, jobId: "generation-fixture" });
     assert.equal(request.featureMode, "imageUpscale");
     assert.deepEqual(request.items[0].input, { resolution, upscaleWorkflowKey: key,
+      upscaleInputNoiseScale: 0, upscaleLatentNoiseScale: 0,
       upscaleWorkflowVersion: ui.config.workflows.find(workflow => workflow.key === key).version });
     assert.equal(request.items[0].key, key);
     assert.ok(request.items[0].label.includes(resolution === "2X" ? "原图2倍" : resolution));
@@ -253,4 +257,74 @@ test("六工作流各合法档位的浏览器摘要与后端计算一致，含�
       }
     }
   }
+});
+
+test("双噪声按实际数字提交，切工作流和刷新目录后仍保留", t => {
+  const ui = fixture(t);
+  assert.equal(ui.inputNoiseInput.value, "0");
+  assert.equal(ui.latentNoiseInput.value, "0");
+  ui.inputNoiseInput.input("0.123");
+  ui.latentNoiseInput.input("0.456");
+  ui.choose(DIRECT_KEY);
+  ui.controller.configure(ui.config);
+  const input = ui.controller.jobRequest({ image: { width: 1280, height: 720 }, jobId: "generation-noise" }).items[0].input;
+  assert.equal(input.upscaleInputNoiseScale, 0.123);
+  assert.equal(input.upscaleLatentNoiseScale, 0.456);
+  assert.equal(ui.remembered().upscaleInputNoiseScale, 0.123);
+  assert.equal(ui.remembered().upscaleLatentNoiseScale, 0.456);
+});
+
+test("刷新页面恢复双噪声草稿，旧草稿省略或损坏值回到零", t => {
+  const ui = fixture(t, { remembered: JSON.stringify({ workflowKey: DIRECT_KEY, resolution: "4K", upscaleInputNoiseScale: 0.05, upscaleLatentNoiseScale: 0.1 }) });
+  assert.equal(ui.inputNoiseInput.value, "0.05");
+  assert.equal(ui.latentNoiseInput.value, "0.1");
+  const damaged = fixture(t, { remembered: JSON.stringify({ upscaleInputNoiseScale: -0.1, upscaleLatentNoiseScale: "0.2" }) });
+  assert.equal(damaged.inputNoiseInput.value, "0");
+  assert.equal(damaged.latentNoiseInput.value, "0");
+});
+
+test("空值/越界/非步长噪声阻止START与请求，修正即可恢复", t => {
+  const ui = fixture(t);
+  for (const field of [ui.inputNoiseInput, ui.latentNoiseInput]) {
+    for (const value of ["", "-0.01", "1.001", "0.0001", "NaN"]) {
+      field.input(value);
+      assert.equal(ui.controller.isAvailable(), false);
+      assert.match(ui.note.textContent, /0–1.*0.001/);
+      assert.ok(field.validationMessage);
+      assert.throws(() => ui.controller.jobRequest({ image: { width: 1280, height: 720 }, jobId: "generation-invalid" }), /0–1/);
+      field.input("0");
+      assert.equal(ui.controller.isAvailable(), true);
+    }
+    field.input("1");
+    assert.equal(ui.controller.isAvailable(), true);
+    field.input("0");
+  }
+});
+
+test("旧进程不允许静默忽略非零噪声，加载新能力后恢复", t => {
+  const ui = fixture(t);
+  ui.inputNoiseInput.input("0.05");
+  ui.controller.configure({ ...ui.config, supportsNoiseControls: false });
+  assert.equal(ui.inputNoiseInput.disabled, true);
+  assert.equal(ui.latentNoiseInput.disabled, true);
+  assert.equal(ui.controller.isAvailable(), false);
+  assert.match(ui.note.textContent, /尚未支持超分噪声/);
+  ui.controller.configure(ui.config);
+  assert.equal(ui.inputNoiseInput.disabled, false);
+  assert.equal(ui.controller.isAvailable(), true);
+  assert.equal(ui.inputNoiseInput.value, "0.05");
+});
+
+test("运行中锁住噪声控件，结果摘要读取当次元数据且旧结果不补零", t => {
+  const ui = fixture(t);
+  ui.controller.setStage("loading");
+  assert.equal(ui.inputNoiseInput.disabled, true);
+  ui.controller.setStage("results");
+  assert.equal(ui.inputNoiseInput.disabled, false);
+  const result = { request: { size: "4096x2304", outputFormat: "png", syncMode: "local-only" }, upstream: { metadata: {
+    upscaleInputNoiseScale: 0.05, upscaleLatentNoiseScale: 0.1,
+  } } };
+  ui.inputNoiseInput.input("0.9");
+  assert.match(resultMetadata(result), /输入噪声 0.05 · 潜空间噪声 0.1/);
+  assert.doesNotMatch(resultMetadata({ ...result, upstream: { metadata: {} } }), /噪声/);
 });

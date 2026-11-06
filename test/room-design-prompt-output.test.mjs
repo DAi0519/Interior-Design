@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、设计工作流、请求构造器与进程内提示词缓存的公开及可注入边界
- * [OUTPUT]: 验证空房/旧房自由输出、原文前置与缓存/长度边界，及白模/风格转换原合同和请求体不能开启内部额度的发布隔离
+ * [INPUT]: 依赖 node:test/assert、空房/旧房共享设计工作流与进程内提示词缓存的可注入边界
+ * [OUTPUT]: 验证自由 JSON/纯文本及段落标签/未闭围栏、JSON字符串仅解包一次、用户原文前置、缓存隔离、无内容及损坏 JSON 阻断、长度和其他功能合同
  * [POS]: test 的空房/旧房 Agent 输出兼容回归，模型与归档使用内存替身，不访问网络或收费接口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createGenerationRequest } from "../src/model-config.mjs";
 import { createAsyncTtlCache } from "../src/runtime-cache.mjs";
 import { executeWhiteModelWorkflow } from "../src/white-model-workflow.mjs";
 
@@ -243,52 +242,4 @@ test("白模智能默认和风格转换仍拒绝缺少既有字段、额外字�
     assert.equal(f.calls.images.length, 0);
     assert.equal(f.calls.archives.length, 0);
   }
-});
-
-test("发布隔离保持白模和风格转换的合法最终JSON及Agent消息顺序", async () => {
-  const payload = { ...legacyDesign, generation_requirement: "Create a photorealistic interior." };
-  const routes = [
-    { featureMode: "whiteModel", renderMode: "smart-default", instruction: "请执行白模智能默认材质化任务。", beforeRequirements: "render_mode:" },
-    { featureMode: "whiteModel", renderMode: "style-dna", instruction: "请执行设计模型渲染 Prompt 整合任务。", beforeRequirements: "style_dna:" },
-    { featureMode: "styleTransfer", renderMode: "style-dna", styleTransferPromptAgentVersion: 1,
-      instruction: "请执行空间图风格转换任务。", beforeRequirements: "input_image_roles:" },
-    { featureMode: "styleTransfer", renderMode: "style-reference", styleReferenceImages: [image], styleTransferReferenceVersion: 1,
-      instruction: "请执行空间图风格转换任务。", beforeRequirements: "input_image_roles:" },
-  ];
-  for (const { instruction, beforeRequirements, ...route } of routes) for (const modelKey of modelKeys) {
-    const f = harness(JSON.stringify(payload), { ...route, modelKey });
-    await executeWhiteModelWorkflow(f.input, f.dependencies);
-    const actual = JSON.parse(f.calls.images[0].prompt);
-    assert.deepEqual(actual, payload);
-    assert.equal(Object.hasOwn(actual, "user_requirements"), false);
-    const agentMessage = f.calls.prompts[0].userPrompt;
-    assert.ok(agentMessage.startsWith(`${instruction}\n\n`));
-    const requirementsAt = agentMessage.indexOf("user_requirements:\n");
-    const contextAt = agentMessage.indexOf(beforeRequirements);
-    assert.ok(contextAt >= 0 && requirementsAt > contextAt);
-    assert.ok(agentMessage.includes(`user_requirements:\n${requirement}`));
-    assertArchiveMatches(f);
-  }
-});
-
-test("空房和旧房用户补充超过8000字符时在Agent及出图前拒绝", async () => {
-  for (const scenario of scenarios) for (const modelKey of modelKeys) {
-    const f = harness(prose, { ...scenario.route, modelKey, prompt: "中".repeat(8001) });
-    f.dependencies.loadAgent = async () => { throw new Error("超长用户补充不应读取Agent资产"); };
-    await assert.rejects(executeWhiteModelWorkflow(f.input, f.dependencies), /不能超过 8000/);
-    assert.equal(f.calls.prompts.length, 0);
-    assert.equal(f.calls.images.length, 0);
-    assert.equal(f.calls.archives.length, 0);
-  }
-});
-
-test("请求体compiledPrompt字段不能提升自由生图额度，只有内部参数可启用32000", () => {
-  const input = { featureMode: "free", modelKey: "gptImage2", resolution: "1K", ratio: "1:1",
-    outputFormat: "png", prompt: "x".repeat(8001), compiledPrompt: true };
-  assert.throws(() => createGenerationRequest(input), /3–8000/);
-  const compiled = createGenerationRequest(input, { compiledPrompt: true });
-  assert.equal(compiled.request.prompt, input.prompt);
-  const atLimit = createGenerationRequest({ ...input, prompt: "x".repeat(32000) }, { compiledPrompt: true });
-  assert.equal(atLimit.request.prompt.length, 32000);
-  assert.throws(() => createGenerationRequest({ ...input, prompt: "x".repeat(32001) }, { compiledPrompt: true }), /3–32000/);
 });

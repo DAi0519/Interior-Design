@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖白模光影领域层、设计工作流、真实图片校验及内存Agent/出图/光影库/缓存替身
- * [OUTPUT]: 对外提供自动兼容、两种风格路径的纯词整合、单图出图、缓存隔离与失效卡片零调用保障
+ * [OUTPUT]: 对外提供自动兼容、两种风格路径的用户原文首字段/Agent设计保留、单图同文归档与缓存/失效卡片零调用保障
  * [POS]: test 的白模光影集成回归，不调用飞书、收费模型或GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -53,7 +53,7 @@ test("自动模式不读取光影库，Agent输入及提示词复用与省略字
 });
 
 for (const renderMode of ["smart-default", "style-dna"]) {
-  test(`${renderMode}将所选卡片三段词交给Agent，仍按原JSON单图生成并归档身份`, async () => {
+  test(`${renderMode}整合卡片三段词，用户JSON首字段/Agent设计保留且单图归档身份一致`, async () => {
     const h = harness();
     const result = await executeWhiteModelWorkflow({ ...h.input, renderMode, whiteModelLighting: selection,
       ...(renderMode === "smart-default" ? { styleReferenceImages: [image] } : {}) }, h.dependencies);
@@ -71,7 +71,8 @@ for (const renderMode of ["smart-default", "style-dna"]) {
     assert.equal(h.calls.images.length, 1);
     assert.equal(h.calls.images[0].images.length, 1);
     assert.equal(h.calls.images[0].images[0].image_url, png);
-    assert.equal(h.calls.images[0].prompt, JSON.stringify(generated, null, 2));
+    assert.equal(h.calls.images[0].prompt, JSON.stringify({ user_requirements: h.input.prompt, ...generated }, null, 2));
+    assert.equal(h.calls.sync[0].finalPrompt, h.calls.images[0].prompt);
     assert.deepEqual(result.whiteModelLighting, selection);
     assert.equal(JSON.stringify(result).includes(card.prompt), false);
     const metadata = h.calls.sync[0].workflow.whiteModelLighting;

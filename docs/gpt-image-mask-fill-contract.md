@@ -1,4 +1,12 @@
+<!--
+[INPUT]: 依赖Sunburst二次编辑适配器、用户原文/参考用途、实际请求和交接模板
+[OUTPUT]: 提供用户首段/局部消除直投与图像尺寸、异步/同步、归档合同及历史验证边界
+[POS]: docs 的GPT二次编辑接入合同，不作为运行Prompt回退
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
 # GPT Image 2.5 Sunburst 二次编辑开发对接
+
+2026-11-04组装规则：有补充时完整Prompt第一段为`User instruction: 用户原文`，再接选区/图序、参考用途及输出规则；无补充的参考图模式沿用固定默认正文。交接JSON/HTML与实际编译器同步，局部消除仍只传原文。见[工作台Prompt顺序](workbench-prompt-order.md)。
 
 核对日期：2026-10-29；当前适配器版本2026-10-29.sunburst.16。接入模型 `gpt-image-2.5-sunburst`，通道为公司OneAPI；Flare未接入本功能。工作台入口：`http://127.0.0.1:4192/?feature=imageMaskFill` → 编辑模型选择 GPT Image 2.5 Sunburst。
 

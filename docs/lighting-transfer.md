@@ -1,5 +1,7 @@
 # 光影转换
 
+最终送模正文按“用户光影原文 → 独立迁移规则”排列；无补充只传迁移规则。归档`finalPrompt`与实际请求同文，见[工作台Prompt顺序](workbench-prompt-order.md)。
+
 AI渲染 → 光影转换：上传一张已有室内效果图，选择光影库卡片，按需补充光照要求，再生成。卡片默认不选，不提供精模的渲染方式切换或用户氛围参考图上传。
 
 `lightingTransfer` 使用现有光影库卡片和原件，但读取独立[光影转换 Prompt](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblOQOF7m7eKMIAA)表的 `lighting-render-transfer` 上架正文，不拼精模基础、精模迁移词、卡片氛围词、天气或时段，不调用 Prompt Agent。v1目标是保留原效果图的空间、开口、家具位置、材料类型/纹理/本色及机位，只迁移卡图的主辅光、方向、软硬、色温、曝光、光比和摄影响应；原照明与目标冲突时允许重新布光。提示词约束不等于真实材质或几何保真验收。

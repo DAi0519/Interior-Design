@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖脱敏GPT光照模板/飞书Prompt版本身份/历史参数/光源编辑目录、共享整体原灯/标注/图片/输出规则、主图上传、画布交互与统一任务/摘要回调
- * [OUTPUT]: 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
  * [POS]: public 的AI编辑打光控制器，复用既有主图与后台任务，不持有服务地址、模型密钥或Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,6 +25,7 @@ const template = `
         <span data-relight-refresh-label>刷新</span>
       </button>
     </div></div>
+    <label class="field"><span>生成模型</span><select data-relight-model aria-label="打光生成模型"></select></label>
     <div class="relight-plan-section">
       <div class="relight-template-field"><span class="relight-field-label" id="relightTemplateLabel">光照模板</span>
         <div class="relight-template-grid" role="radiogroup" aria-labelledby="relightTemplateLabel">${RELIGHT_TEMPLATES.map((item, index) => `<button type="button" data-relight-template="${item.key}" role="radio" aria-checked="${index === 0}" tabindex="${index === 0 ? 0 : -1}">${item.label}</button>`).join("")}</div>
@@ -90,6 +91,9 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   allowMaterialRender = false, promptCode = "image-relight" }) {
   root.innerHTML = template;
   const by = selector => root.querySelector(selector);
+  const modelSelect = by("[data-relight-model]");
+  let modelKey = RELIGHT_MODEL_KEY;
+  modelSelect.addEventListener("change", () => { modelKey = modelSelect.value; renderSummary(); onChange(); });
   const list = by("[data-relight-list]"), properties = by("[data-relight-properties]");
   const kelvin = by("[data-relight-kelvin]"), intensity = by("[data-relight-intensity]");
   const softness = by("[data-relight-softness]"), fixture = by("[data-relight-fixture]");
@@ -296,10 +300,10 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     } catch { return ""; }
   };
 
-  const modelConfig = () => config.model || config.models?.find(model => model.key === RELIGHT_MODEL_KEY) || config;
+  const modelConfig = () => config.models?.find(model => model.key === modelKey) || (modelKey === RELIGHT_MODEL_KEY ? config.model || config : {});
   const supportsOriginalLights = () => RELIGHT_ORIGINAL_LIGHT_ACTIONS.every(item => supported(config.originalLightActions, item.key));
-  const available = () => config.available === true && supportsOriginalLights() && Boolean(config.sizes || modelConfig().sizes)
-    && Array.isArray(config.qualityOptions || modelConfig().qualityOptions) && Boolean(promptIdentity());
+  const available = () => config.available === true && modelConfig().available !== false && supportsOriginalLights() && Boolean(modelConfig().sizes || config.sizes)
+    && Array.isArray(modelConfig().qualityOptions || config.qualityOptions) && Boolean(promptIdentity());
   const unavailableReason = () => config.reason || (!promptIdentity() ? config.prompt?.reason
     || "未读取到可用的打光Prompt版本，请刷新飞书配置" : !supportsOriginalLights() ? "当前服务尚不支持整体原灯操作，请重新启动工作台" : modelConfig().reason || "打光模型配置未更新，请重启工作台");
 
@@ -309,8 +313,8 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     if (sourceIssue || fieldIssue || planIssue()) return { message: sourceIssue || fieldIssue || planIssue() };
     try {
       normalizeRelightSettings({ templateKey, blendMode }); appliedOriginalLights(); normalizedLights();
-      relightOutputSize(getSourceImage(), outputResolution, config.sizes || modelConfig().sizes);
-      if (!(config.qualityOptions || modelConfig().qualityOptions).includes(quality)) throw new Error("请选择可用的生成质量");
+      relightOutputSize(getSourceImage(), outputResolution, modelConfig().sizes || config.sizes);
+      if (!(modelConfig().qualityOptions || config.qualityOptions).includes(quality)) throw new Error("请选择可用的生成质量");
       return null;
     } catch (error) { return { message: error.message }; }
   }
@@ -393,8 +397,8 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     renderEditing(); renderContext();
     if (source && issue) by("[data-relight-empty]").textContent = issue;
     let size = null;
-    if (source && !issue) try { size = relightOutputSize(source, outputResolution, config.sizes || modelConfig().sizes); } catch {}
-    if (emptyModel) emptyModel.textContent = "GPT Image 2.5 Sunburst";
+    if (source && !issue) try { size = relightOutputSize(source, outputResolution, modelConfig().sizes || config.sizes); } catch {}
+    if (emptyModel) emptyModel.textContent = modelConfig().label || "GPT 图像";
     const summary = size ? `输出 ${size.width} × ${size.height}` : `原图比例 · ${outputResolution}输出`;
     if (emptySize) emptySize.textContent = summary;
     if (exactSize) exactSize.textContent = summary;
@@ -405,15 +409,20 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   return {
     configure(value) {
       config = value?.loading ? { ...config, ...value } : value || { available: false, reason: "打光模型读取失败" };
+      modelSelect.replaceChildren(...(config.models || [config.model].filter(Boolean)).map(model => {
+        const option = document.createElement("option"); option.value = model.key; option.textContent = model.label; option.disabled = model.available === false; return option;
+      }));
+      modelSelect.value = modelKey;
       renderPlan(); renderSummary();
     },
     activate: renderSummary, renderSummary, validate,
-    currentItem: () => ({ key: RELIGHT_MODEL_KEY, label: "GPT Image 2.5 Sunburst", provider: "oneapi" }),
+    currentItem: () => ({ key: modelKey, label: modelConfig().label || "GPT 图像", provider: "oneapi" }),
     inputPolicy: () => ({ ...(config.imagePolicy || RELIGHT_IMAGE_POLICY), maxCount: 1 }),
     isAvailable: () => !validate(), availabilityReason: () => validate()?.message || "",
     loadingCopy: () => templateKey === "custom" ? "正在调整原有灯光与自定义光源…" : "正在根据当前场景生成所选光照效果…",
-    value: () => ({ lights: drawing.value(), originalLights: appliedOriginalLights(), templateKey, blendMode, outputResolution, quality }),
+    value: () => ({ modelKey, lights: drawing.value(), originalLights: appliedOriginalLights(), templateKey, blendMode, outputResolution, quality }),
     restore(value) {
+      modelKey = value?.modelKey || RELIGHT_MODEL_KEY; modelSelect.value = modelKey;
       ({ templateKey, blendMode } = normalizeRelightSettings({ ...value, templateKey: value?.templateKey ?? "custom" }));
       outputResolution = value?.outputResolution ?? "1K"; quality = value?.quality ?? "medium";
       if (!RELIGHT_RESOLUTIONS.includes(outputResolution)) throw new TypeError("历史任务输出档位无效");
@@ -432,8 +441,8 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
       const { dataUrl, name, size, type } = image, frozenPrompt = promptIdentity();
       return { jobId, featureMode: "imageRelight", batchId: null,
         sharedInput: { referenceImages: [{ dataUrl, name, size, type }], lights: normalizedLights(), originalLights: appliedOriginalLights(), templateKey, blendMode,
-          outputResolution, quality, modelKey: RELIGHT_MODEL_KEY, ...frozenPrompt },
-        items: [{ key: RELIGHT_MODEL_KEY, label: "GPT Image 2.5 Sunburst", provider: "oneapi", input: {} }] };
+          outputResolution, quality, modelKey, ...frozenPrompt },
+        items: [{ key: modelKey, label: modelConfig().label || "GPT 图像", provider: "oneapi", input: {} }] };
     },
   };
 }

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖真实单图安全校验、KS固定5K或20MP整图计划/冻结版本、专用ComfyUI客户端与阶段回调
- * [OUTPUT]: 提供主/Beta共用且缺能力即不可用的整图目录和executeImageUpscale、5分钟排队/KS或8K的15分钟执行、Prompt追踪、最终尺寸核验及KS异常不自动重提
+ * [INPUT]: 依赖真实单图安全校验、双噪声数值合同、KS固定5K或20MP整图计划/冻结版本、共享超分能力核验与时限、专用ComfyUI客户端与阶段回调
+ * [OUTPUT]: 提供主/Beta共用整图目录和executeImageUpscale、双噪声原值送模与请求记录、5分钟排队/KS或8K的15分钟执行、Prompt追踪及最终尺寸核验
  * [POS]: src 的图片超分应用服务，隔离页面输入、工作流参数、分辨率级时限与 ComfyUI 传输层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,12 +11,14 @@ import {
   imageUpscaleTargetDimensions,
   imageUpscaleExecutionPlan,
   imageUpscaleWorkflow,
+  normalizeImageUpscaleNoise,
 } from "./image-upscale-workflow.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
+import { IMAGE_UPSCALE_KS_TIMEOUT_MS, IMAGE_UPSCALE_QUEUE_TIMEOUT_MS, verifyGraphCapabilities } from "./image-upscale-capabilities.mjs";
+
+export { IMAGE_UPSCALE_KS_TIMEOUT_MS, IMAGE_UPSCALE_QUEUE_TIMEOUT_MS } from "./image-upscale-capabilities.mjs";
 
 export const IMAGE_UPSCALE_8K_TIMEOUT_MS = 15 * 60 * 1000;
-export const IMAGE_UPSCALE_KS_TIMEOUT_MS = 15 * 60 * 1000;
-export const IMAGE_UPSCALE_QUEUE_TIMEOUT_MS = 5 * 60 * 1000;
 
 export function imageUpscaleExecutionTimeoutMs(resolution, executionPlan = null) {
   if (executionPlan?.policyVersion) return IMAGE_UPSCALE_KS_TIMEOUT_MS;
@@ -26,6 +28,7 @@ export function imageUpscaleExecutionTimeoutMs(resolution, executionPlan = null)
 }
 
 export async function executeImageUpscale(input, { imageClient, onProgress = null }) {
+  const noise = normalizeImageUpscaleNoise(input);
   const [source] = normalizeReferenceImages(input.referenceImages, { maxCount: 1 });
   if (!source) {
     const error = new Error("图片超分需要且只允许 1 张待处理图片");
@@ -65,6 +68,7 @@ export async function executeImageUpscale(input, { imageClient, onProgress = nul
   const startedAt = Date.now();
   let result;
   try { result = await imageClient.generateImage({
+    ...noise,
     height: target.height,
     images: [{ fileName: source.fileName, image_url: source.imageUrl }],
     prompt: "",
@@ -95,6 +99,7 @@ export async function executeImageUpscale(input, { imageClient, onProgress = nul
     durationMs: Date.now() - startedAt,
     images: result.images,
     request: {
+      ...noise,
       outputFormat: result.outputFormat,
       referenceImageCount: 1,
       resolution: input.resolution,
@@ -117,33 +122,14 @@ function capabilityGraphs(workflow) {
   const resolution = workflow.resolutions[0];
   const width = resolution.scale ? 1024 : resolution.longEdge;
   const graphs = [createImageUpscaleWorkflow({ artifactKey: "beta-capability", imageBase64: "", seed: 4,
-    generationRequest: { upscaleWorkflowKey: workflow.key, resolution: resolution.key },
+    generationRequest: { upscaleWorkflowKey: workflow.key, resolution: resolution.key,
+      upscaleInputNoiseScale: 0.123, upscaleLatentNoiseScale: 0.456 },
     width, height: resolution.scale ? 1024 : width / 2 })];
   if (imageUpscaleWorkflow(workflow.key).areaCap) graphs.push(createImageUpscaleWorkflow({
     artifactKey: "upscale-area-cap-capability", imageBase64: "", seed: 4,
     generationRequest: { upscaleWorkflowKey: workflow.key, resolution: "6K", sourceWidth: 1024, sourceHeight: 1024 }, width: 6144, height: 6144,
   }));
   return graphs;
-}
-
-function verifyGraphCapabilities(graph, objectInfo) {
-  for (const node of Object.values(graph)) {
-    const schema = objectInfo[node.class_type]?.input;
-    if (!schema) throw new Error(`缺少超分节点：${node.class_type}`);
-    for (const field of Object.keys(schema.required || {})) {
-      if (!(field in node.inputs)) throw new Error(`超分节点接口不兼容：${node.class_type}.${field}`);
-    }
-    for (const [field, value] of Object.entries(node.inputs)) {
-      const specification = schema.required?.[field] || schema.optional?.[field];
-      if (!specification) throw new Error(`超分节点接口不兼容：${node.class_type}.${field}`);
-      if (Array.isArray(value)) continue;
-      const choices = Array.isArray(specification[0]) ? specification[0]
-        : specification[0] === "COMBO" ? specification[1]?.options : null;
-      if (choices && !choices.includes(value)) {
-        throw new Error(`超分节点配置尚未就绪：${node.class_type}.${field}`);
-      }
-    }
-  }
 }
 
 export async function readImageUpscaleConfig(imageClient) {

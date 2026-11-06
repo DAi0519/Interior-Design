@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Node测试、sharp、多角度三方服务、统一生成任务及结果摘要
- * [OUTPUT]: 三方权限隔离/Sunburst五档质量透传与归档/非法档位零调用/真实字节2K/模型冻结/无重试/尺寸证据/机位指令的回归
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 三方权限隔离/Sunburst五档质量透传与归档/非法档位零调用/真实字节2K/模型冻结/无重试/尺寸证据/机位指令的回归
  * [POS]: test 的三方多角度合同测试，内存客户端，不调用收费接口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,7 +22,7 @@ const fail = () => { throw new Error("不得访问其他模型或飞书"); };
 test("三方目录独立于ComfyUI，仅当前Key授权模型可选，断开后失效", async () => {
   const config = await readMultiAngleConfig(null, { getOneApiModels: async () => [{ id: resolveMultiAngleModel("banana21").id }] });
   assert.equal(config.available, true);
-  assert.deepEqual(config.models.map(model => model.available), [false, true, false]);
+  assert.deepEqual(config.models.map(model => model.available), [false, true, false, false, false]);
   const disconnected = await readMultiAngleConfig(null, { getOneApiModels: async () => { throw Error("secret"); } });
   assert.equal(disconnected.available, false);
   assert.doesNotMatch(JSON.stringify(disconnected), /secret/);

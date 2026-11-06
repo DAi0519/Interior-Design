@@ -38,3 +38,4 @@ dist/
 tmp/
 *.log
 /public/jzxz-style-atlas
+/public/floor-plan-report

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖批次/模型与整体原灯和可选精修计划、服务器飞书Prompt快照、上传原件、实际引导PNG及Prompt/尺寸/费用/SHA回执
- * [OUTPUT]: 对外提供v10整体原灯三方冻结/计划摘要及归档manifest、飞书资产身份与单/双图复核，保留v1-v9原字段摘要与已存Prompt且不重拼
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供v10整体原灯三方冻结/计划摘要及归档manifest、飞书资产身份与单/双图复核，保留v1-v9原字段摘要与已存Prompt且不重拼
  * [POS]: src 的 GPT 打光归档边界，由应用服务与飞书同步消费，不读取当前Prompt表、不调用模型或写飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,7 +15,7 @@ import { normalizeRelightSettings } from "../public/image-relight-presets.js";
 import { normalizeRelightLights, normalizeRelightOriginalLights } from "../public/image-relight-geometry.js";
 
 export const IMAGE_RELIGHT_ARCHIVE_FEATURE_LABEL = "打光";
-const MODEL_KEY = "gptImage25Sunburst";
+const MODEL_KEYS = ["gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare"];
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
 const workflowRevision = workflow => Number(String(workflow?.workflowVersion || "").match(/gpt-relight\.(\d+)$/)?.[1] || 0);
 const planSha256 = plan => sha256(JSON.stringify({ ...plan.settings,
@@ -97,7 +97,7 @@ function assertSubmittedPromptSnapshot(metadata, input, validated) {
 
 export function buildImageRelightArchive({ input, validated, result, guideImage }) {
   const metadata = result.upstream?.metadata;
-  if (!metadata?.prompt?.trim() || metadata.modelKey !== MODEL_KEY || !result.images?.[0]?.url || !metadata.workflowVersion) {
+  if (!metadata?.prompt?.trim() || !MODEL_KEYS.includes(metadata.modelKey) || metadata.modelKey !== (validated.modelKey || "gptImage25Sunburst") || !result.images?.[0]?.url || !metadata.workflowVersion) {
     throw new TypeError("打光归档缺少实际 Prompt、固定 GPT 模型、版本或结果");
   }
   const plan = archivePlan(metadata);
@@ -132,7 +132,7 @@ export function buildImageRelightArchive({ input, validated, result, guideImage 
     durationMs: result.durationMs,
     finalPrompt: metadata.prompt,
     sourcePrompt: validated.prompt || "",
-    modelLabel: MODEL_CONFIGS[MODEL_KEY].label,
+    modelLabel: MODEL_CONFIGS[metadata.modelKey].label,
     preview: { ...result.request, ...plan.settings, outputFormat: "png", referenceImageCount: plan.referenceCount,
       ...(plan.revision >= 10 ? { originalLights: structuredClone(plan.originalLights) } : {}),
       ...(workflowRevision(metadata) >= 8 ? { relightPromptVersion: metadata.relightPromptVersion, relightPromptSha256: metadata.relightPromptSha256 } : {}),
@@ -150,7 +150,7 @@ export function buildImageRelightArchive({ input, validated, result, guideImage 
 // -------- 在飞书写入前复核按实际光源确定的单图/双图次序与真实图片身份 --------
 export function relightArchiveManifest(input, resultBytes) {
   const workflow = input.workflow;
-  if (workflow?.feature !== "image-relight" || workflow.modelKey !== MODEL_KEY || !input.finalPrompt?.trim()
+  if (workflow?.feature !== "image-relight" || !MODEL_KEYS.includes(workflow.modelKey) || workflow.model !== MODEL_CONFIGS[workflow.modelKey]?.id || !input.finalPrompt?.trim()
     || input.styleReferenceImages?.length || input.maskImage || input.fillReferenceImage || input.boxedSourceImage) {
     throw new TypeError("打光归档需提供固定 GPT 模型、完整光照配置及真实原图和结果");
   }

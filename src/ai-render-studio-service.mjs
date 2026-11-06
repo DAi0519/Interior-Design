@@ -1,13 +1,14 @@
 /**
  * [INPUT]: 依赖独立渲染台Prompt/归档Schema、共享氛围卡片、打光原图与typed几何、单次Sunburst及异步归档
- * [OUTPUT]: 对外提供真实卡片目录/正文冻结重验、四风格和typed控光单次编译、私有回执及已有结果归档工厂
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供真实卡片目录/正文冻结重验、用户原文和typed控光前置的四风格单次编译、私有回执及已有结果归档工厂
  * [POS]: src 的AI渲染台应用服务，不串行调用精模；生成失败不自动重试，归档失败保留原生结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { MODEL_CONFIGS } from "./model-config.mjs";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { readImageRelightConfig, validateRelightInput } from "./image-relight-service.mjs";
-import { RELIGHT_ONEAPI_MODEL, executeRelightOneApi, buildRelightActionInstructions } from "./image-relight-oneapi.mjs";
+import { executeRelightOneApi, buildRelightActionInstructions } from "./image-relight-oneapi.mjs";
 import { RELIGHT_BLEND_MODES } from "../public/image-relight-presets.js";
 import { getAiRenderStudioPrompt, publicAiRenderStudioPromptConfig, parseAiRenderStudioPrompt,
   AI_RENDER_STUDIO_PROMPT_CODE, AI_RENDER_STUDIO_PROMPT_CONFIG } from "./ai-render-studio-prompt.mjs";
@@ -61,12 +62,12 @@ function checkedSnapshot(snapshot, selection) {
   return structuredClone(snapshot);
 }
 
-async function assertModelAccess(getOneApiModels) {
+async function assertModelAccess(getOneApiModels, modelKey) {
   let models;
   try { models = getOneApiModels ? await getOneApiModels() : []; }
-  catch { throw fail("无法确认当前OneAPI Key的Sunburst权限，请检查连接", 409); }
-  if (!Array.isArray(models) || !models.some((entry) => entry.id === RELIGHT_ONEAPI_MODEL.id)) {
-    throw fail("当前OneAPI Key没有Sunburst权限，请重新连接", 409);
+  catch { throw fail("无法确认当前OneAPI Key的所选GPT图像模型权限，请检查连接", 409); }
+  if (!Array.isArray(models) || !models.some((entry) => entry.id === MODEL_CONFIGS[modelKey]?.id)) {
+    throw fail("当前OneAPI Key没有所选GPT图像模型权限，请重新连接", 409);
   }
 }
 
@@ -111,8 +112,8 @@ export async function prepareAiRenderStudioInput(input = {}, { getPrompt = getAi
   { allowMaterialRender: true, imagePolicy: AI_RENDER_STUDIO_IMAGE_POLICY });
   const lightingPreset = await prepareAiRenderStudioLightingPreset(requestedLightingPreset, { loadAssets: loadLightingAssets });
   const snapshot = checkedSnapshot(await getPrompt({ ...selection, forceRefresh: true }), selection);
-  await assertModelAccess(getOneApiModels);
-  await verifySyncContract({ lightingPresetNames: lightingPreset ? [lightingPreset.name] : [] });
+  await assertModelAccess(getOneApiModels, validated.modelKey);
+  await verifySyncContract({ modelKey: validated.modelKey, lightingPresetNames: lightingPreset ? [lightingPreset.name] : [] });
   const preparedValidated = { ...validated, materialMode, renderStyle, lightingPreset, relightPromptSnapshot: snapshot };
   const prepared = freeze({ validated: preparedValidated, snapshot, materialMode, renderStyle,
     compiledPrompt: buildAiRenderStudioPrompt(preparedValidated) });
@@ -127,16 +128,17 @@ export function buildAiRenderStudioPrompt(validated) {
   const blend = RELIGHT_BLEND_MODES.find((entry) => entry.key === validated.blendMode);
   if (!bundle?.materialModes?.[validated.materialMode] || !bundle?.renderStyles?.[validated.renderStyle] || validated.templateKey !== "custom" || !blend) throw fail("AI渲染台编译参数不完整", 409);
   const inputRoles = validated.lights.length
-    ? "INPUT ROLES: image 1 is the clean source scene. Image 2 repeats that same scene with numbered editing guides only; execute their typed light actions below. Blue + adds illumination, purple - dims an identified existing emitter, red x switches one off, and green = protects marked content. Marks and arrows are not design objects and must not appear in the output."
+    ? "INPUT ROLES: image 1 is the clean source scene. Image 2 repeats that same scene with numbered editing guides only; execute their typed light actions. Blue + adds illumination, purple - dims an identified existing emitter, red x switches one off, and green = protects marked content. Marks and arrows are not design objects and must not appear in the output."
     : "INPUT ROLES: image 1 is the only source scene. No guide image or invented marked light location is supplied.";
   const frozenPlan = aiRenderStudioLightingPlan(validated);
   const plan = { ...frozenPlan, lightingPreset: aiRenderStudioLightingPresetIdentity(frozenPlan.lightingPreset),
     templateIntent: frozenPlan.lightingPreset ? "适配所选光影氛围卡；明确的整体原灯处理及标注动作高于卡片默认"
       : "沿用原图照明基线，仅执行明确的原灯处理与标注动作；材质真实感增强不自动重建布光" };
   const priority = "LIGHTING PRIORITY: confirmed source-scene facts and scene-preservation boundaries come first, then explicit user requirements, then typed original-light and marked-light controls, then the atmosphere card defaults. Resolve conflicting card instructions within the confirmed scene and explicit controls; never add an opening or invent a visible emitter to satisfy a card.";
-  return [validated.prompt, bundle.renderBoundary, bundle.lightingBoundary, priority, inputRoles,
+  return [validated.prompt,
     `TYPED LIGHTING PLAN: ${JSON.stringify(plan)}`,
-    ...buildRelightActionInstructions(validated), frozenPlan.lightingPreset ? `[LIGHTING ATMOSPHERE]\n${frozenPlan.lightingPreset.prompt}` : null,
+    ...buildRelightActionInstructions(validated), bundle.renderBoundary, bundle.lightingBoundary, priority, inputRoles,
+    frozenPlan.lightingPreset ? `[LIGHTING ATMOSPHERE]\n${frozenPlan.lightingPreset.prompt}` : null,
     bundle.materialModes[validated.materialMode], bundle.renderStyles[validated.renderStyle],
     bundle.output].filter(Boolean).join("\n\n");
 }
@@ -144,9 +146,9 @@ export function buildAiRenderStudioPrompt(validated) {
 export async function executeAiRenderStudio(prepared, { imageClient, getOneApiModels, onProgress = () => {}, onReceipt = null,
   jobId = null, scheduleSync = null, verifySyncContract = verifyStudioSyncContract, loadLightingAssets } = {}) {
   if (!privatePrepared.has(prepared)) throw fail("AI渲染台任务缺少服务端准备状态", 409);
-  await assertModelAccess(getOneApiModels);
+  await assertModelAccess(getOneApiModels, prepared.validated.modelKey);
   await assertAiRenderStudioLightingPresetCurrent(prepared.validated.lightingPreset, { loadAssets: loadLightingAssets });
-  await verifySyncContract({ lightingPresetNames: prepared.validated.lightingPreset ? [prepared.validated.lightingPreset.name] : [] });
+  await verifySyncContract({ modelKey: prepared.validated.modelKey, lightingPresetNames: prepared.validated.lightingPreset ? [prepared.validated.lightingPreset.name] : [] });
   let completed;
   try {
     completed = await executeRelightOneApi(prepared.validated, { imageClient, buildPrompt: buildAiRenderStudioPrompt, onProgress });

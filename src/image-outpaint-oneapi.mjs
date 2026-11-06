@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖固定2K扩图合同、sharp、模型目录的Sunburst尺寸真源、图片字节读取、真实输入尺寸/四边定位和注入的OneAPI编辑客户端
- * [OUTPUT]: 对外提供Sunburst固定2K公开合同、原图16384px与API适配图3840px独立边界、9个预设与16px原比例目标/超3:1最小补边政策、透明画布/编辑遮罩、动态Prompt真源及真实产物/费用元数据
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供Sunburst固定2K公开合同、原图16384px与API适配图3840px独立边界、9个预设与16px原比例目标/超3:1最小补边政策、透明画布/编辑遮罩、动态Prompt真源及真实产物/费用元数据
  * [POS]: src 的 API 扩图适配器，与 MaaS/ComfyUI 工作流并列，沿用单图工具结果边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,7 @@ import { MODEL_CONFIGS } from "./model-config.mjs";
 import { OUTPAINT_LONG_EDGE, OUTPAINT_RESOLUTION } from "../public/image-outpaint-geometry.js";
 
 export const ONEAPI_OUTPAINT_ENGINE_KEY = "gptImage25Sunburst";
+export const ONEAPI_OUTPAINT_ENGINE_KEYS = Object.freeze([ONEAPI_OUTPAINT_ENGINE_KEY, "gptImage26Sunburst", "gptImage26Flare"]);
 const MODEL = MODEL_CONFIGS[ONEAPI_OUTPAINT_ENGINE_KEY];
 const VERSION = "2026-10-19.1";
 const MAX_SOURCE_EDGE = 16384;
@@ -38,12 +39,13 @@ function pngDataUrl(bytes) {
   return `data:image/png;base64,${bytes.toString("base64")}`;
 }
 
-export function publicOneApiOutpaintConfig({ available = false, reason = "请先连接有 Sunburst 权限的 OneAPI Key" } = {}) {
+export function publicOneApiOutpaintConfig({ available = false, reason = "请先连接有 GPT 权限的 OneAPI Key", modelKey = ONEAPI_OUTPAINT_ENGINE_KEY } = {}) {
+  const MODEL = MODEL_CONFIGS[modelKey];
   return {
     ...DIMENSION_LIMITS,
     available,
     inputAlignment: 1,
-    key: ONEAPI_OUTPAINT_ENGINE_KEY,
+    key: modelKey,
     label: MODEL.label,
     maxExpansion: 8192,
     maxInputEdge: DIMENSION_LIMITS.maxEdge,
@@ -110,14 +112,16 @@ export function buildOneApiOutpaintPrompt({ source, expansion, width, height }) 
   ].join(" ");
 }
 
-export async function executeOneApiOutpaint(normalized, { imageClient, onProgress = null } = {}) {
+export async function executeOneApiOutpaint(normalized, { imageClient, onProgress = null, modelKey = ONEAPI_OUTPAINT_ENGINE_KEY } = {}) {
+  if (!ONEAPI_OUTPAINT_ENGINE_KEYS.includes(modelKey)) throw inputError("不支持的GPT扩图模型");
+  const MODEL = MODEL_CONFIGS[modelKey];
   if (typeof imageClient?.editImage !== "function") {
     throw Object.assign(new Error("Sunburst 扩图编辑客户端未配置"), { statusCode: 409 });
   }
   const { source, expansion, width, height } = normalized;
   const prepared = await prepareOneApiOutpaintCanvas(normalized);
   const startedAt = Date.now();
-  onProgress?.({ phase: "executing", provider: "oneapi", message: "GPT Image 2.5 Sunburst 正在补全扩展区域" });
+  onProgress?.({ phase: "executing", provider: "oneapi", message: `${MODEL.label} 正在补全扩展区域` });
   const prompt = buildOneApiOutpaintPrompt(normalized);
   const result = await imageClient.editImage({
     images: [{ image_url: prepared.imageUrl }],

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖美化光影编译器、共享效果图服务、任务HTTP准入及Beta快照，模型/飞书使用内存替身
- * [OUTPUT]: 对外提供原六档保留、新卡片低自然执行、Prompt无冲突、入队/执行版本漂移阻断及跨功能隔离验证
+ * [OUTPUT]: 对外提供美化混合多选逐模型/模板限额及版本绕过阻断、原六档保留、新卡低自然执行、用户首段实际节点/归档一致和跨功能隔离验证
  * [POS]: test 的效果图美化新增氛围合同测试，不调用GPU或真实飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -60,9 +60,8 @@ for (const modelKey of ["aiTextureEnhancement", "gptImage2"]) test(`新增光影
     imageClient: { async generateImage(value) { request = value; return { images: [{ url: png }] }; } },
     scheduleSync(value) { archived = value; return { status: "pending" }; },
   });
-  const prefix = modelKey === "aiTextureEnhancement" ? "zhiganEnhance, " : "";
-  assert.ok(request.prompt.startsWith(`${prefix}[USER REFINEMENTS]\n保留暗部层次`));
-  assert.ok(request.prompt.endsWith(preset.prompt));
+  assert.ok(request.prompt.startsWith("[USER REFINEMENTS]\n保留暗部层次\n\n"));
+  assert.ok(request.prompt.endsWith(preset.prompt + (modelKey === "aiTextureEnhancement" ? "\n\nzhiganEnhance" : "")));
   assert.match(request.prompt, /Preserve the original design/);
   assert.match(request.prompt, /Suppress existing illumination that conflicts/);
   assert.doesNotMatch(request.prompt, /uniform diffuse light|keep original scene brightness|LOW NATURAL/);
@@ -140,6 +139,7 @@ const body = (sharedInput = {}, items = [{ input: {} }], featureMode = "effectBe
 test("实际运行目录声明美化光影能力，新增卡片跨模型入队去重冻结并强制低自然", async () => {
   const capabilities = supportedGenerationFeatureCapabilities();
   assert.equal(capabilities.effectBeautification.promptLighting, true);
+  assert.equal(capabilities.effectBeautification.multipleLightingSelections, true);
   assert.ok(Object.isFrozen(capabilities.effectBeautification));
   const source = body({ effectBeautificationLighting: { ...selection }, effectBeautification: { intensity: "high", tone: "cool" } },
     [{ input: { modelKey: "gptImage2" } }, { input: { modelKey: "seedream5" } }]);
@@ -152,6 +152,82 @@ test("实际运行目录声明美化光影能力，新增卡片跨模型入队�
   for (const { input: value } of h.received) {
     assert.deepEqual(value.effectBeautificationLighting, selection);
     assert.deepEqual(value.effectBeautification, { intensity: "low", tone: "natural" });
+  }
+});
+
+test("主工作台美化六旧档与新卡混合，单模型每组合四张、多模型每组合一张独立执行", async () => {
+  const originals = ["low", "high"].flatMap(intensity => ["natural", "warm", "cool"].map(tone => ({
+    effectBeautification: { intensity, tone }, effectBeautificationLighting: null,
+  })));
+  const choices = [...originals, { effectBeautification: { intensity: "high", tone: "warm" },
+    effectBeautificationLighting: selection }];
+  for (const modelKeys of [["gptImage2"], ["gptImage2", "seedream5"]]) {
+    const count = modelKeys.length === 1 ? 4 : 1;
+    const items = modelKeys.flatMap(modelKey => choices.flatMap(choice => Array.from({ length: count }, () => ({
+      label: `${modelKey} · ${choice.effectBeautificationLighting ? preset.name
+        : `${choice.effectBeautification.intensity}-${choice.effectBeautification.tone}`}`,
+      input: { modelKey, ...structuredClone(choice) },
+    }))));
+    const h = admission(body({ referenceImages: [image] }, items));
+    await h.submit();
+    assert.equal(h.response.status, 202);
+    assert.equal(h.enqueued, 1);
+    assert.equal(h.reads, 1, "相同卡片跨模型和张数只准备一次");
+    await h.run();
+    assert.equal(h.received.length, modelKeys.length * choices.length * count);
+    for (let index = 0; index < items.length; index += 1) {
+      const expected = items[index].input;
+      const actual = h.received[index];
+      assert.equal(actual.mode, "effectBeautification");
+      assert.equal(actual.input.modelKey, expected.modelKey);
+      assert.deepEqual(actual.input.effectBeautificationLighting, expected.effectBeautificationLighting);
+      assert.deepEqual(actual.input.effectBeautification, expected.effectBeautificationLighting
+        ? { intensity: "low", tone: "natural" } : expected.effectBeautification);
+      assert.deepEqual(actual.input.referenceImages, [image]);
+    }
+  }
+});
+
+test("美化按模型和模板计数，规范化默认值或变更同卡版本SHA不能绕过张数上限", async () => {
+  const original = { effectBeautification: { intensity: "high", tone: "warm" }, effectBeautificationLighting: null };
+  const card = version => ({ effectBeautificationLighting: { ...selection, version,
+    sha256: (version % 2 ? "a" : "b").repeat(64) } });
+  const item = (value, modelKey = "gptImage2") => ({ input: { modelKey, ...value } });
+  const cases = [
+    Array.from({ length: 5 }, () => item(original)),
+    [{}, { intensity: "low" }, { tone: "natural" }, { intensity: "low", tone: "natural" }, {}]
+      .map(effectBeautification => item({ effectBeautification })),
+    Array.from({ length: 5 }, (_, index) => item(card(index + 1))),
+    [item(original), item(original), item(original, "seedream5")],
+    [item(card(5)), item(card(6)), item(card(5), "seedream5")],
+  ];
+  for (const items of cases) {
+    const h = admission(body({}, items));
+    await h.submit();
+    assert.equal(h.response.status, 400);
+    assert.match(h.response.value.error, /美化.*每个/);
+    assert.equal(h.reads, 0, "组合超限在读取卡片库前阻断");
+    assert.equal(h.enqueued, 0);
+    assert.equal(h.received.length, 0);
+  }
+});
+
+test("美化混合多选中非法旧档或卡片身份在读取资产和入队前阻断", async () => {
+  const valid = { input: { effectBeautification: { intensity: "high", tone: "cool" } } };
+  for (const invalid of [
+    { effectBeautification: { intensity: "medium", tone: "natural" } },
+    { effectBeautification: { intensity: "high", tone: "pink" } },
+    { effectBeautificationLighting: { ...selection, version: 0 } },
+    { effectBeautificationLighting: { ...selection, presetId: "bad-id" } },
+    { effectBeautificationLighting: { ...selection, sha256: "bad" } },
+    { effectBeautificationLighting: { ...selection, prompt: "INJECTED" } },
+  ]) {
+    const h = admission(body({}, [valid, { input: invalid }]));
+    await h.submit();
+    assert.equal(h.response.status, 400);
+    assert.equal(h.reads, 0);
+    assert.equal(h.enqueued, 0);
+    assert.equal(h.received.length, 0);
   }
 });
 

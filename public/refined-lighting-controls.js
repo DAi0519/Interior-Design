@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖统一精模Prompt可用性/双图身份、多光影及预设执行能力/版本化预览、精模Flux双图能力及共享参考图上传与图片策略
- * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、可选纯卡片模式及可配置的原光影标签、失效阻断和上传互斥
+ * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、同网格无图选项/混合选择摘要、失效阻断和上传互斥
  * [POS]: public 的白模可选纯词/精模光影共享选择层，卡图由服务端读取、上传图直接参考，无选中高亮框或说明段，不持有Prompt正文或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -152,9 +152,10 @@ export function refinedLightingValidation(selection, config = {}, models = [], r
 export function bindRefinedLightingControls({ root, onChange = () => {}, storageKey = null,
   getPolicy = () => null, showToast = () => {}, bindUpload = bindReferenceUpload,
   withConfigRefresh = false, allowReferenceUpload = true, presetExecution = null, allowMultiplePresets = false,
-  optionalPreset = false, optionalPresetLabel = "自动" }) {
+  optionalPreset = false, optionalPresetLabel = "自动", leadingOptions = null }) {
   root.setAttribute("data-refined-lighting", "");
   let selection = { mode: "unselected" }, config = { loading: true, presets: [] }, models = [], policy, expanded = false;
+  let leadingSelection = { count: 0, label: "" };
   if (storageKey) { try { const saved = sessionStorage.getItem(storageKey);
     if (saved) {
       selection = normalizeRefinedLighting(JSON.parse(saved));
@@ -229,7 +230,9 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
       if (selection.mode === "unselected") return null;
       if (selection.mode !== "preset") return `请选择有效的光影预设或设为${optionalPresetLabel}`;
       if (config.available !== true) return config.reason || "白模光影库暂不可用，请刷新配置";
-      return currentPreset() ? null : "所选光影预设已更新或下架，请打开光影库重新选择";
+      return selectedPresets().every(identity => (config.presets || []).some(item => item.id === identity.presetId
+        && item.version === identity.version && item.sha256 === identity.sha256)) ? null
+        : "所选光影预设已更新或下架，请打开光影库重新选择";
     }
     return refinedLightingValidation(selection, config, candidateModels, referenceImages().length);
   }
@@ -276,22 +279,25 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
           update(identities.length ? { mode: "preset", ...identities[0],
             ...(identities.length > 1 ? { presets: identities } : {}), execution,
             ...(executions ? { executions } : {}), ...ruleIdentity({ mode: "preset", execution }) } : { mode: "unselected" });
-          if (expanded) grid.children[(config.presets || []).findIndex(entry => entry.id === item.id)]?.focus({ preventScroll: true });
+          if (expanded) button.focus({ preventScroll: true });
           else by("[data-lighting-toggle]").focus({ preventScroll: true });
         });
         return view;
       });
-      grid.replaceChildren(...cardViews.map(view => view.button));
+      grid.replaceChildren(...(leadingOptions ? [leadingOptions] : []), ...cardViews.map(view => view.button));
     }
     cardViews.forEach(renderCard);
   }
   function renderSelectedLabel() {
     const selected = currentPreset(), identities = selectedPresets();
     const error = selected && selectedPreview.failed() ? " · 预览失败，点击重试" : "";
-    const label = identities.length > 1 ? `${identities.length} 种光影` : selected ? selected.name
-      : selection.mode === "preset" ? "重新选择光影模板" : optionalPreset ? optionalPresetLabel : "选择光影模板";
+    const total = identities.length + leadingSelection.count;
+    const label = total > 1 ? `${total} 种光影` : selected ? selected.name
+      : selection.mode === "preset" ? "重新选择光影模板" : leadingSelection.count ? leadingSelection.label
+        : optionalPreset ? optionalPresetLabel : "选择光影模板";
     by("[data-lighting-selected-name]").textContent = `${label}${error}`;
-    by("[data-lighting-toggle]").title = identities.map(identity => (config.presets || []).find(item => item.id === identity.presetId)?.name || identity.presetId).join("、") + error;
+    by("[data-lighting-toggle]").title = [...(leadingSelection.count ? [leadingSelection.label] : []),
+      ...identities.map(identity => (config.presets || []).find(item => item.id === identity.presetId)?.name || identity.presetId)].join("、") + error;
   }
   function render() {
     by("[data-lighting-reference]").hidden = !allowReferenceUpload;
@@ -306,10 +312,11 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     grid.hidden = !expanded;
     const selectedPreset = currentPreset();
     const preview = by("[data-lighting-selected-preview]");
-    preview.hidden = !selectedPreset;
+    preview.hidden = !selectedPreset || selectedPresets().length + leadingSelection.count > 1;
     if (selectedPreset) selectedPreview.setUrl(previewUrl(selectedPreset));
     renderSelectedLabel();
-    by("[data-lighting-availability]").textContent = config.loading ? "读取中" : `${(config.presets || []).length} 个预设`;
+    by("[data-lighting-availability]").textContent = config.loading ? "读取中"
+      : `${(config.presets || []).length + (leadingOptions?.children.length || 0)} 个预设`;
     const executions = config.presetExecutions || ["prompt-only"];
     const checked = selection.executions || [selection.execution];
     const multiple = config.multiplePresetExecutions === true;
@@ -372,11 +379,12 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
   if (optionalPreset) by("[data-lighting-automatic]").addEventListener("click", () => {
     expanded = false; update({ mode: "unselected" });
   });
-  grid.addEventListener("keydown", event => {
+  function closeOnEscape(event) {
     if (event.key !== "Escape" || !expanded) return;
     event.preventDefault(); expanded = false; render();
     by("[data-lighting-toggle]").focus({ preventScroll: true });
-  });
+  }
+  grid.addEventListener("keydown", closeOnEscape);
   render();
   return {
     value: () => structuredClone(selection), referenceImages, validation,
@@ -388,6 +396,17 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
       update(legacy ? { mode: "unselected" } : normalizeRefinedLighting(value ?? { mode: "unselected" }), false);
     },
     setAvailability(value) { config = value || { available: false, referenceAvailable: false, presets: [] }; render(); },
+    setLeadingSelection(value) {
+      if (leadingSelection.count === value.count && leadingSelection.label === value.label) return;
+      leadingSelection = value; render();
+    },
+    setOptionalPresetLabel(value) {
+      if (!optionalPreset || optionalPresetLabel === value) return;
+      optionalPresetLabel = value;
+      by("[data-lighting-automatic]").textContent = value;
+      by("[data-lighting-automatic]").setAttribute("aria-label", `光影设为${value}`);
+      render();
+    },
     setModels(value) { models = value || []; render(); },
     setPolicy(value) { policy = value; upload.render(); render(); },
     requestFields: () => ({ refinedLighting: selection.mode === "unselected" ? null : { ...selection },

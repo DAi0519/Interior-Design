@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta超分配置/持久化、真实共享select增强器及MutationObserver/DOM替身、共享搜索多选和六工作流目录
- * [OUTPUT]: 验证含旧房的十二任务/工作流准入、输出档位交集与统一展开、KS旧2X及4K/6K恢复、普通/扩图/超分持久化，以及动态原生/增强下拉一致且不递归change
+ * [OUTPUT]: 验证含旧房的十三任务/工作流准入、输出档位交集与统一展开、KS旧2X及4K/6K恢复、普通/扩图/超分持久化，以及动态原生/增强下拉一致且不递归change
  * [POS]: test的Beta AI超分交互与输入合同测试，不访问OneAPI/GPU/飞书或持久化真实图片
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -74,8 +74,8 @@ function storageFixture() {
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
 }
 
-test("AI超分在十二任务中默认攸行且目录与六套真源相同", () => {
-  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 12);
+test("AI超分在十三任务中默认攸行且目录与六套真源相同", () => {
+  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 13);
   assert.deepEqual(BETA_FEATURE_COPY.imageUpscale, { label: "AI超分", prompt: "", source: "待超分图片" });
   assert.deepEqual(CONFIG.workflows.map((workflow) => workflow.key), [...BETA_UPSCALE_WORKFLOW_KEYS]);
   const ui = fixture();

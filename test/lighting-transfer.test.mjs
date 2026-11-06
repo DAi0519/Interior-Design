@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert/crypto、sharp、光影转换编译/执行、统一任务服务与飞书字段投影；Prompt/库图/模型均注入内存替身
- * [OUTPUT]: 验证单张效果图加库卡片准入、独立迁移规则、原图/卡图字节顺序、版本与资产漂移阻断、独立功能归档和实际任务路由
+ * [OUTPUT]: 验证单张效果图加库卡片准入、用户要求前置与独立迁移规则、图序/资产漂移阻断、实际送模与同文归档
  * [POS]: test 的光影转换跨层合同，不调用真实模型、GPU或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -111,7 +111,7 @@ test("独立迁移只发送原效果图和卡片原图，零精模基础或卡�
       imageClient: { async generateImage(request) { sent = request; return { images: [{ url: source.dataUrl }] }; } },
       scheduleSync(value) { archived = value; return { status: "pending", generationId: "lighting-transfer-sync" }; },
     });
-    assert.equal(sent.prompt, `${transferPrompt.prompt}\n\n[USER LIGHTING REFINEMENTS]\n${input.prompt}`);
+    assert.equal(sent.prompt, `[USER LIGHTING REFINEMENTS]\n${input.prompt}\n\n${transferPrompt.prompt}`);
     assert.doesNotMatch(sent.prompt, /卡片词不应拼入/);
     assert.equal(sent.images.length, 2);
     assert.equal(sent.images[0].image_url, source.dataUrl);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器解码后的主图/参考图尺寸、指针与画布边界、遮罩PNG/归一化矩形或圈选轮廓和用户编辑参数
- * [OUTPUT]: 模型/遮罩/矩形/多边形准入、局部消除独立操作与版本合同、GPT参考模式可空指令与物品/材质用途归一化、共享蓝线与点数上限、圈选坐标归一化及互斥请求；GPT尺寸由服务端目录注入
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 模型/遮罩/矩形/多边形准入、局部消除独立操作与版本合同、GPT参考模式可空指令与物品/材质用途归一化、共享蓝线与点数上限、圈选坐标归一化及互斥请求；GPT尺寸由服务端目录注入
  * [POS]: public 的二次编辑纯规则层，由画布与功能控制器共同消费，不访问DOM或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -26,6 +26,7 @@ export const MASK_FILL_MODES = Object.freeze({
 export const MASK_FILL_MODELS = Object.freeze([
   Object.freeze({ key: "flux2Klein", label: "Flux2 Klein 9B", provider: "comfyui" }),
   Object.freeze({ key: "gptImage25Sunburst", label: "GPT Image 2.5 Sunburst", provider: "oneapi" }),
+  ...["Sunburst", "Flare"].map(variant => Object.freeze({ key: `gptImage26${variant}`, label: `GPT Image 2.6 ${variant}`, provider: "oneapi" })),
   Object.freeze({ key: "qwenImageEdit2511", label: "Qwen Image Edit 2511", provider: "comfyui" }),
 ]);
 export function maskFillModel(key = "flux2Klein") {
@@ -76,7 +77,7 @@ export function maskFillGptOutputSize({ width, height }, resolution = "1K", size
 }
 export const QWEN_MASK_FILL_INFERENCE_TIERS = Object.freeze([Object.freeze({ key: "1mp", label: "约1MP · 4步", maxEdge: null })]);
 export function maskFillInferenceTier(value, modelKey = "flux2Klein") {
-  if (modelKey === "gptImage25Sunburst") {
+  if (maskFillModel(modelKey).provider === "oneapi") {
     const resolution = maskFillGptResolution(undefined, value);
     return { key: resolution.toLowerCase(), label: resolution, maxEdge: null };
   }
@@ -103,7 +104,7 @@ export function maskFillInferenceSize({ width, height }, tierValue = "2k") {
   return { width: aligned(width), height: aligned(height), maxEdge, resize: tier.key !== "original" };
 }
 export const maskFillMode = value => value === "reference" ? "reference" : "prompt";
-export const maskFillPromptOptional = (modelKey, mode) => modelKey === "gptImage25Sunburst" && mode === "reference";
+export const maskFillPromptOptional = (modelKey, mode) => maskFillModel(modelKey).provider === "oneapi" && mode === "reference";
 export const MASK_FILL_REFERENCE_PURPOSES = Object.freeze([
   Object.freeze({ key: "object", label: "换物品" }),
   Object.freeze({ key: "material", label: "换材质" }),
@@ -202,10 +203,10 @@ export function buildMaskFillJobRequest({ image, maskImage, editRegion, fillRefe
   if (issue) throw new Error(issue);
   const region = normalizeMaskFillEditRegion(editRegion);
   const hasMask = Boolean(maskImage?.dataUrl);
-  if (region && model.key !== "gptImage25Sunburst") throw new Error("当前模型不支持框选，请使用画笔涂抹编辑区域");
+  if (region && model.provider !== "oneapi") throw new Error("当前模型不支持框选，请使用画笔涂抹编辑区域");
   if (region && hasMask) throw new Error("框选区域与遮罩不能同时提交");
   if (operation === "remove" && !region && !hasMask) throw new Error("请先框选、圈选或涂抹需要消除的物品");
-  if (!hasMask && model.key !== "gptImage25Sunburst") throw new Error("请先在原图上涂抹需要编辑的区域");
+  if (!hasMask && model.provider !== "oneapi") throw new Error("请先在原图上涂抹需要编辑的区域");
   if (prompt !== undefined && typeof prompt !== "string") throw new Error("编辑指令必须是文本");
   const instruction = (prompt ?? "").trim();
   if (!instruction && !maskFillPromptOptional(model.key, selectedMode)) throw new Error("请填写明确的编辑指令");

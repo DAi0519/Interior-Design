@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 真实图片字节、Beta扩图合同/Runner 与三引擎公开能力目录
- * [OUTPUT]: 对外提供四工作流真源与脱敏、固定2K/居中/倍率严格准入、lazy样本复用、入队及执行前能力校验、建档前真实尺寸拦截、Sunburst超限原图/狭长目标补边与收费提交不重试回归保障
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供四工作流真源与脱敏、固定2K/居中/倍率严格准入、lazy样本复用、入队及执行前能力校验、建档前真实尺寸拦截、Sunburst超限原图/狭长目标补边与收费提交不重试回归保障
  * [POS]: test 的 Beta扩图内存集成测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,7 +20,8 @@ const TEST_TIME = "2026-10-19 12:00:00";
 function rawConfig() {
   const flux = publicImageOutpaintConfig({ available: true });
   return { ...flux, secret: "never-expose", engines: [{ ...flux, key: "comfyui" },
-    publicQwenOutpaintConfig({ available: true }), publicOneApiOutpaintConfig({ available: true })] };
+    publicQwenOutpaintConfig({ available: true }), publicOneApiOutpaintConfig({ available: true }),
+    ...["gptImage26Sunburst", "gptImage26Flare"].map(modelKey => publicOneApiOutpaintConfig({ available: true, modelKey }))] };
 }
 function batch(keys = [BETA_OUTPAINT_WORKFLOWS[0].key], overrides = {}) {
   return { batchId: "BETA-outpainttest01", featureMode: "imageOutpaint", jobId: "beta-outpainttest001",
@@ -62,8 +63,8 @@ function fixture(image, overrides = {}) {
 
 test("Beta扩图目录复用真实模型标签，仅公开四个稳定候选与固定2K构图合同", () => {
   const config = publicBetaOutpaintConfig(rawConfig());
-  assert.deepEqual(config.workflows.map((workflow) => workflow.key), ["outpaint-flux-onereward", "outpaint-flux-dev", "outpaint-qwen-2511", "outpaint-sunburst"]);
-  assert.deepEqual(config.workflows.map((workflow) => workflow.label), [...IMAGE_OUTPAINT_MODELS.map((model) => model.label), QWEN_OUTPAINT_WORKFLOW.label, MODEL_CONFIGS.gptImage25Sunburst.label]);
+  assert.deepEqual(config.workflows.map((workflow) => workflow.key), ["outpaint-flux-onereward", "outpaint-flux-dev", "outpaint-qwen-2511", "outpaint-sunburst", "outpaint-gpt26-sunburst", "outpaint-gpt26-flare"]);
+  assert.deepEqual(config.workflows.map((workflow) => workflow.label), [...IMAGE_OUTPAINT_MODELS.map((model) => model.label), QWEN_OUTPAINT_WORKFLOW.label, MODEL_CONFIGS.gptImage25Sunburst.label, MODEL_CONFIGS.gptImage26Sunburst.label, MODEL_CONFIGS.gptImage26Flare.label]);
   assert.ok(config.workflows.every((workflow) => workflow.available && workflow.reason === null));
   assert.equal(config.resolution, "2K");
   assert.deepEqual(config.defaultWorkflowKeys, ["outpaint-flux-onereward", "outpaint-qwen-2511"]);
@@ -78,7 +79,7 @@ test("扩图能力逐候选隔离，不把一个Flux模型可用误作全部可�
   config.engines[0].models = config.engines[0].models.map((model) => ({ ...model, available: model.key === "fluxFillDev", reason: "缺少权重" }));
   config.engines[1].available = false;
   const statuses = publicBetaOutpaintConfig(config).workflows;
-  assert.deepEqual(statuses.map((workflow) => workflow.available), [false, true, false, true]);
+  assert.deepEqual(statuses.map((workflow) => workflow.available), [false, true, false, true, true, true]);
   assert.match(statuses[0].reason, /缺少权重/);
 });
 
@@ -110,8 +111,8 @@ test("同一飞书样本批测四工作流：原图lazy读取，真实标签冻�
   await service.start(request);
   const job = await waitJob(service, request.jobId);
   assert.equal(job.status, "success");
-  assert.deepEqual(job.stages, { generated: 4, synced: 4 });
-  assert.equal(events.filter((event) => event === "source").length, 4);
+  assert.deepEqual(job.stages, { generated: 6, synced: 6 });
+  assert.equal(events.filter((event) => event === "source").length, 6);
   assert.equal(events[0], "metadata");
   assert.ok(events.indexOf("source") < events.indexOf("begin"));
   assert.deepEqual(archives.map((item) => item.modelLabel).sort(), BETA_OUTPAINT_WORKFLOWS.map((workflow) => workflow.label).sort());
@@ -223,7 +224,7 @@ test("Sunburst收费提交发生500或归档失败时不因Beta外层重试而�
 test("Beta配置只读且异步HTTP回读完整目录，扩图提交跳过Prompt Agent Key检查", async () => {
   const { service, events } = fixture(await sourceImage());
   const config = await service.config();
-  assert.equal(config.outpaint.workflows.length, 4);
+  assert.equal(config.outpaint.workflows.length, 6);
   assert.ok(config.features.includes("imageOutpaint"));
   assert.deepEqual(events, []);
   let sent, keyReads = 0;

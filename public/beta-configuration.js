@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化六档与新增模板控制器、独立扩图/超分和风格转换快照及重渲染回调
- * [OUTPUT]: 提供美化旧六档与互斥模板身份独立保存恢复、精模光影/手动模型和普通表单落盘、基础Prompt版本与预设图文/上传迁移版本独立保存恢复、旧氛围迁移、模型多选保留和快速切页保存
+ * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化六档与新增模板混合多选控制器、独立扩图/超分和风格转换快照及重渲染回调
+ * [OUTPUT]: 提供美化多选身份与显式空选保存恢复及旧单选迁移、精模光影/手动模型和普通表单落盘、基础Prompt版本与预设图文/上传迁移版本独立保存恢复、旧氛围迁移、模型多选保留和快速切页保存
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,8 @@ export function createBetaConfigurationPersistence({
       effectBeautificationIntensity: beautification.intensity,
       effectBeautificationTone: beautification.tone,
       effectBeautificationLighting: effectBeautificationControls.lightingValue?.() ?? null,
+      effectBeautificationSelections: effectBeautificationControls.selections?.()
+        ?? restoredControls.effectBeautificationSelections,
       effectTime: elements.effectTimeSelect.value,
       effectWeather: elements.effectWeatherSelect.value,
       negativePrompt: elements.negativePromptInput.value,
@@ -86,6 +88,9 @@ export function createBetaConfigurationPersistence({
       tone: controlsToRestore.effectBeautificationTone,
     });
     effectBeautificationControls.setLightingValue?.(controlsToRestore.effectBeautificationLighting);
+    if (Array.isArray(controlsToRestore.effectBeautificationSelections)) {
+      effectBeautificationControls.restoreSelections?.(controlsToRestore.effectBeautificationSelections);
+    }
     const legacyLighting = controlsToRestore.refinedRender;
     refinedRenderConfiguration?.restorePromptVersion?.(controlsToRestore.refinedPromptVersion);
     const hasLegacyLighting = legacyLighting && ["time", "weather", "tone"]

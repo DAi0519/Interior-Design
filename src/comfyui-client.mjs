@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Node fetch/WebSocket/crypto、comfyui-timing数字分段计时、可注入的工作流/输出节点/产物命名/元数据适配器及单调时钟、图片与可覆盖的地址/时限/取消信号
- * [OUTPUT]: 对外提供ComfyUI只读探测/原子生成、请求级产物/尺寸SHA校验、阶段/取消/超时/安全读取重试和废弃view body非阻塞释放；保留旧History耗时并统一附仅数字timing
+ * [INPUT]: 依赖 Node fetch/WebSocket/crypto、comfyui-timing数字分段计时、共享超分能力与KS时限、可注入的工作流/输出节点/产物命名/元数据适配器、图片及取消信号
+ * [OUTPUT]: 对外提供ComfyUI只读探测/原子生成、嵌入KS提交前节点/模型准入与15分钟执行/5分钟排队、提交未知不重提及PNG精确交付，保留普通消费者阶段/取消/耗时与读取重试合同
  * [POS]: src 的通用 ComfyUI 传输边界，与 oneapi-client.mjs 并列并让 Flux 生图、SeedVR2 超分及 AI 扩图复用同一异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,8 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { readImageDimensions } from "./image-dimensions.mjs";
 import { createComfyTiming } from "./comfyui-timing.mjs";
+import { IMAGE_UPSCALE_KS_TIMEOUT_MS, IMAGE_UPSCALE_QUEUE_TIMEOUT_MS, verifyGraphCapabilities } from "./image-upscale-capabilities.mjs";
+import { FLUX_POST_UPSCALE_WORKFLOW_KEY } from "./image-upscale-workflow.mjs";
 
 import {
   AI_TEXTURE_WORKFLOW,
@@ -545,18 +547,20 @@ export function createComfyUiClient({
     };
   }
 
+  async function getObjectInfo(classTypes = null) {
+    const options = {
+      method: "GET",
+      requireJson: true,
+      retryGateway: true,
+      signal: AbortSignal.timeout(Math.min(requestTimeoutMs, 10_000)),
+    };
+    if (!Array.isArray(classTypes)) return requestJson("object_info", options);
+    const results = await Promise.all(classTypes.map((type) => requestJson(`object_info/${encodeURIComponent(type)}`, options)));
+    return Object.assign({}, ...results);
+  }
+
   return {
-    async getObjectInfo(classTypes = null) {
-      const options = {
-        method: "GET",
-        requireJson: true,
-        retryGateway: true,
-        signal: AbortSignal.timeout(Math.min(requestTimeoutMs, 10_000)),
-      };
-      if (!Array.isArray(classTypes)) return requestJson("object_info", options);
-      const results = await Promise.all(classTypes.map((type) => requestJson(`object_info/${encodeURIComponent(type)}`, options)));
-      return Object.assign({}, ...results);
-    },
+    getObjectInfo,
     async checkHealth() {
       const body = await requestJson("system_stats", {
         method: "GET",
@@ -569,15 +573,15 @@ export function createComfyUiClient({
       };
     },
 
-    async generateImage(
-      generationRequest,
-      {
-        executionTimeoutMs = requestTimeoutMs,
+    async generateImage(generationRequest, options = {}) {
+      const embeddedKs = Boolean(generationRequest.upscale_resolution)
+        && (generationRequest.upscale_workflow_key || FLUX_POST_UPSCALE_WORKFLOW_KEY) === FLUX_POST_UPSCALE_WORKFLOW_KEY;
+      const {
+        executionTimeoutMs = embeddedKs ? IMAGE_UPSCALE_KS_TIMEOUT_MS : requestTimeoutMs,
         onProgress = null,
-        queueTimeoutMs = null,
+        queueTimeoutMs = embeddedKs ? IMAGE_UPSCALE_QUEUE_TIMEOUT_MS : null,
         signal = null,
-      } = {},
-    ) {
+      } = options;
       const timing = createComfyTiming({ now: timingNow });
       const finishInput = timing.start("inputPreparationMs");
       signal?.throwIfAborted();
@@ -619,6 +623,7 @@ export function createComfyUiClient({
       const queuedAt = Date.now();
       timing.queuedAt(queuedAt);
       let result;
+      let submissionStarted = false, acceptedPromptId = null;
       try {
         const finishSocketWait = timing.start("webSocketWaitMs");
         if (progressObserver.ready) await progressObserver.ready;
@@ -637,11 +642,24 @@ export function createComfyUiClient({
           width,
         });
         finishWorkflow();
+        if (embeddedKs) {
+          try {
+            const stage = Object.fromEntries(Object.entries(prompt).filter(([id]) => id.startsWith("SeedVR2-")));
+            if (!stage["SeedVR2-Upscaler"] || !stage["SeedVR2-DiT"] || !stage["SeedVR2-VAE"]) {
+              throw new Error("嵌入KS超分缺少实际SeedVR2节点图");
+            }
+            const classes = [...new Set(Object.values(stage).map(node => node.class_type))];
+            verifyGraphCapabilities(stage, await getObjectInfo(classes));
+          } catch (error) {
+            throw Object.assign(new ComfyUiError(`KS后置超分不可用：${error.message}`, 409, "post_upscale_capability"), { retryable: false });
+          }
+        }
         const finishSerialize = timing.start("promptSerializeMs");
         const body = JSON.stringify({ client_id: artifactKey, prompt });
         timing.set("promptBytes", Buffer.byteLength(body));
         finishSerialize();
         const finishPrompt = timing.phase("prompt");
+        submissionStarted = true;
         const queued = await requestJson("prompt", {
           body,
           headers: { "Content-Type": "application/json" },
@@ -650,6 +668,7 @@ export function createComfyUiClient({
           timing, timingStage: "prompt",
         });
         finishPrompt();
+        acceptedPromptId = queued?.prompt_id || null;
         if (!queued?.prompt_id) {
           const validationError = promptValidationError(queued);
           if (validationError) throw validationError;
@@ -676,6 +695,11 @@ export function createComfyUiClient({
         const finishDownload = timing.phase("view");
         const downloaded = await downloadOutput(output, artifactKey, signal, timing);
         finishDownload();
+        if (embeddedKs && (downloaded.outputFormat !== "png"
+          || downloaded.width !== Number(generationRequest.upscale_width)
+          || downloaded.height !== Number(generationRequest.upscale_height))) {
+          throw new ComfyUiError("KS后置超分成品必须是目标尺寸的PNG", 502, "output_dimensions", { promptId: acceptedPromptId });
+        }
         const times = executionTimes(history, queuedAt);
         result = {
           created: times.created,
@@ -703,6 +727,12 @@ export function createComfyUiClient({
           quality: null,
           transport: "comfyui-workflow",
         };
+      } catch (error) {
+        if (embeddedKs && submissionStarted) {
+          error.retryable = false;
+          if (acceptedPromptId) error.details = { ...error.details, promptId: acceptedPromptId };
+        }
+        throw error;
       } finally {
         progressObserver.close();
       }

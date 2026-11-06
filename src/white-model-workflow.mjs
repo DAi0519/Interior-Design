@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖白模/空房/旧房/风格转换的独立飞书Agent、白模可选纯词光影、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
- * [OUTPUT]: 对外提供设计Agent分流及单次出图归档；空房/旧房接受自由JSON/纯文本并前置用户原文，独立缓存及32000字符额度，白模/风格转换沿用原合同
+ * [OUTPUT]: 对外提供用户要求前置的设计Agent输入/最终Prompt与同文归档；空房/旧房接受自由JSON或纯文本，白模/风格转换保持字段校验及独立System Prompt
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -159,13 +159,13 @@ export function buildPromptAgentInput({
   userRequirements,
 }) {
   return [
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
     "请执行设计模型渲染 Prompt 整合任务。",
     "",
     "style_dna:",
     JSON.stringify(styleDna),
-    "",
-    "user_requirements:",
-    String(userRequirements || "").trim() || "无补充要求",
     ...styleReferenceContract(hasStyleReference),
     ...(lightingPrompt ? ["", lightingPrompt] : []),
   ].join("\n");
@@ -177,13 +177,13 @@ export function buildSmartDefaultPromptAgentInput({
   userRequirements,
 }) {
   return [
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
     "请执行白模智能默认材质化任务。",
     "",
     "render_mode:",
     SMART_DEFAULT_RENDER_MODE,
-    "",
-    "user_requirements:",
-    String(userRequirements || "").trim() || "无补充要求",
     ...styleReferenceContract(hasStyleReference),
     ...(lightingPrompt ? ["", lightingPrompt] : []),
   ].join("\n");
@@ -254,6 +254,9 @@ export function buildStyleTransferPromptAgentInput({
   userRequirements,
 }) {
   return [
+    "user_requirements:",
+    String(userRequirements || "").trim() || "无补充要求",
+    "",
     "请执行空间图风格转换任务。",
     "",
     "feature_mode:",
@@ -273,9 +276,6 @@ export function buildStyleTransferPromptAgentInput({
     "style_reference_present:",
     hasStyleReference ? "true" : "false",
     ...(styleDna ? ["", "style_dna:", JSON.stringify(styleDna)] : []),
-    "",
-    "user_requirements:",
-    String(userRequirements || "").trim() || "无补充要求",
     "",
     "严格按既定 JSON Schema 输出，所有字符串值使用英文，不增加分析或合同外字段。",
   ].join("\n");
@@ -345,8 +345,8 @@ function promptResultCacheKey({
 }) {
   const hash = createHash("sha256");
   const parts = [
-    ...(featureMode === EMPTY_ROOM_FEATURE_MODE
-      ? [DESIGN_PROMPT_ASSEMBLY_VERSION, ROOM_DESIGN_PROMPT_OUTPUT_VERSION] : []),
+    DESIGN_PROMPT_ASSEMBLY_VERSION,
+    ...(featureMode === EMPTY_ROOM_FEATURE_MODE ? [ROOM_DESIGN_PROMPT_OUTPUT_VERSION] : []),
     agent.code,
     agent.version,
     agent.systemPrompt,
@@ -608,9 +608,8 @@ export async function executeWhiteModelWorkflow(
         { force: forcePromptRegeneration },
       )
     : await generateFinalPrompt();
-  // -------- 空房/旧房用户原文前置；其他设计功能沿用既有合同 --------
-  const finalPrompt = emptyRoom
-    ? prependDesignUserRequirements(agentPrompt, userRequirements) : agentPrompt;
+  // -------- 原文独立前置；保留 Agent 的自由正文或设计字段 --------
+  const finalPrompt = prependDesignUserRequirements(agentPrompt, userRequirements);
   const promptDurationMs = Date.now() - promptStartedAt;
   const promptReused = Boolean(promptResultCache && !promptGenerated);
   const generation = createGenerationRequest(
@@ -619,7 +618,7 @@ export async function executeWhiteModelWorkflow(
       prompt: finalPrompt,
     },
     {
-      compiledPrompt: emptyRoom,
+      compiledPrompt: emptyRoom || Boolean(userRequirements),
       preferSourceAspect: input.ratioMode !== "manual",
       sourceDimensions: {
         height: sourceImages[0].height,

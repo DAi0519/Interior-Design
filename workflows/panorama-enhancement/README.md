@@ -1,6 +1,15 @@
+<!--
+[INPUT]: 依赖用户R5_4原始执行图/节点4正向原文、运行工厂与传输适配器、独立全景Prompt表
+[OUTPUT]: 提供原图尺寸/节点/参数合同、保原光影v3原文来源与运行及画质验收边界
+[POS]: workflows/panorama-enhancement 的原图语义说明；运行正文仍从飞书读取，本文件不作回退
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+
 # R5_4 全景图美化执行图
 
 `R5_4_workflow.api.json` 是用户提供的原始 ComfyUI API 执行图，SHA-256 为 `1390e507c446a82d45e9fec795358d4df7b29f52e6625cd988c53e6150e16b2a`。它是节点执行图；文件本身不声明 MaaS 平台发布策略 ID。
+
+2026-11-05，全景图美化“保留原光影”的独立飞书`panorama-render-enhancement`默认v3完整采用节点4（`CLIPTextEncode / Positive`）的2672字符原文，实际正文SHA256为`976668e3f6a24dbef1eac7477019bc5b09948d5da014b1337b3648b19eac049a`。运行仍读飞书`MAIN`正文，不从此文件回退；模板/自定义光影走独立转换合同。当前原始JSON字节、以下执行参数和工作流版本均不改，配置及编译检查不代表新增画质验收。
 
 运行工厂位于 `src/panorama-workflow.mjs`，传输适配器位于 `src/panorama-client.mjs`。仅将节点 1 的本地文件输入改成请求内 Base64，向节点 4/5 注入正负提示词、节点 7 注入随机种子，并用本次唯一产物前缀替换节点 46 的保存名。其他节点、连线和固定参数保持原图语义。
 

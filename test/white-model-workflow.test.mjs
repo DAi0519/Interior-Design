@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、generation-service 显式路由与白模/空房智能默认及固定风格渲染编排器的可注入服务边界
- * [OUTPUT]: 对外提供白模/空房双模式独立 Prompt 路由、空房必填房间类型/其他详情、仅智能默认接收主图+风格参考双图、提示词复用/重算、最终出图单图隔离、独立 Provider、版本化 Style DNA、比例及同步调度回归保障
+ * [OUTPUT]: 对外提供白模/空房Agent路由、用户原文首字段与设计字段保留、房型/风格图/缓存、单图出图及同文归档回归保障
  * [POS]: test 的设计模型工作流集成测试，所有外部 API 与后台任务均使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -602,7 +602,7 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
     },
   });
 
-  assert.deepEqual(JSON.parse(generatedRequest.prompt), agentJson);
+  assert.deepEqual(JSON.parse(generatedRequest.prompt), { user_requirements: input().prompt, ...agentJson });
   assert.equal(generatedRequest.images.length, 1);
   assert.equal(generatedRequest.quality, "medium");
   assert.equal(generatedRequest.size, "1024x768");
@@ -612,7 +612,7 @@ test("白模链路复用模型目录并在出图后调度飞书同步", async ()
   });
   assert.equal(styleLookup, "cream-french@v1");
   assert.equal(syncedInput.sourcePrompt, "稍微增强自然光");
-  assert.deepEqual(JSON.parse(syncedInput.finalPrompt), agentJson);
+  assert.equal(syncedInput.finalPrompt, generatedRequest.prompt);
   assert.equal("sourceRequirements" in syncedInput.workflow, false);
   assert.equal(syncedInput.workflow.agentModelLabel, "Gemini 3.1 Pro");
   assert.equal(syncedInput.workflow.promptReused, false);

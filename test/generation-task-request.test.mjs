@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖效果图美化新增光影身份投影、node:test/assert、node:fs、工作台入口/状态编排器/连接中心飞书同步合同状态/生成输入映射器、模型目录与 generation-task-request.js 的加载文案/批任务请求组装
- * [OUTPUT]: 对外提供全景多光影×模型/每卡张数逐项投影和标签、共享底图去重，生图/二次编辑及扩图的前台飞书同步合同阻断与仅本机超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式选择 UI、单模型 1–4 张展开、效果图美化六组合/非法值缺省/Prompt隔离、全景连续性/光影目标加载文案与批任务只传一份图片载荷的回归保障
+ * [OUTPUT]: 对外提供美化六档/九卡混选×模型/每模板张数逐项投影与标签、空选及共享底图去重，全景多光影展开、飞书准入、默认模型/PNG、各功能参数隔离与精确总张数文案的回归保障
  * [POS]: test 的生成任务请求测试，不发送真实生图请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  beautificationItemsForSelection,
   buildGenerationJobRequest,
   generationItemsForSelection,
   generationLoadingCopy,
@@ -17,6 +18,51 @@ import {
 } from "../public/generation-task-request.js";
 import { publicModelCatalog } from "../src/model-config.mjs";
 import { buildGenerationInput } from "../public/generation-input.js";
+import { EFFECT_BEAUTIFICATION_ATMOSPHERES } from "../public/effect-beautification-controls.js";
+
+test("主工作台美化十五模板按模型独立展开，旧六档显式清除共享卡片且主图只传一份", () => {
+  const models = publicModelCatalog().slice(0, 2);
+  const selections = [
+    ...EFFECT_BEAUTIFICATION_ATMOSPHERES.map(({ name, intensity, tone }) => ({ name,
+      effectBeautification: { intensity, tone }, effectBeautificationLighting: null })),
+    ...Array.from({ length: 9 }, (_, index) => ({ name: `光影${index + 1}`,
+      effectBeautification: { intensity: "low", tone: "natural" },
+      effectBeautificationLighting: { presetId: `recLighting${index}`, version: 5, sha256: "a".repeat(64) } })),
+  ];
+  const image = { dataUrl: "data:image/png;base64,AA==", name: "render.png", type: "image/png", size: 1 };
+  for (const selectedModels of [[models[0]], models]) {
+    const expanded = beautificationItemsForSelection(generationItemsForSelection(selectedModels, 4), selections);
+    const perTemplate = selectedModels.length === 1 ? 4 : selectedModels.length;
+    assert.equal(expanded.length, 15 * perTemplate);
+    assert.equal(new Set(expanded.map(item => item.label)).size, expanded.length);
+    const request = buildGenerationJobRequest({ featureMode: "effectBeautification", models: expanded,
+      sourceImage: { width: 1200, height: 900 }, baseInput: {
+        featureMode: "effectBeautification", referenceImages: [image], ratio: "4:3", resolution: "2K", outputFormat: "png",
+        effectBeautification: selections[6].effectBeautification,
+        effectBeautificationLighting: selections[6].effectBeautificationLighting, effectBeautificationPromptVersion: 2,
+      } });
+    assert.deepEqual(request.sharedInput.referenceImages, [image]);
+    for (const [index, item] of request.items.entries()) {
+      const expected = expanded[index].beautificationSelection;
+      assert.deepEqual(item.input.effectBeautification, expected.effectBeautification);
+      assert.deepEqual(item.input.effectBeautificationLighting, expected.effectBeautificationLighting);
+      assert.equal(item.input.effectBeautificationPromptVersion, 2);
+      assert.equal("referenceImages" in item.input, false);
+      assert.equal("lightingReferenceImages" in item.input, false);
+      assert.equal(item.label, expanded[index].label);
+      assert.ok(item.label.includes(expected.name));
+    }
+    for (const choice of selections) assert.equal(expanded.filter(item => item.beautificationSelection === choice).length, perTemplate);
+  }
+  assert.deepEqual(beautificationItemsForSelection(models, []), []);
+});
+
+test("美化多选加载文案按单模型每模板张数或多模型每模板一张计算总数", () => {
+  const models = publicModelCatalog().slice(0, 2);
+  const options = { effectBeautificationRequest: true, effectBeautificationSelections: [{}, {}, {}], generationCount: 4 };
+  assert.match(generationLoadingCopy({ ...options, models: [models[0]] }), /3 种光影模板.*12 张/);
+  assert.match(generationLoadingCopy({ ...options, models }), /3 种光影模板.*6 张/);
+});
 
 test("全景六种光影按模型和每卡张数独立展开，逐项模板正确且底图只传一份", () => {
   const models = publicModelCatalog().filter(model => model.sizes?.["2:1"]);
@@ -257,7 +303,7 @@ test("效果图美化旧客户端与失效选择回退低强度自然调，其�
   const free = buildGenerationInput({ ...defaults, effectBeautification: { intensity: "high", tone: "cool" }, featureMode: "free" });
   assert.equal(free.prompt, "自由提示词");
   assert.equal("effectBeautification" in free, false);
-  assert.match(generationLoadingCopy({ effectBeautificationRequest: true }), /所选强度与色调美化效果图/);
+  assert.match(generationLoadingCopy({ effectBeautificationRequest: true }), /所选光影模板美化效果图/);
 });
 
 test("全景生成加载文案同时说明连续性与光影目标", () => {

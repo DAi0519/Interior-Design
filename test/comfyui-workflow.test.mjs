@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 Flux2 Klein 工作流工厂，所有输入均为内存样例
- * [OUTPUT]: 对外提供默认 9B FP8/7 steps、1K/2K、4K/6K 同图超分、全景普通链路与 Prompt 注入合同测试
+ * [OUTPUT]: 对外提供默认 9B FP8/7 steps、1K/2K、4K/6K 同图超分和冻结历史攸行图兼容、全景普通链路与 Prompt 注入合同测试
  * [POS]: test 的 Flux 工作流图结构测试，不提交 ComfyUI 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -96,7 +96,7 @@ test("工作流固定使用 9B FP8、7 steps 并接受 2K 目标尺寸", () => {
   );
 });
 
-test("Flux 4K/6K 把 2K 生成结果直接接入同一 Prompt 图的攸行 SeedVR2", () => {
+test("历史显式攸行身份的Flux 4K/6K继续将2K结果接同一Prompt图的3B SeedVR2", () => {
   const workflow = createAiTextureWorkflow({
     artifactKey: "flux-upscale-4k",
     generationRequest: {

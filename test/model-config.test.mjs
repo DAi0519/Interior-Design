@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 对外提供七个 OneAPI 模型（含独立 Banana 2.1、GPT Image 2/2.5 尺寸边界与截图 1K 回归、独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K 契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供七个 OneAPI 模型（含独立 Banana 2.1、GPT Image 2/2.5 尺寸边界与截图 1K 回归、独立 Seedream 5.0 Pro 全景 4K 实验档）与一个默认 9B FP8/7 steps ComfyUI 工作流、Provider/含效果图美化、氛围转换与全景美化的单图/原图比例约 1MP/4MP 的 1K-2K及KS直入后置超分契约、全景 2:1 准入、合法尺寸映射和非法组合回归保障
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,7 +24,7 @@ import {
   sizeSummary,
 } from "../public/model-capabilities.js";
 
-test("目录暴露七个 OneAPI 模型和一个 ComfyUI 工作流", () => {
+test("目录暴露九个 OneAPI 模型和一个 ComfyUI 工作流", () => {
   assert.deepEqual(
     publicModelCatalog().map(({ id, key }) => ({ id, key })),
     [
@@ -33,6 +33,8 @@ test("目录暴露七个 OneAPI 模型和一个 ComfyUI 工作流", () => {
       { id: "gpt-image-2", key: "gptImage2" },
       { id: "gpt-image-2.5-sunburst", key: "gptImage25Sunburst" },
       { id: "gpt-image-2.5-flare", key: "gptImage25Flare" },
+      { id: "gpt-image-2.6-sunburst", key: "gptImage26Sunburst" },
+      { id: "gpt-image-2.6-flare", key: "gptImage26Flare" },
       { id: "comfyui:ai-texture-enhancement", key: "aiTextureEnhancement" },
       { id: "doubao-seedream-5.0", key: "seedream5" },
       { id: "doubao-seedream-5.0-pro", key: "seedream5Pro" },
@@ -288,7 +290,7 @@ test("GPT Image 2.5 双模型按公司模板使用九种比例和新增质量档
 
 test("GPT Image 2/2.5 所有公开档位和实际请求都满足接口尺寸边界", () => {
   const models = publicModelCatalog().filter(({ key }) => key.startsWith("gptImage"));
-  assert.equal(models.length, 3);
+  assert.equal(models.length, 5);
   for (const model of models) {
     for (const [ratio, resolutions] of Object.entries(model.sizes)) {
       const [ratioWidth, ratioHeight] = ratio.split(":").map(Number);
@@ -446,7 +448,7 @@ test("Flux2 Klein 走 ComfyUI、允许空补充要求并按原图比例输出 1K
   assert.equal(longPromptGeneration.request.prompt, longPrompt);
 });
 
-test("Flux2 Klein 4K/6K 固定先做 2K 推理再在同一工作流接攸行超分", () => {
+test("Flux2 Klein 4K/6K 固定先做 2K 推理再在同一工作流接KS直入超分", () => {
   const pngDataUrl =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
   const input = {
@@ -475,7 +477,10 @@ test("Flux2 Klein 4K/6K 固定先做 2K 推理再在同一工作流接攸行超�
   assert.equal(fourK.request.upscale_width, 4096);
   assert.equal(fourK.request.upscale_height, 2314);
   assert.equal(fourK.request.upscale_resolution, "4K");
-  assert.equal(fourK.request.upscale_workflow_key, "youxing_seedvr2_3b");
+  assert.equal(fourK.request.upscale_workflow_key, "ks_seedvr2_2x_direct");
+  assert.equal(fourK.request.upscale_workflow_version, "2026-10-27.1");
+  assert.equal(fourK.request.upscale_source_width, 2720);
+  assert.equal(fourK.request.upscale_source_height, 1536);
   assert.equal(fourK.preview.inferenceResolution, "2K");
   assert.equal(fourK.preview.inferenceSize, "2720x1536");
   assert.equal(fourK.preview.size, "4096x2314");
@@ -563,8 +568,8 @@ test("Flux2 Klein 前端能力锁定原图比例并开放原生 1K/2K 与同图�
   assert.deepEqual(controls.resolutionOptions, [
     { label: "1K", value: "1K" },
     { label: "2K", value: "2K" },
-    { label: "4K · 2K→攸行超分", value: "4K" },
-    { label: "6K · 2K→攸行超分", value: "6K" },
+    { label: "4K · 2K→KS直入 · 7B", value: "4K" },
+    { label: "6K · 2K→KS直入 · 7B", value: "6K" },
   ]);
   assert.equal("workflowProfiles" in model, false);
   assert.equal("defaultWorkflowProfile" in model, false);

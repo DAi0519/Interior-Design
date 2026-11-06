@@ -45,7 +45,8 @@ test("配置仅返回可用图像模型和JSON资产身份，不暴露正文", a
   assert.equal(config.defaultLayoutModel, "gptImage25Sunburst");
   assert.equal(config.continuationAvailable, true);
   assert.deepEqual(config.layoutModels.map(({ key, available }) => ({ key, available })), [
-    { key: "gptImage25Sunburst", available: true }, { key: "banana21", available: false },
+    { key: "gptImage25Sunburst", available: true }, { key: "gptImage26Sunburst", available: false },
+    { key: "gptImage26Flare", available: false }, { key: "banana21", available: false },
     { key: "seedream5", available: false }, { key: "seedream5Pro", available: false }]);
   assert.deepEqual(config.layoutModels.find(model => model.key === "seedream5").defaults, { resolution: "2K", quality: null, outputFormat: "png" });
   assert.equal(config.output.exactCameraGeometry, false);

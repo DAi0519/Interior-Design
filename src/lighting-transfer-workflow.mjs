@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立效果图迁移Prompt、光影库卡片原件/版本SHA、双图模型真源、生成批次与归档调度
- * [OUTPUT]: 对外提供卡片参考迁移准入/冻结、效果图专用双图生成、原件图序及Prompt和卡片身份归档
+ * [OUTPUT]: 对外提供卡片参考迁移准入/冻结、用户要求首段的双图生成、原件图序及实际Prompt和卡片身份归档
  * [POS]: src 的光影转换应用服务，复用光影库与精模双图基础设施但不读取精模基础或精模迁移正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -58,7 +58,7 @@ export async function resolveLightingTransferInput(input = {}, {
     referenceRuleCode: LIGHTING_TRANSFER_PROMPT_CODE,
   });
   const rule = lighting.rule;
-  const finalPrompt = [rule.prompt, custom ? `[USER LIGHTING REFINEMENTS]\n${custom}` : ""].filter(Boolean).join("\n\n");
+  const finalPrompt = [custom ? `[USER LIGHTING REFINEMENTS]\n${custom}` : "", rule.prompt].filter(Boolean).join("\n\n");
   return { ...lighting, source, custom, finalPrompt, promptAsset: rule, metadata: {
     ...lighting.metadata, source: refinedLightingImageSummary(input.referenceImages[0]),
     prompt: { code: rule.code, version: rule.version, sha256: rule.sha256,

@@ -1,18 +1,19 @@
 /**
- * [INPUT]: 依赖 model-capabilities.js 的按功能及精模单项光影模式合法尺寸推导、含风格转换/效果图氛围转换/美化及全景图美化的统一生成输入、使用 Flux 默认模型参数的模型目录与批量执行回调
- * [OUTPUT]: 对外提供含光影转换双图尺寸/PNG、质感增强固定PNG与旧房/空房的逐模型尺寸/质量适配、遗留工作流档位剥离和不设总项数上限、并发度受限、保序且允许部分失败的批量调度
+ * [INPUT]: 依赖model-capabilities的功能尺寸规则/后置KS身份与输入预检、统一生成输入、模型目录与批量执行回调
+ * [OUTPUT]: 对外提供Main/Beta逐模型尺寸质量适配、Flux后置KS身份冻结/跨模型剥离与超限阻断、双图/全景隔离及保序并发批量调度
  * [POS]: public 的多模型生成领域层，与 DOM、网络客户端和结果渲染分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { sizeControlState } from "./model-capabilities.js";
+import { fluxPostUpscaleState, sizeControlState } from "./model-capabilities.js";
 
 export function adaptGenerationInputForModel(
   input,
   model,
   { featureMode, sourceImage = null } = {},
 ) {
-  const { workflowProfile: _legacyWorkflowProfile, ...baseInput } = input;
+  const { workflowProfile: _legacyWorkflowProfile, postUpscaleWorkflowKey: _postKey,
+    postUpscaleWorkflowVersion: _postVersion, ...baseInput } = input;
   const controls = sizeControlState({
     currentRatio: input.ratio,
     currentResolution: input.resolution,
@@ -47,8 +48,12 @@ export function adaptGenerationInputForModel(
   const quality = model.qualityOptions.includes(input.quality)
     ? input.quality
     : model.defaultQuality || undefined;
+  const postUpscale = fluxPostUpscaleState({ featureMode, refinedLighting: input.refinedLighting,
+    model, resolution: controls.resolution, sourceImage });
+  if (postUpscale.reason) throw new Error(postUpscale.reason);
   return {
     ...baseInput,
+    ...postUpscale.requestFields,
     modelKey: model.key,
     outputFormat,
     quality,

@@ -64,5 +64,3 @@ v2 trim SHA-256：`a583dca3fdc43aa0c0849b4726bc94e6a10e3a35c40ce81ef5897a3709969
 Edge 实测示例场景含 3 个空间、11 件家具，可切换几何 3D。截图位于 `outputs/floor-plan/geometry-restored.jpg`。4192 当前识图配置返回 10 个可选模型，默认 Gemini 3.1 Pro；本轮全量 1858 项测试通过，尚未用真实户型重新验收识图建模。
 
 2026-11-06命名同步：入口改为“设计实验室 · Beta”，飞书原tblsJnSq7Qg9f4Nb更名“设计实验室 Prompt”，场景类型及三条Agent展示名称同步；稳定编码、版本、正文、记录ID不变。新户型平面布局仍使用自己的专表。
-
-发布范围说明：本v0.1.24沿用已发布模型目录（GPT2.5、Banana2.1、Seedream5Lite/Pro），不包含其他分支的GPT2.6等改动。上文工作区测试记录包含其他并行开发；正式制品以本次发布检查和manifest为准。

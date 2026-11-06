@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 脱敏扩图工作流目录、共享可搜索多选控件、Run ID 与扩图专属表单
- * [OUTPUT]: 对外提供固定 2K 的扩图状态归一化、工作流显式准入、居中构图配置与样本乘工作流 Run 展开
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供固定 2K 的扩图状态归一化、工作流显式准入、居中构图配置与样本乘工作流 Run 展开
  * [POS]: public 的 Beta 扩图独立配置边界，与普通出图模型和尺寸状态隔离，不读取图片正文或工作流源码
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,7 @@ import { bindSearchableChoice } from "./model-multi-select.js?v=5";
 import { createBetaRunId } from "./beta-run-id.js?v=2";
 
 export const BETA_OUTPAINT_WORKFLOW_KEYS = Object.freeze([
-  "outpaint-flux-onereward", "outpaint-flux-dev", "outpaint-qwen-2511", "outpaint-sunburst",
+  "outpaint-flux-onereward", "outpaint-flux-dev", "outpaint-qwen-2511", "outpaint-sunburst", "outpaint-gpt26-sunburst", "outpaint-gpt26-flare",
 ]);
 export const DEFAULT_BETA_OUTPAINT_WORKFLOW_KEYS = Object.freeze([
   "outpaint-flux-onereward", "outpaint-qwen-2511",

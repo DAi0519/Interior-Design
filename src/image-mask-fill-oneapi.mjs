@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖已解码的主图/可选遮罩或已验证的归一化矩形与多边形/参考图与共享用途及消除操作规则、模型真源、sharp、真实产物读取与注入的OneAPI同步/异步编辑客户端
- * [OUTPUT]: Sunburst独立局部消除原文直投（不拼填充模板）与操作版本追溯；三档五质量、真实蓝色定位线、物品/材质参考模板、原生PNG直出及实际送模标记图归档副本
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； Sunburst局部消除原文直投、编辑原文首段后接定位/参考模板；三档五质量、蓝色定位线、原生PNG与实际送模Prompt/标记图归档
  * [POS]: src 的二次编辑三方适配器，无mask走Responses后台任务、透明mask保留Images edits；返回后不裁切或回贴原图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,8 +19,8 @@ const fail = (message, statusCode = 400) => Object.assign(new Error(message), { 
 const bytesOf = image => Buffer.from(image.imageUrl.split(",")[1], "base64");
 const pngUrl = bytes => `data:image/png;base64,${bytes.toString("base64")}`;
 
-export function sunburstMaskOutputSize(source, resolution = "1K") {
-  try { return maskFillGptOutputSize(source, resolution, MASK_FILL_ONEAPI_MODEL.sizes); }
+export function sunburstMaskOutputSize(source, resolution = "1K", modelKey = "gptImage25Sunburst") {
+  try { return maskFillGptOutputSize(source, resolution, MODEL_CONFIGS[modelKey].sizes); }
   catch (error) { throw fail(error.message); }
 }
 export function sunburstMaskQuality(value = MASK_FILL_ONEAPI_MODEL.defaultQuality) {
@@ -41,18 +41,19 @@ export function sunburstMaskPrompt({ prompt, mode, mask, editRegion, fillReferen
   const referenceInstruction = purpose === "material"
     ? `Apply the material from image 2 to ${referenceTarget}. Preserve the target's original form, structure and position. Match the surface's scale, perspective, lighting and shadows, and preserve unrelated content.`
     : `Replace ${referenceTarget} with the corresponding object from image 2. Match image 1's scale, perspective and lighting, and preserve unrelated content.`;
-  return [editRegion ? "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image."
+  return [...(instruction ? [`User instruction: ${instruction}`] : []),
+    editRegion ? "Image 1 is the image to edit. The temporary blue outline identifies the edit target. Edit this selected target and preserve unrelated content. The outline is a guide, not part of the scene or a hard boundary for editing. Keep the scene's composition, perspective and lighting consistent. Remove all blue guide marks from the final image."
     : mask ? "Edit image 1 only in the transparent area of the supplied mask. Preserve its composition, perspective, lighting and all protected areas."
     : mode === "reference" ? "Image 1 is the image to edit. Preserve the scene composition, perspective, lighting and unrelated content."
     : "Edit image 1 according to the user instruction. Preserve the scene composition, perspective, lighting and everything unrelated to the requested change.",
     ...(mode === "reference" ? [`${referenceInstruction} If additional instructions are provided, follow them. Do not copy unrelated content or background from image 2.`] : []),
-    ...(instruction ? [`User instruction: ${instruction}`] : []), editRegion ? "Return one complete image without blue selection outlines, guide marks, labels or a collage."
+    editRegion ? "Return one complete image without blue selection outlines, guide marks, labels or a collage."
       : "Return one complete image, without borders, labels or a collage."].join("\n");
 }
 
 export async function prepareSunburstMaskInput(validated) {
   const { source, mask, reference, maskExpand, editRegion } = validated;
-  const target = sunburstMaskOutputSize(source, validated.outputResolution);
+  const target = sunburstMaskOutputSize(source, validated.outputResolution, validated.modelKey);
   const quality = sunburstMaskQuality(validated.quality);
   // -------- 源与mask同尺寸、同PNG；不把输出3840上限误用于输入 --------
   let sourceBytes = await sharp(bytesOf(source)).png().toBuffer();
@@ -104,7 +105,7 @@ export async function prepareSunburstMaskInput(validated) {
     throw fail("转换PNG后超过编辑接口单图20MiB的image_url字符限制，请减小图片文件");
   }
   return { sourceBytes, maskBytes, editMask, referenceBytes, target, editRegionPixels, regionAnnotation,
-    request: { model: MASK_FILL_ONEAPI_MODEL.id, images, ...(maskUrl ? { mask: { image_url: maskUrl } } : {}),
+    request: { model: MODEL_CONFIGS[validated.modelKey || "gptImage25Sunburst"].id, images, ...(maskUrl ? { mask: { image_url: maskUrl } } : {}),
       prompt: sunburstMaskPrompt(validated), size: `${target.width}x${target.height}`, quality,
       n: 1, output_format: "png", response_format: "b64_json" } };
 }
@@ -117,7 +118,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
   if (typeof imageClient?.[method] !== "function") throw fail("Sunburst编辑客户端尚未配置", 409);
   const prepared = await prepareSunburstMaskInput(validated);
   const startedAt = Date.now();
-  onProgress({ phase: "executing", message: validated.editRegion ? "GPT Image 2.5 Sunburst 正在编辑圈选物体" : validated.mask ? "GPT Image 2.5 Sunburst 正在编辑遮罩区域" : "GPT Image 2.5 Sunburst 正在按指令编辑图片" });
+  onProgress({ phase: "executing", message: `${MODEL_CONFIGS[validated.modelKey || "gptImage25Sunburst"].label} 正在${validated.editRegion ? "编辑圈选物体" : validated.mask ? "编辑遮罩区域" : "按指令编辑图片"}` });
   const generated = await imageClient[method](prepared.request, {
     onSubmitted({ id, status }) {
       onProgress({ phase: "executing", message: "GPT 编辑任务已提交，正在后台生成", upstreamResponseId: id, upstreamStatus: status });
@@ -134,7 +135,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
   const delivery = prepared.target;
   // -------- 完整交付上游PNG原始字节；不按mask截取、不回贴、不重编码 --------
   const outputSha256 = digest(nativeBytes);
-  const metadata = { provider: "oneapi", model: MASK_FILL_ONEAPI_MODEL.id, version: MASK_FILL_ONEAPI_VERSION,
+  const metadata = { provider: "oneapi", model: MODEL_CONFIGS[validated.modelKey || "gptImage25Sunburst"].id, version: MASK_FILL_ONEAPI_VERSION,
     prompt: prepared.request.prompt, sourcePrompt: validated.prompt, mode: validated.mode, quality: prepared.request.quality, ...removalFields,
     ...(fillReferencePurpose ? { fillReferencePurpose } : {}),
     outputResolution: validated.outputResolution, protectedSourceResampled: false,
@@ -156,7 +157,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
     outputResized: false, protectedAreaComposited: false, postUpscaled: false, maskExpand: validated.maskExpand,
     requestId: generated.requestId || null, upstreamAsync: !validated.mask, usageCost: generated.usageCost || null };
   return { durationMs: Date.now() - startedAt, images: [{ url: pngUrl(nativeBytes) }],
-    request: { model: MASK_FILL_ONEAPI_MODEL.id, provider: "oneapi", quality: prepared.request.quality, outputFormat: "png",
+    request: { model: MODEL_CONFIGS[validated.modelKey || "gptImage25Sunburst"].id, provider: "oneapi", quality: prepared.request.quality, outputFormat: "png",
       outputResolution: validated.outputResolution, resolution: validated.outputResolution, ...removalFields,
       referenceImageCount: validated.reference ? 2 : 1, hasMask: Boolean(validated.mask), editRegion: validated.editRegion || null, maskFillMode: validated.mode, inferenceTier: validated.inferenceTier,
       ...(fillReferencePurpose ? { fillReferencePurpose } : {}),
@@ -165,7 +166,7 @@ export async function executeSunburstMaskFill(validated, { imageClient, onProgre
     sync: { generationId: null, status: "skipped" },
     upstream: { created: generated.created, outputFormat: "png", transport: generated.transport, metadata,
       requestId: generated.requestId, usageCost: generated.usageCost || null },
-    workflow: { key: "sunburst-mask-fill", label: MASK_FILL_ONEAPI_MODEL.label, version: MASK_FILL_ONEAPI_VERSION, mode: validated.mode, ...removalFields,
+    workflow: { key: "sunburst-mask-fill", label: MODEL_CONFIGS[validated.modelKey || "gptImage25Sunburst"].label, version: MASK_FILL_ONEAPI_VERSION, mode: validated.mode, ...removalFields,
       ...(fillReferencePurpose ? { fillReferencePurpose } : {}) },
     archiveMaskImage: prepared.maskBytes ? { imageUrl: pngUrl(prepared.maskBytes), mimeType: "image/png", fileName: "submitted-alpha-mask.png", size: prepared.maskBytes.length } : null,
     archiveBoxedSourceImage: validated.editRegion ? { imageUrl: prepared.request.images[0].image_url, mimeType: "image/png",

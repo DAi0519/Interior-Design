@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖美化/白模纯词/光影转换/精模及全景光影版本SHA准备、GPT打光/多光源准入、生成服务、任务注册表、模型目录、Schema与JSON读写
- * [OUTPUT]: 对外提供局部消除独立Prompt版本准入与操作冻结、运行进程功能及美化/白模纯词/全景多光影能力目录、卡片独立冻结与美化新增卡片低自然路由、精模及全景组合限额、打光正文冻结和任务入队/查询
+ * [INPUT]: 依赖美化六档规范化/白模纯词/光影转换/精模及全景光影版本SHA准备、独立超分双噪声合同、GPT打光/多光源准入、生成服务、任务注册表、Flux后置超分身份及尺寸规划、模型目录、Schema与JSON读写
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供独立超分双噪声入队前400准入及数值冻结、Flux4K/6K后置超分身份冻结与Agent/收费前尺寸准入、局部消除操作冻结、运行进程功能及美化/全景多光影能力目录、各组合限额、打光正文冻结和任务入队/查询
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,15 +14,17 @@ import { runGenerationJobBatch } from "./generation-jobs.mjs";
 import { imageOutpaintEngineKey, publicImageOutpaintConfig } from "./image-outpaint-service.mjs";
 import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
 import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
-import { MODEL_CONFIGS } from "./model-config.mjs";
+import { createGenerationRequest, MODEL_CONFIGS, normalizeFluxPostUpscaleInput } from "./model-config.mjs";
 import { assertOutpaintResolution } from "../public/image-outpaint-geometry.js";
 import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
 import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
 import { normalizePanoramaLighting, preparePanoramaLightingInput } from "./panorama-lighting.mjs";
 import { normalizeWhiteModelLighting, prepareWhiteModelLightingInput } from "./white-model-lighting.mjs";
 import { normalizeEffectBeautificationLighting, prepareEffectBeautificationLightingInput } from "./effect-beautification-lighting.mjs";
+import { effectBeautificationPreset } from "./effect-beautification-workflow.mjs";
 import { REFINED_LIGHTING_PRESET_EXECUTIONS } from "../public/refined-flux-reference.js";
 import { prepareLightingTransferInput, validateLightingTransferInput } from "./lighting-transfer-workflow.mjs";
+import { normalizeImageUpscaleNoise } from "./image-upscale-workflow.mjs";
 
 const FEATURE_MODES = new Set([
   "effectEnhancement",
@@ -50,7 +52,7 @@ export function supportedGenerationFeatureCapabilities() {
   return Object.freeze({
     panoramaEnhancement: Object.freeze({ multipleLightingSelections: true }),
     whiteModel: Object.freeze({ promptLighting: true }),
-    effectBeautification: Object.freeze({ promptLighting: true }),
+    effectBeautification: Object.freeze({ promptLighting: true, multipleLightingSelections: true }),
   });
 }
 
@@ -93,7 +95,8 @@ export function createGenerationJobApiHandler({
     const sharedInput = body.sharedInput && typeof body.sharedInput === "object" ? body.sharedInput : {};
     let imageStage = "comfyUi";
     const jobId = String(body.jobId || "");
-    const items = Array.isArray(body.items) ? body.items : [];
+    const items = Array.isArray(body.items) ? (featureMode === "imageUpscale"
+      ? body.items.map(item => ({ ...item, input: { ...item?.input } })) : body.items) : [];
     let relightPromptSnapshot = null;
     if (!/^generation-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
       sendJson(response, 400, { error: "生成任务 ID 无效" });
@@ -118,6 +121,17 @@ export function createGenerationJobApiHandler({
       return true;
     }
     if (!localImageRequest) {
+      try {
+        for (const item of items) {
+          const input = normalizeFluxPostUpscaleInput({ ...sharedInput, ...item.input, featureMode });
+          if (!input.postUpscaleWorkflowKey) continue;
+          createGenerationRequest(input);
+          item.input = { ...item.input, postUpscaleWorkflowKey: input.postUpscaleWorkflowKey,
+            postUpscaleWorkflowVersion: input.postUpscaleWorkflowVersion };
+        }
+      } catch (error) { sendJson(response, error.statusCode || 400, { error: error.message }); return true; }
+    }
+    if (!localImageRequest) {
       const modelCounts = new Map();
       for (const item of items) {
         const modelKey = String(item?.input?.modelKey ?? sharedInput.modelKey ?? "");
@@ -132,6 +146,7 @@ export function createGenerationJobApiHandler({
         return lighting?.mode === "preset" && REFINED_LIGHTING_PRESET_EXECUTIONS.includes(lighting.execution);
       });
       const panoramaComparison = featureMode === "panoramaEnhancement";
+      const beautificationComparison = featureMode === "effectBeautification";
       const lightingCounts = new Map();
       if (lightingComparison) for (const item of items) {
         const lighting = item.input?.refinedLighting || sharedInput.refinedLighting;
@@ -159,11 +174,28 @@ export function createGenerationJobApiHandler({
           return true;
         }
       }
-      if (!lightingComparison && !panoramaComparison && modelCounts.size === 1 && items.length > 4) {
+      if (beautificationComparison) {
+        try {
+          for (const item of items) {
+            const input = { ...sharedInput, ...item.input };
+            const selection = normalizeEffectBeautificationLighting(input.effectBeautificationLighting);
+            const identity = selection ? ["lighting", selection.presetId]
+              : ["atmosphere", effectBeautificationPreset(input.effectBeautification).key];
+            const key = JSON.stringify([input.modelKey, ...identity]);
+            lightingCounts.set(key, (lightingCounts.get(key) || 0) + 1);
+          }
+        } catch (error) { sendJson(response, error.statusCode || 400, { error: error.message }); return true; }
+        if ([...lightingCounts.values()].some(count => count > (modelCounts.size === 1 ? 4 : 1))) {
+          sendJson(response, 400, { error: modelCounts.size === 1
+            ? "美化对比每个光影只允许1–4张" : "美化多模型对比每个模型、光影只允许1个生成项" });
+          return true;
+        }
+      }
+      if (!lightingComparison && !panoramaComparison && !beautificationComparison && modelCounts.size === 1 && items.length > 4) {
         sendJson(response, 400, { error: "单模型生成张数需要在 1–4 张之间" });
         return true;
       }
-      if (!lightingComparison && !panoramaComparison && modelCounts.size > 1 && modelCounts.size !== items.length) {
+      if (!lightingComparison && !panoramaComparison && !beautificationComparison && modelCounts.size > 1 && modelCounts.size !== items.length) {
         sendJson(response, 400, { error: "多模型生成时每个模型只允许 1 个生成项" });
         return true;
       }
@@ -171,6 +203,14 @@ export function createGenerationJobApiHandler({
     if (featureMode === "imageUpscale" && items.length > 4) {
       sendJson(response, 400, { error: "图片超分每次只允许 1–4 个生成项" });
       return true;
+    }
+    if (featureMode === "imageUpscale") {
+      try {
+        for (let index = 0; index < items.length; index += 1) {
+          const noise = normalizeImageUpscaleNoise({ ...sharedInput, ...items[index].input });
+          items[index] = { ...items[index], input: { ...items[index].input, ...noise } };
+        }
+      } catch (error) { sendJson(response, error.statusCode || 400, { error: error.message }); return true; }
     }
     if (featureMode === "imageRelight") {
       if (items.length !== 1) { sendJson(response, 400, { error: "打光每次只允许1个生成项" }); return true; }
@@ -183,8 +223,8 @@ export function createGenerationJobApiHandler({
         const preparePrompt = prepareImageRelightPrompt || generationService.prepareImageRelightPrompt;
         if (!preparePrompt) throw Object.assign(new Error("打光Prompt读取尚未配置"), { statusCode: 409 });
         relightPromptSnapshot = structuredClone(await preparePrompt({ ...sharedInput, ...items[0].input }));
-        items[0] = { key: RELIGHT_MODEL_KEY, label: "GPT · 打光", provider: "oneapi", input: {
-          ...items[0].input, modelKey: RELIGHT_MODEL_KEY, lights: validated.lights, originalLights: structuredClone(validated.originalLights),
+        items[0] = { key: validated.modelKey, label: "GPT · 打光", provider: "oneapi", input: {
+          ...items[0].input, modelKey: validated.modelKey, lights: validated.lights, originalLights: structuredClone(validated.originalLights),
           templateKey: validated.templateKey, blendMode: validated.blendMode, prompt: validated.prompt,
           outputResolution: validated.outputResolution, quality: validated.quality,
           relightPromptVersion: relightPromptSnapshot.version, relightPromptSha256: relightPromptSnapshot.sha256,

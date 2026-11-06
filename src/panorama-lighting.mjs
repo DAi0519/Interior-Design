@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖飞书光影库已上架卡片、请求中的卡片版本/SHA与用户光影要求，以及 Node SHA-256
- * [OUTPUT]: 对外提供全景纯词光影目标准入、卡片冻结、独立转换合同编译及不含正文的追溯元数据
+ * [OUTPUT]: 对外提供全景纯词光影目标准入、卡片冻结、用户要求首段/保护合同/卡片正文编译及不含正文的追溯元数据
  * [POS]: src 的全景光影编译边界，复用光影卡片真源，不读取精模基础/参考规则或第二张图片
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -58,9 +58,10 @@ export async function resolvePanoramaLightingInput(input = {}, { loadAssets = lo
       throw fail("全景光影模板已更新或下架，请刷新光影库后重选", 409);
     }
   }
-  const prompt = [PANORAMA_LIGHTING_CONTRACT,
-    ...(preset ? [`[LIGHTING PRESET]\n${preset.prompt}`] : []),
+  const prompt = [
     ...(custom ? [`[USER LIGHTING REFINEMENTS]\n${custom}`] : []),
+    PANORAMA_LIGHTING_CONTRACT,
+    ...(preset ? [`[LIGHTING PRESET]\n${preset.prompt}`] : []),
   ].join("\n\n");
   return { selection, prompt, metadata: {
     mode: preset ? "preset" : "custom",

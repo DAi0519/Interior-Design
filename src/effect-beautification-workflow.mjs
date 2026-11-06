@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖六份效果图美化源工作流的参数、SHA-256、MaaS 来源编号、已解析正负 Prompt、原图尺寸与工作台输出档；仅使用 ComfyUI 节点数据，不依赖网络或普通 Flux 工厂
- * [OUTPUT]: 对外提供六预设真源、幂等 LoRA 触发词拼接、1920 长边/右下补边/裁剪恢复的共享执行阶段、真实推理元信息与只读节点能力校验
+ * [OUTPUT]: 对外提供六预设真源、用户首段保护与幂等LoRA触发词、1920长边/右下补边/裁剪恢复、真实推理元信息与只读节点能力校验
  * [POS]: src 的效果图美化 Flux 专属执行边界，由普通 Flux 工厂挂接并复用既有 SaveImage 与 SeedVR2 收口；OneAPI 不消费本阶段
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -82,7 +82,8 @@ export function effectBeautificationPreset(selection = {}) {
 
 export function composeFluxBeautificationPrompt(text) {
   const prompt = String(text || "").trim();
-  if (/^zhiganEnhance(?:\s*,|\s*$)/i.test(prompt)) return prompt;
+  if (/^zhiganEnhance(?:\s*,|\s*$)/i.test(prompt) || /(?:^|\n\n)zhiganEnhance$/i.test(prompt)) return prompt;
+  if (prompt.startsWith("[USER REFINEMENTS]\n")) return `${prompt}\n\n${EFFECT_BEAUTIFICATION_WORKFLOW.trigger}`;
   return `${EFFECT_BEAUTIFICATION_WORKFLOW.trigger},${prompt ? ` ${prompt}` : ""}`;
 }
 

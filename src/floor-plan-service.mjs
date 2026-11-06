@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sharp 单图真实解码、共享四模型目录/请求、独立飞书JSON资产、OneAPI图片连接和既有多角度原语
- * [OUTPUT]: 提供共享单张图片执行原语、布局四模型选择与后续GPT2.5三动作，冻结复验资产/所选模型权限，保留原生格式、PNG交付、实际尺寸、费用和失败回执
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 提供共享单张图片执行原语、布局六模型选择与后续GPT三模型三动作，冻结复验资产/所选模型权限，保留原生格式、PNG交付、实际尺寸、费用和失败回执
  * [POS]: src 的最简平面布局图像服务，不嵌入专业编辑器、不冒用二次编辑归档、不自动串联或重试收费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,7 +16,7 @@ import { executeOneApiMultiAngle } from "./image-multi-angle-oneapi.mjs";
 
 export const FLOOR_PLAN_WORKFLOW_VERSION = "2026-11-04.floor-plan.3";
 export const FLOOR_PLAN_MODEL_KEY = "gptImage25Sunburst";
-export const FLOOR_PLAN_GPT_MODEL_KEYS = Object.freeze([FLOOR_PLAN_MODEL_KEY]);
+export const FLOOR_PLAN_GPT_MODEL_KEYS = Object.freeze([FLOOR_PLAN_MODEL_KEY, "gptImage26Sunburst", "gptImage26Flare"]);
 export const FLOOR_PLAN_LAYOUT_MODEL_KEYS = Object.freeze([...FLOOR_PLAN_GPT_MODEL_KEYS, "banana21", "seedream5", "seedream5Pro"]);
 export const FLOOR_PLAN_IMAGE_POLICY = Object.freeze({ accept: ["image/png", "image/jpeg", "image/webp"],
   maxBytesPerImage: 8 * 1024 * 1024, maxDimension: 4096, maxPixels: 16 * 1024 * 1024, maxCount: 1 });

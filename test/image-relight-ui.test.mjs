@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖重建光影模板/脱敏Prompt身份/专用刷新/自定义直接编辑/历史参数目录、真实打光控制器/画布和共享原生下拉适配器、模型尺寸真源与内存DOM/指针/显示尺寸/DPR事件替身
- * [OUTPUT]: 验证渲染台显式零标注/8MiB与独立资产身份，旧打光6MiB/空操作门禁保持；验证无标注整体原灯三选/幅度即时冻结与旧服务门禁、整体及标注草稿隔离/换源重置和历史恢复、CSS尺寸/DPR高清坐标命中不漂移、可选新增/单灯精修混用与禁止跨类转换、旧保护只读/删除、Prompt冻结刷新/历史参数、点线面与两灯具模式、编号/触屏/键盘/撤销及中文输入光标保持
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 验证渲染台显式零标注/8MiB与独立资产身份，旧打光6MiB/空操作门禁保持；验证无标注整体原灯三选/幅度即时冻结与旧服务门禁、整体及标注草稿隔离/换源重置和历史恢复、CSS尺寸/DPR高清坐标命中不漂移、可选新增/单灯精修混用与禁止跨类转换、旧保护只读/删除、Prompt冻结刷新/历史参数、点线面与两灯具模式、编号/触屏/键盘/撤销及中文输入光标保持
  * [POS]: test 的GPT打光前端交互回归，不访问浏览器网络、付费模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -463,7 +463,7 @@ test("旧模板加光源恢复时直接可见且保留确切设置，历史输�
   const lights = f.controller.value().lights;
   const historical = { lights, originalLights: null, templateKey: "warmAmbient", outputResolution: "2K", quality: "high", blendMode: "subtle" };
   f.controller.restore(historical);
-  assert.deepEqual(f.controller.value(), historical);
+  assert.deepEqual(f.controller.value(), { ...historical, modelKey: "gptImage25Sunburst" });
   assert.equal(f.node("[data-relight-editor]").hidden, false); assert.equal(f.node(".relight-toolbar").hidden, false);
   assert.match(f.node("[data-relight-context]").textContent, /暖居夜景.*1处光源调整/);
   assert.equal(f.node("[data-relight-history-parameters]").hidden, false);
@@ -471,7 +471,7 @@ test("旧模板加光源恢复时直接可见且保留确切设置，历史输�
   const frozen = f.controller.jobRequest({ image: f.source() });
   assert.deepEqual(frozen.sharedInput.lights, lights); assert.equal(frozen.sharedInput.templateKey, "warmAmbient");
   assert.equal(frozen.sharedInput.outputResolution, "2K"); assert.equal(frozen.sharedInput.quality, "high"); assert.equal(frozen.sharedInput.blendMode, "subtle");
-  f.controller.configure(f.config); assert.deepEqual(f.controller.value(), historical);
+  f.controller.configure(f.config); assert.deepEqual(f.controller.value(), { ...historical, modelKey: "gptImage25Sunburst" });
   f.pickTemplate("windowDaylight"); assert.deepEqual(f.controller.value().lights, []);
   assert.deepEqual(f.controller.jobRequest({ image: f.source() }).sharedInput.lights, []);
   assert.deepEqual(frozen.sharedInput.lights, lights);

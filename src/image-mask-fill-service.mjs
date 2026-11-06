@@ -1,10 +1,11 @@
 /**
  * [INPUT]: 依赖 sharp、共享模型/尺寸/参考用途与局部消除操作规则、Flux/Qwen执行图、Sunburst编辑适配器、归档、权限目录与同步调度
- * [OUTPUT]: 三模型两模式与独立消除Prompt版本目录，消除操作必选区域及请求/归档身份；GPT参考物品/材质与指令可选、实际送模蓝线原图独立归档、原生交付及付费前权限/Schema复核
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 三模型两模式与独立消除Prompt版本目录，消除操作必选区域及请求/归档身份；GPT参考物品/材质与指令可选、实际送模蓝线原图独立归档、原生交付及付费前权限/Schema复核
  * [POS]: src 的二次编辑应用服务，复用后台任务与飞书同步，禁止自动缩放遮罩掩盖错位
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { MODEL_CONFIGS } from "./model-config.mjs";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { normalizeReferenceImage, normalizeReferenceImages } from "./reference-image.mjs";
@@ -16,7 +17,7 @@ import { MASK_FILL_INFERENCE_TIERS, MASK_FILL_MAX_OUTPUT_EDGE, maskFillInference
   MASK_FILL_REFERENCE_PURPOSES, maskFillReferencePurpose, normalizeMaskFillOperation,
   MASK_FILL_REMOVAL_PROMPT_VERSION } from "../public/image-mask-fill-geometry.js";
 import { createQwenMaskFillWorkflow, verifyQwenMaskFillCapabilities, QWEN_MASK_FILL_WORKFLOW } from "./image-mask-fill-qwen.mjs";
-import { executeSunburstMaskFill, MASK_FILL_ONEAPI_MODEL, MASK_FILL_ONEAPI_LIMITS, sunburstMaskOutputSize, sunburstMaskQuality } from "./image-mask-fill-oneapi.mjs";
+import { executeSunburstMaskFill, MASK_FILL_ONEAPI_LIMITS, sunburstMaskOutputSize, sunburstMaskQuality } from "./image-mask-fill-oneapi.mjs";
 import {
   IMAGE_MASK_FILL_MODES, IMAGE_MASK_FILL_VERSION, createImageMaskFillWorkflow,
   resolveImageMaskFillMode, verifyImageMaskFillCapabilities,
@@ -45,21 +46,24 @@ export async function readImageMaskFillConfig(imageClient, { getOneApiModels, qw
     }
   }));
   const models = [{ ...MASK_FILL_MODELS[0], available: modes.some(mode => mode.available), modes }];
-  let reason = "请连接有Sunburst权限的OneAPI Key";
-  let permitted = false;
-  try {
-    if (getOneApiModels) {
-      const catalog = await getOneApiModels();
-      permitted = catalog.some(entry => entry.id === MASK_FILL_ONEAPI_MODEL.id);
-      reason = permitted ? null : "当前OneAPI Key没有Sunburst权限";
-    }
-  } catch (error) { reason = `Sunburst不可用：${String(error.message).slice(0, 180)}`; }
-  models.push({ ...MASK_FILL_MODELS[1], available: permitted, reason, maskRequired: false, supportsBoxSelection: true, supportsLassoSelection: true, quality: MASK_FILL_ONEAPI_MODEL.defaultQuality,
-    qualityOptions: MASK_FILL_ONEAPI_MODEL.qualityOptions, defaultQuality: MASK_FILL_ONEAPI_MODEL.defaultQuality,
-    referencePurposes: MASK_FILL_REFERENCE_PURPOSES, defaultReferencePurpose: "object",
-    outputResolutions: MASK_FILL_GPT_RESOLUTIONS, defaultOutputResolution: "1K", sizes: MASK_FILL_ONEAPI_MODEL.sizes,
-    modes: modes.map(({ key, defaultMaskExpand }) => ({ key, defaultMaskExpand, maskRequired: false, label: `${MASK_FILL_ONEAPI_MODEL.label} · ${key === "prompt" ? "提示词编辑" : "参考图编辑"}`, available: permitted, reason })),
-    outputLimits: MASK_FILL_ONEAPI_LIMITS });
+  for (const candidate of MASK_FILL_MODELS.filter(entry => entry.provider === "oneapi")) {
+    const apiModel = MODEL_CONFIGS[candidate.key];
+    let reason = `请连接有${apiModel.label}权限的OneAPI Key`;
+    let permitted = false;
+    try {
+      if (getOneApiModels) {
+        const catalog = await getOneApiModels();
+        permitted = catalog.some(entry => entry.id === apiModel.id);
+        reason = permitted ? null : `当前OneAPI Key没有${apiModel.label}权限`;
+      }
+    } catch (error) { reason = `${apiModel.label}不可用：${String(error.message).slice(0, 180)}`; }
+    models.push({ ...candidate, available: permitted, reason, maskRequired: false, supportsBoxSelection: true, supportsLassoSelection: true, quality: apiModel.defaultQuality,
+      qualityOptions: apiModel.qualityOptions, defaultQuality: apiModel.defaultQuality,
+      referencePurposes: MASK_FILL_REFERENCE_PURPOSES, defaultReferencePurpose: "object",
+      outputResolutions: Object.keys(Object.values(apiModel.sizes)[0]), defaultOutputResolution: "1K", sizes: apiModel.sizes,
+      modes: modes.map(({ key, defaultMaskExpand }) => ({ key, defaultMaskExpand, maskRequired: false, label: `${apiModel.label} · ${key === "prompt" ? "提示词编辑" : "参考图编辑"}`, available: permitted, reason })),
+      outputLimits: MASK_FILL_ONEAPI_LIMITS });
+  }
   const qwenModes = await Promise.all(IMAGE_MASK_FILL_MODES.map(async ({ key, label, defaultMaskExpand }) => {
     try {
       if (!qwenMaskFillClient?.getObjectInfo) throw new Error("Qwen二次编辑客户端尚未配置");
@@ -144,7 +148,7 @@ export async function validateMaskFillInput(input = {}) {
   ]);
   if (maskFillOperation === "remove" && !mask && !editRegion) throw error400("局部消除请先框选、圈选或涂抹需要消除的物品");
   if (mask && (mask.width !== source.width || mask.height !== source.height)) throw error400(`遮罩尺寸必须与方向归一后的主图一致（${source.width}×${source.height}），请重新绘制`);
-  const nativeTarget = model.provider === "oneapi" ? sunburstMaskOutputSize(source, outputResolution) : null;
+  const nativeTarget = model.provider === "oneapi" ? sunburstMaskOutputSize(source, outputResolution, model.key) : null;
   const measuredInference = ["original", "1mp"].includes(tier.key);
   const plan = nativeTarget ? { ...nativeTarget, maxEdge: Math.max(nativeTarget.width, nativeTarget.height) }
     : tier.key === "1mp" ? {} : maskFillInferenceSize(source, tier.key);
@@ -167,8 +171,8 @@ export async function executeImageMaskFill(input, { imageClient, onProgress = nu
   verifySyncContract = () => verifyLarkSyncSchema(undefined, { scope: "imageMaskFill" }) }) {
   const validated = await validateMaskFillInput(input);
   if (validated.provider === "oneapi") {
-    if (!getOneApiModels || !(await getOneApiModels()).some(entry => entry.id === MASK_FILL_ONEAPI_MODEL.id)) {
-      throw Object.assign(new Error("当前OneAPI Key没有Sunburst权限，请重新连接"), { statusCode: 409 });
+    if (!getOneApiModels || !(await getOneApiModels()).some(entry => entry.id === MODEL_CONFIGS[validated.modelKey].id)) {
+      throw Object.assign(new Error("当前OneAPI Key没有所选GPT图像模型权限，请重新连接"), { statusCode: 409 });
     }
     if (scheduleSync) await verifySyncContract();
     const result = await executeSunburstMaskFill(validated, { imageClient, onProgress: onProgress || (() => {}) });

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、质感Prompt夹具与独立读取器、共享工作流/Flux节点工厂、任务API/生成服务和飞书字段投影
- * [OUTPUT]: 验证运行功能目录只读、飞书正文逐字直投与版本SHA、客户端覆盖隔离、最终空负向节点、单图准入、全模型任务路由与归档，不调用外部服务
+ * [OUTPUT]: 验证运行功能目录只读、飞书正文逐字直投与版本SHA、客户端覆盖隔离、最终空负向节点、单图准入、全模型任务路由、Beta固定版本/漂移阻断与归档，不调用外部服务
  * [POS]: test 的质感增强执行与归档合同测试，模型和飞书全部使用内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,6 +14,8 @@ import { createGenerationJobApiHandler, supportedGenerationFeatureModes } from "
 import { createGenerationJobRegistry } from "../src/generation-jobs.mjs";
 import { createGenerationService } from "../src/generation-service.mjs";
 import { buildRecordFields } from "../src/lark-sync.mjs";
+import { betaConfigSnapshot, buildBetaRunFields, captureBetaGenerationArchive } from "../src/beta-base.mjs";
+import { createBetaRunnerService } from "../src/beta-runner.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
 const TEXTURE_ENHANCEMENT_PROMPT = Object.freeze({
   code: "texture-render-enhancement",
@@ -181,4 +183,46 @@ test("质感增强实时归档合同不通过时零入队、零付费调用", as
   assert.equal(response.statusCode, 409);
   assert.match(response.error, /缺少质感增强/);
   assert.equal(registry.get(jobId), null);
+});
+
+test("Beta 质感按样本×模型执行，冻结版本与实际飞书归档一致，漂移零提交", async () => {
+  const sha = createHash("sha256").update(TEXTURE_ENHANCEMENT_PROMPT.prompt).digest("hex");
+  const sent = [], snapshots = [], archives = [];
+  const service = createBetaRunnerService({ maxAttempts: 1,
+    baseStore: {
+      async beginRun(run) {
+        const fields = buildBetaRunFields(run);
+        assert.equal(fields["功能"], "质感增强");
+        assert.equal(fields["输入文本"], "");
+        snapshots.push(betaConfigSnapshot(run.item.input));
+        return { recordId: run.item.runId };
+      },
+      async completeRun(recordId, result) { archives.push(result.sync.archiveFields); return { recordId }; },
+      async failRun() {},
+    },
+    generationService: createGenerationService({
+      requireApiKey: () => "test", getTextureEnhancementPrompt: async () => TEXTURE_ENHANCEMENT_PROMPT,
+      imageClientForModel: key => ({ async generateImage(request) {
+        sent.push([key, request]); return { images: [{ url: png }] };
+      } }), scheduleGenerationSync: captureBetaGenerationArchive,
+    }),
+  });
+  const body = { batchId: "BETA-texture-models", jobId: "beta-texture-models", featureMode: input.featureMode,
+    testTime: "2026-11-04 12:00:00", items: ["banana21", "gptImage25Sunburst", "aiTextureEnhancement"].map((modelKey, i) => ({
+      caseId: "sample-1", runId: "RUN-texture-" + i, input: { ...input, resolution: "2K", modelKey, prompt: "旧配置", negativePrompt: "旧负向",
+        textureEnhancementPromptVersion: 1, textureEnhancementPromptSha256: sha },
+    })),
+  };
+  await service.start(body);
+  for (let i = 0; i < 100 && service.hasActiveJobs(); i++) await nextTurn();
+  assert.equal(service.getJob(body.jobId).status, "success");
+  assert.equal(archives.length, 3);
+  assert.ok(archives.every(fields => fields["最终 Prompt"] === TEXTURE_ENHANCEMENT_PROMPT.prompt
+    && JSON.parse(fields["生成参数"]).workflow.promptSha256 === sha));
+  assert.ok(snapshots.every(s => s.textureEnhancementPromptVersion === 1 && s.textureEnhancementPromptSha256 === sha));
+  assert.ok(sent.every(([, request]) => request.images.length === 1 && request.prompt === TEXTURE_ENHANCEMENT_PROMPT.prompt));
+  await assert.rejects(executeEffectRenderEnhancementWorkflow({ ...input, textureEnhancementPromptVersion: 1, textureEnhancementPromptSha256: sha }, {
+    loadTexturePrompt: async () => ({ ...TEXTURE_ENHANCEMENT_PROMPT, prompt: "已修改" }),
+    imageClient: { generateImage: () => assert.fail("漂移不可提交") },
+  }), { statusCode: 409 });
 });

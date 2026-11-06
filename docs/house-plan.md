@@ -56,5 +56,3 @@ Beta任务新增“户型平面布局”（housePlanLayout），旧“设计实�
 每项复用prepareHousePlanInput/executeHousePlan，一次Agent后一次生图。失败不自动重新收费；生成成功但飞书同步失败时保存结果，RETRY只同步已有成品。飞书Beta跑图明细及样本集“功能”新增“户型平面布局”，复用场景参数/配置快照保存标注，完整实际Prompt、Agent、版本、两阶段回执、实际出图参数及方案归档并校验摘要；Prompt正文不进入公开任务快照。独立主工作台与Beta任务/归档保持隔离。
 
 2026-11-06 Beta验证：1890项全量测试通过；后续新增实际Store字段/附件回读测试并修复配置加载期间清空模型多选的浏览器问题，最终41项相关回归通过。真实飞书三表Schema含新功能选项通过；旧设计实验室表名/场景/三条展示名回读一致，新布局原文v1 SHA仍为ed01f55b8cca37de00e60d89737067d8e96a5402cad2751f1e1121bb9c592d70。主端口4192已加载十三功能。Chrome实测两样本独立框选/撤销/清空/整页恢复、默认GPT2.5和两模型展开四任务、Prompt新旧版选择/刷新保留/下架禁用，桌面及390px无溢出、零脚本错误。批次POST被拦截为测试替身，无新增收费生图或生产跑图记录；真实图像质量仍以上述单次主工作台样本结论为准。截图见outputs/house-plan/beta-layout-desktop.png、beta-layout-annotation.png及beta-layout-multiple.png（多版本为浏览器替身）。
-
-发布范围说明：本v0.1.24沿用已发布模型目录（GPT2.5、Banana2.1、Seedream5Lite/Pro），不包含其他分支的GPT2.6等改动。上文工作区测试记录包含其他并行开发；正式制品以本次发布检查和manifest为准。

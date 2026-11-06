@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test/assert、美化六氛围/共享图卡控制器、参考图能力及配置状态投影与内存DOM
- * [OUTPUT]: 验证六原工作流映射、新模板互斥/low-natural与身份版本能力门禁、旧groups兼容及单图和脱敏界面合同
+ * [OUTPUT]: 验证六档强度/色调直白标签、十五项同网格主单选/Beta混选逐项映射与空选/草稿恢复、非首卡版本漂移阻断、键盘焦点及单图合同
  * [POS]: test 的效果图美化浏览器合同回归测试，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { bindEffectBeautificationControls, EFFECT_BEAUTIFICATION_ATMOSPHERES, normalizeEffectBeautification } from "../public/effect-beautification-controls.js";
+import { bindEffectBeautificationControls, EFFECT_BEAUTIFICATION_ATMOSPHERES, normalizeEffectBeautification, normalizeEffectBeautificationSelections } from "../public/effect-beautification-controls.js";
 import { bindEffectBeautificationLighting, effectBeautificationLightingRequestFields, normalizeEffectBeautificationLighting } from "../public/effect-beautification-lighting.js";
 import { bindRefinedLightingControls } from "../public/refined-lighting-controls.js";
 import { effectBeautificationPromptStatus } from "../public/config-refresh.js";
@@ -21,6 +21,32 @@ test("六种美化选择保持原值，恢复无效配置使用低强度自然�
   for (const input of [undefined, null, {}, { intensity: "extreme", tone: "night" }]) {
     assert.deepEqual(normalizeEffectBeautification(input), { intensity: "low", tone: "natural" });
   }
+});
+
+test("主工作台启用美化混选，旧进程多选与缺旧档Prompt的混选均阻断", async () => {
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /const effectBeautification = bindEffectBeautificationControls\(\{\s*root: elements\.effectBeautificationSection,\s*multiple: true/);
+  const source = app.slice(app.indexOf("function generationUnavailableReason()"), app.indexOf("\nconst generationActions ="));
+  const state = { featureMode: "effectBeautification", generationFeatureModes: ["effectBeautification"],
+    effectBeautificationPrompt: { available: true }, generationFeatureCapabilities: {} };
+  let count = 2, requiresOriginal = false, invalid = null;
+  const context = { state, selectedModels: () => [], generationSize: { unavailableReason: () => null },
+    generationFeatureUnavailableReason: () => null, effectBeautification: {
+      validation: () => invalid, selections: () => Array(count).fill({}), requiresOriginalPrompt: () => requiresOriginal,
+    } };
+  const reason = new Function(...Object.keys(context), `${source}; return generationUnavailableReason;`)(...Object.values(context));
+  assert.match(reason(), /当前服务尚未支持美化光影多选/);
+  count = 1;
+  assert.equal(reason(), null);
+  count = 2;
+  state.generationFeatureCapabilities = { effectBeautification: { multipleLightingSelections: true } };
+  assert.equal(reason(), null);
+  state.effectBeautificationPrompt = { available: false, reason: "旧六档Prompt缺失" };
+  assert.equal(reason(), null, "只选图库卡片不依赖旧六档Prompt");
+  requiresOriginal = true;
+  assert.equal(reason(), "旧六档Prompt缺失");
+  invalid = "请至少选择一种光影模板";
+  assert.equal(reason(), invalid);
 });
 
 test("美化与氛围转换上传均固定单图并明确当前主题", () => {
@@ -99,16 +125,47 @@ function fixture(options = {}) {
       bindControls: options => bindRefinedLightingControls({ ...options, bindUpload: () => ({ images: () => [], render() {}, clear() {} }) }) }) });
   controller.setLightingConfig(library);
   controller.setCapabilities({ effectBeautification: { promptLighting: true } });
-  return { root, controller, changes, node: selector => root.querySelector(selector),
+  return { root, controller, changes, doc, node: selector => root.querySelector(selector),
     chooseAtmosphere(index) { const group = root.querySelector("#effectAtmosphereGroup"); group.dispatch("click", { target: group.children[index] }); },
     chooseTemplate(index = 0) { if (root.querySelector("[data-lighting-grid]").hidden) root.querySelector("[data-lighting-toggle]").click();
-      root.querySelector("[data-lighting-grid]").children[index].click(); } };
+      root.querySelector("[data-lighting-grid]").children[index + 1].click(); } };
 }
+
+test("六种无图氛围与图卡共用折叠入口，选后标签与焦点一致且刷新不移除六档", () => {
+  const f = fixture();
+  const grid = f.node("[data-lighting-grid]");
+  const group = f.node("#effectAtmosphereGroup");
+  const toggle = f.node("[data-lighting-toggle]");
+  const label = f.node("[data-lighting-selected-name]");
+  assert.equal(grid.children[0], group);
+  assert.equal(grid.hidden, true);
+  assert.equal(label.textContent, "低强度自然调");
+  assert.equal(f.node("[data-lighting-availability]").textContent, "8 个预设");
+  toggle.click();
+  assert.equal(grid.hidden, false);
+  f.chooseAtmosphere(3);
+  assert.equal(label.textContent, "高强度暖调");
+  assert.equal(grid.hidden, true);
+  assert.equal(f.doc.activeElement, toggle);
+  assert.equal(f.node("[data-lighting-selected-preview]").hidden, true);
+  f.chooseTemplate();
+  assert.equal(label.textContent, day.name);
+  assert.equal(f.node("[data-lighting-selected-preview]").hidden, false);
+  f.controller.setLightingConfig({ ...library, presets: [{ ...day, version: 6 }, night] });
+  assert.equal(grid.children[0], group);
+  toggle.click();
+  grid.dispatch("keydown", { key: "Escape", target: group.children[0], preventDefault() {} });
+  assert.equal(grid.hidden, true);
+  assert.equal(f.doc.activeElement, toggle);
+  f.controller.restore({ intensity: "high", tone: "cool" });
+  assert.equal(label.textContent, "高强度冷调");
+  assert.equal(f.controller.lightingValue(), null);
+});
 
 test("六氛围名称保留各自原工作流，新增模板与六档互斥且只用低强度自然调", () => {
   assert.deepEqual(EFFECT_BEAUTIFICATION_ATMOSPHERES.map(item => [item.key, item.name]), [
-    ["low-natural", "明亮自然"], ["low-warm", "暖阳通透"], ["low-cool", "清透冷调"],
-    ["high-warm", "温润柔光"], ["high-natural", "自然柔光"], ["high-cool", "静谧柔光"],
+    ["low-natural", "低强度自然调"], ["low-warm", "低强度暖调"], ["low-cool", "低强度冷调"],
+    ["high-warm", "高强度暖调"], ["high-natural", "高强度自然调"], ["high-cool", "高强度冷调"],
   ]);
   const f = fixture();
   for (const [index, item] of EFFECT_BEAUTIFICATION_ATMOSPHERES.entries()) {
@@ -125,7 +182,102 @@ test("六氛围名称保留各自原工作流，新增模板与六档互斥且�
   f.chooseAtmosphere(3);
   assert.deepEqual(f.controller.value(), { intensity: "high", tone: "warm" });
   assert.equal(f.controller.lightingValue(), null);
-  assert.equal(f.node("[data-lighting-grid]").children[0].attributes["aria-pressed"], "false");
+  assert.equal(f.node("[data-lighting-grid]").children[1].attributes["aria-pressed"], "false");
+});
+
+test("Beta全选覆盖原六档与可用图卡，清空后阻断批次且不自动恢复默认", () => {
+  const f = fixture({ multiple: true });
+  f.controller.selectAll();
+  assert.equal(f.controller.selections().length, 8);
+  assert.equal(f.controller.selections().filter(item => !item.effectBeautificationLighting).length, 6);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "8 种光影");
+  assert.equal(f.controller.validation(), null);
+  f.controller.clearSelection();
+  assert.deepEqual(f.controller.selections(), []);
+  assert.match(f.controller.validation(), /至少选择/);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "选择光影模板");
+});
+
+test("Beta六原氛围与多张图卡可混合选择，同一网格保留展开并逐项返回正确工作流", () => {
+  const f = fixture({ multiple: true });
+  const grid = f.node("[data-lighting-grid]");
+  const group = f.node("#effectAtmosphereGroup");
+  f.node("[data-lighting-toggle]").click();
+  f.chooseAtmosphere(3);
+  assert.equal(grid.hidden, false);
+  assert.equal(f.doc.activeElement, group.children[3]);
+  f.chooseTemplate(0);
+  f.chooseTemplate(1);
+  assert.equal(grid.hidden, false);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "4 种光影");
+  assert.equal(f.node("[data-lighting-selected-preview]").hidden, true);
+  assert.deepEqual(f.controller.selections(), [
+    { key: "atmosphere:low-natural", name: "低强度自然调", effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: null },
+    { key: "atmosphere:high-warm", name: "高强度暖调", effectBeautification: { intensity: "high", tone: "warm" }, effectBeautificationLighting: null },
+    { key: "lighting:recDaylight", name: day.name, effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: identity(day) },
+    { key: "lighting:recNight", name: night.name, effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: identity(night) },
+  ]);
+  assert.equal(f.controller.requiresOriginalPrompt(), true);
+  assert.equal(f.controller.validation(), null);
+  f.chooseAtmosphere(0);
+  f.chooseAtmosphere(3);
+  assert.equal(f.controller.requiresOriginalPrompt(), false);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "2 种光影");
+  assert.equal(grid.children[0], group);
+  assert.equal(f.controller.selections().length, 2);
+});
+
+test("Beta取消非默认原氛围后显示剩余名称，空选阻断且混选草稿按逐项身份恢复", () => {
+  const f = fixture({ multiple: true });
+  const warm = { effectBeautification: { intensity: "high", tone: "warm" }, effectBeautificationLighting: null };
+  const cool = { effectBeautification: { intensity: "high", tone: "cool" }, effectBeautificationLighting: null };
+  const template = { effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: identity(night) };
+  f.controller.restoreSelections([warm, cool]);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "2 种光影");
+  f.node("[data-lighting-toggle]").click();
+  f.chooseAtmosphere(5);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "高强度暖调");
+  assert.deepEqual(f.controller.selections().map(({ effectBeautification }) => effectBeautification), [warm.effectBeautification]);
+  f.chooseAtmosphere(3);
+  assert.deepEqual(f.controller.selections(), []);
+  assert.match(f.controller.validation(), /至少选择一种/);
+  f.controller.restoreSelections([template, warm]);
+  assert.deepEqual(normalizeEffectBeautificationSelections(f.controller.selections()), [warm, template]);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "2 种光影");
+  assert.equal(f.controller.validation(), null);
+  f.controller.restoreSelections([]);
+  assert.deepEqual(f.controller.selections(), []);
+  assert.match(f.controller.validation(), /至少选择一种/);
+});
+
+test("Beta混选时非首张图卡版本漂移同样阻断，改回原六档不受图库或旧服务影响", () => {
+  const f = fixture({ multiple: true });
+  const warm = { effectBeautification: { intensity: "high", tone: "warm" }, effectBeautificationLighting: null };
+  f.controller.restoreSelections([warm, ...[day, night].map(item => ({
+    effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: identity(item),
+  }))]);
+  assert.deepEqual(f.controller.lightingValue(), identity(day));
+  assert.equal(f.controller.validation(), null);
+  f.controller.setLightingConfig({ ...library, presets: [day, { ...night, version: 6 }] });
+  assert.match(f.controller.validation(), /已更新或下架/);
+  f.controller.restoreSelections([warm]);
+  f.controller.setCapabilities({});
+  f.controller.setLightingConfig({ presets: [] });
+  assert.equal(f.controller.validation(), null);
+  assert.equal(f.node("[data-lighting-selected-name]").textContent, "高强度暖调");
+  assert.deepEqual(f.controller.selections().map(({ effectBeautification }) => effectBeautification), [warm.effectBeautification]);
+});
+
+test("美化混选快照只留逐项执行身份，去重且新卡固定低自然，冲突版本不能静默合并", () => {
+  const original = { effectBeautification: { intensity: "high", tone: "cool" }, effectBeautificationLighting: null };
+  const template = { effectBeautification: { intensity: "high", tone: "warm" }, effectBeautificationLighting: identity(day) };
+  assert.deepEqual(normalizeEffectBeautificationSelections([
+    { ...original, name: "名称不落盘", prompt: "正文不落盘" }, original, template,
+  ]), [original, { effectBeautification: { intensity: "low", tone: "natural" }, effectBeautificationLighting: identity(day) }]);
+  assert.deepEqual(normalizeEffectBeautificationSelections([]), []);
+  assert.throws(() => normalizeEffectBeautificationSelections([template, {
+    ...template, effectBeautificationLighting: { ...identity(day), version: 6 },
+  }]), /版本不一致/);
 });
 
 test("模板身份轻量且跨功能隔离，卡片版本与旧进程阻断不影响原六档", () => {

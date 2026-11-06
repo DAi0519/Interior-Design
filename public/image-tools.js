@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 GPT 光照模板/可选光源编辑与遮罩画布控制器、共享摄影机球、多角度/超分/扩图控制器、共享大画布、同源 API、单图和任务状态回调
- * [OUTPUT]: 对外提供图片工具组合、二次编辑工作区文案、独立打光任务与原图预览/可选编辑工作区、Prompt强制读取与连接/换Key后的版本隔离能力刷新
+ * [OUTPUT]: 对外提供含独立超分双噪声与运行锁定的图片工具组合、二次编辑工作区、打光任务和版本隔离能力刷新
  * [POS]: public 的图片工具组合层，从主 app 编排器隔离控制器初始化细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,7 @@
 import { bindImageMultiAngle } from "./image-multi-angle.js";
 import { bindImageMaskFill } from "./image-mask-fill.js";
 import { bindImageRelight } from "./image-relight.js";
-import { bindImageUpscale } from "./image-upscale.js?v=3";
+import { bindImageUpscale } from "./image-upscale.js?v=4";
 import { bindImageOutpaint } from "./image-outpaint.js?v=2";
 import { bindImageOutpaintWorkspace, bindImageToolWorkspace } from "./image-outpaint-workspace.js";
 
@@ -37,6 +37,8 @@ export function bindImageTools({ api, elements, getSourceImage, onChange, showTo
   const upscale = bindImageUpscale({
     ...shared,
     availability: elements.imageUpscaleAvailability,
+    inputNoiseInput: elements.imageUpscaleInputNoiseScale,
+    latentNoiseInput: elements.imageUpscaleLatentNoiseScale,
     note: elements.imageUpscaleNote,
     resolutionSelect: elements.resolutionSelect,
     workflowList: elements.imageUpscaleWorkflowList,
@@ -103,7 +105,7 @@ export function bindImageTools({ api, elements, getSourceImage, onChange, showTo
       if (mode === "imageRelight") { relightWorkspace.setActive(true); relightWorkspace.setSource(getSourceImage()); }
       return forMode(mode);
     },
-    setStage: (stage, task) => { workspace.setStage(stage, task); angleWorkspace.setStage(stage, task); maskWorkspace.setStage(stage, task); relightWorkspace.setStage(stage, task); },
+    setStage: (stage, task) => { workspace.setStage(stage, task); angleWorkspace.setStage(stage, task); maskWorkspace.setStage(stage, task); relightWorkspace.setStage(stage, task); upscale.setStage(stage); },
     upscale,
   };
 }

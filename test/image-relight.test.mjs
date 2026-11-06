@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test、sharp真实图片、五模板重建照明/custom旧方案分支与历史四动作准入、GPT服务/适配器与模型目录
- * [OUTPUT]: 验证v10整体原灯无标注单图、严格准入/模板隔离/新光排除与仅原灯减弱关闭/错标不压暗区域、历史字段兼容与typed优先、摄影原文/五目标/材质机位、权限Schema零收费/原生PNG和归档脱敏
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 验证用户原文/typed动作前置、v10原灯与五模板语义、动作优先级及摄影原文、严格准入/原生PNG和归档脱敏
  * [POS]: test 的打光离线合同测试，使用docs整体原灯语义v9快照作为显式当期资产，全部模型/飞书读取和归档为内存替身，不访问网络或付费接口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -189,7 +189,7 @@ test("公开配置仅接GPT并逐次查询当前Key权限，不公开Prompt", as
   assert.equal((await readImageRelightConfig()).available, false);
   assert.equal((await readImageRelightConfig({ getOneApiModels: async () => [] })).available, false);
   const config = await readImageRelightConfig({ getOneApiModels: catalog });
-  assert.equal(config.available, true); assert.equal(config.models.length, 1); assert.equal(config.modelKey, RELIGHT_MODEL_KEY);
+  assert.equal(config.available, true); assert.equal(config.models.length, 3); assert.equal(config.modelKey, RELIGHT_MODEL_KEY);
   assert.deepEqual(config.qualityOptions, RELIGHT_ONEAPI_MODEL.qualityOptions); assert.equal(config.defaultOutputResolution, "1K");
   assert.deepEqual(config.templates, RELIGHT_TEMPLATES); assert.deepEqual(config.legacyTemplates, RELIGHT_LEGACY_TEMPLATES);
   assert.deepEqual(config.actions, RELIGHT_ACTIONS); assert.deepEqual(config.blendModes, RELIGHT_BLEND_MODES);
@@ -323,7 +323,8 @@ test("不调度归档的独立执行同样不把固定Prompt暴露给任务消�
   const result = await executeImageRelight(await fixture(), { imageClient: client, getOneApiModels: catalog });
   assert.equal(result.upstream.metadata.prompt, undefined); assert.equal(result.upstream.metadata.sourcePrompt, undefined);
   assert.equal(JSON.stringify(result).includes("Relight image 1"), false); assert.equal(result.sync.status, "skipped");
-  assert.match(client.requests[0].prompt, /^Relight image 1/);
+  assert.match(client.requests[0].prompt, /^Light 1:/);
+  assert.match(client.requests[0].prompt, /Relight image 1/);
 });
 
 test("小图归一化方向落到像素后退化时零收费，4096方图沿用共享16Mi像素边界", async () => {

@@ -1,9 +1,11 @@
 # test/
 > L2 | 父级: ../CLAUDE.md
 
+gpt26-integration.test.mjs: GPT2.6跨场景身份、尺寸、权限和原生输出的离线回归
 成员清单
 beta-house-plan.test.mjs: 含实际Beta Store字段/附件模拟回读及漂移阻断； 布局Beta缺主卧/漂移/失权阻断、真实主服务单次执行/归档摘要、同步失败零重复生成
 house-plan.test.mjs: 飞书多版本默认最新/显式旧版/下架和重复版本阻断； 主卧标注/默认GPT2.5、Agent到生图顺序与原文、失败费用/失权阻断、资产版本与API命名空间隔离
+room-design-prompt-output.test.mjs: 空房/旧房自由JSON与纯文本、三种风格输入及双Provider、原文前置/空补充/同文归档、缓存复用隔离和主动重算、空/损坏回复零出图、32000字符上限与白模/风格转换严格校验隔离；全部内存替身
 floor-plan-geometry.test.mjs: 验证识图模型实际路由、撤权和版本漂移门禁
 floor-plan-engine.test.mjs: 同源引擎加载、视图、保存、机位与资源边界回归
 floor-plan-spec.test.mjs: 单层户型与原文校验回归
@@ -12,10 +14,14 @@ floor-plan-api.test.mjs: 图像任务幂等、准备期只读恢复、失败费�
 floor-plan-service.test.mjs: GPT2.6双模型身份/权限与历史兼容； 布局四模型实际路由/默认参数/失权无降级、送模压缩SHA/原生格式与PNG交付、后续三动作保留及资产/费用离线合同
 floor-plan-prompt.test.mjs: 独立v2 JSON资产字段、完整文本/版本SHA、下架漂移阻断与脱敏目录合同
 floor-plan-ui.test.mjs: 真实页面脚本的布局选模/失权禁用与下游模型隔离、生成锁定/会话保留、换源门禁/图序/Base64字节、孤立恢复下载及未知提交只GET；内存DOM/HTTP无收费
-room-design-prompt-output.test.mjs: 空房/旧房任意JSON及纯文本/围栏/段落标签/字符串、用户原文/缓存/同文归档、无效正文与8000/32000边界、白模/风格转换正式基线行为隔离；双Provider纯内存回归
+workbench-prompt-order.test.mjs: 白模/空房/旧房/风格转换十一模式×双Provider的Agent首段/JSON首字段与缓存/同文归档，空输入/Agent同名字段隔离/8k用户与32k合成边界、打光typed动作/二次编辑/Flux触发词和自由生图原文合同，零外部调用
+flux-post-upscale.test.mjs: 各功能KS身份/正式执行图及4K/5K到6K、实际元数据、美化核心隔离、版本/输入边界和历史3B合同替身
+flux-post-upscale-client.test.mjs: 实际KS子图节点/7B准入、未知提交和超时不重提、PNG精确交付与其他Comfy消费者隔离
+flux-post-upscale-jobs.test.mjs: Main/Beta冻结与Agent/建档前尺寸预检、惰性读图、旧3B冷恢复/快照原文不变、实际归档身份与版本摘要
+flux-post-upscale-ui.test.mjs: Main/Beta目录文案、身份投影、超宽/旧进程门禁、free参考图与多样本预检、全景/双图/独立超分隔离和实际结果摘要
 beta-room-renovation.test.mjs: 旧房独立版本/权限/房型准入、跨功能字段拒绝、单流程执行/同步失败零重生成、三表独立功能/实际Agent和附件回读及带参考图冷恢复，八项替身合同
 beta-room-renovation-ui.test.mjs: 旧房独立配置/版本切换恢复、缺失下架阻断、逐图房型临时补选、样本×模型/共享参考图和负向草稿隔离，七项无收费行为回归
-effect-beautification-lighting.test.mjs: 新卡Flux/OneAPI单图编译与实际低自然图/元数据、入队去重冻结及执行漂移零收费、旧六档隔离与Beta身份归档，全部替身
+effect-beautification-lighting.test.mjs: Main美化混选逐模型模板限额/卡片版本SHA防绕过/非法身份零入队、用户首段与实际节点同文、新卡Flux/OneAPI低自然图及归档、冻结漂移阻断与Beta合同，全部替身
 ai-render-studio-lighting.test.mjs: 真实共享库形态九卡/最高上架版、三段词单次编译、原光影零读取与版本/正文漂移阻断，无收费
 ai-render-studio-ui.test.mjs: 无网络DOM的未知提交/GET恢复、同步状态刷新和不重复模型提交回归
 
@@ -23,13 +29,13 @@ ai-render-studio-archive.test.mjs: 真实CLI选项形态/Schema完整性、独�
 ai-render-studio-sync.test.mjs: 同步字段/附件双回读与下载SHA、响应未知时续传不重复附件、同步失败重试模型仍一次的全链替身
 
 http-security.test.mjs: 仅渲染台静态页开放同源嵌入，其余安全头与API/页面拒绝策略保持
-ai-render-studio-host.test.mjs: 正式入口懒加载/保活、旧START隔离、切回恢复、移动抽屉与URL直达合同
+ai-render-studio-host.test.mjs: 设计实验室 Beta 命名兼容； 正式入口懒加载/保活、旧START隔离、切回恢复、移动抽屉与URL直达合同
 ai-render-studio-prompt.test.mjs: 独立JSON四风格/保材质结构、上架版本唯一性/SHA/缺失与重复阻断及公开目录脱敏
 ai-render-studio-service.test.mjs: 用户要求前置/唯一所选风格与typed控光单次编译、服务端快照防伪、保材质零标注可用、原打光6MiB隔离与原生PNG
 ai-render-studio-api.test.mjs: 独立任务HTTP/入队前准入/同ID幂等、私有Prompt隔离及查询/归档恢复边界
 codex-workspace-action.test.mjs: Codex短命令长度/Bash语法、带空格路径定位、已有服务零重启、冷启动端口显式传递与HTTP超时退出；临时命令替身不触真实服务
 white-model-lighting-ui.test.mjs: 主工作台真实共享图卡默认自动/单选、精模规则独立与能力门禁、轻量三字段及跨功能/损坏草稿隔离、版本刷新阻断/重选、Prompt复用身份与任务恢复；内存DOM/存储，无网络或生图
-white-model-lighting.test.mjs: 白模自动兼容、智能默认/平台风格纯词整合、最终单图、缓存隔离、卡片漂移零调用与脱敏归档合同
+white-model-lighting.test.mjs: 用户原文首字段/Agent设计保留及同文归档、白模自动兼容、智能默认/平台风格纯词整合、最终单图、缓存隔离、卡片漂移零调用与脱敏归档合同
 white-model-lighting-admission.test.mjs: 白模promptLighting目录、自动兼容/预设入队冻结、跨功能与客户端词图注入阻断、批次限额和去重守卫
 white-model-lighting-service.test.mjs: 普通/直调公开生成入口在Key与客户端读取前拒绝跨功能白模光影、伪造功能及非法身份，自动兼容旧请求
 lighting-transfer.test.mjs: 光影转换单主图/库卡片准入、独立Prompt与实际双图顺序、版本/正文/卡片/原附件漂移零出图、独立功能归档及后台任务到生成服务路由，均为内存替身
@@ -39,10 +45,10 @@ texture-enhancement-prompt-ui.test.mjs: 独立固定Prompt版本/上架状态与
 texture-enhancement-prompt.test.mjs: 独立飞书表/版本/上架过滤/正文SHA、缺失下架阻断、脱敏目录与显式刷新；只读CLI替身无真实生成
 beta-panorama-archive.test.mjs: 全景卡片/最终Prompt/原图与产物摘要防篡改、R5_4版本和原尺寸回读及历史美化恢复合同
 panorama-workflow.test.mjs: R5_4节点参数保真、原尺寸/唯一产物、实时目录夹具准入与单次提交/失败回执合同
-panorama-lighting.test.mjs: 纯词模板/自定义光影合同、版本SHA漂移/下架、真实2:1及独立Prompt/用户词归档
+panorama-lighting.test.mjs: 纯词模板/自定义光影用户要求首段、空补充/原光影兼容、版本SHA漂移/下架、真实2:1及独立Prompt/用户词归档
 panorama-lighting-ui.test.mjs: 原光影首卡默认/互斥/复位且不额外展开，键盘/图片DOM稳定与刷新忙碌；Main/Beta多选/取消/标题行清空、草稿隔离与独立要求，同ID版本/SHA漂移不误勾原光影并阻断/明确恢复，模型及旧进程门禁
 panorama-routing.test.mjs: 模型目录/原尺寸/独立客户端路由、缺客户端零回退、运行进程多光影能力、六卡跨模型/张数独立准入冻结及版本SHA不能绕过每卡限额
-texture-enhancement.test.mjs: 运行目录共用准入真源、飞书读取正文/实际版本SHA归档、用户v1原文SHA/所有模型直投、Flux最终空负向节点/无LoRA、单图前验、真实任务服务路由、飞书功能/正文归档与Schema409零提交；内存替身无真实生成
+texture-enhancement.test.mjs: 含Beta质感增强固定Prompt批跑；运行目录共用准入真源、飞书读取正文/实际版本SHA归档、用户v1原文SHA/所有模型直投、Flux最终空负向节点/无LoRA、单图前验、真实任务服务路由、飞书功能/正文归档与Schema409零提交；内存替身无真实生成
 texture-enhancement-ui.test.mjs: 新旧运行目录准入/无负向结果标记、单图上传能力、正负向及其他功能输入隔离、全模型尺寸批次/单份图片、负向隐藏与草稿保留、独立任务恢复；无网络
 refined-flux-reference.test.mjs: 精模双图两来源/原字节图序/用户补充在实际positive节点前置且归档同文、零基础/1K2K与Main/Beta目录、普通单图隔离、4步CFG1/节点缺失零提交/产物尺寸及画布合同；内存协议替身无GPU
 refined-flux-reference.schema.json: ComfyUI只读实查的17类输入/输出与模型枚举快照，供独立协议测试，不含地址/密钥/图像字节
@@ -57,9 +63,9 @@ refined-render-prompt.test.mjs: 精模四块资产完整性/默认只MAIN/仅选
 refined-render-controls.test.mjs: 旧三字段/安全链接合同识别，新主页面独立光影来源与未选null；三模式统一完整Prompt名称、双图只读版本不污染纯词记忆，真实错误标记/恢复清除，无外部调用
 beta-refined-render.test.mjs: Beta三种完整Prompt名称/版本分流与纯词独立记忆，纯词无分散规则/双图专用冻结，多光影×方式settings与草稿隔离、计数/持久化/旧来源恢复及模型准入；无外部调用
 image-relight-prompt.test.mjs: 飞书bundle完整性/版本重复/非法或下架阻断、SHA冻结、缓存刷新及正文脱敏，无网络或付费
-image-relight.test.mjs: v10/资产v9整体原灯规范化/零标注单图/新增补光独立及飞书显式bundle/黄金Prompt迁移、佳能R1摄影原文及五重建照明/摄影质量、原光锁定排除与三旧方案兼容/省略模板语义、减弱/关闭仅原灯且无源不改、四动作底层准入/Prompt和guide、图片EXIF/权限Schema/原生PNG及收费不重试离线合同
-image-relight-ui.test.mjs: 原灯三选零标注/可选单灯精修、整体+标注草稿冻结/恢复/模板隔离和DPR高清/resize命中，五模板无折叠/固定默认、custom直接编辑、草稿隔离/换源清除、旧模板标注可见与历史参数只读摘要/旧保护恢复、新增/调整原灯分离、混合选择路由/两灯具模式/共享下拉和任务冻结
-image-relight-archive.test.mjs: 含光影转换普通功能Schema夹具、v10整体原灯三方/amount/hash防漂移及四局部动作/模板冻结，省略模板/旧无action及v1-v9原文摘要兼容，真实单双图/PNG/SHA/尺寸/Prompt与飞书双回读
+image-relight.test.mjs: GPT2.6双模型身份/权限与历史兼容； v10/资产v9整体原灯规范化/零标注单图/新增补光独立及飞书显式bundle/黄金Prompt迁移、佳能R1摄影原文及五重建照明/摄影质量、原光锁定排除与三旧方案兼容/省略模板语义、减弱/关闭仅原灯且无源不改、四动作底层准入/Prompt和guide、图片EXIF/权限Schema/原生PNG及收费不重试离线合同
+image-relight-ui.test.mjs: GPT2.6双模型身份/权限与历史兼容； 原灯三选零标注/可选单灯精修、整体+标注草稿冻结/恢复/模板隔离和DPR高清/resize命中，五模板无折叠/固定默认、custom直接编辑、草稿隔离/换源清除、旧模板标注可见与历史参数只读摘要/旧保护恢复、新增/调整原灯分离、混合选择路由/两灯具模式/共享下拉和任务冻结
+image-relight-archive.test.mjs: GPT2.6双模型身份/权限与历史兼容； 含光影转换普通功能Schema夹具、v10整体原灯三方/amount/hash防漂移及四局部动作/模板冻结，省略模板/旧无action及v1-v9原文摘要兼容，真实单双图/PNG/SHA/尺寸/Prompt与飞书双回读
 image-relight-integration-fixture.mjs: 当前资产v9/真实PNG与任务API离线harness，注入权限/资产/同步/付费替身与队列冻结等待，无真实调用
 image-relight-integration.test.mjs: v10/资产v9整体原灯入队深冻结/非法值零付费/实际Prompt与资产身份，整体单图/混合双图及v1-v9原文摘要历史身份和旧省略模板自定义、可选光源编辑冻结到任务服务和归档，权限Schema/幂等/脱敏及计划摘要合同
 effect-beautification-workflow.test.mjs: 六份归档源画布的参数/SHA与旁路对照、独立Flux触发词、正负双参考/完整连边/16补边裁剪/工作台输出档、真实推理与4K/6K交付元信息/普通全景隔离、节点端口/LoRA枚举准入及复用攸行与唯一72产物合同；离线执行无GPU
@@ -70,12 +76,12 @@ image-mask-fill-ui-fixture.mjs: 原功能与局部消除共用三模式DOM/Canva
 image-mask-fill-removal.test.mjs: 局部消除默认GPT框选/精简词/必选区域，独立operation与旧服务版本门禁，UI真实PNG经服务实际送模及归档finalPrompt逐字一致/涂抹同合同，普通填充和参考模板隔离；非法操作/跨模式/无区域前后端零调用，三草稿/键盘/工具适配/手写保护及换图阻断
 oneapi-image-async.test.mjs: Responses后台提交/同ID轮询、PNG和图序保真、终态与ID异常、单次POST、总deadline及取消清理的离线合同测试
 oneapi-image-client.test.mjs: 异步客户端鉴权/完整PNG与图序、真实request从POST到GET、费用/URL/Base64归一化、正文取消及空结果不重提的内存集成测试
-image-mask-fill-oneapi.test.mjs: GPT无mask异步/透明mask同步分流与即时上游ID进度、双模式可选mask/独立矩形与凹多边形真实蓝线且不画bbox、圈选优先于名词类别/圈外同类保护/图2按用户指令取相关参考、物品/材质两类参考模式零指令自足的简短Prompt合同与图2身份、默认兼容/非法用途零调用/用途冻结、归一化及像素区域冻结/队列嵌套点deepcopy/容量退化互斥零付费、送模PNG精确归档与原生字节直出、三档五质量/权限/Schema/错误无重试，全部替身
+image-mask-fill-oneapi.test.mjs: GPT2.6双模型身份/权限与历史兼容； GPT无mask异步/透明mask同步分流与即时上游ID进度、双模式可选mask/独立矩形与凹多边形真实蓝线且不画bbox、圈选优先于名词类别/圈外同类保护/图2按用户指令取相关参考、物品/材质两类参考模式零指令自足的简短Prompt合同与图2身份、默认兼容/非法用途零调用/用途冻结、归一化及像素区域冻结/队列嵌套点deepcopy/容量退化互斥零付费、送模PNG精确归档与原生字节直出、三档五质量/权限/Schema/错误无重试，全部替身
 image-mask-fill-archive.test.mjs: 二次编辑新字段/新选项与历史Flux模型标签补归档规范化，含光影转换普通功能Schema夹具、七字段Schema及GPT矩形/多边形双模式真实圈选PNG独立附件/送模字节一致/原件保留/无mask附件留空；坏摘要size和非区域注入阻断，空用户原文/物品材质用途与完整默认Prompt/实际异步或同步来源及区域像素元数据冻结、两次字段附件回读/同步故障及普通功能兼容，无真实飞书调用
 image-mask-fill.test.mjs: Flux2 两模式独立节点/模型/端口准入、首图latent与裁剪回贴/实际提示词与用户原文来源/单次三图载荷/唯一产物、真实PNG红通道/EXIF遮罩对齐/6MB与4096边界、三档原尺度裁剪/横竖图最高2K/小图不放大/错误交付尺寸阻断、专用客户端与单项任务/独立飞书scope、合同409零入队、无调度本机试跑回归，不调用GPU或外网
 room-renovation-workflow.test.mjs: 独立旧房表/Agent/版本路由、表正文与Agent最终JSON原样投递、独立负向及实际请求/飞书正文投影、自由直调与显式路由拒绝身份冒用、空房默认不变、单次出图/单条归档、三种风格输入、缺失不回退/缓存隔离及复用、失败不自动重复及普通任务API合同；模型和飞书使用内存替身
 camera-sphere-scene.test.mjs: 前后半球网与原图/动态相机的真实绘制顺序、双缓存逐帧不重分配或重建、尺寸/DPR变化重建、前后遮挡/极限机位有限坐标/隐藏不分配/最短弧跨零度过渡，不调用GPU
-image-multi-angle-oneapi.test.mjs: 三方逐项权限与断开、Sunburst五档quality透传及结果/费用归档/默认medium/非法质量零调用、统一路由/任务模型身份冻结、真实输入2K与原生/交付尺寸、实际指令归档、反打背景约束、只缩小/失败不重试/角度语义，不调用收费接口
+image-multi-angle-oneapi.test.mjs: GPT2.6双模型身份/权限与历史兼容； 三方逐项权限与断开、Sunburst五档quality透传及结果/费用归档/默认medium/非法质量零调用、统一路由/任务模型身份冻结、真实输入2K与原生/交付尺寸、实际指令归档、反打背景约束、只缩小/失败不重试/角度语义，不调用收费接口
 image-multi-angle-integration.test.mjs: 统一任务→专用客户端→2K压缩实际字节→飞书原图/结果/指令归档及脱敏元数据，单图准入/失败无重试/同ID幂等/按功能恢复，内存替身不调用GPU
 image-multi-angle.test.mjs: 跨模型全英文指令一致/实际Qwen文本节点与独立指令版本、长边2K直接推理/无后置放大/小图不放大/大图EXIF与真实压缩字节/准入边界、独立试跑三档景别仅文本变化/远景后退构图约束/连续值拒绝及摄影机方向闭合/后半圈背面语义与90/270边界/非法输入、VAE参考与采样尺寸同源、节点模型准入、错误尺寸与真实身份回归，不调用GPU
 
@@ -83,7 +89,7 @@ beta-style-transfer.test.mjs: Beta风格转换显式平台/参考图来源、独
 
 style-transfer-workflow.test.mjs: 风格转换平台风格/必填参考图独立 Agent 与版本、缺失目标及智能默认拒绝、空间保护、主图单图出图、OneAPI/Flux矩阵与负向Prompt、跨功能/参考图缓存隔离、strict JSON、后台入队与Schema 409阻断内存集成测试，不调用模型或真实Base
 
-beta-style-transfer-ui.test.mjs: 含旧房的四种设计页隔离；Beta十二功能目录中的风格转换明确目标、无智能默认/首项自动选择、平台/参考图独立版本、下拉真实交互及参考图上传锁平台/删除重选/白模恢复、十二功能样本集与路线快照持久化、跨样本模型共享参考图去重测试
+beta-style-transfer-ui.test.mjs: 含Beta质感增强固定Prompt批跑；含旧房的四种设计页隔离；Beta十三功能目录中的风格转换明确目标、无智能默认/首项自动选择、平台/参考图独立版本、下拉真实交互及参考图上传锁平台/删除重选/白模恢复、十三功能样本集与路线快照持久化、跨样本模型共享参考图去重测试
 
 style-transfer-ui.test.mjs: 风格转换单主图必填、明确目标必选且无智能默认/首项自动选择、白模选择隔离、参考图上传切换/平台禁用/删除清空重选、平台/参考图独立版本和Agent语义、共享图片载荷、提示词复用及任务恢复测试，不调用付费模型或真实飞书；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除
 room-renovation-ui.test.mjs: 旧房独立公开配置/版本及scope记忆、刷新切换隔离，旧房仅发designScenario与roomRenovation版本，单流程/单份图片载荷、共用加载文案/提示词复用、独立任务恢复及按张数进度；不调用模型或真实飞书；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除
@@ -93,7 +99,7 @@ beta-id-flow.test.mjs: 跨功能按原样本ID运行及目标功能真实字节�
 beta-sample-reuse.test.mjs: 真实源图/内存CLI的跨来源ID复用及目标功能全景/空房/扩图合同，精模显式合法旧参数并替身冻结Prompt；源集和样本零复制/写入、free可信prompt与纯文字缺图阻断、成员/记录关联/状态/8MB/MIME守卫、新建按当前功能归属；不调用真实模型或飞书
 beta-sample-library.test.mjs: 跨图像功能复用原样本ID/零重传、提示词集分流、保存选集优先/同功能回退、新建归当前目标、同目标保留本次房型与两级异步防串；缺图缺词整集阻断及目标全景元数据校验；24MB逐张读取/上传、稳定ID、部分失败后只重试剩余项、全景 2:1 源图准入与拒绝后释放预览、保存忙碌守卫与完成回读后ready、元数据无原图测试，使用假DOM/假API
 
-effect-beautification-ui.test.mjs: 六种命名氛围/原工作流映射、新模板互斥与仅新增低自然、严格卡片身份/失效与旧进程门禁、键盘跳过禁用和跨功能隔离，无真实生成
+effect-beautification-ui.test.mjs: 六档直白标签、Main混选/旧进程能力与混选Prompt门禁、十五卡网格/单选宿主焦点、混选全选清空/空选阻断/草稿恢复及非首卡漂移，无真实生成
 
 image-outpaint.test.mjs: AI扩图EXIF/真实4K输入按固定2K适配与合法旧2K四边原字节合同、新旧COMBO SaveText格式前置阻断、旧四边与保护上限、OneReward FP8/Flux Fill dev候选独立文件/dtype能力探测及失败不缓存、执行前实时模型复核与身份透传、HTTP未知400/不可用409零入队及专用客户端/OneAPI隔离、图片工具六套超分节点/尺寸合同及主Beta缺节点目录同因阻断、扩图飞书Schema入队阻断与pending归档测试，不提交GPU任务
 image-outpaint-workflow.test.mjs: AI扩图1082来源/643线索、4K输入/32与8对齐、OneReward FP8默认与原版Flux Fill UNET/dtype唯一变化及metadata身份、原Janus/采样参数保真与19节点含SaveText实际正文透传/History捕获、传输适配/请求隔离及实际尺寸追溯测试，不提交GPU任务
@@ -126,27 +132,28 @@ product-navigation.test.mjs: 共享顶栏字体与全局动效回归测试，验
 raycast-accent.test.mjs: 跨工作台最终颜色层回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、含 Beta 全宽 START 的唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、三页最终加载顺序、中性焦点及同源近距阴影的含下载安装的中性弹层动作
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 七个 OneAPI 模型（含独立 Banana 2.1、GPT Image 2/2.5 全档位 16 对齐/像素与边长边界、原图 1K 16:9 请求与浏览器摘要、2.5 双模型九比例与五质量档）与默认 9B FP8/7 steps Flux 工作流统一可选、Provider、单图、Pro 通用 1K/2K 与仅全景可用的 3040x1520 4K 实验档、Flux Prompt、原图比例 1K/2K 推理及同图 2K→4K/6K 攸行超分、其他接口尺寸不变、全景 2:1 准入及请求白名单测试，不发送真实请求
+model-config.test.mjs: GPT2.6双模型身份/权限与历史兼容； 九个 OneAPI 模型（含独立 Banana 2.1、GPT Image 2/2.5 全档位 16 对齐/像素与边长边界、原图 1K 16:9 请求与浏览器摘要、2.5 双模型九比例与五质量档）与默认 9B FP8/7 steps Flux 工作流统一可选、Provider、单图、Pro 通用 1K/2K 与仅全景可用的 3040x1520 4K 实验档、Flux Prompt、原图比例 1K/2K 推理及同图 2K→KS直入4K/6K超分、其他接口尺寸不变、全景 2:1 准入及请求白名单测试，不发送真实请求
 banana21-model.test.mjs: Banana 2.1 与旧模型身份共存、Main/Beta/API 全档位尺寸一致、512 旧缓存回退与单份原图、Benchmark 稳定配置和 512/2:1 前置拒绝合同测试，不调用模型或真实飞书
 generation-batch.test.mjs: 不限总项数的服务端批次标识、浏览器逐模型及功能尺寸/质量适配、Seedream 5.0 Pro 全景 4K 保留、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图付费执行前飞书同步合同阻断、任务即时入队、查询恢复、领域阶段快照透传、最多两路并发、八模型端到端批次归档、保序与部分失败测试，不调用真实生图服务；deferred 测试确保成功/失败终态前始终忙碌
 beta-base.test.mjs: 独立Beta三表/十功能/真实普通及扩图模型标签、无Agent清空Prompt融合、非法标签零写入及单选回读、草稿默认状态清空/{id}关联、真实源尺寸与8MB保护；扩图引擎/画布/工作流配置、实际Prompt/版本/尺寸/费用及源图结果附件数量/token/字节数逐字段回读，漂移不展示预览；CLI替身，不读写真实Base
-beta-page-state.test.mjs: Beta配置纯函数/草稿表单往返，旧纯词草稿剥离公共规则身份、旧original/损坏来源未选，模型样本去重/全景尺寸恢复、忽略六组合与无图持久化；扩图由专用集成测试补充；美化卡片三字段保存恢复、损坏降级与旧草稿兼容
+beta-page-state.test.mjs: Beta配置纯函数/草稿表单往返，旧纯词草稿剥离公共规则身份、旧original/损坏来源未选，模型样本去重/全景尺寸恢复、忽略六组合与无图持久化；扩图由专用集成测试补充；美化卡片三字段保存恢复、损坏降级与旧草稿兼容；美化混选快照去重/新卡低自然、显式空选及旧草稿迁移
 beta-run-id.test.mjs: Beta跑图人工分组时间、技术 Run ID 本地日期时间主体、批内唯一序号、模型定位与非法输入拒绝纯函数测试
 beta-retry.test.mjs: 手动重试仅失败项/成功项保留、free文本与空房元数据冻结、生成Attempt续号、仅同步失败零生成、重复点击幂等、旧registry冻结批次迁移/已有附件恢复优先与逐Run脱敏预警；内存模型/飞书替身
 beta-recovery.test.mjs: 已上传结果按冻结配置/样本/模型/测试时间与真实下载bytes/尺寸/SHA-256恢复原记录，禁止生图/重传、真实费用漂移阻断、浮点尾差容忍及归档重试上传幂等；本地真实PNG/CLI替身
-beta-runner.test.mjs: 含AI扩图的十功能目录、异步配置及普通Beta批次回归，覆盖精模异构光影配置串行准备/重复键去重及失败零入队、空房逐样本房型、当前Key Agent权限/409阻断、测试时间、无限结果、去重资产、两路并发、单Run单图、生成/同步双阶段、回读后预览、瞬时生成三次Attempt、同步失败仅重试归档及全部归档前的忙碌守卫
+beta-runner.test.mjs: 含Beta质感增强固定Prompt批跑；含AI扩图的十功能目录、异步配置及普通Beta批次回归，覆盖精模异构光影配置串行准备/重复键去重及失败零入队、空房逐样本房型、当前Key Agent权限/409阻断、测试时间、无限结果、去重资产、两路并发、单Run单图、生成/同步双阶段、回读后预览、瞬时生成三次Attempt、同步失败仅重试归档及全部归档前的忙碌守卫
 beta-upscale.test.mjs: 六工作流目录/真实身份/档位、Comfy无Key准入与候选失效、按ID惰性取图及真实尺寸建档前校验、两路并发/冻结配置/仅同步失败重试合同测试，不调用GPU或飞书
-beta-upscale-ui.test.mjs: 十二功能目录兼容；超分多选与可用性、普通/KS/混选尺寸交集、6K全候选同档位请求、动态目录缩减/空交集阻断、缓存迁移及真实增强下拉不递归的DOM测试
+beta-upscale-ui.test.mjs: 含Beta质感增强固定Prompt批跑；十三功能目录兼容；超分多选与可用性、普通/KS/混选尺寸交集、6K全候选同档位请求、动态目录缩减/空交集阻断、缓存迁移及真实增强下拉不递归的DOM测试
 beta-upscale-archive.test.mjs: 六工作流Schema与稳定标签、直入27.1固定5K/其他KS20MP经服务到Base逐字段回读，无Prompt与旧整图恢复，伪造倍率/max/上限阻断；全替身
 beta-upscale-integration.test.mjs: 页面六工作流经Runner/真实generationService到归档，验证直入27.1固定5K/其他KS20MP、最终尺寸/插值标记、冻结版本与local-only隔离；无GPU或Base写入
-beta-outpaint.test.mjs: 四工作流真源/脱敏能力与固定2K原比例/预设/居中/三倍率合同，客户端身份冲突/非2K/四边/资产重传零入队、不可用候选及排队后失效阻断、同样本四工作流lazy读取/真实标签、建档前真实尺寸400与4000px源适配、Comfy无Prompt Agent Key、Sunburst生成/归档失败不重复收费提交；内存替身无外部调用
-beta-outpaint-integration.test.mjs: 页面样本乘四工作流经Runner与真实generationService/扩图适配器到captureBetaGenerationArchive的跨层测试，验证两Flux模型/Qwen/Sunburst单次路由、实际Prompt/版本/2K画布及独立Beta归档、生成同步4/4、普通模型/4K配置与扩图状态隔离；模型和Base全部mock
-beta-panorama.test.mjs: 共享设计模式判定注入、全景批次保持隔离；全景样本真实2:1/伪尺寸/8MB保护、ID元数据零原图入队、多光影实际页面逐样本/模型展开计数/标签及跨模型逐卡去重冻结、执行时原图比例校验、GPT2.5/Banana2.1非2:1模型阻断、独立冻结Prompt版本归档及Seedream全景4K/R5_4工作流的内存合同测试
-beta-ui.test.mjs: 含旧房的十二功能接线；独立Beta工作台含AI扩图的十二功能名称/顺序、共享可搜索任务单选/忙碌禁用/切换与保存接线、默认Flux/标签页恢复、样本集选择/逐张保存/完成回读、样本ID入队及free/style共用资产、无限结果和独立测试时间、模型多选摘要/搜索及配置恢复、配置/监控双栏、仅失败项RETRY、冻结批次引用/提交互斥/新批次退出、生成/同步双进度、逐项/旧任务/连接预警及安全文本零图片渲染；保留clip/定位/38px中性保存及飞书结果按钮静态合同；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除；美化新增模板真实buildItems逐模型投影/门禁与原六档隔离
+beta-outpaint.test.mjs: GPT2.6双模型身份/权限与历史兼容； 六工作流真源/脱敏能力与固定2K原比例/预设/居中/三倍率合同，客户端身份冲突/非2K/四边/资产重传零入队、不可用候选及排队后失效阻断、同样本六工作流lazy读取/真实标签、建档前真实尺寸400与4000px源适配、Comfy无Prompt Agent Key、Sunburst生成/归档失败不重复收费提交；内存替身无外部调用
+beta-outpaint-integration.test.mjs: GPT2.6双模型身份/权限与历史兼容； 页面样本乘六工作流经Runner与真实generationService/扩图适配器到captureBetaGenerationArchive的跨层测试，验证两Flux模型/Qwen/Sunburst单次路由、实际Prompt/版本/2K画布及独立Beta归档、生成同步6/6、普通模型/4K配置与扩图状态隔离；模型和Base全部mock
+beta-panorama.test.mjs: GPT2.6双模型身份/权限与历史兼容； 共享设计模式判定注入、全景批次保持隔离；全景样本真实2:1/伪尺寸/8MB保护、ID元数据零原图入队、多光影实际页面逐样本/模型展开计数/标签及跨模型逐卡去重冻结、执行时原图比例校验、GPT2.5/2.6及Banana2.1非2:1模型阻断、独立冻结Prompt版本归档及Seedream全景4K/R5_4工作流的内存合同测试
+beta-ui.test.mjs: 含Beta质感增强固定Prompt批跑；含旧房的十三功能接线；独立Beta工作台含AI扩图的十三功能名称/顺序、共享可搜索任务单选/忙碌禁用/切换与保存接线、默认Flux/标签页恢复、样本集选择/逐张保存/完成回读、样本ID入队及free/style共用资产、无限结果和独立测试时间、模型多选摘要/搜索及配置恢复、配置/监控双栏、仅失败项RETRY、冻结批次引用/提交互斥/新批次退出、生成/同步双进度、逐项/旧任务/连接预警及安全文本零图片渲染；保留clip/定位/38px中性保存及飞书结果按钮静态合同；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除；美化新增模板真实buildItems逐模型投影/门禁与原六档隔离；实际美化样本×氛围×模型矩阵/唯一RunID与旧新逐项参数、混选Prompt准入
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数及 ComfyUI/API 编辑阶段消息推导生成中状态、结果与过期/原始错误纯状态测试，不访问真实浏览器存储
-generation-task-request.test.mjs: 全景六光影×每卡张数/模型独立展开、逐卡身份标签和底图去重；日常生图前台生图及扩图飞书实时 Schema 就绪阻断与仅图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张及超过四模型展开、美化六组合/指定版本穿透与氛围转换/全景美化分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求；美化新卡逐模型身份透传/固定低自然/回原六档与跨功能隔离
+generation-task-request.test.mjs: 美化十五模板混选×每模板张数/模型展开、逐项覆盖共享卡片与总数文案；全景六光影×每卡张数/模型独立展开、逐卡身份标签和底图去重；日常生图前台生图及扩图飞书实时 Schema 就绪阻断与仅图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张及超过四模型展开、美化六组合/指定版本穿透与氛围转换/全景美化分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求；美化新卡逐模型身份透传/固定低自然/回原六档与跨功能隔离
 image-upscale.test.mjs: 六套SeedVR2来源/输入预处理与原字节保真，KS两套2X/4K/6K目标及非法8K/输入边界、节点max/倍率元数据、源/请求/实际尺寸、Flux嵌入兼容与时限、本机结果和OneAPI/飞书豁免；无GPU
+image-upscale-noise.test.mjs: 双噪声数值/0.001步长、六工作流实际节点与元数据、非法值零调用/零入队、冻结与既有jobId幂等、缺省零及非零能力门禁；无网络或GPU
 effect-render-enhancement.test.mjs: 效果图氛围转换旧编码/新展示名、环境模块与全景纯文本/开放 MAIN JSON和指定冻结版本、Seedream 全景 4K、普通 Flux 工作流、单图/原比例、脱敏响应与归档元数据内存集成测试；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除
 model-multi-select.test.mjs: 共享单/多选下拉的摘要/平铺搜索、筛选全选/取消与单选即选即关、至少一项/不限数量、禁选/首选保序、同宽4px邻接定位、普通单选空键初始化/禁选跳过/首尾与确认、搜索结果键盘导航、模态内浮层迁移及归焦合同测试
 workspace-panel.test.mjs: 固定144px目录与参数独立伸缩、368px以上任意可读中间值持久化、144px参数收空/旧80及304/320偏好迁移、RAF/取消/键盘/预览保护和同DOM移动抽屉焦点回归，不启动服务或提交生成
@@ -159,7 +166,7 @@ image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合�
 generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与忙碌态、内嵌 Smiley Sans、版本化主题引用、精密键帽反馈、761px 起禁止外面板焦点滚动的独立配置区、不遮挡控件的底部动作栏及窄屏自然流布局
 generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离、带版本的入口与页面内存边界，不提交真实生图任务
 feature-directory.test.mjs: 白模/精模归AI渲染且默认选中保持；二次编辑入口命名、光影转换归属AI渲染、桌面外面板禁止焦点滚动与隐藏下拉定位边界、生图工作台信息架构静态合同测试，覆盖AI设计/AI渲染/AI编辑/AI创作四组、十七功能唯一入口/旧房改造与风格转换归属AI设计/图片超分与AI扩图归属AI编辑、黑色粗体分类、144px目录与11/12px字号、图片上传置顶、桌面双面板及窄屏两列分组
-image-upscale-ui.test.mjs: 六工作流真实控制器、KS2X/4K/6K尺寸与两条输入路径、4K/6K切换保留和8K回退/旧倍率缓存、增强select同步、前后端几何一致、冻结执行版本、候选失效原因及单份图片请求；无网络或GPU；正常说明清空，服务/节点/尺寸实际错误可见及恢复清除
+image-upscale-ui.test.mjs: 双噪声控件校验/缓存/冻结请求/运行锁定、旧进程门禁与历史实际参数摘要；六工作流真实控制器、KS2X/4K/6K尺寸与两条输入路径、4K/6K切换保留和8K回退/旧倍率缓存、增强select同步、前后端几何一致、冻结执行版本、候选失效原因及单份图片请求；无网络或GPU；正常说明清空，服务/节点/尺寸实际错误可见及恢复清除
 empty-room-furniture.test.mjs: 空房家具跨层合同测试，覆盖线上目录推荐合法性、剥离“其他”入口、已选正向需求、未选及空条件省略、明确排除原文保留、其他家具/非法输入、浏览器请求、两条 Agent 路由、缓存隔离和飞书可读归档
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
@@ -191,7 +198,7 @@ refined-prompt-version-select.test.mjs: 三模式完整名称/同表目录、纯
 reference-image.test.mjs: 参考图格式/容量/真实字节/尺寸、单图重叠两种完成顺序均最后有效选择胜、非法/取消不中断；替换失败保留/多图追加、禁用与clear异步取消及通知
 reference-attachment.test.mjs: Style DNA 图片/PDF 附件分流、无数量上限、PDF 文件签名、MIME、真实字节与容量策略回归测试
 style-library.test.mjs: 飞书风格行、Style DNA 合法性、版本化唯一编码、历史版本选择、上下架状态、分页边界和前端脱敏回归测试
-white-model-workflow.test.mjs: 显式功能路由穿透生成输入，阻止空房默认走白模， 白模与空房智能默认/固定风格稳定 Agent 路由、空房房间类型及“其他”详情必填/白名单/Prompt 注入/缓存隔离、独立 Prompt 表、仅智能默认可用的主图+风格参考双图合同、平台融合混合输入拒绝、最终出图单图隔离、风格图缓存失效、版本化 Style DNA、独立 Provider、比例及非阻塞归档测试
+white-model-workflow.test.mjs: 用户JSON首字段与实际请求/归档同文、显式功能路由穿透生成输入，阻止空房默认走白模， 白模与空房智能默认/固定风格稳定 Agent 路由、空房房间类型及“其他”详情必填/白名单/Prompt 注入/缓存隔离、独立 Prompt 表、仅智能默认可用的主图+风格参考双图合同、平台融合混合输入拒绝、最终出图单图隔离、风格图缓存失效、版本化 Style DNA、独立 Provider、比例及非阻塞归档测试
 white-model-render-mode.test.mjs: 白模/空房前端风格选择单元测试，覆盖共享可搜索单选接线、智能默认说明、平台风格扩展/版本去重、风格图触发禁选和失效选择回退；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除
 runtime-cache.test.mjs: 异步 TTL 缓存命中、并发去重、过期、主动刷新和失败清理测试
 sync-jobs.test.mjs: generationId 幂等入队、非阻塞执行与飞书同步状态测试；成功/失败同步完成前的 pending 更新守卫

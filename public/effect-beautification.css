@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖美化六氛围/旧强度色调单选组、共享光影图卡与品牌键面令牌
- * [OUTPUT]: 对外提供六氛围三列文字小勾、模板独立分组及窄栏两列，保留旧控件/错误提示与版本刷新换行
+ * [INPUT]: 依赖美化六无图氛围/九光影图卡同一网格、旧强度色调控件与品牌键面令牌
+ * [OUTPUT]: 对外提供十五项同尺寸/同灰底/同勾选卡片、主单选与Beta多选的统一布局，窄栏两列及错误/低动效兼容
  * [POS]: public 的效果图美化增量视觉层，由生图工作台与 Beta 共用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,15 +15,23 @@
 .effect-beautification-label { color: var(--brand-key-strong-ink); font-size: 11px; font-weight: 500; margin: 0 0 8px; }
 .effect-beautification-options { display: grid; gap: var(--choice-control-gap, 8px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .effect-beautification-options[data-effect-tones] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.effect-beautification-atmospheres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.effect-beautification-atmosphere { font-weight: 400; }
-.effect-beautification-lighting { margin-top: 18px; }
+.effect-beautification-atmospheres { display: contents; }
+.effect-beautification-lighting { container: beautification-options / inline-size; margin-top: 0; }
 .effect-beautification-lighting :is(.micro-status, .config-refresh-button) { color: var(--muted); }
-[data-effect-beautification-lighting] [data-lighting-preset-section] { border-top: 0; margin-top: 0; padding-top: 0; }
+[data-effect-beautification-lighting] .section-heading { flex-wrap: wrap; gap: 8px; }
+[data-effect-beautification-lighting] .section-heading-actions { margin-left: auto; }
+[data-effect-beautification-lighting] .refined-lighting-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+[data-effect-beautification-lighting] .refined-lighting-card { align-items: stretch; aspect-ratio: 6 / 5; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+[data-effect-beautification-lighting] .refined-lighting-card img { aspect-ratio: auto; flex: 1; height: 0; min-height: 0; object-fit: cover; }
+[data-effect-beautification-lighting] .refined-lighting-card-label { flex: none; text-align: center; }
+.effect-beautification-atmosphere[aria-checked="false"] .refined-lighting-check { display: none; }
+[data-effect-beautification-controls] [data-effect-beautification-lighting] [data-lighting-preset-section] { border-top: 0; margin-top: 0; padding-top: 0; }
 [data-effect-beautification-lighting] [data-lighting-automatic] { display: none; }
 [data-effect-beautification-controls] [hidden] { display: none; }
-@container workspace-parameters (max-width: 280px) { .effect-beautification-atmospheres { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 380px) { .effect-beautification-atmospheres { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container beautification-options (max-width: 280px) { [data-effect-beautification-lighting] .refined-lighting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container beautification-options (min-width: 480px) { [data-effect-beautification-lighting] .refined-lighting-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container beautification-options (min-width: 720px) { [data-effect-beautification-lighting] .refined-lighting-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 380px) { [data-effect-beautification-lighting] .refined-lighting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .feature-choice-option {
   background: var(--brand-key-bg);
   border: 1px solid var(--brand-key-border);

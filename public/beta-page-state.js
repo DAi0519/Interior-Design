@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖localStorage、精模光影选择/旧氛围归一化、美化模板身份规范化、功能目录、独立扩图/超分状态、美化配置及模型和轻量表单配置
- * [OUTPUT]: 提供旧房独立方式/风格/Agent版本和十二功能样本引用、美化六档与新增卡片身份的隔离往返、普通默认Flux/精模默认Banana2.1的Beta轻量持久化，保存精模模型/光影及预设执行方式，旧草稿默认仅提示词，旧原始或损坏光影降为未选，不保存图片或任务执行身份
+ * [INPUT]: 依赖localStorage、精模光影选择/旧氛围归一化、美化混合多选与卡片身份规范化、功能目录、独立扩图/超分状态、美化配置及模型和轻量表单配置
+ * [OUTPUT]: 提供旧房独立方式/风格/Agent版本及含质感增强的十三功能样本引用、美化混合多选的轻量往返和旧单选迁移、普通默认Flux/精模默认Banana2.1持久化，不保存图片或任务执行身份
  * [POS]: public 的 Beta跑图持久配置边界，只保存可重建配置与样本集引用，不保存图片、生成结果或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { normalizeEffectBeautification } from "./effect-beautification-controls.js";
+import { normalizeEffectBeautification, normalizeEffectBeautificationSelections } from "./effect-beautification-controls.js";
 import { normalizeEffectBeautificationLighting } from "./effect-beautification-lighting.js";
 import { normalizeRefinedRender } from "./refined-render-presets.js";
 import { normalizeRefinedLighting } from "./refined-lighting-controls.js";
@@ -73,6 +73,11 @@ export function normalizeBetaPageState(input = {}) {
   controls.effectBeautificationTone = beautification.tone;
   try { controls.effectBeautificationLighting = normalizeEffectBeautificationLighting(input.controls?.effectBeautificationLighting); }
   catch { controls.effectBeautificationLighting = null; }
+  controls.effectBeautificationSelections = null;
+  if (Array.isArray(input.controls?.effectBeautificationSelections)) {
+    try { controls.effectBeautificationSelections = normalizeEffectBeautificationSelections(input.controls.effectBeautificationSelections); }
+    catch { controls.effectBeautificationSelections = []; }
+  }
   try { controls.refinedRender = normalizeRefinedRender(input.controls?.refinedRender); }
   catch { controls.refinedRender = normalizeRefinedRender(); }
   try { controls.refinedLighting = input.controls?.refinedLighting == null ? null

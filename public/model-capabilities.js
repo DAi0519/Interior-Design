@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖room-renovation 的旧房/空房模式判定、 image-ratio.js，接收公开模型能力、功能模式、参考图、Seedream 5.0 Pro 全景 4K 实验档、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
- * [OUTPUT]: 对外提供光影转换/质感增强/全景R5_4运行进程能力门禁；含打光/二次编辑/旧房改造单张照片与多角度单图上传语义； 对外提供参考图主题与数量文案、含质感增强/风格转换/美化/氛围转换的单图合同、按功能合并的比例分辨率选项，以及全景R5_4原尺寸、Flux推理/超分及精模/光影转换双图1K/2K长边尺寸摘要
+ * [OUTPUT]: 对外提供功能/模型尺寸规则、Flux后置KS目录文案/身份冻结及真实2K输入限制预检、参考图主题与数量、全景原尺寸与精模/光影转换双图1K/2K隔离和最终尺寸摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,6 +33,39 @@ function sizesForFeature(model, featureMode) {
       { ...sizes, ...(overrides[ratio] || {}) },
     ]),
   );
+}
+
+function sourceInferenceDimensions(model, resolution, sourceImage) {
+  if (![sourceImage?.width, sourceImage?.height].every(value => Number.isInteger(value) && value > 0)) return null;
+  if (model.sourceLongEdgeLimits) return refinedFluxDimensions(sourceImage, resolution);
+  const sourceResolution = model.postUpscale?.[resolution]?.sourceResolution || resolution;
+  const pixelArea = Number(model.sizes.source?.[sourceResolution]);
+  if (!Number.isInteger(pixelArea) || pixelArea < 1) return null;
+  const aspectRatio = sourceImage.width / sourceImage.height;
+  const height = Math.max(16, Math.floor(Math.sqrt(pixelArea / aspectRatio) / 16) * 16);
+  let width = Math.max(16, Math.round(height * aspectRatio / 16) * 16);
+  while (width * height > pixelArea && width > 16) width -= 16;
+  return { width, height };
+}
+
+export function fluxPostUpscaleState({ featureMode, refinedLighting, model, resolution, sourceImage }) {
+  const modes = ["free", "whiteModel", "emptyRoom", "roomRenovation", "styleTransfer", "refinedModel",
+    "effectEnhancement", "effectBeautification", "textureEnhancement"];
+  if (!model || featureMode && !modes.includes(featureMode)) return { reason: null, requestFields: {} };
+  model = refinedReferenceModel(model, featureMode, refinedLighting);
+  const choice = model.postUpscale?.[resolution];
+  if (!choice) return { reason: null, requestFields: {} };
+  if (!choice.workflowKey || !choice.workflowVersion) return {
+    reason: "当前服务尚未加载功能内 KS 直入超分，请更新工作台服务后刷新", requestFields: {},
+  };
+  const dimensions = sourceInferenceDimensions(model, resolution, sourceImage);
+  const limit = choice.inputSize;
+  const invalid = dimensions && limit && (dimensions.width < limit.minWidth || dimensions.width > limit.maxWidth
+    || dimensions.height < limit.minHeight || dimensions.height > limit.maxHeight);
+  return {
+    reason: invalid ? `当前画幅的 ${choice.sourceResolution} 结果为 ${dimensions.width}×${dimensions.height}，KS 直入要求每边 ${limit.minWidth}–${limit.maxWidth}px；请选择原生 1K/2K 或调整画幅` : null,
+    requestFields: { postUpscaleWorkflowKey: choice.workflowKey, postUpscaleWorkflowVersion: choice.workflowVersion },
+  };
 }
 
 export function referenceSubject(featureMode) {
@@ -122,7 +155,7 @@ export function sizeControlState({
       label: value === "source"
         ? "原图尺寸"
         : model.postUpscale?.[value]
-          ? `${value} · 2K→攸行超分`
+          ? `${value} · ${model.postUpscale[value].sourceResolution}→${model.postUpscale[value].workflowLabel || "攸行超分"}`
           : value,
       value,
     })),
@@ -142,22 +175,14 @@ export function sizeSummary({ featureMode, refinedLighting, model, ratio, ratioM
       ? resolution
       : model.defaultResolution;
     const postUpscale = model.postUpscale?.[resolvedResolution] || null;
-    const inferenceResolution = postUpscale?.sourceResolution || resolvedResolution;
-    const pixelArea = Number(model.sizes.source?.[inferenceResolution]);
-    let dimensions = null;
-    if (sourceImage && Number.isInteger(pixelArea)) {
-      const aspectRatio = sourceImage.width / sourceImage.height;
-      const height = Math.max(16, Math.floor(Math.sqrt(pixelArea / aspectRatio) / 16) * 16);
-      let width = Math.max(16, Math.round(height * aspectRatio / 16) * 16);
-      while (width * height > pixelArea && width > 16) width -= 16;
-      dimensions = model.sourceLongEdgeLimits ? refinedFluxDimensions(sourceImage, resolvedResolution) : { height, width };
-      if (postUpscale) {
-        const scale = Number(postUpscale.longEdge) / Math.max(width, height);
-        const even = (value) => Math.max(2, Math.round(value / 2) * 2);
-        dimensions = width >= height
-          ? { height: even(height * scale), width: Number(postUpscale.longEdge) }
-          : { height: Number(postUpscale.longEdge), width: even(width * scale) };
-      }
+    let dimensions = sourceInferenceDimensions(model, resolvedResolution, sourceImage);
+    if (dimensions && postUpscale) {
+      const { width, height } = dimensions;
+      const scale = Number(postUpscale.longEdge) / Math.max(width, height);
+      const even = (value) => Math.max(2, Math.round(value / 2) * 2);
+      dimensions = width >= height
+        ? { height: even(height * scale), width: Number(postUpscale.longEdge) }
+        : { height: Number(postUpscale.longEdge), width: even(width * scale) };
     }
     const value = dimensions
       ? `${dimensions.width} × ${dimensions.height}`

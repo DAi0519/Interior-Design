@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、六份归档 ComfyUI 源画布、美化阶段工厂与统一 Flux 工作流工厂
- * [OUTPUT]: 对外提供六预设源参数与 SHA、旁路、双参考、16 对齐裁剪、独立触发词、归档元数据、节点能力及输出超分合同测试
+ * [OUTPUT]: 对外提供六预设源参数与 SHA、旁路、双参考、16 对齐裁剪、独立触发词、归档元数据、节点能力及KS直入4K/5K推理至6K交付的输出超分合同测试
  * [POS]: test 的效果图美化执行图离线回归，以原始画布和固定期望交叉核验，不提交 GPU 任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -341,7 +341,7 @@ test("普通 Flux 与全景保持 7 步原链路，不引入美化 LoRA、调色
   }
 });
 
-test("美化 1K/2K 及 4K/6K 共享唯一 72 产物节点，高分辨率继续接现有攸行超分", () => {
+test("美化1K/2K及KS直入4K/6K共享唯一72产物，6K在同图恢复交付尺寸", () => {
   for (const [resolution, outputWidth, outputHeight] of [["1K", 1024, 576], ["2K", 2048, 1152], ["4K", 4096, 2304], ["6K", 6144, 3456]]) {
     const upscale = resolution === "4K" || resolution === "6K";
     const nodes = createAiTextureWorkflow({
@@ -361,7 +361,7 @@ test("美化 1K/2K 及 4K/6K 共享唯一 72 产物节点，高分辨率继续�
     assert.equal(nodes["72"].inputs.filename_prefix, `CanvasLab_Flux2Klein_beautify-${resolution}-123`);
     assert.equal(entriesOfType(nodes, "LoraLoaderModelOnly").length, 1);
     assert.equal(Boolean(nodes["SeedVR2-Upscaler"]), upscale);
-    if (upscale) assert.equal(nodes["72"].inputs.images[0], "SeedVR2-Upscaler");
+    if (upscale) assert.equal(nodes["72"].inputs.images[0], resolution === "6K" ? "SeedVR2-Upscaler-Restore" : "SeedVR2-Upscaler");
     else assert.equal(nodes[nodes["72"].inputs.images[0]].class_type, "ImageResize+");
   }
 });

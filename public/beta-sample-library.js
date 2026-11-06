@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary，跨图像任务复用已有样本ID/轻量预览并隔离free提示词集、按目标功能校验与记忆选集、防旧异步串功能、逐张上传及稳定ID续传、空房/旧房逐图房型补选与回读同步回执
+ * [OUTPUT]: 对外提供 createBetaSampleLibrary、只读样本尺寸投影以预检后置KS，跨功能复用样本ID/轻量预览并隔离free提示词集、目标校验与记忆选集、防异步串功能、逐张续传与空房/旧房房型补选及回读同步回执
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -485,6 +485,7 @@ export function createBetaSampleLibrary({
     isReady: () => Boolean(!state.busy && state.activeSampleSetId && sampleCount()),
     load,
     sampleCount,
+    sourceDimensions: () => state.sourceImages.map(({ width, height }) => ({ width, height })),
     setFeatureMode,
     sourceImages: () => state.sourceImages,
   };

@@ -7,6 +7,8 @@
 
 # AI渲染台
 
+2026-11-06模型扩展：新增GPT Image 2.6 Sunburst/Flare，保留原2.5默认与历史任务；下文原有固定模型描述以本条为准。实际范围、4K文生图证据和图生图预算拦截见[gpt26-integration.md](gpt26-integration.md)。
+
 主工作台 → AI渲染 → AI渲染台，直达 `http://127.0.0.1:4192/?feature=aiRenderStudio`。独立界面 `/ai-render-studio.html` 支持主页面同源保活嵌入。切换功能保留两路输入/任务，渲染台仅显示自己的 START 与结果，旧通用生成按钮不能触发渲染台任务。不进入 Beta/Benchmark，也不代表已发布安装包。
 
 ## 光线与渲染风格
@@ -27,7 +29,7 @@
 
 完整JSON严格字段：`schemaVersion:1`、`renderBoundary`、`lightingBoundary`、`materialModes.faithful`、`renderStyles` 四键及 `output`。四种风格与公共规则整体同版本冻结，避免分别编辑造成半新半旧。Prompt正文SHA为 `39781511725acadcd0387efffeacddef4a746c392a8529212e276e41d6460536`。运行时只读此独立表已上架资产；缺失/重复版本/非法JSON/下架阻断，禁止从精模或打光表回退。
 
-`LARK_AI_RENDER_STUDIO_PROMPT_BASE_TOKEN` / `LARK_AI_RENDER_STUDIO_PROMPT_TABLE_ID` 可覆盖部署真源。客户端只见版本/SHA/来源，完整正文服务端闭包冻结。用户补充在最终 Prompt 首段，后接物理与保真边界、图序、typed 光源方案、保材质规则、唯一所选风格和输出要求。
+`LARK_AI_RENDER_STUDIO_PROMPT_BASE_TOKEN` / `LARK_AI_RENDER_STUDIO_PROMPT_TABLE_ID`可覆盖部署真源。客户端只见版本/SHA/来源，完整正文服务端闭包冻结。用户补充在最终Prompt首段，随后为typed光源方案和明确动作，再接物理与保真边界、图序、卡片、保材质规则、唯一所选风格和输出要求。见[工作台Prompt顺序](workbench-prompt-order.md)。
 
 [生成记录](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblFWdK9RlSiZRKC) 功能枚举新增“AI渲染台”。复用原始/最终Prompt、参考图、结果图、模型、真实尺寸、耗时、状态和生成参数；新增13列：
 

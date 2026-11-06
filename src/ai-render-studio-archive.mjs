@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立渲染台Prompt、真实光影卡片完整冻结、实际提交Prompt、原图引导图结果SHA及共享飞书配置
- * [OUTPUT]: 对外提供独立Schema准入、九卡/原光影归档、图片manifest与风格/卡片灯光/Prompt字段投影
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供独立Schema准入、九卡/原光影归档、图片manifest与风格/卡片灯光/Prompt字段投影
  * [POS]: src 的AI渲染台归档合同，不读取旧打光Prompt，不调用模型或写飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,8 @@ import { decodeImageDataUrl } from "./image-artifact.mjs";
 import { readImageDimensions } from "./image-dimensions.mjs";
 import { AI_RENDER_STUDIO_PROMPT_CODE, AI_RENDER_STUDIO_PROMPT_CONFIG, parseAiRenderStudioPrompt } from "./ai-render-studio-prompt.mjs";
 import { AI_RENDER_STUDIO_RENDER_STYLES, AI_RENDER_STUDIO_WORKFLOW_VERSION } from "./ai-render-studio-definitions.mjs";
-import { RELIGHT_ONEAPI_MODEL } from "./image-relight-oneapi.mjs";
+import { MODEL_CONFIGS } from "./model-config.mjs";
+import { RELIGHT_MODEL_KEYS } from "../public/image-relight-geometry.js";
 import { aiRenderStudioLightingPlan } from "./ai-render-studio-lighting.mjs";
 
 export const AI_RENDER_STUDIO_ARCHIVE_FEATURE_LABEL = "AI渲染台";
@@ -33,7 +34,7 @@ const originalLabels = { keep: "保留", darken: "整体减弱", turnOff: "全�
 const validSha256 = (value) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 const validJobId = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{7,159}$/.test(value);
 
-export function assertAiRenderStudioSyncSchema(body, { config = LARK_SYNC_CONFIG, lightingPresetNames = [] } = {}) {
+export function assertAiRenderStudioSyncSchema(body, { config = LARK_SYNC_CONFIG, lightingPresetNames = [], modelKey = "gptImage25Sunburst" } = {}) {
   const fields = body?.data?.fields || body?.fields;
   if (body?.ok === false || !Array.isArray(fields) || fields.some((field) => !field || typeof field.name !== "string")
     || body?.data?.has_more || body?.has_more) throw fail("AI渲染台生成记录Schema返回格式不正确或分页不完整");
@@ -47,7 +48,7 @@ export function assertAiRenderStudioSyncSchema(body, { config = LARK_SYNC_CONFIG
     if (!field || field.type !== type) issues.push(`“${name}”应为${type}`);
     if (fields.filter((entry) => entry.name === name).length > 1) issues.push(`“${name}”存在重复字段`);
   }
-  const options = { "功能": [AI_RENDER_STUDIO_ARCHIVE_FEATURE_LABEL], "生图模型": [RELIGHT_ONEAPI_MODEL.label],
+  const options = { "功能": [AI_RENDER_STUDIO_ARCHIVE_FEATURE_LABEL], "生图模型": [MODEL_CONFIGS[modelKey]?.label],
     "状态": ["成功", "同步失败"], "AI渲染台渲染风格": AI_RENDER_STUDIO_RENDER_STYLES.map((entry) => entry.label),
     "AI渲染台材质策略": ["保留原材质"], "AI渲染台光照方案": [...new Set(["原光影/自定义", ...lightingPresetNames])],
     "AI渲染台原灯处理": Object.values(originalLabels) };
@@ -73,11 +74,11 @@ export function assertAiRenderStudioSyncSchema(body, { config = LARK_SYNC_CONFIG
   return { attachmentFieldIds };
 }
 
-export async function verifyAiRenderStudioSyncSchema(config = LARK_SYNC_CONFIG, { run = runLarkCli, lightingPresetNames = [] } = {}) {
+export async function verifyAiRenderStudioSyncSchema(config = LARK_SYNC_CONFIG, { run = runLarkCli, lightingPresetNames = [], modelKey = "gptImage25Sunburst" } = {}) {
   const body = await run(config, ["base", "+field-list", "--as", "user", "--base-token", config.baseToken,
     "--table-id", config.tableId, "--limit", "200", "--format", "json"]);
   if (body?.data?.has_more) throw fail("AI渲染台字段Schema分页不完整");
-  return assertAiRenderStudioSyncSchema(body, { config, lightingPresetNames });
+  return assertAiRenderStudioSyncSchema(body, { config, lightingPresetNames, modelKey });
 }
 
 function lightingPlan(value) {
@@ -111,8 +112,8 @@ function imageIdentity(image, expectedSha256, { png = false } = {}) {
 function assertIdentity(workflow) {
   if (!workflow || typeof workflow !== "object") throw fail("AI渲染台归档缺少实际执行身份");
   const expectedSource = `feishu:${AI_RENDER_STUDIO_PROMPT_CONFIG.tableId}:${AI_RENDER_STUDIO_PROMPT_CODE}@v${workflow.promptVersion}`;
-  if (workflow.feature !== "ai-render-studio" || workflow.modelKey !== "gptImage25Sunburst"
-    || workflow.provider !== "oneapi" || workflow.model !== RELIGHT_ONEAPI_MODEL.id
+  if (workflow.feature !== "ai-render-studio" || !RELIGHT_MODEL_KEYS.includes(workflow.modelKey)
+    || workflow.provider !== "oneapi" || workflow.model !== MODEL_CONFIGS[workflow.modelKey]?.id
     || workflow.promptCode !== AI_RENDER_STUDIO_PROMPT_CODE || workflow.promptSource !== expectedSource
     || !Number.isSafeInteger(workflow.promptVersion) || workflow.promptVersion < 1
     || !validSha256(workflow.promptSha256) || workflow.materialMode !== "faithful"
@@ -149,7 +150,7 @@ export function buildAiRenderStudioArchive({ jobId, prepared, result, guideImage
   const source = { imageUrl: validated.source.imageUrl, fileName: validated.source.fileName,
     mimeType: validated.source.mimeType, size: validated.source.size };
   const archive = { durationMs: result.durationMs, finalPrompt: metadata.prompt, sourcePrompt: validated.prompt,
-    modelLabel: RELIGHT_ONEAPI_MODEL.label, preview: { ...result.request, feature: "ai-render-studio", materialMode: prepared.materialMode,
+    modelLabel: MODEL_CONFIGS[metadata.modelKey].label, preview: { ...result.request, feature: "ai-render-studio", materialMode: prepared.materialMode,
       renderStyle: prepared.renderStyle, syncMode: "lark" },
     referenceImages: [source], ...(guideImage ? { guideImage } : {}), resultImage: result.images[0],
     workflow: { ...metadata, jobId, prompt: metadata.prompt, sourcePrompt: validated.prompt, lightingPlan: plan,
@@ -173,7 +174,7 @@ function assertArchiveState(archive) {
     || workflow.referenceImageCount !== (plan.lights.length ? 2 : 1)
     || (plan.lights.length ? !validSha256(workflow.guideSha256) : workflow.guideSha256 !== null)
     || !Number.isFinite(archive.durationMs) || archive.durationMs < 0
-    || archive.modelLabel !== RELIGHT_ONEAPI_MODEL.label || preview?.model !== workflow.model || preview?.modelKey !== workflow.modelKey
+    || archive.modelLabel !== MODEL_CONFIGS[workflow.modelKey]?.label || preview?.model !== workflow.model || preview?.modelKey !== workflow.modelKey
     || preview?.provider !== "oneapi" || preview?.feature !== workflow.feature || preview?.outputFormat !== "png"
     || preview?.renderStyle !== workflow.renderStyle || preview?.materialMode !== workflow.materialMode
     || preview?.quality !== workflow.quality || preview?.outputResolution !== workflow.outputResolution

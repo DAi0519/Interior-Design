@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖服务端冻结的飞书Prompt资产、原图/可选几何标注、整体原灯与新增光源分离的typed安全合同、模型目录、sharp和OneAPI异步编辑客户端
- * [OUTPUT]: 对外提供v10飞书bundle编译、独立typed光源动作、可注入编译器的单/双图引导与原生PNG请求及资产回执；默认打光行为保持
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供用户原文/typed光源动作前置的v10飞书bundle编译、单/双图引导与原生PNG请求及实际Prompt回执
  * [POS]: src 的 GPT 打光适配器，复用无 mask 后台编辑传输，不回贴、不调色、不缩放模型返回结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -85,16 +85,18 @@ export function buildRelightPrompt({ lights = [], originalLights: requestedOrigi
   const settings = normalizeRelightSettings({ templateKey, blendMode });
   const rebuildLighting = relightRebuildsLighting(settings);
   const mode = rebuildLighting ? "REBUILD" : "LOCAL";
+  const instruction = String(prompt || "").trim();
   return [
+    ...(instruction ? [`[USER LIGHTING REFINEMENTS]\n${instruction}`] : []),
+    ...buildRelightActionInstructions({ lights, originalLights: requestedOriginalLights, ...settings }),
+    ...(instruction ? ["USER LIGHTING INSTRUCTION SCOPE: Apply it within the typed action priority and scene-preservation constraints below."] : []),
     bundle.ADAPTER.INTRO[mode],
-    bundle.ADAPTER.INPUT[lights.length ? "GUIDED" : "PLAIN"],
+    bundle.ADAPTER.INPUT[lights.length ? "GUIDED" : "PLAIN"].replace("corresponding action below", "corresponding typed action"),
     ...(lights.length && rebuildLighting ? [bundle.ADAPTER.REBUILD_GUIDE] : []),
     ...(lights.length ? [bundle.ADAPTER.GUIDE_LEGEND] : []),
     relightSceneInstructions(settings, bundle),
     bundle.ADAPTER.SCENE_CONSTRAINT[mode],
     relightPhotographicInstructions(settings, bundle),
-    ...buildRelightActionInstructions({ lights, originalLights: requestedOriginalLights, ...settings }),
-    ...(prompt ? [`Additional user lighting instruction: ${JSON.stringify(prompt)}. Apply it within the typed action priority and scene-preservation constraints above.`] : []),
     bundle.ADAPTER.OUTPUT[lights.length ? "GUIDED" : "PLAIN"],
   ].join("\n\n");
 }
@@ -127,6 +129,7 @@ function guideSvg(lights, width, height) {
 
 export async function prepareRelightInput(validated, { buildPrompt = buildRelightPrompt } = {}) {
   const { source, lights, outputResolution, quality } = validated;
+  const RELIGHT_ONEAPI_MODEL = MODEL_CONFIGS[validated.modelKey || RELIGHT_MODEL_KEY];
   const target = relightOutputSize(source, outputResolution, RELIGHT_ONEAPI_MODEL.sizes);
   const sourceBytes = await sharp(Buffer.from(source.imageUrl.split(",")[1], "base64")).png().toBuffer();
   const guideBytes = lights.length
@@ -143,6 +146,8 @@ export async function prepareRelightInput(validated, { buildPrompt = buildReligh
 
 export async function executeRelightOneApi(validated, { imageClient, onProgress = () => {}, buildPrompt = buildRelightPrompt }) {
   if (typeof imageClient?.editImageAsync !== "function") throw fail("GPT打光客户端尚未配置", 409);
+  const modelKey = validated.modelKey || RELIGHT_MODEL_KEY;
+  const RELIGHT_ONEAPI_MODEL = MODEL_CONFIGS[modelKey];
   const originalLights = normalizeRelightOriginalLights(validated.originalLights);
   const prepared = await prepareRelightInput({ ...validated, originalLights }, { buildPrompt });
   const startedAt = Date.now();
@@ -161,7 +166,7 @@ export async function executeRelightOneApi(validated, { imageClient, onProgress 
   } catch { throw fail("GPT打光实际返回不是有效的单帧PNG图片", 502); }
   if (native.width !== prepared.target.width || native.height !== prepared.target.height) throw fail(`GPT打光实际返回${native.width}×${native.height}，与请求${prepared.request.size}不一致`, 502);
   const { source } = validated, outputSha256 = digest(outputBytes);
-  const metadata = { provider: "oneapi", modelKey: RELIGHT_MODEL_KEY, model: RELIGHT_ONEAPI_MODEL.id,
+  const metadata = { provider: "oneapi", modelKey, model: RELIGHT_ONEAPI_MODEL.id,
     version: RELIGHT_WORKFLOW_VERSION, workflowVersion: RELIGHT_WORKFLOW_VERSION, prompt: prepared.request.prompt, sourcePrompt: validated.prompt,
     templateKey: validated.templateKey, blendMode: validated.blendMode, originalLights: structuredClone(originalLights), templateSource: validated.relightPromptSnapshot.source,
     relightPromptCode: validated.relightPromptSnapshot.code, relightPromptVersion: validated.relightPromptSnapshot.version,
@@ -176,7 +181,7 @@ export async function executeRelightOneApi(validated, { imageClient, onProgress 
     outputResized: false, protectedAreaComposited: false, postUpscaled: false, hasMask: false,
     calibratedLighting: false, requestId: generated.requestId || null, upstreamAsync: true, usageCost: generated.usageCost || null };
   return { durationMs: Date.now() - startedAt, images: [{ url: pngUrl(outputBytes) }],
-    request: { model: RELIGHT_ONEAPI_MODEL.id, modelKey: RELIGHT_MODEL_KEY, provider: "oneapi", quality: prepared.request.quality,
+    request: { model: RELIGHT_ONEAPI_MODEL.id, modelKey, provider: "oneapi", quality: prepared.request.quality,
       outputFormat: "png", outputResolution: validated.outputResolution, resolution: validated.outputResolution,
       referenceImageCount: prepared.request.images.length, lightCount: validated.lights.length, templateKey: validated.templateKey,
       blendMode: validated.blendMode, originalLights: structuredClone(originalLights), size: prepared.request.size, syncMode: "local-only" },

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖sharp真实PNG、打光归档/含光影转换/质感增强普通功能的飞书Schema边界、打光资产离线种子和内存CLI替身
- * [OUTPUT]: 验证v10整体原灯/可选精修计划及飞书资产冻结、历史v1-v9原摘要与Prompt不重写、动作摘要与单双图字段附件双回读
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 验证v10整体原灯/可选精修计划及飞书资产冻结、历史v1-v9原摘要与Prompt不重写、动作摘要与单双图字段附件双回读
  * [POS]: test 的 GPT 打光飞书归档合同测试，不调用真实模型、CLI 或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,7 +37,7 @@ function archiveFixture() {
   const input = { referenceImages: [{ dataUrl: dataUrl(sourceBytes), type: "image/png", name: "用户原图.png", size: sourceBytes.length }], lights: structuredClone(lights), prompt: "保持室内原有设计" };
   const validated = { lights: structuredClone(lights), prompt: input.prompt };
   const metadata = { modelKey: "gptImage25Sunburst", prompt: "Image 1 is the clean scene. Apply actual lighting according to image 2.\nRemove guide marks.", lights: structuredClone(lights),
-    model: MODEL_CONFIGS.gptImage25Sunburst.apiModel, version: "2026-10-25.1", workflowVersion: "2026-10-25.1",
+    model: MODEL_CONFIGS.gptImage25Sunburst.id, version: "2026-10-25.1", workflowVersion: "2026-10-25.1",
     sourceSha256: digest(sourceBytes), submittedSourceSha256: digest(sourceBytes), guideSha256: digest(guideBytes), outputSha256: digest(resultBytes),
     sourceWidth: 96, sourceHeight: 64, outputWidth: 96, outputHeight: 64, outputResolution: "1k", quality: "medium", usageCost: { totalCost: 0.12 } };
   const result = { durationMs: 3210, images: [{ url: dataUrl(resultBytes) }], request: { outputFormat: "png", quality: "medium", resolution: "1k", sizeMode: "source", referenceImageCount: 2 },

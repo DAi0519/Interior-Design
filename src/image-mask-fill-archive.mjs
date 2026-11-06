@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖批次合同、遮罩模式/参考用途及消除操作真源、原图/遮罩/视觉参考图、实际送模圈选标记PNG与提交摘要、真实Prompt、传输路径及结果元数据
- * [OUTPUT]: 二次编辑功能/字段/模式及模型标签真源，真实模型/尺寸/费用与独立附件归档，消除操作身份及参考用途写入生成参数且与实际回执一致，校验圈选PNG与送模SHA并保留未标记原件
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 二次编辑功能/字段/模式及模型标签真源，真实模型/尺寸/费用与独立附件归档，消除操作身份及参考用途写入生成参数且与实际回执一致，校验圈选PNG与送模SHA并保留未标记原件
  * [POS]: src 的二次编辑归档边界，由应用服务与 lark-sync 共享，不执行 GPU 或飞书写操作
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -62,7 +62,7 @@ export function buildImageMaskFillArchive({ input, validated, result, maskImage 
   const provider = validated.provider || "comfyui";
   return {
     durationMs: result.durationMs, finalPrompt: metadata.prompt, sourcePrompt: validated.prompt,
-    modelLabel: provider === "oneapi" ? MODEL_CONFIGS.gptImage25Sunburst.label
+    modelLabel: provider === "oneapi" ? MODEL_CONFIGS[validated.modelKey].label
       : validated.modelKey === "qwenImageEdit2511" ? "Qwen Image Edit 2511" : IMAGE_MASK_FILL_ARCHIVE_MODEL_LABEL,
     preview: { ...result.request, ...operationFields, ...(fillReferencePurpose ? { fillReferencePurpose } : {}),
       resolution: metadata.outputResolution || tier.key, inferenceSize, syncMode: "lark", provider, transport: result.upstream.transport },

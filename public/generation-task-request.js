@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖统一生成输入、逐模型参数适配、单模型每光影每模式1–4张及精模光影/三方式多选与旧氛围兼容、各功能状态与后台任务批次元数据
- * [OUTPUT]: 对外提供全景/精模多光影×模型独立展开与标签、精模逐模式版本及全景逐卡身份投影、光影对比进度文案和不重复图片载荷的后台请求
+ * [INPUT]: 依赖统一生成输入、美化六档/模板逐项选择与Prompt版本、逐模型参数适配、精模光影/三方式多选与旧氛围兼容、各功能状态及后台批次元数据
+ * [OUTPUT]: 对外提供美化/全景/精模多光影×模型独立展开与标签、美化逐项覆盖工作流/卡片/Prompt和精确总张数文案、精模逐模式版本及全景逐卡身份、单份共享图片载荷的后台请求
  * [POS]: public 的生成任务请求组装层，介于页面状态与服务端任务契约之间
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,6 +29,21 @@ export function panoramaItemsForSelection(models, generationCount = 1, selection
   })));
 }
 
+export function beautificationItemsForSelection(models, selections) {
+  return models.flatMap(model => selections.map(beautificationSelection => ({
+    ...model, modelLabel: model.label, beautificationSelection,
+    label: `${model.label} · ${beautificationSelection.name}`,
+  })));
+}
+
+export function beautificationSettingsForSelection(selection, promptVersion) {
+  return {
+    effectBeautification: selection.effectBeautification,
+    effectBeautificationLighting: selection.effectBeautificationLighting,
+    effectBeautificationPromptVersion: promptVersion,
+  };
+}
+
 export function generationItemsForSelection(models, generationCount = 1, lightingSelections = null) {
   if (!Array.isArray(models) || models.length < 1) {
     throw new RangeError("请至少选择 1 个出图模型");
@@ -55,6 +70,7 @@ export function generationLoadingCopy({
   designPromptRequest,
   emptyRoomRequest,
   effectBeautificationRequest,
+  effectBeautificationSelections,
   effectEnhancementRequest,
   textureEnhancementRequest,
   lightingTransferRequest,
@@ -76,7 +92,11 @@ export function generationLoadingCopy({
     return "正在按时段与天气规则转换效果图氛围…";
   }
   if (effectBeautificationRequest) {
-    return "正在按所选强度与色调美化效果图…";
+    if (effectBeautificationSelections?.length > 1) {
+      const total = generationItemsForSelection(models, generationCount).length * effectBeautificationSelections.length;
+      return `正在按 ${effectBeautificationSelections.length} 种光影模板分别美化效果图，共 ${total} 张…`;
+    }
+    return "正在按所选光影模板美化效果图…";
   }
   if (textureEnhancementRequest) {
     return "正在增强材质质感与光影细节…";
@@ -156,7 +176,9 @@ export function buildGenerationJobRequest({
     const lightingInput = selectedLighting ? { ...baseInput, refinedLighting: selectedLighting,
       promptVersion: selectedLighting.mode === "preset" && ["prompt-and-reference", "prompt-with-reference"].includes(selectedLighting.execution)
         ? selectedLighting.ruleVersion : baseInput.promptVersion } : baseInput;
-    const modeInput = featureMode === "panoramaEnhancement" ? { ...lightingInput,
+    const modeInput = featureMode === "effectBeautification" && model.beautificationSelection ? { ...lightingInput,
+      ...beautificationSettingsForSelection(model.beautificationSelection, baseInput.effectBeautificationPromptVersion),
+    } : featureMode === "panoramaEnhancement" ? { ...lightingInput,
       panoramaLighting: panoramaLightingRequestSelection(model.panoramaLightingSelection || baseInput.panoramaLighting),
     } : lightingInput;
     const adapted = adaptGenerationInputForModel(modeInput, model, {

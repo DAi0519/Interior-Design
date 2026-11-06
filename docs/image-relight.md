@@ -7,6 +7,10 @@
 
 # AI编辑 → 打光
 
+2026-11-06模型扩展：新增GPT Image 2.6 Sunburst/Flare，保留原2.5默认与历史任务；下文原有固定模型描述以本条为准。实际范围、4K文生图证据和图生图预算拦截见[gpt26-integration.md](gpt26-integration.md)。
+
+最终Prompt先传用户补充原文，再传整体原灯/标注动作，之后接固定边界、模板与摄影规则。空补充不插占位；既有typed动作冲突优先级保持，实际送模与归档同文，见[工作台Prompt顺序](workbench-prompt-order.md)。
+
 用户在当前场景上选择不同光照模板，重新建立照明与阴影，按需编辑光源。运营正文由独立飞书「打光 Prompt」版本表管理，服务端不回退到代码或本地文件。原图作为空间、材质和物体布局的依据，原来的光照不作为五模板的保留目标。仅使用GPT Image 2.5 Sunburst（`gptImage25Sunburst`），功能ID为`imageRelight`，不进入Beta或Benchmark。
 
 ## 默认操作
