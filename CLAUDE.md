@@ -83,7 +83,7 @@ outputs/ - 忽略的最终评测与真实原件；KS、精模、打光、旧房�
 package.json - 固定 Node 版本、OneAPI 专用 undici 连接、Inter Variable 字体、Pannellum 360° 浏览器、sharp 请求图片压缩、lark-cli 依赖审批，以及启动、飞书初始化、测试和源码发布脚本
 package-lock.json - 固定运营安装依赖树与 lark-cli/Pannellum 版本
 launcher.mjs - Windows/macOS 共享一键启动器，校验 Node 与端口、按 lock 摘要安装依赖、引导飞书 CLI 初始化、向服务注入项目内 CLI 路径并打开浏览器
-server.mjs - 平面机位渲染独立路由/忙碌守卫；独立AI渲染台任务/同步路由及忙碌守卫、单页同源嵌入安全头、运行进程全景多光影能力目录、Main/Beta注入独立R5_4全景客户端，含精模光影库同源版本化预览的本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立风格转换配置与双 Agent 连接校验、独立图片工具配置与共享扩图动态能力准入、精模Flux单双图上下文路由、ComfyUI 图片超分、Flux/Qwen/Sunburst三引擎扩图与二次编辑独立客户端、精模/白模/Style DNA、Beta跑图独立新 Base/Flux与Qwen专用扩图客户端及Sunburst复用归档，与 Benchmark API 路由入口
+server.mjs - 复用http-response统一响应写入；平面机位渲染独立路由/忙碌守卫；独立AI渲染台任务/同步路由及忙碌守卫、单页同源嵌入安全头、运行进程全景多光影能力目录、Main/Beta注入独立R5_4全景客户端，含精模光影库同源版本化预览的本地 HTTP 服务、共享版本更新检测/受信安装 API、固定版本 Inter Variable/Pannellum 浏览器资产、可选持久化密钥会话、飞书 Setup、后台及旧直接生成 API 的 Schema 409 准入、Beta 三表 Schema 与提示词模型当前 Key 权限前置准入、单图样本上传/样本 ID 入队/按需轻量预览、生成结果下载、双 Provider 单模型多张/多模型生成、独立风格转换配置与双 Agent 连接校验、独立图片工具配置与共享扩图动态能力准入、精模Flux单双图上下文路由、ComfyUI 图片超分、Flux/Qwen/Sunburst三引擎扩图与二次编辑独立客户端、精模/白模/Style DNA、Beta跑图独立新 Base/Flux与Qwen专用扩图客户端及Sunburst复用归档，与 Benchmark API 路由入口
 start-macos.command - macOS Finder 双击入口，检查 Node 24 后委托 launcher.mjs
 start-windows.cmd - Windows Explorer 双击入口，检查 Node 24 后委托 launcher.mjs
 benchmark-runner.mjs - 独立单变量横评命令行入口，默认只读汇总多候选 Agent/Style/融合模型且仅在显式 --execute 后调用模型并写回 Base

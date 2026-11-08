@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖floor-plan-camera-service的平面机位渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [INPUT]: 依赖http-response的统一响应写入；依赖floor-plan-camera-service的平面机位渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
  * [OUTPUT]: 提供三个平面图出图入口与逐图飞书归档，归档状态查询和续传；组合AI渲染台、主工作台、Beta、模型评测、更新忙碌守卫及配置、连接、生成和下载接口。
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createReadStream, existsSync } from "node:fs";
 import { createServer } from "node:http";
+import { sendJson, sendDownload, sendImage } from "./src/http-response.mjs";
 import { SECURITY_HEADERS, staticSecurityHeaders } from "./src/http-security.mjs";
 import { randomUUID } from "node:crypto";
 import { extname, join, normalize } from "node:path";
@@ -150,33 +151,6 @@ function normalizeApiKey(value) {
   const key = String(value || "").trim();
   return key.replace(/^Bearer\s+/i, "");
 }
-function sendJson(response, statusCode, payload) {
-  response.writeHead(statusCode, {
-    ...SECURITY_HEADERS,
-    "Content-Type": "application/json; charset=utf-8",
-    ...(statusCode === 413 ? { Connection: "close" } : {}),
-  });
-  response.end(JSON.stringify(payload));
-}
-function sendDownload(response, download) {
-  response.writeHead(200, {
-    ...SECURITY_HEADERS,
-    "Content-Disposition": download.contentDisposition,
-    "Content-Length": download.bytes.length,
-    "Content-Type": download.contentType,
-  });
-  response.end(download.bytes);
-}
-function sendImage(response, { bytes, contentType }) {
-  response.writeHead(200, {
-    ...SECURITY_HEADERS,
-    "Cache-Control": "no-store",
-    "Content-Length": bytes.length,
-    "Content-Type": contentType,
-  });
-  response.end(bytes);
-}
-
 async function readJson(request) {
   const chunks = [];
   let totalBytes = 0;

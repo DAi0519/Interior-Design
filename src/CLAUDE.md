@@ -2,6 +2,7 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+http-response.mjs: HTTP JSON/图片/下载响应写入，复用统一安全头并保留413关闭连接语义
 design-prompt-output.mjs: 空房/旧房自由JSON/纯文本校验和用户原文前置；机位Agent仅复用前置函数，自身输出由独立JSON合同校验
 floor-plan-camera-prompt.mjs: 独立飞书floor-plan-camera-agent空间推理系统正文、最低v2 JSON合同门槛、上架版本/SHA冻结与脱敏目录，无跨表或本地回退
 floor-plan-camera-output.mjs: 校验Agent JSON的view_summary/image_prompt、4000字摘要上限与UNRESOLVABLE_VIEW阻断，额外字段不透传生图
