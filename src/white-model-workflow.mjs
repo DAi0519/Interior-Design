@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖白模/空房/旧房/风格转换的独立飞书Agent、白模可选纯词光影、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
+ * [INPUT]: 依赖共享自由设计正文校验/用户原文前置、白模/空房/旧房/风格转换的独立飞书Agent、白模可选纯词光影、房型/家具、Style DNA、主图/风格图、Flux负向Prompt、双Provider、批次/提示词缓存及可注入的模型客户端
  * [OUTPUT]: 对外提供用户要求前置的设计Agent输入/最终Prompt与同文归档；空房/旧房接受自由JSON或纯文本，白模/风格转换保持字段校验及独立System Prompt
  * [POS]: src 的设计模型渲染应用服务，在 Prompt 阶段按功能与模式选择稳定 Agent，再统一复用最终出图、画幅和归档链路
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from "node:crypto";
+import { normalizeDesignPromptOutput as normalizeRoomDesignPromptOutput, prependDesignUserRequirements } from "./design-prompt-output.mjs";
 
 import { agentModelOrThrow } from "./agent-model-config.mjs";
 import { furniturePromptInput, normalizeFurnitureSelection } from "./empty-room-furniture.mjs";
@@ -99,45 +100,6 @@ export function parsePromptAgentOutput(text, { strict = false } = {}) {
   return payload;
 }
 
-function normalizeRoomDesignPromptOutput(text) {
-  const normalized = typeof text === "string"
-    ? text.trim().replace(/^```(?:json|text|markdown)?(?=\s|$)\s*/i, "").replace(/\s*```$/, "").trim()
-    : "";
-  if (!normalized) throw workflowError("Prompt Agent 返回内容为空", 502);
-  let payload;
-  try {
-    payload = JSON.parse(normalized);
-  } catch {
-    // -------- 明显截断的 JSON 不作为纯文本继续收费出图 --------
-    if (/^\{/.test(normalized) || /^\[\s*(?:["{[\]\d-]|true\b|false\b|null\b|$)/.test(normalized)) {
-      throw workflowError("Prompt Agent 没有返回合法 JSON", 502);
-    }
-    return normalized;
-  }
-  const hasText = (value) => {
-    if (typeof value === "string") return Boolean(value.trim());
-    return value !== null && typeof value === "object"
-      && Object.values(value).some(hasText);
-  };
-  if (!hasText(payload)) throw workflowError("Prompt Agent 返回内容为空", 502);
-  return JSON.stringify(typeof payload === "string" ? payload.trim() : payload, null, 2);
-}
-
-function prependDesignUserRequirements(agentPrompt, userRequirements) {
-  let payload;
-  try {
-    payload = JSON.parse(agentPrompt);
-  } catch {
-    // -------- 纯文本保留正文；用户原文独立放在首段 --------
-  }
-  const body = typeof payload === "string" ? payload : agentPrompt;
-  if (!userRequirements) return body;
-  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    delete payload.user_requirements;
-    return JSON.stringify({ user_requirements: userRequirements, ...payload }, null, 2);
-  }
-  return `user_requirements:\n${userRequirements}\n\n${body}`;
-}
 
 function styleReferenceContract(hasStyleReference) {
   if (!hasStyleReference) return [];

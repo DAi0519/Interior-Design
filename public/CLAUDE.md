@@ -2,18 +2,24 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+generation-sync.js: 三种平面图出图结果的飞书状态、链接、安全轮询和仅归档重试，切换结果不覆盖当前图
+floor-plan-camera.html: AI渲染平面机位页面，画布工具条含朝向/视野/等效焦距/居中，画布图例区分镜头开角与估算可见区，结果区按模型分组，含逐图切换、失败状态、镜头摘要和折叠画面词、逐图归档状态与记录链接
+floor-plan-camera.js: v11画布点放/按拖定向/机身移动/圆点伸缩变焦和转向及起手方向锁定，工具条与键盘微调、实时焦距与冻结结果焦距、墙线遮挡填色及角度回退；.9单张机位图门禁、共享生图模型多选/每模型张数/共同尺寸/独立思考强度、分组结果及GET恢复、逐图归档轮询与同ID重试
+floor-plan-camera-geometry.js: 归一坐标、真实长宽比朝向、可伸缩中心手柄和视野边点命中、水平视野与全画幅等效焦距换算
+floor-plan-camera-visibility.js: 共用640px RGBA墙线提取与水平射线首墙裁切；双侧近墙可额外估算中间可见画幅和五处平面远端命中点
+floor-plan-camera.css: 画布工具条与等效焦距读数、可见区图例、手柄光标、画布和下拉键盘文字提示、勾选式下拉、分组缩略图与失败项、可见画面摘要/折叠提示词及窄屏布局、同步状态与归档操作布局
 beta-house-plan.js: 户型布局Beta独立版本/Agent草稿、逐样本主卧/空间标注与样本×模型批次构建
 beta-house-plan.css: 复用Beta令牌的自适应标注弹窗与工具条
-house-plan.html: 嵌入主工作台原参数容器/跨栏START＋右画布布局，补充需求直接输入，Agent版本/规划基模与专表入口常显，复用共享刷新按钮
-house-plan.js: 缓存节点引用并将参数/START挂入父工作台，底部空间类型选择/自定义命名、归一化框选/撤销清空、默认GPT2.5、独立会话/单任务提交与刷新GET恢复、飞书多版本选择/保持原选择与下架阻断
+house-plan.html: 嵌入主工作台原参数容器/跨栏START＋右画布布局，Agent版本/规划基模与专表入口常显，成图显示飞书归档及链接
+house-plan.js: 缓存节点引用并将参数/START挂入父工作台，空间框选/撤销清空、默认GPT2.5、原任务GET恢复、出图归档准入及状态、飞书Prompt版本选择与下架阻断
 house-plan.css: 复用二次编辑表单/画布工具栏及共享品牌START，主工作台原参数宽度/伸缩/配置抽屉与自适应大画布
 floor-plan-editor.js: 当前原图/结果转可编辑方案、视觉模型选择、家具与本地3D视图及v1草稿恢复
 floor-plan-engine.js: 固定编辑引擎的受限同源桥接
 floor-plan-contract.js: 家具类别与毫米几何容量合同
 floor-plan-state.js: 几何方案校验、保存与旧JSON导入
 vendor/: 按需载入的离线编辑引擎与许可证
-floor-plan.html: 设计实验室 Beta（原平面布局），上传户型/生成模型/可选布局要求与平面结果，保留文字修改及室内多角度入口
-floor-plan.js: GPT2.6双模型身份/权限与历史兼容； 布局模型选择冻结/失权阻断、四动作单次提交、原任务GET恢复与图片下载，后续能力保留Sunburst
+floor-plan.html: 设计实验室 Beta（原平面布局），户型上传/布局生成/文字修改/室内多角度入口及当前图片归档状态
+floor-plan.js: GPT2.6双模型身份/权限与历史兼容，布局模型冻结、四动作单次提交、原任务GET恢复、出图归档准入及当前图片状态，后续能力保留Sunburst
 floor-plan.css: 共享银灰令牌/模型下拉、精简输入列、大图预览与窄屏纵向流
 floor-plan-report/: 本机只读实测HTML与六张公开/生成图片，映射独立http视图；普通浏览器入口/floor-plan-report/index.html，不暴露任务或Prompt日志
 panorama-lighting-report/: 本机只读全景光影50结果报告别名，指向outputs/panorama-lighting-final，复用4192静态服务且无需重启
@@ -22,7 +28,7 @@ effect-beautification-lighting.js: 六无图卡/九图卡同网格主/Beta多选
 ai-render-studio.html: 现有工作台式单列参数＋结果区、真实九卡光影单选/渲染风格下拉/默认收起精细控光，同源嵌入
 ai-render-studio.js: GPT2.6双模型身份/权限与历史兼容； 单图8MiB上传、现有九卡单选/原光影、渲染风格共享下拉与按需控光复用、单次提交/GET恢复、原图对比下载与飞书同步状态/仅同步重试
 ai-render-studio.css: 共享工作台视觉下的参数/结果双栏与窄屏重排、按需控光/真实结果和同步状态
-ai-render-studio-host.js: 户型布局原生参数/动作挂载槽与切换隔离； AI渲染台/户型平面布局/设计实验室 Beta 共享懒加载保活iframe、旧参数/START/结果隔离与双向导航/URL直达
+ai-render-studio-host.js: 户型布局原生参数/动作挂载槽与切换隔离； AI渲染台/平面机位渲染/户型平面布局/设计实验室 Beta 共享懒加载保活iframe、旧参数/START/结果隔离与双向导航/URL直达
 ai-render-studio-host.css: 两个独立工作区保留144px功能目录，适配移动配置导航与隐藏frame隔离
 ai-render-studio-example.png: 既有带材质模型原件的逐字节交互示例，仅用于控光试用，不冒充渲染成品
 jzxz-style-atlas/: 本机建筑学长单图34风格总览静态别名，指向outputs/jzxz-style-atlas/http-preview，与既有精模报告隔离，复用4192无需重启
@@ -66,7 +72,7 @@ image-multi-angle.css: 银灰机位编辑区与Sunburst共享质量下拉、统�
 image-multi-angle-geometry.js: 浏览器与后端共用20MB/6400万像素/单边16384准入和长边最高2048、8px对齐、不放大小图的尺寸真源
 image-mask-fill-geometry.js: GPT2.6双模型身份/权限与历史兼容； 独立maskFillOperation=remove及removalPromptVersion共享合同/前端选区必填，三模型/6MiB/4096准入、GPT参考模式可空指令及物品/材质用途默认与合法性共享策略、矩形与自由多边形归一化/深拷贝/非零面积和2048点上限、共享蓝线常量、Flux/Qwen必填遮罩/GPT可选mask或editRegion互斥请求，GPT按目录注入的1K/2K/4K输出规划与默认1K
 image-mask-fill-canvas.js: 原图等尺寸白色遮罩、GPT蓝色矩形/自由闭合圈选，setTool与工具按钮共用模型准入及切换路径，选区按钮始终显示且非GPT禁用并提示切换模型，鼠标/触屏指针捕获/取消丢弃未完成轮廓/长轨迹简化；三份独立历史与当前工具撤销清空，换原图共同清除，只有涂抹导出mask
-image-mask-fill.js: GPT2.6双模型身份/权限与历史兼容； 三模型双模式控制器及局部消除独立Prompt操作/旧后端版本门禁，默认GPT+框选/真实可编辑消除词/必选区域/三份独立草稿，自动词随框选与涂抹适配且不覆盖手写，仍提交prompt模式并显式传maskFillOperation=remove；GPT画笔/矩形/自由圈选并存，当前工具提交mask或归一化矩形/多边形，独立supportsBoxSelection/supportsLassoSelection旧服务阻断保留状态；GPT参考模式换物品/换材质切换与可空补充指令/用途占位及其他模型原推荐、手写保留、仅异常提示、三档五质量默认1K/medium、实际尺寸摘要与任务飞书入口
+image-mask-fill.js: 局部消除保留已选GPT2.6，不暗换回2.5； GPT2.6双模型身份/权限与历史兼容； 三模型双模式控制器及局部消除独立Prompt操作/旧后端版本门禁，默认GPT+框选/真实可编辑消除词/必选区域/三份独立草稿，自动词随框选与涂抹适配且不覆盖手写，仍提交prompt模式并显式传maskFillOperation=remove；GPT画笔/矩形/自由圈选并存，当前工具提交mask或归一化矩形/多边形，独立supportsBoxSelection/supportsLassoSelection旧服务阻断保留状态；GPT参考模式换物品/换材质切换与可空补充指令/用途占位及其他模型原推荐、手写保留、仅异常提示、三档五质量默认1K/medium、实际尺寸摘要与任务飞书入口
 image-mask-fill.css: 遮罩设置分组20px/组内8px节奏、输出/质量共享字段栅格、38px模式/用途/绘制工具按钮、等比例主画布及触屏画笔/不透明蓝色圈选/窄屏样式
 
 effect-beautification-controls.js: 六档按高低强度与自然/暖/冷调直白命名，Main/Beta十五卡混合多选、全选清空/持续展开、逐项工作流与身份快照/恢复、空选和漂移阻断，原六档不伪装飞书资产
@@ -99,7 +105,8 @@ generation-count.js: 单模型生成张数下拉控制器，提供 1–4 张归�
 flux-negative-prompt.js: 全景R5_4隐藏CFG1无效负向且独立空草稿；质感增强隐藏负向编辑；Flux 负向 Prompt 输入控制器，仅在选中 Flux2 Klein 时显示，旧房与普通功能分别保存内存草稿，旧房空值说明可改材质/配色/家具/装饰且保留真实结构/原视角，美化独立说明空默认负向，普通原文不变，非空整段覆盖并管理字数；不持久化或接收默认正文
 generation-input.js: 白模光影自动null或精确单卡身份，其他功能剥离；光影转换仅投影独立补充要求及卡片/规则身份，不带其他功能词；质感增强独立Prompt版本仅随本功能请求冻结；全景仅传卡片身份和用户光影正文、不携第二参考图；质感增强清空正负向用户词；精模纯词投影基础版本，迁移/上传与氛围词双图投影各自ruleVersion为promptVersion、不携基础code/SHA，卡图服务端读取/上传图独立携带，undefined才兼容旧参数；旧房映射emptyRoom并携designScenario/独立Agent版本；美化新卡仅投三字段身份并强制低自然，原六档保持且其他功能剥离
 generation-batch.js: Main/Beta共享逐模型尺寸质量适配与后置KS身份冻结，跨模型清除旧字段、超限阻断；保序有限并发及原生/全景/双图隔离
-generation-results.js: 全功能共享单图/两列结果画廊，消费精模预设仅提示词/提示词加参考图可读摘要、原图/结果滑动对比、原位失败卡、全景专属360°入口、内嵌Blob/远程同源下载及独立飞书同步；旧房无中间图或额外归档
+generation-results.js: 全功能共享单图/两列结果画廊，结果图直接点击大图、原图/结果滑动对比、精模执行方式摘要、原位失败卡、全景专属360°入口、内嵌Blob/远程同源下载及独立飞书同步；旧房无中间图或额外归档
+result-image-viewer.js: 无新增按钮的二维结果大图，点击/Enter/Space打开原始图片，区分滑动对比和点击，原生dialog隔离焦点、点击/Esc关闭并归还焦点
 generation-task-controller.js: 生成任务交互层，按功能管理任务启动/跟随/恢复、仅在当前页面内存保留任务原图，并向结果区传递功能/对比上下文与忙碌状态
 panorama-viewer.js: 全景图美化结果专属 360° 交互层，以按需 Blob 和 Pannellum 等距柱状投影创建可拖拽、缩放、全屏、复位及关闭销毁的 viewer
 panorama-viewer.css: 全景结果预览视觉层，提供 360° 入口、与工作台同构的银灰命令栏/品牌键帽、沉浸式暗色画布、同源 Pannellum 控件/加载提示和窄屏全屏布局；弹层表面与遮罩由 raycast-accent.css 统一
@@ -148,7 +155,7 @@ benchmark-sample-ui.js: Benchmark 样本纯交互规则层，集中维护文件�
 benchmark-job-ui.js: Benchmark 任务呈现组件，统一生成/评分任务的阶段、Base 真源进度、停止/继续出图状态、失败出图重试输入、评分失败卡断点继续动作、持久化实验任务投影、失败影响与可执行恢复建议
 benchmark-review-ui.js: Benchmark AI 评分控制器，从 Base 成功结果目录筛选当前样本集可评分实验，默认最近完成实验和 GPT 评分模型，部分完成时按剩余 Run 显示继续评分，按 Run 仅选择最新 v3.1 评分并渲染六项摘要/三维加权分/结论/结构化问题/本地校准原因，对旧协议显示隔离提示，并确保评分任务留在 AI 评分面板
 styles.css: 双噪声网格沿用共享字段样式与14px上间距；紧凑输入控制、单模型生成张数参数、轻量配置刷新、参考图列表与单图替换反馈、弹层与响应式结构规则
-result.css: 结果工具栏、空态/加载态/错误态、单图与完整图片高度的可滚动多图画廊、细线与无聚焦外圈的半透明小胶囊构成的原图/结果图叠层分界及逐图下载动作视觉
+result.css: 结果状态/画廊、轻量原图/结果滑动分界与逐图下载视觉；直接点击大图的银灰原生弹层、原比例适配、加载/错误与关闭提示
 theme.css: 主题基础层，跨页面刷新按钮样式已抽至config-refresh-button.css；生图工作台 Raycast 向近白银灰画布/半透明命令面板设计令牌、440–490px 自适应双栏、144px 宽且正文不低于 12px、分类黑色粗体的 AI设计/AI渲染/AI编辑/AI创作目录及窄屏两列分组、系统字体光学排版、约束隐藏下拉定位且禁止外层焦点滚动的独立配置滚动区与底部动作栏、精模/Flux Prompt、紧凑配置、单图替换反馈与共享选择按钮令牌的主题基础层
 theme-interactions.css: 生图主题补充层，提供精细指针hover和560px以下布局；跨页面刷新按钮交互由config-refresh-button.css承载
 app-elements.js: 含图片超分输入/潜空间噪声DOM引用；白模光影容器引用；新增质感增强固定Prompt配置区引用；全景光影容器查询；含精模光影氛围容器；生图页 DOM 查询边界，集中提供二次编辑/功能、美化容器、图片超分工作流及说明、模型、图片、Prompt、参数与结果元素映射

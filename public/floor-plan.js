@@ -1,13 +1,16 @@
 /**
- * [INPUT]: 依赖共享api/文件读取/下拉、独立平面布局模型目录/API和浏览器会话任务身份
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 提供上传→选择模型→布局结果，保留文字修改/室内/多角度，冻结实际选择与任务恢复
+ * [INPUT]: 依赖共享API、文件读取与下拉、独立平面布局和归档状态接口、浏览器会话任务身份
+ * [OUTPUT]: 提供布局生成/文字修改/室内多角度、原任务恢复、出图归档准入与当前归档状态
  * [POS]: public 的平面布局图片工作区，按需挂载独立家具编辑与几何3D；轮询只读，收费任务逐次明确点击
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
+import { bindGenerationSync } from './generation-sync.js?v=1';
 import './custom-select.js?v=9';
 
 const $ = id => document.getElementById(`floorPlan${id}`);
+const resultArchive = bindGenerationSync({ api, container: $('Archive'), status: $('ArchiveStatus'),
+  link: $('ArchiveLink'), retry: $('ArchiveRetry') });
 const SESSION_KEY = 'canvas-lab:floor-plan:images:v2';
 const CAMERA_NAMES = { 270: '左侧', 180: '反向', 90: '右侧' };
 const state = { config: null, source: null, layout: null, interior: null, shots: [], selected: 0,
@@ -62,6 +65,7 @@ function updateActions() {
   $('TabInterior').disabled = !(state.layout || state.shots.length) || locked || state.sourceChanged;
   $('GoInterior').disabled = locked || state.sourceChanged;
   $('Download').disabled = !currentImage();
+  resultArchive.show(currentImage()?.sync);
   for (const button of document.querySelectorAll('[data-camera]')) button.disabled = locked || state.sourceChanged || !state.interior || !continuationReady();
   $('Generate').textContent = state.busy && state.pending?.action === 'layout' ? '正在生成…' : '生成平面布局';
   $('Adjust').textContent = state.busy && state.pending?.action === 'adjust' ? '正在修改…' : '修改当前方案';
@@ -180,6 +184,12 @@ async function refreshConfig() {
       state.config.reason = '本机服务尚未加载布局模型选择，请重载工作台后刷新';
       state.config.layoutModels = [];
       state.config.continuationAvailable = false;
+    }
+    if (state.config.archive?.required !== true || state.config.archive.available !== true) {
+      state.config.available = false;
+      state.config.reason ||= '当前服务尚未接入飞书生成记录，请重载工作台';
+      state.config.continuationAvailable = false;
+      state.config.continuationReason ||= state.config.reason;
     }
     renderModels();
     $('ConfigNote').textContent = state.config.available ? '每次生成一张图片' : state.config.reason || '连接未就绪';

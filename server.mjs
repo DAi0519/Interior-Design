@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖beta-house-plan的主服务适配； 依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: Beta新增户型布局批跑及同源版本准入； 提供户型平面布局Agent生图、实验室/AI渲染台独立任务与更新忙碌守卫、渲染台飞书同步、生图/Beta/模型评测页面及配置/连接/生成下载API；原打光/遮罩填充和飞书归档边界保持，JSON单次请求保留30MB保护
+ * [INPUT]: 依赖floor-plan-camera-service的平面机位渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [OUTPUT]: 提供三个平面图出图入口与逐图飞书归档，归档状态查询和续传；组合AI渲染台、主工作台、Beta、模型评测、更新忙碌守卫及配置、连接、生成和下载接口。
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,6 +30,7 @@ import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createAiRenderStudioApiHandler } from "./src/ai-render-studio-api.mjs";
 import { createFloorPlanApiHandler } from "./src/floor-plan-api.mjs";
 import { readHousePlanConfig, prepareHousePlanInput, executeHousePlan } from "./src/house-plan-service.mjs";
+import { readFloorPlanCameraConfig, prepareFloorPlanCameraInput, executeFloorPlanCamera, floorPlanCameraTaskTotal } from "./src/floor-plan-camera-service.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
 import { readMultiAngleConfig } from "./src/image-multi-angle-service.mjs";
 import { IMAGE_MASK_FILL_CLIENT_OPTIONS } from "./src/image-mask-fill-workflow.mjs";
@@ -52,6 +53,8 @@ import { createBenchmarkJobRegistry } from "./src/benchmark-jobs.mjs";
 import { createBenchmarkWorkbenchService } from "./src/benchmark-workbench.mjs";
 import { createBenchmarkWorkbenchStore } from "./src/benchmark-workbench-store.mjs";
 import { syncGenerationToLark, verifyLarkSyncSchema } from "./src/lark-sync.mjs";
+import { verifyFloorPlanArchiveSchema } from "./src/floor-plan-archive.mjs";
+import { createFloorPlanArchiveScheduler } from "./src/floor-plan-archive-input.mjs";
 import { createLarkSetupService } from "./src/lark-setup.mjs";
 import { hasPersistedOneApiKey, persistOneApiKey, removePersistedOneApiKey } from "./src/local-settings.mjs";
 import { OneApiError, createOneApiClient } from "./src/oneapi-client.mjs";
@@ -79,7 +82,8 @@ const handleAppUpdateApi = createAppUpdateApiHandler({
   appUpdates, appInstaller, readJson, sendJson,
   hasActiveJobs: () => activeApiMutations > 0 || generationJobs.hasActiveJobs()
     || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs()
-    || handleAiRenderStudioApi.hasActiveJobs() || handleFloorPlanApi.hasActiveJobs() || handleHousePlanApi.hasActiveJobs(),
+    || handleAiRenderStudioApi.hasActiveJobs() || handleFloorPlanApi.hasActiveJobs() || handleHousePlanApi.hasActiveJobs()
+    || handleFloorPlanCameraApi.hasActiveJobs(),
 });
 const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(ROOT_DIR, "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2");
@@ -341,9 +345,12 @@ const handleAiRenderStudioApi = createAiRenderStudioApiHandler({
 });
 const floorPlanRuntime = { getClient: () => createOneApiClient(requireApiKey()), requireKey: requireApiKey, readJson, sendJson,
   getModels: ({ forceRefresh } = {}) => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: forceRefresh }) };
-const handleFloorPlanApi = createFloorPlanApiHandler(floorPlanRuntime);
-const handleHousePlanApi = createFloorPlanApiHandler({ ...floorPlanRuntime, prefix: "/api/house-plan", featureMode: "housePlanLayout",
+const floorPlanArchiveRuntime = { ...floorPlanRuntime, verifyArchive: verifyFloorPlanArchiveSchema, scheduleArchive: createFloorPlanArchiveScheduler(syncJobs) };
+const handleFloorPlanApi = createFloorPlanApiHandler(floorPlanArchiveRuntime);
+const handleHousePlanApi = createFloorPlanApiHandler({ ...floorPlanArchiveRuntime, prefix: "/api/house-plan", featureMode: "housePlanLayout",
   geometryEnabled: false, readConfig: readHousePlanConfig, prepareInput: prepareHousePlanInput, execute: executeHousePlan });
+const handleFloorPlanCameraApi = createFloorPlanApiHandler({ ...floorPlanArchiveRuntime, prefix: "/api/floor-plan-camera", featureMode: "floorPlanCamera",
+  geometryEnabled: false, getTaskTotal: floorPlanCameraTaskTotal, readConfig: readFloorPlanCameraConfig, prepareInput: prepareFloorPlanCameraInput, execute: executeFloorPlanCamera });
 const betaGenerationService = createGenerationService({ ...generationDependencies, archiveImageUpscale: true,
   scheduleGenerationSync: captureBetaGenerationArchive,
 });
@@ -402,6 +409,7 @@ async function handleApi(request, response, pathname) {
   if (await handleAiRenderStudioApi(request, response, pathname)) return;
   if (await handleFloorPlanApi(request, response, pathname)) return;
   if (await handleHousePlanApi(request, response, pathname)) return;
+  if (await handleFloorPlanCameraApi(request, response, pathname)) return;
 
   if (await handleGenerationJobApi(request, response, pathname)) return;
   if (await handleBetaApi(request, response, pathname)) return;
@@ -618,11 +626,12 @@ async function handleApi(request, response, pathname) {
     return sendJson(response, 200, await readGenerationConfig({ forceRefresh: true }));
   }
 
-  if (request.method === "GET" && pathname.startsWith("/api/sync-jobs/")) {
-    const generationId = decodeURIComponent(pathname.slice("/api/sync-jobs/".length));
-    const job = syncJobs.get(generationId);
+  const syncRoute = pathname.match(/^\/api\/sync-jobs\/([^/]+)(\/retry)?$/);
+  if (syncRoute && request.method === (syncRoute[2] ? "POST" : "GET")) {
+    const generationId = decodeURIComponent(syncRoute[1]);
+    const job = syncRoute[2] ? syncJobs.retry(generationId) : syncJobs.get(generationId);
     return job
-      ? sendJson(response, 200, { sync: job })
+      ? sendJson(response, syncRoute[2] ? 202 : 200, { sync: job })
       : sendJson(response, 404, { error: "同步任务不存在或已过期" });
   }
 

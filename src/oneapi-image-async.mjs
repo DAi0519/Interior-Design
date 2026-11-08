@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖已构造的无mask图片编辑请求、注入的OneAPI JSON请求函数、AbortController及Node可取消计时等待
- * [OUTPUT]: 对外提供buildAsyncImageEditRequest与runAsyncImageEdit，保留原图字节和顺序，单次后台提交/同ID轮询/共享总截止时间及即时上游ID回调
+ * [INPUT]: 依赖已构造的无mask图片编辑请求、model-config的独立思考强度准入、注入的OneAPI JSON请求函数、AbortController及Node可取消计时等待
+ * [OUTPUT]: 对外提供buildAsyncImageEditRequest与runAsyncImageEdit，保留原图字节/顺序与可选complexity工具字段，单次后台提交/同ID轮询/共享总截止时间及即时上游ID回调
  * [POS]: src 的OneAPI异步图像传输边界，被oneapi-client消费；不压缩图片、不选择供应商、不解析或重编码最终产物
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { setTimeout as delay } from "node:timers/promises";
+import { normalizeImageComplexity } from "./model-config.mjs";
 
 const RESPONSE_ID = /^resp_[A-Za-z0-9_-]+$/;
 const WAITING_STATUSES = new Set(["queued", "in_progress"]);
@@ -32,6 +33,8 @@ export function buildAsyncImageEditRequest(generationRequest) {
     image_format: imageFormat, response_format: responseFormat };
   if (generationRequest.size != null) tool.size = generationRequest.size;
   if (generationRequest.quality != null) tool.quality = generationRequest.quality;
+  const complexity = normalizeImageComplexity(generationRequest.model, generationRequest.complexity);
+  if (complexity !== null) tool.complexity = complexity;
   return { model: generationRequest.model, background: true,
     input: [{ type: "message", role: "user", content: [
       { type: "input_text", text: generationRequest.prompt },

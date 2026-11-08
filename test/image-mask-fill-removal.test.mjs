@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Node测试、sharp真实PNG、二次编辑共享UI夹具、消除操作真源、实际服务/OneAPI适配器及GPT模型目录
- * [OUTPUT]: 验证局部消除独立精简最终Prompt与operation透传归档、区域/模式准入、旧服务门禁、三草稿与工具适配/手写保护；普通填充和参考模板隔离
+ * [OUTPUT]: GPT2.6两款切换消除/模型失权时不回退； 验证局部消除独立精简最终Prompt与operation透传归档、区域/模式准入、旧服务门禁、三草稿与工具适配/手写保护；普通填充和参考模板隔离
  * [POS]: test 的局部消除交互与真实服务合同，复用实际控制器/画布/PNG准备和归档，模型与飞书均为内存替身
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -75,6 +75,31 @@ test("局部消除入口默认GPT框选与真实可编辑提示词，无区域�
   assert.equal(Object.hasOwn(request.sharedInput, "fillReferenceImage"), false);
   assert.equal(Object.hasOwn(request.items[0].input, "fillReferencePurpose"), false);
 });
+
+for (const key of ["gptImage26Sunburst", "gptImage26Flare"]) {
+  test(`切换局部消除保留 ${key}，请求和失权门禁不退回2.5`, () => {
+    const f = fixture({ prefillInstruction: false });
+    const model = f.node("[data-mask-model]");
+    const config = gptConfig({ key });
+    f.controller.configure({ removalPromptVersion: MASK_FILL_REMOVAL_PROMPT_VERSION,
+      models: [gptConfig(), config] });
+    model.value = key; model.fire("change");
+    f.modes[2].fire("click");
+    assert.equal(model.value, key);
+    f.paint();
+    assert.equal(f.controller.isAvailable(), true);
+    const request = f.controller.jobRequest({ image });
+    assert.equal(request.items[0].input.maskFillModel, key);
+    assert.equal(request.items[0].input.maskFillOperation, "remove");
+    f.modes[0].fire("click");
+    f.controller.configure({ removalPromptVersion: MASK_FILL_REMOVAL_PROMPT_VERSION,
+      models: [gptConfig(), gptConfig({ key, modes: [{ key: "prompt", available: false, reason: "模型权限失效" }] })] });
+    f.modes[2].fire("click");
+    assert.equal(model.value, key);
+    assert.equal(f.controller.isAvailable(), false);
+    assert.match(f.controller.availabilityReason(), /权限失效/);
+  });
+}
 
 test("提示词/参考图/局部消除三份手写指令独立往返，键盘三项循环可达", async context => {
   const f = fixture({ prefillInstruction: false });

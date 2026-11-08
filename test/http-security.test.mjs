@@ -24,3 +24,12 @@ test("平面布局同源嵌入，其他路径保持默认拒绝策略", () => {
   assert.equal(page["X-Frame-Options"], "SAMEORIGIN");
   assert.strictEqual(staticSecurityHeaders("/other/floor-plan.html"), SECURITY_HEADERS);
 });
+
+test("平面机位仅对明确静态入口开放同源嵌入", () => {
+  const page = staticSecurityHeaders("/floor-plan-camera.html");
+  assert.equal(page["X-Frame-Options"], "SAMEORIGIN");
+  assert.match(page["Content-Security-Policy"], /frame-ancestors 'self'/);
+  for (const path of ["/other/floor-plan-camera.html", "/api/floor-plan-camera/jobs"]) {
+    assert.strictEqual(staticSecurityHeaders(path), SECURITY_HEADERS);
+  }
+});

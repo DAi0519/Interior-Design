@@ -84,3 +84,5 @@ Codex运行动作只执行 `bash .codex/environments/run-workspace.sh`；端口�
 2026-11-06 10:55用户授权续测：两款GPT2.6各追加一次3840×2160图生图，仍均HTTP403预算超限、无产物；未再次重启4192或自动重试。两轮回执分别保留，详见gpt26-integration.md。
 
 2026-11-06 11:14预算解除后：OneAPI目录HTTP200；4192六类独立工具配置两款GPT2.6均available=true（runtime-unblocked.json），未再次重启。两款各一次Responses单参考图4K/medium返回真实3840×2160 PNG，沙发改深绿色生效；本轮合计网关回报0.01353 USD，未核实际账单。前两轮四次403留档，不外推透明mask/后台编辑/全景或全场景画质验收，未发布安装包。
+
+2026-11-08 GPT2.6补漏：4192原PID48797连续20次检查仅监听且无子进程后，沿既有com.canvas-lab.workspace重载为PID66128。Beta扩图建档已加载完整GPT引擎白名单；户型布局/设计实验室/平面机位/AI渲染台实际目录两款2.6可用，AI渲染台飞书光照选项补齐后available=true。1979项离线测试通过，无新增收费任务或正式发布。当前用户浏览器任务状态自动读取未完成，空闲判断依据进程网络/子进程检查；未刷新或改写用户原页面。详见gpt26-integration.md及outputs/gpt26-integration/audit-2026-11-08/verification.json。

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面布局 HTTP 适配器、真实任务注册表与内存准备/图像替身
- * [OUTPUT]: 验证并发准入幂等、准备期轮询、冲突、失败诊断恢复、失效任务不重提、换Key隔离及更新忙碌状态
+ * [OUTPUT]: 验证并发幂等、准备与故障恢复、连接隔离、归档准入和成功槽位逐图同步。
  * [POS]: test 的平面布局独立API合同，不访问网络或付费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -99,6 +99,48 @@ test("准备期或终态后同ID修改输入409，旧结果不会触发新收费
   prepareGate.resolve(); await running; await h.settled();
   await assert.rejects(h.post(changed), { statusCode: 409 });
   assert.equal(h.calls.execute.length, 1);
+});
+
+test("机位批次飞书准入失败不执行模型，成功槽位逐图且只安排一次同步", async () => {
+  const generationJobs = createGenerationJobRegistry();
+  const archived = [];
+  let available = false, generations = 0;
+  const original = "data:image/png;base64,b3JpZ2luYWw=", guide = "data:image/png;base64,Z3VpZGU=";
+  const model = { key: "banana21", label: "Banana 2.1" };
+  const agent = { key: "gemini3pro", label: "Gemini 3.1 Pro" };
+  const result = { action: "render", model, agent, compiledPrompt: "frozen prompt", durationMs: 3000,
+    image: { url: "data:image/png;base64,cmVzdWx0", type: "image/png", sha256: "a".repeat(64) } };
+  const handler = createFloorPlanApiHandler({ generationJobs, featureMode: "floorPlanCamera", geometryEnabled: false,
+    getClient: () => ({}), readJson: async request => request.body, sendJson: (response, status, payload) => Object.assign(response, { status, payload }),
+    prepareInput: async () => ({ action: "render", guide: { imageUrl: guide }, batch: { models: [{ model }] }, agent }),
+    verifyArchive: async ({ featureMode, modelLabels, agentLabels }) => {
+      assert.equal(featureMode, "floorPlanCamera"); assert.deepEqual(modelLabels, [model.label]); assert.deepEqual(agentLabels, [agent.label]);
+      if (!available) throw Object.assign(new Error("归档未就绪"), { statusCode: 409 });
+    },
+    scheduleArchive: input => { archived.push(input); return { generationId: input.archiveId, status: "pending" }; },
+    execute: async () => {
+      generations++;
+      return { receipts: { agent: { requestId: "shared-agent" } }, items: [
+        { index: 1, status: "success", result }, { index: 2, status: "failed", result: null }, { index: 3, status: "success", result },
+      ] };
+    },
+  });
+  const jobId = "camera-archive-batch";
+  const post = () => handler({ method: "POST", body: { jobId, action: "render", referenceImage: { dataUrl: original } } }, {}, "/api/floor-plan/jobs");
+  await assert.rejects(post(), { statusCode: 409 });
+  assert.equal(generations, 0);
+  available = true;
+  await Promise.all([post(), post()]);
+  await new Promise(resolve => setImmediate(resolve));
+  await post();
+  assert.equal(generations, 1);
+  assert.deepEqual(archived.map(archive => archive.workflow.modelIndex), [1, 3]);
+  assert.notEqual(archived[0].archiveId, archived[1].archiveId);
+  assert.deepEqual(archived[0].referenceImages.map(image => image.imageUrl), [original, guide]);
+  assert.equal(archived[0].workflow.receipts.agent.requestId, "shared-agent");
+  const job = generationJobs.get(jobId);
+  assert.equal(job.status, "success");
+  assert.deepEqual(job.result.items.map(item => item.result?.sync?.status), ["pending", undefined, "pending"]);
 });
 
 test("准备失败零客户端/收费任务，准备期间换Key阻断而不沿用权限", async () => {

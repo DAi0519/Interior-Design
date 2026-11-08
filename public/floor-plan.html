@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖共享工作台主题/下拉、平面布局模型目录、图片编排和独立图片任务API
-[OUTPUT]: 提供上传户型/选择模型/生成平面结果，并保留文字调整及室内多角度预览
+[OUTPUT]: 提供上传户型/选择模型/生成平面结果、文字调整、室内多角度预览及当前图片的飞书归档
 [POS]: public 的AI设计设计实验室 Beta 入口，图片流程与按需打开的家具/3D工作区
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -78,7 +78,11 @@
         <div id="floorPlanInteriorMeta" class="floor-plan-image-meta" hidden></div>
       </div>
     </section>
-    <footer class="floor-plan-statusbar"><span id="floorPlanStatus" role="status" aria-live="polite">上传户型图开始</span><span id="floorPlanConfigNote"></span><button id="floorPlanRefresh" type="button">刷新配置</button></footer>
+    <footer class="floor-plan-statusbar">
+      <span id="floorPlanStatus" role="status" aria-live="polite">上传户型图开始</span>
+      <span id="floorPlanArchive" hidden><span id="floorPlanArchiveStatus" role="status"></span> <a id="floorPlanArchiveLink" target="_blank" rel="noopener noreferrer" hidden>查看飞书记录</a> <button id="floorPlanArchiveRetry" type="button" hidden>重试同步</button></span>
+      <span id="floorPlanConfigNote"></span><button id="floorPlanRefresh" type="button">刷新配置</button>
+    </footer>
   </main>
   <dialog id="geometryDialog" aria-labelledby="geometryTitle">
     <div class="geometry-toolbar"><h2 id="geometryTitle">家具编辑 / 3D</h2>
@@ -99,6 +103,6 @@
     <input id="geometryFile" type="file" accept=".json,application/json" hidden />
   </dialog>
   <input id="floorPlanSourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-  <script type="module" src="/floor-plan.js?v=4"></script>
+  <script type="module" src="/floor-plan.js?v=5"></script>
 </body>
 </html>

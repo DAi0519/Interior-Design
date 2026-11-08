@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta扩图页面纯请求、Runner、正式生成服务、三引擎扩图合同、Beta归档投影及sharp真实图片
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供样本乘工作流从页面到真实执行适配器和独立Beta归档的跨层验证，以及普通配置/扩图状态隔离保障
+ * [OUTPUT]: beginRun调用真实buildBetaRunFields，覆盖GPT2.6建档身份； 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供样本乘工作流从页面到真实执行适配器和独立Beta归档的跨层验证，以及普通配置/扩图状态隔离保障
  * [POS]: test 的Beta扩图跨层回归，模型与Base均使用内存替身，不提交GPU、收费请求或飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,7 @@ import { buildBetaOutpaintItems, normalizeBetaOutpaintState } from "../public/be
 import { normalizeBetaPageState } from "../public/beta-page-state.js";
 import { BETA_OUTPAINT_WORKFLOWS, publicBetaOutpaintConfig } from "../src/beta-outpaint.mjs";
 import { createBetaRunnerService } from "../src/beta-runner.mjs";
-import { betaConfigSnapshot, betaResultVersion, captureBetaGenerationArchive } from "../src/beta-base.mjs";
+import { betaConfigSnapshot, betaResultVersion, buildBetaRunFields, captureBetaGenerationArchive } from "../src/beta-base.mjs";
 import { createGenerationService } from "../src/generation-service.mjs";
 import { publicImageOutpaintConfig } from "../src/image-outpaint-service.mjs";
 import { publicQwenOutpaintConfig } from "../src/image-outpaint-qwen.mjs";
@@ -30,7 +30,7 @@ async function image(width, height) {
   return { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "room.png", type: "image/png", size: bytes.length };
 }
 
-test("Beta扩图页面展开四工作流，经正式执行适配器捕获实际Prompt与独立Beta归档", async () => {
+test("Beta扩图六工作流含GPT2.6，经真实建档投影、执行适配器与独立归档保持模型身份", async () => {
   const source = await image(864, 1184);
   const workflows = publicBetaOutpaintConfig(rawConfig()).workflows;
   const events = [], completed = [], submitted = [];
@@ -66,7 +66,11 @@ test("Beta扩图页面展开四工作流，经正式执行适配器捕获实际P
         samples: [{ sampleId: "SAMPLE-1", recordId: "sample-1", image: { type: source.type, size: source.size } }] };
     },
     async resolveSample() { events.push("source"); return { featureMode: "imageOutpaint", image: source }; },
-    async beginRun({ item }) {
+    async beginRun(run) {
+      const { item } = run;
+      const fields = buildBetaRunFields(run);
+      assert.equal(fields["出图模型"], item.modelLabel);
+      assert.equal(JSON.parse(fields["配置快照"]).modelKey, item.input.modelKey);
       events.push("begin");
       assert.equal(item.input.referenceImages.length, 1);
       assert.equal(betaConfigSnapshot(item.input).outpaintWorkflowKey, item.input.outpaintWorkflowKey);

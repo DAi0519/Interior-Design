@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖平面布局完整页面脚本/HTML与内存DOM/原生select、共享下拉填充、图片读取、HTTP、会话存储和时钟替身
- * [OUTPUT]: 验证布局模型明确选择/失权门禁、后续Sunburst隔离、换源阻断收费、图片来源/字节、独立恢复下载及未知提交仅GET恢复
+ * [INPUT]: 依赖平面布局页面、共享归档状态、内存DOM、HTTP、会话存储和时钟替身
+ * [OUTPUT]: 验证模型准入、换源阻断收费、图片来源、原任务恢复及逐图飞书归档状态
  * [POS]: test 的平面布局交互回归，执行真实生产脚本，不访问网络、模型、飞书或运行中服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,12 +9,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 
-const [page, script] = await Promise.all([
+const [page, script, syncScript] = await Promise.all([
   readFile(new URL("../public/floor-plan.html", import.meta.url), "utf8"),
   readFile(new URL("../public/floor-plan.js", import.meta.url), "utf8"),
+  readFile(new URL("../public/generation-sync.js", import.meta.url), "utf8"),
 ]);
 const SESSION_KEY = "canvas-lab:floor-plan:images:v2";
 const config = { available: true, workflowVersion: "2026-11-04.floor-plan.3", defaultModel: "gptImage25Sunburst",
+  archive: { required: true, available: true },
   continuationAvailable: true, continuationReason: null, defaultLayoutModel: "gptImage25Sunburst",
   layoutModels: [
     { key: "gptImage25Sunburst", label: "GPT Image 2.5 Sunburst", id: "gpt-image-2.5-sunburst", available: true, reason: null },
@@ -79,10 +81,11 @@ async function fixture({ saved = null, configuration = config, respond = async (
   const document = { body: new Element("body"), createElement: tag => new Element(tag),
     getElementById: id => ids.get(id), querySelectorAll: selector => selector === "[data-camera]" ? cameras : [] };
   const context = vm.createContext({ document, Blob, atob,
-    URL: { createObjectURL(blob) { blobs.push(blob); return `blob:fixture-${blobs.length}`; }, revokeObjectURL() {} },
+    URL: class extends URL { static createObjectURL(blob) { blobs.push(blob); return `blob:fixture-${blobs.length}`; } static revokeObjectURL() {} },
     sessionStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
     crypto: { randomUUID: () => `00000000-0000-4000-8000-${String(++uuidSequence).padStart(12, "0")}` },
     setTimeout(callback, delay) { const id = ++timerSequence; timers.set(id, { callback, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
     createImageBitmap: async file => ({ width: file.width, height: file.height, close() {} }),
     readFileAsInput: async file => ({ ...file }),
     fillSelect: (select, options, currentValue) => {
@@ -98,6 +101,7 @@ async function fixture({ saved = null, configuration = config, respond = async (
       return path === "/api/floor-plan/config?refresh=1" ? structuredClone(typeof configuration === "function" ? configuration() : configuration) : respond(call);
     },
   });
+  vm.runInContext(syncScript.replace(/^import[^\n]*\n/gm, "").replace(/^export /gm, ""), context);
   await vm.runInContext(`(async () => {\n${script.replace(/^import[^\n]*\n/gm, "")}\n})()`, context);
   async function settle() { for (let index = 0; index < 3; index += 1) await new Promise(resolve => setImmediate(resolve)); }
   const node = name => ids.get(`floorPlan${name}`);
@@ -117,8 +121,53 @@ async function fixture({ saved = null, configuration = config, respond = async (
       assert.ok(timer, "运行中任务应安排同一ID的GET轮询");
       timers.delete(timer[0]); timer[1].callback(); await settle();
     },
+    nextArchivePoll: async () => {
+      const timer = [...timers].find(([, entry]) => entry.delay === 1500);
+      assert.ok(timer, "等待中的归档应轮询原同步 ID");
+      timers.delete(timer[0]); timer[1].callback(); await settle();
+    },
   };
 }
+
+test("原结果恢复后按当前图显示归档，切图时忽略旧响应，重试仅请求同步", async () => {
+  const layout = { ...result("layout"), sync: { generationId: "layout-sync-id", status: "pending" } };
+  const interior = { ...result("interior"), sync: { generationId: "interior-sync-id", status: "failed", error: "附件上传失败" } };
+  let releaseLayout;
+  const url = "https://example.feishu.cn/base/baseToken?record=recInterior";
+  const f = await fixture({ saved: { layout: "layout-job-id", interior: "interior-job-id" }, respond: async call => {
+    if (call.path === "/api/floor-plan/jobs/layout-job-id") return success(layout);
+    if (call.path === "/api/floor-plan/jobs/interior-job-id") return success(interior);
+    if (call.path === "/api/sync-jobs/layout-sync-id") return new Promise(resolve => { releaseLayout = resolve; });
+    if (call.path === "/api/sync-jobs/interior-sync-id/retry") return { sync: { ...interior.sync, status: "pending" } };
+    if (call.path === "/api/sync-jobs/interior-sync-id") return { sync: { ...interior.sync, status: "success", error: null, recordUrl: url } };
+    throw missing();
+  } });
+  assert.match(f.node("ArchiveStatus").textContent, /正在同步/);
+  await f.nextArchivePoll();
+  await f.click("TabInterior");
+  assert.match(f.node("ArchiveStatus").textContent, /同步失败/);
+  assert.equal(f.node("ArchiveRetry").hidden, false);
+  releaseLayout({ sync: { ...layout.sync, status: "success", recordUrl: "https://example.feishu.cn/base/stale" } });
+  await f.settle();
+  assert.equal(f.node("ArchiveLink").hidden, true, "上一张图的归档链接不能串到当前图");
+  await f.click("ArchiveRetry");
+  assert.match(f.node("ArchiveStatus").textContent, /正在同步/);
+  await f.nextArchivePoll();
+  assert.match(f.node("ArchiveStatus").textContent, /已同步飞书/);
+  assert.equal(f.node("ArchiveLink").href, url);
+  assert.deepEqual(f.posts().map(({ path }) => path), ["/api/sync-jobs/interior-sync-id/retry"]);
+});
+
+test("旧进程缺少归档能力时阻止出图，仍可恢复旧任务", async () => {
+  const f = await fixture({ saved: { layout: "layout-job-id" }, configuration: { ...config, archive: undefined },
+    respond: async () => success(result("layout")) });
+  await f.upload(source("新原图"));
+  assert.equal(f.node("Generate").disabled, true);
+  assert.equal(f.node("LayoutImage").hidden, false);
+  assert.equal(f.node("Archive").hidden, true);
+  assert.match(f.node("ConfigNote").textContent, /尚未接入飞书生成记录/);
+  assert.equal(f.posts().length, 0);
+});
 
 test("换原图阻断旧方案三种收费动作，新布局成功后按当前图逐步生成", async () => {
   const oldLayout = result("layout", "旧布局"), oldInterior = result("interior", "旧室内");

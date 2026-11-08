@@ -1,14 +1,17 @@
 /**
- * [INPUT]: 依赖共享api/文件/下拉、独立户型布局API和归一化标注画布
- * [OUTPUT]: 提供二次编辑式画布底部空间选择/撤销清空、飞书多版本选择与刷新保留/下架阻断、主卧必选/空间补充、Agent到生图、原任务恢复和下载；默认GPT2.5
+ * [INPUT]: 依赖共享API、文件与下拉、独立户型布局和归档状态接口、归一化标注画布
+ * [OUTPUT]: 提供空间选择/标注、飞书版本选择、Agent到生图、原任务恢复、下载和飞书归档准入及状态
  * [POS]: public 的户型平面布局控制器，与实验室会话和收费任务隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
+import { bindGenerationSync } from './generation-sync.js?v=1';
 
 // --- 缓存节点引用，嵌入时将参数和START交给主工作台原容器管理 ---
 const nodes = new Map([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
 const $ = id => nodes.get(id);
+const resultArchive = bindGenerationSync({ api, container: $('resultSync'), status: $('resultSyncStatus'),
+  link: $('resultSyncLink'), retry: $('resultSyncRetry') });
 let integrated = false;
 if (window.parent !== window) {
   try {
@@ -40,8 +43,9 @@ function remember() {
 }
 function update() {
   const locked = state.busy || Boolean(state.pending);
+  const archiveReady = state.config?.archive?.required === true && state.config.archive.available === true;
   for (const id of ['upload','sourceInput','spaceType','spaceName','requirements','model','agentModel','promptVersion']) $(id).disabled = locked;
-  $('generate').disabled = locked || !state.source || !state.annotations.some(item => item.label === '主卧') || !state.config?.available || !selectedPrompt()
+  $('generate').disabled = locked || !state.source || !state.annotations.some(item => item.label === '主卧') || !state.config?.available || !archiveReady || !selectedPrompt()
     || !state.config.layoutModels.some(model => model.key === state.model && model.available)
     || !state.config.agentModels.some(model => model.key === state.agent);
   $('model').disabled ||= !state.config; $('agentModel').disabled ||= !state.config;
@@ -121,6 +125,7 @@ async function loadConfig() {
   state.config = await api('/api/house-plan/config?refresh=1');
   if (state.config.workflowVersion !== '2026-11-06.house-plan.1') throw new Error('当前服务尚未加载户型平面布局，请打开新版工作台');
   if (!state.config.promptVersionSelection) throw new Error('当前服务未加载Prompt版本选择，请重载服务');
+  if (state.config.archive?.required !== true) throw new Error('当前服务尚未接入飞书生成记录，请重载工作台');
   const models = state.config.layoutModels || [], agents = state.config.agentModels || [];
   if (!state.agent) state.agent = state.config.defaultAgentModel || '';
   const populate = (id, items, selected) => {
@@ -143,6 +148,7 @@ async function loadConfig() {
 function showResult(result, id) {
   if (result?.featureMode !== 'housePlanLayout' || !result.image?.url) throw new Error('任务结果不完整，请检查原任务');
   state.result = result; state.jobId = id; state.view = 'result'; $('result').src = result.image.url;
+  resultArchive.show(result.sync);
   $('resultMeta').textContent = `${result.image.width} × ${result.image.height} · ${result.model.label} · 请核对结构、家具比例与通行`;
   const lines = [result.plan.summary, ...result.plan.spaces.map(item => `${item.name}：${item.layout}`), ...result.plan.warnings.map(item => `待核实：${item}`)];
   $('plan').replaceChildren(...lines.map(text => { const p = document.createElement('p'); p.textContent = text; return p; }));
@@ -184,6 +190,7 @@ async function selectSource(file) {
   if (Math.max(bitmap.width,bitmap.height) > 4096 || bitmap.width * bitmap.height > 16777216) { bitmap.close(); throw new Error('图片单边不超过4096px，总像素不超过16MP'); }
   const source = await readFileAsInput(file); state.bitmap?.close(); state.bitmap = bitmap; state.source = source;
   state.annotations = []; state.history = []; state.drag = null; state.mode = '主卧'; state.result = null; state.jobId = null; state.view = 'source';
+  resultArchive.show(null);
   $('spaceType').value = '主卧'; $('spaceType').dispatchEvent(new Event('change'));
   $('sourceThumbnail').src = source.dataUrl; $('sourceThumbnail').hidden = false; $('uploadIcon').setAttribute('hidden', '');
   $('result').removeAttribute('src'); $('plan').replaceChildren(); $('sourceName').textContent = file.name;

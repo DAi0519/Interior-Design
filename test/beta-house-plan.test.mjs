@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta任务/布局适配层、主布局服务、模型替身和真实PNG字节
- * [OUTPUT]: 验证逐图标注准入、所选版本/权限、Agent到生图及归档、一次收费和同步恢复
+ * [OUTPUT]: GPT2.6双模型从准入到Agent/成图/真实模型字段及摘要归档； 验证逐图标注准入、所选版本/权限、Agent到生图及归档、一次收费和同步恢复
  * [POS]: test 的Beta布局跨层合同，无真实收费或飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import { createBetaRunnerService } from '../src/beta-runner.mjs';
 import { betaConfigSnapshot, buildBetaRunFields, betaResultVersion, betaResultCostUsd } from '../src/beta-base.mjs';
 import { HOUSE_PLAN_WORKFLOW } from '../src/house-plan-service.mjs';
 import { housePlanHash } from '../src/house-plan-prompt.mjs';
+import { MODEL_CONFIGS } from '../src/model-config.mjs';
 const prompt = { code: 'house-plan-layout', version: 2, prompt: '固定规则', sha256: housePlanHash('固定规则'), source: 'feishu:test', published: true };
 const models = [{ id: 'gpt-image-2.5-sunburst' }, { id: 'gemini-3.1-pro-preview' }];
 const plan = { summary: '主卧保持', spaces: [{ name: '主卧', layout: '双人床靠墙' }], layout_prompt: '保持结构布局家具', warnings: ['尺寸待核对'] };
@@ -20,11 +21,35 @@ const input = () => ({ featureMode: 'housePlanLayout', modelKey: 'gptImage25Sunb
   annotations: [{ label: '主卧', x: .1, y: .2, width: .3, height: .4 }] });
 async function image(w = 64, h = 96) { const bytes = await sharp({ create: { width: w, height: h, channels: 3, background: '#eee' } }).png().toBuffer();
   return { name: 'plan.png', type: 'image/png', size: bytes.length, dataUrl: `data:image/png;base64,${bytes.toString('base64')}` }; }
-function adapter(client) { return createBetaHousePlanService({ getModels: async () => models, getClient: () => client,
+function adapter(client, availableModels = models) { return createBetaHousePlanService({ getModels: async () => availableModels, getClient: () => client,
   getPrompt: async ({ version, expectedSha256 } = {}) => { if (version && (version !== 2 || expectedSha256 !== prompt.sha256)) throw new Error('版本漂移'); return prompt; } }); }
 const batch = () => ({ jobId: 'beta-house-layout-12345', batchId: 'BETA-house-layout-12345', testTime: '2026-11-06 16:00:00', featureMode: 'housePlanLayout',
   sampleSetId: 'SET-house', items: [{ caseId: 'SAMPLE-house', sampleId: 'SAMPLE-house', modelLabel: 'GPT Image 2.5 Sunburst', runId: 'RUN-house-layout-12345', input: input() }] });
 async function done(service, id) { for (let i=0;i<200;i++) { const job=service.getJob(id); if (job.status !== 'running') return job; await new Promise(resolve=>setTimeout(resolve,10)); } throw new Error('job timeout'); }
+for (const modelKey of ['gptImage26Sunburst', 'gptImage26Flare']) {
+  test(`Beta户型布局 ${modelKey} 从版本准入到实际成图和归档保持身份`, async () => {
+    const model = MODEL_CONFIGS[modelKey];
+    const calls = [];
+    const service = adapter({
+      generatePrompt: async () => { calls.push('agent'); return { text: JSON.stringify(plan) }; },
+      editImageAsync: async request => {
+        calls.push(request.model);
+        assert.equal(request.model, model.id);
+        const [w, h] = request.size.split('x').map(Number);
+        return { images: [{ url: (await image(w, h)).dataUrl }] };
+      },
+    }, [{ id: model.id }, { id: 'gemini-3.1-pro-preview' }]);
+    const request = normalizeBetaHousePlanInput({ ...input(), modelKey, referenceImages: [await image()] });
+    await service.verify({ items: [{ input: request }] });
+    const prepared = await service.prepare(request);
+    const result = await service.execute(prepared);
+    assert.deepEqual(calls, ['agent', model.id]);
+    assert.equal(JSON.parse(result.sync.archiveFields['生成参数']).workflow.model.id, model.id);
+    const fields = buildBetaRunFields({ ...batch(), item: { ...batch().items[0], input: request } });
+    assert.equal(fields['出图模型'], model.label);
+    verifyHousePlanArchive(result.sync.archiveFields, betaConfigSnapshot(request), Buffer.from(result.images[0].url.split(',')[1], 'base64'));
+  });
+}
 test('布局缺主卧/版本摘要或越界在入队前拒绝；不同样本保留独立标注', () => {
   for (const patch of [{ annotations: [] }, { annotations: [{label:'主卧',x:.9,y:0,width:.4,height:.4}] }, { promptVersion: 0 }, { housePlanPromptSha256: 'bad' }, { styleReferenceImages: [{}] }]) {
     assert.throws(()=>normalizeBetaHousePlanInput({...input(),...patch}));

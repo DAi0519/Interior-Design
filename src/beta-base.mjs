@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖户型布局归档适配器； 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、Flux后置超分身份、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
- * [OUTPUT]: 对外提供Flux后置超分冻结快照/实际版本摘要与旧3B历史快照恢复、三表Schema/含质感增强的十二功能快照、旧房独立场景/版本快照与实际Agent一致性、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
+ * [INPUT]: 依赖ONEAPI_OUTPAINT_ENGINE_KEYS共享扩图引擎白名单； 依赖户型布局归档适配器； 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、Flux后置超分身份、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
+ * [OUTPUT]: Beta扩图建档覆盖GPT2.5/2.6实际模型标签； 对外提供Flux后置超分冻结快照/实际版本摘要与旧3B历史快照恢复、三表Schema/含质感增强的十二功能快照、旧房独立场景/版本快照与实际Agent一致性、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,7 +22,7 @@ import { betaBaseContractError, normalizeBetaBaseError, verifyBetaBaseSchema } f
 import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { MODEL_CONFIGS, normalizeFluxPostUpscaleInput, publicModelCatalog } from "./model-config.mjs";
-import { ONEAPI_OUTPAINT_ENGINE_KEY } from "./image-outpaint-oneapi.mjs";
+import { ONEAPI_OUTPAINT_ENGINE_KEYS } from "./image-outpaint-oneapi.mjs";
 import { QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW } from "./image-outpaint-qwen.mjs";
 import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
 import { IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY, imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
@@ -290,7 +290,7 @@ function runModelLabel(item, featureMode) {
   if (featureMode === "imageOutpaint") {
     const engine = item.input?.outpaintEngine ?? "comfyui";
     if (engine === QWEN_OUTPAINT_ENGINE_KEY) return QWEN_OUTPAINT_WORKFLOW.label;
-    if (engine === ONEAPI_OUTPAINT_ENGINE_KEY) return MODEL_CONFIGS[engine].label;
+    if (ONEAPI_OUTPAINT_ENGINE_KEYS.includes(engine)) return MODEL_CONFIGS[engine].label;
     if (engine === "comfyui") {
       try { return resolveImageOutpaintModel(item.input?.outpaintModel).label; }
       catch (cause) { throw betaBaseContractError("Beta 扩图模型缺少合法的目录标签", cause); }

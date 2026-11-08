@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test、sharp合成PNG、可注入JSON请求与可取消时钟，以及OneAPI后台图像编辑构造/提交轮询边界
- * [OUTPUT]: 原PNG/图序/质量透传与mask零请求拒绝、单次POST同ID状态轮询、终态与ID校验、共享总截止时间/取消原Error与清理、失败不重提测试
+ * [OUTPUT]: 原PNG/图序/质量透传、独立complexity非法值及非支持模型零请求拒绝、mask零请求拒绝、单次POST同ID状态轮询、终态与ID校验、共享总截止时间/取消原Error与清理、失败不重提测试
  * [POS]: test 的OneAPI真实上游后台任务离线合同测试，不访问网络、不收费、不写飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,6 +22,14 @@ const completed = { id: "resp_async_fixture", status: "completed", output: [{ ty
   usage: { price: { currency: "USD", payable_amount: 0.0123 } } };
 // -------- named timers/promises等待使用真实事件循环；不让mock Date下的微任务空转饿死轮询 --------
 const realSetTimeout = globalThis.setTimeout;
+
+test('后台编辑拒绝不支持模型或非法思考强度，零HTTP请求', async () => {
+  let calls = 0;
+  for (const [model, complexity] of [['gpt-image-2.6-sunburst', 'max'], ['gpt-image-2.5-sunburst', 'high'], ['unknown', 'low']]) {
+    await assert.rejects(runAsyncImageEdit({ ...input, model, complexity }, { request: async () => { calls++; } }), error => error.statusCode === 400);
+  }
+  assert.equal(calls, 0);
+});
 async function until(predicate) {
   for (let i = 0; i < 100; i++) {
     if (predicate()) return;

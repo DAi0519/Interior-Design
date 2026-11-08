@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面布局图像服务、真实sharp图片与内存模型/资产/OneAPI替身
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 验证布局四模型的真实路由/权限/PNG交付与原生格式，保留后续三动作、原文前置、资产漂移和不自动重跑
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 验证默认图生图与显式文生图的路由/冲突拒绝、布局四模型权限/PNG交付与原生格式，保留后续三动作、原文前置、资产漂移和不自动重跑
  * [POS]: test 的最简平面布局服务合同，不访问真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import test from "node:test";
 import sharp from "sharp";
-import { prepareFloorPlanInput, executeFloorPlan, readFloorPlanConfig, normalizeFloorPlanReferenceImage } from "../src/floor-plan-service.mjs";
+import { prepareFloorPlanInput, executeFloorPlan, readFloorPlanConfig, normalizeFloorPlanReferenceImage, generateFloorPlanImage } from "../src/floor-plan-service.mjs";
 import { MODEL_CONFIGS } from "../src/model-config.mjs";
 const hash = value => createHash("sha256").update(value).digest("hex");
 const body = JSON.stringify({ version: 2, layout: "PRIVATE_LAYOUT_RULE", adjust: "PRIVATE_ADJUST_RULE", interior: "PRIVATE_INTERIOR_RULE" });
@@ -35,6 +35,20 @@ function imageClient({ invalid = false, reject = false, wrongSize = false } = {}
     editImage: (...args) => { methods.push("editImage"); return run(...args); },
     generateImage: (...args) => { methods.push("generateImage"); return run(...args); } };
 }
+
+test("共享原语默认保留GPT图生图，显式文生图省略参考图且拒绝相互矛盾的参数", async () => {
+  const prepared = await prepare(await input()), client = imageClient();
+  await generateFloorPlanImage(prepared, { client, prompt: 'A room with natural light.', ratio: '16:9' });
+  assert.equal(client.methods[0], 'editImageAsync'); assert.deepEqual(client.calls[0].images, [{ image_url: prepared.imageUrl }]);
+  await generateFloorPlanImage(prepared, { client, prompt: 'A room with natural light.', ratio: '16:9', generationMode: 'text-to-image' });
+  assert.equal(client.methods[1], 'generateImage');
+  for (const key of ['images', 'input_image', 'guide']) assert.equal(Object.hasOwn(client.calls[1], key), false);
+  for (const patch of [{ generationMode: 'unknown' }, { generationMode: 'text-to-image', images: [] },
+    { generationMode: 'text-to-image', images: [{ image_url: prepared.imageUrl }] }]) {
+    await assert.rejects(generateFloorPlanImage(prepared, { client, prompt: 'A room with natural light.', ...patch }), error => error.statusCode === 400);
+  }
+  assert.equal(client.calls.length, 2);
+});
 
 test("配置仅返回可用图像模型和JSON资产身份，不暴露正文", async () => {
   const config = await readFloorPlanConfig({ getModels, readPromptConfig: async () => ({ ...asset, available: true }) });

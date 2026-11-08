@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI Prompt 单/双图、分析/评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 Prompt Agent 白模/风格参考顺序、AI 单图分析、主动取消、评审/图生图请求侧压缩与脱敏诊断、透明 PNG/遮罩原样编辑、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
+ * [OUTPUT]: 对外提供 Prompt Agent 空回复已知费用/请求身份保留、白模/风格参考顺序、AI 单图分析、主动取消、评审/图生图请求侧压缩与脱敏诊断、GPT2.6独立complexity工具透传/默认省略/非法准入、透明 PNG/遮罩原样编辑、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -302,11 +302,37 @@ test("参考图生成构造 Responses input_image 与 image_generation 工具", 
   assert.equal(request.tools[0].type, "image_generation");
   assert.equal(request.tools[0].image_format, "jpg");
   assert.equal(request.tools[0].quality, "medium");
+  assert.equal(Object.hasOwn(request.tools[0], "complexity"), false);
   assert.equal("images" in request, false);
   assert.throws(
     () => buildResponseImageRequest({ ...request, images: [{ image_url: "x" }], output_format: "webp" }),
     /仅支持 PNG 或 JPEG/,
   );
+});
+
+test("同步Responses仅GPT2.6三档complexity进入工具，非法值在HTTP前拒绝", async context => {
+  const source = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#abcdef' } }).png().toBuffer();
+  const calls = [];
+  context.mock.method(globalThis, 'fetch', async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return Response.json({ output: [{ type: 'image_generation_call', result: source.toString('base64') }] });
+  });
+  const client = createOneApiClient('test-key', { diagnosticSink: () => {} });
+  const base = { images: [{ image_url: `data:image/png;base64,${source.toString('base64')}` }],
+    output_format: 'png', prompt: 'Interior view', quality: 'medium', size: '1536x864' };
+  for (const model of ['gpt-image-2.6-sunburst', 'gpt-image-2.6-flare']) {
+    for (const complexity of [undefined, 'low', 'medium', 'high']) {
+      await client.generateImage({ ...base, model, ...(complexity ? { complexity } : {}) });
+      const body = calls.at(-1);
+      assert.equal(body.background, false); assert.equal(body.tools[0].complexity, complexity);
+      assert.equal(Object.hasOwn(body.tools[0], 'complexity'), complexity !== undefined);
+      assert.equal(body.tools[0].quality, 'medium'); assert.equal(Object.hasOwn(body, 'reasoning'), false);
+    }
+  }
+  for (const [model, complexity] of [['gpt-image-2.6-flare', 'max'], ['gpt-image-2', 'high'], ['gpt-image-2.5-sunburst', 'low']]) {
+    await assert.rejects(client.generateImage({ ...base, model, complexity }), error => error.statusCode === 400);
+  }
+  assert.equal(calls.length, 8);
 });
 
 test("OneAPI 图生图发送前压缩超限参考图并记录脱敏诊断", async (context) => {
@@ -537,4 +563,22 @@ test("上游错误中的图片和超长二进制内容被脱敏", () => {
 
   assert.equal(redacted, "FileId [IMAGE_DATA_REDACTED] Not Found");
   assert.equal(redacted.includes("AAAA"), false);
+});
+
+test('Prompt Agent HTTP成功但正文为空仍保留已知费用与请求ID，不带响应正文', async context => {
+  let calls = 0;
+  context.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    return Response.json({ id: 'agent-empty-paid', output: [], private: 'PRIVATE_BODY',
+      usage: { price: { currency: 'USD', payable_amount: .001 } } });
+  });
+  const client = createOneApiClient('test-key', { diagnosticSink: () => {} });
+  await assert.rejects(client.generatePrompt({ model: 'gemini-3.1-pro-preview',
+    imageUrl: 'data:image/png;base64,cGxhbg==', systemPrompt: 'system', userPrompt: 'camera' }), error => {
+    assert.equal(error.code, 'empty_prompt'); assert.equal(error.statusCode, 502);
+    assert.equal(error.message, 'Prompt Agent 已响应，但没有返回提示词');
+    assert.equal(error.requestId, 'agent-empty-paid'); assert.equal(error.usageCost.costUsd, .001);
+    assert.ok(!JSON.stringify(error).includes('PRIVATE_BODY')); return true;
+  });
+  assert.equal(calls, 1);
 });

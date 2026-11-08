@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 generationId、飞书同步异步任务、保留时间与可选时钟
- * [OUTPUT]: 对外提供幂等入队、非阻塞执行、同步状态查询与只读忙碌检查的进程内任务注册表
+ * [OUTPUT]: 提供幂等入队、状态查询、忙碌检查及已启用的同步失败重试。
  * [POS]: src 的后台同步调度基础设施，隔离图片生成响应与飞书归档耗时
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ function publicJob(job) {
     recordId: job.recordId,
     recordUrl: job.recordUrl,
     status: job.status,
+    ...(job.retryTask && job.status === "failed" ? { retryable: true } : {}),
   };
 }
 
@@ -34,7 +35,7 @@ export function createSyncJobRegistry({
     }
   }
 
-  function enqueue(generationId, task) {
+  function enqueue(generationId, task, { retryable = false } = {}) {
     const normalizedId = String(generationId || "").trim();
     if (!normalizedId) throw new TypeError("generationId is required");
     if (typeof task !== "function") throw new TypeError("sync task is required");
@@ -50,9 +51,17 @@ export function createSyncJobRegistry({
       recordId: null,
       recordUrl: null,
       status: "pending",
+      retryTask: retryable ? task : null,
     };
     jobs.set(normalizedId, job);
+    launch(job, task);
+    return publicJob(job);
+  }
 
+  function launch(job, task) {
+    job.status = "pending";
+    job.error = null;
+    job.finishedAt = null;
     Promise.resolve()
       .then(task)
       .then((result) => {
@@ -61,6 +70,7 @@ export function createSyncJobRegistry({
         job.recordId = result?.recordId || null;
         job.recordUrl = result?.recordUrl || null;
         job.status = result?.ok === false ? "failed" : "success";
+        if (job.status === "success") job.retryTask = null;
       })
       .catch((error) => {
         job.error = String(error?.message || "飞书同步失败");
@@ -68,11 +78,17 @@ export function createSyncJobRegistry({
         job.status = "failed";
       });
 
-    return publicJob(job);
   }
 
   return {
     enqueue,
+    retry(generationId) {
+      prune();
+      const job = jobs.get(String(generationId || "").trim());
+      if (!job?.retryTask) return null;
+      if (job.status === "failed") launch(job, job.retryTask);
+      return publicJob(job);
+    },
     hasActiveJobs() {
       return [...jobs.values()].some((job) => job.status === "pending");
     },

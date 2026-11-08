@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sharp 单图真实解码、共享四模型目录/请求、独立飞书JSON资产、OneAPI图片连接和既有多角度原语
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 提供共享单张图片执行原语、布局六模型选择与后续GPT三模型三动作，冻结复验资产/所选模型权限，保留原生格式、PNG交付、实际尺寸、费用和失败回执
+ * [OUTPUT]: 提供平面布局与共享单张成图、冻结复验资产/模型、原生格式与实际尺寸/回执；可向归档调用方回传实际送模词与参考图。
  * [POS]: src 的最简平面布局图像服务，不嵌入专业编辑器、不冒用二次编辑归档、不自动串联或重试收费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -151,7 +151,8 @@ export async function prepareFloorPlanInput(input, { getModels, getPrompt = getF
   return { ...fields, ...reference, model: { key: selected.key, id: selected.id, label: selected.label }, defaults: selected.defaults, prompt };
 }
 
-export async function executeFloorPlan(prepared, { client, getModels, getPrompt = getFloorPlanPrompt, onProgress = () => {} } = {}) {
+export async function executeFloorPlan(prepared, { client, getModels, getPrompt = getFloorPlanPrompt,
+  onProgress = () => {}, onCompiledPrompt = () => {} } = {}) {
   const current = checkedAsset(await getPrompt({ version: prepared.prompt.version, expectedSha256: prepared.prompt.sha256, forceRefresh: true }), prepared);
   if (current.source !== prepared.prompt.source) throw fail("平面布局 Prompt 执行前已变更，请刷新后新建任务", 409);
   const selected = await assertModelAccess(prepared.modelKey, getModels);
@@ -166,11 +167,16 @@ export async function executeFloorPlan(prepared, { client, getModels, getPrompt 
       const input = { dataUrl: prepared.imageUrl, type: "image/png", name: prepared.source.fileName, size: decodeImageDataUrl(prepared.imageUrl).length };
       const image = await prepareMultiAngleImage(input);
       const result = await executeOneApiMultiAngle({ ...image, model: { ...prepared.model, qualityOptions: MODEL_CONFIGS[prepared.modelKey].qualityOptions, defaultQuality: "medium" },
-        pose: prepared.cameraPose, quality: "medium" }, { imageClient: { async editImage(request) { response = await client.editImage(request); return response; } }, onProgress });
+        pose: prepared.cameraPose, quality: "medium" }, { imageClient: { async editImage(request) {
+          onCompiledPrompt(request.prompt, request.images[0].image_url);
+          response = await client.editImage(request);
+          return response;
+        } }, onProgress });
       url = result.images[0].url;
       actual = { ...result.upstream.metadata, cameraPose: prepared.cameraPose, exactCameraGeometry: false };
     } else {
       const prompt = [prepared.userRequirements.trim() ? prepared.userRequirements : null, current.bundle[prepared.action]].filter(Boolean).join("\n\n");
+      onCompiledPrompt(prompt, prepared.imageUrl);
       ({ url, actual, response } = await generateFloorPlanImage({ ...prepared, defaults: selected.defaults }, { client, prompt, onProgress }));
     }
     const bytes = decodeImageDataUrl(url);
@@ -188,26 +194,36 @@ export async function executeFloorPlan(prepared, { client, getModels, getPrompt 
 }
 
 // --- 图片执行原语供实验室与户型平面布局共用，调用方负责Prompt与模型准入 ---
-export async function generateFloorPlanImage(prepared, { client, prompt, onProgress = () => {} }) {
-  const method = FLOOR_PLAN_GPT_MODEL_KEYS.includes(prepared.modelKey) ? "editImageAsync" : "generateImage";
+export async function generateFloorPlanImage(prepared, { client, prompt, onProgress = () => {}, images, ratio, generationMode = "image-to-image" }) {
+  if (!["image-to-image", "text-to-image"].includes(generationMode)) throw fail("图片生成模式无效");
+  const textToImage = generationMode === "text-to-image";
+  if (textToImage && images !== undefined) throw fail("文生图不能携带参考图参数");
+  const method = !textToImage && FLOOR_PLAN_GPT_MODEL_KEYS.includes(prepared.modelKey) ? "editImageAsync" : "generateImage";
   let response, submittedId = null, url, actual;
   try {
-      const { resolution, quality, outputFormat } = prepared.defaults;
-      const generation = createGenerationRequest({ modelKey: prepared.modelKey, prompt, resolution, ...(quality ? { quality } : {}), outputFormat },
-        { compiledPrompt: true, preferSourceAspect: true, sourceDimensions: prepared.source });
-      const request = { ...generation.request, prompt, n: 1, images: [{ image_url: prepared.imageUrl }], response_format: "b64_json" };
-      onProgress({ message: ({ layout: "AI正在生成平面布局", adjust: "AI正在按要求调整方案", interior: "AI正在生成室内预览" })[prepared.action] });
+      const { resolution, quality, outputFormat, complexity } = prepared.defaults;
+      let generation;
+      try {
+        generation = createGenerationRequest({ modelKey: prepared.modelKey, prompt, resolution, ...(ratio ? { ratio } : {}), ...(quality ? { quality } : {}), ...(complexity != null ? { complexity } : {}), outputFormat },
+          { compiledPrompt: true, preferSourceAspect: !ratio && !textToImage, sourceDimensions: prepared.source });
+      } catch (error) { throw fail(error.message, error.statusCode || 400); }
+      const request = { ...generation.request, prompt, n: 1,
+        ...(!textToImage ? { images: images || [{ image_url: prepared.imageUrl }] } : {}), response_format: "b64_json" };
+      onProgress({ message: ({ layout: "AI正在生成平面布局", adjust: "AI正在按要求调整方案", interior: "AI正在生成室内预览", render: "AI正在按平面图机位生成室内效果图" })[prepared.action] });
       response = await client[method](request, { onSubmitted({ id }) { submittedId = id; onProgress({ message: "图像任务已提交，正在生成", upstreamResponseId: id }); } });
       if (response.images?.length !== 1) throw fail("图像模型没有返回唯一图片", 502);
       const bytes = await loadImageBytes(response.images[0].url);
-      const metadata = await sharp(bytes, { limitInputPixels: FLOOR_PLAN_IMAGE_POLICY.maxPixels }).metadata();
+      // --- 输出按模型真源的实际请求尺寸解码；输入图仍保持独立16MP边界 ---
+      const [requestedWidth, requestedHeight] = request.size.split("x").map(Number);
+      const outputPixelLimit = Math.max(FLOOR_PLAN_IMAGE_POLICY.maxPixels, requestedWidth * requestedHeight);
+      const metadata = await sharp(bytes, { limitInputPixels: outputPixelLimit }).metadata();
       const sunburst = FLOOR_PLAN_GPT_MODEL_KEYS.includes(prepared.modelKey);
       if ((sunburst ? metadata.format !== "png" : !["png", "jpeg", "webp"].includes(metadata.format))
         || (metadata.pages || 1) !== 1 || !metadata.width || !metadata.height) throw fail("图像模型没有返回可用的单帧图片", 502);
       const sizeMatched = `${metadata.width}x${metadata.height}` === request.size;
       if (sunburst && !sizeMatched) throw fail(`实际图片尺寸${metadata.width}×${metadata.height}与请求${request.size}不一致`, 502);
       const outputConverted = metadata.format !== "png";
-      const delivery = outputConverted ? await sharp(bytes, { limitInputPixels: FLOOR_PLAN_IMAGE_POLICY.maxPixels }).png().toBuffer() : bytes;
+      const delivery = outputConverted ? await sharp(bytes, { limitInputPixels: outputPixelLimit }).png().toBuffer() : bytes;
       url = `data:image/png;base64,${delivery.toString("base64")}`;
       actual = { requestedSize: request.size, nativeOutputWidth: metadata.width, nativeOutputHeight: metadata.height,
         nativeFormat: metadata.format, nativeSha256: hash(bytes), outputFormat: "png", outputConverted,

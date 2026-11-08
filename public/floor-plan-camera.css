@@ -1,0 +1,130 @@
+/**
+ * [INPUT]: 依赖工作台银灰令牌、共享下拉与生成按钮
+ * [OUTPUT]: 提供机位交互与可见区、模型多选与批次设置、结果分组、飞书同步状态、摘要及窄屏布局样式
+ * [POS]: public 的平面图相机局部样式，保持现有工作台操作视觉
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+.plan-camera-page { margin: 0; min-width: 0; height: 100dvh; overflow: hidden; background: transparent; color: var(--text); }
+.plan-camera-shell { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; height: 100%; min-height: 0; }
+.plan-camera-shell [hidden] { display: none !important; }
+.plan-camera-settings, .plan-camera-workspace { min-width: 0; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.plan-camera-settings { display: flex; flex-direction: column; }
+.plan-camera-panel-header { height: 44px; flex: none; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 600; }
+.plan-camera-settings-scroll { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong, #b6b6bd) transparent; }
+.plan-camera-section { padding: 18px 16px; border-bottom: 1px solid var(--line); }
+.plan-camera-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.plan-camera-heading h2 { margin: 0; font-size: 12px; font-weight: 600; }
+.plan-camera-heading h2 span { margin-left: 6px; font-size: 10px; font-weight: 400; color: var(--muted); }
+.plan-camera-upload { display: flex; align-items: center; gap: 10px; padding: 12px; width: 100%; border: 1px dashed var(--line-strong, #b6b6bd); border-radius: 6px; background: var(--panel-soft); text-align: left; color: var(--text); cursor: pointer; }
+.plan-camera-upload svg { width: 20px; height: 20px; flex: none; }
+.plan-camera-upload img { width: 40px; height: 48px; object-fit: contain; background: white; flex: none; }
+.plan-camera-upload span { min-width: 0; }
+.plan-camera-upload strong { display: block; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-camera-upload small { display: block; margin-top: 6px; color: var(--muted); font-size: 10px; }
+.plan-camera-upload.is-dragging { border-color: var(--text); background: var(--panel); }
+.plan-camera-field { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; font-size: 12px; min-width: 0; }
+.plan-camera-field:last-child { margin-bottom: 0; }
+.plan-camera-field > span { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.plan-camera-field small { font-size: 10px; color: var(--muted); font-weight: 400; }
+.plan-camera-field textarea, .plan-camera-field select:not(.custom-select-native) { border: 1px solid var(--line); border-radius: 6px; color: var(--text); background: var(--panel-soft); font-family: inherit; font-size: 12px; box-sizing: border-box; caret-color: var(--text); }
+.plan-camera-field textarea { width: 100%; padding: 10px; resize: vertical; min-height: 100px; line-height: 1.8; }
+.plan-camera-field select:not(.custom-select-native) { height: 38px; padding: 0 10px; width: 100%; }
+.plan-camera-field textarea::placeholder { color: var(--muted); opacity: 1; }
+.plan-camera-field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.plan-camera-complexities { display: grid; gap: 14px; margin-bottom: 14px; }
+.plan-camera-complexities .plan-camera-field { margin: 0; }
+#batchTotal { line-height: 1.55; }
+.plan-camera-page .model-picker-option.selected { background: transparent; color: var(--text); box-shadow: none; }
+.plan-camera-page .model-picker-option.selected .model-picker-option-reason { color: var(--muted); }
+.plan-camera-page .model-picker-trigger:focus-visible { border-color: var(--line-strong, #d1d1d5); box-shadow: var(--control-shadow, inset 0 1px 0 rgb(255 255 255 / 95%)); }
+.plan-camera-page :is(.model-picker-trigger, .model-picker-option):focus-visible { outline: none; }
+.plan-camera-page .model-picker-trigger:focus-visible .model-picker-primary,
+.plan-camera-page .model-picker-option:focus-visible .model-picker-option-label { text-decoration: underline; text-underline-offset: 3px; }
+.plan-camera-text-button { padding: 4px 0; border: 0; color: var(--muted); font: inherit; font-size: 11px; background: transparent; cursor: pointer; white-space: nowrap; }
+.plan-camera-text-button:hover:not(:disabled) { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.plan-camera-actions { padding: 12px 16px; border-top: 1px solid var(--line); flex: none; }
+.plan-camera-status-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.plan-camera-status-row > span { min-width: 0; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.plan-camera-actions .generate-button { justify-content: center; }
+.plan-camera-actions .generate-button .button-label { font-size: 14px; letter-spacing: 0; }
+.plan-camera-error { margin: 0 0 10px; font-size: 12px; line-height: 1.7; color: #b02c25; overflow-wrap: anywhere; }
+.plan-camera-workspace { display: flex; flex-direction: column; }
+.plan-camera-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0 16px; min-height: 44px; padding: 0 20px; flex: none; border-bottom: 1px solid var(--line); }
+.plan-camera-toolbar [role="tablist"] { display: flex; align-self: stretch; gap: 24px; min-height: 44px; }
+.plan-camera-toolbar [role="tab"] { padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font-size: 12px; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.plan-camera-toolbar [aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
+.plan-camera-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 0; }
+.plan-camera-tools label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.plan-camera-focal-length { min-inline-size: 56px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plan-camera-angle { position: relative; }
+.plan-camera-angle input {
+  width: 54px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 15px 0 7px;
+  appearance: textfield;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.plan-camera-angle input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+.plan-camera-angle > span { position: absolute; inset-inline-end: 7px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.plan-camera-viewer { flex: 1; min-height: 0; min-width: 0; display: grid; padding: 24px; overflow: auto; background: var(--panel-soft); }
+.plan-camera-source { display: grid; place-items: center; min-width: 0; min-height: 0; container-type: size; }
+.plan-camera-source canvas { display: block; max-width: 100%; max-height: 100cqh; width: auto; height: auto; touch-action: none; background: white; cursor: crosshair; }
+.plan-camera-source canvas:is([data-tool="move"], [data-tool="heading"]) { cursor: grab; }
+.plan-camera-source canvas[data-tool="fov"] { cursor: ew-resize; }
+.plan-camera-source canvas[data-dragging="true"] { cursor: grabbing; }
+.plan-camera-source canvas:focus { outline: none; }
+.plan-camera-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--muted); }
+.plan-camera-empty svg { width: 64px; height: 64px; margin-bottom: 24px; }
+.plan-camera-empty h1 { margin: 0 0 12px; font-size: 20px; font-weight: 500; color: var(--text); }
+.plan-camera-empty p { margin: 0; font-size: 12px; line-height: 1.9; }
+.plan-camera-empty button { margin-top: 24px; padding: 10px 18px; border: 1px solid var(--line-strong, #b6b6bd); border-radius: 6px; background: var(--panel); color: var(--text); font-size: 12px; cursor: pointer; }
+.plan-camera-result { display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; }
+.plan-camera-result #result { display: block; width: 100%; max-height: calc(100dvh - 190px); object-fit: contain; }
+.plan-camera-result-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 12px 16px; margin-bottom: 16px; }
+.plan-camera-result-group { min-width: 0; }
+.plan-camera-result-group h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.plan-camera-result-slots { display: flex; gap: 8px; flex-wrap: wrap; }
+.plan-camera-result-slot { display: grid; gap: 4px; min-width: 0; width: 86px; padding: 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11px; text-align: left; }
+button.plan-camera-result-slot { cursor: pointer; }
+.plan-camera-result-slot img { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 4px; background: var(--panel); }
+.plan-camera-result-slot[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+.plan-camera-result-slot[aria-pressed="true"] span::after { content: " ✓"; }
+.plan-camera-result-slot small { color: #b02c25; line-height: 1.45; overflow-wrap: anywhere; }
+.plan-camera-result p { color: var(--muted); text-align: center; font-size: 11px; line-height: 1.7; margin: 14px 0 0; }
+.plan-camera-result-sync { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 0 12px; margin-top: 4px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.plan-camera-result-sync a { color: var(--text); text-underline-offset: 2px; }
+.plan-camera-view-summary { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.plan-camera-view-summary h3 { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); }
+.plan-camera-view-summary p { margin-top: 8px; text-align: left; font-size: 12px; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12rem; overflow: auto; }
+.plan-camera-result details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }
+.plan-camera-result summary { cursor: pointer; color: var(--muted); }
+.plan-camera-result pre { max-height: 18rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0 0; font: inherit; line-height: 1.8; color: var(--text); }
+.plan-camera-canvas-footer { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 20px; flex-wrap: wrap; padding: 12px 20px; border-top: 1px solid var(--line); flex: none; }
+.plan-camera-canvas-footer p, .plan-camera-canvas-footer span { margin: 0; font-size: 11px; line-height: 1.7; color: var(--muted); }
+.plan-camera-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+.plan-camera-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.plan-camera-angle-key { width: 16px; border-top: 2px dashed #126d9a; }
+.plan-camera-visible-key { width: 14px; height: 8px; background: rgba(18, 109, 154, .23); border: 1px solid #126d9a; border-radius: 2px; }
+.plan-camera-workspace:has(canvas:focus-visible) #drawingHint { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.plan-camera-shell :is(button,input,textarea,select,summary):focus-visible:not(.model-picker-trigger) { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 3px; }
+.plan-camera-shell :is(button,input,textarea,select):disabled { cursor: default; opacity: .5; }
+.plan-camera-shell ::selection { background: var(--line-strong, #d2d2da); color: var(--text); }
+@media (max-width: 760px) {
+  .plan-camera-page { height: auto; min-height: 100dvh; overflow: auto; }
+  .plan-camera-shell { display: flex; flex-direction: column; height: auto; gap: 12px; }
+  .plan-camera-settings { display: contents; }
+  .plan-camera-panel-header { display: none; }
+  .plan-camera-settings-scroll { order: 1; flex: none; overflow: visible; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .plan-camera-workspace { order: 0; flex: none; height: 65dvh; min-height: 390px; }
+  .plan-camera-actions { order: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .plan-camera-viewer { padding: 16px; }
+  .plan-camera-toolbar, .plan-camera-canvas-footer { padding-left: 16px; padding-right: 16px; }
+  .plan-camera-empty h1 { font-size: 18px; }
+}

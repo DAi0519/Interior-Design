@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 src/sync-jobs.mjs 的进程内后台任务注册表
- * [OUTPUT]: 对外提供非阻塞入队、幂等、成功与失败状态查询及终态前忙碌检查回归保障
+ * [OUTPUT]: 验证非阻塞入队、幂等、忙碌检查与同身份归档重试。
  * [POS]: test 的飞书后台同步调度测试，不执行真实飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,4 +73,21 @@ test("同步返回失败时保留错误与已创建记录", async () => {
   assert.equal(registry.get("gen2").status, "failed");
   assert.equal(registry.get("gen2").error, "附件上传失败");
   assert.equal(registry.get("gen2").recordId, "rec2");
+});
+
+test("可重试归档保留原任务ID，并发点击只续传一次", async () => {
+  const registry = createSyncJobRegistry();
+  let writes = 0;
+  registry.enqueue("retryable-archive", async () => ++writes === 1
+    ? { ok: false, recordId: "rec2", error: "附件上传失败" }
+    : { ok: true, recordId: "rec2" }, { retryable: true });
+  await nextTurn();
+  assert.equal(registry.get("retryable-archive").retryable, true);
+  assert.equal(registry.retry("retryable-archive").generationId, "retryable-archive");
+  assert.equal(registry.retry("retryable-archive").status, "pending");
+  await nextTurn();
+  assert.equal(writes, 2);
+  assert.equal(registry.get("retryable-archive").status, "success");
+  assert.equal(registry.get("retryable-archive").recordId, "rec2");
+  assert.equal(registry.retry("retryable-archive"), null);
 });

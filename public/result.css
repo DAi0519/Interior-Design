@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css 的设计令牌、index.html 的结果区状态节点与 generation-results.js 的原图/结果图叠层状态
- * [OUTPUT]: 对外提供结果工具栏、空态/加载态/错误态、单图与完整图片高度的可滚动多图画廊、无聚焦外圈的轻量原图/结果图滑动分割线及逐图下载动作视觉
+ * [OUTPUT]: 对外提供结果工具栏、空态/加载态/错误态、单图与完整图片高度的可滚动多图画廊、轻量原图/结果图滑动分割线、逐图下载与直接点击大图预览视觉
  * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -250,6 +250,12 @@
 
 .result-media .result-output-image {
   border-radius: 0;
+  cursor: zoom-in;
+}
+
+.result-media .result-output-image:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -3px;
 }
 
 .result-media .result-before-image {
@@ -487,4 +493,75 @@
   justify-content: center;
   margin-bottom: 16px;
   width: 48px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 点击大图：复用工作台遮罩，保留图片原比例                                     */
+/* -------------------------------------------------------------------------- */
+
+.result-image-viewer {
+  background: var(--panel, #fcfcfd);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--brand-modal-shadow);
+  color: var(--text);
+  cursor: zoom-out;
+  height: fit-content;
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+  max-width: calc(100vw - 32px);
+  min-width: min(280px, calc(100vw - 32px));
+  outline: none;
+  overflow: hidden;
+  padding: 12px;
+  width: fit-content;
+}
+
+.result-image-viewer[open] {
+  display: block;
+}
+
+.result-image-viewer::backdrop {
+  background: var(--brand-modal-backdrop, rgb(20 20 24 / 60%));
+  backdrop-filter: var(--brand-modal-blur, blur(6px));
+  cursor: zoom-out;
+}
+
+.result-image-viewer > img {
+  display: block;
+  height: auto;
+  margin: auto;
+  max-height: calc(100dvh - 100px);
+  max-width: min(1800px, calc(100vw - 58px));
+  min-height: 0;
+  object-fit: contain;
+  width: auto;
+}
+
+.result-image-viewer-caption,
+.result-image-viewer-hint {
+  display: block;
+  font-size: 12px;
+  margin: 8px 0 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-image-viewer-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.result-image-viewer-status {
+  background: var(--panel);
+  border-radius: 6px;
+  font-size: 12px;
+  left: 50%;
+  margin: 0;
+  padding: 10px 14px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }

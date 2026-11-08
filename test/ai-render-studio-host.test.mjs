@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式渲染台宿主、主目录/编排/布局源码和内存DOM/历史记录替身
- * [OUTPUT]: 验证正式入口、实验室Beta命名、旧START隔离、iframe保活、移动抽屉退出、原功能输入/任务保存及URL直达
+ * [OUTPUT]: 验证正式入口、平面机位/实验室Beta命名、旧START隔离、iframe保活、移动抽屉退出、原功能输入/任务保存及URL直达
  * [POS]: test 的主工作台渲染台集成合同，不加载真实iframe、不调用网络或生图模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -160,4 +160,24 @@ test("平面布局与渲染台共用保活边界，跨独立工作区切换不�
   f.host.hide("whiteModel");
   assert.equal(f.actions.hidden, false);
   assert.equal(f.scroll.inputValue, "旧功能用户输入");
+});
+
+test("平面机位渲染切换保留相机和任务，与旧START隔离", () => {
+  const f = fixture();
+  f.host.show("floorPlanCamera");
+  const frame = f.frame();
+  assert.equal(frame.src, "/floor-plan-camera.html?embedded=1");
+  assert.equal(frame.title, "平面图机位渲染");
+  frame.camera = { x: 0.2, y: 0.6, heading: 45 };
+  f.host.show("floorPlan");
+  assert.equal(frame.hidden, true);
+  assert.equal(frame.inert, true);
+  f.host.show("floorPlanCamera");
+  assert.equal(frame.sourceWrites, 1);
+  assert.equal(frame.camera.heading, 45);
+  assert.equal(frame.hidden, false);
+  assert.equal(f.actions.hidden, true);
+  assert.equal(new URL(f.doc.defaultView.location.href).searchParams.get("feature"), "floorPlanCamera");
+  f.host.hide("whiteModel");
+  assert.equal(f.actions.hidden, false);
 });

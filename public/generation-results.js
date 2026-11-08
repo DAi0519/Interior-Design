@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖统一 API、含精模预设执行方式的结果摘要/安全图片 URL、任务原图、浏览器 Blob 与同源远程图片下载接口、全景预览器、结果区 DOM 与 Toast 回调
- * [OUTPUT]: 对外提供空态、加载态、错误态、含旧房/空房共用的单模型多张/多模型结果画廊、默认关闭且按需开启的原图/结果图 50% 轻量滑动对比、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
+ * [INPUT]: 依赖统一 API、含精模预设执行方式的结果摘要/安全图片 URL、任务原图、浏览器 Blob 与同源远程图片下载接口、二维大图/全景预览器、结果区 DOM 与 Toast 回调
+ * [OUTPUT]: 对外提供空态、加载态、错误态、含旧房/空房共用的单模型多张/多模型结果画廊、默认关闭且按需开启的原图/结果图 50% 轻量滑动对比、直接点击/键盘大图预览、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
  * [POS]: public 的生成结果呈现层，承接单模型最多四张或任意数量模型的成功与部分失败结果，隔离下载传输并按功能限定滑动对比与沉浸式预览
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { resultMetadata, secureImageUrl } from "./workbench-utils.js";
+import { bindResultImageViewer } from "./result-image-viewer.js";
 import {
   bindPanoramaViewer,
   isPanoramaPreviewFeature,
@@ -122,6 +123,7 @@ export async function prepareBrowserImageDownload(
 }
 
 export function bindGenerationResults({ api, showToast }) {
+  const imageViewer = bindResultImageViewer();
   const elements = {
     empty: document.querySelector("#emptyState"),
     error: document.querySelector("#errorState"),
@@ -282,6 +284,7 @@ export function bindGenerationResults({ api, showToast }) {
     image.alt = `${outcome.item.label} 生成结果`;
     image.src = secureImageUrl(result.images[0].url);
     const comparison = comparisonMedia(image, comparisonImage, outcome.item.label);
+    imageViewer.bind(comparison.media, image);
     const caption = document.createElement("footer");
     const copy = document.createElement("div");
     const model = document.createElement("strong");

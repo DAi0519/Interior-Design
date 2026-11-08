@@ -66,6 +66,6 @@ test("任务原图只保存在当前页面内存并由生成入口显式传入",
   assert.match(controller, /comparisonImages\.set\(currentTask\.featureMode, comparisonImage\)/);
   assert.match(controller, /saveGenerationTask\(storage, currentTask\)/);
   assert.doesNotMatch(controller, /saveGenerationTask\(storage, currentTask, comparisonImage\)/);
-  assert.match(html, /result\.css\?v=14/);
+  assert.match(html, /result\.css\?v=15/);
   assert.match(html, /app\.js\?v=\d+/);
 });

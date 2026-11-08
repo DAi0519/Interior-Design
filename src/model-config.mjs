@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→KS直入4K/6K超分与历史攸行冻结契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供模型目录/Provider、服务端编译正文独立长度准入、功能尺寸解析、全景R5_4原尺寸与Flux后置超分/双图请求构造器
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份与complexity能力/严格准入； 对外提供模型目录/Provider、服务端编译正文独立长度准入、功能尺寸解析、全景R5_4原尺寸与Flux后置超分/双图请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -181,6 +181,7 @@ export const MODEL_CONFIGS = Object.freeze({
     description: "GPT Image 2.6 · 支持图像生成与编辑",
     formats: ["png", "jpeg", "webp"], id: `gpt-image-2.6-${variant.toLowerCase()}`, label: `GPT Image 2.6 ${variant}`,
     qualityOptions: ["low", "medium", "high", "xhigh", "max"],
+    complexityOptions: ["low", "medium", "high"],
     sizes: GPT_IMAGE_25_SIZES,
   }])),
   aiTextureEnhancement: {
@@ -325,6 +326,7 @@ export function publicModelCatalog() {
     panoramaWorkflow: model.panoramaWorkflow || null,
     provider: model.provider || "oneapi",
     qualityOptions: model.qualityOptions,
+    complexityOptions: model.complexityOptions || [],
     postUpscale: model.postUpscale || null,
     requiresReferenceImage: model.requiresReferenceImage === true,
     sizes: model.sizes,
@@ -334,6 +336,19 @@ export function publicModelCatalog() {
 
 export function imageProviderForModel(modelKey) {
   return modelOrThrow(String(modelKey || "")).provider || "oneapi";
+}
+
+// --- 出图前规划独立于quality；默认省略，由模型决定，不推断网关是否执行 ---
+export function normalizeImageComplexity(modelId, value) {
+  if (value == null) return null;
+  const model = Object.values(MODEL_CONFIGS).find(entry => entry.id === modelId);
+  if (!model?.complexityOptions?.length) {
+    throw Object.assign(new TypeError("所选模型不支持独立思考强度"), { statusCode: 400 });
+  }
+  if (typeof value !== "string" || !model.complexityOptions.includes(value)) {
+    throw Object.assign(new TypeError("思考强度请选择低、中或高"), { statusCode: 400 });
+  }
+  return value;
 }
 
 export function normalizeFluxPostUpscaleInput(input, { legacy = false } = {}) {
@@ -372,6 +387,7 @@ export function createGenerationRequest(
   input = normalizeFluxPostUpscaleInput(input);
   const modelKey = String(input.modelKey || "");
   const model = modelOrThrow(modelKey);
+  const complexity = normalizeImageComplexity(model.id, input.complexity);
   const featureSizeOverrides = model.featureSizeOverrides?.[input.featureMode] || {};
   const sizes = Object.fromEntries(
     Object.entries(model.sizes).map(([ratio, values]) => [
@@ -553,6 +569,7 @@ export function createGenerationRequest(
   };
 
   if (quality) request.quality = quality;
+  if (complexity !== null) request.complexity = complexity;
   if (referenceImages.length > 0) {
     request.images = referenceImages.map((image) => ({
       fileName: image.fileName,
