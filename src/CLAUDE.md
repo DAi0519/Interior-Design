@@ -7,15 +7,15 @@ design-prompt-output.mjs: 空房/旧房自由JSON/纯文本校验和用户原文
 floor-plan-camera-prompt.mjs: 独立飞书floor-plan-camera-agent空间推理系统正文、最低v2 JSON合同门槛、上架版本/SHA冻结与脱敏目录，无跨表或本地回退
 floor-plan-camera-output.mjs: 校验Agent JSON的view_summary/image_prompt、4000字摘要上限与UNRESOLVABLE_VIEW阻断，额外字段不透传生图
 floor-plan-camera-service.mjs: .9单次Agent和逐图并发（上限2），模型多选、每模型1–4张/共12张、逐图回执与部分失败；.8单图兼容。同一张墙体遮挡和镜头角域标注图复用为推理输入与唯一生图参考，记录遮挡估算或仅开角；v7双侧强遮挡时淡化图纸画外区域并向Agent附画幅和平面边界，按冻结水平视野换算等效焦距；v6起成图词为人眼平视开场、可见画面、可选用户原文及简短图纸几何约束，v2–v5保留历史编译；双模型/资产/工作流冻结复核、视野摘要/独立画面词与同图SHA、两阶段费用诊断、九模型尺寸/质量及GPT2.6可选complexity
-beta-house-plan.mjs: 户型布局Beta适配，主服务复用、批次版本/模型准入、主卧标注冻结、完整Prompt与费用归档强校验
+beta-house-plan.mjs: 实际标注图归档投影与源图摘要； 户型布局Beta适配，主服务复用、批次版本/模型准入、主卧标注冻结、完整Prompt与费用归档强校验
 house-plan-prompt.mjs: 独立专表tblzPGZ7rKzKVqjE的用户原文house-plan-layout资产、多上架版本目录/精确版本选择与SHA复核及结构化Agent输出校验
-house-plan-service.mjs: 16384-token完整输出预算与截断零生图； 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
+house-plan-service.mjs: .2共享SVG烧入空间标注、Agent/生图同字节输入及SHA； 16384-token完整输出预算与截断零生图； 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
 floor-plan-geometry.mjs: 当前Key视觉模型目录、几何Prompt与权限双校验、单次识图建模
 floor-plan-spec.mjs: 严格HouseSpec与洞口/家具范围校验
 floor-plan-api.mjs: 三个平面出图入口独立config/jobs、归档能力准入、成功槽位异步归档与失败恢复、连接隔离及更新忙碌守卫
-floor-plan-archive-input.mjs: 逐图稳定归档ID、原图/实际送模图及Prompt SHA校验、结果/机位/逐图回执投影和串行同步
+floor-plan-archive-input.mjs: 户型布局标注图优先并保留原件； 逐图稳定归档ID、原图/实际送模图及Prompt SHA校验、结果/机位/逐图回执投影和串行同步
 floor-plan-archive.mjs: 三个平面图出图功能标签和飞书Schema、按归档ID查重与附件续传、字段和下载字节校验
-floor-plan-service.mjs: 超预算PNG自动请求压缩及实际送模格式/尺寸/SHA； 导出显式文生图/默认图生图、可选complexity/多参考图/指定画幅及按请求像素限制解码的图片执行原语；GPT2.6双模型身份/权限与历史兼容；布局四模型可选/默认参数与真实路由、后续Sunburst三动作保留；单图/Prompt/所选权限复核、PNG交付与原生格式/实际尺寸/费用回执
+floor-plan-service.mjs: 共享参考图Base64预算常量； 超预算PNG自动请求压缩及实际送模格式/尺寸/SHA； 导出显式文生图/默认图生图、可选complexity/多参考图/指定画幅及按请求像素限制解码的图片执行原语；GPT2.6双模型身份/权限与历史兼容；布局四模型可选/默认参数与真实路由、后续Sunburst三动作保留；单图/Prompt/所选权限复核、PNG交付与原生格式/实际尺寸/费用回执
 floor-plan-prompt.mjs: 独立飞书设计实验室v2 JSON三动作资产严格解析、上架版本/SHA冻结与脱敏目录，缺失不回退
 image-upscale-capabilities.mjs: 独立/嵌入KS共享的节点接口/模型枚举纯验证和15分钟执行/5分钟排队常量，无网络或工作流构建
 effect-beautification-lighting.mjs: 新增光影纯词照明保护合同/三字段身份、入队和执行卡片版本SHA复核、固定low/natural与归档元数据；原六档无库依赖
@@ -84,7 +84,7 @@ beta-sample-store.mjs: 旧房与空房共同保存逐样本房型；新建按当
 beta-base-schema.mjs: 含Beta质感增强固定Prompt批跑；含旧房改造的十三功能，复用现有场景/配置/版本/Agent/附件字段；Beta三表字段合同真源，实时分页校验含AI扩图的十三功能、普通/独立扩图/六超分工作流模型及图片输入Agent单选标签、全部字段类型/附件ID/关联目标；扩图与风格转换复用配置/场景/版本/生成参数及附件字段，允许历史附加选项，合同错误不可重试，不读取旧生成记录或Benchmark表
 beta-upscale.mjs: Beta六套超分目录与真实尺寸合同，默认攸行3B；冻结直入27.1/其他当前版本，能力门禁与执行前阻断漂移；受信旧直入26.3/更早任务仅进入Base原件恢复
 beta-outpaint.mjs: GPT2.6双模型身份/权限与历史兼容； Beta扩图四稳定工作流与脱敏能力目录，复用两款Flux Fill/Qwen2511/Sunburst模型真源；严格映射引擎/模型并冻结真实标签，固定2K、原比例或五预设、居中和1.5/2/3倍，拒绝身份冲突/四边参数/重传图片，入队及执行前独立核验所选候选可用性，不复制推理或归档
-beta-runner.mjs: 户型布局单次执行/主卧标注及Prompt版本冻结； GPT2.6双模型身份/权限与历史兼容； 含Beta质感增强固定Prompt批跑；后置超分新KS/旧3B身份冻结、惰性源图取回后建档/Agent前尺寸预检；旧房独立两路正整数版本/房型/权限准入、执行映射emptyRoom＋room-renovation且非旧房拒绝冒用；全景光影卡片入队前冻结并逐次重验、R5_4只一次GPU Attempt；精模必选光影来源或明确有效旧参数，唯一配置串行冻结独立基础code/版本/SHA及规则/卡片/实际参考图并去重/共享图片解包，资产准备失败零入队，历史original仅恢复已有结果、缺结果零建档/出图，兼容历史四块/双资产；十三功能样本草稿/逐张保存/完成回读与ID批次三表Schema准入，真实成员/目标输入内容及Agent/全景/风格转换冻结版本校验；来源功能不阻断跨功能复用，原样本不复制/重传或改写，两路并发逐项lazy读取原图；扩图/超分异步配置、零重传、真实尺寸在beginRun前预检及候选能力执行前复核，Comfy扩图/超分不依赖Prompt Agent Key；共享生成服务与独立Beta归档保持生成/同步双阶段，逐Run结构化预警，手动RETRY保留成功项与原冻结输入、只续失败Attempt，旧任务可携冻结批次恢复并先复用已上传附件；仅同步失败保留原结果/记录且零重新生成，普通瞬时生成错误最多三次新Attempt、400/409不自动重试，Sunburst扩图最多一次执行，重复点击复用重试任务，全部生成同步结算前hasActiveJobs持续忙碌；受信旧KS失败批次恢复可保留旧版本，恢复无结果仍零建档/GPU拒绝；美化新卡入队串行去重冻结与执行前重验/恢复已有结果不重复生成
+beta-runner.mjs: 户型布局归档复用prepare后的标注图且不覆盖样本； 户型布局单次执行/主卧标注及Prompt版本冻结； GPT2.6双模型身份/权限与历史兼容； 含Beta质感增强固定Prompt批跑；后置超分新KS/旧3B身份冻结、惰性源图取回后建档/Agent前尺寸预检；旧房独立两路正整数版本/房型/权限准入、执行映射emptyRoom＋room-renovation且非旧房拒绝冒用；全景光影卡片入队前冻结并逐次重验、R5_4只一次GPU Attempt；精模必选光影来源或明确有效旧参数，唯一配置串行冻结独立基础code/版本/SHA及规则/卡片/实际参考图并去重/共享图片解包，资产准备失败零入队，历史original仅恢复已有结果、缺结果零建档/出图，兼容历史四块/双资产；十三功能样本草稿/逐张保存/完成回读与ID批次三表Schema准入，真实成员/目标输入内容及Agent/全景/风格转换冻结版本校验；来源功能不阻断跨功能复用，原样本不复制/重传或改写，两路并发逐项lazy读取原图；扩图/超分异步配置、零重传、真实尺寸在beginRun前预检及候选能力执行前复核，Comfy扩图/超分不依赖Prompt Agent Key；共享生成服务与独立Beta归档保持生成/同步双阶段，逐Run结构化预警，手动RETRY保留成功项与原冻结输入、只续失败Attempt，旧任务可携冻结批次恢复并先复用已上传附件；仅同步失败保留原结果/记录且零重新生成，普通瞬时生成错误最多三次新Attempt、400/409不自动重试，Sunburst扩图最多一次执行，重复点击复用重试任务，全部生成同步结算前hasActiveJobs持续忙碌；受信旧KS失败批次恢复可保留旧版本，恢复无结果仍零建档/GPU拒绝；美化新卡入队串行去重冻结与执行前重验/恢复已有结果不重复生成
 effect-render-enhancement-prompt.mjs: 效果图氛围转换/全景图美化 Prompt 资产边界，原效果图表 ID 与 effect-render-enhancement 编码保持兼容，分别公开脱敏可用性/当前上架版本；氛围严格校验 BASE/DEFAULT/CONTRACT/TIME/WEATHER 并按环境拼接，全景接受纯文本/开放 MAIN JSON 与根级尾逗号，禁止跨表回退
 effect-render-enhancement-workflow.mjs: 含Beta质感增强固定Prompt批跑；四功能双Provider单图服务；美化原六档保留，新增纯词卡片固定低自然工作流/独立照明保护合同与实际版本SHA归档；质感原文空负向无LoRA，全景独立R5_4
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项

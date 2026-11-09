@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sharp 单图真实解码、共享四模型目录/请求、独立飞书JSON资产、OneAPI图片连接和既有多角度原语
- * [OUTPUT]: 提供超预算参考图自动压缩、实际送模尺寸/SHA及平面布局与共享单张成图、冻结复验资产/模型、原生格式与实际尺寸/回执；可向归档调用方回传实际送模词与参考图。
+ * [OUTPUT]: 提供共享Base64预算、超预算参考图自动压缩、实际送模尺寸/SHA及平面布局与共享单张成图、冻结复验资产/模型、原生格式与实际尺寸/回执；可向归档调用方回传实际送模词与参考图。
  * [POS]: src 的最简平面布局图像服务，不嵌入专业编辑器、不冒用二次编辑归档、不自动串联或重试收费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,7 +20,7 @@ export const FLOOR_PLAN_GPT_MODEL_KEYS = Object.freeze([FLOOR_PLAN_MODEL_KEY, "g
 export const FLOOR_PLAN_LAYOUT_MODEL_KEYS = Object.freeze([...FLOOR_PLAN_GPT_MODEL_KEYS, "banana21", "seedream5", "seedream5Pro"]);
 export const FLOOR_PLAN_IMAGE_POLICY = Object.freeze({ accept: ["image/png", "image/jpeg", "image/webp"],
   maxBytesPerImage: 8 * 1024 * 1024, maxDimension: 4096, maxPixels: 16 * 1024 * 1024, maxCount: 1 });
-const FLOOR_PLAN_REFERENCE_BASE64_BUDGET = 20_971_520;
+export const FLOOR_PLAN_REFERENCE_BASE64_BUDGET = 20_971_520;
 const actions = ["layout", "adjust", "interior", "camera"];
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode, floorPlanSafe: true });

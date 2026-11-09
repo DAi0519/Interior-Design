@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖户型布局服务/资产解析、共享任务HTTP边界、真实图片与模型替身
- * [OUTPUT]: 验证16384-token额度/截断零生图、主卧准入、默认模型、Agent到生图顺序/原文、失败零二次调用及命名空间隔离
+ * [OUTPUT]: 验证实际标注图像素/安全转义/送模归档一致、16384-token额度/截断零生图、主卧准入、默认模型、Agent到生图顺序/原文、失败零二次调用及命名空间隔离
  * [POS]: test 的户型平面布局专项合同，不发起真实付费请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,8 @@ import { readHousePlanConfig, prepareHousePlanInput, executeHousePlan, validateH
 import { parseHousePlanOutput, getHousePlanPrompt, housePlanHash } from '../src/house-plan-prompt.mjs';
 import { createFloorPlanApiHandler } from '../src/floor-plan-api.mjs';
 import { staticSecurityHeaders } from '../src/http-security.mjs';
+import { housePlanAnnotationSvg } from '../public/house-plan-annotation.js';
+import { floorPlanArchiveInput } from '../src/floor-plan-archive-input.mjs';
 const asset = { code: 'house-plan-layout', version: 1, sha256: 'a'.repeat(64), source: 'feishu:test:house-plan-layout@v1', published: true,
   prompt: 'PRIVATE_USER_ORIGINAL' };
 const getPrompt = async () => structuredClone(asset);
@@ -31,16 +33,40 @@ test('默认GPT2.5、配置不泄露正文，默认失权不静默换模', async
   assert.equal(prepared.source.submittedWidth,96); assert.equal(prepared.source.submittedHeight,64);
   await assert.rejects(prepareHousePlanInput(value,{getModels:async()=>[{id:'gemini-3.1-pro-preview'},{id:'gpt-image-2.6-flare'}],getPrompt}),/不可用/);
 });
-test('原图和标注实际送入Agent，结构化结果与用户原文进入一次图片请求', async () => {
-  const calls=[]; const prepared=await prepare(await input());
+test('同一带标注图实际送入Agent、生图及主工作台归档，原图独立保留', async () => {
+  const calls=[]; const original=await input(); const prepared=await prepare(original); let compiledPrompt;
+  assert.notEqual(prepared.imageUrl, original.referenceImage.dataUrl);
+  assert.equal(housePlanHash(Buffer.from(prepared.imageUrl.split(',')[1],'base64')),prepared.source.submittedSha256);
   const client={ generatePrompt:async request=>{ calls.push('agent'); assert.equal(request.maxOutputTokens,16384); assert.equal(request.requireCompleteOutput,true); assert.equal(request.systemPrompt,asset.prompt); assert.equal(request.imageUrl,prepared.imageUrl); const user=JSON.parse(request.userPrompt);
     assert.equal(Object.keys(user)[0],'user_requirements'); assert.equal(user.user_requirements,prepared.userRequirements); assert.deepEqual(user.annotations,prepared.annotations);
     assert.equal(user.default_requirements,undefined); return {text:JSON.stringify(plan),requestId:'agent-id',usageCost:{costUsd:.01}}; },
     editImageAsync:async request=>{ calls.push('image'); assert.ok(request.prompt.startsWith(prepared.userRequirements+'\n\n'));
       assert.ok(request.prompt.includes(plan.layout_prompt)); assert.ok(request.prompt.endsWith(asset.prompt)); assert.equal(request.images[0].image_url,prepared.imageUrl); assert.equal(request.n,1);
       const [w,h]=request.size.split('x').map(Number); const bytes=await image(w,h); return {images:[{url:`data:image/png;base64,${bytes.toString('base64')}`}],requestId:'image-id',usageCost:{costUsd:.02}}; }};
-  const result=await executeHousePlan(prepared,{client,getModels,getPrompt}); assert.deepEqual(calls,['agent','image']);
+  const result=await executeHousePlan(prepared,{client,getModels,getPrompt,onCompiledPrompt:value=>{compiledPrompt=value;}}); assert.deepEqual(calls,['agent','image']);
   assert.equal(result.featureMode,'housePlanLayout'); assert.equal(result.receipts.agent.requestId,'agent-id'); assert.equal(result.receipts.image.requestId,'image-id'); assert.deepEqual(result.plan,plan);
+  const archive=floorPlanArchiveInput({featureMode:'housePlanLayout',jobId:'annotated-test',result,
+    sourceImage:original.referenceImage,submittedImageUrl:prepared.imageUrl,
+    compiledPrompt});
+  assert.equal(archive.referenceImages[0].imageUrl,prepared.imageUrl);
+  assert.equal(archive.referenceImages[1].imageUrl,original.referenceImage.dataUrl);
+  assert.deepEqual(archive.workflow.referenceRoles,['space-annotated-plan','original']);
+});
+
+test('送模图保留完整尺寸与框外原像素，主卧橙色/其他空间蓝色且文字安全转义', async () => {
+  const value=await input(), bytes=await image(1000,800);
+  value.referenceImage={name:'plan.png',type:'image/png',size:bytes.length,dataUrl:`data:image/png;base64,${bytes.toString('base64')}`};
+  value.annotations.push({label:'书房<&"',x:.6,y:.5,width:.2,height:.3});
+  const prepared=await prepare(value);
+  const {data,info}=await sharp(Buffer.from(prepared.imageUrl.split(',')[1],'base64')).removeAlpha().raw().toBuffer({resolveWithObject:true});
+  assert.equal(info.width,1000);assert.equal(info.height,800);
+  const pixel=(x,y)=>Array.from(data.subarray((y*info.width+x)*3,(y*info.width+x)*3+3));
+  assert.deepEqual(pixel(900,700),[238,238,238]);
+  const orange=pixel(200,200),blue=pixel(700,500);
+  assert.ok(orange[0]>orange[1] && orange[1]>orange[2]);
+  assert.ok(blue[2]>blue[1] && blue[1]>blue[0]);
+  const svg=housePlanAnnotationSvg(value.annotations,1000,800);
+  assert.ok(svg.includes('书房&lt;&amp;&quot;'));assert.ok(!svg.includes('书房<&"'));
 });
 test('空特殊需求使用默认规则，Agent无效结果阻止生图并保留Agent费用', async () => {
   const value=await input(); value.userRequirements=''; const prepared=await prepare(value); let images=0;

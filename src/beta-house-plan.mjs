@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖户型布局主服务、独立Prompt资产和Beta冻结输入/归档字段
- * [OUTPUT]: 提供Beta布局准入、按样本执行及归档强校验，沿用主工作台模型/默认参数
+ * [OUTPUT]: 提供Beta布局准入、按样本执行、同字节标注图归档投影及强校验，沿用主工作台模型/默认参数
  * [POS]: src 的Beta与户型布局适配层，不复制Agent或图片推理，不写普通生成记录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,7 +8,17 @@ import { isDeepStrictEqual } from 'node:util';
 import { HOUSE_PLAN_WORKFLOW, readHousePlanConfig, prepareHousePlanInput, executeHousePlan, validateHousePlanAnnotations } from './house-plan-service.mjs';
 import { HOUSE_PLAN_CODE, housePlanHash } from './house-plan-prompt.mjs';
 import { betaBaseContractError } from './beta-base-schema.mjs';
+import { decodeImageDataUrl } from './image-artifact.mjs';
 const fail = message => Object.assign(new Error(message), { statusCode: 400, retryable: false });
+// --- 仅替换本次跑图的归档附件，样本集原件和任务原始输入保持可追溯。 ---
+export function housePlanArchiveItem(item, prepared) {
+  const bytes = decodeImageDataUrl(prepared.imageUrl);
+  if (prepared.source?.submittedRole !== 'space-annotated-plan'
+    || housePlanHash(bytes) !== prepared.source.submittedSha256) throw fail('布局标注图与实际送模摘要不一致');
+  const type = prepared.imageUrl.slice(5, prepared.imageUrl.indexOf(';'));
+  return { ...item, input: { ...item.input, referenceImages: [{ name: `户型空间标注.${type === 'image/jpeg' ? 'jpg' : 'png'}`,
+    type, size: bytes.length, dataUrl: prepared.imageUrl }] } };
+}
 export function normalizeBetaHousePlanInput(input) {
   if (input.styleReferenceImages?.length || input.lightingReferenceImages?.length) throw fail('户型布局只接受户型原图');
   if (input.housePlanWorkflowVersion !== HOUSE_PLAN_WORKFLOW || !Number.isSafeInteger(input.promptVersion)
@@ -70,6 +80,8 @@ export function verifyHousePlanArchive(fields, snapshot, bytes) {
     || Number(fields['Agent 版本']) !== snapshot.promptVersion || actual.model?.key !== snapshot.modelKey
     || actual.agent?.key !== snapshot.promptAgentModelKey || !isDeepStrictEqual(actual.annotations, snapshot.annotations)
     || housePlanHash(fields['最终 Prompt'] || '') !== actual.compiledPromptSha256
+    || actual.workflowVersion === HOUSE_PLAN_WORKFLOW && (actual.source?.submittedRole !== 'space-annotated-plan'
+      || !/^[a-f0-9]{64}$/.test(actual.source?.submittedSha256 || ''))
     || !/^[a-f0-9]{64}$/.test(actual.source?.sha256 || '')
     || !/^[a-f0-9]{64}$/.test(actual.outputSha256 || '') || bytes && housePlanHash(bytes) !== actual.outputSha256) {
     throw betaBaseContractError('户型布局实际标注、模型、Prompt版本或成品摘要与冻结配置不一致');

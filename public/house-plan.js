@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖house-plan-annotation共享标注绘制、共享API、文件与下拉、独立户型布局和归档状态接口、归一化标注画布
- * [OUTPUT]: 提供空间选择/标注、飞书版本选择、Agent到生图、原任务恢复、下载和飞书归档准入及状态
+ * [OUTPUT]: 提供.2标注图工作流门禁、空间选择/标注、飞书版本选择、Agent到生图、原任务恢复、下载和飞书归档准入及状态
  * [POS]: public 的户型平面布局控制器，与实验室会话和收费任务隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -119,7 +119,7 @@ window.addEventListener('resize', draw);
 function selectedPrompt() { return state.config?.promptVersions?.find(item => item.version === state.promptVersion); }
 async function loadConfig() {
   state.config = await api('/api/house-plan/config?refresh=1');
-  if (state.config.workflowVersion !== '2026-11-06.house-plan.1') throw new Error('当前服务尚未加载户型平面布局，请打开新版工作台');
+  if (state.config.workflowVersion !== '2026-11-09.house-plan.2') throw new Error('当前服务尚未加载带标注图的户型平面布局，请更新服务并刷新工作台');
   if (!state.config.promptVersionSelection) throw new Error('当前服务未加载Prompt版本选择，请重载服务');
   if (state.config.archive?.required !== true) throw new Error('当前服务尚未接入飞书生成记录，请重载工作台');
   const models = state.config.layoutModels || [], agents = state.config.agentModels || [];

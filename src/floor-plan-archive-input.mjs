@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 平面出图任务的原图、实际送模图、最终提示词、逐图结果和回执。
- * [OUTPUT]: 生成逐图稳定归档身份，投影可复验的飞书记录，并串行安排同步。
+ * [OUTPUT]: 户型布局标注图优先保留原件，生成逐图稳定归档身份，投影可复验的飞书记录，并串行安排同步。
  * [POS]: 三个平面图出图入口与飞书归档之间的私有边界，亦用于有原始证据的补录。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,7 +27,9 @@ export function floorPlanArchiveInput({ featureMode, jobId, result, sourceImage,
   const submittedSha256 = actual.referenceImageSha256 || actual.agentInputImageSha256
     || (result.action !== 'camera' ? result.source?.submittedSha256 : null);
   const source = archiveImage(sourceImage.dataUrl, sourceImage.name || '原始平面图', result.source?.sha256);
-  const submitted = archiveImage(submittedImageUrl, featureMode === 'floorPlanCamera' ? '实际送模-机位标注图' : '实际送模-平面图', submittedSha256);
+  const annotatedLayout = featureMode === 'housePlanLayout' && result.source?.submittedRole === 'space-annotated-plan';
+  const submitted = archiveImage(submittedImageUrl, featureMode === 'floorPlanCamera' ? '实际送模-机位标注图'
+    : annotatedLayout ? '实际送模-空间标注图' : '实际送模-平面图', submittedSha256);
   const sameInput = source.sha256 === submitted.sha256;
   const archiveId = `floor-plan-${hash(JSON.stringify([featureMode, jobId, result.model.key, slot]))}`;
   const sourcePrompt = result.userRequirements || '';
@@ -40,7 +42,7 @@ export function floorPlanArchiveInput({ featureMode, jobId, result, sourceImage,
     archiveId, featureMode, title: `${label} · ${result.model.label} · 第${slot}张`,
     durationMs: result.durationMs, finalPrompt: compiledPrompt, sourcePrompt, modelLabel: result.model.label,
     resultImage: { url: result.image.url, sha256: result.image.sha256 },
-    referenceImages: sameInput ? [source] : [source, submitted],
+    referenceImages: sameInput ? [source] : annotatedLayout ? [submitted, source] : [source, submitted],
     preview: { outputFormat: result.image.type.split('/')[1], quality: actual.quality, ratio: result.aspectRatio,
       referenceImageCount: actual.referenceImageCount ?? 1, resolution: result.resolution || actual.outputResolution || (result.action === 'camera' ? '2K-max' : undefined),
       transport },
@@ -50,7 +52,7 @@ export function floorPlanArchiveInput({ featureMode, jobId, result, sourceImage,
       agentModelLabel: result.agent?.label, agentCode: result.agent ? result.prompt?.code : undefined,
       agentVersion: result.agent ? result.prompt?.version : undefined,
       prompt: result.prompt, compiledPromptSha256, userRequirements: sourcePrompt, source: result.source,
-      referenceRoles: sameInput ? ['original-and-submitted'] : ['original', submittedRole],
+      referenceRoles: sameInput ? ['original-and-submitted'] : annotatedLayout ? ['space-annotated-plan', 'original'] : ['original', submittedRole],
       sourceSha256: source.sha256, submittedSha256: submitted.sha256, outputSha256: result.image.sha256,
       camera: result.camera, annotations: result.annotations, plan: result.plan, viewSummary: result.viewSummary, scenePrompt: result.scenePrompt,
       requestedComplexity: result.requestedComplexity, actual,

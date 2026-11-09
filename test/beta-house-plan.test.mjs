@@ -1,13 +1,13 @@
 /**
  * [INPUT]: 依赖Beta任务/布局适配层、主布局服务、模型替身和真实PNG字节
- * [OUTPUT]: GPT2.6双模型从准入到Agent/成图/真实模型字段及摘要归档； 验证逐图标注准入、所选版本/权限、Agent到生图及归档、一次收费和同步恢复
+ * [OUTPUT]: 实际标注附件字节及原样本保留； GPT2.6双模型从准入到Agent/成图/真实模型字段及摘要归档； 验证逐图标注准入、所选版本/权限、Agent到生图及归档、一次收费和同步恢复
  * [POS]: test 的Beta布局跨层合同，无真实收费或飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { createBetaHousePlanService, normalizeBetaHousePlanInput, verifyHousePlanArchive } from '../src/beta-house-plan.mjs';
+import { createBetaHousePlanService, normalizeBetaHousePlanInput, verifyHousePlanArchive, housePlanArchiveItem } from '../src/beta-house-plan.mjs';
 import { createBetaRunnerService } from '../src/beta-runner.mjs';
 import { betaConfigSnapshot, buildBetaRunFields, betaResultVersion, betaResultCostUsd } from '../src/beta-base.mjs';
 import { HOUSE_PLAN_WORKFLOW } from '../src/house-plan-service.mjs';
@@ -76,11 +76,11 @@ test('复用主布局服务：所选Agent/原图/标注/需求到一张成图，
   const record=buildBetaRunFields({...batch(),item:batch().items[0]});assert.equal(record['功能'],'户型平面布局');assert.deepEqual(JSON.parse(record['场景参数']).annotations,input().annotations);
 });
 function runner({ execute, completeRun }) {
-  const source=image(); let generations=0, archives=0;
-  const service=createBetaRunnerService({ housePlanService:{ verify:async()=>{}, prepare:async value=>{assert.equal(value.referenceImages.length,1);return value;},execute:async value=>{generations++;return execute(value);} },
+  const source=image(); let generations=0, archives=0, archivedImage;
+  const service=createBetaRunnerService({ housePlanService:{ verify:async()=>{}, prepare:async value=>{assert.equal(value.referenceImages.length,1);return adapter({}).prepare(value);},execute:async value=>{generations++;assert.equal(value.imageUrl,archivedImage);return execute(value);} },
     generationService:{ executeForMode(){throw new Error('不得调用其他功能');} },sleep:async()=>{},
     baseStore:{ config:{},verifySchema:async()=>{},getSampleSet:async()=>({recordId:'rec-set',status:'可用',sampleSetId:'SET-house',featureMode:'whiteModel',samples:[{sampleId:'SAMPLE-house',recordId:'rec-sample',image:await source}]}),
-      resolveSample:async()=>({image:await source}),beginRun:async()=>{archives++;return{recordId:'rec-run'};},completeRun,failRun:async()=>{} } });
+      resolveSample:async()=>({image:await source}),beginRun:async({item})=>{archives++;archivedImage=item.input.referenceImages[0].dataUrl;assert.notEqual(archivedImage,(await source).dataUrl);return{recordId:'rec-run'};},completeRun,failRun:async()=>{} } });
   return {service,counts:()=>({generations,archives})};
 }
 test('Beta单次生成失败不自动收费重跑；已有结果同步失败重试只同步', async () => {
@@ -96,7 +96,8 @@ test('Beta布局实际Store写入与附件回读，漂移资产阻断成功状�
   const { join } = await import('node:path');
   const source=await image();
   const service=adapter({generatePrompt:async()=>({text:JSON.stringify(plan)}),editImageAsync:async request=>{const [w,h]=request.size.split('x').map(Number);return {images:[{url:(await image(w,h)).dataUrl}]};}});
-  const result=await service.execute(await service.prepare({...input(),referenceImages:[source]}));
+  const prepared=await service.prepare({...input(),referenceImages:[source]});
+  const result=await service.execute(prepared);
   for (const corrupt of [false,true]) {
     const fields={}, attachments={};
     const store=createBetaBaseStore({run:async(config,args,options)=>{
@@ -105,12 +106,13 @@ test('Beta布局实际Store写入与附件回读，漂移资产阻断成功状�
       if(args.includes('+record-upload-attachment')) {
         const id=args[args.indexOf('--field-id')+1],name=id===config.inputFieldId?'输入图':id===config.resultFieldId?'结果图':'风格参考图';
         const filename=args[args.indexOf('--file')+1];const bytes=await readFile(join(options.cwd,filename));attachments[name]=[{file_token:`${name}-token`,size:bytes.length}];
+        if(name==='输入图') {assert.equal(housePlanHash(bytes),prepared.source.submittedSha256);assert.notEqual(housePlanHash(bytes),prepared.source.sha256);}
       }
       if(args.includes('+record-get')) {const record={...fields,...attachments};return {ok:true,data:{fields:Object.keys(record),data:[Object.values(record)],record_id_list:['rec-layout']}};}
       return {ok:true,data:{}};
     }});
     const body=batch();body.items[0].input.referenceImages=[source];
-    await store.beginRun({...body,item:body.items[0]});
+    await store.beginRun({...body,item:housePlanArchiveItem(body.items[0],prepared)});
     const actual=structuredClone(result);if(corrupt)actual.sync.archiveFields['Agent 版本']=1;
     if(corrupt) {await assert.rejects(store.completeRun('rec-layout',actual),/户型布局实际/);assert.equal(fields['状态'],'运行中');}
     else {await store.completeRun('rec-layout',actual);assert.equal(fields['状态'],'成功');assert.equal(fields['功能'],'户型平面布局');assert.ok(fields['最终 Prompt'].startsWith('增加书房'));assert.equal(attachments['输入图'].length,1);assert.equal(attachments['结果图'].length,1);}

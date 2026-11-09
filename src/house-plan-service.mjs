@@ -1,16 +1,18 @@
 /**
- * [INPUT]: 依赖独立飞书布局资产、视觉Agent目录、原图准入及共享单张图片执行原语
- * [OUTPUT]: 提供户型平面布局配置及飞书多版本身份目录、主卧/空间标注校验、16384-token完整Agent到一次生图、结构化方案及两阶段费用回执，服务端onCompiledPrompt回调供Beta归档
+ * [INPUT]: 依赖独立飞书布局资产、视觉Agent目录、原图准入、共享空间标注SVG及单张图片执行原语
+ * [OUTPUT]: 提供.2标注图冻结、Agent/生图同图及户型平面布局配置及飞书多版本身份目录、主卧/空间标注校验、16384-token完整Agent到一次生图、结构化方案及两阶段费用回执，服务端onCompiledPrompt回调供Beta归档
  * [POS]: src 的独立户型平面布局编排，默认GPT2.5，不改变实验室四动作
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import sharp from 'sharp';
+import { housePlanAnnotationSvg } from '../public/house-plan-annotation.js';
 import { checkAgentModelAvailability } from './agent-model-config.mjs';
-import { readFloorPlanConfig, normalizeFloorPlanReferenceImage, generateFloorPlanImage, FLOOR_PLAN_GPT_MODEL_KEYS, FLOOR_PLAN_MODEL_KEY } from './floor-plan-service.mjs';
+import { readFloorPlanConfig, normalizeFloorPlanReferenceImage, generateFloorPlanImage, FLOOR_PLAN_GPT_MODEL_KEYS, FLOOR_PLAN_MODEL_KEY, FLOOR_PLAN_REFERENCE_BASE64_BUDGET } from './floor-plan-service.mjs';
 import { decodeImageDataUrl, fitImageDataUrlForRequest } from './image-artifact.mjs';
 import { getHousePlanPrompt, listHousePlanPrompts, housePlanHash, housePlanError as fail, parseHousePlanOutput } from './house-plan-prompt.mjs';
-export const HOUSE_PLAN_WORKFLOW = '2026-11-06.house-plan.1';
+export const HOUSE_PLAN_WORKFLOW = '2026-11-09.house-plan.2';
 const HOUSE_PLAN_AGENT_MAX_OUTPUT_TOKENS = 16_384;
+const annotationLegend = '图中橙色框为主卧，蓝色框为其他指定空间，同色底白字为名称。框和标签仅为位置提示，不是墙体或家具，最终布局图不保留这些辅助标记。';
 const identity = ({ code, name, version, sha256, source, tableUrl }) => ({ code, name, version, sha256, source, tableUrl });
 const receipt = response => ({ requestId: typeof response?.requestId === 'string' ? response.requestId.slice(0, 160) : null,
   usageCost: Object.fromEntries(Object.entries(response?.usageCost || {}).filter(([key, value]) =>
@@ -19,7 +21,7 @@ export function validateHousePlanAnnotations(value) {
   if (!Array.isArray(value) || !value.length || value.length > 20) throw fail('请框选主卧，可选标注最多19个其他空间');
   const result = value.map((item, index) => {
     if (!item || typeof item !== 'object' || Object.keys(item).sort().join() !== 'height,label,width,x,y'
-      || typeof item.label !== 'string' || !item.label.trim() || item.label.length > 40
+      || typeof item.label !== 'string' || !item.label.trim() || item.label.length > 40 || /[\u0000-\u001f\u007f]/.test(item.label)
       || ['x','y','width','height'].some(key => typeof item[key] !== 'number' || !Number.isFinite(item[key]))
       || item.x < 0 || item.y < 0 || item.width < .005 || item.height < .005
       || item.x + item.width > 1.000001 || item.y + item.height > 1.000001) throw fail('空间标注范围或名称无效');
@@ -64,11 +66,13 @@ export async function prepareHousePlanInput(input, { getModels, getPrompt = getH
     annotations, userRequirements, prompt };
   const { model, agent } = await checkModels(fields, getModels);
   const reference = await normalizeFloorPlanReferenceImage(input.referenceImage);
-  if (!FLOOR_PLAN_GPT_MODEL_KEYS.includes(fields.modelKey)) {
-    reference.imageUrl = await fitImageDataUrlForRequest(reference.imageUrl);
-  }
+  // --- 标注烧入唯一送模图；压缩完成后冻结，Agent、生图及归档使用完全相同的字节。 ---
+  const overlay = housePlanAnnotationSvg(annotations, reference.source.width, reference.source.height);
+  const annotated = await sharp(decodeImageDataUrl(reference.imageUrl)).composite([{ input: Buffer.from(overlay) }]).png().toBuffer();
+  reference.imageUrl = await fitImageDataUrlForRequest(`data:image/png;base64,${annotated.toString('base64')}`,
+    FLOOR_PLAN_GPT_MODEL_KEYS.includes(fields.modelKey) ? { maxBase64Bytes: FLOOR_PLAN_REFERENCE_BASE64_BUDGET } : undefined);
   const bytes = decodeImageDataUrl(reference.imageUrl), metadata = await sharp(bytes).metadata();
-  reference.source = { ...reference.source, submittedSha256: housePlanHash(bytes), submittedFormat: metadata.format,
+  reference.source = { ...reference.source, submittedRole: 'space-annotated-plan', submittedSha256: housePlanHash(bytes), submittedFormat: metadata.format,
     submittedWidth: metadata.width, submittedHeight: metadata.height };
   return { ...fields, ...reference, model, agent, defaults: model.defaults };
 }
@@ -86,6 +90,7 @@ export async function executeHousePlan(input, { client, getModels, getPrompt = g
     agentResponse = await client.generatePrompt({ maxOutputTokens: HOUSE_PLAN_AGENT_MAX_OUTPUT_TOKENS, requireCompleteOutput: true, model: agent.id, imageUrl: input.imageUrl, systemPrompt: asset.prompt,
       userPrompt: JSON.stringify({ ...(input.userRequirements.trim() ? { user_requirements: input.userRequirements } : {}),
         annotations: input.annotations, coordinate_system: 'normalized_0_1_top_left_origin',
+        annotation_legend: annotationLegend,
         ...(!input.userRequirements.trim() ? { default_requirements: '普通家庭默认布局，按系统提示词中的默认规则执行' } : {}),
         output_contract: {
           stage: '当前仅进行文字布局分析，尚未生图；系统随后会调用图像模型。',
@@ -98,7 +103,7 @@ export async function executeHousePlan(input, { client, getModels, getPrompt = g
     const plan = parseHousePlanOutput(agentResponse.text);
     // --- 用户原文置前；Agent结构化布局与固定出图规则同次交给图像模型 ---
     const finalPrompt = [input.userRequirements.trim() ? input.userRequirements : null,
-      JSON.stringify({ annotations: input.annotations, ...plan }), asset.prompt].filter(Boolean).join('\n\n');
+      JSON.stringify({ annotations: input.annotations, annotation_legend: annotationLegend, ...plan }), asset.prompt].filter(Boolean).join('\n\n');
     onCompiledPrompt(finalPrompt);
     await checkModels(input, getModels);
     await getPrompt({ version: input.prompt.version, expectedSha256: input.prompt.sha256 });
