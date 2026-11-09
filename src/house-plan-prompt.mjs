@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖飞书已上架Agent版本读取与户型布局专用Prompt表位置
- * [OUTPUT]: 提供户型平面布局独立原文资产、已上架多版本目录/精确选择与SHA校验与输出解析
+ * [INPUT]: 依赖飞书已上架Agent版本、户型布局专表及共享自由设计正文校验
+ * [OUTPUT]: 提供独立原文资产、多版本/SHA校验和纯文本/旧JSON兼容解析，展示字段不再阻断有效布局正文
  * [POS]: src 的户型平面布局Prompt合同，正文仅存飞书，不回退旧实验室
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createHash } from 'node:crypto';
 import { getPublishedPromptAgent, listPublishedPromptAgentVersions } from './prompt-agent.mjs';
+import { normalizeDesignPromptOutput } from './design-prompt-output.mjs';
 export const HOUSE_PLAN_PROMPT_CONFIG = Object.freeze({
   baseToken: process.env.LARK_HOUSE_PLAN_PROMPT_BASE_TOKEN || 'SALobKnnra17iSsGT2ccC52PnHd',
   tableId: process.env.LARK_HOUSE_PLAN_PROMPT_TABLE_ID || 'tblzPGZ7rKzKVqjE',
@@ -42,18 +43,27 @@ export async function listHousePlanPrompts() {
   return assets.sort((a, b) => b.version - a.version);
 }
 export function parseHousePlanOutput(text) {
+  let body;
+  try { body = normalizeDesignPromptOutput(text); }
+  catch (error) { throw housePlanError(`${error.message}，未调用生图模型`, 502); }
   let output;
-  try { output = JSON.parse(String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')); }
-  catch { throw housePlanError('Agent未返回完整布局JSON，未调用生图模型', 502); }
-  if (!output || typeof output !== 'object' || Array.isArray(output)
-    || typeof output.summary !== 'string' || !output.summary.trim() || output.summary.length > 2000
-    || typeof output.layout_prompt !== 'string' || !output.layout_prompt.trim() || output.layout_prompt.length > 16000
-    || !Array.isArray(output.spaces) || !output.spaces.length || output.spaces.length > 30
-    || output.spaces.some(space => !space || typeof space.name !== 'string' || !space.name.trim() || space.name.length > 80
-      || typeof space.layout !== 'string' || !space.layout.trim() || space.layout.length > 2000)
-    || !Array.isArray(output.warnings) || output.warnings.length > 30
-    || output.warnings.some(item => typeof item !== 'string' || item.length > 500)) {
-    throw housePlanError('Agent布局方案不完整，未调用生图模型', 502);
+  try { output = JSON.parse(body); } catch { output = body; }
+  const hasText = value => typeof value === 'string' && Boolean(value.trim());
+  // --- 元信息不是布局；字段名称和展示信息不作为生图方案的固定格式门槛。 ---
+  const metadata = new Set(['summary', 'warnings', 'status', 'error', 'message', 'reason', 'refusal', 'name']);
+  const hasLayout = value => typeof value === 'string' ? Boolean(value.trim())
+    : value && typeof value === 'object' && Object.entries(value).some(([key, item]) => !metadata.has(key) && hasLayout(item));
+  if (!hasLayout(output) || output?.error || output?.refusal
+    || ['error', 'failed', 'unresolvable'].includes(output?.status)) {
+    throw housePlanError('Agent未返回可用布局提示词，未调用生图模型', 502);
   }
-  return { summary: output.summary, spaces: output.spaces.map(({ name, layout }) => ({ name, layout })), layout_prompt: output.layout_prompt, warnings: output.warnings };
+  if (typeof output === 'string') body = output.trim();
+  if (/^UNRESOLVABLE_LAYOUT\b/.test(body) || /^UNRESOLVABLE_LAYOUT\b/.test(output?.layout_prompt || output?.prompt || '')) {
+    throw housePlanError('Agent无法识别有效户型，未调用生图模型；请核对原图和空间标注', 502);
+  }
+  // --- 完整正文进入生图；仅为旧版结果界面提取可选字段，不丢弃额外设计信息。 ---
+  return { summary: hasText(output?.summary) ? output.summary : '',
+    spaces: Array.isArray(output?.spaces) ? output.spaces.filter(space => hasText(space?.name) && hasText(space?.layout))
+      .map(({ name, layout }) => ({ name, layout })) : [],
+    layout_prompt: body, warnings: Array.isArray(output?.warnings) ? output.warnings.filter(hasText) : [] };
 }

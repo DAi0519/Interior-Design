@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖Agent返回的纯文本/JSON正文和用户补充原文，无外部服务
  * [OUTPUT]: 对外提供自由设计正文校验与用户原文前置，拒绝空内容和明显损坏JSON，不限定设计字段
- * [POS]: src 的空房/旧房自由正文合同；平面图机位仅复用用户原文前置，不持有系统提示词
+ * [POS]: src 的空房/旧房/户型布局自由正文基础合同；平面图机位仅复用用户原文前置，不持有系统提示词
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 const workflowError = (message, statusCode = 502) => Object.assign(new Error(message), { statusCode });

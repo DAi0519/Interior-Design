@@ -3,13 +3,13 @@
 
 成员清单
 http-response.mjs: HTTP JSON/图片/下载响应写入，复用统一安全头并保留413关闭连接语义
-design-prompt-output.mjs: 空房/旧房自由JSON/纯文本校验和用户原文前置；机位Agent仅复用前置函数，自身输出由独立JSON合同校验
+design-prompt-output.mjs: 户型布局复用正文校验； 空房/旧房自由JSON/纯文本校验和用户原文前置；机位Agent仅复用前置函数，自身输出由独立JSON合同校验
 floor-plan-camera-prompt.mjs: 独立飞书floor-plan-camera-agent空间推理系统正文、最低v2 JSON合同门槛、上架版本/SHA冻结与脱敏目录，无跨表或本地回退
 floor-plan-camera-output.mjs: 校验Agent JSON的view_summary/image_prompt、4000字摘要上限与UNRESOLVABLE_VIEW阻断，额外字段不透传生图
 floor-plan-camera-service.mjs: .9单次Agent和逐图并发（上限2），模型多选、每模型1–4张/共12张、逐图回执与部分失败；.8单图兼容。同一张墙体遮挡和镜头角域标注图复用为推理输入与唯一生图参考，记录遮挡估算或仅开角；v7双侧强遮挡时淡化图纸画外区域并向Agent附画幅和平面边界，按冻结水平视野换算等效焦距；v6起成图词为人眼平视开场、可见画面、可选用户原文及简短图纸几何约束，v2–v5保留历史编译；双模型/资产/工作流冻结复核、视野摘要/独立画面词与同图SHA、两阶段费用诊断、九模型尺寸/质量及GPT2.6可选complexity
 beta-house-plan.mjs: 实际标注图归档投影与源图摘要； 户型布局Beta适配，主服务复用、批次版本/模型准入、主卧标注冻结、完整Prompt与费用归档强校验
-house-plan-prompt.mjs: 独立专表tblzPGZ7rKzKVqjE的用户原文house-plan-layout资产、多上架版本目录/精确版本选择与SHA复核及结构化Agent输出校验
-house-plan-service.mjs: .2共享SVG烧入空间标注、Agent/生图同字节输入及SHA； 16384-token完整输出预算与截断零生图； 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
+house-plan-prompt.mjs: 复用自由设计正文，纯文本/旧JSON兼容、可选展示与无布局/损坏输出阻断； 独立专表tblzPGZ7rKzKVqjE的用户原文house-plan-layout资产、多上架版本目录/精确版本选择与SHA复核及结构化Agent输出校验
+house-plan-service.mjs: 最终正文直接送模、Agent工作指令分离及同文归档； .2共享SVG烧入空间标注、Agent/生图同字节输入及SHA； 16384-token完整输出预算与截断零生图； 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
 floor-plan-geometry.mjs: 当前Key视觉模型目录、几何Prompt与权限双校验、单次识图建模
 floor-plan-spec.mjs: 严格HouseSpec与洞口/家具范围校验
 floor-plan-api.mjs: 三个平面出图入口独立config/jobs、归档能力准入、成功槽位异步归档与失败恢复、连接隔离及更新忙碌守卫

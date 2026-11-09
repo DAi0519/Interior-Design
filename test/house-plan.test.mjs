@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖户型布局服务/资产解析、共享任务HTTP边界、真实图片与模型替身
- * [OUTPUT]: 验证实际标注图像素/安全转义/送模归档一致、16384-token额度/截断零生图、主卧准入、默认模型、Agent到生图顺序/原文、失败零二次调用及命名空间隔离
+ * [OUTPUT]: 验证纯文本/旧JSON兼容与Agent指令隔离、实际标注图像素/安全转义/送模归档一致、16384-token额度/截断零生图、主卧准入、默认模型、Agent到生图顺序/原文、失败零二次调用及命名空间隔离
  * [POS]: test 的户型平面布局专项合同，不发起真实付费请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -41,10 +41,10 @@ test('同一带标注图实际送入Agent、生图及主工作台归档，原图
     assert.equal(Object.keys(user)[0],'user_requirements'); assert.equal(user.user_requirements,prepared.userRequirements); assert.deepEqual(user.annotations,prepared.annotations);
     assert.equal(user.default_requirements,undefined); return {text:JSON.stringify(plan),requestId:'agent-id',usageCost:{costUsd:.01}}; },
     editImageAsync:async request=>{ calls.push('image'); assert.ok(request.prompt.startsWith(prepared.userRequirements+'\n\n'));
-      assert.ok(request.prompt.includes(plan.layout_prompt)); assert.ok(request.prompt.endsWith(asset.prompt)); assert.equal(request.images[0].image_url,prepared.imageUrl); assert.equal(request.n,1);
+      assert.ok(request.prompt.includes(plan.layout_prompt)); assert.ok(!request.prompt.includes(asset.prompt)); assert.equal(request.images[0].image_url,prepared.imageUrl); assert.equal(request.n,1);
       const [w,h]=request.size.split('x').map(Number); const bytes=await image(w,h); return {images:[{url:`data:image/png;base64,${bytes.toString('base64')}`}],requestId:'image-id',usageCost:{costUsd:.02}}; }};
   const result=await executeHousePlan(prepared,{client,getModels,getPrompt,onCompiledPrompt:value=>{compiledPrompt=value;}}); assert.deepEqual(calls,['agent','image']);
-  assert.equal(result.featureMode,'housePlanLayout'); assert.equal(result.receipts.agent.requestId,'agent-id'); assert.equal(result.receipts.image.requestId,'image-id'); assert.deepEqual(result.plan,plan);
+  assert.equal(result.featureMode,'housePlanLayout'); assert.equal(result.receipts.agent.requestId,'agent-id'); assert.equal(result.receipts.image.requestId,'image-id'); assert.deepEqual(JSON.parse(result.plan.layout_prompt),plan);
   const archive=floorPlanArchiveInput({featureMode:'housePlanLayout',jobId:'annotated-test',result,
     sourceImage:original.referenceImage,submittedImageUrl:prepared.imageUrl,
     compiledPrompt});
@@ -88,7 +88,7 @@ test('资产核对版本SHA及记录身份，结构化输出拒绝空方案', as
   const value=await getHousePlanPrompt({getAgent,listVersions:async()=>[{version:1}],expectedSha256:housePlanHash(text)});assert.equal(value.code,asset.code);
   await assert.rejects(getHousePlanPrompt({getAgent,listVersions:async()=>[{version:1},{version:2}]}));
   await assert.rejects(getHousePlanPrompt({getAgent,listVersions:async()=>[{version:1}],expectedSha256:'b'.repeat(64)}));
-  assert.throws(()=>parseHousePlanOutput(JSON.stringify({...plan,spaces:[]})));
+  assert.throws(()=>parseHousePlanOutput(JSON.stringify({summary:'无法读取',spaces:[],warnings:['图片模糊']})));
 });
 test('新API命名空间不接管旧接口或geometry，同ID只执行一次',async()=>{
   let runs=0;const api=createFloorPlanApiHandler({prefix:'/api/house-plan',featureMode:'housePlanLayout',geometryEnabled:false,
@@ -125,4 +125,61 @@ test('布局Agent截断明确提示，保留费用且不触发生图或重试', 
     assert.equal(error.floorPlanDiagnostic.agent.usageCost.costUsd, .01); return true;
   });
   assert.equal(agents, 1); assert.equal(images, 0);
+});
+
+test('最终提示词接受纯文本和旧JSON，缺少展示字段或展示字段变形不再误拦截', () => {
+  const text='保持原图墙门窗，标注主卧内布置双人床和衣柜，生成白底黑线二维家具平面图。';
+  for (const body of [text, `\`\`\`text\n${text}\n\`\`\``, JSON.stringify(text)]) {
+    assert.equal(parseHousePlanOutput(body).layout_prompt,text);
+  }
+  for (const payload of [{prompt:text}, {layout_prompt:text}, {result:{image_prompt:text}},
+    {layout_prompt:text,summary:'长摘要'.repeat(800),spaces:[],warnings:null},
+    {layout_prompt:text,spaces:[{name:'主卧',furniture:['双人床','衣柜']}],extra_constraints:['门前保持通行']}]) {
+    assert.deepEqual(JSON.parse(parseHousePlanOutput(JSON.stringify(payload)).layout_prompt),payload);
+  }
+});
+
+test('空回复、损坏JSON、仅状态/摘要及明确无法识图仍然零生图且保留Agent回执', async () => {
+  const prepared=await prepare(await input());
+  for (const text of ['', '{}', '[]', '{"layout_prompt":"缺少结束', '{"status":"success"}',
+    '{"summary":"只有摘要","warnings":["尺寸待核对"]}', '{"error":"无法识别"}',
+    'UNRESOLVABLE_LAYOUT：无法识别图纸结构', '{"prompt":"UNRESOLVABLE_LAYOUT 图纸模糊"}']) {
+    let images=0;
+    await assert.rejects(executeHousePlan(prepared,{getModels,getPrompt,client:{
+      generatePrompt:async()=>({text,requestId:'invalid-output-agent',usageCost:{costUsd:.01}}),
+      editImageAsync:async()=>{images++;},
+    }}),error=>{
+      assert.match(error.message,/未调用生图模型/);
+      assert.equal(error.floorPlanDiagnostic.agent.requestId,'invalid-output-agent');return true;
+    });
+    assert.equal(images,0);
+  }
+});
+
+test('飞书最终词指令不再与JSON格式冲突，也不进入生图请求；正文和同图完整归档', async () => {
+  const systemPrompt='只输出一段供Image 2.6使用的最终生图提示词，不输出方案说明。';
+  const assetV4={...asset,version:4,prompt:systemPrompt,sha256:housePlanHash(systemPrompt)};
+  const readAsset=async()=>assetV4;
+  const value={...await input(),promptVersion:4,promptSha256:assetV4.sha256};
+  const prepared=await prepareHousePlanInput(value,{getModels,getPrompt:readAsset});
+  const text='按参考图原有墙门窗生成白底黑线二维家具平面图；主卧沿左侧实墙布置双人床，保留衣柜开启和通行空间。';
+  let imageCalls=0,compiledPrompt;
+  const result=await executeHousePlan(prepared,{getModels,getPrompt:readAsset,onCompiledPrompt:text=>{compiledPrompt=text;},client:{
+    generatePrompt:async request=>{
+      assert.equal(request.systemPrompt,systemPrompt);
+      const contract=JSON.parse(request.userPrompt).output_contract;
+      assert.ok(!contract.format.includes('JSON'));assert.equal(contract.summary,undefined);assert.equal(contract.spaces,undefined);
+      return {text};
+    },
+    editImageAsync:async request=>{
+      imageCalls++;assert.equal(request.prompt,compiledPrompt);assert.ok(request.prompt.includes(text));
+      assert.ok(request.prompt.startsWith(value.userRequirements+'\n\n'));
+      assert.ok(!request.prompt.includes(systemPrompt));assert.equal(request.images[0].image_url,prepared.imageUrl);
+      const [w,h]=request.size.split('x').map(Number);
+      return {images:[{url:`data:image/png;base64,${(await image(w,h)).toString('base64')}`}]};
+    },
+  }});
+  assert.equal(imageCalls,1);assert.equal(result.compiledPromptSha256,housePlanHash(compiledPrompt));
+  assert.equal(result.plan.layout_prompt,text);assert.deepEqual(result.plan.spaces,[]);
+  assert.equal(result.actual.agentOutputContract,'final-prompt-text-or-json-v1');
 });

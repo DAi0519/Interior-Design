@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta任务/布局适配层、主布局服务、模型替身和真实PNG字节
- * [OUTPUT]: 实际标注附件字节及原样本保留； GPT2.6双模型从准入到Agent/成图/真实模型字段及摘要归档； 验证逐图标注准入、所选版本/权限、Agent到生图及归档、一次收费和同步恢复
+ * [OUTPUT]: DeepSeek Flash/v4纯正文与GPT2.6同文归档； 实际标注附件字节及原样本保留； GPT2.6双模型从准入到Agent/成图/真实模型字段及摘要归档； 验证逐图标注准入、所选版本/权限、Agent到生图及归档、一次收费和同步恢复
  * [POS]: test 的Beta布局跨层合同，无真实收费或飞书写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -117,4 +117,29 @@ test('Beta布局实际Store写入与附件回读，漂移资产阻断成功状�
     if(corrupt) {await assert.rejects(store.completeRun('rec-layout',actual),/户型布局实际/);assert.equal(fields['状态'],'运行中');}
     else {await store.completeRun('rec-layout',actual);assert.equal(fields['状态'],'成功');assert.equal(fields['功能'],'户型平面布局');assert.ok(fields['最终 Prompt'].startsWith('增加书房'));assert.equal(attachments['输入图'].length,1);assert.equal(attachments['结果图'].length,1);}
   }
+});
+
+test('Beta DeepSeek Flash加Prompt v4纯正文到GPT2.6，模型与飞书最终词同文且仅一次生图', async () => {
+  const systemPrompt='只输出一段供Image 2.6使用的最终生图提示词。';
+  const selected={...prompt,version:4,prompt:systemPrompt,sha256:housePlanHash(systemPrompt)};
+  const text='生成白底黑线二维住宅家具平面图。保留原墙门窗，主卧靠实墙布置双人床与衣柜，保留门扇开启及主要通道。';
+  let images=0,submittedPrompt;
+  const service=createBetaHousePlanService({getPrompt:async()=>selected,
+    getModels:async()=>[{id:'deepseek-flash'},{id:'gpt-image-2.6-sunburst'}],getClient:()=>({
+      generatePrompt:async request=>{
+        assert.equal(request.model,'deepseek-flash');assert.equal(request.systemPrompt,systemPrompt);
+        assert.ok(!JSON.parse(request.userPrompt).output_contract.format.includes('JSON'));return {text};
+      },
+      editImageAsync:async request=>{
+        images++;submittedPrompt=request.prompt;assert.equal(request.model,'gpt-image-2.6-sunburst');
+        const [w,h]=request.size.split('x').map(Number);return {images:[{url:(await image(w,h)).dataUrl}]};
+      },
+    })});
+  const request=normalizeBetaHousePlanInput({...input(),modelKey:'gptImage26Sunburst',promptAgentModelKey:'deepseekFlash',
+    promptVersion:4,housePlanPromptSha256:selected.sha256,referenceImages:[await image()]});
+  await service.verify({items:[{input:request}]});
+  const result=await service.execute(await service.prepare(request));
+  assert.equal(images,1);assert.equal(result.sync.archiveFields['最终 Prompt'],submittedPrompt);
+  assert.ok(submittedPrompt.includes(text));assert.ok(!submittedPrompt.includes(systemPrompt));
+  verifyHousePlanArchive(result.sync.archiveFields,betaConfigSnapshot(request),Buffer.from(result.images[0].url.split(',')[1],'base64'));
 });

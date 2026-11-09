@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立飞书布局资产、视觉Agent目录、原图准入、共享空间标注SVG及单张图片执行原语
- * [OUTPUT]: 提供.2标注图冻结、Agent/生图同图及户型平面布局配置及飞书多版本身份目录、主卧/空间标注校验、16384-token完整Agent到一次生图、结构化方案及两阶段费用回执，服务端onCompiledPrompt回调供Beta归档
+ * [OUTPUT]: 提供.2标注图冻结及Agent/生图同图、飞书版本目录、16384-token完整正文到一次生图，纯文本/旧JSON兼容与指令分层、两阶段回执和同文归档
  * [POS]: src 的独立户型平面布局编排，默认GPT2.5，不改变实验室四动作
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -94,16 +94,13 @@ export async function executeHousePlan(input, { client, getModels, getPrompt = g
         ...(!input.userRequirements.trim() ? { default_requirements: '普通家庭默认布局，按系统提示词中的默认规则执行' } : {}),
         output_contract: {
           stage: '当前仅进行文字布局分析，尚未生图；系统随后会调用图像模型。',
-          format: '仅输出完整JSON，不含Markdown围栏。无法识别有效户型时spaces留空，warnings说明原因，不编造户型。',
-          summary: '简短说明房间功能、卧室/卫生间数量、需求落实情况与采用的理解，最多2000字',
-          spaces: [{ name: '空间名称，最多80字', layout: '该空间家具和相对位置，最多2000字' }],
-          layout_prompt: '交给生图模型的完整布局方案，保留系统提示词全部约束，最多16000字',
-          warnings: ['待核对尺寸/功能及未满足需求，每项最多500字，最多30项']
+          format: '遵循系统提示词，输出可直接用于生图的完整布局提示词，包含当前户型的具体方案和全部出图约束。',
+          unresolvable: '如果无法识别有效户型，只输出UNRESOLVABLE_LAYOUT及简短原因，不编造方案。'
         } }) });
     const plan = parseHousePlanOutput(agentResponse.text);
-    // --- 用户原文置前；Agent结构化布局与固定出图规则同次交给图像模型 ---
+    // --- 用户原文置前；生图使用Agent产出的完整正文，不把“只输出提示词”等Agent工作指令再送给生图模型。 ---
     const finalPrompt = [input.userRequirements.trim() ? input.userRequirements : null,
-      JSON.stringify({ annotations: input.annotations, annotation_legend: annotationLegend, ...plan }), asset.prompt].filter(Boolean).join('\n\n');
+      plan.layout_prompt, JSON.stringify({ annotations: input.annotations, annotation_legend: annotationLegend })].filter(Boolean).join('\n\n');
     onCompiledPrompt(finalPrompt);
     await checkModels(input, getModels);
     await getPrompt({ version: input.prompt.version, expectedSha256: input.prompt.sha256 });
@@ -115,7 +112,7 @@ export async function executeHousePlan(input, { client, getModels, getPrompt = g
       model: { key: model.key, id: model.id, label: model.label }, agent, source: input.source,
       annotations: input.annotations, userRequirements: input.userRequirements, plan, prompt: identity(asset),
       compiledPromptSha256: housePlanHash(finalPrompt), receipts: { agent: receipt(agentResponse), image: receipt(result.response) },
-      actual: result.actual, durationMs: Date.now() - startedAt };
+      actual: { ...result.actual, agentOutputContract: 'final-prompt-text-or-json-v1' }, durationMs: Date.now() - startedAt };
   } catch (error) {
     const safe = error.floorPlanSafe ? error : error.code === 'incomplete_prompt'
       ? fail('布局Agent输出被截断，未调用生图模型；请手动重试或更换分析模型', 502)

@@ -7,8 +7,8 @@ floor-plan-camera-prompt.test.mjs: Agent最低v2门槛/旧v1和直生图编码�
 floor-plan-camera-visibility.test.mjs: 双侧近墙的画幅与远端平面命中点、旧填色一致、单侧遮挡与缺失命中回退
 floor-plan-camera-ui.test.mjs: .9单张机位图参考门禁/提交冻结及新旧实际模式标识、视野摘要与结果隔离、多模型/张数/共同尺寸/思考强度和分组结果、中心手柄焦距/朝向及防串动、遮挡填色/回退、键盘及GET恢复、归档准入和逐图状态/只同步重试
 floor-plan-camera-service.test.mjs: 九模型最终HTTP验证Agent与生图共用唯一标注图/图生图路由/图像工具complexity，两字段JSON与角色提示词、首墙/双线墙与门洞的填色像素、v7画外淡化与Agent边界及旧资产隔离、等效焦距和历史摄影要求与请求一致、v6人眼平视开场与画面顺序及原文保留、工作流/权限/资产准入、两阶段回执与幂等、批次总数/同图同词单次推理/部分失败
-beta-house-plan.test.mjs: 实际标注附件字节摘要及原件保留； 标注真实像素/颜色/安全转义及Agent/生图/归档同图； GPT2.6两款准入/实际送模/归档身份跨层回归； 含实际Beta Store字段/附件模拟回读及漂移阻断； 布局Beta缺主卧/漂移/失权阻断、真实主服务单次执行/归档摘要、同步失败零重复生成
-house-plan.test.mjs: 16384-token额度与截断零生图/费用保留； 飞书多版本默认最新/显式旧版/下架和重复版本阻断； 主卧标注/默认GPT2.5、Agent到生图顺序与原文、失败费用/失权阻断、资产版本与API命名空间隔离
+beta-house-plan.test.mjs: DeepSeek Flash+v4纯正文到GPT2.6及同文归档； GPT2.6双模型准入/身份、实际标注附件字节与原件保留； 布局标注/版本/权限漂移阻断、单次执行与费用、同步恢复及Store字段/附件模拟回读
+house-plan.test.mjs: 纯文本/旧JSON兼容及未知设计字段保留、可选展示字段、Agent与生图指令隔离； 空/损坏/识图失败/截断零生图； 标注像素/颜色/安全转义及同图归档； 默认模型、Prompt版本/SHA与权限、费用回执及API隔离
 room-design-prompt-output.test.mjs: 共享design-prompt-output抽取后空房/旧房自由JSON与纯文本、三种风格输入及双Provider、原文前置/同文归档、缓存隔离和主动重算、空/损坏零出图、32000上限与白模/风格转换校验隔离；全部内存替身
 floor-plan-geometry.test.mjs: 验证识图模型实际路由、撤权和版本漂移门禁
 floor-plan-engine.test.mjs: 同源引擎加载、视图、保存、机位与资源边界回归
