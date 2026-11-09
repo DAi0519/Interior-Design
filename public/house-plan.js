@@ -1,9 +1,10 @@
 /**
- * [INPUT]: 依赖共享API、文件与下拉、独立户型布局和归档状态接口、归一化标注画布
+ * [INPUT]: 依赖house-plan-annotation共享标注绘制、共享API、文件与下拉、独立户型布局和归档状态接口、归一化标注画布
  * [OUTPUT]: 提供空间选择/标注、飞书版本选择、Agent到生图、原任务恢复、下载和飞书归档准入及状态
  * [POS]: public 的户型平面布局控制器，与实验室会话和收费任务隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { drawHousePlanAnnotation } from './house-plan-annotation.js?v=1';
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
 import { bindGenerationSync } from './generation-sync.js?v=1';
 
@@ -90,12 +91,7 @@ function draw() {
   const boxes = [...state.annotations, ...(state.drag ? [{ label: state.mode, ...rect(state.drag.start, state.drag.end) }] : [])];
   const scale = canvas.width / Math.max(canvas.getBoundingClientRect().width, 1);
   for (const item of boxes) {
-    const x = item.x * canvas.width, y = item.y * canvas.height, width = item.width * canvas.width, height = item.height * canvas.height;
-    ctx.fillStyle = item.label === '主卧' ? '#ef7e2330' : '#3a769a25'; ctx.fillRect(x, y, width, height);
-    ctx.strokeStyle = item.label === '主卧' ? '#b94a00' : '#29607f'; ctx.lineWidth = 2 * scale; ctx.strokeRect(x, y, width, height);
-    ctx.font = `${12 * scale}px sans-serif`; ctx.fillStyle = ctx.strokeStyle;
-    const textWidth = ctx.measureText(item.label).width + 8 * scale;
-    ctx.fillRect(x, y, textWidth, 20 * scale); ctx.fillStyle = '#fff'; ctx.fillText(item.label, x + 4 * scale, y + 14 * scale);
+    drawHousePlanAnnotation(ctx, item, canvas, scale);
   }
 }
 function point(event) { const box = $('canvas').getBoundingClientRect(); return { x: Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)), y: Math.max(0,Math.min(1,(event.clientY-box.top)/box.height)) }; }

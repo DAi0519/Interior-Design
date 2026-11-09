@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Beta共享field/quiet-button/银灰令牌和户型标注弹窗
- * [OUTPUT]: 提供布局空间标注自适应画布与底部工具条
+ * [OUTPUT]: 提供布局标注自适应画布、紧凑共享空间选择和分组操作，无高亮外框
  * [POS]: public 的Beta布局局部样式，不改变其他功能面板
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,8 +10,25 @@
 .house-plan-beta-dialog::backdrop { background: rgb(20 20 24 / 35%); }
 .house-plan-beta-stage { display: grid; place-items: center; min-height: 160px; margin: 16px 0; background: var(--panel-soft); }
 #housePlanAnnotationCanvas { display: block; max-width: 100%; max-height: 60dvh; object-fit: contain; touch-action: none; cursor: crosshair; }
-.house-plan-beta-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
-.house-plan-beta-tools .field { flex: 1; min-width: 150px; }
+.house-plan-beta-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.house-plan-beta-space { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.house-plan-beta-space > label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.house-plan-beta-space .model-picker { width: 144px; }
+.house-plan-beta-space .model-picker-trigger { min-height: 34px; }
+#housePlanCustomSpace { width: 150px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
+.house-plan-beta-history { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.house-plan-beta-history .quiet-button { border-color: transparent; background: transparent; box-shadow: none; }
+.house-plan-beta-save { margin-left: 8px; }
+.house-plan-beta-tools :is(.model-picker-trigger, input, button):focus-visible { border-color: var(--line); outline: none; box-shadow: none; text-decoration: underline; text-underline-offset: 4px; }
+.house-plan-beta-history .quiet-button:focus-visible { border-color: transparent; }
+@media (max-width: 600px) {
+  .house-plan-beta-dialog { padding: 14px; }
+  .house-plan-beta-space { width: 100%; }
+  .house-plan-beta-space .model-picker { flex: 1; width: auto; min-width: 120px; }
+  #housePlanCustomSpace { flex-basis: 100%; width: 100%; }
+  .house-plan-beta-history { margin-left: 0; }
+  .house-plan-beta-save { margin-left: auto; }
+}
 #housePlanPromptLink { color: var(--muted); font-size: 12px; text-underline-offset: 3px; }
 
 #ordinaryOutputFields.is-house-plan .output-grid { display: none; }

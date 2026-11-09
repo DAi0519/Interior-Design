@@ -4,7 +4,7 @@
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import { createBetaHousePlanConfiguration } from "./beta-house-plan.js";
+import { createBetaHousePlanConfiguration } from "./beta-house-plan.js?v=3";
 import { isLightingReference } from "./refined-flux-reference.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection, generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";

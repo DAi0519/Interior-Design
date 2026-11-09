@@ -1,9 +1,10 @@
 /**
- * [INPUT]: 依赖共享api/下拉、主布局配置、Beta样本ID/轻量预览及Run ID工具
- * [OUTPUT]: 提供逐样本主卧/空间框选、独立草稿、Prompt版本/Agent选择及样本×模型批次
+ * [INPUT]: 依赖house-plan-annotation共享标注绘制、共享api/下拉、主布局配置、Beta样本ID/轻量预览及Run ID工具
+ * [OUTPUT]: 提供共享下拉空间类型/自定义名称与紧凑分组工具栏；提供逐样本主卧/空间框选、独立草稿、Prompt版本/Agent选择及样本×模型批次
  * [POS]: public 的Beta户型布局配置控制器，复用原Beta面板与样本库，不持有图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+import { drawHousePlanAnnotation } from './house-plan-annotation.js?v=1';
 import { api } from './workbench-utils.js';
 import { createBetaRunId } from './beta-run-id.js?v=2';
 const STORAGE = 'canvas-lab:beta-house-plan:v1';
@@ -70,20 +71,28 @@ export function createBetaHousePlanConfiguration({ getState, sampleLibrary, fill
     canvas.width = bitmap.naturalWidth; canvas.height = bitmap.naturalHeight;
     $('housePlanAnnotationTitle').textContent = source.name || '空间标注';
     $('housePlanSpace').value = annotations.length ? '次卧' : '主卧';
+    $('housePlanCustomSpace').value = '';
+    const syncSpace = () => {
+      const custom = $('housePlanSpace').value === 'custom';
+      $('housePlanCustomSpace').hidden = !custom;
+      if (custom) $('housePlanCustomSpace').focus();
+    };
+    $('housePlanSpace').onchange = syncSpace;
+    $('housePlanSpace').dispatchEvent(new Event('change', { bubbles: true }));
     const point = event => { const b = canvas.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (event.clientX-b.left)/b.width)), y: Math.max(0, Math.min(1, (event.clientY-b.top)/b.height)) }; };
     const rect = (a,b) => ({ x: Math.min(a.x,b.x), y: Math.min(a.y,b.y), width: Math.abs(a.x-b.x), height: Math.abs(a.y-b.y) });
     function draw() {
       context.clearRect(0,0,canvas.width,canvas.height); context.drawImage(bitmap,0,0);
       const scale = canvas.width / Math.max(1,canvas.getBoundingClientRect().width);
       for (const box of [...annotations,...(drag ? [{ ...rect(drag.start,drag.end), label: drag.label }] : [])]) {
-        const x = box.x*canvas.width, y = box.y*canvas.height, w = box.width*canvas.width, h = box.height*canvas.height;
-        context.fillStyle = '#f3702126'; context.fillRect(x,y,w,h); context.strokeStyle = '#b94a00'; context.lineWidth = 2*scale; context.strokeRect(x,y,w,h);
-        context.font = `${13*scale}px sans-serif`; context.fillStyle = '#b94a00'; context.fillText(box.label,x+4*scale,y+16*scale);
+        drawHousePlanAnnotation(context, box, canvas, scale);
       }
+      $('housePlanAnnotationUndo').disabled = !history.length;
+      $('housePlanAnnotationClear').disabled = !annotations.length;
       $('housePlanAnnotationSave').disabled = !annotations.some(box => box.label === '主卧');
       $('housePlanAnnotationHint').textContent = annotations.length ? `已标注 ${annotations.map(box => box.label).join('、')}` : '先拖动框选主卧，可继续标注其他空间';
     }
-    canvas.onpointerdown = event => { if (event.button !== 0 || drag) return; const label = annotations.length ? $('housePlanSpace').value.trim() : '主卧';
+    canvas.onpointerdown = event => { if (event.button !== 0 || drag) return; const label = !annotations.length ? '主卧' : ($('housePlanSpace').value === 'custom' ? $('housePlanCustomSpace').value.trim() : $('housePlanSpace').value);
       if (!label) return; canvas.setPointerCapture(event.pointerId); drag = { id: event.pointerId, start: point(event), end: point(event), label }; draw(); };
     canvas.onpointermove = event => { if (drag?.id === event.pointerId) { drag.end = point(event); draw(); } };
     canvas.onpointerup = event => {
