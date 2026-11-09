@@ -8,7 +8,7 @@ floor-plan-camera-visibility.test.mjs: 双侧近墙的画幅与远端平面命�
 floor-plan-camera-ui.test.mjs: .9单张机位图参考门禁/提交冻结及新旧实际模式标识、视野摘要与结果隔离、多模型/张数/共同尺寸/思考强度和分组结果、中心手柄焦距/朝向及防串动、遮挡填色/回退、键盘及GET恢复、归档准入和逐图状态/只同步重试
 floor-plan-camera-service.test.mjs: 九模型最终HTTP验证Agent与生图共用唯一标注图/图生图路由/图像工具complexity，两字段JSON与角色提示词、首墙/双线墙与门洞的填色像素、v7画外淡化与Agent边界及旧资产隔离、等效焦距和历史摄影要求与请求一致、v6人眼平视开场与画面顺序及原文保留、工作流/权限/资产准入、两阶段回执与幂等、批次总数/同图同词单次推理/部分失败
 beta-house-plan.test.mjs: GPT2.6两款准入/实际送模/归档身份跨层回归； 含实际Beta Store字段/附件模拟回读及漂移阻断； 布局Beta缺主卧/漂移/失权阻断、真实主服务单次执行/归档摘要、同步失败零重复生成
-house-plan.test.mjs: 飞书多版本默认最新/显式旧版/下架和重复版本阻断； 主卧标注/默认GPT2.5、Agent到生图顺序与原文、失败费用/失权阻断、资产版本与API命名空间隔离
+house-plan.test.mjs: 16384-token额度与截断零生图/费用保留； 飞书多版本默认最新/显式旧版/下架和重复版本阻断； 主卧标注/默认GPT2.5、Agent到生图顺序与原文、失败费用/失权阻断、资产版本与API命名空间隔离
 room-design-prompt-output.test.mjs: 共享design-prompt-output抽取后空房/旧房自由JSON与纯文本、三种风格输入及双Provider、原文前置/同文归档、缓存隔离和主动重算、空/损坏零出图、32000上限与白模/风格转换校验隔离；全部内存替身
 floor-plan-geometry.test.mjs: 验证识图模型实际路由、撤权和版本漂移门禁
 floor-plan-engine.test.mjs: 同源引擎加载、视图、保存、机位与资源边界回归
@@ -16,7 +16,7 @@ floor-plan-spec.test.mjs: 单层户型与原文校验回归
 floor-plan-state.test.mjs: 本机方案保存与旧文件恢复回归
 floor-plan-archive.test.mjs: 归档Schema/逐图身份去重/缺失附件续传/字段和下载字节SHA
 floor-plan-api.test.mjs: 图像任务幂等、准备期只读恢复、失败费用、同ID冲突、连接隔离和过期不重提合同、归档准入和混合成功批次逐图同步
-floor-plan-service.test.mjs: 显式文生图无参考字段/拒绝混入图片及默认图生图不变；GPT2.6双模型身份/权限与历史兼容； 布局四模型实际路由/默认参数/失权无降级、送模压缩SHA/原生格式与PNG交付、后续三动作保留及资产/费用离线合同
+floor-plan-service.test.mjs: 大JPEG转PNG超限后自动压缩、保持尺寸及实际SHA； 显式文生图无参考字段/拒绝混入图片及默认图生图不变；GPT2.6双模型身份/权限与历史兼容； 布局四模型实际路由/默认参数/失权无降级、送模压缩SHA/原生格式与PNG交付、后续三动作保留及资产/费用离线合同
 floor-plan-prompt.test.mjs: 独立v2 JSON资产字段、完整文本/版本SHA、下架漂移阻断与脱敏目录合同
 floor-plan-ui.test.mjs: 真实页面脚本的选模、换源、原任务恢复及未知提交只GET，归档能力门禁、切图隔离与重试仅同步；内存DOM/HTTP无收费
 workbench-prompt-order.test.mjs: 白模/空房/旧房/风格转换十一模式×双Provider的Agent首段/JSON首字段与缓存/同文归档，空输入/Agent同名字段隔离/8k用户与32k合成边界、打光typed动作/二次编辑/Flux触发词和自由生图原文合同，零外部调用
@@ -177,7 +177,7 @@ empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项
 launcher.test.mjs: 跨平台一键启动器的 Node 版本、端口优先级、依赖摘要、本地 CLI PATH 和服务就绪有限轮询测试，不安装依赖、启动服务或打开浏览器
 agent-model-config.test.mjs: 十一个 Prompt Agent 候选 ID、DeepSeek V4.1 Flash、Doubao Seed 2.0 Lite、图片输入能力与接口可用性回归测试，不发送真实 API 请求
 lark-sync.test.mjs: 光影转换独立功能选项缺失409、全部可写字段类型/单选值/附件 ID 的 409 阻断、真实产物尺寸与模型目录、Banana 2.1 独立模型单选准入及与 Prompt融合 分离、风格转换平台/参考图二选一归档与功能选项409阻断、独立效果图氛围转换/美化功能、房型/家具/设计/Agent/风格、原始/最终 Prompt、模型与融合及完整天气时段工作流映射；不调用 CLI 或写入真实 Base
-oneapi-client.test.mjs: 空Agent成功响应保留已知请求ID/费用；GPT2.6三档complexity工具字段与默认省略、非法/非支持拒绝；OneAPI 主动取消、Prompt Agent 单/双图顺序、Responses 与 Claude Chat Completions 评审、图生图压缩/脱敏、Images edits 透明 PNG/mask 字节原样传输/真实费用/空响应/上游错误与收费 POST 不重试、Style DNA 多轮附件及费用归一化测试
+oneapi-client.test.mjs: Agent输出预算与截断准入、空或截断回复保留已知请求ID/费用；GPT2.6三档complexity工具字段与默认省略、非法/非支持拒绝；OneAPI 主动取消、Prompt Agent 单/双图顺序、Responses 与 Claude Chat Completions 评审、图生图压缩/脱敏、Images edits 透明 PNG/mask 字节原样传输/真实费用/空响应/上游错误与收费 POST 不重试、Style DNA 多轮附件及费用归一化测试
 oneapi-timeout.test.mjs: OneAPI 各阶段独立预算、响应体读取限时、提示词转出图重置计时、阶段/模型诊断、主动取消优先、收费 POST 不重试与终态定时器清理的虚拟时钟测试，并以本机 HTTP 延迟头/正文对照验证真实 dispatcher 与取消链路，不调用真实模型
 lark-cli.test.mjs: 项目内固定版 CLI 路径优先、最低版本校验与旧全局 CLI 阻断测试，不调用真实飞书 API
 image-artifact.test.mjs: 生成图片扩展名、data URL 解码、任务快照 WebP 预览、空响应与下载体积上限测试

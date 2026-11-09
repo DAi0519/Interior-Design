@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖户型布局服务/资产解析、共享任务HTTP边界、真实图片与模型替身
- * [OUTPUT]: 验证主卧准入、默认模型、Agent到生图顺序/原文、失败零二次调用及命名空间隔离
+ * [OUTPUT]: 验证16384-token额度/截断零生图、主卧准入、默认模型、Agent到生图顺序/原文、失败零二次调用及命名空间隔离
  * [POS]: test 的户型平面布局专项合同，不发起真实付费请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,12 +27,13 @@ test('主卧必选、标注不越界且不接受隐式数字转换', () => {
 test('默认GPT2.5、配置不泄露正文，默认失权不静默换模', async () => {
   const config=await readHousePlanConfig({getModels,getPrompt}); assert.equal(config.defaultModel,'gptImage25Sunburst'); assert.equal(config.available,true);
   assert.ok(!JSON.stringify(config).includes('PRIVATE_'));
-  const value=await input(); const prepared=await prepare(value); assert.equal(prepared.modelKey,'gptImage25Sunburst');
+  const value=await input(); const prepared=await prepare(value); assert.equal(prepared.modelKey,'gptImage25Sunburst'); assert.equal(prepared.source.submittedFormat,'png');
+  assert.equal(prepared.source.submittedWidth,96); assert.equal(prepared.source.submittedHeight,64);
   await assert.rejects(prepareHousePlanInput(value,{getModels:async()=>[{id:'gemini-3.1-pro-preview'},{id:'gpt-image-2.6-flare'}],getPrompt}),/不可用/);
 });
 test('原图和标注实际送入Agent，结构化结果与用户原文进入一次图片请求', async () => {
   const calls=[]; const prepared=await prepare(await input());
-  const client={ generatePrompt:async request=>{ calls.push('agent'); assert.equal(request.systemPrompt,asset.prompt); assert.equal(request.imageUrl,prepared.imageUrl); const user=JSON.parse(request.userPrompt);
+  const client={ generatePrompt:async request=>{ calls.push('agent'); assert.equal(request.maxOutputTokens,16384); assert.equal(request.requireCompleteOutput,true); assert.equal(request.systemPrompt,asset.prompt); assert.equal(request.imageUrl,prepared.imageUrl); const user=JSON.parse(request.userPrompt);
     assert.equal(Object.keys(user)[0],'user_requirements'); assert.equal(user.user_requirements,prepared.userRequirements); assert.deepEqual(user.annotations,prepared.annotations);
     assert.equal(user.default_requirements,undefined); return {text:JSON.stringify(plan),requestId:'agent-id',usageCost:{costUsd:.01}}; },
     editImageAsync:async request=>{ calls.push('image'); assert.ok(request.prompt.startsWith(prepared.userRequirements+'\n\n'));
@@ -84,4 +85,18 @@ test('飞书多版本默认最新，显式旧版保持原文与SHA，下架及�
   await assert.rejects(getHousePlanPrompt({version:1,getAgent,listVersions,expectedSha256:housePlanHash('已变化')}),/已变更/);
   versions=[{version:2}]; await assert.rejects(getHousePlanPrompt({version:1,getAgent,listVersions}),/已下架/);
   versions=[{version:1},{version:1}]; await assert.rejects(getHousePlanPrompt({version:1,getAgent,listVersions}));
+});
+
+test('布局Agent截断明确提示，保留费用且不触发生图或重试', async () => {
+  const prepared = await prepare(await input()); let agents = 0, images = 0;
+  await assert.rejects(executeHousePlan(prepared, { getModels, getPrompt, client: {
+    generatePrompt: async () => { agents++; throw Object.assign(new Error('private'), {
+      code: 'incomplete_prompt', requestId: 'cut-agent', usageCost: { costUsd: .01 } }); },
+    editImageAsync: async () => { images++; },
+  } }), error => {
+    assert.match(error.message, /输出被截断.*未调用生图/);
+    assert.equal(error.floorPlanDiagnostic.agent.requestId, 'cut-agent');
+    assert.equal(error.floorPlanDiagnostic.agent.usageCost.costUsd, .01); return true;
+  });
+  assert.equal(agents, 1); assert.equal(images, 0);
 });

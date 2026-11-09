@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、model-config的独立思考强度准入、oneapi-image-async 的后台提交/轮询、undici Agent、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供按目录/提示词/出图/分析/评审/风格反推独立限时的 OneAPI 客户端与超时策略、主动取消、Prompt Agent 单/双图输入及空回复已知费用回执、请求侧图片压缩、含可选complexity工具字段的图生图、透明 PNG/遮罩原样编辑、4K-token 多图评审与多轮图片/PDF 请求构造、含阶段/模型的脱敏诊断、请求 ID/响应/真实费用归一化与错误脱敏
+ * [OUTPUT]: 对外提供按目录/提示词/出图/分析/评审/风格反推独立限时的 OneAPI 客户端、主动取消、Prompt Agent 单/双图及可选输出预算与完整性校验、空或截断回复的已知费用回执、请求侧图片压缩、可选complexity图生图、透明PNG遮罩编辑、图片/PDF评审及阶段脱敏诊断
  * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，分析/多模态及无mask异步编辑走 Responses，文生图与透明遮罩编辑走 Images generations/edits，并集中记录不含 Key/Prompt/图片正文的失败诊断
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -312,6 +312,7 @@ export function buildSingleImageAnalysisRequest({
 export function buildPromptGenerationRequest({
   imageUrl,
   imageUrls,
+  maxOutputTokens = 4096,
   model,
   systemPrompt,
   userPrompt,
@@ -327,7 +328,7 @@ export function buildPromptGenerationRequest({
   }
   return buildImageAnalysisRequest({
     imageUrls: resolvedImageUrls,
-    maxOutputTokens: 4096,
+    maxOutputTokens,
     model,
     systemPrompt,
     userPrompt,
@@ -548,24 +549,26 @@ export function createOneApiClient(
       };
     },
 
-    async generatePrompt({ imageUrl, imageUrls, model, systemPrompt, userPrompt }) {
+    async generatePrompt({ imageUrl, imageUrls, maxOutputTokens, model, requireCompleteOutput = false, systemPrompt, userPrompt }) {
       const body = await request("/responses", {
         body: JSON.stringify(buildPromptGenerationRequest({
           imageUrl,
           imageUrls,
+          maxOutputTokens,
           model,
           systemPrompt,
           userPrompt,
         })),
         method: "POST",
       }, { model, stage: "prompt" });
-      const text = extractResponseText(body);
+      const incomplete = requireCompleteOutput && (body?.status === "incomplete" || body?.choices?.[0]?.finish_reason === "length");
+      const text = incomplete ? "" : extractResponseText(body);
       if (!text) {
         throw Object.assign(new OneApiError(
-          "Prompt Agent 已响应，但没有返回提示词",
+          incomplete ? "Prompt Agent 未返回完整的提示词" : "Prompt Agent 已响应，但没有返回提示词",
           502,
-          "empty_prompt",
-        ), { ...responseUsage(body), requestId: body.id || null });
+          incomplete ? "incomplete_prompt" : "empty_prompt",
+        ), { ...responseUsage(body), requestId: body?.id || null });
       }
       return {
         ...responseUsage(body),

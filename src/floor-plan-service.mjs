@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 sharp 单图真实解码、共享四模型目录/请求、独立飞书JSON资产、OneAPI图片连接和既有多角度原语
- * [OUTPUT]: 提供平面布局与共享单张成图、冻结复验资产/模型、原生格式与实际尺寸/回执；可向归档调用方回传实际送模词与参考图。
+ * [OUTPUT]: 提供超预算参考图自动压缩、实际送模尺寸/SHA及平面布局与共享单张成图、冻结复验资产/模型、原生格式与实际尺寸/回执；可向归档调用方回传实际送模词与参考图。
  * [POS]: src 的最简平面布局图像服务，不嵌入专业编辑器、不冒用二次编辑归档、不自动串联或重试收费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ export const FLOOR_PLAN_GPT_MODEL_KEYS = Object.freeze([FLOOR_PLAN_MODEL_KEY, "g
 export const FLOOR_PLAN_LAYOUT_MODEL_KEYS = Object.freeze([...FLOOR_PLAN_GPT_MODEL_KEYS, "banana21", "seedream5", "seedream5Pro"]);
 export const FLOOR_PLAN_IMAGE_POLICY = Object.freeze({ accept: ["image/png", "image/jpeg", "image/webp"],
   maxBytesPerImage: 8 * 1024 * 1024, maxDimension: 4096, maxPixels: 16 * 1024 * 1024, maxCount: 1 });
+const FLOOR_PLAN_REFERENCE_BASE64_BUDGET = 20_971_520;
 const actions = ["layout", "adjust", "interior", "camera"];
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode, floorPlanSafe: true });
@@ -106,9 +107,12 @@ export async function normalizeFloorPlanReferenceImage(input) {
   } catch { throw fail("图片无法完整解码，请重新导出静态图片后上传"); }
   const { width, height } = decoded.info;
   if (Math.max(width, height) > 4096 || width * height > FLOOR_PLAN_IMAGE_POLICY.maxPixels) throw fail("图片旋转后的尺寸超过限制");
-  const imageUrl = `data:image/png;base64,${decoded.data.toString("base64")}`;
-  if (imageUrl.length > 20_971_520) throw fail("图片转换PNG后过大，请降低分辨率后上传");
-  return { imageUrl, source: { fileName: reference.fileName, width, height, sha256: hash(original), submittedSha256: hash(decoded.data) } };
+  // --- PNG膨胀不再拒绝合规原图；复用请求压缩，先保留分辨率，再按需缩小。 ---
+  const imageUrl = await fitImageDataUrlForRequest(`data:image/png;base64,${decoded.data.toString("base64")}`,
+    { maxBase64Bytes: FLOOR_PLAN_REFERENCE_BASE64_BUDGET });
+  const submitted = decodeImageDataUrl(imageUrl), metadata = await sharp(submitted).metadata();
+  return { imageUrl, source: { fileName: reference.fileName, width: metadata.width, height: metadata.height,
+    sha256: hash(original), submittedSha256: hash(submitted) } };
 }
 
 export async function readFloorPlanConfig({ getModels, readPromptConfig = publicFloorPlanPromptConfig, forceRefresh = false } = {}) {
@@ -143,10 +147,10 @@ export async function prepareFloorPlanInput(input, { getModels, getPrompt = getF
     // --- 复用通用图生图的请求压缩，并在客户端幂等复核前记录真实送入字节 ---
     try { reference.imageUrl = await fitImageDataUrlForRequest(reference.imageUrl); }
     catch { throw fail("户型图请求体积过大，请降低分辨率后上传"); }
-    const bytes = decodeImageDataUrl(reference.imageUrl), submitted = await sharp(bytes).metadata();
-    reference.source = { ...reference.source, submittedSha256: hash(bytes), submittedFormat: submitted.format,
-      submittedWidth: submitted.width, submittedHeight: submitted.height };
   }
+  const bytes = decodeImageDataUrl(reference.imageUrl), submitted = await sharp(bytes).metadata();
+  reference.source = { ...reference.source, submittedSha256: hash(bytes), submittedFormat: submitted.format,
+    submittedWidth: submitted.width, submittedHeight: submitted.height };
   const prompt = checkedAsset(await getPrompt({ version: fields.promptVersion, expectedSha256: fields.promptSha256, forceRefresh: true }), fields);
   return { ...fields, ...reference, model: { key: selected.key, id: selected.id, label: selected.label }, defaults: selected.defaults, prompt };
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:crypto、sharp 与 OneAPI Prompt 单/双图、分析/评审/生成请求构造、响应归一化、文本提取和错误脱敏函数
- * [OUTPUT]: 对外提供 Prompt Agent 空回复已知费用/请求身份保留、白模/风格参考顺序、AI 单图分析、主动取消、评审/图生图请求侧压缩与脱敏诊断、GPT2.6独立complexity工具透传/默认省略/非法准入、透明 PNG/遮罩原样编辑、双图评审、图生图、Style DNA 多轮附件、费用及敏感错误处理回归保障
+ * [OUTPUT]: 验证 Prompt Agent 输出预算、截断与空回复的请求身份及费用、单/双图顺序、主动取消、评审/图生图压缩、complexity准入、透明PNG遮罩原样编辑、Style DNA 多轮附件和敏感错误脱敏
  * [POS]: test 的 OneAPI 响应契约测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -581,4 +581,28 @@ test('Prompt Agent HTTP成功但正文为空仍保留已知费用与请求ID，�
     assert.ok(!JSON.stringify(error).includes('PRIVATE_BODY')); return true;
   });
   assert.equal(calls, 1);
+});
+
+test('机位 Agent 可独立增加输出预算并拦截 Responses 与兼容网关标注的截断回复', async context => {
+  const requests = [];
+  const incompleteReplies = [{ status: 'incomplete' }, { choices: [{ finish_reason: 'length' }] }];
+  context.mock.method(globalThis, 'fetch', async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    const reply = incompleteReplies.shift() || { status: 'incomplete' };
+    return Response.json({ ...reply, id: 'agent-cutoff', output_text: 'PRIVATE_PARTIAL_BODY',
+      usage: { price: { currency: 'USD', payable_amount: .002 } } });
+  });
+  const client = createOneApiClient('test-key', { diagnosticSink: () => {} });
+  const input = { model: 'gemini-3.1-pro-preview', imageUrl: 'data:image/png;base64,cGxhbg==', systemPrompt: 'system', userPrompt: 'camera' };
+  for (let index = 0; index < 2; index++) {
+    await assert.rejects(client.generatePrompt({ ...input, maxOutputTokens: 8192, requireCompleteOutput: true }), error => {
+      assert.equal(error.code, 'incomplete_prompt');
+      assert.equal(error.requestId, 'agent-cutoff');
+      assert.equal(error.usageCost.costUsd, .002);
+      assert.doesNotMatch(JSON.stringify(error), /PRIVATE_PARTIAL_BODY/);
+      return true;
+    });
+  }
+  assert.equal((await client.generatePrompt(input)).text, 'PRIVATE_PARTIAL_BODY');
+  assert.deepEqual(requests.map(({ max_output_tokens }) => max_output_tokens), [8192, 8192, 4096]);
 });

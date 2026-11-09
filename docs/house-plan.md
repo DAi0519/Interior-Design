@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖户型布局界面、独立服务/飞书资产及共享任务和图片执行边界
-[OUTPUT]: 记录户型平面布局流程、主卧/空间标注、模型默认与真实验收边界
+[OUTPUT]: 记录超预算图片自动压缩/Agent输出预算及户型平面布局流程、主卧/空间标注、模型默认与真实验收边界
 [POS]: docs 的housePlanLayout产品及维护合同，区别于Beta实验室
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -10,9 +10,9 @@ AI设计新增「户型平面布局」，feature=housePlanLayout，同源工作�
 
 上传户型图 → 框选主卧 → 可选框选其他空间并命名 → 可选填写特殊需求 → Prompt Agent分析空间与功能分配 → 结构化布局方案 → 生图模型生成一张布局图。空间标注采用原图左上角原点、0到1归一化矩形，首项主卧必选，总数最多20。无特殊需求时采用用户原文中的普通家庭默认规则，不伪造用户原文。补充空间按用户未明确部分采用「区域＋名称」实现。
 
-默认生图模型为GPT Image 2.5 Sunburst（gptImage25Sunburst），不因不可用自动替换。沿用现有图像模型目录与参数；Agent默认当前Key可用Gemini 3.1 Pro，否则目录首个视觉模型，用户可手动选择。上传上限8MiB/4096px/16MP，服务器真实解码。框选针对完整原图，不裁掉其他空间，也不把标注框作为图片像素送模。
+默认生图模型为GPT Image 2.5 Sunburst（gptImage25Sunburst），不因不可用自动替换。沿用现有图像模型目录与参数；Agent默认当前Key可用Gemini 3.1 Pro，否则目录首个视觉模型，用户可手动选择。上传上限8MiB/4096px/16MP，服务器真实解码。2026-11-09取消转PNG膨胀后直接失败：转换后Base64超过20MiB时复用共享请求压缩，优先保持分辨率，仍超预算才等比缩小；原图及标注坐标保留，记录实际送模格式、尺寸和SHA。原图上传和像素上限保持。框选针对完整原图，不裁掉其他空间，也不把标注框作为图片像素送模。
 
-独立API：GET /api/house-plan/config、POST /api/house-plan/jobs、GET /api/house-plan/jobs/:id。复用floor-plan-api的参数化幂等边界，但独立任务注册表、featureMode、浏览器会话；禁用旧geometry路由。prepare阶段不收费，冻结源图/标注/用户要求/模型/资产；执行复核资产与权限，再一次Agent、一次图片调用。Agent输出缺少spaces/layout_prompt/warnings或无有效空间时阻断图片调用；异常不自动重试。提交未知时只GET恢复，不重新POST。输入改变清除新功能旧结果，不影响实验室。
+独立API：GET /api/house-plan/config、POST /api/house-plan/jobs、GET /api/house-plan/jobs/:id。复用floor-plan-api的参数化幂等边界，但独立任务注册表、featureMode、浏览器会话；禁用旧geometry路由。prepare阶段不收费，冻结源图/标注/用户要求/模型/资产；执行复核资产与权限，再一次Agent、一次图片调用。布局Agent输出预算从4096提高到16384 tokens，要求上游返回完整输出；截断时明确报错、保留回执费用且不调用生图，不自动重试。主工作台与Beta复用同一服务。Agent输出缺少spaces/layout_prompt/warnings或无有效空间时阻断图片调用；异常不自动重试。提交未知时只GET恢复，不重新POST。输入改变清除新功能旧结果，不影响实验室。
 
 飞书独立表「户型平面布局 Prompt」tblzPGZ7rKzKVqjE（view vew5ZWM6Wx），编码house-plan-layout，v1记录reczz28WIrDj5k0w。System Prompt逐字保存用户2776字完整原文，SHA为ed01f55b8cca37de00e60d89737067d8e96a5402cad2751f1e1121bb9c592d70。Agent分析和最终图像生成共用此原文，不拼接先前自拟规则。Agent请求单独传入JSON传输格式合同（summary/spaces/layout_prompt/warnings），不修改表内正文。最初误放旧表的临时记录reczz28WIhJ1g5PQ已在专表逐字回读后移除，旧实验室原有记录保持。
 
@@ -56,3 +56,5 @@ Beta任务新增“户型平面布局”（housePlanLayout），旧“设计实�
 每项复用prepareHousePlanInput/executeHousePlan，一次Agent后一次生图。失败不自动重新收费；生成成功但飞书同步失败时保存结果，RETRY只同步已有成品。飞书Beta跑图明细及样本集“功能”新增“户型平面布局”，复用场景参数/配置快照保存标注，完整实际Prompt、Agent、版本、两阶段回执、实际出图参数及方案归档并校验摘要；Prompt正文不进入公开任务快照。独立主工作台与 Beta 任务保持隔离。主工作台每张成功布局图写飞书「生成记录」的“户型平面布局”，包含原图及实际送模图、成图、标注、布局方案、最终词、两阶段回执及实际尺寸。
 
 2026-11-06 Beta验证：1890项全量测试通过；后续新增实际Store字段/附件回读测试并修复配置加载期间清空模型多选的浏览器问题，最终41项相关回归通过。真实飞书三表Schema含新功能选项通过；旧设计实验室表名/场景/三条展示名回读一致，新布局原文v1 SHA仍为ed01f55b8cca37de00e60d89737067d8e96a5402cad2751f1e1121bb9c592d70。主端口4192已加载十三功能。Chrome实测两样本独立框选/撤销/清空/整页恢复、默认GPT2.5和两模型展开四任务、Prompt新旧版选择/刷新保留/下架禁用，桌面及390px无溢出、零脚本错误。批次POST被拦截为测试替身，无新增收费生图或生产跑图记录；真实图像质量仍以上述单次主工作台样本结论为准。截图见outputs/house-plan/beta-layout-desktop.png、beta-layout-annotation.png及beta-layout-multiple.png（多版本为浏览器替身）。
+
+2026-11-09验证：1998项自动化通过，包含3000×3000高熵JPEG转PNG超旧上限后的同分辨率压缩与SHA核对；用户确认空闲后已重载4192，主/Beta配置接口正常。未重复提交D7/E3收费任务，原失败样本成功与画质仍需实际重试验证；正式运行包未更新。

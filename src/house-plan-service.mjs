@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖独立飞书布局资产、视觉Agent目录、原图准入及共享单张图片执行原语
- * [OUTPUT]: 提供户型平面布局配置及飞书多版本身份目录、主卧/空间标注校验、一次Agent到一次生图、结构化方案及两阶段费用回执，服务端onCompiledPrompt回调供Beta归档
+ * [OUTPUT]: 提供户型平面布局配置及飞书多版本身份目录、主卧/空间标注校验、16384-token完整Agent到一次生图、结构化方案及两阶段费用回执，服务端onCompiledPrompt回调供Beta归档
  * [POS]: src 的独立户型平面布局编排，默认GPT2.5，不改变实验室四动作
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,6 +10,7 @@ import { readFloorPlanConfig, normalizeFloorPlanReferenceImage, generateFloorPla
 import { decodeImageDataUrl, fitImageDataUrlForRequest } from './image-artifact.mjs';
 import { getHousePlanPrompt, listHousePlanPrompts, housePlanHash, housePlanError as fail, parseHousePlanOutput } from './house-plan-prompt.mjs';
 export const HOUSE_PLAN_WORKFLOW = '2026-11-06.house-plan.1';
+const HOUSE_PLAN_AGENT_MAX_OUTPUT_TOKENS = 16_384;
 const identity = ({ code, name, version, sha256, source, tableUrl }) => ({ code, name, version, sha256, source, tableUrl });
 const receipt = response => ({ requestId: typeof response?.requestId === 'string' ? response.requestId.slice(0, 160) : null,
   usageCost: Object.fromEntries(Object.entries(response?.usageCost || {}).filter(([key, value]) =>
@@ -65,10 +66,10 @@ export async function prepareHousePlanInput(input, { getModels, getPrompt = getH
   const reference = await normalizeFloorPlanReferenceImage(input.referenceImage);
   if (!FLOOR_PLAN_GPT_MODEL_KEYS.includes(fields.modelKey)) {
     reference.imageUrl = await fitImageDataUrlForRequest(reference.imageUrl);
-    const bytes = decodeImageDataUrl(reference.imageUrl), metadata = await sharp(bytes).metadata();
-    reference.source = { ...reference.source, submittedSha256: housePlanHash(bytes), submittedFormat: metadata.format,
-      submittedWidth: metadata.width, submittedHeight: metadata.height };
   }
+  const bytes = decodeImageDataUrl(reference.imageUrl), metadata = await sharp(bytes).metadata();
+  reference.source = { ...reference.source, submittedSha256: housePlanHash(bytes), submittedFormat: metadata.format,
+    submittedWidth: metadata.width, submittedHeight: metadata.height };
   return { ...fields, ...reference, model, agent, defaults: model.defaults };
 }
 export async function executeHousePlan(input, { client, getModels, getPrompt = getHousePlanPrompt, onProgress = () => {}, onCompiledPrompt = () => {} } = {}) {
@@ -82,7 +83,7 @@ export async function executeHousePlan(input, { client, getModels, getPrompt = g
   let agentResponse;
   try {
     onProgress({ message: 'Prompt Agent 正在分析户型、主卧和功能分配…' });
-    agentResponse = await client.generatePrompt({ model: agent.id, imageUrl: input.imageUrl, systemPrompt: asset.prompt,
+    agentResponse = await client.generatePrompt({ maxOutputTokens: HOUSE_PLAN_AGENT_MAX_OUTPUT_TOKENS, requireCompleteOutput: true, model: agent.id, imageUrl: input.imageUrl, systemPrompt: asset.prompt,
       userPrompt: JSON.stringify({ ...(input.userRequirements.trim() ? { user_requirements: input.userRequirements } : {}),
         annotations: input.annotations, coordinate_system: 'normalized_0_1_top_left_origin',
         ...(!input.userRequirements.trim() ? { default_requirements: '普通家庭默认布局，按系统提示词中的默认规则执行' } : {}),
@@ -111,7 +112,9 @@ export async function executeHousePlan(input, { client, getModels, getPrompt = g
       compiledPromptSha256: housePlanHash(finalPrompt), receipts: { agent: receipt(agentResponse), image: receipt(result.response) },
       actual: result.actual, durationMs: Date.now() - startedAt };
   } catch (error) {
-    const safe = error.floorPlanSafe ? error : fail('户型布局任务未完成，请检查原任务；不会自动重试', 502);
+    const safe = error.floorPlanSafe ? error : error.code === 'incomplete_prompt'
+      ? fail('布局Agent输出被截断，未调用生图模型；请手动重试或更换分析模型', 502)
+      : fail('户型布局任务未完成，请检查原任务；不会自动重试', 502);
     safe.floorPlanDiagnostic = { agent: receipt(agentResponse || error), ...(error.floorPlanDiagnostic ? { image: error.floorPlanDiagnostic } : {}) };
     throw safe;
   }

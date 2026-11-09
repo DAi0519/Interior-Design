@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面布局图像服务、真实sharp图片与内存模型/资产/OneAPI替身
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 验证默认图生图与显式文生图的路由/冲突拒绝、布局四模型权限/PNG交付与原生格式，保留后续三动作、原文前置、资产漂移和不自动重跑
+ * [OUTPUT]: 验证高熵JPEG转PNG超预算后保尺寸自动压缩与真实SHA；含GPT2.6 Sunburst/Flare独立模型身份； 验证默认图生图与显式文生图的路由/冲突拒绝、布局四模型权限/PNG交付与原生格式，保留后续三动作、原文前置、资产漂移和不自动重跑
  * [POS]: test 的最简平面布局服务合同，不访问真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -227,4 +227,20 @@ test("返回非PNG或错尺寸仍失败并保留同次费用，绝不重跑", as
     return true;
   });
   assert.equal(rejected.calls.length, 1);
+});
+
+test("合规JPEG转换PNG超过旧限制仍可送模，自动压缩保持尺寸并归档实际SHA", async () => {
+  const width = 3000, height = 3000;
+  const bytes = await sharp(randomBytes(width * height * 3), { raw: { width, height, channels: 3 } }).jpeg({ quality: 85 }).toBuffer();
+  assert.ok(bytes.length < 8 * 1024 * 1024);
+  const png = await sharp(bytes).png().toBuffer();
+  assert.ok(png.toString('base64').length > 20_971_520);
+  const prepared = await normalizeFloorPlanReferenceImage({ name: 'large.jpg', type: 'image/jpeg', size: bytes.length,
+    dataUrl: `data:image/jpeg;base64,${bytes.toString('base64')}` });
+  const submitted = Buffer.from(prepared.imageUrl.split(',')[1], 'base64');
+  assert.ok(prepared.imageUrl.split(',')[1].length <= 20_971_520);
+  assert.equal(prepared.source.sha256, hash(bytes)); assert.equal(prepared.source.submittedSha256, hash(submitted));
+  const metadata = await sharp(submitted).metadata();
+  assert.equal(metadata.width, width); assert.equal(metadata.height, height);
+  assert.equal(prepared.source.width, width); assert.equal(prepared.source.height, height);
 });

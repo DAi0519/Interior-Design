@@ -9,13 +9,13 @@ floor-plan-camera-output.mjs: 校验Agent JSON的view_summary/image_prompt、400
 floor-plan-camera-service.mjs: .9单次Agent和逐图并发（上限2），模型多选、每模型1–4张/共12张、逐图回执与部分失败；.8单图兼容。同一张墙体遮挡和镜头角域标注图复用为推理输入与唯一生图参考，记录遮挡估算或仅开角；v7双侧强遮挡时淡化图纸画外区域并向Agent附画幅和平面边界，按冻结水平视野换算等效焦距；v6起成图词为人眼平视开场、可见画面、可选用户原文及简短图纸几何约束，v2–v5保留历史编译；双模型/资产/工作流冻结复核、视野摘要/独立画面词与同图SHA、两阶段费用诊断、九模型尺寸/质量及GPT2.6可选complexity
 beta-house-plan.mjs: 户型布局Beta适配，主服务复用、批次版本/模型准入、主卧标注冻结、完整Prompt与费用归档强校验
 house-plan-prompt.mjs: 独立专表tblzPGZ7rKzKVqjE的用户原文house-plan-layout资产、多上架版本目录/精确版本选择与SHA复核及结构化Agent输出校验
-house-plan-service.mjs: 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
+house-plan-service.mjs: 16384-token完整输出预算与截断零生图； 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
 floor-plan-geometry.mjs: 当前Key视觉模型目录、几何Prompt与权限双校验、单次识图建模
 floor-plan-spec.mjs: 严格HouseSpec与洞口/家具范围校验
 floor-plan-api.mjs: 三个平面出图入口独立config/jobs、归档能力准入、成功槽位异步归档与失败恢复、连接隔离及更新忙碌守卫
 floor-plan-archive-input.mjs: 逐图稳定归档ID、原图/实际送模图及Prompt SHA校验、结果/机位/逐图回执投影和串行同步
 floor-plan-archive.mjs: 三个平面图出图功能标签和飞书Schema、按归档ID查重与附件续传、字段和下载字节校验
-floor-plan-service.mjs: 导出显式文生图/默认图生图、可选complexity/多参考图/指定画幅及按请求像素限制解码的图片执行原语；GPT2.6双模型身份/权限与历史兼容；布局四模型可选/默认参数与真实路由、后续Sunburst三动作保留；单图/Prompt/所选权限复核、PNG交付与原生格式/实际尺寸/费用回执
+floor-plan-service.mjs: 超预算PNG自动请求压缩及实际送模格式/尺寸/SHA； 导出显式文生图/默认图生图、可选complexity/多参考图/指定画幅及按请求像素限制解码的图片执行原语；GPT2.6双模型身份/权限与历史兼容；布局四模型可选/默认参数与真实路由、后续Sunburst三动作保留；单图/Prompt/所选权限复核、PNG交付与原生格式/实际尺寸/费用回执
 floor-plan-prompt.mjs: 独立飞书设计实验室v2 JSON三动作资产严格解析、上架版本/SHA冻结与脱敏目录，缺失不回退
 image-upscale-capabilities.mjs: 独立/嵌入KS共享的节点接口/模型枚举纯验证和15分钟执行/5分钟排队常量，无网络或工作流构建
 effect-beautification-lighting.mjs: 新增光影纯词照明保护合同/三字段身份、入队和执行卡片版本SHA复核、固定low/natural与归档元数据；原六档无库依赖
@@ -92,7 +92,7 @@ empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选�
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
 agent-model-config.mjs: Prompt Agent 模型真源，维护十一个候选 ID（含 DeepSeek V4.1 Flash 与 Doubao Seed 2.0 Lite）、图片输入能力与接口可用性组合，不纳入 Opus
 oneapi-image-async.mjs: 复用模型真源校验可选complexity并仅放image_generation工具；无mask原始PNG及图序的Responses background提交/1.5秒轮询、单次收费POST、同ID/终态校验、提交到正文与等待共享600秒总预算、取消及即时ID回调；透明mask明确拒绝
-oneapi-client.mjs: Prompt Agent空回复错误保留已知requestId/费用且不附正文；同步Responses按模型真源校验并透传可选complexity工具字段；按阶段独立限时/外部及单请求 AbortSignal 的 OneAPI HTTP 客户端与 ONEAPI_REQUEST_TIMEOUTS 真源：目录 30 秒、提示词/Style DNA 300 秒、出图/编辑 600 秒、分析/评审 180 秒，每次 HTTP 请求至完整响应体独立计时，专用 undici Agent 避免底层默认 300 秒提前截断且不改全局连接；Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImageAsync使用Responses后台任务并归一化结果/费用，editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留阶段/模型/限时脱敏诊断及请求身份/费用
+oneapi-client.mjs: Prompt Agent可选输出预算和截断准入，空回复及截断保留已知requestId/费用且不附正文；同步Responses按模型真源校验并透传可选complexity工具字段；按阶段独立限时/外部及单请求 AbortSignal 的 OneAPI HTTP 客户端与 ONEAPI_REQUEST_TIMEOUTS 真源：目录 30 秒、提示词/Style DNA 300 秒、出图/编辑 600 秒、分析/评审 180 秒，每次 HTTP 请求至完整响应体独立计时，专用 undici Agent 避免底层默认 300 秒提前截断且不改全局连接；Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImageAsync使用Responses后台任务并归一化结果/费用，editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留阶段/模型/限时脱敏诊断及请求身份/费用
 ai-texture-workflow-config.mjs: Flux默认参数和工作流身份、后置超分输入/版本/目标校验与aiTexturePostUpscaleRequest；独立postUpscale实际模型/源尺寸/推理/交付/SHA元数据，不覆盖Flux或美化1920核心信息
 ai-texture-workflow.mjs: 普通Flux9B7步或美化六预设核心，经2K中间图进入正式KS直入7B后置阶段；显式源尺寸/版本、4K或固定5K到6K、唯一72 SaveImage，历史3B显式兼容及原负向规则保留
 comfyui-client.mjs: 原子提交/History/view/取消及数字分段耗时；嵌入KS按实际子图校验节点和7B枚举、15分钟执行/5分钟排队、未知提交或后续异常不自动重提且保留Prompt ID，PNG和真实交付尺寸强验；其他消费者保持原合同
