@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→KS直入4K/6K超分与历史攸行冻结契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份与complexity能力/严格准入； 对外提供模型目录/Provider、服务端编译正文独立长度准入、功能尺寸解析、全景R5_4原尺寸与Flux后置超分/双图请求构造器
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份与complexity能力/严格准入； 对外提供模型目录/Provider、用户词长度边界与服务端编译正文独立长度准入、功能尺寸解析、全景R5_4原尺寸与Flux后置超分/双图请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,6 +16,7 @@ import {
 } from "./image-upscale-workflow.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 
+export const USER_PROMPT_LENGTH = Object.freeze({ min: 3, max: 8000 });
 const FLUX_POST_UPSCALE_WORKFLOW = imageUpscaleWorkflow(FLUX_POST_UPSCALE_WORKFLOW_KEY);
 const FLUX_POST_UPSCALE_CAPABILITY = Object.freeze({
   workflowKey: FLUX_POST_UPSCALE_WORKFLOW.key,
@@ -405,10 +406,10 @@ export function createGenerationRequest(
   const referenceImages = normalizeReferenceImages(input.referenceImages);
   const resolvedSourceDimensions = sourceDimensions || referenceImages[0];
   // -------- 用户输入与服务端合成正文分开计长；请求字段不能开启内部额度 --------
-  const maxPromptLength = compiledPrompt === true ? 32_000 : 8000;
+  const maxPromptLength = compiledPrompt === true ? 32_000 : USER_PROMPT_LENGTH.max;
   if ((compiledPrompt === true || model.provider !== "comfyui")
-    && (prompt.length < 3 || prompt.length > maxPromptLength)) {
-    const error = new Error(`提示词长度需要在 3–${maxPromptLength} 字符之间`);
+    && (prompt.length < USER_PROMPT_LENGTH.min || prompt.length > maxPromptLength)) {
+    const error = new Error(`提示词长度需要在 ${USER_PROMPT_LENGTH.min}–${maxPromptLength} 字符之间`);
     error.statusCode = 400;
     throw error;
   }

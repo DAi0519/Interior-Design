@@ -1,11 +1,11 @@
 /**
  * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化六档与新增模板混合多选控制器、独立扩图/超分和风格转换快照及重渲染回调
- * [OUTPUT]: 提供美化多选身份与显式空选保存恢复及旧单选迁移、精模光影/手动模型和普通表单落盘、基础Prompt版本与预设图文/上传迁移版本独立保存恢复、旧氛围迁移、模型多选保留和快速切页保存
+ * [OUTPUT]: 独立保存恢复自由生图整批提示词、精模光影/手动模型及提示词版本，支持美化混选/显式空选及旧草稿迁移、普通表单和切页落盘
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { saveBetaPageState } from "./beta-page-state.js?v=9";
+import { saveBetaPageState } from "./beta-page-state.js?v=11";
 
 function restoreTextValue(input, value) {
   if (typeof value === "string") input.value = value;
@@ -43,6 +43,7 @@ export function createBetaConfigurationPersistence({
         ?? restoredControls.effectBeautificationSelections,
       effectTime: elements.effectTimeSelect.value,
       effectWeather: elements.effectWeatherSelect.value,
+      freeSharedPrompt: elements.freeSharedPromptInput.value,
       negativePrompt: elements.negativePromptInput.value,
       promptAgentModelKey: elements.promptAgentModelSelect.value,
       promptAgentVersion: stylesReady
@@ -98,6 +99,7 @@ export function createBetaConfigurationPersistence({
     refinedRenderConfiguration?.restore(controlsToRestore.refinedLighting
       || (hasLegacyLighting ? legacyLighting : { mode: "unselected" }));
     restoreTextValue(elements.commonPromptInput, controlsToRestore.commonPrompt);
+    if (!ready) restoreTextValue(elements.freeSharedPromptInput, controlsToRestore.freeSharedPrompt);
     restoreTextValue(elements.negativePromptInput, controlsToRestore.negativePrompt);
     restoreTextValue(elements.roomTypeDetailInput, controlsToRestore.roomTypeDetail);
     for (const [select, value] of [

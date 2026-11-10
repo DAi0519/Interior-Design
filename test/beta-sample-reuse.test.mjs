@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert/fs、sharp真实图片、Beta Runner/样本Store、模型及功能目录与扩图能力合同，精模明确旧参数并替身冻结Prompt
- * [OUTPUT]: 对外提供已有样本跨功能按ID复用、含合法旧精模参数的目标功能内容准入、成员/记录ID/状态/8MB/MIME守卫、新建保留来源功能与零样本复制写入回归保障
+ * [OUTPUT]: 对外提供已有样本跨功能按ID复用、自由生图整批共享多行提示词与原图绑定、含合法旧精模参数的目标功能内容准入、成员/记录ID/状态/8MB/MIME守卫、新建保留来源功能与零样本复制写入回归保障
  * [POS]: test 的 Beta跨来源样本复用合同，真实图片和本地下载替身，不调用模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,17 +31,24 @@ function batch(featureMode, input = {}) {
     featureMode, testTime: "2026-10-19 14:00:00", items: [{ caseId: "untrusted-case", sampleId: SAMPLE_ID,
       runId: "RUN-crossfeature01", input: { modelKey: "aiTextureEnhancement", ...input } }] };
 }
-function sampleFixture(bytes, { sourceFeature = "whiteModel", prompt = "", hasImage = true } = {}) {
+function sampleFixture(bytes, { sourceFeature = "whiteModel", prompt = "", hasImage = true, imageSet = false,
+  secondImage = null } = {}) {
   const config = BETA_BASE_CONFIG;
   const counts = { downloaded: 0, written: 0, created: 0 };
   const set = { recordId: "rec-set", fields: { "样本集 ID": SET_ID, "名称": "旧功能样本", "功能": featureLabels[sourceFeature], "状态": "可用", "样本数量": 1 } };
   const sample = { recordId: "rec-sample", fields: { "样本 ID": SAMPLE_ID, "样本集": [{ id: "rec-set" }], "状态": "可用", "提示词": prompt, "文件名": "source.png",
     "样本图": hasImage ? [{ file_token: "source-token", name: "source.png", size: bytes.length }] : [] } };
+  const rows = [sample];
+  if (imageSet) set.fields["说明"] = "自由生图图片样本集";
+  if (secondImage) {
+    set.fields["样本数量"] = 2;
+    rows.push({ recordId: "rec-second", fields: { ...sample.fields, "样本 ID": `${SAMPLE_ID}-2`,
+      "样本图": [{ file_token: "second-token", name: "second.png", size: secondImage.length }] } });
+  }
   const store = createBetaSampleStore({ config, featureLabels,
-    async listRecords(_run, _config, table) { return [table === config.sampleSetTableId ? set : sample]; },
+    async listRecords(_run, _config, table) { return table === config.sampleSetTableId ? [set] : rows; },
     async getRecord(_run, _config, table, recordId) {
-      const row = table === config.sampleSetTableId ? set : sample;
-      return row.recordId === recordId ? row : null;
+      return (table === config.sampleSetTableId ? [set] : rows).find((row) => row.recordId === recordId) || null;
     },
     async createRecord() { counts.created += 1; throw new Error("复用现有样本不应新建记录"); },
     async updateRecord() { counts.written += 1; throw new Error("复用现有样本不应写样本记录"); },
@@ -49,7 +56,8 @@ function sampleFixture(bytes, { sourceFeature = "whiteModel", prompt = "", hasIm
     async run(_config, args, { cwd }) {
       assert.ok(args.includes("+record-download-attachment"));
       counts.downloaded += 1;
-      await writeFile(join(cwd, args[args.indexOf("--output") + 1]), bytes);
+      const file = args[args.indexOf("--file-token") + 1] === "second-token" ? secondImage : bytes;
+      await writeFile(join(cwd, args[args.indexOf("--output") + 1]), file);
     },
   });
   return { store, counts, set, sample };
@@ -108,6 +116,45 @@ test("free复用任意来源的有效prompt样本，不将客户端文字或纯�
   const { service, generated, archives } = runner(fixture);
   await assert.rejects(service.start(batch("free", { prompt: "客户端不能弥补空样本" })), /有效提示词/);
   assert.equal(generated.length + archives.length, 0);
+});
+
+test("自由生图用同一完整提示词逐张读取和归档图片样本", async () => {
+  for (const sourceFeature of ["whiteModel", "free"]) {
+    const source = await png(), secondImage = await png(96, 128);
+    const fixture = sampleFixture(source, { sourceFeature, imageSet: sourceFeature === "free", secondImage });
+    const { service, queue, generated, archives } = runner(fixture);
+    const request = batch("free", { prompt: "逐项提示词会被覆盖" });
+    request.items.push({ ...request.items[0], sampleId: `${SAMPLE_ID}-2`, runId: "RUN-crossfeature02" });
+    const prompt = "保持空间结构\n\n调整为柔和日光";
+    await assert.rejects(service.start(request), /有效提示词|批次提示词/);
+    await assert.rejects(async () => service.start({ ...request, sharedPrompt: "  " }), /3–8000/);
+    await assert.rejects(service.start({ ...request, sharedPrompt: prompt, items: request.items.map((item) =>
+      ({ ...item, input: { ...item.input, referenceImages: [{ dataUrl: "data:image/png;base64,AA==" }] } })) }),
+      /仅提交飞书样本 ID/);
+    await service.start({ ...request, sharedPrompt: `  ${prompt}\n  ` });
+    assert.equal(fixture.counts.downloaded, 0);
+    await queue.run();
+    assert.deepEqual(generated.map(({ input }) => input.prompt), [prompt, prompt]);
+    for (const [sampleId, bytes] of [[SAMPLE_ID, source], [`${SAMPLE_ID}-2`, secondImage]]) {
+      const { item } = archives.find(({ item }) => item.caseId === sampleId);
+      assert.equal(item.input.prompt, prompt);
+      assert.equal(item.usesSampleImage, true);
+      assert.deepEqual(item.input.referenceImages.map((image) => image.dataUrl),
+        [`data:image/png;base64,${bytes.toString("base64")}`]);
+    }
+    assert.deepEqual(fixture.counts, { downloaded: 2, written: 0, created: 0 });
+  }
+});
+
+test("自由生图历史文字样本集也可使用本批统一提示词", async () => {
+  const fixture = sampleFixture(await png(), { sourceFeature: "free", prompt: "原样本提示词", hasImage: false });
+  const { service, queue, generated } = runner(fixture);
+  const prompt = "使用本次批次提示词\n保留原有材质";
+  await service.start({ ...batch("free"), sharedPrompt: prompt });
+  await queue.run();
+  assert.equal(generated[0].input.prompt, prompt);
+  assert.deepEqual(generated[0].input.referenceImages, []);
+  assert.deepEqual(fixture.counts, { downloaded: 0, written: 0, created: 0 });
 });
 
 test("图像任务拒绝纯提示词样本和缺图片成员，客户端重传不能绕过", async () => {

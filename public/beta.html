@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖共享效果图美化六氛围/新增光影模板互斥控件；依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
-  [OUTPUT]: 提供紧凑空间选择/自定义和分组标注操作工具栏； 新增户型布局配置与标注弹窗； 提供含旧房改造的可搜索十三任务、独立旧房配置/逐图房型与负向草稿、美化多选/精模预设及全景光影、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
+  [OUTPUT]: 提供自由生图整批提示词与跨功能图片样本复用；提供紧凑空间选择/自定义和分组标注操作工具栏； 新增户型布局配置与标注弹窗； 提供含旧房改造的可搜索十三任务、独立旧房配置/逐图房型与负向草稿、美化多选/精模预设及全景光影、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
   [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,7 +12,7 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · Beta跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=25" />
+    <link rel="stylesheet" href="/beta.css?v=27" />
     <link rel="stylesheet" href="/beta-house-plan.css?v=2" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
     <link rel="stylesheet" href="/effect-beautification.css?v=2" />
@@ -81,7 +81,7 @@
               <div id="sampleSetCreatePanel" class="sample-set-panel hidden">
                 <label class="field">
                   <span>样本集名称</span>
-                  <input id="sampleSetNameInput" maxlength="80" placeholder="例如：白模回归 · 客厅组" />
+                  <input id="sampleSetNameInput" maxlength="80" placeholder="例如：客厅回归组" />
                 </label>
                 <div id="sourceFilesField" class="upload-field">
                   <div class="upload-field-copy">
@@ -97,17 +97,12 @@
                     <small id="sourceFilesHint">PNG / JPEG / WebP · 单张 8MB · 逐张上传</small>
                   </div>
                 </div>
-                <label id="freePromptsField" class="field hidden">
-                  <span>提示词 · 每行一个样本</span>
-                  <textarea id="freePromptsInput" rows="5" placeholder="现代客厅，柔和自然光…&#10;极简卧室，低饱和材质…"></textarea>
-                </label>
                 <div class="sample-set-actions">
                   <button id="cancelSampleSetButton" class="quiet-button" type="button">取消</button>
                   <button id="saveSampleSetButton" class="quiet-button sample-set-save" type="button">保存样本集</button>
                 </div>
               </div>
               <div id="sampleList" class="sample-list reference-list hidden" aria-live="polite"></div>
-              <div id="freePromptList" class="sample-list hidden" aria-live="polite"></div>
             </section>
 
             <section id="taskSettingsSection" class="beta-section">
@@ -118,6 +113,10 @@
               <label id="commonPromptField" class="field">
                 <span id="commonPromptLabel">补充要求（可选）</span>
                 <textarea id="commonPromptInput" rows="3" placeholder="整批共用的补充要求"></textarea>
+              </label>
+              <label id="freeSharedPromptField" class="field hidden">
+                <span>整批提示词</span>
+                <textarea id="freeSharedPromptInput" rows="5" maxlength="8000" placeholder="填写一条提示词，应用到整批样本。支持多行。"></textarea>
               </label>
               <div id="housePlanFields" class="hidden">
                 <div class="section-heading"><h3>布局规划 Agent</h3><div class="section-heading-meta"><small id="housePlanStatus">读取中</small><button id="housePlanRefresh" class="quiet-button" type="button">刷新</button></div></div>
@@ -160,7 +159,7 @@
               <div id="refinedRenderFields" class="hidden" aria-label="精模渲染氛围"></div>
               <div id="freeReferenceField" class="upload-field compact-upload hidden">
                 <div class="upload-field-copy">
-                  <strong>参考图（可选）</strong>
+                  <strong>共用参考图（可选）</strong>
                 </div>
                 <div id="freeReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
                 <div id="freeReferenceDropZone" class="reference-drop-zone">
@@ -278,7 +277,7 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=43"></script>
+    <script type="module" src="/beta-app.js?v=46"></script>
     <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
       <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>
       <p id="housePlanAnnotationHint">先拖动框选主卧</p>

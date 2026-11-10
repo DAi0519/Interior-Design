@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖飞书记录/附件及 {id} 对象关联 CellValue、旧房/空房共享房型、参考图真实字节/MIME/尺寸/8MB与全景2:1校验和轻量预览，接收样本集 ID 和逐张样本上传
- * [OUTPUT]: 对外提供按来源功能创建的草稿样本集、单样本幂等保存、完成回读、无原图元数据与跨功能按需读取；执行时由目标功能决定真实图片/全景2:1准入，省略目标时沿用来源合同，保留ID关联/8MB保护及扩图真实源尺寸
+ * [OUTPUT]: 对外提供按来源功能创建的草稿样本集、自由生图图片集标记、单样本幂等保存、完成回读、无原图元数据与跨功能按需读取，以及共享参考图单张校验；执行时由目标功能决定真实图片/全景2:1准入，省略目标时沿用来源合同，保留ID关联/8MB保护及扩图真实源尺寸
  * [POS]: src 的 Beta 样本资产边界，被 beta-base.mjs 组合；可用状态只在全部选定样本确认后写入
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,11 +10,12 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { createImagePreviewDataUrl, decodeImageDataUrl } from "./image-artifact.mjs";
-import { normalizeReferenceImage, REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
+import { normalizeReferenceImage, normalizeReferenceImages, REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
 import { betaBaseContractError } from "./beta-base-schema.mjs";
 
 const SET_FIELDS = ["样本集 ID", "名称", "功能", "状态", "样本数量", "说明"];
 const SAMPLE_FIELDS = ["样本 ID", "样本集", "样本图", "提示词", "文件名", "状态", "空间类型", "其他空间类型"];
+const FREE_IMAGE_SET_DESCRIPTION = "自由生图图片样本集";
 const selectValue = (value) => Array.isArray(value) ? value[0] ?? null : value ?? null;
 const links = (value) => Array.isArray(value) ? value.map((entry) => typeof entry === "string"
   ? entry : entry?.record_id || entry?.recordId || entry?.id).filter(Boolean) : [];
@@ -35,6 +36,16 @@ export function normalizeBetaSampleImage(image, featureMode) {
     type: normalized.mimeType, width: normalized.width, height: normalized.height };
 }
 
+export function singleSharedImages(images, fieldName) {
+  if (images == null) return [];
+  return normalizeReferenceImages(images, { maxCount: 1, maxTotalBytes: REFERENCE_IMAGE_POLICY.maxBytesPerImage })
+    .map((image) => {
+      if (!image.width || !image.height) throw inputError(`${fieldName}内容或 MIME 类型无效`);
+      return { dataUrl: image.imageUrl, name: image.fileName, type: image.mimeType,
+        size: image.size, width: image.width, height: image.height };
+    });
+}
+
 export function createBetaSampleStore({ config, run, featureLabels, createRecord, updateRecord,
   listRecords, getRecord, uploadAttachments }) {
   const locks = new Map();
@@ -46,8 +57,10 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
     finally { if (locks.get(setId) === pending) locks.delete(setId); }
   }
   function setMetadata({ fields, recordId }) {
+    const featureMode = Object.entries(featureLabels).find(([, label]) => label === selectValue(fields["功能"]))?.[0] || null;
     return {
-      featureMode: Object.entries(featureLabels).find(([, label]) => label === selectValue(fields["功能"]))?.[0] || null,
+      featureMode,
+      ...(featureMode === "free" && fields["说明"] === FREE_IMAGE_SET_DESCRIPTION ? { sampleType: "image" } : {}),
       name: String(fields["名称"] || "").trim(), recordId,
       sampleCount: Number(fields["样本数量"]) || 0,
       sampleSetId: String(fields["样本集 ID"] || "").trim(), status: selectValue(fields["状态"]),
@@ -109,20 +122,23 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
       return { ...set, samples: rows.filter(({ fields }) => selectValue(fields["状态"]) === "可用")
         .map((row) => metadata(set, row)) };
     },
-    async createSampleSet({ featureMode, name, samples = [] }) {
+    async createSampleSet({ featureMode, name, samples = [], sampleType }) {
       const sampleSetId = `SET-${randomUUID().slice(0, 12).toUpperCase()}`;
+      const description = featureMode === "free" && sampleType === "image" ? FREE_IMAGE_SET_DESCRIPTION : "";
       const recordId = await createRecord(run, config, {
         "样本集 ID": sampleSetId, "名称": name, "功能": featureLabels[featureMode], "状态": null, "样本数量": 0,
+        ...(description ? { "说明": description } : {}),
       }, config.sampleSetTableId);
       // 飞书创建记录会把显式 null 填成字段默认值，创建后用更新清空并真实回读。
       await updateRecord(run, config, recordId, { "状态": null }, config.sampleSetTableId);
       const draft = await getRecord(run, config, config.sampleSetTableId, recordId, SET_FIELDS);
       if (selectValue(draft?.fields["状态"]) || draft?.fields["样本集 ID"] !== sampleSetId
         || draft?.fields["名称"] !== name || selectValue(draft?.fields["功能"]) !== featureLabels[featureMode]
-        || Number(draft?.fields["样本数量"]) !== 0) {
+        || Number(draft?.fields["样本数量"]) !== 0 || (description && draft?.fields["说明"] !== description)) {
         throw betaBaseContractError("飞书样本集草稿信息回读不一致");
       }
-      const set = { featureMode, name, sampleSetId, recordId, sampleCount: 0, status: null, samples: [] };
+      const set = { featureMode, name, sampleSetId, recordId, sampleCount: 0, status: null, samples: [],
+        ...(description ? { sampleType } : {}) };
       // 内部历史调用仍可组合逐张保存；HTTP 入口只接收无图片的草稿创建。
       for (const [index, sample] of samples.entries()) {
         await store.addSample(sampleSetId, { ...sample, sampleId: `${sampleSetId}-${String(index + 1).padStart(3, "0")}` });
@@ -137,7 +153,8 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
         if (!set) throw inputError("样本集不存在或已归档", 404);
         if (set.status === "可用") throw inputError("已完成的样本集不能继续上传", 409);
         const image = sample.image ? normalizeBetaSampleImage(sample.image, set.featureMode) : null;
-        if (set.featureMode !== "free" && !image) throw inputError("样本缺少有效图片");
+        if ((set.featureMode !== "free" || set.sampleType === "image") && !image) throw inputError("样本缺少有效图片");
+        if (set.featureMode === "free" && set.sampleType !== "image" && image) throw inputError("文字样本集不能添加图片");
         const rows = await sampleRows(set);
         const row = rows.find(({ fields }) => fields["样本 ID"] === sample.sampleId);
         const fields = { "样本 ID": sample.sampleId, "样本集": [{ id: set.recordId }],
@@ -189,12 +206,14 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
           || actualIds.length !== sampleIds.length || sampleIds.some((id) => !actualIds.includes(id))) {
           throw inputError("样本集未全部上传确认，请重试剩余样本", 409);
         }
-        if (set.featureMode !== "free" && rows.some(({ fields }) => !fields["样本图"]?.[0]?.file_token)) {
+        if ((set.featureMode !== "free" || set.sampleType === "image")
+          && rows.some(({ fields }) => !fields["样本图"]?.[0]?.file_token)) {
           throw inputError("样本集仍有缺少原图的样本", 409);
         }
         await updateRecord(run, config, set.recordId, { "状态": "可用", "样本数量": rows.length }, config.sampleSetTableId);
         const saved = await getRecord(run, config, config.sampleSetTableId, set.recordId, SET_FIELDS);
-        if (selectValue(saved?.fields["状态"]) !== "可用" || Number(saved?.fields["样本数量"]) !== rows.length) {
+        if (selectValue(saved?.fields["状态"]) !== "可用" || Number(saved?.fields["样本数量"]) !== rows.length
+          || setMetadata(saved).sampleType !== set.sampleType) {
           throw betaBaseContractError("飞书样本集完成信息回读不一致");
         }
         return store.getSampleSet(setId);
@@ -214,7 +233,8 @@ export function createBetaSampleStore({ config, run, featureLabels, createRecord
         throw inputError("样本不属于所选样本集或尚未上传确认", 409);
       }
       return { ...metadata(set, row), featureMode: set.featureMode,
-        image: targetMode === "free" ? null : await download(row, targetMode) };
+        image: targetMode === "free" && set.featureMode === "free" && set.sampleType !== "image"
+          ? null : await download(row, targetMode) };
     },
     async getSampleImage(setId, sampleId) {
       const sample = await store.resolveSample(setId, sampleId);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Node测试、公开模型目录、Main/Beta尺寸规则、逐模型请求适配、尺寸控制器和实际结果摘要
- * [OUTPUT]: 验证各功能KS4K/6K文案与身份冻结、超宽输入前端阻断、旧进程门禁、独立超分/全景/双图隔离和真实KS或历史攸行结果显示
+ * [OUTPUT]: 验证各功能KS4K/6K文案与身份冻结、超宽输入前端阻断、自由生图样本库的尺寸投影、旧进程门禁、独立超分/全景/双图隔离和真实结果显示
  * [POS]: test 的功能内后置KS浏览器合同测试，不调用模型、飞书或真实浏览器
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -89,14 +89,14 @@ test("Beta逐张尺寸预检指出具体样本，菜单支持单Flux与混选模
   }
 });
 
-test("Beta自由生图预检使用已上传参考图，而非空的提示词样本尺寸", async () => {
+test("Beta自由生图预检向样本库传递可选共用参考图并检查其尺寸投影", async () => {
   const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
   const functionSource = source.match(/function postUpscaleIssue\(\) \{[^\n]+\}/)?.[0];
   assert.ok(functionSource);
   const context = {
     state: { featureMode: "free", freeReference: { width: 3000, height: 1000 } },
     selectedModels: () => [model], elements: { resolutionSelect: { value: "6K" } },
-    sampleLibrary: { sourceDimensions: () => [] }, refinedRenderConfiguration: { snapshot: () => null },
+    sampleLibrary: { sourceDimensions: (reference) => [reference] }, refinedRenderConfiguration: { snapshot: () => null },
     betaPostUpscaleUnavailableReason,
   };
   const inspect = new Function(...Object.keys(context), `return (${functionSource})();`);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
- * [OUTPUT]: 对外提供 createBetaSampleLibrary、只读样本尺寸投影以预检后置KS，跨功能复用样本ID/轻量预览并隔离free提示词集、目标校验与记忆选集、防异步串功能、逐张续传与空房/旧房房型补选及回读同步回执
+ * [OUTPUT]: 提供跨功能图片样本复用、逐张续传及回读、目标准入与房型补选；自由生图的图片和历史文本样本共用本次提示词，保留样本 ID 和轻量预览
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,32 +12,8 @@ function imageIdentity(image) {
   return `${image.name}:${image.size}:${image.lastModified || 0}`;
 }
 
-function promptLines(value) {
-  return String(value || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function promptChip(sample, index, onRemove, disabled = false) {
-  const chip = document.createElement("div");
-  const copy = document.createElement("div");
-  const label = document.createElement("strong");
-  const meta = document.createElement("span");
-  const remove = document.createElement("button");
-  chip.className = "sample-chip";
-  copy.className = "sample-chip-copy";
-  label.textContent = sample.prompt;
-  meta.textContent = `第 ${index + 1} 条`;
-  remove.type = "button";
-  remove.className = "sample-remove";
-  remove.setAttribute("aria-label", `移除第 ${index + 1} 条提示词`);
-  remove.textContent = "×";
-  remove.disabled = disabled;
-  remove.addEventListener("click", onRemove);
-  copy.append(label, meta);
-  chip.append(copy, remove);
-  return chip;
+function isTextSet(sampleSet) {
+  return sampleSet.featureMode === "free" && sampleSet.sampleType !== "image";
 }
 
 export function createBetaSampleLibrary({
@@ -48,6 +24,7 @@ export function createBetaSampleLibrary({
   onSelectionChange = () => {},
   readImage,
   validateSourceImage = () => {},
+  canSave = () => true,
 }) {
   const state = {
     activeSampleSetId: "",
@@ -56,9 +33,9 @@ export function createBetaSampleLibrary({
     draftSampleSetId: "",
     featureMode: "whiteModel",
     mode: "library",
-    prompts: [],
     sampleSets: [],
     sourceImages: [],
+    textSampleIds: [],
     syncMessage: "读取飞书中",
     syncState: "syncing",
   };
@@ -78,19 +55,19 @@ export function createBetaSampleLibrary({
   }
 
   function setsForFeature() {
-    return state.sampleSets.filter((sampleSet) =>
-      (sampleSet.featureMode === "free") === (state.featureMode === "free"));
+    return state.sampleSets.filter((sampleSet) => state.featureMode === "free" || !isTextSet(sampleSet));
   }
 
   function preferredSet(preferredSampleSetId = rememberedSelections.get(state.featureMode)) {
     const sampleSets = setsForFeature();
     return sampleSets.find((sampleSet) => sampleSet.sampleSetId === preferredSampleSetId)
-      || sampleSets.find((sampleSet) => sampleSet.featureMode === state.featureMode)
+      || sampleSets.find((sampleSet) => sampleSet.featureMode === state.featureMode && !isTextSet(sampleSet))
+      || sampleSets.find((sampleSet) => !isTextSet(sampleSet))
       || sampleSets[0];
   }
 
   function sampleCount() {
-    return state.featureMode === "free" ? state.prompts.length : state.sourceImages.length;
+    return state.sourceImages.length || state.textSampleIds.length;
   }
 
   function renderCatalog() {
@@ -98,7 +75,7 @@ export function createBetaSampleLibrary({
     elements.sampleSetSelect.replaceChildren(...(sampleSets.length
       ? sampleSets.map((sampleSet) => Object.assign(document.createElement("option"), {
         selected: sampleSet.sampleSetId === state.activeSampleSetId,
-        textContent: `${sampleSet.name} · ${sampleSet.sampleCount} 个`,
+        textContent: `${sampleSet.name} · ${sampleSet.sampleCount} 个${isTextSet(sampleSet) ? " · 历史文本集" : ""}`,
         value: sampleSet.sampleSetId,
       }))
       : [Object.assign(document.createElement("option"), {
@@ -109,10 +86,8 @@ export function createBetaSampleLibrary({
   }
 
   function renderSamples() {
-    const free = state.featureMode === "free";
     elements.sampleCount.textContent = `${sampleCount()} 个样本`;
-    elements.sampleList.classList.toggle("hidden", free || state.sourceImages.length === 0);
-    elements.freePromptList.classList.toggle("hidden", !free || state.prompts.length === 0);
+    elements.sampleList.classList.toggle("hidden", state.sourceImages.length === 0);
     renderImagePreviews(elements.sampleList, state.sourceImages, {
       canRemove: () => !state.busy && !state.draftSampleSetId,
       onRemove: (index) => {
@@ -155,34 +130,20 @@ export function createBetaSampleLibrary({
         item.append(field);
       });
     }
-    elements.freePromptList.replaceChildren(...state.prompts.map((sample, index) =>
-      promptChip(sample, index, () => {
-        state.prompts.splice(index, 1);
-        elements.freePromptsInput.value = state.prompts.map((entry) => entry.prompt).join("\n");
-        render();
-      }, state.busy || Boolean(state.draftSampleSetId))));
   }
 
   function render({ samplesChanged = true } = {}) {
     const creating = state.mode === "create";
-    const free = state.featureMode === "free";
     elements.sampleSetLibraryPanel.classList.toggle("hidden", creating);
     elements.sampleSetCreatePanel.classList.toggle("hidden", !creating);
-    elements.sourceFilesField.classList.toggle("hidden", !creating || free);
-    elements.freePromptsField.classList.toggle("hidden", !creating || !free);
-    elements.saveSampleSetButton.disabled = state.busy || !sampleCount();
+    elements.saveSampleSetButton.disabled = state.busy || !state.sourceImages.length || !canSave(state.featureMode);
     elements.saveSampleSetButton.textContent =
       state.busy && state.syncState === "syncing" ? "同步中"
         : state.draftSampleSetId ? "继续保存" : "保存样本集";
     elements.cancelSampleSetButton.disabled = state.busy;
     elements.newSampleSetButton.disabled = state.busy;
     elements.sampleSetNameInput.disabled = state.busy || Boolean(state.draftSampleSetId);
-    elements.freePromptsInput.disabled = state.busy || Boolean(state.draftSampleSetId);
     elements.sourceFilesInput.disabled = state.busy || Boolean(state.draftSampleSetId);
-    elements.sourceFilesDropZone.classList.toggle(
-      "hidden",
-      !creating || free,
-    );
     elements.sampleSetSyncStatus.textContent = state.syncMessage;
     elements.sampleSetSyncStatus.dataset.state = state.syncState;
     if (samplesChanged) {
@@ -200,13 +161,13 @@ export function createBetaSampleLibrary({
     state.sourceImages.forEach(releasePreview);
     state.activeSampleSetId = "";
     state.draftSampleSetId = "";
-    state.prompts = [];
+    state.textSampleIds = [];
     state.sourceImages = [];
-    elements.freePromptsInput.value = "";
   }
 
   function assertExistingSamples(sampleSet, targetFeatureMode) {
-    if ((sampleSet.featureMode === "free") !== (targetFeatureMode === "free")) {
+    const textSet = isTextSet(sampleSet);
+    if (textSet && targetFeatureMode !== "free") {
       throw new Error("样本集类型与当前任务不兼容");
     }
     if (!Array.isArray(sampleSet.samples) || !sampleSet.samples.length) {
@@ -214,7 +175,7 @@ export function createBetaSampleLibrary({
     }
     sampleSet.samples.forEach((sample, index) => {
       if (!sample.sampleId) throw new Error(`第 ${index + 1} 条样本缺少稳定ID`);
-      if (targetFeatureMode === "free") {
+      if (textSet) {
         if (typeof sample.prompt !== "string" || !sample.prompt.trim()) {
           throw new Error(`第 ${index + 1} 条样本缺少提示词，不能用于自由生图`);
         }
@@ -235,9 +196,9 @@ export function createBetaSampleLibrary({
     state.sourceImages.forEach(releasePreview);
     state.activeSampleSetId = sampleSet.sampleSetId;
     state.draftSampleSetId = "";
-    state.prompts = state.featureMode === "free" ? sampleSet.samples
-      .map((sample) => ({ prompt: sample.prompt, sampleId: sample.sampleId })) : [];
-    state.sourceImages = state.featureMode !== "free" ? sampleSet.samples
+    const textSet = isTextSet(sampleSet);
+    state.textSampleIds = textSet ? sampleSet.samples.map((sample) => sample.sampleId) : [];
+    state.sourceImages = !textSet ? sampleSet.samples
       .map((sample) => ({ ...sample.image, sampleId: sample.sampleId, roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail })) : [];
     state.mode = "library";
     rememberedSelections.set(state.featureMode, state.activeSampleSetId);
@@ -317,14 +278,8 @@ export function createBetaSampleLibrary({
     }
   }
 
-  function syncPromptDraft() {
-    state.prompts = promptLines(elements.freePromptsInput.value)
-      .map((prompt) => ({ prompt, sampleId: `SAMPLE-${crypto.randomUUID()}` }));
-    render();
-  }
-
   async function saveSampleSet() {
-    if (state.busy) return;
+    if (state.busy || !canSave(state.featureMode)) return;
     const name = elements.sampleSetNameInput.value.trim();
     if (!name) {
       elements.sampleSetNameInput.focus();
@@ -333,7 +288,7 @@ export function createBetaSampleLibrary({
     if (!sampleCount()) throw new Error("请先添加样本");
     assertRoomTypes();
     const featureMode = state.featureMode;
-    const samples = featureMode === "free" ? state.prompts : state.sourceImages;
+    const samples = state.sourceImages;
     state.busy = true;
     mutationBusy = true;
     setSyncStatus("同步飞书中", "syncing");
@@ -341,7 +296,7 @@ export function createBetaSampleLibrary({
     try {
       if (!state.draftSampleSetId) {
         const { sampleSet } = await api("/api/beta/sample-sets", {
-          body: JSON.stringify({ featureMode, name }),
+          body: JSON.stringify({ featureMode, name, ...(featureMode === "free" ? { sampleType: "image" } : {}) }),
           method: "POST",
         });
         state.draftSampleSetId = sampleSet.sampleSetId;
@@ -355,7 +310,7 @@ export function createBetaSampleLibrary({
         const image = sample.file ? await readImage(sample.file) : undefined;
         if (image) validateSourceImage(featureMode, image);
         await api(`/api/beta/sample-sets/${encodeURIComponent(sampleSetId)}/samples`, {
-          body: JSON.stringify({ sampleId: sample.sampleId, image, prompt: sample.prompt,
+          body: JSON.stringify({ sampleId: sample.sampleId, image,
             roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail }),
           method: "POST",
         });
@@ -410,7 +365,6 @@ export function createBetaSampleLibrary({
       input: elements.sourceFilesInput,
       onFiles: addSourceFiles,
     });
-    elements.freePromptsInput.addEventListener("input", syncPromptDraft);
     elements.newSampleSetButton.addEventListener("click", beginCreate);
     elements.cancelSampleSetButton.addEventListener("click", () => {
       cancelCreate().catch(onError);
@@ -464,12 +418,12 @@ export function createBetaSampleLibrary({
     bind,
     isBusy: () => state.busy,
     currentCases({ commonPrompt = "", freeReference = null } = {}) {
-      if (state.featureMode === "free") {
+      if (state.textSampleIds.length) {
         const referenceImages = freeReference ? [freeReference] : [];
-        return state.prompts.map((sample) => ({
-          caseId: sample.sampleId,
-          label: sample.prompt,
-          prompt: sample.prompt,
+        return state.textSampleIds.map((sampleId, index) => ({
+          caseId: sampleId,
+          label: `样本 ${index + 1}`,
+          prompt: commonPrompt,
           referenceImages,
         }));
       }
@@ -480,13 +434,18 @@ export function createBetaSampleLibrary({
         roomTypeDetail: image.roomTypeDetail,
         prompt: commonPrompt,
         referenceImages: [],
+        ...(state.featureMode === "free" ? { sourceImage: image } : {}),
       }));
     },
     isReady: () => Boolean(!state.busy && state.activeSampleSetId && sampleCount()),
     load,
     sampleCount,
-    sourceDimensions: () => state.sourceImages.map(({ width, height }) => ({ width, height })),
+    sourceDimensions(freeReference) {
+      const images = state.textSampleIds.length && freeReference ? [freeReference] : state.sourceImages;
+      return images.map(({ width, height }) => ({ width, height }));
+    },
     setFeatureMode,
     sourceImages: () => state.sourceImages,
+    usesTextSamples: () => state.textSampleIds.length > 0,
   };
 }

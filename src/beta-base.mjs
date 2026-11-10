@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖ONEAPI_OUTPAINT_ENGINE_KEYS共享扩图引擎白名单； 依赖户型布局归档适配器； 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、Flux后置超分身份、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
- * [OUTPUT]: Beta扩图建档覆盖GPT2.5/2.6实际模型标签； 对外提供Flux后置超分冻结快照/实际版本摘要与旧3B历史快照恢复、三表Schema/含质感增强的十二功能快照、旧房独立场景/版本快照与实际Agent一致性、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
+ * [INPUT]: 依赖Beta附件操作、ONEAPI_OUTPAINT_ENGINE_KEYS共享扩图引擎白名单； 依赖户型布局归档适配器； 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、Flux后置超分身份、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
+ * [OUTPUT]: 自由生图图片批次逐样本归档原图及共享提示词并复核冷恢复；Beta扩图建档覆盖GPT2.5/2.6实际模型标签； 对外提供Flux后置超分冻结快照/实际版本摘要与旧3B历史快照恢复、三表Schema/含质感增强的十二功能快照、旧房独立场景/版本快照与实际Agent一致性、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -19,6 +19,7 @@ import {
 import { runLarkCli } from "./lark-cli.mjs";
 import { createBetaSampleStore } from "./beta-sample-store.mjs";
 import { betaBaseContractError, normalizeBetaBaseError, verifyBetaBaseSchema } from "./beta-base-schema.mjs";
+import { assertAttachmentReadback, downloadBetaAttachment, materializeImages, uploadAttachments } from "./beta-base-attachments.mjs";
 import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
 import { MODEL_CONFIGS, normalizeFluxPostUpscaleInput, publicModelCatalog } from "./model-config.mjs";
@@ -370,27 +371,6 @@ function updateRecord(run, config, recordId, fields, tableId = config.tableId) {
   ]);
 }
 
-async function uploadAttachments(
-  run,
-  config,
-  recordId,
-  fieldId,
-  files,
-  cwd,
-  tableId = config.tableId,
-) {
-  if (files.length === 0) return;
-  const args = [
-    "base", "+record-upload-attachment", "--as", "user",
-    "--base-token", config.baseToken,
-    "--table-id", tableId,
-    "--record-id", recordId,
-    "--field-id", fieldId,
-  ];
-  files.forEach((file) => args.push("--file", file));
-  await run(config, args, { cwd });
-}
-
 async function listRecords(run, config, tableId, fields) {
   const records = [];
   let offset = 0;
@@ -420,38 +400,6 @@ async function getRecord(run, config, tableId, recordId, fields) {
   args.push("--format", "json");
   const body = await run(config, args);
   return parseRecordPage(body)[0] || null;
-}
-
-function safeFileName(value, fallback) {
-  return String(value || fallback)
-    .replace(/[^\p{L}\p{N}._ -]/gu, "")
-    .trim()
-    .slice(0, 100) || fallback;
-}
-
-async function materializeImages(images, directory, prefix) {
-  const files = [];
-  const sizes = [];
-  for (const [index, image] of (images || []).entries()) {
-    const source = image?.dataUrl || image?.imageUrl || image?.url;
-    if (!source) continue;
-    const mimeType = String(image.type || image.mimeType || "image/png");
-    const extension = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1] || "png";
-    const file = `${prefix}-${index + 1}-${safeFileName(image.name || image.fileName, `image.${extension}`)}`;
-    const bytes = await loadImageBytes(source);
-    await writeFile(join(directory, file), bytes);
-    files.push(file);
-    sizes.push(bytes.length);
-  }
-  return { files, sizes };
-}
-
-function assertAttachmentReadback(fields, name, expectedSizes) {
-  const attachments = fields?.[name] ?? [];
-  if (!Array.isArray(attachments) || attachments.length !== expectedSizes.length
-    || expectedSizes.some((size, index) => !attachments[index]?.file_token || Number(attachments[index].size) !== size)) {
-    throw betaBaseContractError(`飞书${name}附件数量、token 或字节数回读不一致`);
-  }
 }
 
 function verifyMetadata(fields, expected) {
@@ -501,6 +449,9 @@ export function createBetaBaseStore({
     ...createBetaSampleStore({ config, run, featureLabels: FEATURE_LABELS, createRecord, updateRecord,
       listRecords, getRecord, uploadAttachments }),
     async beginRun({ batchId, featureMode, item, testTime }) {
+      if (item.usesSampleImage && item.input?.referenceImages?.length !== 1) {
+        throw betaBaseContractError("自由生图图片样本需要归档唯一原图");
+      }
       if (featureMode === "panoramaEnhancement" && (item.input?.referenceImages?.length !== 1
         || item.input?.styleReferenceImages?.length || item.input?.lightingReferenceImages?.length)) {
         throw betaBaseContractError("全景归档需要唯一原图且不使用第二张参考图");
@@ -543,7 +494,7 @@ export function createBetaBaseStore({
           styleFiles.files,
           directory,
         );
-        if (["housePlanLayout", "roomRenovation", "styleTransfer", "imageOutpaint", "imageUpscale", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)
+        if (item.usesSampleImage || ["housePlanLayout", "roomRenovation", "styleTransfer", "imageOutpaint", "imageUpscale", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)
           || featureMode === "refinedModel" && hasRefinedLightingInput(item.input)) {
           inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
         }
@@ -717,7 +668,7 @@ export function createBetaBaseStore({
       const attachments = fields["结果图"];
       if (!Array.isArray(attachments) || attachments.length !== 1 || !attachments[0]?.file_token
         || !(Number(attachments[0].size) > 0)) throw betaBaseContractError("已有结果附件不可恢复：缺少唯一 token 或字节数");
-      if (featureMode !== "free") {
+      if (featureMode !== "free" || item.usesSampleImage) {
         const inputs = fields["输入图"];
         if (!Array.isArray(inputs) || inputs.length !== 1 || !inputs[0]?.file_token || !(Number(inputs[0].size) > 0)) {
           throw betaBaseContractError("已有结果的输入附件不可恢复");
@@ -737,8 +688,15 @@ export function createBetaBaseStore({
       if (featureMode === "roomRenovation") verifyRoomRenovationArchive(fields, JSON.parse(frozen["配置快照"]));
       if (featureMode === "refinedModel") verifyLightingArchive(fields, JSON.parse(frozen["配置快照"]));
       if (featureMode === "panoramaEnhancement") verifyPanoramaArchive(fields, JSON.parse(frozen["配置快照"]), { recovering: true });
+      const provider = MODEL_CONFIGS[item.input.modelKey]?.provider || "oneapi";
+      if (item.usesSampleImage && (fields["最终 Prompt"] !== frozen["输入文本"]
+        || workflow.feature !== "free-image-generation" || workflow.provider !== provider || parameters.referenceImageCount !== 1)) {
+        throw betaBaseContractError("已有自由生图结果的最终提示词、模型来源或原图数量不匹配");
+      }
+      // OneAPI 直接使用用户提示词，没有独立 Prompt 资产或本地工作流版本。
+      const directFreeImage = item.usesSampleImage && provider === "oneapi";
       if ((featureMode !== "imageUpscale" && !fields["最终 Prompt"])
-        || !fields["Prompt / 工作流版本"] || !(Number(fields["时延（ms）"]) > 0)) {
+        || (!directFreeImage && !fields["Prompt / 工作流版本"]) || !(Number(fields["时延（ms）"]) > 0)) {
         throw betaBaseContractError("已有结果缺少最终 Prompt、版本或时延");
       }
       if (featureMode === "imageUpscale") verifyUpscaleArchive(fields, JSON.parse(frozen["配置快照"]), null, { recovering: true });
@@ -750,23 +708,16 @@ export function createBetaBaseStore({
       }
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-recover-"));
       try {
-        await run(config, ["base", "+record-download-attachment", "--as", "user", "--base-token", config.baseToken,
-          "--table-id", config.tableId, "--record-id", candidate.recordId, "--file-token", attachments[0].file_token,
-          "--output", "result-image", "--overwrite", "--format", "json"], { cwd: directory });
-        const bytes = await readFile(join(directory, "result-image"));
+        const bytes = await downloadBetaAttachment(run, config, candidate.recordId, attachments[0].file_token, "result-image", directory);
         if (bytes.length !== Number(attachments[0].size) || actualImageSize(bytes) !== fields["尺寸"]
           || (workflow.outputSha256 && createHash("sha256").update(bytes).digest("hex") !== workflow.outputSha256)) {
           throw betaBaseContractError("已有结果附件字节数、尺寸或 SHA-256 不一致");
         }
         if (featureMode === "panoramaEnhancement") {
           const snapshot = JSON.parse(frozen["配置快照"]);
-          let sourceBytes = null;
-          if (snapshot.panoramaArchiveVersion === 1) {
-            await run(config, ["base", "+record-download-attachment", "--as", "user", "--base-token", config.baseToken,
-              "--table-id", config.tableId, "--record-id", candidate.recordId, "--file-token", fields["输入图"][0].file_token,
-              "--output", "input-image", "--overwrite", "--format", "json"], { cwd: directory });
-            sourceBytes = await readFile(join(directory, "input-image"));
-          }
+          const sourceBytes = snapshot.panoramaArchiveVersion === 1
+            ? await downloadBetaAttachment(run, config, candidate.recordId, fields["输入图"][0].file_token, "input-image", directory)
+            : null;
           verifyPanoramaArchive(fields, snapshot, { bytes, sourceBytes, recovering: true });
         }
       } finally { await rm(directory, { force: true, recursive: true }); }

@@ -1,11 +1,13 @@
 /**
  * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置/字段映射与独立扩图真源
- * [OUTPUT]: 对外提供新 Base 隔离、KS工作流版本快照、精模模板/双Prompt版本摘要投影、目录模型单选标签与无 Agent 清空、草稿回读/关联、十功能映射、扩图场景/配置/版本/费用及元数据/附件漂移拒绝成功的回归保障
+ * [OUTPUT]: 验证自由生图图片集类型标记、完整批次词、附件回读及直连OneAPI冷恢复；对外提供新 Base 隔离、KS工作流版本快照、精模模板/双Prompt版本摘要投影、目录模型单选标签与无 Agent 清空、草稿回读/关联、十功能映射、扩图场景/配置/版本/费用及元数据/附件漂移拒绝成功的回归保障
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 import sharp from "sharp";
 
@@ -44,7 +46,7 @@ test("Beta超分配置快照冻结实际版本且其他功能不带超分版本"
 test("飞书创建 null 被默认可用填充时，草稿与新样本创建后必须更新清空再继续", async () => {
   const records = new Map();
   const commands = [];
-  const store = createBetaBaseStore({ async run(_config, args) {
+  const store = createBetaBaseStore({ async run(config, args, { cwd } = {}) {
     const tableId = args[args.indexOf("--table-id") + 1];
     const recordId = args[args.indexOf("--record-id") + 1];
     if (args.includes("+record-batch-create")) {
@@ -66,6 +68,14 @@ test("飞书创建 null 被默认可用填充时，草稿与新样本创建后�
       const fields = JSON.parse(args[args.indexOf("--json") + 1]);
       Object.assign(records.get(recordId).fields, fields);
       commands.push(["update", recordId, fields]);
+      return { ok: true, data: {} };
+    }
+    if (args.includes("+record-upload-attachment")) {
+      assert.equal(args[args.indexOf("--field-id") + 1], config.sampleImageFieldId);
+      const name = args[args.indexOf("--file") + 1];
+      const bytes = await readFile(join(cwd, name));
+      assert.deepEqual(bytes, onePixelPngBytes);
+      records.get(recordId).fields["样本图"] = [{ name, size: bytes.length, file_token: "sample-image-token" }];
       return { ok: true, data: {} };
     }
     if (args.includes("+record-get")) {
@@ -96,6 +106,17 @@ test("飞书创建 null 被默认可用填充时，草稿与新样本创建后�
   assert.equal(completed.status, "可用");
   assert.equal(completed.sampleCount, 1);
   assert.equal(records.size, 2);
+
+  const imageDraft = await store.createSampleSet({ featureMode: "free", name: "图片样本集", sampleType: "image" });
+  assert.equal(imageDraft.sampleType, "image");
+  await assert.rejects(store.addSample(imageDraft.sampleSetId, { sampleId: "SAMPLE-IMAGE", prompt: "只有文字" }), /有效图片/);
+  const imageSample = await store.addSample(imageDraft.sampleSetId, { sampleId: "SAMPLE-IMAGE",
+    image: { dataUrl: onePixelPng, name: "sample.png", type: "image/png" } });
+  const imageSet = await store.completeSampleSet(imageDraft.sampleSetId, [imageSample.sampleId]);
+  assert.equal(imageSet.sampleType, "image");
+  assert.equal(imageSet.samples[0].prompt, "");
+  assert.equal(imageSet.samples[0].image.type, "image/png");
+  assert.equal((await store.listSampleSets()).find((set) => set.sampleSetId === imageSet.sampleSetId).sampleType, "image");
 });
 
 test("Beta跑图只指向新 Base 的样本集、样本和跑图明细三表", () => {
@@ -520,4 +541,52 @@ test("AI扩图只在独立Beta表归档真实Prompt/工作流/费用与源图结
       assert.equal(JSON.parse(written["生成参数"]).workflow.outputSha256, "actual-sha");
     }
   }
+});
+
+test("自由生图图片批次归档保留多行提示词，源图缺失不能完成或冷恢复", async () => {
+  const fields = {}, recordId = "rec-free-image";
+  const run = async (config, args, { cwd } = {}) => {
+    const param = (flag) => args[args.indexOf(flag) + 1];
+    if (args.includes("+record-batch-create")) {
+      const body = JSON.parse(param("--json"));
+      Object.assign(fields, Object.fromEntries(body.fields.map((name, index) => [name, body.rows[0][index]])));
+      return { ok: true, data: { record_id_list: [recordId] } };
+    }
+    if (args.includes("+record-upsert")) Object.assign(fields, JSON.parse(param("--json")));
+    if (args.includes("+record-upload-attachment")) {
+      const name = param("--file");
+      const bytes = await readFile(join(cwd, name));
+      const input = param("--field-id") === config.inputFieldId;
+      assert.deepEqual(bytes, onePixelPngBytes);
+      fields[input ? "输入图" : "结果图"] = [{ name, size: bytes.length, file_token: input ? "source-token" : "result-token" }];
+    }
+    if (args.includes("+record-download-attachment")) await writeFile(join(cwd, param("--output")), onePixelPngBytes);
+    if (args.includes("+record-get") || args.includes("+record-list")) return recordEnvelope(recordId, { ...fields });
+    return { ok: true, data: {} };
+  };
+  const prompt = "整批统一提示词\n\n保留空间关系";
+  const input = { modelKey: "banana21", prompt, referenceImages: [{ dataUrl: onePixelPng, type: "image/png" }] };
+  const item = { runId: "RUN-free-image-001", caseId: "SAMPLE-FREE-1", usesSampleImage: true, input };
+  const batch = { batchId: "BETA-free-image", featureMode: "free", testTime: "2026-11-10 12:00:00", item };
+  const store = createBetaBaseStore({ run });
+  await store.beginRun(batch);
+  assert.equal(fields["输入文本"], prompt);
+  const sourceAttachment = fields["输入图"];
+  const result = { images: [{ url: onePixelPng }], durationMs: 123, request: { outputFormat: "png" },
+    sync: captureBetaGenerationArchive({ durationMs: 123, modelLabel: "Banana 2.1", finalPrompt: prompt,
+      preview: { outputFormat: "png", referenceImageCount: 1 },
+      workflow: { feature: "free-image-generation", provider: "oneapi" } }) };
+  fields["输入图"] = [];
+  await assert.rejects(store.completeRun(recordId, result), /输入图附件/);
+  fields["输入图"] = sourceAttachment;
+  await store.completeRun(recordId, result);
+  assert.equal(fields["最终 Prompt"], prompt);
+  const coldStore = createBetaBaseStore({ run });
+  const recovery = { ...batch, item: { ...item, input: { ...input, referenceImages: [] } } };
+  assert.equal((await coldStore.recoverRun(recovery)).runId, item.runId);
+  fields["最终 Prompt"] = "与冻结内容不一致";
+  await assert.rejects(coldStore.recoverRun(recovery), /最终提示词.*不匹配/);
+  fields["最终 Prompt"] = prompt;
+  fields["输入图"] = [];
+  await assert.rejects(coldStore.recoverRun(recovery), /输入附件不可恢复/);
 });

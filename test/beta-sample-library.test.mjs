@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta 样本库控制器及最小 DOM/图片读取/飞书 API 替身
- * [OUTPUT]: 验证跨图像功能复用原样本ID及free类型隔离、保存选择优先与异步防串目标、按本次功能元数据校验/缺图缺词整集阻断、新建功能归属、仅本次房型补选，以及逐张上传/稳定ID续传/回读就绪和零原图读取
+ * [OUTPUT]: 验证跨图像功能复用原样本ID、自由生图的图片与旧文字样本共用完整提示词、选集恢复与异步隔离、目标元数据与缺图守卫、按功能创建样本集、逐张上传/稳定ID续传/回读及零原图读取
  * [POS]: test 的 Beta 浏览器样本生命周期行为测试，不读写真实飞书或调用生成服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,10 +40,10 @@ class Element {
 
 function createElements() {
   return Object.fromEntries([
-    "sampleSetSyncStatus", "sampleSetSelect", "sampleCount", "sampleList", "freePromptList",
+    "sampleSetSyncStatus", "sampleSetSelect", "sampleCount", "sampleList",
     "roomTypeSelect", "sampleSetLibraryPanel", "sampleSetCreatePanel", "sourceFilesField",
-    "freePromptsField", "saveSampleSetButton", "cancelSampleSetButton", "newSampleSetButton",
-    "sourceFilesInput", "sourceFilesDropZone", "sampleSetNameInput", "freePromptsInput",
+    "saveSampleSetButton", "cancelSampleSetButton", "newSampleSetButton",
+    "sourceFilesInput", "sourceFilesDropZone", "sampleSetNameInput",
   ].map((name) => [name, new Element()]));
 }
 
@@ -333,39 +333,64 @@ test("默认按已保存选择、同功能来源、其他图像集恢复，功�
   assert.equal(library.activeSampleSetId(), "white-set");
 });
 
-test("free仅复用提示词集，图像集与提示词集均不会跨类型加载", async (context) => {
+test("自由生图跨来源复用原图和旧文字样本，整批使用同一条完整提示词", async (context) => {
   const image = imageSet("image-set", "whiteModel");
-  const free = { sampleSetId: "free-set", featureMode: "free", name: "提示词", sampleCount: 1,
-    samples: [{ sampleId: "prompt-1", prompt: "暖色卧室" }] };
-  const { library, elements } = existingFixture(context, [image, free]);
+  const other = imageSet("other-image", "emptyRoom", { width: 720, height: 1280 });
+  image.samples.push(other.samples[0]);
+  image.sampleCount = 2;
+  const freeImage = { ...imageSet("free-image", "free"), sampleType: "image" };
+  const free = { sampleSetId: "free-set", featureMode: "free", name: "旧文字样本", sampleCount: 2,
+    samples: [{ sampleId: "prompt-1", prompt: "暖色卧室" }, { sampleId: "prompt-2", prompt: "浅色客厅" }] };
+  const { library, elements } = existingFixture(context, [image, free, freeImage]);
+  const commonPrompt = "保留原图结构与机位。\n\n所有光源统一为自然柔光。";
+  const freeReference = { name: "共用参考图.png", width: 800, height: 600 };
   await library.load("free", "image-set");
-  assert.deepEqual(elements.sampleSetSelect.options.map((option) => option.value), ["free-set"]);
-  assert.deepEqual(library.currentCases()[0], {
-    caseId: "prompt-1", label: "暖色卧室", prompt: "暖色卧室", referenceImages: [],
-  });
-  await library.setFeatureMode("imageOutpaint", "free-set");
   assert.equal(library.activeSampleSetId(), "image-set");
-  assert.deepEqual(elements.sampleSetSelect.options.map((option) => option.value), ["image-set"]);
+  assert.deepEqual(elements.sampleSetSelect.options.map((option) => option.value), ["image-set", "free-set", "free-image"]);
+  assert.equal(library.usesTextSamples(), false);
+  const imageCases = library.currentCases({ commonPrompt, freeReference });
+  assert.deepEqual(imageCases.map((sample) => sample.caseId), ["image-set-sample", "other-image-sample"]);
+  assert.deepEqual(imageCases.map((sample) => sample.label), ["image-set.jpg", "other-image.jpg"]);
+  assert.ok(imageCases.every((sample) => sample.prompt === commonPrompt && !sample.referenceImages.length));
+  assert.deepEqual(imageCases.map(({ sourceImage: { width, height } }) => ({ width, height })),
+    [{ width: 1024, height: 768 }, { width: 720, height: 1280 }]);
+  assert.deepEqual(library.sourceDimensions(freeReference), [{ width: 1024, height: 768 }, { width: 720, height: 1280 }]);
+
+  await library.setFeatureMode("free", "free-set");
+  assert.equal(library.usesTextSamples(), true);
+  assert.deepEqual(library.sourceDimensions(freeReference), [{ width: 800, height: 600 }]);
+  const textCases = library.currentCases({ commonPrompt, freeReference });
+  assert.deepEqual(textCases.map((sample) => sample.caseId), ["prompt-1", "prompt-2"]);
+  assert.deepEqual(textCases.map((sample) => sample.label), ["样本 1", "样本 2"]);
+  for (const sample of textCases) {
+    assert.equal(sample.prompt, commonPrompt);
+    assert.deepEqual(sample.referenceImages, [freeReference]);
+  }
+  await library.setFeatureMode("imageOutpaint", "free-image");
+  assert.equal(library.activeSampleSetId(), "free-image");
+  assert.deepEqual(elements.sampleSetSelect.options.map((option) => option.value), ["image-set", "free-image"]);
 });
 
-test("只有无兼容集才自动新建，新增样本仍归属当前目标功能", async (context) => {
+test("只有无兼容集才自动新建，自由生图新集标为图片集并复用上传流程", async (context) => {
   const free = { sampleSetId: "free-set", featureMode: "free", name: "提示词", sampleCount: 1,
     samples: [{ sampleId: "prompt-1", prompt: "客厅" }] };
   let uploaded;
-  const sampleSet = { sampleSetId: "new-outpaint", featureMode: "imageOutpaint", name: "扩图样本", sampleCount: 1 };
+  const sampleSet = { sampleSetId: "new-free-image", featureMode: "free", name: "自由生图样本", sampleType: "image", sampleCount: 1 };
   const { library, elements, calls } = existingFixture(context, [free], {
     async readImage(file, { previewOnly = false } = {}) {
       return previewOnly ? { ...file, file, previewUrl: "blob:sample", width: 800, height: 600 }
         : { ...file, width: 800, height: 600, dataUrl: "data:image/png;base64,AA==" };
     },
     async api(path, options) {
-      if (!options) return { sampleSets: [free] };
+      if (path === "/api/beta/sample-sets" && !options) return { sampleSets: [free] };
+      if (!options) return { sampleSet: free };
       const body = JSON.parse(options.body);
       if (path === "/api/beta/sample-sets") {
-        assert.deepEqual(body, { featureMode: "imageOutpaint", name: "扩图样本" });
+        assert.deepEqual(body, { featureMode: "free", name: "自由生图样本", sampleType: "image" });
         return { sampleSet };
       }
       if (path.endsWith("/samples")) {
+        assert.equal(body.prompt, undefined);
         uploaded = { sampleId: body.sampleId, image: { ...body.image, dataUrl: undefined, previewUrl: "/preview/new" } };
         return { sample: uploaded };
       }
@@ -375,14 +400,19 @@ test("只有无兼容集才自动新建，新增样本仍归属当前目标功�
   });
   await library.load("imageOutpaint");
   assert.equal(elements.sampleSetCreatePanel.classList.contains("hidden"), false);
-  elements.sampleSetNameInput.value = "扩图样本";
+  await library.setFeatureMode("free");
+  assert.equal(elements.sampleSetCreatePanel.classList.contains("hidden"), true);
+  await elements.newSampleSetButton.dispatch("click");
+  assert.equal(elements.sourceFilesField.classList.contains("hidden"), false);
+  elements.sampleSetNameInput.value = "自由生图样本";
   elements.sourceFilesInput.files = [{ name: "new.png", type: "image/png", size: 100 }];
   await elements.sourceFilesInput.dispatch("change");
   const draftId = library.sourceImages()[0].sampleId;
   await elements.saveSampleSetButton.dispatch("click");
   await until(() => library.isReady());
-  assert.equal(library.activeSampleSetId(), "new-outpaint");
+  assert.equal(library.activeSampleSetId(), "new-free-image");
   assert.equal(library.currentCases()[0].caseId, draftId);
+  assert.equal(library.usesTextSamples(), false);
   assert.equal(calls.filter((call) => call.options?.method === "POST").length, 3);
 });
 
@@ -473,7 +503,7 @@ test("目录读取时切换功能沿最新目标与保存ID加载，不退回初
   assert.deepEqual(selections, [["imageOutpaint", "effect"]]);
 });
 
-test("复用集任何一行缺图片或提示词均整集阻断，不静默跳过部分样本", async (context) => {
+test("复用集任何一行缺图片或旧提示词均整集阻断，不静默跳过部分样本", async (context) => {
   const image = imageSet("broken-image", "whiteModel");
   image.samples.push({ sampleId: "missing-image" });
   image.sampleCount = 2;
@@ -489,8 +519,12 @@ test("复用集任何一行缺图片或提示词均整集阻断，不静默跳�
   assert.equal(library.isReady(), false);
   assert.equal(library.sampleCount(), 0);
   assert.match(errors[1].message, /图片类型无效/);
-  await library.setFeatureMode("free");
+  await library.setFeatureMode("free", "broken-image");
   assert.equal(library.isReady(), false);
   assert.equal(library.sampleCount(), 0);
-  assert.match(errors[2].message, /第 2 条样本缺少提示词/);
+  assert.match(errors[2].message, /第 2 条样本缺少图片/);
+  await library.setFeatureMode("free", "broken-free");
+  assert.equal(library.isReady(), false);
+  assert.equal(library.sampleCount(), 0);
+  assert.match(errors[3].message, /第 2 条样本缺少提示词/);
 });

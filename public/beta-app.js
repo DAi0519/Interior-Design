@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta含户型布局的十三功能目录、旧房设计配置/空房判定、Flux负向草稿、扩图/超分、持久配置、样本库/预警/Run ID和API工具
- * [OUTPUT]: 户型布局逐图标注/版本选择与同源执行； 提供旧房样本×模型批测、逐图房型/独立Agent版本与场景投影及旧进程门禁；美化/精模/全景按光影×模型×样本展开、尺寸与Prompt准入、可恢复配置、仅失败项冻结RETRY和生成/归档双阶段监控
+ * [OUTPUT]: 自由生图按样本×模型共用一条整批提示词；户型布局逐图标注/版本选择与同源执行； 提供旧房样本×模型批测、逐图房型/独立Agent版本与场景投影及旧进程门禁；美化/精模/全景按光影×模型×样本展开、尺寸与Prompt准入、可恢复配置、仅失败项冻结RETRY和生成/归档双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,9 +9,9 @@ import { isLightingReference } from "./refined-flux-reference.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection, generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
 import "./custom-select.js?v=9";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=9";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=9";
-import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=6";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=11";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=11";
+import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=8";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
@@ -24,7 +24,7 @@ import { bindEffectBeautificationControls } from "./effect-beautification-contro
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
-import { createBetaSampleLibrary } from "./beta-sample-library.js?v=8";
+import { createBetaSampleLibrary } from "./beta-sample-library.js?v=9";
 import { fillBetaSelect as fillSelect, renderBetaProgress as renderProgress, renderBetaWarnings } from "./beta-results.js?v=2";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
@@ -39,8 +39,8 @@ const elements = Object.fromEntries([
   "betaGenerationActions",
   "commonPromptField", "commonPromptInput", "commonPromptLabel",
   "configStatus", "designFields", "effectFields", "effectTimeSelect", "effectBeautificationFields",
-  "effectWeatherSelect", "emptyRoomFields", "freePromptList", "freePromptsField",
-  "freePromptsInput", "freeReferenceDropZone", "freeReferenceField",
+  "effectWeatherSelect", "emptyRoomFields", "freeSharedPromptField", "freeSharedPromptInput",
+  "freeReferenceDropZone", "freeReferenceField",
   "freeReferenceInput", "freeReferenceList", "generationProgressBar",
   "generationProgressCount", "generationProgressTrack", "jobProgress",
   "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
@@ -59,8 +59,7 @@ const elements = Object.fromEntries([
   "sampleSetLibraryPanel", "sampleSetNameInput", "sampleSetSelect",
   "sampleSetSyncStatus",
   "saveSampleSetButton", "cancelSampleSetButton", "newSampleSetButton",
-  "sourceFilesDropLabel",
-  "sourceFilesDropZone", "sourceFilesField", "sourceFilesInput", "sourceFilesTitle", "sourceFilesHint",
+  "sourceFilesDropLabel", "sourceFilesDropZone", "sourceFilesInput", "sourceFilesTitle", "sourceFilesHint",
   "styleField", "styleReferenceDropZone", "styleReferenceField",
   "styleReferenceInput", "styleReferenceList", "styleSelect",
 ].map((id) => [id, document.querySelector(`#${id}`)]));
@@ -127,6 +126,7 @@ const sampleLibrary = createBetaSampleLibrary({
   },
   readImage,
   validateSourceImage: assertBetaPanoramaSource,
+  canSave: featureMode => featureMode !== "free" || state.betaConfig?.freeSharedPrompt === true,
 });
 const housePlanConfiguration = createBetaHousePlanConfiguration({ getState: () => state, sampleLibrary, fillSelect,
   onChange() { if (state.featureMode === "housePlanLayout") renderModels(); }, onError: reportUploadError });
@@ -196,7 +196,7 @@ function selectedCandidates() {
   return state.featureMode === "imageOutpaint" ? outpaintConfiguration.selectedWorkflows() : selectedModels();
 }
 function sampleCount() { return sampleLibrary.sampleCount(); }
-function postUpscaleIssue() { if (state.featureMode === "housePlanLayout") return null; return betaPostUpscaleUnavailableReason({ featureMode: state.featureMode, models: selectedModels(), resolution: elements.resolutionSelect.value, sources: state.featureMode === "free" && state.freeReference ? [state.freeReference] : sampleLibrary.sourceDimensions(), refinedLighting: refinedRenderConfiguration.snapshot() }); }
+function postUpscaleIssue() { if (state.featureMode === "housePlanLayout") return null; return betaPostUpscaleUnavailableReason({ featureMode: state.featureMode, models: selectedModels(), resolution: elements.resolutionSelect.value, sources: sampleLibrary.sourceDimensions(state.freeReference), refinedLighting: refinedRenderConfiguration.snapshot() }); }
 function runCount() {
   return sampleCount() * selectedCandidates().length
     * (state.featureMode === "refinedModel" ? refinedRenderConfiguration.selections().length
@@ -251,6 +251,7 @@ function renderReferenceInputs() {
 function renderRunSummary() {
   housePlanConfiguration.decorateSamples();
   elements.betaFeatureSelect.disabled = sampleLibrary.isBusy();
+  elements.freeReferenceField.classList.toggle("hidden", state.featureMode !== "free" || !sampleLibrary.usesTextSamples());
   const total = runCount();
   const samples = sampleCount();
   const outpaint = state.featureMode === "imageOutpaint";
@@ -284,7 +285,8 @@ function renderRunSummary() {
   const effectReady = !effectPromptKey || state.featureMode === "panoramaEnhancement" && !panoramaLighting.requiresOriginalPrompt()
     || state.featureMode === "effectBeautification" && !effectBeautificationControls.requiresOriginalPrompt()
     || state.stylesConfig?.[effectPromptKey]?.available;
-  const targetIssue = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || postUpscaleIssue()
+  const sharedPromptReady = state.featureMode !== "free" || elements.freeSharedPromptInput.value.trim().length >= 3;
+  const targetIssue = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || postUpscaleIssue()
     || (["styleTransfer", "roomRenovation"].includes(state.featureMode) ? designConfiguration.unavailableReason() : null);
   const targetReady = !targetIssue;
   const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation()
@@ -301,11 +303,12 @@ function renderRunSummary() {
   if (!failed && !targetReady && agentReady && !running) elements.runHint.textContent = targetIssue;
   if (!failed && !workflowsReady && !running) elements.runHint.textContent = workflowConfiguration.unavailableReason() || `请选择${upscale ? "超分" : "扩图"}工作流`;
   if (!failed && lightingIssue && !running) elements.runHint.textContent = lightingIssue;
+  if (!failed && !running && targetReady && !sharedPromptReady && samples) elements.runHint.textContent = "请填写整批提示词（至少 3 个字符）";
   elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !state.connected)
     || !sampleLibrary.isReady()
     || total < 1
     || !agentReady
-    || !effectReady
+    || !effectReady || !sharedPromptReady
     || !targetReady
     || Boolean(lightingIssue)
     || !workflowsReady));
@@ -391,7 +394,7 @@ function renderFeature() {
   elements.effectBeautificationFields.classList.toggle("hidden", state.featureMode !== "effectBeautification");
   panoramaLighting.setVisible(state.featureMode === "panoramaEnhancement");
   elements.refinedPromptField.classList.toggle("hidden", !refined);
-  elements.freeReferenceField.classList.toggle("hidden", !free);
+  elements.freeSharedPromptField.classList.toggle("hidden", !free);
   elements.sourceFilesTitle.textContent = copy.source;
   elements.sourceFilesDropLabel.textContent = `添加或拖入${copy.source}`;
   elements.sourceFilesInput.setAttribute("aria-label", `添加${copy.source}`);
@@ -412,12 +415,12 @@ function renderFeature() {
 }
 function currentCases() {
   return sampleLibrary.currentCases({
-    commonPrompt: ["imageOutpaint", "imageUpscale", "textureEnhancement"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
+    commonPrompt: state.featureMode === "free" ? elements.freeSharedPromptInput.value.trim() : ["imageOutpaint", "imageUpscale", "textureEnhancement"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
     freeReference: state.freeReference });
 }
 function designSettings() { return designConfiguration.settings(); }
 function assertFeatureConfig() {
-  const unavailableReason = housePlanConfiguration.reason() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || postUpscaleIssue()
+  const unavailableReason = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || postUpscaleIssue()
     || (state.featureMode === "housePlanLayout" ? null : generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()));
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
@@ -450,7 +453,7 @@ function buildItems(startedAt = new Date()) {
   if (!models.length) throw new Error("请选择出图模型");
   if (state.featureMode === "free"
     && models.some((model) => model.requiresReferenceImage)
-    && !state.freeReference) {
+    && sampleLibrary.usesTextSamples() && !state.freeReference) {
     throw new Error("当前所选模型需要自由生图参考图");
   }
   const ratioAuto = elements.ratioSelect.value === "auto";
@@ -460,7 +463,7 @@ function buildItems(startedAt = new Date()) {
       modelKey: model.key,
       negativePrompt: state.featureMode === "textureEnhancement" ? "" : elements.negativePromptInput.value.trim(),
       outputFormat: "png",
-      prompt: state.featureMode === "panoramaEnhancement" ? panoramaLighting.requestFields().prompt : FEATURE_COPY[state.featureMode].promptConfig ? "" : currentCase.prompt,
+      prompt: state.featureMode === "free" ? undefined : state.featureMode === "panoramaEnhancement" ? panoramaLighting.requestFields().prompt : FEATURE_COPY[state.featureMode].promptConfig ? "" : currentCase.prompt,
       quality: elements.qualitySelect.value,
       ratio: ratioAuto ? model.defaultRatio : elements.ratioSelect.value,
       ratioMode: ratioAuto ? "auto" : "manual",
@@ -487,7 +490,7 @@ function buildItems(startedAt = new Date()) {
     };
     const adapted = adaptGenerationInputForModel(input, model, {
       featureMode: state.featureMode,
-      sourceImage: currentCase.referenceImages[0] || null,
+      sourceImage: currentCase.referenceImages[0] || currentCase.sourceImage || null,
     });
     if (state.featureMode === "panoramaEnhancement") adapted.ratioMode = "original";
     return {
@@ -578,6 +581,7 @@ async function startBatch(previousJob = null) {
       featureMode: state.featureMode,
       jobId,
       sampleSetId: sampleLibrary.activeSampleSetId(),
+      ...(state.featureMode === "free" ? { sharedPrompt: elements.freeSharedPromptInput.value.trim() } : {}),
       testTime: formatBetaTestTime(startedAt),
     }),
     method: "POST",
@@ -663,6 +667,7 @@ function bindEvents() {
     renderOutputControls();
     saveConfiguration();
   });
+  elements.freeSharedPromptInput.addEventListener("input", () => { renderRunSummary(); saveConfiguration(); });
   for (const input of [
     elements.commonPromptInput,
     elements.negativePromptInput,
@@ -688,7 +693,7 @@ function bindEvents() {
   });
   elements.betaForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (state.job?.status === "running" || state.submitting) return;
+    if (elements.runButton.disabled) return;
     const previousJob = state.job;
     state.submitting = true;
     renderRunSummary();

@@ -1,15 +1,15 @@
 /**
- * [INPUT]: 依赖户型布局适配器及实际标注图归档投影、任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、普通Flux后置超分身份/尺寸规划、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换/旧房独立Agent版本、模型2:1矩阵、三表Schema/资产Store及参考图/全景/房型/Agent准入
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和含户型平面布局的十三功能两路并发执行，旧房独立归档并映射空房单流程、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
+ * [INPUT]: 依赖户型布局适配器及实际标注图归档投影、任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、普通Flux后置超分身份/尺寸规划、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换/旧房独立Agent版本、模型2:1矩阵与用户提示词长度、三表Schema/资产Store及参考图/全景/房型/Agent准入
+ * [OUTPUT]: 自由生图冻结整批提示词并按样本ID读取原图，兼容旧文字集；含GPT2.6 Sunburst/Flare独立模型身份； 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和含户型平面布局的十三功能两路并发执行，旧房独立归档并映射空房单流程、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
  * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeBetaHousePlanInput, housePlanArchiveItem } from "./beta-house-plan.mjs";
 import { normalizeEmptyRoomType, normalizeEmptyRoomTypeDetail, EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH } from "./empty-room-type.mjs";
-import { normalizeBetaSampleImage } from "./beta-sample-store.mjs";
-import { normalizeReferenceImages, REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
-import { createGenerationRequest, MODEL_CONFIGS, normalizeFluxPostUpscaleInput } from "./model-config.mjs";
+import { normalizeBetaSampleImage, singleSharedImages } from "./beta-sample-store.mjs";
+import { REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
+import { createGenerationRequest, MODEL_CONFIGS, normalizeFluxPostUpscaleInput, USER_PROMPT_LENGTH } from "./model-config.mjs";
 import { normalizeStyleTransferSelection } from "./white-model-workflow.mjs";
 import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
 import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
@@ -106,18 +106,21 @@ function assetImages(assets, key, fieldName) {
 function normalizeSampleSet(body = {}) {
   const featureMode = String(body.featureMode || "").trim();
   const name = String(body.name || "").trim();
+  const { sampleType } = body;
   const samples = Array.isArray(body.samples) ? body.samples : [];
   if (!BETA_FEATURE_MODES.includes(featureMode)) {
     throw inputError("样本集功能不受支持");
   }
+  if (sampleType !== undefined && (featureMode !== "free" || sampleType !== "image")) throw inputError("样本集类型不受支持");
   if (!name || name.length > 80) throw inputError("样本集名称需要 1–80 个字符");
   return {
     featureMode,
     name,
+    ...(sampleType ? { sampleType } : {}),
     samples: samples.map((sample, index) => {
       const prompt = String(sample?.prompt || "").trim();
       const image = sample?.image && typeof sample.image === "object" ? sample.image : null;
-      if (featureMode === "free") {
+      if (featureMode === "free" && sampleType !== "image") {
         if (!prompt) throw inputError(`第 ${index + 1} 个样本缺少提示词`);
         return { image: null, prompt };
       }
@@ -144,10 +147,10 @@ function normalizeSampleSet(body = {}) {
   };
 }
 
-function normalizeSingleSample(sample = {}, featureMode) {
+function normalizeSingleSample(sample = {}, { featureMode, sampleType }) {
   const sampleId = String(sample.sampleId || "").trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(sampleId)) throw inputError("样本 ID 无效");
-  const normalized = normalizeSampleSet({ featureMode, name: "单样本", samples: [sample] }).samples[0];
+  const normalized = normalizeSampleSet({ featureMode, sampleType, name: "单样本", samples: [sample] }).samples[0];
   return { ...normalized, sampleId, image: normalized.image ? normalizeBetaSampleImage(normalized.image, featureMode) : null };
 }
 
@@ -166,22 +169,13 @@ function normalizePanoramaInput(input) {
     ...(model.panoramaWorkflow ? { resolution: "original" } : {}), ratio: "2:1", ratioMode: "original" };
 }
 
-function singleSharedImages(images, fieldName) {
-  if (images == null) return [];
-  const normalized = normalizeReferenceImages(images, { maxCount: 1,
-    maxTotalBytes: REFERENCE_IMAGE_POLICY.maxBytesPerImage });
-  return normalized.map((image) => {
-    if (!image.width || !image.height) throw inputError(`${fieldName}内容或 MIME 类型无效`);
-    return { dataUrl: image.imageUrl, name: image.fileName, type: image.mimeType,
-      size: image.size, width: image.width, height: image.height };
-  });
-}
-
 async function bindBatchSamples(batch, baseStore, { preserveInput = false } = {}) {
-  if (!baseStore.getSampleSet) return batch;
   if (!batch.sampleSetId) throw inputError("请选择已保存的飞书样本集");
   const set = await baseStore.getSampleSet(batch.sampleSetId);
   if (!set || set.status !== "可用") throw inputError("样本集不存在或尚未上传完成");
+  const free = batch.featureMode === "free";
+  const usesSampleImage = !free || set.sampleType === "image" || Boolean(batch.sharedPrompt && set.featureMode !== "free");
+  if (free && usesSampleImage && !batch.sharedPrompt) throw inputError("自由生图图片样本集需要填写批次提示词");
   const samples = new Map(set.samples.map((sample) => [sample.sampleId, sample]));
   const sharedAssets = new Map();
   const sharedImages = (images, label) => {
@@ -194,20 +188,26 @@ async function bindBatchSamples(batch, baseStore, { preserveInput = false } = {}
     if (!sample) throw inputError("样本不属于所选样本集或尚未上传确认");
     if (preserveInput && ((item.sourceRecordId && item.sourceRecordId !== sample.recordId)
       || (item.sourceSetRecordId && item.sourceSetRecordId !== set.recordId))) throw inputError("原冻结样本关联已改变");
-    if (batch.featureMode !== "free") {
+    if (free && preserveInput && item.usesSampleImage !== undefined && item.usesSampleImage !== usesSampleImage) {
+      throw inputError("原冻结样本类型已改变");
+    }
+    if (free) item.usesSampleImage = usesSampleImage;
+    if (usesSampleImage) {
       if (item.input.referenceImages?.length) throw inputError("图像样本请仅提交飞书样本 ID");
       if (!sample.image || !REFERENCE_IMAGE_POLICY.accept.includes(sample.image.type)) throw inputError("飞书样本缺少有效原图");
       if (Number(sample.image.size) > REFERENCE_IMAGE_POLICY.maxBytesPerImage) throw inputError("样本图不能超过 8MB");
     } else {
       const prompt = preserveInput ? item.input.prompt : sample.prompt;
       if (typeof prompt !== "string" || !prompt.trim()) throw inputError("自由生图需要含有效提示词的样本");
-      if (!preserveInput) item.input.prompt = prompt.trim();
+      if (!preserveInput && !batch.sharedPrompt) item.input.prompt = prompt.trim();
       item.input.referenceImages = sharedImages(item.input.referenceImages, "共用源图");
     }
+    if (!preserveInput || free) {
+      item.caseId = sample.sampleId;
+      item.sourceRecordId = sample.recordId;
+      item.sourceSetRecordId = set.recordId;
+    }
     if (preserveInput) continue;
-    item.caseId = sample.sampleId;
-    item.sourceRecordId = sample.recordId;
-    item.sourceSetRecordId = set.recordId;
     item.input.styleReferenceImages = sharedImages(item.input.styleReferenceImages, "风格参考图");
     if (batch.featureMode === "refinedModel") item.input.lightingReferenceImages = sharedImages(item.input.lightingReferenceImages, "光影参考图");
     if (["emptyRoom", "roomRenovation"].includes(batch.featureMode)) {
@@ -263,6 +263,11 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
   if (!BETA_FEATURE_MODES.includes(featureMode)) {
     throw inputError("Beta跑图功能不受支持");
   }
+  const sharedPrompt = typeof body.sharedPrompt === "string" ? body.sharedPrompt.trim() : "";
+  if (body.sharedPrompt !== undefined && (featureMode !== "free" || sharedPrompt.length < USER_PROMPT_LENGTH.min
+    || sharedPrompt.length > USER_PROMPT_LENGTH.max)) {
+    throw inputError(`自由生图批次提示词需要 ${USER_PROMPT_LENGTH.min}–${USER_PROMPT_LENGTH.max} 个字符`);
+  }
   if (items.length < 1) throw inputError("Beta跑图至少需要 1 个 Run");
   const fallbackTime = String(items[0]?.runId || "").match(
     /^RUN-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/,
@@ -304,6 +309,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
     let input = {
       ...item.input,
       featureMode,
+      ...(sharedPrompt ? { prompt: sharedPrompt } : {}),
       ...(referenceImages ? { referenceImages } : {}),
       ...(styleReferenceImages ? { styleReferenceImages } : {}),
       ...(lightingReferenceImages ? { lightingReferenceImages } : {}),
@@ -349,7 +355,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
       sampleId: String(item.sampleId || "").trim(),
     };
   });
-  return { batchId, featureMode, items: normalizedItems, jobId,
+  return { batchId, featureMode, items: normalizedItems, jobId, sharedPrompt,
     sampleSetId: String(body.sampleSetId || "").trim(), testTime };
 }
 
@@ -461,7 +467,7 @@ export function createBetaRunnerService({
                   state.currentItem = attemptItem(item, state.attempt - item.attempt + 1);
                   const currentItem = state.currentItem;
                   state.archive = null;
-                  if (batch.sampleSetId && baseStore.resolveSample && batch.featureMode !== "free") {
+                  if (batch.sampleSetId && baseStore.resolveSample && (batch.featureMode !== "free" || item.usesSampleImage)) {
                     source ||= await baseStore.resolveSample(batch.sampleSetId, item.sampleId,
                       { recordId: item.sourceRecordId, sampleSetRecordId: item.sourceSetRecordId, targetFeatureMode: batch.featureMode });
                     currentItem.input = { ...currentItem.input,
@@ -611,6 +617,7 @@ export function createBetaRunnerService({
     async config() {
       return {
         baseUrl: baseStore.config.baseUrl,
+        freeSharedPrompt: true,
         features: BETA_FEATURE_MODES.filter(mode => mode !== "housePlanLayout" || housePlanService),
         tableId: baseStore.config.tableId,
         outpaint: publicBetaOutpaintConfig(getOutpaintConfig ? await getOutpaintConfig() : {}),
@@ -625,7 +632,7 @@ export function createBetaRunnerService({
       return afterSchemaVerification(async () => {
         const set = await baseStore.getSampleSet(sampleSetId, { includeDraft: true });
         if (!set) throw Object.assign(inputError("样本集不存在或已归档"), { statusCode: 404 });
-        return baseStore.addSample(sampleSetId, normalizeSingleSample(body, set.featureMode));
+        return baseStore.addSample(sampleSetId, normalizeSingleSample(body, set));
       });
     },
     completeSampleSet(sampleSetId, body = {}) {

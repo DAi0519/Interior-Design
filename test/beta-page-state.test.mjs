@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供Beta美化混合多选/显式空选/旧单选迁移与卡片身份保存恢复、默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
+ * [OUTPUT]: 对外提供自由生图整批多行提示词独立保存恢复、Beta美化混合多选/显式空选/旧单选迁移与卡片身份保存恢复、默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -117,7 +117,7 @@ test("Beta恢复混合多选覆盖旧主项，保存空选后刷新不会重新�
     effectBeautificationIntensity: "low", effectBeautificationTone: "cool", effectBeautificationSelections: selections,
   } });
   const elements = Object.fromEntries([
-    "commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput", "promptAgentModelSelect",
+    "commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput", "promptAgentModelSelect",
     "promptAgentVersionSelect", "qualitySelect", "ratioSelect", "refinedPromptSelect", "renderModeSelect", "resolutionSelect",
     "roomTypeSelect", "roomTypeDetailInput", "styleSelect",
   ].map(key => [key, { value: "", options: [], dispatchEvent() {} }]));
@@ -184,17 +184,19 @@ test("Beta纯词草稿剥离旧规则身份，双图保留版本且参考图刷�
   assert.deepEqual(readBetaPageState(storage).controls.refinedLighting, { mode: "unselected" });
 });
 
-test("Beta恢复已保存美化控件，并把新选择落盘", () => {
+test("Beta恢复美化控件，独立保存自由生图整批提示词和其他功能补充要求", () => {
   const storage = memoryStorage();
   const modelKeys = publicModelCatalog().map((model) => model.key);
+  const freeSharedPrompt = "保留家具与墙面。\n\n统一改成阴天漫射光。";
+  const commonPrompt = "保留结构";
   const restoredPageState = saveBetaPageState(storage, {
-    controls: { effectBeautificationIntensity: "high", effectBeautificationTone: "warm",
+    controls: { commonPrompt, freeSharedPrompt, effectBeautificationIntensity: "high", effectBeautificationTone: "warm",
       effectBeautificationLighting: { presetId: "recBeautificationDay", version: 3, sha256: "a".repeat(64) } },
     featureMode: "effectBeautification",
     selectedModelKeys: modelKeys,
   });
   const elements = Object.fromEntries([
-    "commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
+    "commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
     "promptAgentModelSelect", "promptAgentVersionSelect", "qualitySelect", "ratioSelect",
     "refinedPromptSelect", "renderModeSelect", "resolutionSelect", "roomTypeSelect",
     "roomTypeDetailInput", "styleSelect",
@@ -221,16 +223,24 @@ test("Beta恢复已保存美化控件，并把新选择落盘", () => {
   persistence.restore();
   assert.deepEqual(selection, { intensity: "high", tone: "warm" });
   assert.deepEqual(lightingSelection, restoredPageState.controls.effectBeautificationLighting);
+  assert.equal(elements.commonPromptInput.value, commonPrompt);
+  assert.equal(elements.freeSharedPromptInput.value, freeSharedPrompt);
   persistence.markReady();
   selection = { intensity: "low", tone: "cool" };
   lightingSelection = null;
+  const updatedPrompt = `${freeSharedPrompt}\n相机白平衡保持一致。`;
+  elements.freeSharedPromptInput.value = updatedPrompt;
   persistence.save();
   const saved = readBetaPageState(storage);
   assert.equal(saved.controls.effectBeautificationIntensity, "low");
   assert.equal(saved.controls.effectBeautificationTone, "cool");
   assert.equal(saved.controls.effectBeautificationLighting, null);
+  assert.equal(saved.controls.commonPrompt, commonPrompt);
+  assert.equal(saved.controls.freeSharedPrompt, updatedPrompt);
   assert.deepEqual(saved.selectedModelKeys, modelKeys);
   assert.equal(elements.betaForm.dataset.configurationState, "saved");
+  persistence.restore();
+  assert.equal(elements.freeSharedPromptInput.value, updatedPrompt);
 });
 
 test("Beta默认光影未选，真实旧参数仅作为迁移输入且落盘改为新身份", () => {
@@ -243,7 +253,7 @@ test("Beta默认光影未选，真实旧参数仅作为迁移输入且落盘改�
     const storage = memoryStorage();
     const restoredPageState = saveBetaPageState(storage, { controls: stored });
     const elements = Object.fromEntries([
-      "commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
+      "commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
       "promptAgentModelSelect", "promptAgentVersionSelect", "qualitySelect", "ratioSelect",
       "refinedPromptSelect", "renderModeSelect", "resolutionSelect", "roomTypeSelect",
       "roomTypeDetailInput", "styleSelect",
@@ -272,7 +282,7 @@ test("Beta上传迁移版本只用于当前展示，持久化仍保存独立基�
     featureMode: "refinedModel", controls: { refinedPromptVersion: "7", refinedLighting: lighting },
   });
   const elements = Object.fromEntries([
-    "commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
+    "commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
     "promptAgentModelSelect", "promptAgentVersionSelect", "qualitySelect", "ratioSelect",
     "refinedPromptSelect", "renderModeSelect", "resolutionSelect", "roomTypeSelect", "roomTypeDetailInput", "styleSelect",
   ].map(key => [key, { value: "", options: [], dispatchEvent() {} }]));
@@ -349,7 +359,7 @@ test("全景配置保留独立样本集和合法 4K，恢复时不能覆盖锁�
     controls: { ratio: "4:3", resolution: "4K", quality: "max" },
   });
   const elements = Object.fromEntries([
-    "commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
+    "commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
     "promptAgentModelSelect", "promptAgentVersionSelect", "qualitySelect", "ratioSelect",
     "refinedPromptSelect", "renderModeSelect", "resolutionSelect", "roomTypeSelect",
     "roomTypeDetailInput", "styleSelect",

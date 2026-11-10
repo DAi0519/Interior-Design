@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 含户型布局的十三功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供美化六氛围/模板混合多选×样本×模型独立展开、RunID/标签/计数与混合Prompt准入，十功能配置、全景光影用户要求/固定Prompt功能隔离、权限普通说明隐藏/真实状态保留、精模参考去重、尺寸/模型/目标/样本ID及同步进度/RETRY和预警回归
+ * [OUTPUT]: 对外提供自由生图一条多行提示词与图片样本 ID 提交、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -77,7 +77,7 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
     ["effectBeautification", "效果图美化"], ["panoramaEnhancement", "全景图美化"],
     ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageUpscale", "AI超分"],
   ]);
-  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=6"/);
+  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=8"/);
   assert.match(source, /fillSelect\(elements\.betaFeatureSelect,\s*Object\.entries\(FEATURE_COPY\)\.map/);
   assert.match(source, /elements\.betaFeatureSelect\.value = state\.featureMode/);
   assert.match(source, /elements\.betaFeatureSelect\.disabled = sampleLibrary\.isBusy\(\)/);
@@ -96,12 +96,16 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
   assert.match(html, /id="sampleSetSelect"/);
   assert.match(html, /id="sampleSetSyncStatus"[^>]*role="status"[^>]*>读取飞书中/);
   assert.match(html, /id="saveSampleSetButton" class="quiet-button sample-set-save"[^>]*>保存样本集/);
+  assert.match(html, /id="taskSettingsSection"[\s\S]+id="freeSharedPromptInput"[^>]*maxlength="8000"/);
+  assert.doesNotMatch(html, /每行一个样本|freePromptsInput|freePromptList/);
+  assert.match(source, /runButton\.disabled =[\s\S]+\|\| !sharedPromptReady/);
+  assert.match(source, /betaForm\.addEventListener\("submit"[\s\S]+if \(elements\.runButton\.disabled\) return/);
   assert.doesNotMatch(html, /id="sampleSetStatus"|添加样本后保存|正在读取飞书样本集/);
   assert.doesNotMatch(html, /整批共用 · 仅智能默认|整批提示词共用/);
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=43/);
+  assert.match(html, /beta-app\.js\?v=46/);
   assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
   assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
   assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
@@ -140,7 +144,7 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
   assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
   assert.match(assetSource, /referenceAssetKey/);
   assert.match(source, /import "\.\/custom-select\.js\?v=9"/);
-  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=8"/);
+  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=9"/);
   assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
   assert.match(source, /sampleId: currentCase\.caseId/);
   assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
@@ -219,6 +223,67 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
   assert.match(css, /\.run-bar \.generation-actions \.generate-button\s*\{[^}]*min-height:\s*54px/s);
 });
 
+test("自由生图批次仅提交一条完整提示词和样本 ID，旧文字集保留共用参考图", async () => {
+  const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
+  const build = source.match(/function buildItems\(startedAt = new Date\(\)\) \{[\s\S]*?\n\}/)?.[0];
+  const start = source.match(/async function startBatch\(previousJob = null\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(build && start);
+  assert.match(betaFeatureUnavailableReason("free", {}), /更新工作台服务/);
+  assert.equal(betaFeatureUnavailableReason("free", { freeSharedPrompt: true }), null);
+  const sharedPrompt = "保留原图机位与结构。\n\n统一改为柔和自然光。";
+  const state = { featureMode: "free", freeReference: null };
+  const model = { key: "flux", label: "Flux", requiresReferenceImage: true, defaultRatio: "source" };
+  const submissions = [];
+  const imageMetadata = [{ width: 1280, height: 720 }, { width: 600, height: 800 }];
+  const adaptedSources = [];
+  let usesTextSamples = false;
+  const context = {
+    state, FEATURE_COPY: BETA_FEATURE_COPY, isEmptyRoomDesign, packBatchAssets,
+    assertFeatureConfig() {}, saveConfiguration() {}, renderJob() {}, followJob() {},
+    sessionStorage: { setItem() {} }, JOB_STORAGE_KEY: "fixture-beta-job",
+    formatBetaTestTime: () => "2026-11-10 10:00:00",
+    createBetaRunId: ({ sequence }) => `RUN-${sequence}`,
+    elements: {
+      freeSharedPromptInput: { value: `  ${sharedPrompt} \n` }, ratioSelect: { value: "source" },
+      negativePromptInput: { value: "" }, qualitySelect: { value: "" }, resolutionSelect: { value: "2K" },
+    },
+    selectedModels: () => [model],
+    sampleLibrary: { activeSampleSetId: () => "SET-1", usesTextSamples: () => usesTextSamples },
+    currentCases: () => ["SAMPLE-1", "SAMPLE-2"].map((caseId, index) => ({
+      caseId, label: caseId, prompt: "旧逐样本提示词",
+      referenceImages: usesTextSamples && state.freeReference ? [state.freeReference] : [],
+      sourceImage: usesTextSamples ? null : imageMetadata[index],
+    })),
+    adaptGenerationInputForModel(input, _model, { sourceImage }) {
+      adaptedSources.push(sourceImage);
+      return input;
+    },
+    async api(path, options) {
+      assert.equal(path, "/api/beta/jobs");
+      submissions.push(JSON.parse(options.body));
+      return { job: { jobId: "beta-fixture" } };
+    },
+  };
+  const submit = new Function(...Object.keys(context), `${build}\n${start}\nreturn startBatch();`);
+  await submit(...Object.values(context));
+  const [imageBatch] = submissions;
+  assert.equal(imageBatch.sharedPrompt, sharedPrompt);
+  assert.equal(imageBatch.sampleSetId, "SET-1");
+  assert.deepEqual(imageBatch.items.map((item) => item.sampleId), ["SAMPLE-1", "SAMPLE-2"]);
+  assert.deepEqual(adaptedSources, imageMetadata);
+  assert.deepEqual(imageBatch.assets, {});
+  assert.ok(imageBatch.items.every(({ input }) => !("prompt" in input) && !("referenceImages" in input) && !("sourceImage" in input)));
+  usesTextSamples = true;
+  await assert.rejects(() => submit(...Object.values(context)), /需要自由生图参考图/);
+  assert.equal(submissions.length, 1);
+  state.freeReference = { dataUrl: "data:image/png;base64,AA==" };
+  await submit(...Object.values(context));
+  const textBatch = submissions[1];
+  assert.equal(textBatch.sharedPrompt, sharedPrompt);
+  assert.deepEqual(textBatch.assets, { "shared-source": [state.freeReference] });
+  assert.ok(textBatch.items.every((item) => item.referenceAssetKey === "shared-source"));
+});
+
 test("Beta效果图美化复用六氛围及新增模板控件，与氛围转换分别准入和传参", async () => {
   const [html, source, configuration, css, featureRules] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
@@ -248,7 +313,6 @@ test("Beta效果图美化复用六氛围及新增模板控件，与氛围转换�
     assert.equal(promptFor({ featureMode }, lighting, BETA_FEATURE_COPY, currentCase), "");
   }
   assert.equal(promptFor({ featureMode: "panoramaEnhancement" }, lighting, BETA_FEATURE_COPY, currentCase), "夜晚暖灯，减弱窗外日光");
-  assert.equal(promptFor({ featureMode: "free" }, lighting, BETA_FEATURE_COPY, currentCase), "样本补充要求");
   assert.match(source, /panoramaLighting: panoramaLightingRequestSelection\(model\.panoramaLightingSelection \|\| panoramaLighting\.requestFields\(\)\.panoramaLighting\)/);
   assert.match(configuration, /effectBeautificationControls\.restore\(/);
   assert.match(configuration, /effectBeautificationIntensity: beautification\.intensity/);

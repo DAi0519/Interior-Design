@@ -157,7 +157,7 @@ test("普通2K、扩图倍率与超分6K及独立样本集可通过真实持久�
     sampleSetIds: { imageUpscale: "SET-SHARED", imageOutpaint: "SET-SHARED", whiteModel: "SET-WHITE" },
   });
   const ui = fixture(restored.upscale);
-  const elements = Object.fromEntries(["commonPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
+  const elements = Object.fromEntries(["commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
     "promptAgentModelSelect", "promptAgentVersionSelect", "qualitySelect", "ratioSelect", "refinedPromptSelect",
     "renderModeSelect", "resolutionSelect", "roomTypeSelect", "roomTypeDetailInput", "styleSelect"].map((key) => [key, new Field()]));
   elements.betaForm = { dataset: {} };

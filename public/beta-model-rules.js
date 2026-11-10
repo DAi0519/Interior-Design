@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 model-capabilities 的按功能及精模Flux双图尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
- * [OUTPUT]: 对外提供含户型布局的十三功能目录、旧进程门禁、各样本后置KS输入预检及目录驱动分辨率文案、全景2:1/R5_4原尺寸隔离与普通输出控件状态
+ * [OUTPUT]: 提供含自由生图整批提示词能力的功能目录与旧进程门禁、逐样本后置KS预检、目录驱动的分辨率与全景2:1/R5_4原尺寸隔离
  * [POS]: public 的 Beta 功能与模型纯规则层，供页面编排、持久配置和测试复用，不读取 DOM 或图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,12 +18,13 @@ export const BETA_FEATURE_COPY = Object.freeze({
   effectEnhancement: { label: "效果图氛围转换", prompt: "", promptConfig: "effectEnhancementPrompt", source: "待转换效果图" },
   effectBeautification: { label: "效果图美化", prompt: "", promptConfig: "effectBeautificationPrompt", source: "待美化效果图" },
   panoramaEnhancement: { label: "全景图美化", prompt: "", promptConfig: "panoramaEnhancementPrompt", source: "待美化全景图" },
-  free: { label: "自由生图", prompt: "提示词", source: "" },
+  free: { label: "自由生图", prompt: "整批提示词", source: "样本图" },
   imageOutpaint: { label: "AI扩图", prompt: "", source: "待扩图图片" },
   imageUpscale: { label: "AI超分", prompt: "", source: "待超分图片" },
 });
 
 export function betaFeatureUnavailableReason(featureMode, config) {
+  if (featureMode === "free" && !config?.freeSharedPrompt) return "当前服务尚未加载自由生图整批提示词，请更新工作台服务后刷新";
   return ["housePlanLayout", "roomRenovation", "textureEnhancement"].includes(featureMode) && !config?.features?.includes(featureMode)
     ? `当前服务尚未加载 Beta ${BETA_FEATURE_COPY[featureMode].label}，请更新工作台服务后刷新` : null;
 }
