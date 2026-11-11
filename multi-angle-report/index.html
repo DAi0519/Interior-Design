@@ -1,12 +1,12 @@
 <!doctype html>
 <!--
-[INPUT]: 依赖已核验的五张输入图、55 张成图与逐图手评
+[INPUT]: 依赖已核验的六张输入图、55 张成图与逐图手评
 [OUTPUT]: 展示模型汇总、按机位筛选、同图对照和图像查看
 [POS]: 多角度横评公开页面
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>多角度横评 · 五张室内效果图</title><style>
+<title>多角度横评 · 90° 顶视复测更新</title><style>
 :root{color-scheme:light;--bg:#f7f8fa;--panel:#fff;--text:#202226;--muted:#5f6470;--line:#e3e6eb;--accent:#265fd3;--image:#e9ebef}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -48,7 +48,10 @@ summary{font-weight:650;cursor:pointer}
 .angle:last-child{padding-bottom:0}
 .angle-header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-bottom:8px}
 .angle-header span{color:var(--muted);font-size:12px}
+.angle-header .retest-label{color:var(--accent)}
 .tiles{display:grid;grid-template-columns:repeat(5,minmax(154px,1fr));align-items:start;gap:10px;padding-bottom:5px}
+.revised-report [data-angle=top90] .tiles{grid-template-columns:repeat(4,minmax(150px,1fr))}
+.revised-report [data-angle=top60] .tiles{grid-template-columns:repeat(2,minmax(150px,1fr));max-width:730px}
 .tile{min-width:0;display:grid;gap:4px;align-content:start}
 .tile h4{min-height:21px}
 .image-button,.placeholder{width:100%;aspect-ratio:4/3;border:none;border-radius:8px;background:var(--image);overflow:hidden}
@@ -76,10 +79,10 @@ dialog::backdrop{background:#10151ed6}
 .image-stage.zoom img{max-width:none;max-height:none;width:140%;object-fit:contain}
 @media(max-width:760px){main{padding-top:22px}.top{grid-template-columns:1fr;gap:12px}.metrics{gap:14px}.metrics dd{font-size:19px}.scene{padding:10px}.dialog-bar{align-items:flex-start}.dialog-tools{flex-wrap:wrap;justify-content:end}.tiles{grid-template-columns:repeat(5,minmax(150px,1fr))}}
 </style></head>
-<body><main>
+<body class="revised-report"><main>
 <header class="top"><div><div class="overline">Canvas Lab 多角度横评</div>
-<h1>五张室内效果图，三个机位</h1>
-<p>固定原图和景别，比较右侧斜转、对侧反打、垂直俯视。Beta 按样本、机位和模型各计划生成一次。</p>
+<h1>多角度横评 · 90° 顶视复测</h1>
+<p>2026 年 11 月 11 日更新 90° 顶视图。该组用餐厅替换走廊，展示客厅、卧室、厨房、卫浴、餐厅共 15 张复测成图。</p>
 </div>
 <dl class="metrics"><div><dt>Beta 原件已核验</dt><dd>45/45</dd></div>
 
@@ -99,8 +102,8 @@ dialog::backdrop{background:#10151ed6}
       <td>27.6 秒 · 5 张</td></tr><tr><th scope="row">Banana 2.1</th><td>垂直俯视</td><td>5/5</td>
       <td>—</td>
       <td>5/5</td>
-      <td>3/5</td><td>2/5</td>
-      <td>35.0 秒 · 5 张</td></tr><tr><th scope="row">GPT Image 2.6 Sunburst</th><td>右侧斜转</td><td>5/5</td>
+      <td>3/5</td><td>3/5</td>
+      <td>36.8 秒 · 5 张</td></tr><tr><th scope="row">GPT Image 2.6 Sunburst</th><td>右侧斜转</td><td>5/5</td>
       <td>—</td>
       <td>4/5 · 部分 1</td>
       <td>5/5</td><td>4/5</td>
@@ -112,7 +115,7 @@ dialog::backdrop{background:#10151ed6}
       <td>—</td>
       <td>5/5</td>
       <td>5/5</td><td>5/5</td>
-      <td>40.2 秒 · 5 张</td></tr><tr><th scope="row">Seedream 5.0 Pro</th><td>右侧斜转</td><td>5/5</td>
+      <td>42.0 秒 · 5 张</td></tr><tr><th scope="row">Seedream 5.0 Pro</th><td>右侧斜转</td><td>5/5</td>
       <td>—</td>
       <td>0/5</td>
       <td>4/5</td><td>0/5</td>
@@ -124,7 +127,7 @@ dialog::backdrop{background:#10151ed6}
       <td>—</td>
       <td>0/5 · 部分 5</td>
       <td>5/5</td><td>0/5</td>
-      <td>94.5 秒 · 5 张</td></tr><tr><th scope="row">建筑学长</th><td>右转 45° · 平视</td><td>5/5</td>
+      <td>111.5 秒 · 5 张</td></tr><tr><th scope="row">建筑学长</th><td>右转 45° · 平视</td><td>5/5</td>
       <td>—</td>
       <td>0/5</td>
       <td>4/5</td><td>0/5</td>
@@ -140,16 +143,77 @@ dialog::backdrop{background:#10151ed6}
 <details class="panel notes" open><summary>评测口径</summary>
 <p>视角命中按透视和遮挡判断。转向对但幅度明显不足计部分命中。几乎原样、转向相反或镜像计未命中。结构只核对原图和成图中能共同辨认的家具、门窗和墙体关系。原图外空间无法核实。</p>
 <p>Beta 固定标准景别、原图比例适配和长边最高 2K，GPT Image 2.6 Sunburst 使用 medium。Beta 耗时取服务回执里的生成时长。</p>
-<p>两端使用同一份 JPEG 原件，各模型自行处理输入和输出尺寸。</p>
+<p>90° 复测采用强调「当前场景的垂直顶视图」的试验提示词。五个房型的新旧词按同一张原图配对，每模型每组各生成一张。GPT 严格命中 5/5、可直接用 5/5，Banana 严格命中 5/5、可直接用 3/5，Seedream 两项均为 0/5，两版各模型计数持平。</p>
+<p>右侧斜转 45°、对侧反打 180° 和建筑学长原批次沿用客厅、卧室、厨房、卫浴、走廊。建筑学长的俯视 60° 独立展示。</p>
 
 <p>建筑学长 · AI室内视角转换 · Banana <a href="https://www.jzxz.com/ai/indoor_angle_conversion/operate" target="_blank" rel="noopener noreferrer">功能入口 ↗</a></p>
 <p>上传原图后摄像头滑杆实测上限为水平 90°、垂直 60°。45° 平视可对比，60° 俯视单列观察；180° 无对应机位。</p><p>以界面从提交到可见成图为准</p>
 <p>竞品和 Beta 的右转都设为 45°。各平台对右转的定义可能不同，手评按画面线索判断相机是否移到原机位右侧。</p></details>
 <section class="filters" aria-label="筛选对照">
-<label>原图 <select id="sampleFilter"><option value="">全部</option><option value="003">003 客厅</option><option value="029">029 卧室</option><option value="036">036 厨房</option><option value="027">027 卫浴</option><option value="044">044 走廊</option></select></label>
-<label>机位 <select id="angleFilter"><option value="">全部</option><option value="side45">右侧斜转</option><option value="reverse180">对侧反打</option><option value="top90">垂直俯视</option></select></label>
+<label>原图 <select id="sampleFilter"><option value="">全部</option><option value="dining">餐厅</option><option value="003">003 客厅</option><option value="029">029 卧室</option><option value="036">036 厨房</option><option value="027">027 卫浴</option><option value="044">044 走廊</option></select></label>
+<label>机位 <select id="angleFilter"><option value="">全部</option><option value="side45">右侧斜转</option><option value="reverse180">对侧反打</option><option value="top90">90° 顶视复测</option><option value="top60">建筑学长俯视 60°</option></select></label>
 <p id="filterStatus" aria-live="polite"></p></section>
-<section class="scene" data-scene="003" aria-labelledby="scene-003">
+<section class="scene" data-scene="dining" aria-labelledby="scene-dining">
+    <header class="scene-header"><h2 id="scene-dining">餐厅</h2>
+      <span class="muted">2400 × 1600</span> <a class="muted" href="https://www.pinterest.com/pin/8936899258341810/" target="_blank" rel="noopener noreferrer">原图来源 ↗</a></header>
+    <section class="angle" data-angle="top90" aria-label="垂直俯视">
+        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span><span class="retest-label">当前场景顶视图复测</span></header>
+        <div class="tiles" tabindex="0" aria-label="餐厅垂直俯视同图对照">
+          <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/dining.jpg" data-title="餐厅原图" data-meta="2400 × 1600" aria-label="查看餐厅原图">
+    <img src="originals/dining.jpg" width="2400" height="1600" alt="餐厅原图" loading="lazy" decoding="async">
+  </button></article>
+          <article class="tile">
+    <h4>Banana 2.1</h4>
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-dining-banana21.webp" data-title="餐厅 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1374 · 36.8 秒" aria-label="查看餐厅 · 垂直俯视 · Banana 2.1">
+    <img src="results/topview-20261111-top90-dining-banana21.webp" width="2048" height="1374" alt="餐厅 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
+  </button>
+    <div class="meta"><span>2048 × 1374 · 36.8 秒</span></div>
+
+
+
+
+    <ul class="grades" aria-label="逐图手评">
+    <li data-grade="hit">命中</li>
+    <li data-grade="changed">结构有偏差</li>
+    <li data-grade="partial">需修改</li>
+  </ul><p class="review-note">桌面更方正，仍达到近垂直顶视，长凳、两椅、后嵌柜与拱形门位置保持。原图中心的吊灯和吊线消失，需要补回。</p>
+
+  </article><article class="tile">
+    <h4>GPT Image 2.6 Sunburst</h4>
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-dining-gptImage26Sunburst.webp" data-title="餐厅 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1365 · 43.5 秒" aria-label="查看餐厅 · 垂直俯视 · GPT Image 2.6 Sunburst">
+    <img src="results/topview-20261111-top90-dining-gptImage26Sunburst.webp" width="2048" height="1365" alt="餐厅 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
+  </button>
+    <div class="meta"><span>2048 × 1365 · 43.5 秒</span></div>
+    <p class="muted">质量 medium</p>
+
+
+
+    <ul class="grades" aria-label="逐图手评">
+    <li data-grade="hit">命中</li>
+    <li data-grade="stable">结构基本保持</li>
+    <li data-grade="yes">可用</li>
+  </ul><p class="review-note">桌面更接近正矩形，地板缝趋近平行，保持近垂直顶视。桌椅、吊灯、嵌柜与拱形门关系延续，左侧镜面仍可辨认。</p>
+
+  </article><article class="tile">
+    <h4>Seedream 5.0 Pro</h4>
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-dining-seedream5Pro.webp" data-title="餐厅 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1365 · 152.4 秒" aria-label="查看餐厅 · 垂直俯视 · Seedream 5.0 Pro">
+    <img src="results/topview-20261111-top90-dining-seedream5Pro.webp" width="2048" height="1365" alt="餐厅 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
+  </button>
+    <div class="meta"><span>2048 × 1365 · 152.4 秒</span></div>
+
+
+
+
+    <ul class="grades" aria-label="逐图手评">
+    <li data-grade="partial">部分命中</li>
+    <li data-grade="stable">结构基本保持</li>
+    <li data-grade="partial">需修改</li>
+  </ul><p class="review-note">仍有大块柜门与右侧拱门立面，桌沿向餐边柜明显收束，未达正俯视。长凳、双椅和餐边柜的相对位置基本保持，前景餐桌比旧词更靠下、裁切更多。</p>
+
+  </article>
+        </div>
+      </section>
+  </section><section class="scene" data-scene="003" aria-labelledby="scene-003">
     <header class="scene-header"><span class="sample-code">003</span><h2 id="scene-003">客厅</h2>
       <span class="muted">1200 × 675</span></header>
     <section class="angle" data-angle="side45" aria-label="右侧斜转">
@@ -291,17 +355,17 @@ dialog::backdrop{background:#10151ed6}
   </article>
         </div>
       </section><section class="angle" data-angle="top90" aria-label="垂直俯视">
-        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span></header>
+        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span><span class="retest-label">当前场景顶视图复测</span></header>
         <div class="tiles" tabindex="0" aria-label="客厅垂直俯视同图对照">
           <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/003.jpg" data-title="003 客厅原图" data-meta="1200 × 675" aria-label="查看003 客厅原图">
     <img src="originals/003.jpg" width="1200" height="675" alt="003 客厅原图" loading="lazy" decoding="async">
   </button></article>
           <article class="tile">
     <h4>Banana 2.1</h4>
-    <button class="image-button " type="button" data-image="results/top90-003-banana21.webp" data-title="003 客厅 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1143 · 28.6 秒" aria-label="查看003 客厅 · 垂直俯视 · Banana 2.1">
-    <img src="results/top90-003-banana21.webp" width="2048" height="1143" alt="003 客厅 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-003-banana21.webp" data-title="003 客厅 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1143 · 38.2 秒" aria-label="查看003 客厅 · 垂直俯视 · Banana 2.1">
+    <img src="results/topview-20261111-top90-003-banana21.webp" width="2048" height="1143" alt="003 客厅 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1143 · 28.6 秒</span></div>
+    <div class="meta"><span>2048 × 1143 · 38.2 秒</span></div>
 
 
 
@@ -310,14 +374,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="yes">可用</li>
-  </ul><p class="review-note">圆几近圆、地毯边缘接近平行，呈近垂直俯视。沙发、左窗、右侧钢琴和黑柜位置对应。</p>
+  </ul><p class="review-note">新版地毯边线近平行、圆几接近正圆，左窗、沙发、钢琴与前方单椅位置对应。钢琴和黑柜的边线更正，但上一轮已命中且可直接使用。</p>
 
   </article><article class="tile">
     <h4>GPT Image 2.6 Sunburst</h4>
-    <button class="image-button " type="button" data-image="results/top90-003-gptImage26Sunburst.webp" data-title="003 客厅 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1152 · 37.6 秒" aria-label="查看003 客厅 · 垂直俯视 · GPT Image 2.6 Sunburst">
-    <img src="results/top90-003-gptImage26Sunburst.webp" width="2048" height="1152" alt="003 客厅 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-003-gptImage26Sunburst.webp" data-title="003 客厅 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1152 · 34.0 秒" aria-label="查看003 客厅 · 垂直俯视 · GPT Image 2.6 Sunburst">
+    <img src="results/topview-20261111-top90-003-gptImage26Sunburst.webp" width="2048" height="1152" alt="003 客厅 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1152 · 37.6 秒</span></div>
+    <div class="meta"><span>2048 × 1152 · 34.0 秒</span></div>
     <p class="muted">质量 medium</p>
 
 
@@ -326,14 +390,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="yes">可用</li>
-  </ul><p class="review-note">近垂直看见完整圆几和沙发顶面，左窗与右钢琴/黑柜关系清晰，墙面仅在画面边缘出现。</p>
+  </ul><p class="review-note">新版圆几接近正圆，地毯与地砖网格保持近垂直俯视，左窗、沙发、右钢琴与黑柜关系清晰。右侧单椅造型略简化，仍可直接使用，与上一轮同级。</p>
 
   </article><article class="tile">
     <h4>Seedream 5.0 Pro</h4>
-    <button class="image-button " type="button" data-image="results/top90-003-seedream5Pro.webp" data-title="003 客厅 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1151 · 143.7 秒" aria-label="查看003 客厅 · 垂直俯视 · Seedream 5.0 Pro">
-    <img src="results/top90-003-seedream5Pro.webp" width="2048" height="1151" alt="003 客厅 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-003-seedream5Pro.webp" data-title="003 客厅 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1151 · 147.6 秒" aria-label="查看003 客厅 · 垂直俯视 · Seedream 5.0 Pro">
+    <img src="results/topview-20261111-top90-003-seedream5Pro.webp" width="2048" height="1151" alt="003 客厅 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1151 · 143.7 秒</span></div>
+    <div class="meta"><span>2048 × 1151 · 147.6 秒</span></div>
 
 
 
@@ -342,12 +406,20 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="partial">部分命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">能看到家具顶面，但圆几被压成椭圆，地毯边线与大块后墙体现斜俯，未到近垂直。窗、沙发和钢琴仍可对应。</p>
+  </ul><p class="review-note">窗、沙发、钢琴、圆几与地毯的相对位置仍可对应。圆几呈椭圆，仍露出大块木墙和顶部白色梁带，俯角比旧版略低，未达到近垂直。</p>
 
-  </article><article class="tile">
+  </article>
+        </div>
+      </section><section class="angle" data-angle="top60" aria-label="建筑学长俯视 60°">
+        <header class="angle-header"><h3>建筑学长俯视 60°</h3><span></span></header>
+        <div class="tiles" tabindex="0" aria-label="客厅建筑学长俯视 60°同图对照">
+          <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/003.jpg" data-title="003 客厅原图" data-meta="1200 × 675" aria-label="查看003 客厅原图">
+    <img src="originals/003.jpg" width="1200" height="675" alt="003 客厅原图" loading="lazy" decoding="async">
+  </button></article>
+          <article class="tile">
     <h4>建筑学长</h4>
-    <button class="image-button " type="button" data-image="competitor/top90-003.webp" data-title="003 客厅 · 垂直俯视 · 建筑学长" data-meta="2048 × 2048 · 45.8 秒" aria-label="查看003 客厅 · 垂直俯视 · 建筑学长">
-    <img src="competitor/top90-003.webp" width="2048" height="2048" alt="003 客厅 · 垂直俯视 · 建筑学长" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="competitor/top90-003.webp" data-title="003 客厅 · 建筑学长俯视 60° · 建筑学长" data-meta="2048 × 2048 · 45.8 秒" aria-label="查看003 客厅 · 建筑学长俯视 60° · 建筑学长">
+    <img src="competitor/top90-003.webp" width="2048" height="2048" alt="003 客厅 · 建筑学长俯视 60° · 建筑学长" loading="lazy" decoding="async">
   </button>
     <div class="meta"><span>2048 × 2048 · 45.8 秒</span></div>
     <p class="muted">水平 0° / 垂直 60° / 中景(5)</p>
@@ -505,17 +577,17 @@ dialog::backdrop{background:#10151ed6}
   </article>
         </div>
       </section><section class="angle" data-angle="top90" aria-label="垂直俯视">
-        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span></header>
+        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span><span class="retest-label">当前场景顶视图复测</span></header>
         <div class="tiles" tabindex="0" aria-label="卧室垂直俯视同图对照">
           <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/029.jpg" data-title="029 卧室原图" data-meta="1200 × 900" aria-label="查看029 卧室原图">
     <img src="originals/029.jpg" width="1200" height="900" alt="029 卧室原图" loading="lazy" decoding="async">
   </button></article>
           <article class="tile">
     <h4>Banana 2.1</h4>
-    <button class="image-button " type="button" data-image="results/top90-029-banana21.webp" data-title="029 卧室 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1529 · 40.4 秒" aria-label="查看029 卧室 · 垂直俯视 · Banana 2.1">
-    <img src="results/top90-029-banana21.webp" width="2048" height="1529" alt="029 卧室 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-029-banana21.webp" data-title="029 卧室 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1529 · 27.6 秒" aria-label="查看029 卧室 · 垂直俯视 · Banana 2.1">
+    <img src="results/topview-20261111-top90-029-banana21.webp" width="2048" height="1529" alt="029 卧室 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1529 · 40.4 秒</span></div>
+    <div class="meta"><span>2048 × 1529 · 27.6 秒</span></div>
 
 
 
@@ -524,14 +596,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="changed">结构有偏差</li>
     <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">床面近矩形且地毯四边清楚，垂直俯视成立。右窗边单椅分成两个不相连的橙色部件。</p>
+  </ul><p class="review-note">新版床面与地毯近矩形，达到近垂直俯视。右窗边原来的一把橙椅仍拆成靠窗圆背和床侧座面两个物件，与上一轮一样需修。</p>
 
   </article><article class="tile">
     <h4>GPT Image 2.6 Sunburst</h4>
-    <button class="image-button " type="button" data-image="results/top90-029-gptImage26Sunburst.webp" data-title="029 卧室 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1536 · 45.5 秒" aria-label="查看029 卧室 · 垂直俯视 · GPT Image 2.6 Sunburst">
-    <img src="results/top90-029-gptImage26Sunburst.webp" width="2048" height="1536" alt="029 卧室 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-029-gptImage26Sunburst.webp" data-title="029 卧室 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1536 · 53.5 秒" aria-label="查看029 卧室 · 垂直俯视 · GPT Image 2.6 Sunburst">
+    <img src="results/topview-20261111-top90-029-gptImage26Sunburst.webp" width="2048" height="1536" alt="029 卧室 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1536 · 45.5 秒</span></div>
+    <div class="meta"><span>2048 × 1536 · 53.5 秒</span></div>
     <p class="muted">质量 medium</p>
 
 
@@ -540,14 +612,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="yes">可用</li>
-  </ul><p class="review-note">床、地毯和地板纹理呈近垂直俯视，床头柜在左、椅和小圆桌在右，位置连贯。</p>
+  </ul><p class="review-note">新版床面与地毯边线接近平行，窗沿和床侧关系连贯。左床头柜、右窗单椅和小圆几均在对应位置，未出现拆件，和上一轮同级。</p>
 
   </article><article class="tile">
     <h4>Seedream 5.0 Pro</h4>
-    <button class="image-button " type="button" data-image="results/top90-029-seedream5Pro.webp" data-title="029 卧室 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1536 · 83.6 秒" aria-label="查看029 卧室 · 垂直俯视 · Seedream 5.0 Pro">
-    <img src="results/top90-029-seedream5Pro.webp" width="2048" height="1536" alt="029 卧室 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-029-seedream5Pro.webp" data-title="029 卧室 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1536 · 111.5 秒" aria-label="查看029 卧室 · 垂直俯视 · Seedream 5.0 Pro">
+    <img src="results/topview-20261111-top90-029-seedream5Pro.webp" width="2048" height="1536" alt="029 卧室 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1536 · 83.6 秒</span></div>
+    <div class="meta"><span>2048 × 1536 · 111.5 秒</span></div>
 
 
 
@@ -556,12 +628,20 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="partial">部分命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">床面露出明显更多，画中仍有大块床头立面，床边与窗框明显倾斜，属于高位斜俯。</p>
+  </ul><p class="review-note">新版与旧版俯角接近。床头整面墙和两侧门窗立面仍大幅入镜，床边明显收束。床、边几、窗边座椅和墙饰位置基本对应，窗边椅的橙色圆背在新旧图里都像单独一件。</p>
 
-  </article><article class="tile">
+  </article>
+        </div>
+      </section><section class="angle" data-angle="top60" aria-label="建筑学长俯视 60°">
+        <header class="angle-header"><h3>建筑学长俯视 60°</h3><span></span></header>
+        <div class="tiles" tabindex="0" aria-label="卧室建筑学长俯视 60°同图对照">
+          <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/029.jpg" data-title="029 卧室原图" data-meta="1200 × 900" aria-label="查看029 卧室原图">
+    <img src="originals/029.jpg" width="1200" height="900" alt="029 卧室原图" loading="lazy" decoding="async">
+  </button></article>
+          <article class="tile">
     <h4>建筑学长</h4>
-    <button class="image-button " type="button" data-image="competitor/top90-029.webp" data-title="029 卧室 · 垂直俯视 · 建筑学长" data-meta="2390 × 1792 · 58.7 秒" aria-label="查看029 卧室 · 垂直俯视 · 建筑学长">
-    <img src="competitor/top90-029.webp" width="2390" height="1792" alt="029 卧室 · 垂直俯视 · 建筑学长" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="competitor/top90-029.webp" data-title="029 卧室 · 建筑学长俯视 60° · 建筑学长" data-meta="2390 × 1792 · 58.7 秒" aria-label="查看029 卧室 · 建筑学长俯视 60° · 建筑学长">
+    <img src="competitor/top90-029.webp" width="2390" height="1792" alt="029 卧室 · 建筑学长俯视 60° · 建筑学长" loading="lazy" decoding="async">
   </button>
     <div class="meta"><span>2390 × 1792 · 58.7 秒</span></div>
     <p class="muted">水平 0° / 垂直 60° / 中景(5)</p>
@@ -719,17 +799,17 @@ dialog::backdrop{background:#10151ed6}
   </article>
         </div>
       </section><section class="angle" data-angle="top90" aria-label="垂直俯视">
-        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span></header>
+        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span><span class="retest-label">当前场景顶视图复测</span></header>
         <div class="tiles" tabindex="0" aria-label="厨房垂直俯视同图对照">
           <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/036.jpg" data-title="036 厨房原图" data-meta="1200 × 731" aria-label="查看036 厨房原图">
     <img src="originals/036.jpg" width="1200" height="731" alt="036 厨房原图" loading="lazy" decoding="async">
   </button></article>
           <article class="tile">
     <h4>Banana 2.1</h4>
-    <button class="image-button " type="button" data-image="results/top90-036-banana21.webp" data-title="036 厨房 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1143 · 30.4 秒" aria-label="查看036 厨房 · 垂直俯视 · Banana 2.1">
-    <img src="results/top90-036-banana21.webp" width="2048" height="1143" alt="036 厨房 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-036-banana21.webp" data-title="036 厨房 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1143 · 30.9 秒" aria-label="查看036 厨房 · 垂直俯视 · Banana 2.1">
+    <img src="results/topview-20261111-top90-036-banana21.webp" width="2048" height="1143" alt="036 厨房 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1143 · 30.4 秒</span></div>
+    <div class="meta"><span>2048 × 1143 · 30.9 秒</span></div>
 
 
 
@@ -738,14 +818,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="yes">可用</li>
-  </ul><p class="review-note">地砖接近规则平面，L 形台面和灶台主要看见顶面。左烤箱、右冰箱和后方炉灶关系保留。</p>
+  </ul><p class="review-note">新版规则地砖网格和 L 形台面呈近垂直顶视，水槽、左烤箱、后方双灶及右侧冰箱相对位置稳定，与上一轮同级。</p>
 
   </article><article class="tile">
     <h4>GPT Image 2.6 Sunburst</h4>
-    <button class="image-button " type="button" data-image="results/top90-036-gptImage26Sunburst.webp" data-title="036 厨房 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1152 · 35.4 秒" aria-label="查看036 厨房 · 垂直俯视 · GPT Image 2.6 Sunburst">
-    <img src="results/top90-036-gptImage26Sunburst.webp" width="2048" height="1152" alt="036 厨房 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-036-gptImage26Sunburst.webp" data-title="036 厨房 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1152 · 31.7 秒" aria-label="查看036 厨房 · 垂直俯视 · GPT Image 2.6 Sunburst">
+    <img src="results/topview-20261111-top90-036-gptImage26Sunburst.webp" width="2048" height="1152" alt="036 厨房 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1152 · 35.4 秒</span></div>
+    <div class="meta"><span>2048 × 1152 · 31.7 秒</span></div>
     <p class="muted">质量 medium</p>
 
 
@@ -754,14 +834,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="yes">可用</li>
-  </ul><p class="review-note">中央地砖网格和 L 形台面接近平面视图，灶台、烤箱与冰箱保持相对位置。</p>
+  </ul><p class="review-note">新版地砖和 L 形台面接近平面，双灶、水槽、烤箱和冰箱在原有位置，未见显眼结构变形，与上一轮同级。</p>
 
   </article><article class="tile">
     <h4>Seedream 5.0 Pro</h4>
-    <button class="image-button " type="button" data-image="results/top90-036-seedream5Pro.webp" data-title="036 厨房 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1151 · 83.7 秒" aria-label="查看036 厨房 · 垂直俯视 · Seedream 5.0 Pro">
-    <img src="results/top90-036-seedream5Pro.webp" width="2048" height="1151" alt="036 厨房 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-036-seedream5Pro.webp" data-title="036 厨房 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1151 · 103.2 秒" aria-label="查看036 厨房 · 垂直俯视 · Seedream 5.0 Pro">
+    <img src="results/topview-20261111-top90-036-seedream5Pro.webp" width="2048" height="1151" alt="036 厨房 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 1151 · 83.7 秒</span></div>
+    <div class="meta"><span>2048 × 1151 · 103.2 秒</span></div>
 
 
 
@@ -770,12 +850,20 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="partial">部分命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">能看清台面和地砖，但柜门正面和天花灯仍占画面，属于斜俯。主要厨电位置基本保留。</p>
+  </ul><p class="review-note">新版裁掉了旧图上方的天花与灯，台面更显眼，但两侧高柜和灶下柜门正面仍大幅入镜，地砖线仍有透视收束。烟机、灶位、右侧冰箱与左侧烤箱位置对应。</p>
 
-  </article><article class="tile">
+  </article>
+        </div>
+      </section><section class="angle" data-angle="top60" aria-label="建筑学长俯视 60°">
+        <header class="angle-header"><h3>建筑学长俯视 60°</h3><span></span></header>
+        <div class="tiles" tabindex="0" aria-label="厨房建筑学长俯视 60°同图对照">
+          <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/036.jpg" data-title="036 厨房原图" data-meta="1200 × 731" aria-label="查看036 厨房原图">
+    <img src="originals/036.jpg" width="1200" height="731" alt="036 厨房原图" loading="lazy" decoding="async">
+  </button></article>
+          <article class="tile">
     <h4>建筑学长</h4>
-    <button class="image-button " type="button" data-image="competitor/top90-036.webp" data-title="036 厨房 · 垂直俯视 · 建筑学长" data-meta="2626 × 1600 · 85.2 秒（不计汇总）" aria-label="查看036 厨房 · 垂直俯视 · 建筑学长">
-    <img src="competitor/top90-036.webp" width="2626" height="1600" alt="036 厨房 · 垂直俯视 · 建筑学长" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="competitor/top90-036.webp" data-title="036 厨房 · 建筑学长俯视 60° · 建筑学长" data-meta="2626 × 1600 · 85.2 秒（不计汇总）" aria-label="查看036 厨房 · 建筑学长俯视 60° · 建筑学长">
+    <img src="competitor/top90-036.webp" width="2626" height="1600" alt="036 厨房 · 建筑学长俯视 60° · 建筑学长" loading="lazy" decoding="async">
   </button>
     <div class="meta"><span>2626 × 1600 · 85.2 秒（不计汇总）</span></div>
     <p class="muted">水平 0° / 垂直 60° / 中景(5)</p>
@@ -933,33 +1021,33 @@ dialog::backdrop{background:#10151ed6}
   </article>
         </div>
       </section><section class="angle" data-angle="top90" aria-label="垂直俯视">
-        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span></header>
+        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span><span class="retest-label">当前场景顶视图复测</span></header>
         <div class="tiles" tabindex="0" aria-label="卫浴垂直俯视同图对照">
           <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/027.jpg" data-title="027 卫浴原图" data-meta="1200 × 1200" aria-label="查看027 卫浴原图">
     <img src="originals/027.jpg" width="1200" height="1200" alt="027 卫浴原图" loading="lazy" decoding="async">
   </button></article>
           <article class="tile">
     <h4>Banana 2.1</h4>
-    <button class="image-button " type="button" data-image="results/top90-027-banana21.webp" data-title="027 卫浴 · 垂直俯视 · Banana 2.1" data-meta="2048 × 2048 · 38.3 秒" aria-label="查看027 卫浴 · 垂直俯视 · Banana 2.1">
-    <img src="results/top90-027-banana21.webp" width="2048" height="2048" alt="027 卫浴 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-027-banana21.webp" data-title="027 卫浴 · 垂直俯视 · Banana 2.1" data-meta="2048 × 2048 · 41.8 秒" aria-label="查看027 卫浴 · 垂直俯视 · Banana 2.1">
+    <img src="results/topview-20261111-top90-027-banana21.webp" width="2048" height="2048" alt="027 卫浴 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 2048 · 38.3 秒</span></div>
+    <div class="meta"><span>2048 × 2048 · 41.8 秒</span></div>
 
 
 
 
     <ul class="grades" aria-label="逐图手评">
     <li data-grade="hit">命中</li>
-    <li data-grade="changed">结构有偏差</li>
-    <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">马桶和浴缸主要露出顶面，形成近垂直俯视。左侧黑框玻璃在前景又拐出一段，门框关系异常。</p>
+    <li data-grade="stable">结构基本保持</li>
+    <li data-grade="yes">可用</li>
+  </ul><p class="review-note">新旧都从上方看到完整马桶轮廓与浴缸内侧。新版左边只有一段连续黑框，移除了上一轮拐进前景的多余玻璃门片及地面错置标志，左门、马桶、右浴缸及花洒关系稳定，可直接使用。</p>
 
   </article><article class="tile">
     <h4>GPT Image 2.6 Sunburst</h4>
-    <button class="image-button " type="button" data-image="results/top90-027-gptImage26Sunburst.webp" data-title="027 卫浴 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 2048 · 40.6 秒" aria-label="查看027 卫浴 · 垂直俯视 · GPT Image 2.6 Sunburst">
-    <img src="results/top90-027-gptImage26Sunburst.webp" width="2048" height="2048" alt="027 卫浴 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-027-gptImage26Sunburst.webp" data-title="027 卫浴 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 2048 · 42.0 秒" aria-label="查看027 卫浴 · 垂直俯视 · GPT Image 2.6 Sunburst">
+    <img src="results/topview-20261111-top90-027-gptImage26Sunburst.webp" width="2048" height="2048" alt="027 卫浴 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 2048 · 40.6 秒</span></div>
+    <div class="meta"><span>2048 × 2048 · 42.0 秒</span></div>
     <p class="muted">质量 medium</p>
 
 
@@ -968,14 +1056,14 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="hit">命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="yes">可用</li>
-  </ul><p class="review-note">主要从上方看见马桶和浴缸，左黑门、右花洒及后壁龛都能对应。门框连续。</p>
+  </ul><p class="review-note">新版以浴缸内底、马桶顶面和近规则地砖为主，左黑框门、马桶、浴缸、右侧花洒和壁龛位置对应，门框连续，与上一轮同级。</p>
 
   </article><article class="tile">
     <h4>Seedream 5.0 Pro</h4>
-    <button class="image-button " type="button" data-image="results/top90-027-seedream5Pro.webp" data-title="027 卫浴 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 2048 · 94.5 秒" aria-label="查看027 卫浴 · 垂直俯视 · Seedream 5.0 Pro">
-    <img src="results/top90-027-seedream5Pro.webp" width="2048" height="2048" alt="027 卫浴 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="results/topview-20261111-top90-027-seedream5Pro.webp" data-title="027 卫浴 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 2048 · 89.4 秒" aria-label="查看027 卫浴 · 垂直俯视 · Seedream 5.0 Pro">
+    <img src="results/topview-20261111-top90-027-seedream5Pro.webp" width="2048" height="2048" alt="027 卫浴 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
   </button>
-    <div class="meta"><span>2048 × 2048 · 94.5 秒</span></div>
+    <div class="meta"><span>2048 × 2048 · 89.4 秒</span></div>
 
 
 
@@ -984,12 +1072,20 @@ dialog::backdrop{background:#10151ed6}
     <li data-grade="partial">部分命中</li>
     <li data-grade="stable">结构基本保持</li>
     <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">从高处看到浴缸和马桶上表面，仍见大块天花，属于斜俯。黑门、马桶和浴缸的侧序仍对应。</p>
+  </ul><p class="review-note">仍露出大块天花、顶灯和墙面，门框与浴缸边线有明显斜向透视。新图取景略向侧面，黑框门、马桶、浴缸和壁龛相对位置仍能对应。</p>
 
-  </article><article class="tile">
+  </article>
+        </div>
+      </section><section class="angle" data-angle="top60" aria-label="建筑学长俯视 60°">
+        <header class="angle-header"><h3>建筑学长俯视 60°</h3><span></span></header>
+        <div class="tiles" tabindex="0" aria-label="卫浴建筑学长俯视 60°同图对照">
+          <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/027.jpg" data-title="027 卫浴原图" data-meta="1200 × 1200" aria-label="查看027 卫浴原图">
+    <img src="originals/027.jpg" width="1200" height="1200" alt="027 卫浴原图" loading="lazy" decoding="async">
+  </button></article>
+          <article class="tile">
     <h4>建筑学长</h4>
-    <button class="image-button " type="button" data-image="competitor/top90-027.webp" data-title="027 卫浴 · 垂直俯视 · 建筑学长" data-meta="1792 × 2400 · 51.5 秒" aria-label="查看027 卫浴 · 垂直俯视 · 建筑学长">
-    <img src="competitor/top90-027.webp" width="1792" height="2400" alt="027 卫浴 · 垂直俯视 · 建筑学长" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="competitor/top90-027.webp" data-title="027 卫浴 · 建筑学长俯视 60° · 建筑学长" data-meta="1792 × 2400 · 51.5 秒" aria-label="查看027 卫浴 · 建筑学长俯视 60° · 建筑学长">
+    <img src="competitor/top90-027.webp" width="1792" height="2400" alt="027 卫浴 · 建筑学长俯视 60° · 建筑学长" loading="lazy" decoding="async">
   </button>
     <div class="meta"><span>1792 × 2400 · 51.5 秒</span></div>
     <p class="muted">水平 0° / 垂直 60° / 中景(5)</p>
@@ -1146,64 +1242,16 @@ dialog::backdrop{background:#10151ed6}
 
   </article>
         </div>
-      </section><section class="angle" data-angle="top90" aria-label="垂直俯视">
-        <header class="angle-header"><h3>垂直俯视</h3><span>水平 0° · 俯视 90° · 标准</span></header>
-        <div class="tiles" tabindex="0" aria-label="走廊垂直俯视同图对照">
+      </section><section class="angle" data-angle="top60" aria-label="建筑学长俯视 60°">
+        <header class="angle-header"><h3>建筑学长俯视 60°</h3><span></span></header>
+        <div class="tiles" tabindex="0" aria-label="走廊建筑学长俯视 60°同图对照">
           <article class="tile original"><h4>原图</h4><button class="image-button " type="button" data-image="originals/044.jpg" data-title="044 走廊原图" data-meta="1200 × 675" aria-label="查看044 走廊原图">
     <img src="originals/044.jpg" width="1200" height="675" alt="044 走廊原图" loading="lazy" decoding="async">
   </button></article>
           <article class="tile">
-    <h4>Banana 2.1</h4>
-    <button class="image-button " type="button" data-image="results/top90-044-banana21.webp" data-title="044 走廊 · 垂直俯视 · Banana 2.1" data-meta="2048 × 1143 · 35.0 秒" aria-label="查看044 走廊 · 垂直俯视 · Banana 2.1">
-    <img src="results/top90-044-banana21.webp" width="2048" height="1143" alt="044 走廊 · 垂直俯视 · Banana 2.1" loading="lazy" decoding="async">
-  </button>
-    <div class="meta"><span>2048 × 1143 · 35.0 秒</span></div>
-
-
-
-
-    <ul class="grades" aria-label="逐图手评">
-    <li data-grade="hit">命中</li>
-    <li data-grade="stable">结构基本保持</li>
-    <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">俯看长廊地面，成对壁灯和山水尽头墙保留。墙外两侧出现大块灰色，画面像剖切展示。</p>
-
-  </article><article class="tile">
-    <h4>GPT Image 2.6 Sunburst</h4>
-    <button class="image-button " type="button" data-image="results/top90-044-gptImage26Sunburst.webp" data-title="044 走廊 · 垂直俯视 · GPT Image 2.6 Sunburst" data-meta="2048 × 1152 · 40.2 秒" aria-label="查看044 走廊 · 垂直俯视 · GPT Image 2.6 Sunburst">
-    <img src="results/top90-044-gptImage26Sunburst.webp" width="2048" height="1152" alt="044 走廊 · 垂直俯视 · GPT Image 2.6 Sunburst" loading="lazy" decoding="async">
-  </button>
-    <div class="meta"><span>2048 × 1152 · 40.2 秒</span></div>
-    <p class="muted">质量 medium</p>
-
-
-
-    <ul class="grades" aria-label="逐图手评">
-    <li data-grade="hit">命中</li>
-    <li data-grade="stable">结构基本保持</li>
-    <li data-grade="yes">可用</li>
-  </ul><p class="review-note">走廊地面居中，纵向构图接近从上向下看。成对壁灯和山水饰面墙仍可辨认。</p>
-
-  </article><article class="tile">
-    <h4>Seedream 5.0 Pro</h4>
-    <button class="image-button " type="button" data-image="results/top90-044-seedream5Pro.webp" data-title="044 走廊 · 垂直俯视 · Seedream 5.0 Pro" data-meta="2048 × 1151 · 95.0 秒" aria-label="查看044 走廊 · 垂直俯视 · Seedream 5.0 Pro">
-    <img src="results/top90-044-seedream5Pro.webp" width="2048" height="1151" alt="044 走廊 · 垂直俯视 · Seedream 5.0 Pro" loading="lazy" decoding="async">
-  </button>
-    <div class="meta"><span>2048 × 1151 · 95.0 秒</span></div>
-
-
-
-
-    <ul class="grades" aria-label="逐图手评">
-    <li data-grade="partial">部分命中</li>
-    <li data-grade="stable">结构基本保持</li>
-    <li data-grade="partial">需修改</li>
-  </ul><p class="review-note">俯角明显抬高，但地面与两侧墙线仍显著收束，呈斜俯。壁灯和尽头墙保留，地面多出金线纹样。</p>
-
-  </article><article class="tile">
     <h4>建筑学长</h4>
-    <button class="image-button " type="button" data-image="competitor/top90-044.webp" data-title="044 走廊 · 垂直俯视 · 建筑学长" data-meta="2730 × 1536 · 49.4 秒" aria-label="查看044 走廊 · 垂直俯视 · 建筑学长">
-    <img src="competitor/top90-044.webp" width="2730" height="1536" alt="044 走廊 · 垂直俯视 · 建筑学长" loading="lazy" decoding="async">
+    <button class="image-button " type="button" data-image="competitor/top90-044.webp" data-title="044 走廊 · 建筑学长俯视 60° · 建筑学长" data-meta="2730 × 1536 · 49.4 秒" aria-label="查看044 走廊 · 建筑学长俯视 60° · 建筑学长">
+    <img src="competitor/top90-044.webp" width="2730" height="1536" alt="044 走廊 · 建筑学长俯视 60° · 建筑学长" loading="lazy" decoding="async">
   </button>
     <div class="meta"><span>2730 × 1536 · 49.4 秒</span></div>
     <p class="muted">水平 0° / 垂直 60° / 中景(5)</p>
@@ -1238,17 +1286,29 @@ if (filters.has("sample") || filters.has("angle")) {
   document.querySelector("details.notes").open = false;
 }
 function updateFilters() {
-  for (const section of document.querySelectorAll("[data-scene]")) {
-    section.hidden = Boolean(sampleFilter.value) && section.dataset.scene !== sampleFilter.value;
-  }
   for (const section of document.querySelectorAll("[data-angle]")) {
     section.hidden = Boolean(angleFilter.value) && section.dataset.angle !== angleFilter.value;
+  }
+  for (const section of document.querySelectorAll("[data-scene]")) {
+    section.hidden = (Boolean(sampleFilter.value) && section.dataset.scene !== sampleFilter.value)
+      || !section.querySelector("[data-angle]:not([hidden])");
   }
   const shown = document.querySelectorAll("[data-scene]:not([hidden]) [data-angle]:not([hidden])").length;
   document.querySelector("#filterStatus").textContent = "显示 " + shown + " 组同图对照";
 }
-sampleFilter.addEventListener("change", updateFilters);
-angleFilter.addEventListener("change", updateFilters);
+function hasSelectedPair() {
+  return !sampleFilter.value || !angleFilter.value || [...document.querySelectorAll("[data-scene]")]
+    .some(scene => scene.dataset.scene === sampleFilter.value
+      && [...scene.querySelectorAll("[data-angle]")].some(angle => angle.dataset.angle === angleFilter.value));
+}
+sampleFilter.addEventListener("change", () => {
+  if (!hasSelectedPair()) angleFilter.value = "";
+  updateFilters();
+});
+angleFilter.addEventListener("change", () => {
+  if (!hasSelectedPair()) sampleFilter.value = "";
+  updateFilters();
+});
 const viewer = document.querySelector("#viewer");
 const fullImage = document.querySelector("#fullImage");
 const imageStage = document.querySelector("#imageStage");
@@ -1276,5 +1336,6 @@ zoom.addEventListener("click", () => {
 viewer.addEventListener("click", event => { if (event.target === viewer) viewer.close(); });
 viewer.addEventListener("close", () => { fullImage.removeAttribute("src"); imageTrigger?.focus({ preventScroll: true }); });
 document.querySelector("#closeImage").addEventListener("click", () => viewer.close());
+if (!hasSelectedPair()) sampleFilter.value = "";
 updateFilters();
 </script></body></html>
