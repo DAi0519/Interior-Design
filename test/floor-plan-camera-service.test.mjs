@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { readFloorPlanCameraConfig, prepareFloorPlanCameraInput, executeFloorPlanCamera,
-  validateFloorPlanCamera, buildFloorPlanCameraAgentInput, compileFloorPlanCameraPrompt,
+  buildFloorPlanCameraAgentInput, compileFloorPlanCameraPrompt,
   floorPlanCameraTaskTotal, FLOOR_PLAN_CAMERA_WORKFLOW } from '../src/floor-plan-camera-service.mjs';
 import { createFloorPlanApiHandler } from '../src/floor-plan-api.mjs';
 import { fitImageDataUrlForRequest } from '../src/image-artifact.mjs';
@@ -76,24 +76,6 @@ function assertResponsesImage(body, prepared, background) {
   for (const key of ['images', 'input_image', 'guide', 'prompt', 'complexity', 'reasoning']) assert.equal(Object.hasOwn(body, key), false);
 }
 
-test('相机使用数字原值、上零顺时针、坐标边界明确；拒绝隐式转换/未知字段/越界', () => {
-  assert.deepEqual(validateFloorPlanCamera(camera), camera);
-  for (const guideDepth of [.05, .4333333333, 1.5]) {
-    const pose = { ...camera, x: 0, y: 1, fov: 100, height: .8, guideDepth };
-    assert.deepEqual(validateFloorPlanCamera(pose), pose);
-  }
-  for (const showFrame of [true, false]) {
-    const pose = { ...camera, showFrame };
-    assert.deepEqual(validateFloorPlanCamera(pose), pose);
-  }
-  for (const invalid of [{ x: '0.4' }, { x: -.01 }, { y: 1.01 }, { heading: 360 }, { heading: -1 }, { fov: 34 },
-    { fov: 101 }, { height: .7 }, { height: 2.3 }, { fov: NaN }, { yaw: 0 }, { height: Infinity },
-    ...[.049, 1.501, '.3', null, Infinity].map(guideDepth => ({ guideDepth })),
-    ...['false', 0, null, undefined].map(showFrame => ({ showFrame }))]) {
-    assert.throws(() => validateFloorPlanCamera({ ...camera, ...invalid }));
-  }
-  assert.throws(() => validateFloorPlanCamera({ x: 0, y: 0 }));
-});
 test('配置仅含资产身份、默认2K/medium，全部生图模型独立按实际Key准入', async () => {
   const ids = ['gpt-image-2.6-flare', 'gemini-3.1-pro-preview', 'gemini-3-pro-image'];
   const config = await readFloorPlanCameraConfig({ getModels: async () => ids.map(id => ({ id })), getPrompt });

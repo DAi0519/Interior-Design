@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖机位裁剪服务、实际 PNG 像素与机位归档投影，模型和资产均用本地替身
- * [OUTPUT]: 验证射线交集外接矩形裁剪、两侧上下文原色与留边、旧输入兼容、坐标换算、双阶段同图、直出原文和实际输入归档
+ * [OUTPUT]: 验证机位参数与外框准入、射线交集外接矩形裁剪、两侧上下文原色与留边、旧输入兼容、坐标换算、双阶段同图、直出原文和实际输入归档
  * [POS]: test 的机位视野裁剪合同回归，不把离线输入检查视为生成画质验收
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -49,6 +49,26 @@ async function pixel(imageUrl, x, y) {
 function submittedPixel(crop, x, y) {
   return { x: x - crop.bounds.left + crop.padding, y: y - crop.bounds.top + crop.padding };
 }
+
+test('相机使用数字原值、上零顺时针、坐标边界明确；拒绝隐式转换/未知字段/越界', () => {
+  const camera = { x: .4, y: .6, heading: 90, fov: 60, height: 1.5 };
+  assert.deepEqual(validateFloorPlanCamera(camera), camera);
+  for (const guideDepth of [.05, .4333333333, 1.5]) {
+    const pose = { ...camera, x: 0, y: 1, fov: 100, height: .8, guideDepth };
+    assert.deepEqual(validateFloorPlanCamera(pose), pose);
+  }
+  for (const showFrame of [true, false]) {
+    const pose = { ...camera, showFrame };
+    assert.deepEqual(validateFloorPlanCamera(pose), pose);
+  }
+  for (const invalid of [{ x: '0.4' }, { x: -.01 }, { y: 1.01 }, { heading: 360 }, { heading: -1 }, { fov: 34 },
+    { fov: 101 }, { height: .7 }, { height: 2.3 }, { fov: NaN }, { yaw: 0 }, { height: Infinity },
+    ...[.049, 1.501, '.3', null, Infinity].map(guideDepth => ({ guideDepth })),
+    ...['false', 0, null, undefined].map(showFrame => ({ showFrame }))]) {
+    assert.throws(() => validateFloorPlanCamera({ ...camera, ...invalid }));
+  }
+  assert.throws(() => validateFloorPlanCamera({ x: 0, y: 0 }));
+});
 
 test('裁剪开关只接受布尔值，省略与关闭保留原图尺寸和相同标注字节', async () => {
   for (const cropToView of [true, false]) {

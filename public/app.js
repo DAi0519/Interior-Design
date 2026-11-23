@@ -8,7 +8,7 @@ import { isEmptyRoomDesign } from "./room-renovation.js";
 import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=4";
 import { SCENE_CAST_MODE } from "./scene-cast-handoff.js";
 import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
-import { bindConnectionCenter } from "./connection-center.js";
+import { bindConnectionCenter } from "./connection-center.js?v=3";
 import { createAppElements } from "./app-elements.js?v=2";
 import { designPromptConfiguration, designSourceValidation, platformStyleAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=2";
 import { bindDesignInputs } from "./design-inputs.js?v=2";

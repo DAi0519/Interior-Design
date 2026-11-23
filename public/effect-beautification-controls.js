@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖主/Beta美化容器或旧强度/色调单选组、共享纯词光影控制器与变更回调
+ * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖主/Beta美化容器或旧强度/色调单选组、共享纯词光影控制器与变更回调
  * [OUTPUT]: 对外提供六档强度/色调直白名称、十五项同网格主/Beta混合多选或宿主单选、逐项工作流/身份投影及草稿恢复，支持键盘与多选持续展开
  * [POS]: public 的效果图美化组合输入层，六档保持原映射，新增模板使用low/natural，不持有Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -23,7 +23,7 @@ const BEAUTIFICATION_SECTION_HTML = `
               <div class="section-heading-actions">
                 <span id="effectBeautificationPromptAvailability" class="micro-status" aria-live="polite">读取中</span>
                 <button id="refreshEffectBeautificationPromptButton" class="config-refresh-button" data-config-refresh type="button" aria-label="刷新效果图美化 Prompt 版本" title="立即读取飞书中当前上架的效果图美化 Prompt 版本">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M6.1 9A7 7 0 0 1 18 6.5L20 9" /><path d="M17.9 15A7 7 0 0 1 6 17.5L4 15" /></svg>
+                  <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
                   <span data-refresh-label>刷新</span>
                 </button>
               </div>

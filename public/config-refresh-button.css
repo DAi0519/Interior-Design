@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖主工作台/Beta的共享配置操作语义与银灰主题令牌
- * [OUTPUT]: 对外提供轻量刷新按钮/12px描边SVG、操作行排列及悬停/按压/禁用反馈
- * [POS]: public 的配置刷新按钮唯一视觉源，由Main和Beta显式加载，不依赖整套工作台主题
+ * [INPUT]: 依赖工作台及嵌入页面的共享配置操作语义、icons/refresh.svg 符号与银灰主题令牌
+ * [OUTPUT]: 提供轻量刷新按钮、14px 图标尺寸、操作行排列及悬停/按压/禁用反馈
+ * [POS]: public 的共享刷新按钮样式，由主工作台、批量跑图和嵌入工具显式加载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 .section-heading-actions {
@@ -27,14 +27,10 @@
     transform 120ms var(--ease-out);
 }
 
-.config-refresh-button svg {
-  fill: none;
-  height: 12px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  width: 12px;
+.config-refresh-button .refresh-icon {
+  flex: none;
+  height: 14px;
+  width: 14px;
 }
 
 .config-refresh-button:active { transform: scale(0.97); }

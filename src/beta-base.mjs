@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖机位/多角度/户型布局归档合同、Beta附件操作、只读CLI连接重试、三表Schema及各功能归档合同
  * [OUTPUT]: 提供独立功能的冻结配置、实际指令/生成参数和附件回读，以及样本原图、机位结果校验和飞书全景规则ID/版本/SHA及已有成品旧合同/执行图恢复
- * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
+ * [POS]: src 的 批量跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -121,7 +121,7 @@ function parseRecordPage(body) {
 
 export function betaFeatureLabel(featureMode) {
   const label = FEATURE_LABELS[String(featureMode || "")];
-  if (!label) throw new TypeError("Beta跑图功能不受支持");
+  if (!label) throw new TypeError("批量跑图功能不受支持");
   return label;
 }
 
@@ -341,7 +341,7 @@ async function createRecord(run, config, fields, tableId = config.tableId) {
     }),
   ]);
   const recordId = recordIdFrom(body);
-  if (!recordId) throw new Error("Beta跑图 Base 已响应，但没有返回记录 ID");
+  if (!recordId) throw new Error("批量跑图 Base 已响应，但没有返回记录 ID");
   return recordId;
 }
 
@@ -521,7 +521,7 @@ export function createBetaBaseStore({
       let verifiedCameraAttachments;
       try {
         const image = result.images?.[0];
-        if (!image?.url) throw new Error("Beta跑图没有可归档的结果图");
+        if (!image?.url) throw new Error("批量跑图没有可归档的结果图");
         const format = result.request?.outputFormat || result.upstream?.outputFormat || "png";
         const file = `result.${extensionForImageFormat(format) || "png"}`;
         resultBytes = await loadImageBytes(image.url);

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖脱敏GPT光照模板/飞书Prompt版本身份/历史参数/光源编辑目录、共享整体原灯/标注/图片/输出规则、主图上传、画布交互与统一任务/摘要回调
+ * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖脱敏GPT光照模板/飞书Prompt版本身份/历史参数/光源编辑目录、共享整体原灯/标注/图片/输出规则、主图上传、画布交互与统一任务/摘要回调
  * [OUTPUT]: 控光配置和画布可以分属同源文档并保留原交互；含GPT2.6 Sunburst/Flare独立模型身份； 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
  * [POS]: public 的AI编辑打光控制器，复用既有主图与后台任务，不持有服务地址、模型密钥或Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -21,7 +21,7 @@ const template = `
       <span data-relight-availability class="micro-status" aria-live="polite">读取中</span>
       <a data-relight-prompt-link class="config-refresh-button" target="_blank" rel="noopener noreferrer" aria-label="打开飞书打光Prompt表" hidden>飞书</a>
       <button type="button" data-relight-prompt-refresh class="config-refresh-button" aria-label="刷新打光Prompt当前版本" title="读取飞书中当前上架的打光Prompt">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 9A7 7 0 0 1 18 6.5L20 9"/><path d="M17.9 15A7 7 0 0 1 6 17.5L4 15"/></svg>
+        <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
         <span data-relight-refresh-label>刷新</span>
       </button>
     </div></div>

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、共享顶栏 CSS/JS、Benchmark CSS、server.mjs、package.json 的字体与动效契约
- * [OUTPUT]: 对外提供同源 Inter Variable、Raycast 字形、三页 1440px 外壳、全局无布局属性补间护栏，以及静态首帧激活层、140ms 导航前双层 transform 与 reduced-motion 原生降级的回归保障
+ * [OUTPUT]: 对外提供三页「批量跑图」导航文案、同源 Inter Variable、Raycast 字形、三页 1440px 外壳、全局无布局属性补间护栏，以及静态首帧激活层、140ms 导航前双层 transform 与 reduced-motion 原生降级的回归保障
  * [POS]: test 的跨工作台品牌字体护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -56,6 +56,8 @@ test("三工作台外壳同宽，并用静态首帧与导航前 transform 移动
     assert.match(html, new RegExp(`id="productSwitcher" class="product-switcher" data-active-index="${activeIndex}"`));
     assert.equal((html.match(/product-switch-active-viewport/g) || []).length, 1);
     assert.equal((html.match(/product-switch-active-option/g) || []).length, 3);
+    assert.match(html, /class="product-switch-active-option">批量跑图<\/span>/);
+    assert.match(html, /href="\/beta\.html"(?: aria-current="page")?>批量跑图<\/a>/);
     assert.match(html, /product-navigation\.css\?v=14/);
     assert.match(html, /product-navigation\.js\?v=9/);
     assert.doesNotMatch(html, /vendor\/gsap\.min\.js/);

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖飞书光影库脱敏预设/版本化预览、共享光影卡片样式、DOM与可选轻量草稿存储
+ * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖飞书光影库脱敏预设/版本化预览、共享光影卡片样式、DOM与可选轻量草稿存储
  * [OUTPUT]: 对外提供默认原光影首卡/模板互斥复位、共享小勾图卡/单行数量摘要与标题行清空、连续多选/取消、稳定预览和键盘焦点、独立草稿/要求、逐卡准入及单项请求投影
  * [POS]: public 的Main/Beta共用全景光影输入层，与精模光影状态和双图执行方式隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -34,7 +34,7 @@ export function bindPanoramaLightingControls({ root, onChange = () => {}, storag
   root.innerHTML = `<div class="section-heading"><h2>光影选择 <span class="optional">可选</span></h2>
     <div class="section-heading-actions"><span data-panorama-availability class="micro-status" aria-live="polite">读取中</span>
       <button data-panorama-clear class="config-refresh-button panorama-lighting-clear" type="button" hidden>清空</button>
-      <button data-panorama-refresh class="config-refresh-button" type="button" aria-label="刷新全景光影库"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 9A7 7 0 0 1 18 6.5L20 9M17.9 15A7 7 0 0 1 6 17.5L4 15" /></svg><span data-refresh-label>刷新</span></button>
+      <button data-panorama-refresh class="config-refresh-button" type="button" aria-label="刷新全景光影库"><svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg><span data-refresh-label>刷新</span></button>
     </div></div>
     <button data-panorama-toggle class="refined-lighting-picker-trigger" type="button" aria-expanded="false"><img data-panorama-preview alt="" hidden /><span data-panorama-name aria-live="polite">保留原光影</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button>
     <div data-panorama-grid class="refined-lighting-grid" role="group" aria-label="全景光影模板" hidden></div>

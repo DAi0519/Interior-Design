@@ -1,12 +1,12 @@
 /**
  * [INPUT]: 依赖平面图机位 UI 夹具与可控的送模预览响应
- * [OUTPUT]: 验证射线外接矩形裁剪开关的能力门禁、持久化和提交，以及只读预览、模式冻结和过时响应隔离
+ * [OUTPUT]: 验证射线外接矩形裁剪开关的能力门禁、持久化和提交，以及只读预览、模式冻结和过时响应隔离、旧前景裁切及历史结果只读恢复
  * [POS]: test 的机位裁剪界面专项回归，不访问模型、飞书或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { config, fixture, SESSION, source } from './floor-plan-camera-ui-fixture.mjs';
+import { config, fixture, planReference, rendered, SESSION, source } from './floor-plan-camera-ui-fixture.mjs';
 
 const cropConfig = { ...config, cameraLimits: { ...config.cameraLimits, cropToView: true }, generationModes: ['agent', 'direct'] };
 const preview = name => ({ imageUrl: source(name).dataUrl, width: 600, height: 300, sha256: 'b'.repeat(64),
@@ -105,4 +105,42 @@ test('返回改机位再预览时，较晚完成的旧请求不能覆盖新图�
   assert.equal(f.node('inputPreview').src, preview('新机位').imageUrl);
   assert.equal(callsAt(f, '/preview').length, 2);
   assert.equal(callsAt(f, '/jobs').length, 0);
+});
+
+test('新任务忽略旧裁切配置，空间推理选择冻结，旧结果仍只读恢复', async () => {
+  let request, completed = false;
+  const scenePrompt = 'Camera-level view, warm oak. <img src=x onerror=alert(1)>\nSoft daylight.';
+  const viewSummary = '机位朝向90°，左侧门洞，正前方实墙。\n<b>墙后卧室不可见。</b>';
+  const result = () => ({ ...rendered(request.camera), agent: { key: 'gpt', label: 'GPT 5.5' }, viewSummary, scenePrompt,
+    actual: { generationMode: 'image-to-image', ...planReference } });
+  const configuration = { ...config, foregroundCrop: { min: 4, max: 30, default: 10 },
+    prompt: { ...config.prompt, version: 9, code: 'floor-plan-camera-frame-agent' } };
+  const f = await fixture({ saved: { foregroundCrop: 13 }, configuration, respond: async call => {
+    if (call.method === 'POST') { request = call.body; return { job: { status: 'running' } }; }
+    return completed ? { job: { status: 'success', result: result() } }
+      : { job: { status: 'running', message: '正在分析该机位的可见空间…' } };
+  } });
+  await f.upload(source('户型')); await f.click('placeCenter'); await f.input('heading', 90);
+  for (const id of ['foregroundCropEnabled', 'foregroundCropDistance', 'foregroundCropKey']) assert.equal(f.node(id), undefined);
+  await f.input('agentModel', 'gpt', 'change'); await f.click('generate');
+  assert.equal(Object.hasOwn(request, 'foregroundCrop'), false);
+  assert.equal(request.agentModelKey, 'gpt'); assert.equal(f.node('agentModel').disabled, true);
+  assert.equal(request.workflowVersion, '2026-11-07.floor-plan-camera.9');
+  assert.match(f.node('status').textContent, /分析.*可见空间/);
+  await f.input('agentModel', 'gemini3pro', 'change');
+  assert.equal(JSON.parse(f.storage.get(SESSION)).agentModel, 'gpt'); assert.equal(request.agentModelKey, 'gpt');
+  completed = true; await f.nextPoll();
+  assert.equal(f.posts().length, 1); assert.equal(f.node('scenePrompt').textContent, scenePrompt);
+  assert.equal(f.node('viewSummarySection').hidden, false); assert.equal(f.node('viewSummary').textContent, viewSummary);
+  assert.equal(f.node('scenePromptDetails').hidden, false); assert.equal(f.node('scenePromptDetails').open, false);
+  assert.match(f.node('resultMeta').textContent, /空间推理：GPT 5.5.*机位图参考/);
+  assert.doesNotMatch(f.node('resultMeta').textContent, /前景裁切/);
+  await f.input('agentModel', 'gemini3pro', 'change'); await f.input('heading', 180);
+  assert.match(f.node('resultMeta').textContent, /空间推理：GPT 5.5/);
+  assert.match(f.node('resultMeta').textContent, /朝向 90°/); assert.equal(f.node('viewSummary').textContent, viewSummary);
+  const restored = await fixture({ saved: JSON.parse(f.storage.get(SESSION)), respond: async () => ({ job: { status: 'success', result: { ...result(), foregroundCrop: 13 } } }) });
+  assert.equal(restored.posts().length, 0); assert.equal(restored.node('scenePrompt').textContent, scenePrompt);
+  assert.equal(restored.node('viewSummarySection').hidden, false); assert.equal(restored.node('viewSummary').textContent, viewSummary);
+  assert.equal(restored.node('scenePromptDetails').open, false);
+  assert.match(restored.node('resultMeta').textContent, /机位图参考.*前景裁切 13%/);
 });

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖户型布局与平面图机位适配器及实际标注图归档投影、任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、普通Flux后置超分身份/尺寸规划、Beta图片工具能力与真实原图校验、风格转换/旧房独立Agent版本、模型2:1矩阵与用户词长度、三表Schema/资产Store及参考图/全景/房型/Agent准入
  * [OUTPUT]: 对外提供Beta样本集、原图和墙线读取、自由生图整批共享提示词、功能准入、配置和飞书全景规则ID/版本/SHA冻结、两路并发及逐图归档。机位共享一次已确认推理，各模型独立成图。多角度冻结机位且只提交一次，复用同步失败的原结果并按原工作流约束恢复旧批次。
- * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，同机位共享分析，分别记录模型生成和飞书回读进度
+ * [POS]: src 的 批量跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，同机位共享分析，分别记录模型生成和飞书回读进度
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -259,20 +259,20 @@ function normalizeBatch(body = {}, { recovering = false } = {}) {
   const items = Array.isArray(body.items) ? body.items : [];
   const assets = body.assets && typeof body.assets === "object" ? body.assets : {};
   if (!/^beta-[A-Za-z0-9-]{12,80}$/.test(jobId)) {
-    throw inputError("Beta跑图任务 ID 无效");
+    throw inputError("批量跑图任务 ID 无效");
   }
   if (!/^BETA-[A-Za-z0-9-]{8,80}$/.test(batchId)) {
-    throw inputError("Beta跑图批次 ID 无效");
+    throw inputError("批量跑图批次 ID 无效");
   }
   if (!BETA_FEATURE_MODES.includes(featureMode)) {
-    throw inputError("Beta跑图功能不受支持");
+    throw inputError("批量跑图功能不受支持");
   }
   const sharedPrompt = typeof body.sharedPrompt === "string" ? body.sharedPrompt.trim() : "";
   if (body.sharedPrompt !== undefined && (featureMode !== "free" || sharedPrompt.length < USER_PROMPT_LENGTH.min
     || sharedPrompt.length > USER_PROMPT_LENGTH.max)) {
     throw inputError(`自由生图批次提示词需要 ${USER_PROMPT_LENGTH.min}–${USER_PROMPT_LENGTH.max} 个字符`);
   }
-  if (items.length < 1) throw inputError("Beta跑图至少需要 1 个 Run");
+  if (items.length < 1) throw inputError("批量跑图至少需要 1 个 Run");
   const fallbackTime = String(items[0]?.runId || "").match(
     /^RUN-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/,
   );
@@ -281,7 +281,7 @@ function normalizeBatch(body = {}, { recovering = false } = {}) {
     : "")).trim();
   if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(testTime)
     || Number.isNaN(Date.parse(`${testTime.replace(" ", "T")}+08:00`))) {
-    throw inputError("Beta跑图测试时间无效");
+    throw inputError("批量跑图测试时间无效");
   }
   const runIds = new Set();
   const sharedStyleReferences = new Map();
@@ -383,7 +383,7 @@ export function createBetaRunnerService({
   sleep = delay,
 } = {}) {
   if (!baseStore || !generationService) {
-    throw new TypeError("Beta跑图需要独立 Base Store 与生成服务");
+    throw new TypeError("批量跑图需要独立 Base Store 与生成服务");
   }
   const imageTools = createBetaImageToolAdmission({ getOutpaintConfig, getUpscaleConfig, getMultiAngleConfig });
   const needsFeatureSchema = featureMode => ["floorPlanCamera", "imageMultiAngle"].includes(featureMode);
@@ -394,7 +394,7 @@ export function createBetaRunnerService({
   const batches = new Map();
   const requireRetrySource = (jobId) => {
     const job = jobs.get?.(jobId);
-    if (!job) throw Object.assign(inputError("Beta跑图任务不存在或已过期"), { statusCode: 404 });
+    if (!job) throw Object.assign(inputError("批量跑图任务不存在或已过期"), { statusCode: 404 });
     if (job.status !== "failed") throw Object.assign(inputError("仅失败批次可以重试；请等待当前批次结束"), { statusCode: 409 });
     return job;
   };
@@ -782,7 +782,7 @@ export function createBetaApiHandler({ getAgentModels, readJson, sendImage, send
       sendJson(
         response,
         job ? 200 : 404,
-        job ? { job } : { error: "Beta跑图任务不存在或已过期" },
+        job ? { job } : { error: "批量跑图任务不存在或已过期" },
       );
       return true;
     }

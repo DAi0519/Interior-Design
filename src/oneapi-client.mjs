@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 image-artifact 的请求图片体积收敛、model-config的独立思考强度准入、oneapi-image-async 的后台提交/轮询、undici Agent、全局 fetch、AbortController 与可选外部取消信号，接收后端内存中的公司 API Key
- * [OUTPUT]: 对外提供按目录/提示词/出图/分析/评审/风格反推独立限时的 OneAPI 客户端、主动取消、Prompt Agent 单/双图及可选输出预算与完整性校验、空或截断回复的已知费用回执、请求侧图片压缩、可选complexity图生图、透明PNG遮罩编辑、图片/PDF评审及阶段脱敏诊断
+ * [OUTPUT]: 对外提供按额度/目录/提示词/出图/分析/评审/风格反推独立限时的 OneAPI 客户端、主动取消、Prompt Agent 单/双图及可选输出预算与完整性校验、空或截断回复的已知费用回执、请求侧图片压缩、可选complexity图生图、透明PNG遮罩编辑、图片/PDF评审及阶段脱敏诊断
  * [POS]: src 的外部服务边界，Claude 双图评分走 Chat Completions，分析/多模态及无mask异步编辑走 Responses，文生图与透明遮罩编辑走 Images generations/edits，并集中记录不含 Key/Prompt/图片正文的失败诊断
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import { Agent } from "undici";
 
 const BASE_URL = "https://oneapi.qunhequnhe.com/v1";
 export const ONEAPI_REQUEST_TIMEOUTS = Object.freeze({
+  quota: Object.freeze({ label: "额度查询", timeoutMs: 8_000 }),
   catalog: Object.freeze({ label: "模型目录读取", timeoutMs: 30_000 }),
   prompt: Object.freeze({ label: "提示词生成", timeoutMs: 300_000 }),
   image: Object.freeze({ label: "图像生成", timeoutMs: 600_000 }),
@@ -486,6 +487,30 @@ export function createOneApiClient(
   }
 
   return {
+    async getQuota() {
+      let body;
+      try {
+        body = await request("/balance", { method: "GET", redirect: "error" }, { stage: "quota" });
+      } catch (error) {
+        if (error.statusCode === 401 || error.statusCode === 403) {
+          throw new OneApiError("当前 OneAPI Key 无法查询额度", error.statusCode);
+        }
+        if (error.statusCode === 504) {
+          throw new OneApiError("OneAPI 额度查询超时，请重试", 504);
+        }
+        throw new OneApiError("OneAPI 额度查询失败，请重试", 502);
+      }
+      if (typeof body?.unlimited !== "boolean" || (!body.unlimited && !Number.isFinite(body.remaining))) {
+        throw new OneApiError("OneAPI 返回的额度格式无效", 502);
+      }
+      return {
+        remaining: body.unlimited ? null : body.remaining,
+        currency: typeof body.currency === "string" ? body.currency.trim() || null : null,
+        unlimited: body.unlimited,
+        checkedAt: new Date().toISOString(),
+      };
+    },
+
     async analyzeImage({ imageUrl, model, systemPrompt, userPrompt }) {
       const body = await request("/responses", {
         body: JSON.stringify(

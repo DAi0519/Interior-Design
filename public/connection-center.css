@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 index.html 连接中心语义结构、styles.css 弹层基础、raycast-accent.css 的共享弹层与中性键帽令牌及 connection-center.js 状态类
- * [OUTPUT]: 对外提供 OneAPI/飞书无套框双分区、与工作台一致的中性浅色动作按钮和灰阶就绪标签、状态行、授权二维码和窄屏连接中心布局
- * [POS]: public 的首次运行视觉层，在单一弹层表面内组织模型访问与配置同步
+ * [INPUT]: 依赖 index.html 的合并连接控件与弹层、共享顶栏布局和刷新按钮、Raycast 中性键帽令牌及 connection-center.js 状态类
+ * [OUTPUT]: 提供主工作台顶栏状态点、额度与刷新图标的合并布局、连接弹层的 OneAPI/飞书分区、就绪标签及授权二维码
+ * [POS]: public 的模型连接视觉层，在顶栏显示额度，在弹层组织凭据和同步设置
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -90,6 +90,103 @@
 
 .api-key-field input {
   height: 40px;
+}
+
+.connection-control {
+  align-items: center;
+  background: var(--brand-key-bg);
+  border: 1px solid var(--brand-key-border);
+  border-radius: var(--brand-control-radius);
+  box-shadow: var(--brand-key-shadow);
+  display: inline-flex;
+  min-height: 30px;
+}
+
+.topbar .connection-control > .connection-button {
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--brand-control-radius) - 1px);
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+  gap: 6px;
+  min-height: 28px;
+  padding-inline: 8px;
+}
+
+.connection-control .config-refresh-button {
+  justify-content: center;
+  min-height: 28px;
+  padding: 0;
+  width: 26px;
+}
+
+.connection-control .config-refresh-button[hidden] {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .topbar .connection-control > .connection-button:hover {
+    background: var(--brand-key-hover-bg);
+    box-shadow: none;
+  }
+}
+
+.topbar.workspace-topbar {
+  height: auto;
+  min-height: 56px;
+  padding-block: 8px;
+}
+
+.topbar.workspace-topbar .topbar-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+.workspace-topbar .topbar-actions .app-update-trigger {
+  margin-right: 0;
+}
+
+@media (max-width: 850px) {
+  .topbar.workspace-topbar {
+    row-gap: 8px;
+  }
+
+  .topbar.workspace-topbar .topbar-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar.workspace-topbar .product-switcher {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .topbar.workspace-topbar .topbar-actions > .connection-control,
+  .topbar .connection-control > .connection-button {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar.workspace-topbar .brand,
+  .topbar.workspace-topbar .product-switcher {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+
+  .topbar.workspace-topbar .product-switcher {
+    grid-row: 2;
+  }
+
+  .topbar.workspace-topbar .topbar-actions {
+    grid-row: 3;
+  }
 }
 
 .connection-note {

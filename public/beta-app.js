@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta功能目录与平面图适配器、旧房设计配置/空房判定、Flux负向草稿、扩图/超分/多角度、持久配置、样本库/预警/Run ID和API工具
  * [OUTPUT]: 自由生图共用整批提示词、多角度共用整批机位、户型布局逐图标注、机位推理或整批原词直出、旧房独立Agent和房型、光影多选、尺寸与Prompt准入、可恢复配置、冻结RETRY与双阶段监控
- * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
+ * [POS]: public 的批量跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createBetaHousePlanConfiguration } from "./beta-house-plan.js?v=3";
@@ -28,7 +28,7 @@ import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, readBetaImage as readImage, renderImagePreviews } from "./beta-upload.js";
 import { createBetaSampleLibrary } from "./beta-sample-library.js?v=9";
 import { fillBetaSelect as fillSelect, renderBetaProgress as renderProgress, renderBetaWarnings } from "./beta-results.js?v=2";
-import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
+import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=3";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 import { api } from "./workbench-utils.js";
 const JOB_STORAGE_KEY = "canvas-lab:beta-run-job";

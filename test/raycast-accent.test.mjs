@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮实现
- * [OUTPUT]: 对外提供冷白银灰顶栏、由导航前 transform 位移的纯黑白字激活视窗、中性浅色普通按钮、同源近距阴影的弹层动作、含 Beta 全宽 START 的单一 #f37021 标志性盒橙关键动作及系统偏好、三页最终加载顺序和中性焦点回归保障
+ * [OUTPUT]: 对外提供主工作台顶栏连接与额度合并结构和冷白银灰顶栏、由导航前 transform 位移的纯黑白字激活视窗、中性浅色普通按钮、同源近距阴影的弹层动作、含 Beta 全宽 START 的单一 #f37021 标志性盒橙关键动作及系统偏好、三页最终加载顺序和中性焦点回归保障
  * [POS]: test 的跨工作台 Raycast 重点色护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -182,7 +182,15 @@ test("连接中心矩形动作由最终颜色层统一为中性浅色", async ()
     readFile(new URL("../public/raycast-accent.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(html, /\/connection-center\.css\?v=5/);
+  assert.match(html, /\/connection-center\.css\?v=8/);
+  const topbar = html.match(/<header class="topbar workspace-topbar">[\s\S]*?<\/header>/)?.[0] || "";
+  const dialog = html.match(/<div id="connectionDialog"[\s\S]*?<\/section>\s*<\/div>/)?.[0] || "";
+  const connectionControl = topbar.match(/<div class="connection-control">[\s\S]*?<\/div>/)?.[0] || "";
+  assert.match(connectionControl, /<button id="connectionButton"[^>]*>[\s\S]*?id="apiQuotaValue"[\s\S]*?<\/button>/);
+  assert.match(connectionControl, /<\/button>\s*<button id="apiQuotaRefresh"[^>]*>[\s\S]*?<svg/);
+  assert.equal((topbar.match(/id="connectionButton"/g) || []).length, 1);
+  assert.match(dialog, /id="apiKeyInput"/);
+  assert.doesNotMatch(dialog, /id="apiQuota(?:Value|Refresh)"/);
   for (const id of [
     "disconnectButton",
     "saveConnectionButton",

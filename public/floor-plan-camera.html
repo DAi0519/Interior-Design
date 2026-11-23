@@ -1,5 +1,5 @@
 <!--
-[INPUT]: 依赖工作台共享上传外观/图标、模型多选和原生下拉适配、独立平面相机控制器
+[INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖工作台共享上传外观/图标、模型多选和原生下拉适配、独立平面相机控制器
 [OUTPUT]: 提供可挂载的机位参数和START、实时机位标注、保留两侧上下文的射线交集矩形裁剪与送模预览、空间推理/直出、效果图、逐图归档及图片下载
 [POS]: public 的AI渲染平面图相机独立页面，可嵌入同源工作台并保活
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -11,7 +11,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=35" />
   <link rel="stylesheet" href="/custom-select.css?v=10" /><link rel="stylesheet" href="/generation-actions.css?v=16" />
-  <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
+  <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
   <link rel="stylesheet" href="/floor-plan-camera.css?v=22" /><link rel="stylesheet" href="/raycast-accent.css?v=42" />
   <title>Canvas Lab · 平面图机位渲染</title>
 </head>
@@ -55,7 +55,7 @@
       <div class="plan-camera-status-row">
         <span id="camera-status" role="status" aria-live="polite" hidden></span>
         <button id="camera-refresh" class="config-refresh-button" type="button" aria-label="刷新机位渲染配置">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M4 20v-6h6M4.5 10a8 8 0 0 1 13.2-4.8L20 10M4 14l2.3 4.8A8 8 0 0 0 19.5 14" /></svg>
+          <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
           <span id="camera-refreshLabel">刷新</span>
         </button>
       </div>

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供机位直出原词、取景框开关及旧进程门禁、视野深度拖动、自由生图一条多行提示词与图片样本 ID 提交、多角度入口与旧进程门禁、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
- * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
+ * [OUTPUT]: 对外提供批量跑图标题与当前导航状态、机位直出原词、取景框开关及旧进程门禁、视野深度拖动、自由生图一条多行提示词与图片样本 ID 提交、多角度入口与旧进程门禁、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
+ * [POS]: test 的批量跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -230,7 +230,7 @@ test("Beta提示词模型正常授权不显示说明，检测/断连/权限失�
   }
 });
 
-test("Beta跑图用共享可搜索下拉提供各功能任务及配置和监控", async () => {
+test("批量跑图用共享可搜索下拉提供各功能任务及配置和监控", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -244,8 +244,9 @@ test("Beta跑图用共享可搜索下拉提供各功能任务及配置和监控"
     readFile(new URL("../src/beta-base.mjs", import.meta.url), "utf8"),
   ]);
 
-  assert.match(html, /<title>Canvas Lab · Beta跑图<\/title>/);
-  assert.match(html, /href="\/beta\.html" aria-current="page">Beta跑图/);
+  assert.match(html, /<title>Canvas Lab · 批量跑图<\/title>/);
+  assert.match(html, /href="\/beta\.html" aria-current="page">批量跑图/);
+  assert.match(html, /<h1 class="visually-hidden">批量跑图<\/h1>/);
   const featureSelect = html.match(/<select\b[^>]*id="betaFeatureSelect"[^>]*>/)?.[0] || "";
   assert.match(featureSelect, /data-searchable="true"/);
   assert.match(featureSelect, /aria-label="选择任务"/);
@@ -284,7 +285,7 @@ test("Beta跑图用共享可搜索下拉提供各功能任务及配置和监控"
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=57/);
+  assert.match(html, /beta-app\.js\?v=58/);
   assert.match(html, /<select id="betaCameraMode"[^>]*aria-label="机位生成模式"/);
   assert.match(html, /<textarea id="betaCameraDirectPrompt"[^>]*maxlength="4000"[^>]*aria-required="true"/);
   assert.match(source, /createBetaFloorPlanCameraConfiguration[^\n]+"\.\/beta-floor-plan-camera\.js\?v=12"/);
@@ -337,7 +338,7 @@ test("Beta跑图用共享可搜索下拉提供各功能任务及配置和监控"
   assert.match(source, /sampleId: currentCase\.caseId/);
   assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
   assert.match(source, /import \{ [^}]*renderBetaWarnings \} from "\.\/beta-results\.js\?v=2"/);
-  assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=2"/);
+  assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=3"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
   assert.match(source, /DEFAULT_BETA_MODEL_KEY/);
   assert.match(source, /readBetaPageState\(localStorage\)/);

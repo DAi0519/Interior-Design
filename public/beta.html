@@ -1,7 +1,7 @@
 <!--
   [INPUT]: 依赖共享效果图美化六氛围/新增光影模板互斥控件；依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
   [OUTPUT]: 提供自由生图整批提示词与跨功能图片样本复用、多角度整批机位与模型、户型布局与机位推理/直出、视野外框帮助、可搜索任务、逐图房型、光影多选、START/冻结失败项RETRY及生成/同步双进度
-  [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
+  [POS]: public 的独立批量跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 <!doctype html>
@@ -11,10 +11,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <title>Canvas Lab · Beta跑图</title>
+    <title>Canvas Lab · 批量跑图</title>
     <link rel="stylesheet" href="/beta.css?v=29" />
     <link rel="stylesheet" href="/beta-house-plan.css?v=2" />
-    <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
+    <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
     <link rel="stylesheet" href="/effect-beautification.css?v=2" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
     <link rel="stylesheet" href="/refined-lighting-controls.css?v=3" />
@@ -35,12 +35,12 @@
           <span class="product-switch-active-viewport" aria-hidden="true">
             <span class="product-switch-active-layer">
               <span class="product-switch-active-option">生图工作台</span>
-              <span class="product-switch-active-option">Beta跑图</span>
+              <span class="product-switch-active-option">批量跑图</span>
               <span class="product-switch-active-option">模型评测</span>
             </span>
           </span>
           <a class="product-switch-option" href="/">生图工作台</a>
-          <a class="product-switch-option" href="/beta.html" aria-current="page">Beta跑图</a>
+          <a class="product-switch-option" href="/beta.html" aria-current="page">批量跑图</a>
           <a class="product-switch-option" href="/benchmark.html">模型评测</a>
         </nav>
         <div class="topbar-actions">
@@ -50,7 +50,7 @@
       </header>
 
       <main class="beta-shell">
-        <h1 class="visually-hidden">Beta跑图</h1>
+        <h1 class="visually-hidden">批量跑图</h1>
         <div class="beta-grid">
           <form id="betaForm" class="beta-card beta-config-card">
             <div class="beta-config-scroll">
@@ -302,7 +302,7 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=57"></script>
+    <script type="module" src="/beta-app.js?v=58"></script>
     <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
       <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>
       <p id="housePlanAnnotationHint">先拖动框选主卧</p>

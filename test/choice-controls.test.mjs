@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖node:test/assert、node:fs与主/Beta共享刷新样式及功能/超分/风格下拉的主题、交互CSS和版本化引用
- * [OUTPUT]: 验证功能/超分共享尺寸/表面/选中态、风格下拉引用，以及Main/Beta显式共用刷新视觉且主题不再重复持有
+ * [INPUT]: 依赖 node:test/assert、node:fs、共享刷新符号和样式、静态与动态刷新入口及功能/超分/风格下拉主题
+ * [OUTPUT]: 验证功能/超分共享尺寸/表面/选中态、风格下拉引用及主页面和嵌入工具共用刷新图标
  * [POS]: test 的工作台选择按钮视觉合同护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,12 +33,25 @@ test("功能与超分按钮维持共享尺寸且加载风格下拉样式", async
   assert.match(html, /\/white-model-render-mode\.css\?v=5/);
 });
 
-test("主/Beta显式加载同一刷新按钮样式，SVG保持12px描边", async () => {
-  const [main, beta, refresh, theme] = await Promise.all([
-    "../public/index.html", "../public/beta.html", "../public/config-refresh-button.css", "../public/theme.css",
-  ].map(path => readFile(new URL(path, import.meta.url), "utf8")));
-  for (const html of [main, beta]) assert.equal((html.match(/href="\/config-refresh-button\.css\?v=1"/g) || []).length, 1);
-  assert.match(refresh, /\.config-refresh-button svg\s*\{[^}]*fill: none;[^}]*height: 12px;[^}]*stroke: currentColor;[^}]*width: 12px;/s);
+test("主页面和嵌入工具的刷新图标复用圆角单箭头符号", async () => {
+  const pages = ["index.html", "beta.html", "ai-render-studio.html", "floor-plan-camera.html", "house-plan.html", "scene-cast.html"];
+  const controls = ["config-refresh.js", "effect-beautification-controls.js", "image-relight.js", "panorama-lighting-controls.js", "refined-lighting-controls.js"];
+  const files = [...pages, ...controls, "config-refresh-button.css", "theme.css", "icons/refresh.svg"];
+  const sources = new Map(await Promise.all(files.map(async (file) => [
+    file, await readFile(new URL(`../public/${file}`, import.meta.url), "utf8"),
+  ])));
+  for (const file of pages) {
+    assert.equal((sources.get(file).match(/href="\/config-refresh-button\.css\?v=2"/g) || []).length, 1, file);
+  }
+  const sharedIcon = /<use href="\/icons\/refresh\.svg#refresh"><\/use>/;
+  for (const file of ["index.html", "floor-plan-camera.html", "house-plan.html", "scene-cast.html", ...controls]) {
+    const buttons = sources.get(file).match(/<button\b[^>]*aria-label="刷新[^"]*"[^>]*>[\s\S]*?<\/button>/g) || [];
+    assert.ok(buttons.length > 0, file);
+    for (const button of buttons) assert.match(button, sharedIcon, file);
+  }
+  assert.match(sources.get("icons/refresh.svg"), /<symbol id="refresh"[^>]*>[\s\S]*?stroke="currentColor"[\s\S]*?stroke-linecap="round"/);
+  assert.match(sources.get("config-refresh-button.css"), /\.config-refresh-button \.refresh-icon\s*\{[^}]*height: 14px;[^}]*width: 14px;/s);
+  const theme = sources.get("theme.css");
   assert.doesNotMatch(theme, /\.config-refresh-button\s*\{/);
 });
 

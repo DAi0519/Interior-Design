@@ -1,11 +1,16 @@
 /**
- * [INPUT]: 依赖连接中心 DOM、同源 Setup/Session API、飞书授权中文解释器、`?connect=api` 深链、工作台 API/飞书同步合同状态与配置刷新回调
- * [OUTPUT]: 对外提供 OneAPI 连接/本机记忆、评测页直达 API 管理、中文飞书授权及同步合同状态、Device Flow 与无障碍弹层生命周期控制
+ * [INPUT]: 依赖连接中心和顶栏额度 DOM、同源 Setup/Session/OneAPI 额度 API、飞书授权中文解释器、`?connect=api` 深链及工作台状态回调
+ * [OUTPUT]: 提供合并在顶栏的连接状态与当前 Key 额度刷新、OneAPI 本机记忆、评测页直达 API 管理、飞书授权与同步状态及弹层焦点管理
  * [POS]: public 的运营首次运行控制器，统一连接状态与焦点秩序并与 app.js 生成状态分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { describeMissingLarkScopes } from "./lark-permission-labels.js";
+
+const quotaNumber = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 6 });
+const quotaTime = new Intl.DateTimeFormat("zh-CN", {
+  month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+});
 
 function emptySetup(error = null) {
   return {
@@ -38,12 +43,14 @@ export function bindConnectionCenter({
   const elements = {
     apiKeyInput: document.querySelector("#apiKeyInput"),
     apiNote: document.querySelector("#apiConnectionNote"),
+    apiQuotaDetail: document.querySelector("#apiQuotaDetail"),
+    apiQuotaRefresh: document.querySelector("#apiQuotaRefresh"),
+    apiQuotaValue: document.querySelector("#apiQuotaValue"),
     apiStatus: document.querySelector("#apiConnectionStatus"),
     closeButton: document.querySelector("#closeDialogButton"),
     connectionButton: document.querySelector("#connectionButton"),
     connectionDialog: document.querySelector("#connectionDialog"),
     connectionError: document.querySelector("#connectionError"),
-    connectionLabel: document.querySelector("#connectionLabel"),
     disconnectButton: document.querySelector("#disconnectButton"),
     larkAuthPanel: document.querySelector("#larkAuthPanel"),
     larkBaseState: document.querySelector("#larkBaseState"),
@@ -67,6 +74,8 @@ export function bindConnectionCenter({
   let lastFocusedElement = null;
   let session = { connected: false, persisted: false, source: "none" };
   let setup = emptySetup();
+  let quotaRequest = null;
+  let updatingApiSession = false;
 
   function isOpen() {
     return !elements.connectionDialog.classList.contains("hidden");
@@ -83,6 +92,51 @@ export function bindConnectionCenter({
     return [...elements.connectionDialog.querySelectorAll(selector)].filter(
       (element) => element.getClientRects().length > 0,
     );
+  }
+
+  // --- 仅显示当前 Key 查询的结果 ---
+  function renderQuota(value, detail = "") {
+    elements.apiQuotaValue.textContent = value;
+    elements.apiQuotaDetail.textContent = session.connected
+      ? [`OneAPI 额度 ${value}`, detail].filter(Boolean).join("，")
+      : "";
+    renderOverall();
+  }
+
+  async function refreshQuota() {
+    quotaRequest?.abort();
+    quotaRequest = null;
+    elements.apiQuotaRefresh.hidden = !session.connected;
+    elements.apiQuotaRefresh.disabled = true;
+    if (updatingApiSession || !session.connected) {
+      renderQuota(updatingApiSession ? "连接中…" : "连接中心");
+      return;
+    }
+
+    const request = new AbortController();
+    quotaRequest = request;
+    renderQuota("读取额度…");
+    try {
+      const { remaining, currency, unlimited, checkedAt } = await api("/api/oneapi/quota", {
+        cache: "no-store", signal: request.signal,
+      });
+      if (quotaRequest !== request) return;
+      const time = typeof checkedAt === "string" ? Date.parse(checkedAt) : NaN;
+      const detail = Number.isFinite(time) ? `查询时间 ${quotaTime.format(time)}` : "";
+      const amount = Number.isFinite(remaining)
+        ? [quotaNumber.format(remaining), currency].filter(Boolean).join(" ")
+        : "暂不可用";
+      renderQuota(unlimited ? "不限额" : amount, detail);
+    } catch (error) {
+      if (quotaRequest === request) {
+        renderQuota("额度查询失败", error.statusCode === 404 ? "额度接口暂不可用" : error.message);
+      }
+    } finally {
+      if (quotaRequest === request) {
+        quotaRequest = null;
+        elements.apiQuotaRefresh.disabled = false;
+      }
+    }
   }
 
   function open({ focusApi = false } = {}) {
@@ -122,11 +176,14 @@ export function bindConnectionCenter({
     const partial = session.connected || setup.ready;
     elements.connectionButton.classList.toggle("connected", ready);
     elements.connectionButton.classList.toggle("partial", !ready && partial);
-    elements.connectionLabel.textContent = ready
+    const status = ready
       ? "连接已就绪"
       : partial
         ? "连接待完善"
-        : "连接中心";
+        : "尚未连接";
+    const label = `打开连接中心，${status}`;
+    elements.connectionButton.setAttribute("aria-label", label);
+    elements.connectionButton.title = [label, elements.apiQuotaDetail.textContent].filter(Boolean).join(" · ");
   }
 
   function renderApi(nextSession) {
@@ -211,11 +268,16 @@ export function bindConnectionCenter({
   }
 
   async function load({ autoOpen = true } = {}) {
-    const [sessionBody, setupBody] = await Promise.all([
-      api("/api/session"),
+    const previousSession = session;
+    const [, setupBody] = await Promise.all([
+      api("/api/session").then((body) => {
+        if (session === previousSession) {
+          renderApi(body);
+          void refreshQuota();
+        }
+      }),
       loadSetup(),
     ]);
-    renderApi(sessionBody);
     renderSetup(setupBody);
     const url = new URL(window.location.href);
     const apiDeepLink = url.searchParams.get("connect") === "api";
@@ -226,10 +288,24 @@ export function bindConnectionCenter({
     if (apiDeepLink || (autoOpen && (!session.connected || !setup.ready))) {
       open({ focusApi: !session.connected });
     }
-    return sessionBody;
+    return session;
+  }
+
+  async function updateApiSession(options) {
+    updatingApiSession = true;
+    void refreshQuota();
+    try {
+      const body = await api("/api/session", options);
+      renderApi(body);
+      return body;
+    } finally {
+      updatingApiSession = false;
+      void refreshQuota();
+    }
   }
 
   async function connectApi() {
+    if (updatingApiSession || elements.saveConnectionButton.disabled) return;
     const apiKey = elements.apiKeyInput.value.trim();
     elements.connectionError.classList.add("hidden");
     pendingButton(
@@ -240,7 +316,7 @@ export function bindConnectionCenter({
     );
 
     try {
-      const body = await api("/api/session", {
+      const body = await updateApiSession({
         body: JSON.stringify({
           apiKey,
           remember: elements.rememberApiKey.checked,
@@ -248,7 +324,6 @@ export function bindConnectionCenter({
         method: "POST",
       });
       elements.apiKeyInput.value = "";
-      renderApi(body);
       showToast(body.warning || "API 已连接");
       await onApiConnected();
       if (setup.ready) close();
@@ -266,10 +341,16 @@ export function bindConnectionCenter({
   }
 
   async function disconnectApi() {
-    const body = await api("/api/session", { method: "DELETE" });
-    renderApi(body);
-    onApiDisconnected();
-    showToast(body.warning || "已断开 API 连接");
+    if (updatingApiSession) return;
+    elements.connectionError.classList.add("hidden");
+    try {
+      const body = await updateApiSession({ method: "DELETE" });
+      onApiDisconnected();
+      showToast(body.warning || "已断开 API 连接");
+    } catch (error) {
+      elements.connectionError.textContent = error.message;
+      elements.connectionError.classList.remove("hidden");
+    }
   }
 
   async function startLarkLogin() {
@@ -361,6 +442,7 @@ export function bindConnectionCenter({
   elements.closeButton.addEventListener("click", close);
   elements.saveConnectionButton.addEventListener("click", connectApi);
   elements.disconnectButton.addEventListener("click", disconnectApi);
+  elements.apiQuotaRefresh.addEventListener("click", refreshQuota);
   elements.larkLoginButton.addEventListener("click", startLarkLogin);
   elements.larkCompleteButton.addEventListener("click", completeLarkLogin);
   elements.larkRefreshButton.addEventListener("click", refreshLark);

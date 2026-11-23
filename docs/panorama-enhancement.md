@@ -26,7 +26,7 @@
 
 2026-11-19 光影槽试验：用户要求模板退回上周，并移除日间柔灯/暖光层映。飞书当前九卡恢复原v5（金色夕照v3），默认v4保持；独立试验用同一1774×887空房/seed42，默认＋九卡共十项。模板词替换默认第10句及照明冲突从句，不叠加公共v4。该编译方式目前仅用于本轮原生探针，下面的Main/Beta现有公共v4协议仍有效，不能把试验当作已上线。详细替换范围见[光影槽说明](../outputs/panorama-lighting-slot-20261119/slot-plan.md)，[查看十项对照](http://127.0.0.1:61720/report.html)。十项已全部生成且技术核验10/10；视觉方案未通过，夕照仍有孤立光斑，暖夜出现新增落地灯/家具状实体和天花补绘。详见[本轮报告](../outputs/panorama-lighting-slot-20261119/review.md)。CF本轮不更新。
 
-主工作台与 Beta跑图的“全景图美化”共用正式生成服务。选择 Flux2 Klein 时使用 `panorama-r5-4@2026-11-18.1`（FastFlux2），保持独立全景工作流；其他支持2:1的模型继续走各自 OneAPI。所有 ComfyUI 工作流共用楚雄环境 `http://maas-workflow-plg-prodtestplgcx.k8s-chuxiong.qunhequnhe.com/`；用户链接中的 `#e730c989-81e1-490f-825e-61a4975b5988` 仅用于编辑器定位。
+主工作台与批量跑图的“全景图美化”共用正式生成服务。选择 Flux2 Klein 时使用 `panorama-r5-4@2026-11-18.1`（FastFlux2），保持独立全景工作流；其他支持2:1的模型继续走各自 OneAPI。所有 ComfyUI 工作流共用楚雄环境 `http://maas-workflow-plg-prodtestplgcx.k8s-chuxiong.qunhequnhe.com/`；用户链接中的 `#e730c989-81e1-490f-825e-61a4975b5988` 仅用于编辑器定位。
 
 日常入口为 `http://127.0.0.1:4192/?feature=panoramaEnhancement`。2026-10-29已确认Main/Beta待运行且4192无外部在途连接后重载，实际目录回读R5_4版本和 `generationFeatureCapabilities.panoramaEnhancement.multipleLightingSelections=true`。缺少多选能力的旧进程阻断多光影提交；逐卡版本/SHA过时返回409且不创建生成任务。4193保留为此前授权的独立预览。
 

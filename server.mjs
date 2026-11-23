@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖http-response的统一响应写入；依赖floor-plan-camera-service的机位墙线分析、裁剪送模预览、渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步、scene-cast-api的模特任务与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: 提供三个平面图出图入口、机位墙线分析/实际送模预览与逐图飞书归档，归档状态查询和续传；组合AI渲染台、AI模特、主工作台、Beta机位与多角度跑图、模型评测、更新忙碌守卫及配置、连接、生成和下载接口。
+ * [OUTPUT]: 提供三个平面图出图入口、机位墙线分析/实际送模预览与逐图飞书归档，归档状态查询和续传；组合AI渲染台、AI模特、主工作台、Beta机位与多角度跑图、模型评测、更新忙碌守卫及配置、连接、OneAPI Key 额度、生成和下载接口。
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界；仅向主工作台机位任务注入 Qwen 生图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -565,11 +565,12 @@ async function handleApi(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/style-transfer/config") {
     return sendJson(response, 200, await publicStyleTransferConfig());
   }
-
   if (request.method === "GET" && pathname === "/api/session") {
     return sendJson(response, 200, await publicSession());
   }
-
+  if (request.method === "GET" && pathname === "/api/oneapi/quota") {
+    return sendJson(response, 200, await createOneApiClient(requireApiKey()).getQuota());
+  }
   if (request.method === "GET" && pathname === "/api/setup/status") {
     return sendJson(
       response,
@@ -577,7 +578,6 @@ async function handleApi(request, response, pathname) {
       await larkSetup.status({ verifyBase: verifyLarkConfiguration }),
     );
   }
-
   if (
     request.method === "POST" &&
     pathname === "/api/setup/lark-login"
