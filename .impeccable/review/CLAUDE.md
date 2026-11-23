@@ -7,7 +7,7 @@ qwen-outpaint/: 2026-10-15 Qwen两次真实生成与归档原件；旧1K级样�
 qwen-outpaint-alignment/: 2026-10-19 Qwen同尺度修复的用户源图与真实前后结果；source.jpg被独立多角度预览脚本读取，保持原路径原字节，详见qwen-outpaint-alignment/CLAUDE.md
 qwen-outpaint-seam/: 2026-10-19 Qwen去回贴的真实完整解码图和2K成品，68.982秒；缝减轻但未称完全无缝，详见qwen-outpaint-seam/CLAUDE.md
 janus-outpaint/: 2026-10-19 Qwen与Flux真实成品及实际Prompt/飞书身份；原字段已合并validation，不外推多场景画质，详见janus-outpaint/CLAUDE.md
-effect-beautification/: 2026-10-23低自然/高冷两次真实canary与共同源图；专属图执行归档通过，不等于六预设画质验收，详见effect-beautification/CLAUDE.md
+effect-beautification/: 2026-10-23两次真实canary与共同源图，以及11月3日原任务超时诊断和真实恢复原件；旧界面截图已清理，详见effect-beautification/CLAUDE.md
 cabinet-geometry/: 空房v34真实任务/Prompt/归档与几何审查；柜体部分改善，原结构保真未通过，详见cabinet-geometry/CLAUDE.md
 room-renovation/: 旧房两阶段实际样本身份与合同验证，模型质量与界面显示分别判断，详见room-renovation/CLAUDE.md
 CLAUDE.md: 真实生成关键原件与最小验证身份的唯一目录索引

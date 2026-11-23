@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖双层 Canvas2D、球面容器、原图节点与可插值机位
- * [OUTPUT]: createCameraScene 提供分层缓存的前后半球网、居中原图遮挡、透视机身/镜头/LCD与视锥的按需绘制
+ * [OUTPUT]: createCameraScene 提供分层缓存的前后半球网、居中原图遮挡、含正俯视朝向的透视机身/镜头/LCD与视锥绘制
  * [POS]: public 摄影机球的纯绘制层，由 camera-sphere 调度，不管理输入或生成任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -76,7 +76,11 @@ export function createCameraScene(stage, { light = false } = {}) {
     return true;
   }
   function drawCamera(context, center, pose, sourceImage) {
-    const forward = norm(mul(center, -1)), right = norm(cross(forward, [0, 1, 0])), up = norm(cross(right, forward));
+    const forward = norm(mul(center, -1));
+    // -------- 正俯视时仍由水平角确定机身朝向 --------
+    const azimuth = rad(pose.azimuth);
+    const right = [Math.cos(azimuth), 0, -Math.sin(azimuth)];
+    const up = norm(cross(right, forward));
     const size = .8 * Math.min(1.2, Math.max(.85, 165 / radius));
     const local = (x, y, z) => add(center, mul(add(mul(right, x), add(mul(up, y), mul(forward, z))), size));
     const faces = [];

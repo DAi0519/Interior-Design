@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 DOM/Popover、选项目录与展示函数、可选多选业务规则
- * [OUTPUT]: bindChoiceSelect / filterChoiceCatalog / stabilizePointerFocus，统一单选、多选、搜索、键盘、模态内浮层定位和禁用行为
+ * [OUTPUT]: bindChoiceSelect / filterChoiceCatalog / stabilizePointerFocus，统一下拉、键盘及模态浮层，挂载到同一文档的菜单ID唯一
  * [POS]: public 共享下拉组件库唯一渲染器；custom-select 适配原生表单，model-multi-select 注入模型规则
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -73,7 +73,7 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
   if (!searchable) trigger.setAttribute("role", "combobox");
   trigger.setAttribute("aria-expanded", "false");
   const panel = element("div", "model-picker-popover");
-  panel.id = `model-picker-${++pickerSequence}`;
+  do { panel.id = `model-picker-${++pickerSequence}`; } while (doc.getElementById?.(panel.id));
   panel.setAttribute("popover", "auto");
   panel.setAttribute("role", searchable ? "dialog" : "listbox");
   panel.setAttribute("aria-label", multiple ? `选择${label}` : label);

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖Beta附件操作、ONEAPI_OUTPAINT_ENGINE_KEYS共享扩图引擎白名单； 依赖户型布局归档适配器； 依赖模型/图片输入Agent/精模三方式冻结资产与共享双图判定、Flux后置超分身份、扩图真源、全景及超分独立归档合同、Beta三表和图片基础设施
- * [OUTPUT]: 自由生图图片批次逐样本归档原图及共享提示词并复核冷恢复；Beta扩图建档覆盖GPT2.5/2.6实际模型标签； 对外提供Flux后置超分冻结快照/实际版本摘要与旧3B历史快照恢复、三表Schema/含质感增强的十二功能快照、旧房独立场景/版本快照与实际Agent一致性、美化新增光影卡片身份及版本、当前模型名与历史别名兼容、精模图序及全景卡片/执行图/原图与结果SHA归档回读、KS固定5K/20MP纯合同和旧归档恢复
+ * [INPUT]: 依赖机位/多角度/户型布局归档合同、Beta附件操作、只读CLI连接重试、三表Schema及各功能归档合同
+ * [OUTPUT]: 提供独立功能的冻结配置、实际指令/生成参数和附件回读，以及样本原图、机位结果校验和飞书全景规则ID/版本/SHA及已有成品旧合同/执行图恢复
  * [POS]: src 的 Beta跑图独立持久化边界，以样本集→样本→跑图明细组织资产，以测试时间分组隔离各批结果，并以飞书成功状态和结果附件回读共同裁决完成态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
@@ -18,20 +19,20 @@ import {
 } from "./image-artifact.mjs";
 import { runLarkCli } from "./lark-cli.mjs";
 import { createBetaSampleStore } from "./beta-sample-store.mjs";
-import { betaBaseContractError, normalizeBetaBaseError, verifyBetaBaseSchema } from "./beta-base-schema.mjs";
+import { betaBaseContractError, betaRunModelLabel, normalizeBetaBaseError, verifyBetaBaseSchema } from "./beta-base-schema.mjs";
 import { assertAttachmentReadback, downloadBetaAttachment, materializeImages, uploadAttachments } from "./beta-base-attachments.mjs";
+import { assertFloorPlanCameraArchiveInput, BETA_FLOOR_PLAN_CAMERA_LABEL, floorPlanCameraArchiveSnapshot,
+  restoreFloorPlanCameraArchiveSnapshot, verifyFloorPlanCameraArchive } from "./beta-floor-plan-camera-archive.mjs";
+import { BETA_MULTI_ANGLE_LABEL, multiAngleArchiveSnapshot, verifyBetaMultiAngleArchive } from "./beta-multi-angle-archive.mjs";
 import { actualImageSize, buildRecordFields, recordIdFrom } from "./lark-sync.mjs";
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
-import { MODEL_CONFIGS, normalizeFluxPostUpscaleInput, publicModelCatalog } from "./model-config.mjs";
-import { ONEAPI_OUTPAINT_ENGINE_KEYS } from "./image-outpaint-oneapi.mjs";
-import { QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW } from "./image-outpaint-qwen.mjs";
-import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
+import { MODEL_CONFIGS, normalizeFluxPostUpscaleInput } from "./model-config.mjs";
 import { IMAGE_UPSCALE_DEFAULT_WORKFLOW_KEY, imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
 import { isLegacyKsArchive, verifyUpscaleArchive as verifyUpscaleArchiveContract } from "./beta-upscale-archive-contract.mjs";
 import { hasRefinedLightingInput, resolveRefinedLightingInput } from "./refined-lighting.mjs";
 import { housePlanArchiveSnapshot, verifyHousePlanArchive } from "./beta-house-plan.mjs";
 import { isLightingReference } from "../public/refined-flux-reference.js";
-import { panoramaArchiveSnapshot, verifyPanoramaArchive } from "./beta-panorama-archive-contract.mjs";
+import { panoramaArchiveSnapshot, restorePanoramaArchiveSnapshot, verifyPanoramaArchive } from "./beta-panorama-archive-contract.mjs";
 
 async function lightingReferences(input, featureMode = input?.featureMode, resolveLighting = resolveRefinedLightingInput) {
   if (featureMode === "refinedModel" && hasRefinedLightingInput(input)) {
@@ -81,6 +82,7 @@ export const BETA_BASE_CONFIG = Object.freeze({
 
 const FEATURE_LABELS = Object.freeze({
   housePlanLayout: "户型平面布局",
+  floorPlanCamera: BETA_FLOOR_PLAN_CAMERA_LABEL,
   textureEnhancement: "质感增强",
   effectEnhancement: "效果图氛围转换",
   effectBeautification: "效果图美化",
@@ -88,6 +90,7 @@ const FEATURE_LABELS = Object.freeze({
   emptyRoom: "空房设计",
   roomRenovation: "旧房改造",
   free: "自由生图",
+  imageMultiAngle: BETA_MULTI_ANGLE_LABEL,
   imageOutpaint: "AI扩图",
   imageUpscale: "AI超分",
   refinedModel: "精模渲染",
@@ -125,6 +128,8 @@ export function betaFeatureLabel(featureMode) {
 export function betaSceneParameters(input = {}) {
   return compactObject({
     ...housePlanArchiveSnapshot(input),
+    camera: input.featureMode === "floorPlanCamera" ? input.camera : undefined,
+    cameraPose: input.featureMode === "imageMultiAngle" ? input.cameraPose : undefined,
     featureMode: input.featureMode,
     designScenario: input.designScenario,
     furnitureSelection: input.furnitureSelection,
@@ -148,6 +153,8 @@ export function betaSceneParameters(input = {}) {
 export function betaConfigSnapshot(input = {}) {
   return compactObject({
     ...housePlanArchiveSnapshot(input),
+    ...floorPlanCameraArchiveSnapshot(input),
+    ...multiAngleArchiveSnapshot(input),
     emptyRoomPromptAgentVersion: input.emptyRoomPromptAgentVersion,
     emptyRoomSmartDefaultVersion: input.emptyRoomSmartDefaultVersion,
     roomRenovationPromptAgentVersion: input.roomRenovationPromptAgentVersion,
@@ -179,6 +186,7 @@ export function betaConfigSnapshot(input = {}) {
     } : {}),
     panoramaPromptVersion: input.panoramaPromptVersion,
     panoramaLighting: input.featureMode === "panoramaEnhancement" ? input.panoramaLighting : undefined,
+    panoramaLightingRule: input.featureMode === "panoramaEnhancement" ? input.panoramaLightingRule : undefined,
     ...panoramaArchiveSnapshot(input),
     quality: input.quality,
     ratio: input.ratio,
@@ -280,37 +288,12 @@ export function captureBetaGenerationArchive(input) {
   };
 }
 
-function runModelLabel(item, featureMode) {
-  if (featureMode === "imageUpscale") {
-    try {
-      const workflow = imageUpscaleWorkflow(item.input?.upscaleWorkflowKey);
-      if (item.input.modelKey != null && item.input.modelKey !== workflow.key) throw new Error("模型与工作流不一致");
-      return workflow.label;
-    } catch (cause) { throw betaBaseContractError("Beta 超分工作流缺少合法的目录标签", cause); }
-  }
-  if (featureMode === "imageOutpaint") {
-    const engine = item.input?.outpaintEngine ?? "comfyui";
-    if (engine === QWEN_OUTPAINT_ENGINE_KEY) return QWEN_OUTPAINT_WORKFLOW.label;
-    if (ONEAPI_OUTPAINT_ENGINE_KEYS.includes(engine)) return MODEL_CONFIGS[engine].label;
-    if (engine === "comfyui") {
-      try { return resolveImageOutpaintModel(item.input?.outpaintModel).label; }
-      catch (cause) { throw betaBaseContractError("Beta 扩图模型缺少合法的目录标签", cause); }
-    }
-    throw betaBaseContractError("Beta 扩图引擎缺少合法的目录标签");
-  }
-  const catalog = publicModelCatalog();
-  const model = catalog.find((entry) => entry.key === item.input?.modelKey)
-    || catalog.find((entry) => entry.label === item.modelLabel || entry.legacyLabels?.includes(item.modelLabel));
-  if (!model) throw betaBaseContractError("Beta 出图模型缺少合法的目录标签");
-  return model.key === item.input?.modelKey ? model.label : item.modelLabel;
-}
-
-function promptModelLabel(value) {
+function promptModelLabel(value, featureMode) {
   if (value == null || value === "") return null;
   if (typeof value !== "string") throw betaBaseContractError("Beta Prompt融合必须是单个模型标签");
   const label = value.trim();
   if (!label) return null;
-  if (!publicAgentModelCatalog().some((model) => model.imageInput && model.label === label)) {
+  if (!publicAgentModelCatalog(featureMode).some((model) => model.imageInput && model.label === label)) {
     throw betaBaseContractError(`Beta Prompt融合不在图片输入 Agent 目录：${label}`);
   }
   return label;
@@ -318,8 +301,9 @@ function promptModelLabel(value) {
 
 export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
   const attempt = Number(item.attempt || 1);
-  const input = ["imageUpscale", "panoramaEnhancement", "textureEnhancement"].includes(featureMode) ? { ...item.input, featureMode } : item.input;
-  const modelLabel = runModelLabel(item, featureMode);
+  const input = ["floorPlanCamera", "imageMultiAngle", "imageUpscale", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)
+    ? { ...item.input, featureMode } : item.input;
+  const modelLabel = betaRunModelLabel(item, featureMode);
   return {
     "Run ID": String(item.runId || ""),
     "批次 ID": String(batchId || ""),
@@ -327,7 +311,7 @@ export function buildBetaRunFields({ batchId, featureMode, item, testTime }) {
     "功能": betaFeatureLabel(featureMode),
     "样本 ID": String(item.caseId || ""),
     "状态": "运行中",
-    "输入文本": String(item.input?.prompt || "").trim(),
+    "输入文本": input.floorPlanCameraGenerationMode === "direct" ? input.prompt : String(input.prompt || "").trim(),
     "场景参数": JSON.stringify(betaSceneParameters(input)),
     "配置快照": JSON.stringify(betaConfigSnapshot(input)),
     "出图模型": modelLabel,
@@ -432,12 +416,23 @@ export function createBetaBaseStore({
   const runArchives = new Map();
   const recoveryRecords = new Map();
   const run = async (...args) => {
-    try { return await executeCli(...args); }
-    catch (error) { throw normalizeBetaBaseError(error); }
+    const command = args[1]?.[1];
+    const safeRead = ["+record-list", "+record-get", "+field-list", "+table-get", "+record-download-attachment"].includes(command);
+    for (let attempt = 0; ; attempt += 1) {
+      try { return await executeCli(...args); }
+      catch (error) {
+        if (!safeRead || attempt >= 2 || !/\bEOF\b|TLS handshake timeout|connection reset|socket hang up|fetch failed/i.test(error.message || "")) {
+          throw normalizeBetaBaseError(error);
+        }
+        await delay(250 * (attempt + 1));
+      }
+    }
   };
   return {
-    verifySchema() {
-      return verifyBetaBaseSchema({ config, featureLabels: Object.values(FEATURE_LABELS), run });
+    verifySchema({ featureMode } = {}) {
+      const featureLabels = Object.entries(FEATURE_LABELS)
+        .filter(([mode]) => !["floorPlanCamera", "imageMultiAngle"].includes(mode) || mode === featureMode).map(([, label]) => label);
+      return verifyBetaBaseSchema({ config, featureLabels, featureMode, run });
     },
     config: {
       baseUrl: recordUrl(config),
@@ -449,6 +444,7 @@ export function createBetaBaseStore({
     ...createBetaSampleStore({ config, run, featureLabels: FEATURE_LABELS, createRecord, updateRecord,
       listRecords, getRecord, uploadAttachments }),
     async beginRun({ batchId, featureMode, item, testTime }) {
+      if (featureMode === "floorPlanCamera") assertFloorPlanCameraArchiveInput(item.input);
       if (item.usesSampleImage && item.input?.referenceImages?.length !== 1) {
         throw betaBaseContractError("自由生图图片样本需要归档唯一原图");
       }
@@ -458,6 +454,8 @@ export function createBetaBaseStore({
       }
       if (featureMode === "imageUpscale" && (item.input?.referenceImages?.length !== 1
         || item.input?.styleReferenceImages?.length)) throw betaBaseContractError("AI超分归档需要唯一原图且不使用风格参考图");
+      if (featureMode === "imageMultiAngle" && (item.input?.referenceImages?.length !== 1
+        || item.input?.styleReferenceImages?.length)) throw betaBaseContractError("多角度归档需要唯一原图且不使用风格参考图");
       const styleReferences = await lightingReferences(item.input, featureMode, resolveLighting);
       const fields = buildBetaRunFields({ batchId, featureMode, item, testTime });
       const recordId = await createRecord(
@@ -494,7 +492,7 @@ export function createBetaBaseStore({
           styleFiles.files,
           directory,
         );
-        if (item.usesSampleImage || ["housePlanLayout", "roomRenovation", "styleTransfer", "imageOutpaint", "imageUpscale", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)
+        if (item.usesSampleImage || ["floorPlanCamera", "housePlanLayout", "roomRenovation", "styleTransfer", "imageMultiAngle", "imageOutpaint", "imageUpscale", "panoramaEnhancement", "textureEnhancement"].includes(featureMode)
           || featureMode === "refinedModel" && hasRefinedLightingInput(item.input)) {
           inputAttachments = { "输入图": inputFiles.sizes, "风格参考图": styleFiles.sizes };
         }
@@ -506,9 +504,21 @@ export function createBetaBaseStore({
     },
     async completeRun(recordId, result) {
       const directory = await mkdtemp(join(tmpdir(), "canvas-lab-beta-result-"));
+      const runArchive = runArchives.get(recordId);
+      const frozen = runArchive?.fields;
+      const cameraSnapshot = frozen?.["功能"] === BETA_FLOOR_PLAN_CAMERA_LABEL ? JSON.parse(frozen["配置快照"]) : null;
+      const costUsd = betaResultCostUsd(result);
+      const completionFields = {
+        "状态": "成功",
+        "Prompt / 工作流版本": betaResultVersion(result),
+        "时延（ms）": Math.round(Number(result.durationMs) || 0),
+        ...(costUsd == null ? {} : { "费用（USD）": costUsd }),
+        "错误信息": "",
+      };
       let previewUrl;
       let resultBytes;
       let generatedFields;
+      let verifiedCameraAttachments;
       try {
         const image = result.images?.[0];
         if (!image?.url) throw new Error("Beta跑图没有可归档的结果图");
@@ -517,10 +527,22 @@ export function createBetaBaseStore({
         resultBytes = await loadImageBytes(image.url);
         generatedFields = {
           ...(result.sync?.archiveFields || {}),
-          "Prompt融合": promptModelLabel(result.sync?.archiveFields?.["Prompt融合"]),
+          "Prompt融合": promptModelLabel(result.sync?.archiveFields?.["Prompt融合"], cameraSnapshot ? "floorPlanCamera" : undefined),
           "尺寸": actualImageSize(resultBytes),
         };
-        const frozen = runArchives.get(recordId)?.fields;
+        if (cameraSnapshot) {
+          if (result.images.length !== 1) throw betaBaseContractError("平面图机位结果必须是唯一图片");
+          verifyFloorPlanCameraArchive(generatedFields, cameraSnapshot, { imageBytes: resultBytes, completion: completionFields });
+          // --- 先保存完整回执，进程中断后可用既有附件恢复。 ---
+          const { "状态": _status, "错误信息": _error, ...cameraCompletion } = completionFields;
+          Object.assign(generatedFields, cameraCompletion);
+        }
+        if (frozen?.["功能"] === BETA_MULTI_ANGLE_LABEL) {
+          if (result.images.length !== 1) throw betaBaseContractError("多角度结果必须是唯一图片");
+          const { "状态": _status, "错误信息": _error, ...receipt } = completionFields;
+          Object.assign(generatedFields, receipt);
+          verifyBetaMultiAngleArchive(generatedFields, JSON.parse(frozen["配置快照"]), resultBytes);
+        }
         if (frozen) verifyFluxPostUpscaleArchive(generatedFields, JSON.parse(frozen["配置快照"]));
         if (frozen?.["功能"] === "户型平面布局") verifyHousePlanArchive(generatedFields, JSON.parse(frozen["配置快照"]), resultBytes);
         if (frozen?.["功能"] === "旧房改造") verifyRoomRenovationArchive(generatedFields, JSON.parse(frozen["配置快照"]));
@@ -551,19 +573,20 @@ export function createBetaBaseStore({
         context.resultUpload = uploadIdentity;
         runArchives.set(recordId, context);
         if (!uploaded) await uploadAttachments(run, config, recordId, config.resultFieldId, [file], directory);
+        if (cameraSnapshot) {
+          const readback = await getRecord(run, config, config.tableId, recordId, ["输入图", "结果图"]);
+          const attachments = readback?.fields;
+          assertAttachmentReadback(attachments, "输入图", runArchive.inputAttachments["输入图"]);
+          assertAttachmentReadback(attachments, "结果图", [resultBytes.length]);
+          verifiedCameraAttachments = ["输入图", "结果图"].map(name => attachments[name][0].file_token);
+          const [submittedBytes, imageBytes] = await Promise.all(verifiedCameraAttachments.map((token, index) =>
+            downloadBetaAttachment(run, config, recordId, token, `verify-${index}`, directory)));
+          verifyFloorPlanCameraArchive(generatedFields, cameraSnapshot, { imageBytes, submittedBytes });
+        }
       } finally {
         await rm(directory, { force: true, recursive: true });
       }
-      const costUsd = betaResultCostUsd(result);
-      const completionFields = {
-        "状态": "成功",
-        "Prompt / 工作流版本": betaResultVersion(result),
-        "时延（ms）": Math.round(Number(result.durationMs) || 0),
-        ...(costUsd == null ? {} : { "费用（USD）": costUsd }),
-        "错误信息": "",
-      };
       await updateRecord(run, config, recordId, completionFields);
-      const runArchive = runArchives.get(recordId);
       const expectedFields = { ...(runArchive?.fields || {}), ...generatedFields, ...completionFields };
       const archived = await getRecord(
         run,
@@ -578,6 +601,9 @@ export function createBetaBaseStore({
           assertAttachmentReadback(archived?.fields, name, sizes);
         }
         assertAttachmentReadback(archived?.fields, "结果图", [resultBytes.length]);
+      }
+      if (verifiedCameraAttachments?.some((token, index) => archived?.fields?.[["输入图", "结果图"][index]]?.[0]?.file_token !== token)) {
+        throw betaBaseContractError("平面图机位校验后的附件 token 改变");
       }
       const resultAttachment = archived?.fields?.["结果图"]?.[0];
       if (selectValue(archived?.fields?.["状态"]) !== "成功"
@@ -620,6 +646,10 @@ export function createBetaBaseStore({
         "生成参数", "最终 Prompt", "尺寸", "时延（ms）", "费用（USD）", "Prompt融合", "Agent 编码", "Agent 版本", "Prompt / 工作流版本"])];
       const archived = await getRecord(run, config, config.tableId, candidate.recordId, fieldsToRead);
       const fields = archived?.fields || {};
+      if (featureMode === "floorPlanCamera") {
+        frozen["配置快照"] = JSON.stringify(restoreFloorPlanCameraArchiveSnapshot(
+          JSON.parse(frozen["配置快照"]), fields["配置快照"]));
+      }
       if (item.input.postUpscaleWorkflowKey) {
         let stored;
         try { stored = JSON.parse(fields["配置快照"]); }
@@ -652,17 +682,8 @@ export function createBetaBaseStore({
         frozen["配置快照"] = JSON.stringify(expectedSnapshot);
       }
       if (featureMode === "panoramaEnhancement") {
-        let stored;
-        try { stored = JSON.parse(fields["配置快照"]); } catch { throw betaBaseContractError("已有全景缺少可信的冻结配置"); }
-        if (!stored || typeof stored !== "object" || Array.isArray(stored)) throw betaBaseContractError("已有全景冻结配置格式不正确");
-        const expected = JSON.parse(frozen["配置快照"]);
-        if (stored.panoramaArchiveVersion === 1 && !expected.panoramaSource) expected.panoramaSource = stored.panoramaSource;
-        if (!stored.panoramaArchiveVersion) {
-          if (expected.panoramaLightingMode !== "preserve") throw betaBaseContractError("旧全景归档不能恢复新的光影目标任务");
-          for (const key of Object.keys(expected).filter(key => key.startsWith("panorama") && key !== "panoramaPromptVersion")) delete expected[key];
-          if (expected.resolution === "original") expected.resolution = stored.resolution;
-        }
-        frozen["配置快照"] = JSON.stringify(expected);
+        frozen["配置快照"] = JSON.stringify(restorePanoramaArchiveSnapshot(
+          JSON.parse(frozen["配置快照"]), fields["配置快照"]));
       }
       verifyMetadata(fields, frozen);
       const attachments = fields["结果图"];
@@ -713,6 +734,12 @@ export function createBetaBaseStore({
           || (workflow.outputSha256 && createHash("sha256").update(bytes).digest("hex") !== workflow.outputSha256)) {
           throw betaBaseContractError("已有结果附件字节数、尺寸或 SHA-256 不一致");
         }
+        if (featureMode === "floorPlanCamera") {
+          const submittedBytes = await downloadBetaAttachment(run, config, candidate.recordId,
+            fields["输入图"][0].file_token, "input-image", directory);
+          if (submittedBytes.length !== Number(fields["输入图"][0].size)) throw betaBaseContractError("已有机位输入附件字节数不一致");
+          verifyFloorPlanCameraArchive(fields, JSON.parse(frozen["配置快照"]), { imageBytes: bytes, submittedBytes, completion: fields });
+        }
         if (featureMode === "panoramaEnhancement") {
           const snapshot = JSON.parse(frozen["配置快照"]);
           const sourceBytes = snapshot.panoramaArchiveVersion === 1
@@ -720,6 +747,7 @@ export function createBetaBaseStore({
             : null;
           verifyPanoramaArchive(fields, snapshot, { bytes, sourceBytes, recovering: true });
         }
+        if (featureMode === "imageMultiAngle") verifyBetaMultiAngleArchive(fields, JSON.parse(frozen["配置快照"]), bytes);
       } finally { await rm(directory, { force: true, recursive: true }); }
       const completion = { "状态": "成功", "错误信息": "" };
       await updateRecord(run, config, candidate.recordId, completion);

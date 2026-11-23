@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化六档与新增模板混合多选控制器、独立扩图/超分和风格转换快照及重渲染回调
- * [OUTPUT]: 独立保存恢复自由生图整批提示词、精模光影/手动模型及提示词版本，支持美化混选/显式空选及旧草稿迁移、普通表单和切页落盘
+ * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化六档与新增模板混合多选控制器、独立扩图/超分/多角度和风格转换快照及重渲染回调
+ * [OUTPUT]: 独立保存恢复自由生图整批提示词、多角度机位与模型、精模光影/手动模型及提示词版本，支持美化混选/显式空选及旧草稿迁移、普通表单和切页落盘
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { saveBetaPageState } from "./beta-page-state.js?v=11";
+import { saveBetaPageState } from "./beta-page-state.js?v=12";
 
 function restoreTextValue(input, value) {
   if (typeof value === "string") input.value = value;
@@ -73,6 +73,7 @@ export function createBetaConfigurationPersistence({
     saveBetaPageState(storage, {
       controls: controls(),
       featureMode: pageState.featureMode,
+      multiAngle: pageState.multiAngle,
       outpaint: pageState.outpaint,
       upscale: pageState.upscale,
       sampleSetIds: pageState.sampleSetIds,

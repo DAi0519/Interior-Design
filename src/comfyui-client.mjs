@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Node fetch/WebSocket/crypto、comfyui-timing数字分段计时、共享超分能力与KS时限、可注入的工作流/输出节点/产物命名/元数据适配器、图片及取消信号
- * [OUTPUT]: 对外提供ComfyUI只读探测/原子生成、嵌入KS提交前节点/模型准入与15分钟执行/5分钟排队、提交未知不重提及PNG精确交付，保留普通消费者阶段/取消/耗时与读取重试合同
+ * [OUTPUT]: 对外提供楚雄共享默认环境、只读GET网关/连接短暂失败重读与单次GPU提交、嵌入KS节点准入/时限及PNG精确交付，保留取消/耗时和未知提交不重提合同
  * [POS]: src 的通用 ComfyUI 传输边界，与 oneapi-client.mjs 并列并让 Flux 生图、SeedVR2 超分及 AI 扩图复用同一异步协议
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,7 +19,7 @@ import {
 } from "./ai-texture-workflow.mjs";
 
 export const DEFAULT_COMFYUI_BASE_URL =
-  "http://maas-workflow-app-50-prodtestzwapp50.k8s-zhongwei.qunhequnhe.com/";
+  "http://maas-workflow-plg-prodtestplgcx.k8s-chuxiong.qunhequnhe.com/";
 
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 const DEFAULT_TIMEOUT_MS = 300_000;
@@ -315,10 +315,19 @@ export function createComfyUiClient({
   }
 
   async function requestJson(pathname, { retryGateway = false, requireJson = false, timing = null, timingStage = null, ...options } = {}) {
-    const attempts = retryGateway ? MAX_GATEWAY_READ_ATTEMPTS : 1;
+    const safeRead = !options.method || options.method.toUpperCase() === "GET";
+    const attempts = retryGateway && safeRead ? MAX_GATEWAY_READ_ATTEMPTS : 1;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const measured = timing?.request(timingStage);
-      const response = await fetchWithTimeout(pathname, options);
+      let response;
+      try { response = await fetchWithTimeout(pathname, options); }
+      catch (error) {
+        if (attempt >= attempts - 1 || options.signal?.aborted || !["network", "timeout"].includes(error.code)) throw error;
+        const delay = () => waitImpl(Math.min(pollIntervalMs, 1_000));
+        if (timing) await timing.wait(timingStage, "retry", delay);
+        else await delay();
+        continue;
+      }
       measured?.headers(response);
       let body = {};
       measured?.bodyStart();

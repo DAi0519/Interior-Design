@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
 [INPUT]: 依赖摄影机球控件及本地试跑服务
-[OUTPUT]: 摄影机球与特写/标准/远景三档、长边最高2K输入说明与原图/实际结果对比
+[OUTPUT]: 摄影机球与90°正俯视预设、特写/标准/远景三档、长边最高2K输入说明与原图/实际结果对比
 [POS]: public/prototypes/multi-angle 的独立测试页，不接入生产入口
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -28,12 +28,12 @@
     <div class="cs-controls">
       <div class="cs-label">摄像机方位</div>
       <div class="cs-presets" aria-label="常用摄影机方位">
-        <button type="button" class="cursor-interaction" data-preset="315,45"><span class="cs-arrow">↘</span>左上</button><button type="button" class="cursor-interaction" data-preset="0,60"><span class="cs-arrow">↓</span>上方</button><button type="button" class="cursor-interaction" data-preset="45,45"><span class="cs-arrow">↙</span>右上</button>
+        <button type="button" class="cursor-interaction" data-preset="315,45"><span class="cs-arrow">↘</span>左上</button><button type="button" class="cursor-interaction" data-preset="0,90"><span class="cs-arrow">↓</span>正俯视</button><button type="button" class="cursor-interaction" data-preset="45,45"><span class="cs-arrow">↙</span>右上</button>
         <button type="button" class="cursor-interaction" data-preset="270,0"><span class="cs-arrow">→</span>左侧</button><button type="button" class="cursor-interaction" data-preset="0,0"><span class="cs-arrow">•</span>正面</button><button type="button" class="cursor-interaction" data-preset="90,0"><span class="cs-arrow">←</span>右侧</button>
         <button type="button" class="cursor-interaction" data-preset="315,-30"><span class="cs-arrow">↗</span>左下</button><button type="button" class="cursor-interaction" data-preset="0,-30"><span class="cs-arrow">↑</span>下方</button><button type="button" class="cursor-interaction" data-preset="45,-30"><span class="cs-arrow">↖</span>右下</button>
       </div>
       <div class="cs-slider"><div class="cs-slider-head"><label for="cs-azimuth">水平</label><output for="cs-azimuth" data-az-value>255°</output></div><input id="cs-azimuth" type="range" min="0" max="360" step="1" value="255"/><div class="cs-ticks"><span>0</span><span>45</span><span>90</span><span>135</span><span>180</span><span>225</span><span>270</span><span>315</span><span>360</span></div></div>
-      <div class="cs-slider"><div class="cs-slider-head"><label for="cs-elevation">垂直</label><output for="cs-elevation" data-el-value>40°</output></div><input id="cs-elevation" type="range" min="-30" max="60" step="1" value="40"/><div class="cs-ticks"><span>-30</span><span>0</span><span>30</span><span>60</span></div></div>
+      <div class="cs-slider"><div class="cs-slider-head"><label for="cs-elevation">垂直</label><output for="cs-elevation" data-el-value>40°</output></div><input id="cs-elevation" type="range" min="-30" max="90" step="1" value="40"/><div class="cs-ticks"><span>-30</span><span>0</span><span>30</span><span>60</span><span>90</span></div></div>
       <div class="cs-slider"><div class="cs-label" id="framing-label">景别</div><div class="cs-framing" role="group" aria-labelledby="framing-label"><button type="button" data-distance="0" aria-pressed="false">特写</button><button type="button" data-distance="50" aria-pressed="true">标准</button><button type="button" data-distance="100" aria-pressed="false" title="镜头后退，主体更小，展示更多环境">远景</button></div></div>
       <div class="cs-footer"><span class="cs-status" aria-live="polite">正在连接 MaaS…</span><button class="cs-generate" type="button" disabled>生成</button></div>
     </div>

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 Banana 2.1 官方十四比例/1K-4K 与公司模型 ID、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite 的 260128 上游身份及 Pro 通用 1K-2K 与全景 4K 实验合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→KS直入4K/6K超分与历史攸行冻结契约、普通/旧房独立负向 Prompt 及参考图安全校验
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份与complexity能力/严格准入； 对外提供模型目录/Provider、用户词长度边界与服务端编译正文独立长度准入、功能尺寸解析、全景R5_4原尺寸与Flux后置超分/双图请求构造器
+ * [INPUT]: 依赖 OneAPI Banana Pro 十比例/1K-4K 与当前 preview ID、Banana 2.1 官方十四比例/1K-4K、GPT Image 2/2.5 官方 16px 网格/像素/边长约束与公司模型准入矩阵、Seedream 5.0 Lite/Pro 与 5.5 独立九比例1K/2K及实测2:1尺寸合同、Flux2 Klein 原图比例 1K/2K 推理与同图 2K→KS直入4K/6K超分与历史攸行冻结契约、普通/旧房独立负向 Prompt 及参考图安全校验
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份与complexity能力/严格准入； 对外提供模型目录/Provider、用户词长度边界与服务端编译正文独立长度准入、功能尺寸解析、全景FastFlux2目录/原尺寸与Flux后置超分/双图请求构造器
  * [POS]: src 的模型参数真源，被自由生图 API、白模合法比例适配与双 Provider 路由共同消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -46,6 +46,21 @@ const GPT_IMAGE_SIZES = {
 const GPT_IMAGE_25_SIZES = Object.fromEntries(
   Object.entries(GPT_IMAGE_SIZES).filter(([ratio]) => ratio !== "2:1"),
 );
+
+// OneAPI Banana Pro 的尺寸表不含 512 或全景 2:1。
+// 来源：https://oneapi.qunhequnhe.com/help/image-generation#gemini-sizes
+const BANANA_PRO_SIZES = {
+  "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "4096x4096" },
+  "2:3": { "1K": "848x1264", "2K": "1696x2528", "4K": "3392x5056" },
+  "3:2": { "1K": "1264x848", "2K": "2528x1696", "4K": "5056x3392" },
+  "3:4": { "1K": "896x1200", "2K": "1792x2400", "4K": "3584x4800" },
+  "4:3": { "1K": "1200x896", "2K": "2400x1792", "4K": "4800x3584" },
+  "4:5": { "1K": "928x1152", "2K": "1856x2304", "4K": "3712x4608" },
+  "5:4": { "1K": "1152x928", "2K": "2304x1856", "4K": "4608x3712" },
+  "9:16": { "1K": "768x1376", "2K": "1536x2752", "4K": "3072x5504" },
+  "16:9": { "1K": "1376x768", "2K": "2752x1536", "4K": "5504x3072" },
+  "21:9": { "1K": "1584x672", "2K": "3168x1344", "4K": "6336x2688" },
+};
 
 const BANANA_2_SIZES = {
   "1:1": { "512": "512x512", "1K": "1024x1024", "2K": "2048x2048", "4K": "4096x4096" },
@@ -109,6 +124,21 @@ const SEEDREAM_5_PRO_SIZES = {
   "21:9": { "1K": "1568x672", "2K": "3136x1344" },
 };
 
+// Seedream 5.5 的常见尺寸独立维护；2K 的横竖画幅不继承 5.0 Pro。
+// 来源：https://docs.volcengine.com/docs/ark/image-generation-api?lang=zh&redirect=1
+// 网关模板只配置 1K/2K；2:1 自定义档已实测图生图，1.5K 与图层能力另行验证。
+const SEEDREAM_55_SIZES = {
+  "1:1": { "1K": "1024x1024", "2K": "2048x2048" },
+  "2:1": { "1K": "1440x720", "2K": "2880x1440" },
+  "3:4": { "1K": "864x1152", "2K": "1776x2368" },
+  "4:3": { "1K": "1152x864", "2K": "2368x1776" },
+  "16:9": { "1K": "1424x800", "2K": "2816x1584" },
+  "9:16": { "1K": "800x1424", "2K": "1584x2816" },
+  "3:2": { "1K": "1248x832", "2K": "2496x1664" },
+  "2:3": { "1K": "832x1248", "2K": "1664x2496" },
+  "21:9": { "1K": "1568x672", "2K": "3136x1344" },
+};
+
 const FLUX_SOURCE_SIZES = {
   source: { "1K": "1048576", "2K": "4194304" },
 };
@@ -137,6 +167,18 @@ export const MODEL_CONFIGS = Object.freeze({
     label: "Banana 2.1",
     qualityOptions: [],
     sizes: BANANA_21_SIZES,
+  },
+  bananaPro: {
+    accent: "purple",
+    defaultFormat: "png",
+    defaultRatio: "4:3",
+    defaultResolution: "1K",
+    description: "支持复杂提示词和图像编辑，提供十种画幅",
+    formats: ["png", "jpeg"],
+    id: "gemini-3-pro-image-preview",
+    label: "Banana Pro",
+    qualityOptions: [],
+    sizes: BANANA_PRO_SIZES,
   },
   gptImage2: {
     accent: "blue",
@@ -195,7 +237,7 @@ export const MODEL_CONFIGS = Object.freeze({
     id: "comfyui:ai-texture-enhancement",
     label: "Flux2 Klein",
     maxReferenceImages: 1,
-    panoramaWorkflow: { id: PANORAMA_WORKFLOW.id, version: PANORAMA_WORKFLOW.version, label: "R5_4 全景", sourceSize: true },
+    panoramaWorkflow: { id: PANORAMA_WORKFLOW.id, version: PANORAMA_WORKFLOW.version, label: PANORAMA_WORKFLOW.label, sourceSize: true },
     refinedLightingReference: REFINED_FLUX_REFERENCE,
     provider: "comfyui",
     postUpscale: {
@@ -236,6 +278,18 @@ export const MODEL_CONFIGS = Object.freeze({
     label: "Seedream 5.0 Pro",
     qualityOptions: [],
     sizes: SEEDREAM_5_PRO_SIZES,
+  },
+  seedream55: {
+    accent: "orange",
+    defaultFormat: "png",
+    defaultRatio: "4:3",
+    defaultResolution: "2K",
+    description: "支持图像生成与编辑，提供九种画幅与 1K/2K 输出",
+    formats: ["png", "jpeg"],
+    id: "doubao-seedream-5.5",
+    label: "Seedream 5.5",
+    qualityOptions: [],
+    sizes: SEEDREAM_55_SIZES,
   },
 });
 

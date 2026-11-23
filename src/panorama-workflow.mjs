@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖用户 R5_4 原始执行图、原图真实尺寸、正负 Prompt、随机种子与请求级唯一产物键
- * [OUTPUT]: 对外提供四步 Euler/20 视角球面状态共享工作流、节点目录、原图尺寸复核与来源 SHA 元数据
+ * [INPUT]: 依赖用户 FastFlux2 全景附件、原图真实尺寸、正负 Prompt、随机种子与请求级唯一产物键
+ * [OUTPUT]: 对外提供四步 Euler/20 视角 FastFlux2 球面工作流、LoRA/色彩匹配参数、节点目录与来源 SHA 元数据
  * [POS]: src 的全景专用执行图真源，与普通 Flux 单图工厂隔离；不负责 HTTP 提交或运营 Prompt 编译
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,10 +9,17 @@ import { readImageDimensions } from "./image-dimensions.mjs";
 
 export const PANORAMA_WORKFLOW = Object.freeze({
   id: "panorama-r5-4",
-  label: "Flux2 Klein 全景 R5_4",
-  version: "2026-10-28.1",
-  sourceWorkflowSha256: "1390e507c446a82d45e9fec795358d4df7b29f52e6625cd988c53e6150e16b2a",
+  label: "Flux2 Klein 全景 FastFlux2",
+  version: "2026-11-18.1",
+  sourceWorkflowSha256: "d6c0da647a93152bc3f1bd0af1537b2a9be178b7d5d82f42684be61a68e12151",
   model: "flux-2-klein-9b-fp8.safetensors",
+  lora: "flux2_klein9B_zhiganEnhance_v2_000006000.safetensors",
+  loraStrength: 0.5,
+  attentionBackend: "comfy kitchen attention",
+  attention: "q8",
+  kvCache: "auto",
+  colorMatchChannels: "ab",
+  colorMatchStrength: 0.45,
   outputNodeId: "46",
   viewCount: 20,
   viewWidth: 1536,
@@ -21,21 +28,21 @@ export const PANORAMA_WORKFLOW = Object.freeze({
   steps: 4,
 });
 
-// --- 原始执行图：仅将本地文件输入/保存名与运营正文替换为请求级输入 ---
+// --- 附件计算图：MaaS 输入/报告包装改为工作台 Base64 输入与唯一 PNG 保存 ---
 const SOURCE_GRAPH = {
   "1": {"class_type": "easy loadImageBase64", "inputs": {"base64_data": "", "image_output": "Hide", "save_prefix": ""}},
   "2": {"class_type": "UNETLoader", "inputs": {"unet_name": "flux-2-klein-9b-fp8.safetensors", "weight_dtype": "default"}},
   "3": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_3_8b_fp8mixed.safetensors", "type": "flux2", "device": "default"}},
-  "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 0], "text": ""}},
-  "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 0], "text": ""}},
+  "4": {"class_type": "QunheFastFlux2TextEncode", "inputs": {"clip": ["3", 0], "text": ""}},
+  "5": {"class_type": "QunheFastFlux2TextEncode", "inputs": {"clip": ["3", 0], "text": ""}},
   "6": {"class_type": "VAELoader", "inputs": {"vae_name": "flux2-vae.safetensors"}},
   "7": {"class_type": "RandomNoise", "inputs": {"noise_seed": 42}},
-  "8": {"class_type": "AIRenderSphereSetup", "inputs": {"noise": ["7", 0], "preset": "custom", "view_width": 1536, "view_height": 1536, "fov": 90.0, "candidate_points": 57906, "temperature": 0.1, "max_assignment_error": 8.0, "custom_views": "[{\"yaw\": -135.0, \"pitch\": -35.264389682754654}, {\"yaw\": -45.0, \"pitch\": -35.264389682754654}, {\"yaw\": -135.0, \"pitch\": 35.264389682754654}, {\"yaw\": -45.0, \"pitch\": 35.264389682754654}, {\"yaw\": 135.0, \"pitch\": -35.264389682754654}, {\"yaw\": 45.0, \"pitch\": -35.264389682754654}, {\"yaw\": 135.0, \"pitch\": 35.264389682754654}, {\"yaw\": 45.0, \"pitch\": 35.264389682754654}, {\"yaw\": 180.0, \"pitch\": -20.905157447889298}, {\"yaw\": -90.0, \"pitch\": -69.09484255211072}, {\"yaw\": -110.90515744788931, \"pitch\": 0.0}, {\"yaw\": 0.0, \"pitch\": -20.905157447889298}, {\"yaw\": -90.0, \"pitch\": 69.09484255211072}, {\"yaw\": 110.90515744788931, \"pitch\": 0.0}, {\"yaw\": 180.0, \"pitch\": 20.905157447889298}, {\"yaw\": 90.0, \"pitch\": -69.09484255211072}, {\"yaw\": -69.0948425521107, \"pitch\": 0.0}, {\"yaw\": 0.0, \"pitch\": 20.905157447889298}, {\"yaw\": 90.0, \"pitch\": 69.09484255211072}, {\"yaw\": 69.0948425521107, \"pitch\": 0.0}]", "state_dtype": "bfloat16"}},
-  "9": {"class_type": "AIRenderPanoramaPerspective", "inputs": {"image": ["1", 0], "geometry_json": ["8", 1], "view_id": ["8", 2]}},
-  "10": {"class_type": "VAEEncode", "inputs": {"pixels": ["9", 0], "vae": ["6", 0]}},
+  "8": {"class_type": "AIRenderSphereSetup", "inputs": {"noise": ["7", 0], "preset": "custom", "view_width": 1536, "view_height": 1536, "fov": 90.0, "candidate_points": 57906, "temperature": 0.1, "max_assignment_error": 8.0, "custom_views": "[{\"yaw\": -135.0, \"pitch\": -35.264389682754654}, {\"yaw\": -45.0, \"pitch\": -35.264389682754654}, {\"yaw\": -135.0, \"pitch\": 35.264389682754654}, {\"yaw\": -45.0, \"pitch\": 35.264389682754654}, {\"yaw\": 135.0, \"pitch\": -35.264389682754654}, {\"yaw\": 45.0, \"pitch\": -35.264389682754654}, {\"yaw\": 135.0, \"pitch\": 35.264389682754654}, {\"yaw\": 45.0, \"pitch\": 35.264389682754654}, {\"yaw\": 180.0, \"pitch\": -20.905157447889298}, {\"yaw\": -90.0, \"pitch\": -69.09484255211072}, {\"yaw\": -110.90515744788931, \"pitch\": 0.0}, {\"yaw\": 0.0, \"pitch\": -20.905157447889298}, {\"yaw\": -90.0, \"pitch\": 69.09484255211072}, {\"yaw\": 110.90515744788931, \"pitch\": 0.0}, {\"yaw\": 180.0, \"pitch\": 20.905157447889298}, {\"yaw\": 90.0, \"pitch\": -69.09484255211072}, {\"yaw\": -69.0948425521107, \"pitch\": 0.0}, {\"yaw\": 0.0, \"pitch\": 20.905157447889298}, {\"yaw\": 90.0, \"pitch\": 69.09484255211072}, {\"yaw\": 69.0948425521107, \"pitch\": 0.0}]", "state_dtype": "bfloat16", "cpu_workers": 2, "assignment_block_size": 64, "compact_candidates": true}},
+  "9": {"class_type": "AIRenderPanoramaPerspective", "inputs": {"image": ["1", 0], "geometry_json": ["8", 1], "view_id": ["8", 2], "cpu_workers": 8, "banded_rays": true}},
+  "10": {"class_type": "QunheFastFlux2VAEEncode", "inputs": {"pixels": ["9", 0], "vae": ["6", 0]}},
   "11": {"class_type": "ReferenceLatent", "inputs": {"conditioning": ["4", 0], "latent": ["10", 0]}},
   "12": {"class_type": "ReferenceLatent", "inputs": {"conditioning": ["5", 0], "latent": ["10", 0]}},
-  "13": {"class_type": "CFGGuider", "inputs": {"model": ["2", 0], "positive": ["11", 0], "negative": ["12", 0], "cfg": 1.0}},
+  "13": {"class_type": "CFGGuider", "inputs": {"model": ["60", 0], "positive": ["11", 0], "negative": ["12", 0], "cfg": 1.0}},
   "14": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}},
   "15": {"class_type": "DisableNoise", "inputs": {}},
   "16": {"class_type": "AIRenderSphereGather", "inputs": {"state": ["8", 0], "geometry_json": ["8", 1]}},
@@ -66,9 +73,13 @@ const SOURCE_GRAPH = {
   "41": {"class_type": "AIRenderSphereScatterMean", "inputs": {"base": ["35", 0], "views": ["40", 0], "weights": ["36", 1], "geometry_json": ["8", 1]}},
   "42": {"class_type": "AIRenderSphereGather", "inputs": {"state": ["41", 0], "geometry_json": ["8", 1]}},
   "43": {"class_type": "AIRenderFlowStateConvert", "inputs": {"model": ["2", 0], "samples": ["42", 0], "reference": ["10", 0], "direction": "to_sampler", "sigma": 0.0, "reference_coefficient": 1.0}},
-  "44": {"class_type": "VAEDecode", "inputs": {"samples": ["43", 0], "vae": ["6", 0]}},
-  "45": {"class_type": "AIRenderPerspectivePanoramaMerge", "inputs": {"images": ["44", 0], "geometry_json": ["8", 1], "base": ["1", 0], "temperature": 0.1}},
-  "46": {"class_type": "SaveImage", "inputs": {"images": ["45", 0], "filename_prefix": ""}},
+  "44": {"class_type": "QunheFastFlux2VAEDecode", "inputs": {"samples": ["43", 0], "vae": ["6", 0]}},
+  "45": {"class_type": "AIRenderPerspectivePanoramaMerge", "inputs": {"images": ["44", 0], "geometry_json": ["8", 1], "base": ["1", 0], "temperature": 0.1, "cpu_workers": 8}},
+  "46": {"class_type": "SaveImage", "inputs": {"images": ["58", 0], "filename_prefix": ""}},
+  "57": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["2", 0], "lora_name": PANORAMA_WORKFLOW.lora, "strength_model": PANORAMA_WORKFLOW.loraStrength}},
+  "58": {"class_type": "JHPixelProColorMatcher", "inputs": {"image_target": ["45", 0], "image_reference": ["1", 0], "channels": PANORAMA_WORKFLOW.colorMatchChannels, "strength": PANORAMA_WORKFLOW.colorMatchStrength}},
+  "59": {"class_type": "ModelAttentionBackend", "inputs": {"model": ["57", 0], "attention": PANORAMA_WORKFLOW.attentionBackend}},
+  "60": {"class_type": "QunheFastFlux2Model", "inputs": {"model": ["59", 0], "attention": PANORAMA_WORKFLOW.attention, "kv_cache": PANORAMA_WORKFLOW.kvCache}},
 };
 export const PANORAMA_REQUIRED_NODES = Object.freeze([...new Set(Object.values(SOURCE_GRAPH).map(node => node.class_type))]);
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode, retryable: false });
@@ -118,6 +129,13 @@ export function panoramaWorkflowMetadata({ generationRequest, historyOutputs, ac
     workflowVersion: PANORAMA_WORKFLOW.version,
     sourceWorkflowSha256: PANORAMA_WORKFLOW.sourceWorkflowSha256,
     model: PANORAMA_WORKFLOW.model,
+    lora: PANORAMA_WORKFLOW.lora,
+    loraStrength: PANORAMA_WORKFLOW.loraStrength,
+    attentionBackend: PANORAMA_WORKFLOW.attentionBackend,
+    attention: PANORAMA_WORKFLOW.attention,
+    kvCache: PANORAMA_WORKFLOW.kvCache,
+    colorMatchChannels: PANORAMA_WORKFLOW.colorMatchChannels,
+    colorMatchStrength: PANORAMA_WORKFLOW.colorMatchStrength,
     steps: PANORAMA_WORKFLOW.steps,
     sampler: "euler",
     cfg: 1,

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖含质感增强的Beta质感固定版本/正文SHA、四张独立飞书Prompt表、全景及美化纯词光影编译器、美化六预设/LoRA、真实单图、模型矩阵与客户端及归档
- * [OUTPUT]: 对外提供六旧美化工作流保留/新增卡片固定低自然、全景2:1及光影目标隔离、单轮执行与实际正文/卡片版本SHA归档和脱敏摘要
+ * [INPUT]: 依赖含质感增强的Beta质感固定版本/正文SHA、四张独立飞书Prompt表、飞书全景光影槽规则/卡片及美化纯词编译器、美化六预设/LoRA、真实单图、模型矩阵与客户端及归档
+ * [OUTPUT]: 对外提供六旧美化工作流保留/新增卡片固定低自然、全景2:1及Flux默认/光影词触发词统一最前、单轮执行与实际正文/卡片版本SHA归档和脱敏摘要
  * [POS]: src 的效果图与全景图应用服务，各自隔离 Prompt 真源并复用普通出图基础设施，不经过 Prompt Agent
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@
 import { createHash } from "node:crypto";
 import {
   composeEffectEnhancementPrompt,
+  composeFluxPanoramaPrompt,
   composePanoramaEnhancementPrompt,
   getEffectEnhancementPrompt,
   getPanoramaEnhancementPrompt,
@@ -21,7 +22,7 @@ import {
 import { createGenerationRequest, publicModelCatalog } from "./model-config.mjs";
 import { normalizeReferenceImages } from "./reference-image.mjs";
 import { getTextureEnhancementPrompt } from "./texture-enhancement-prompt.mjs";
-import { PANORAMA_LIGHTING_IDENTITY, resolvePanoramaLightingInput } from "./panorama-lighting.mjs";
+import { resolvePanoramaLightingInput } from "./panorama-lighting.mjs";
 import {
   assertEffectBeautificationLightingFeature,
   EFFECT_BEAUTIFICATION_LIGHTING_IDENTITY,
@@ -50,6 +51,7 @@ export async function executeEffectRenderEnhancementWorkflow(
     loadPanoramaPrompt = getPanoramaEnhancementPrompt,
     loadTexturePrompt = getTextureEnhancementPrompt,
     loadPanoramaLightingAssets,
+    loadPanoramaLightingRule,
     loadBeautificationLightingAssets,
     onProgress,
     signal,
@@ -73,13 +75,15 @@ export async function executeEffectRenderEnhancementWorkflow(
   if (panorama && referenceImages[0].width !== referenceImages[0].height * 2) {
     throw workflowError("全景图美化需要真实尺寸为 2:1 的全景图");
   }
-  const panoramaLighting = panorama ? await resolvePanoramaLightingInput(input,
-    loadPanoramaLightingAssets ? { loadAssets: loadPanoramaLightingAssets } : {}) : null;
+  const panoramaLighting = panorama ? await resolvePanoramaLightingInput(input, {
+    ...(loadPanoramaLightingAssets ? { loadAssets: loadPanoramaLightingAssets } : {}),
+    ...(loadPanoramaLightingRule ? { loadRule: loadPanoramaLightingRule } : {}),
+  }) : null;
   const beautificationLighting = lightingSelection ? await resolveEffectBeautificationLightingInput(input,
     loadBeautificationLightingAssets ? { loadAssets: loadBeautificationLightingAssets } : {}) : null;
 
   const promptAsset = await (beautificationLighting?.prompt ? EFFECT_BEAUTIFICATION_LIGHTING_IDENTITY
-    : panoramaLighting?.prompt ? PANORAMA_LIGHTING_IDENTITY : texture
+    : panoramaLighting?.prompt ? panoramaLighting.asset : texture
     ? loadTexturePrompt({ version: input.textureEnhancementPromptVersion }) : beautification
     ? loadBeautificationPrompt({ version: input.effectBeautificationPromptVersion })
     : panorama ? loadPanoramaPrompt({ version: input.panoramaPromptVersion }) : loadEffectPrompt());
@@ -95,7 +99,6 @@ export async function executeEffectRenderEnhancementWorkflow(
         time: input.effectTime,
         weather: input.effectWeather,
       }));
-  if (panoramaLighting) panoramaLighting.metadata.promptSha256 = createHash("sha256").update(finalPrompt).digest("hex");
   const batch = normalizeGenerationBatch(input);
   const generation = createGenerationRequest(
     { ...input, prompt: finalPrompt, ...(texture ? { negativePrompt: "" } : {}) },
@@ -107,6 +110,11 @@ export async function executeEffectRenderEnhancementWorkflow(
       },
     },
   );
+  if (panorama && generation.provider === "comfyui") {
+    finalPrompt = composeFluxPanoramaPrompt(finalPrompt);
+    generation.request.prompt = finalPrompt;
+  }
+  if (panoramaLighting) panoramaLighting.metadata.promptSha256 = createHash("sha256").update(finalPrompt).digest("hex");
   if (texture && generation.provider === "comfyui") {
     generation.request.negative_prompt = "";
     generation.request.negative_prompt_mode = "disabled-fixed-prompt";

@@ -1,11 +1,37 @@
 /**
- * [INPUT]: 依赖 workbench-utils 的字节格式化、Beta跑图上传槽 DOM 与调用方提供的图片状态/校验回调
- * [OUTPUT]: 对外提供本地 Blob/飞书轻量图片懒加载预览、可选删除、点击选择、多图拖放与单图原位替换交互
- * [POS]: public 的 Beta跑图上传呈现层，保持批量状态归 beta-app.js 管理，不复制图片读取和业务限制
+ * [INPUT]: 依赖 workbench-utils 的字节格式化与文件读取、image-ratio 图片尺寸及 Beta 跑图上传槽
+ * [OUTPUT]: 提供 8MB 静态图片读取、Blob/飞书轻量预览、可选删除、点击选择、多图拖放与单图原位替换
+ * [POS]: public 的 Beta跑图上传层，保持批量状态归 beta-app.js 管理
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { formatBytes } from "./workbench-utils.js";
+import { readImageDimensions } from "./image-ratio.js";
+import { formatBytes, readFileAsInput } from "./workbench-utils.js";
+
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+export async function readBetaImage(file, { previewOnly = false } = {}) {
+  if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    throw new Error(`${file?.name || "文件"} 不是 PNG、JPEG 或 WebP`);
+  }
+  if (file.size > MAX_IMAGE_BYTES) throw new Error(`${file.name} 超过 8MB`);
+  if (previewOnly) {
+    const previewUrl = URL.createObjectURL(file);
+    try {
+      return { file, name: file.name, size: file.size, type: file.type, previewUrl,
+        ...await readImageDimensions(previewUrl, file.name), lastModified: file.lastModified };
+    } catch (error) {
+      URL.revokeObjectURL(previewUrl);
+      throw error;
+    }
+  }
+  const input = await readFileAsInput(file);
+  return {
+    ...input,
+    ...await readImageDimensions(input.dataUrl, file.name),
+    lastModified: file.lastModified,
+  };
+}
 
 function createImagePreview(image, onRemove, { replaceEnabled = false, canRemove = () => true } = {}) {
   const item = document.createElement("article");

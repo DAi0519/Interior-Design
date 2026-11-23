@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 平面出图任务的原图、实际送模图、最终提示词、逐图结果和回执。
- * [OUTPUT]: 户型布局标注图优先保留原件，生成逐图稳定归档身份，投影可复验的飞书记录，并串行安排同步。
+ * [OUTPUT]: 户型布局标注图优先保留原件，生成逐图稳定归档身份，投影含机位直出模式及历史裁切设置的飞书记录，并串行安排同步。
  * [POS]: 三个平面图出图入口与飞书归档之间的私有边界，亦用于有原始证据的补录。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -48,13 +48,15 @@ export function floorPlanArchiveInput({ featureMode, jobId, result, sourceImage,
       transport },
     workflow: {
       jobId, imageIndex, total, modelIndex: slot, featureMode, action: result.action, workflowVersion: result.workflowVersion,
+      ...(result.generationMode === 'direct' ? { generationMode: result.generationMode } : {}),
       modelKey: result.model.key, modelId: result.model.id, agentModelKey: result.agent?.key, agentModelId: result.agent?.id,
       agentModelLabel: result.agent?.label, agentCode: result.agent ? result.prompt?.code : undefined,
       agentVersion: result.agent ? result.prompt?.version : undefined,
       prompt: result.prompt, compiledPromptSha256, userRequirements: sourcePrompt, source: result.source,
       referenceRoles: sameInput ? ['original-and-submitted'] : annotatedLayout ? ['space-annotated-plan', 'original'] : ['original', submittedRole],
       sourceSha256: source.sha256, submittedSha256: submitted.sha256, outputSha256: result.image.sha256,
-      camera: result.camera, annotations: result.annotations, plan: result.plan, viewSummary: result.viewSummary, scenePrompt: result.scenePrompt,
+      camera: result.camera, ...(result.foregroundCrop !== undefined ? { foregroundCrop: result.foregroundCrop } : {}),
+      annotations: result.annotations, plan: result.plan, viewSummary: result.viewSummary, scenePrompt: result.scenePrompt,
       requestedComplexity: result.requestedComplexity, actual,
       receipts: { agent: agentReceipt, image: result.receipts?.image || { requestId: result.requestId, usageCost: result.usageCost } },
     },

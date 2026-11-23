@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta Store/runner、独立扩图/超分模型目录与三表字段响应内存替身
- * [OUTPUT]: 对外提供含AI扩图/超分与风格转换的功能选项、稳定归档单选标签及公开显示名不可替代合同、设计/版本/三图附件复用，Schema漂移前置阻断、实时分页读取和晚遇合同错误不重生成的回归保障
+ * [OUTPUT]: 验证稳定归档单选标签、机位 GPT 6.1 Sol 及多角度按功能准入、Schema 漂移前置阻断、实时分页和合同错误不重生成
  * [POS]: test 的 Beta 归档 Schema 合同集成测试，不读写真实 Base 或调用模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,8 +15,9 @@ import { publicAgentModelCatalog } from "../src/agent-model-config.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
 import { IMAGE_UPSCALE_WORKFLOWS, publicImageUpscaleConfig } from "../src/image-upscale-workflow.mjs";
 import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "../src/image-outpaint-archive.mjs";
+import { MULTI_ANGLE_ARCHIVE_MODEL_LABELS } from "../src/image-multi-angle-archive.mjs";
 
-function schemaFixture() {
+function schemaFixture({ cameraAgent = false } = {}) {
   const textFields = (names) => names.map((name) => ({ id: `field-${name}`, name, type: "text" }));
   const select = (name, values, multiple = false) => ({ name, type: "select", multiple, options: values.map((value) => ({ name: value })) });
   const features = BETA_FEATURE_MODES.map(betaFeatureLabel);
@@ -26,8 +27,10 @@ function schemaFixture() {
       { id: config.testTimeFieldId, name: "测试时间", type: "text" },
       ...["Attempt", "Agent 版本", "时延（ms）", "费用（USD）"].map((name) => ({ name, type: "number" })),
       select("功能", features), select("状态", ["运行中", "成功", "失败"]), select("场景标签", EMPTY_ROOM_TYPES, true),
-      select("出图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS, ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map(({ label }) => label)]),
-      select("Prompt融合", publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label)),
+      select("出图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS,
+        ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS, ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map(({ label }) => label)]),
+      select("Prompt融合", [...publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label),
+        ...(cameraAgent ? ["GPT 6.1 Sol"] : [])]),
       ...[["输入图", config.inputFieldId], ["风格参考图", config.styleReferenceFieldId], ["结果图", config.resultFieldId]].map(([name, id]) => ({ name, id, type: "attachment" })),
     ],
     [config.sampleSetTableId]: [
@@ -75,6 +78,30 @@ test("live Store 的实时 verifier 每次读取三表，后一次字段漂移�
   assert.equal(commands.length, 6);
 });
 
+test("平面图机位需要明细和样本集功能选项，旧功能仍可使用尚未迁移的表", async () => {
+  const label = betaFeatureLabel("floorPlanCamera");
+  const schemas = schemaFixture({ cameraAgent: true });
+  for (const tableId of [config.tableId, config.sampleSetTableId]) {
+    const field = schemas[tableId].find(entry => entry.name === "功能");
+    field.options = field.options.filter(option => option.name !== label);
+  }
+  const store = storeForSchema(schemas, []);
+  await store.verifySchema({ featureMode: "housePlanLayout" });
+  await assert.rejects(store.verifySchema({ featureMode: "floorPlanCamera" }), error =>
+    error.statusCode === 409 && error.message.includes(`跑图明细“功能”缺少选项：${label}`)
+    && error.message.includes(`样本集“功能”缺少选项：${label}`));
+  await storeForSchema(schemaFixture({ cameraAgent: true }), []).verifySchema({ featureMode: "floorPlanCamera" });
+});
+
+test("跑图明细的 GPT 6.1 Sol 融合标签仅在机位功能准入时要求", async () => {
+  const schemas = schemaFixture();
+  const store = storeForSchema(schemas, []);
+  await store.verifySchema({ featureMode: "housePlanLayout" });
+  await assert.rejects(store.verifySchema({ featureMode: "floorPlanCamera" }), error =>
+    error.statusCode === 409 && error.message.includes('跑图明细“Prompt融合”缺少选项：GPT 6.1 Sol'));
+  await storeForSchema(schemaFixture({ cameraAgent: true }), []).verifySchema({ featureMode: "floorPlanCamera" });
+});
+
 test("风格转换复用现有归档字段，并要求跑图明细和样本集均有功能选项", async () => {
   assert.ok(BETA_FEATURE_MODES.includes("styleTransfer"));
   assert.equal(betaFeatureLabel("styleTransfer"), "风格转换");
@@ -94,6 +121,25 @@ test("风格转换复用现有归档字段，并要求跑图明细和样本集�
       (error) => error.statusCode === 409 && error.retryable === false
         && error.message.includes(`${name}“功能”缺少选项：风格转换`));
   }
+});
+
+test("多角度核验两表功能和 Qwen 独立模型标签，其他功能可继续使用未迁移 Schema", async () => {
+  const featureMode = "imageMultiAngle";
+  const label = betaFeatureLabel(featureMode);
+  const [qwenLabel] = MULTI_ANGLE_ARCHIVE_MODEL_LABELS;
+  const schemas = schemaFixture();
+  await storeForSchema(schemas, []).verifySchema({ featureMode });
+  for (const [tableId, fieldName, value] of [[config.tableId, "功能", label],
+    [config.sampleSetTableId, "功能", label], [config.tableId, "出图模型", qwenLabel]]) {
+    const field = schemas[tableId].find((entry) => entry.name === fieldName);
+    field.options = field.options.filter((option) => option.name !== value);
+  }
+  const store = storeForSchema(schemas, []);
+  await store.verifySchema();
+  await assert.rejects(store.verifySchema({ featureMode }), (error) => error.statusCode === 409
+    && error.message.includes(`跑图明细“功能”缺少选项：${label}`)
+    && error.message.includes(`样本集“功能”缺少选项：${label}`)
+    && error.message.includes(`跑图明细“出图模型”缺少选项：${qwenLabel}`));
 });
 
 test("AI扩图复用三表现有字段，缺少功能或任一独立扩图模型选项时拒绝入队", async () => {

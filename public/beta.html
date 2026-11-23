@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖共享效果图美化六氛围/新增光影模板互斥控件；依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
-  [OUTPUT]: 提供自由生图整批提示词与跨功能图片样本复用；提供紧凑空间选择/自定义和分组标注操作工具栏； 新增户型布局配置与标注弹窗； 提供含旧房改造的可搜索十三任务、独立旧房配置/逐图房型与负向草稿、美化多选/精模预设及全景光影、跨功能样本复用、START/冻结失败项RETRY及生成/同步双进度
+  [OUTPUT]: 提供自由生图整批提示词与跨功能图片样本复用、多角度整批机位与模型、户型布局与机位推理/直出、视野外框帮助、可搜索任务、逐图房型、光影多选、START/冻结失败项RETRY及生成/同步双进度
   [POS]: public 的独立 Beta跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,7 +12,7 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · Beta跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=27" />
+    <link rel="stylesheet" href="/beta.css?v=29" />
     <link rel="stylesheet" href="/beta-house-plan.css?v=2" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=1" />
     <link rel="stylesheet" href="/effect-beautification.css?v=2" />
@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="/custom-select.css?v=10" />
     <link rel="stylesheet" href="/product-navigation.css?v=14" />
     <link rel="stylesheet" href="/app-update.css?v=1" />
-    <link rel="stylesheet" href="/panel-copy.css?v=1" />
+    <link rel="stylesheet" href="/panel-copy.css?v=2" />
     <link rel="stylesheet" href="/raycast-accent.css?v=42" />
   </head>
   <body>
@@ -124,6 +124,26 @@
                 <label class="field"><span>布局分析模型</span><select id="housePlanAgent" aria-label="布局分析模型"></select></label>
                 <a id="housePlanPromptLink" target="_blank" rel="noopener noreferrer">在飞书中管理提示词</a>
               </div>
+              <div id="betaCameraFields" class="hidden">
+                <div class="section-heading"><h3>机位生成</h3><div class="section-heading-meta"><small id="betaCameraStatus">读取中</small><button id="betaCameraRefresh" class="quiet-button" type="button">刷新</button></div></div>
+                <label class="field"><span>生成模式</span><select id="betaCameraMode" aria-label="机位生成模式"></select></label>
+                <label id="betaCameraAgentField" class="field"><span>空间推理模型</span><select id="betaCameraAgent" aria-label="空间推理模型"></select></label>
+                <label id="betaCameraDirectPromptField" class="field hidden">
+                  <span>整批提示词</span>
+                  <textarea id="betaCameraDirectPrompt" rows="5" maxlength="4000" aria-required="true" placeholder="填写一条提示词，应用到整批机位图。"></textarea>
+                </label>
+              </div>
+              <div id="multiAngleFields" class="beta-multi-angle-fields hidden">
+                <div class="section-heading">
+                  <h3>整批机位</h3>
+                  <button id="multiAngleTopDownButton" type="button" class="quiet-button">正俯视</button>
+                </div>
+                <div class="field-grid">
+                  <label class="field"><span>水平旋转</span><input id="multiAngleAzimuth" type="range" min="0" max="360" step="1" value="0" aria-describedby="multiAngleAzimuthValue" /><output id="multiAngleAzimuthValue" for="multiAngleAzimuth">0°</output></label>
+                  <label class="field"><span>俯仰角度</span><input id="multiAngleElevation" type="range" min="-30" max="90" step="1" value="90" aria-describedby="multiAngleElevationValue" /><output id="multiAngleElevationValue" for="multiAngleElevation">90°</output></label>
+                </div>
+                <label class="field"><span>景别</span><select id="multiAngleDistance"><option value="0">特写</option><option value="50" selected>标准</option><option value="100">远景</option></select></label>
+              </div>
               <div id="designFields" class="field-grid">
                 <label class="field"><span>设计方式</span><select id="renderModeSelect"><option value="smart-default">智能默认</option><option value="style-dna">平台风格</option></select></label>
                 <label id="styleField" class="field hidden"><span>平台风格</span><select id="styleSelect" data-searchable="true" aria-label="平台风格" data-placeholder="请选择平台风格" data-search-placeholder="搜索风格名称"></select></label>
@@ -194,12 +214,17 @@
                 <small id="upscaleResolutionNote" class="beta-upscale-hint">按所选工作流的共同尺寸输出，保持每张原图比例。</small>
                 <small id="upscaleAvailability" class="beta-upscale-availability hidden" role="status"></small>
               </div>
+              <div id="multiAngleModelField" class="field hidden"><span>出图模型</span><div id="multiAngleModelOptions" role="group" aria-label="多角度出图模型"></div></div>
               <div id="ordinaryOutputFields" class="beta-ordinary-output">
               <div id="modelOptions" class="model-options" role="group" aria-label="出图模型"></div>
               <div class="field-grid output-grid">
                 <label class="field"><span>输出比例</span><select id="ratioSelect" data-dropdown-placement="top"></select></label>
                 <label class="field"><span>分辨率</span><select id="resolutionSelect" data-dropdown-placement="top"></select></label>
                 <label id="qualityField" class="field"><span>质量档</span><select id="qualitySelect" data-dropdown-placement="top"></select></label>
+              </div>
+              <div id="betaCameraOutputFields" class="field-grid hidden">
+                <label class="field"><span>每模型张数</span><select id="betaCameraCount" aria-label="每模型张数" data-dropdown-placement="top"></select></label>
+                <label id="betaCameraComplexityField" class="field hidden"><span>GPT 生图思考</span><select id="betaCameraComplexity" aria-label="GPT 生图思考" data-dropdown-placement="top"></select></label>
               </div>
               <label id="negativePromptField" class="field hidden"><span>Flux 负向提示词（可选） <span id="negativePromptCount" class="character-count">0 / 8000</span></span><textarea id="negativePromptInput" rows="2" maxlength="8000" aria-describedby="negativePromptNote" placeholder="留空使用当前功能默认"></textarea><span id="negativePromptNote" class="compact-config-note"></span></label>
               </div>
@@ -277,7 +302,7 @@
 
     <script type="module" src="/product-navigation.js?v=9"></script>
     <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/beta-app.js?v=46"></script>
+    <script type="module" src="/beta-app.js?v=57"></script>
     <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
       <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>
       <p id="housePlanAnnotationHint">先拖动框选主卧</p>
@@ -290,6 +315,18 @@
         </div>
         <div class="house-plan-beta-history"><button id="housePlanAnnotationUndo" class="quiet-button" type="button">撤销</button><button id="housePlanAnnotationClear" class="quiet-button" type="button">清空</button></div>
         <button id="housePlanAnnotationSave" class="quiet-button house-plan-beta-save" type="button">保存标注</button>
+      </div>
+    </dialog>
+    <dialog id="betaCameraDialog" class="house-plan-beta-dialog" aria-labelledby="betaCameraTitle">
+      <div class="section-heading"><h2 id="betaCameraTitle">设置机位</h2><button id="betaCameraCancel" class="quiet-button" type="button">取消</button></div>
+      <p id="betaCameraHelp">点放相机，按住拖动设定朝向。方向键移动机位。</p>
+      <div class="house-plan-beta-stage"><canvas id="betaCameraCanvas" aria-label="平面图机位编辑" aria-describedby="betaCameraHelp" tabindex="0"></canvas></div>
+      <div class="house-plan-beta-tools beta-camera-tools">
+        <span id="betaCameraPosition">请在图上点放相机</span>
+        <label class="field"><span>朝向 °</span><input id="betaCameraHeading" type="number" min="0" max="359" step="1" aria-label="相机朝向" /></label>
+        <label class="field"><span>水平视野 °</span><input id="betaCameraFov" type="number" min="35" max="100" step="1" aria-label="水平视野" /></label>
+        <div class="house-plan-beta-space"><label><input id="betaCameraShowFrame" type="checkbox" checked disabled /> 显示取景框</label></div>
+        <button id="betaCameraSave" class="quiet-button house-plan-beta-save" type="button" disabled>保存机位</button>
       </div>
     </dialog>
   </body>

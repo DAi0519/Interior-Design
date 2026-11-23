@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖平面布局图片/几何识图服务、共享 generation-jobs 注册表及服务端注入的任务张数、OneAPI 图像连接/目录与JSON收发函数
- * [OUTPUT]: 提供布局 config/jobs、幂等提交、张数与恢复、逐图飞书归档准入和异步同步状态。私有原图和系统词不进入公开任务。
+ * [INPUT]: 依赖平面布局图片/几何识图服务、共享任务注册表及注入的机位墙线分析/送模预览、任务张数、OneAPI 连接/目录与JSON收发函数
+ * [OUTPUT]: 提供布局 config/jobs、无模型调用的机位分析和预览、幂等提交与恢复、逐图归档准入和异步同步状态。私有原图和系统词不进入公开任务。
  * [POS]: src 的三个平面图出图入口与几何识别边界，不接管普通生图或重试收费任务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -18,7 +18,7 @@ const keyDigest = (value) => createHash("sha256").update(String(value)).digest("
 export function createFloorPlanApiHandler({ getClient, getModels, requireKey = null, readJson, sendJson,
   generationJobs = createGenerationJobRegistry(), getPrompt, readPromptConfig,
   prefix = "/api/floor-plan", featureMode = "floorPlan", geometryEnabled = true,
-  getTaskTotal = () => 1, scheduleArchive = null, verifyArchive = null,
+  getTaskTotal = () => 1, scheduleArchive = null, verifyArchive = null, analyzeAnnotation = null, previewInput = null,
   prepareInput = prepareFloorPlanInput, execute = executeFloorPlan, readConfig = readFloorPlanConfig } = {}) {
   const pending = new Map();
   const identities = new Map();
@@ -107,6 +107,15 @@ export function createFloorPlanApiHandler({ getClient, getModels, requireKey = n
         sendJson(response, 200, { ...config, available: false, reason, continuationAvailable: false, continuationReason: reason,
           archive: { required: true, available: false, reason } });
       }
+      return true;
+    }
+    if (analyzeAnnotation && request.method === "POST" && pathname === `${prefix}/annotation`) {
+      const body = await readJson(request);
+      sendJson(response, 200, await analyzeAnnotation(body));
+      return true;
+    }
+    if (previewInput && request.method === "POST" && pathname === `${prefix}/preview`) {
+      sendJson(response, 200, await previewInput(await readJson(request)));
       return true;
     }
     const suffix = pathname.startsWith(`${prefix}/jobs/`) ? pathname.slice(`${prefix}/jobs/`.length) : "";

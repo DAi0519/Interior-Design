@@ -1,14 +1,16 @@
 /**
- * [INPUT]: 依赖 model-capabilities 的按功能及精模Flux双图尺寸合同、公开模型目录与 Beta 当前功能/尺寸选择
- * [OUTPUT]: 提供含自由生图整批提示词能力的功能目录与旧进程门禁、逐样本后置KS预检、目录驱动的分辨率与全景2:1/R5_4原尺寸隔离
+ * [INPUT]: 依赖 model-capabilities 的按功能及精模Flux双图尺寸合同、共享多角度尺寸、公开模型目录与 Beta 当前功能/尺寸选择
+ * [OUTPUT]: 提供含自由生图整批提示词和多角度的功能目录与旧进程门禁、逐样本后置KS预检、目录驱动的分辨率与全景2:1/R5_4原尺寸隔离
  * [POS]: public 的 Beta 功能与模型纯规则层，供页面编排、持久配置和测试复用，不读取 DOM 或图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { fluxPostUpscaleState, sizeControlState } from "./model-capabilities.js";
+import { planMultiAngleImage } from "./image-multi-angle-geometry.js";
 
 export const BETA_FEATURE_COPY = Object.freeze({
   housePlanLayout: { label: "户型平面布局", prompt: "补充需求（可选）", source: "户型原图" },
+  floorPlanCamera: { label: "平面图机位渲染", prompt: "补充要求（可选）", source: "平面图" },
   whiteModel: { label: "白模渲染", prompt: "补充要求（可选）", source: "白模图" },
   emptyRoom: { label: "空房设计", prompt: "补充要求（可选）", source: "空房图" },
   roomRenovation: { label: "旧房改造", prompt: "补充要求（可选）", source: "旧房照片" },
@@ -20,12 +22,13 @@ export const BETA_FEATURE_COPY = Object.freeze({
   panoramaEnhancement: { label: "全景图美化", prompt: "", promptConfig: "panoramaEnhancementPrompt", source: "待美化全景图" },
   free: { label: "自由生图", prompt: "整批提示词", source: "样本图" },
   imageOutpaint: { label: "AI扩图", prompt: "", source: "待扩图图片" },
+  imageMultiAngle: { label: "多角度", prompt: "", source: "多角度原图" },
   imageUpscale: { label: "AI超分", prompt: "", source: "待超分图片" },
 });
 
 export function betaFeatureUnavailableReason(featureMode, config) {
   if (featureMode === "free" && !config?.freeSharedPrompt) return "当前服务尚未加载自由生图整批提示词，请更新工作台服务后刷新";
-  return ["housePlanLayout", "roomRenovation", "textureEnhancement"].includes(featureMode) && !config?.features?.includes(featureMode)
+  return ["housePlanLayout", "floorPlanCamera", "roomRenovation", "textureEnhancement", "imageMultiAngle"].includes(featureMode) && !config?.features?.includes(featureMode)
     ? `当前服务尚未加载 Beta ${BETA_FEATURE_COPY[featureMode].label}，请更新工作台服务后刷新` : null;
 }
 
@@ -49,6 +52,11 @@ export function assertBetaPanoramaSource(featureMode, image) {
       || image.width < 1 || image.height < 1 || image.width !== image.height * 2)) {
     throw new Error(`${image?.name || "全景图"} 必须是 2:1 等距柱状全景图`);
   }
+}
+
+export function assertBetaImageSource(featureMode, image) {
+  assertBetaPanoramaSource(featureMode, image);
+  if (featureMode === "imageMultiAngle") planMultiAngleImage(image.width, image.height);
 }
 
 function intersection(values) {

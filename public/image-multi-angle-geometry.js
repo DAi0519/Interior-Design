@@ -1,9 +1,10 @@
 /**
  * [INPUT]: 接收原图真实宽高，不依赖DOM或图片解码
- * [OUTPUT]: 多角度上传策略及长边最高2K、8像素对齐的输入/推理/输出计划
- * [POS]: public 与 src 共用的多角度尺寸真源
+ * [OUTPUT]: 多角度俯仰范围、上传策略及长边最高2K、8像素对齐的输入/推理/输出计划
+ * [POS]: public 与 src 共用的多角度几何约束
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+export const MULTI_ANGLE_ELEVATION_RANGE = Object.freeze([-30, 90]);
 export const MULTI_ANGLE_IMAGE_POLICY = Object.freeze({
   maxInputBytes: 20 * 1024 * 1024,
   maxInputPixels: 64_000_000,

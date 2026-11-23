@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖localStorage、精模光影选择/旧氛围归一化、美化混合多选与卡片身份规范化、功能目录、独立扩图/超分状态、美化配置及模型和轻量表单配置
- * [OUTPUT]: 保存自由生图独立的整批提示词、旧房独立方式/风格/Agent版本及功能样本引用、美化混合多选和旧单选迁移、普通默认Flux/精模默认Banana2.1，不保存图片或任务执行身份
+ * [INPUT]: 依赖localStorage、精模光影选择/旧氛围归一化、美化混合多选与卡片身份规范化、功能目录、独立扩图/超分/多角度状态、美化配置及模型和轻量表单配置
+ * [OUTPUT]: 保存自由生图整批提示词、多角度整批机位与模型、旧房独立方式/风格/Agent版本及功能样本引用、美化混选和旧单选迁移，不保存图片或任务执行身份
  * [POS]: public 的 Beta跑图持久配置边界，只保存可重建配置与样本集引用，不保存图片、生成结果或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,8 @@ import { normalizeEffectBeautification, normalizeEffectBeautificationSelections 
 import { normalizeEffectBeautificationLighting } from "./effect-beautification-lighting.js";
 import { normalizeRefinedRender } from "./refined-render-presets.js";
 import { normalizeRefinedLighting } from "./refined-lighting-controls.js";
-import { BETA_FEATURE_COPY } from "./beta-model-rules.js?v=8";
+import { BETA_FEATURE_COPY } from "./beta-model-rules.js?v=9";
+import { normalizeBetaMultiAngleState } from "./beta-multi-angle.js";
 import { normalizeBetaOutpaintState } from "./beta-outpaint.js?v=1";
 import { normalizeBetaUpscaleState } from "./beta-upscale.js?v=3";
 import { DEFAULT_REFINED_MODEL_KEY, normalizeRefinedModelSelection } from "./refined-model-controls.js";
@@ -87,6 +88,7 @@ export function normalizeBetaPageState(input = {}) {
   return {
     controls,
     featureMode,
+    multiAngle: normalizeBetaMultiAngleState(input.multiAngle),
     outpaint: normalizeBetaOutpaintState(input.outpaint),
     upscale: normalizeBetaUpscaleState(input.upscale),
     sampleSetIds,

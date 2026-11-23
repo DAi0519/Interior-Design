@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖摄影机球DOM、camera-sphere-scene绘制、RAF、localStorage及机位变更回调
+ * [INPUT]: 依赖摄影机球DOM与俯仰滑杆范围、camera-sphere-scene绘制、RAF、localStorage及机位变更回调
  * [OUTPUT]: bindCameraSphere提供逐帧拖动、预设过渡、键盘微调、景别/机位读取；shortestCameraTurn提供最短方位弧
  * [POS]: public 共享摄影机球交互控制器，由主工作台和独立试跑复用，不上传图片或发起生成
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -14,6 +14,7 @@ const framingName = distance => distance === 0 ? '特写' : distance === 100 ? '
 export function bindCameraSphere(root, { onChange = () => {}, storageKey = 'multi-angle-pose', light = false } = {}) {
   const stage = root.querySelector('.cs-stage');
   const azimuth = root.querySelector('#cs-azimuth'), elevation = root.querySelector('#cs-elevation');
+  const minElevation = Number(elevation.min), maxElevation = Number(elevation.max);
   const handle = stage.querySelector('.cs-camera-handle');
   const azOutput = root.querySelector('[data-az-value]'), elOutput = root.querySelector('[data-el-value]');
   const poseOutput = stage.querySelector('[data-pose-summary]');
@@ -26,7 +27,7 @@ export function bindCameraSphere(root, { onChange = () => {}, storageKey = 'mult
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey));
       if (saved && ['azimuth','elevation','distance'].every(key => Number.isInteger(saved[key]))) {
-        state = { azimuth: clamp(saved.azimuth,0,360), elevation: clamp(saved.elevation,-30,60), distance: saved.distance < 25 ? 0 : saved.distance > 75 ? 100 : 50 };
+        state = { azimuth: clamp(saved.azimuth,0,360), elevation: clamp(saved.elevation,minElevation,maxElevation), distance: saved.distance < 25 ? 0 : saved.distance > 75 ? 100 : 50 };
       }
     } catch { /* -------- 存储不可用时保持正面默认值 -------- */ }
     displayed = { ...state };
@@ -69,7 +70,7 @@ export function bindCameraSphere(root, { onChange = () => {}, storageKey = 'mult
   }
   function nudge(direction, step = 1) {
     if (direction === 'left' || direction === 'right') state.azimuth=wrap(state.azimuth+(direction==='left'?-5:5)*step);
-    else state.elevation=clamp(state.elevation+(direction==='up'?5:-5)*step,-30,60);
+    else state.elevation=clamp(state.elevation+(direction==='up'?5:-5)*step,minElevation,maxElevation);
   }
   for (const [input,key] of [[azimuth,'azimuth'],[elevation,'elevation']]) {
     input.addEventListener('input',()=>{ state[key]=Number(input.value);change(); });
@@ -100,7 +101,7 @@ export function bindCameraSphere(root, { onChange = () => {}, storageKey = 'mult
   stage.addEventListener('pointermove',event=>{
     if (!drag || drag.id!==event.pointerId) return;
     state.azimuth=Math.round(wrap(drag.az+(event.clientX-drag.x)*.6));
-    state.elevation=Math.round(clamp(drag.el-(event.clientY-drag.y)*.4,-30,60));
+    state.elevation=Math.round(clamp(drag.el-(event.clientY-drag.y)*.4,minElevation,maxElevation));
     change();
   });
   function stop(event) {

@@ -1,13 +1,19 @@
 /**
- * [INPUT]: 依赖平面布局 HTTP 适配器、真实任务注册表与内存准备/图像替身
- * [OUTPUT]: 验证并发幂等、准备与故障恢复、连接隔离、归档准入和成功槽位逐图同步。
+ * [INPUT]: 依赖平面布局 HTTP 适配器、共享机位标注与真实合成、真实任务注册表与内存准备/图像替身
+ * [OUTPUT]: 验证画布墙线与保留画外原色的送模标注一致、并发幂等、准备与故障恢复、连接隔离、归档准入和成功槽位逐图同步。
  * [POS]: test 的平面布局独立API合同，不访问网络或付费模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
+import sharp from "sharp";
 import { createFloorPlanApiHandler } from "../src/floor-plan-api.mjs";
+import { analyzeFloorPlanCameraAnnotation, FLOOR_PLAN_CAMERA_WORKFLOW, prepareFloorPlanCameraInput } from "../src/floor-plan-camera-service.mjs";
+import { normalizeFloorPlanReferenceImage } from "../src/floor-plan-service.mjs";
 import { createGenerationJobRegistry } from "../src/generation-jobs.mjs";
+import { cameraAnnotationSvg } from "../public/floor-plan-camera-annotation.js";
+import { cameraVisibilityAnalysis } from "../public/floor-plan-camera-visibility.js";
 
 function harness({ prepareGate = null, executeGate = null, rejectPaid = false, rejectPrepare = false, failureDiagnostic = null,
   registry = createGenerationJobRegistry(), getClient: customClient = null } = {}) {
@@ -66,6 +72,64 @@ test("独立配置和查询路由、刷新和未知任务不影响普通生图",
   assert.equal((await h.get("missing-layout")).status, 404);
   assert.equal(await h.handler({ method: "POST" }, {}, "/api/generation-jobs"), false);
   assert.equal(await h.handler({ method: "GET" }, {}, "/api/floor-plan/jobs"), false);
+});
+
+test("机位画布与送模使用相同的墙线、原图尺寸和可见区，上传分析不启动任务", async () => {
+  const corridor = await sharp(Buffer.from(`<svg width="240" height="200">
+    <rect width="240" height="200" fill="white"/>
+    <path d="M22 188V22H218V188H22 M22 110H102 M137 110H218" fill="none" stroke="black" stroke-width="4"/>
+  </svg>`)).png().toBuffer();
+  const blank = await sharp({ create: { width: 320, height: 240, channels: 3, background: "white" } })
+    .jpeg().withMetadata({ orientation: 6 }).toBuffer();
+  const camera = { x: 0.5, y: 0.75, heading: 0, fov: 90, height: 1.5 };
+  const hash = value => createHash("sha256").update(value).digest("hex");
+  const getPrompt = async ({ version }) => {
+    const prompt = `PRIVATE_BODY_FOR_VERSION_${version}`;
+    return { code: "floor-plan-camera-agent", version, sha256: hash(prompt), prompt, published: true };
+  };
+  const getModels = async () => [{ id: "gemini-3.1-pro-preview" }, { id: "gpt-image-2.5-sunburst" }];
+  const prefix = "/api/floor-plan-camera";
+  const unexpected = () => assert.fail("标注分析不应读取提示词或生成权限，也不应提交任务或归档");
+  const handler = createFloorPlanApiHandler({ prefix, featureMode: "floorPlanCamera", geometryEnabled: false, getPrompt: unexpected,
+    analyzeAnnotation: analyzeFloorPlanCameraAnnotation, readJson: async request => request.body,
+    sendJson: (response, status, payload) => Object.assign(response, { status, payload }),
+    prepareInput: unexpected, getModels: unexpected, getClient: unexpected, requireKey: unexpected, execute: unexpected,
+    verifyArchive: unexpected, scheduleArchive: unexpected });
+  for (const { bytes, format, width, height, expectedVisibility } of [
+    { bytes: corridor, format: "png", width: 240, height: 200, expectedVisibility: true },
+    { bytes: blank, format: "jpeg", width: 240, height: 320, expectedVisibility: false },
+  ]) {
+    const type = `image/${format}`;
+    const referenceImage = { name: `plan.${format}`, size: bytes.length, type, dataUrl: `data:${type};base64,${bytes.toString("base64")}` };
+    const body = { referenceImage }, response = {};
+    assert.equal(await handler({ method: "POST", body }, response, `${prefix}/annotation`), true);
+    assert.equal(response.status, 200);
+    assert.deepEqual(Object.keys(response.payload).sort(), ["height", "walls", "width"]);
+    assert.equal(response.payload.width, width);
+    assert.equal(response.payload.height, height);
+    const walls = response.payload.walls;
+    const canvasWalls = walls && { ...walls, mask: Uint8Array.from(atob(walls.mask), character => character.charCodeAt(0)) };
+    const visibility = cameraVisibilityAnalysis(camera, canvasWalls);
+    assert.equal(Boolean(visibility?.bilateralOpening), expectedVisibility);
+    assert.equal(Boolean(walls), expectedVisibility);
+    const promptVersion = 8;
+    const { sha256: promptSha256 } = await getPrompt({ version: promptVersion });
+    const prepared = await prepareFloorPlanCameraInput({ ...body, camera, promptVersion, promptSha256,
+      action: "render", workflowVersion: FLOOR_PLAN_CAMERA_WORKFLOW,
+      agentModelKey: "gemini3pro" }, { getModels, getPrompt });
+    assert.deepEqual(prepared.guide.bilateralOpening, visibility?.bilateralOpening ?? null);
+    assert.equal(prepared.guide.visibilityMode, expectedVisibility ? "estimated-wall-occlusion" : "angle-only");
+    const normalized = await normalizeFloorPlanReferenceImage(referenceImage);
+    const overlay = cameraAnnotationSvg(camera, width, height, visibility?.polygon);
+    const annotated = await sharp(Buffer.from(normalized.imageUrl.split(",")[1], "base64"))
+      .composite([{ input: Buffer.from(overlay) }]).png().toBuffer();
+    assert.equal(prepared.guide.sha256, hash(annotated));
+    await assert.rejects(handler({ method: "POST", body: { ...body, jobId: "annotation-cannot-create-job" } }, {}, `${prefix}/annotation`), { statusCode: 400 });
+  }
+  assert.equal(handler.hasActiveJobs(), false);
+  assert.equal(await handler({ method: "GET" }, {}, `${prefix}/annotation`), false);
+  assert.equal(await handler({ method: "POST" }, {}, `${prefix}/preview`), false);
+  assert.equal(await harness().handler({ method: "POST" }, {}, "/api/floor-plan/annotation"), false);
 });
 
 test("同ID并发请求共用一次准备和图像调用，准备期GET可恢复且无私有数据", async () => {

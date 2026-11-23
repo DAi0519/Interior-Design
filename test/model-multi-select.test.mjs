@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、共享搜索单选/模型多选与全选/取消纯规则及内存 DOM/Popover 替身
- * [OUTPUT]: 对外提供模型至少一项、筛选全选/取消与首选保护、风格单选占位/禁选/点击关闭、普通单选/空值/键盘导航、模态抽屉内浮层迁移及焦点/等宽定位与销毁回归保障
+ * [OUTPUT]: 对外提供模型至少一项、筛选全选/取消与首选保护、普通单选/键盘导航、同文档浮层ID唯一及模态抽屉内迁移/定位回归
  * [POS]: test 的 Main/Beta 模型与设计风格共享选择测试，不调用网络、真实浏览器或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -178,7 +178,7 @@ class FixtureElement {
   }
 }
 
-function fixture({ nativePopover = true, presentOption, onChange, single = false, choiceOptions = {} } = {}) {
+function fixture({ nativePopover = true, presentOption, onChange, single = false, choiceOptions = {}, reservedPanelId } = {}) {
   const doc = {
     nativePopover, listeners: new Map(), activeElement: null,
     addEventListener: FixtureElement.prototype.addEventListener,
@@ -186,6 +186,7 @@ function fixture({ nativePopover = true, presentOption, onChange, single = false
     emit: FixtureElement.prototype.emit,
     createElement(tag) { return new FixtureElement(tag, this); },
     createElementNS(namespace, tag) { return this.createElement(tag); },
+    getElementById(id) { return this.body.children.find(node => node.id === id); },
   };
   const frames = [];
   doc.defaultView = {
@@ -199,6 +200,11 @@ function fixture({ nativePopover = true, presentOption, onChange, single = false
   doc.body = doc.createElement("body");
   const container = doc.createElement("div");
   doc.body.append(container);
+  if (reservedPanelId) {
+    const reserved = doc.createElement("div");
+    reserved.id = reservedPanelId;
+    doc.body.append(reserved);
+  }
   const changes = [];
   const messages = [];
   const bind = single ? bindSearchableChoice : bindModelMultiSelect;
@@ -219,6 +225,15 @@ function fixture({ nativePopover = true, presentOption, onChange, single = false
     flushFrames() { while (frames.length) frames.shift()(); },
   };
 }
+
+test("不同工作区的浮层跳过当前文档已占用的ID", () => {
+  const first = fixture();
+  const occupied = `model-picker-${Number(first.panel.id.match(/\d+$/)[0]) + 1}`;
+  const second = fixture({ reservedPanelId: occupied });
+  assert.notEqual(second.panel.id, occupied);
+  assert.equal(second.trigger.attributes.get("aria-controls"), second.panel.id);
+  assert.equal(second.trigger.attributes.get("popovertarget"), second.panel.id);
+});
 
 test("共享浮层只保留搜索同行全选和平铺复选，摘要显示首选加其余数量", () => {
   const ui = fixture();

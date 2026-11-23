@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖原生测试、摄影机球纯绘制与最短路径算法，使用独立记录前后球网的无浏览器 Canvas 记录器
- * [OUTPUT]: 验证原图前后球网和摄影机分层、拖动不重建两份球网缓存、尺寸/DPR更新、隐藏不分配、极限机位有限坐标与跨零度过渡
+ * [OUTPUT]: 验证原图前后球网和摄影机分层、拖动不重建两份球网缓存、尺寸/DPR更新、隐藏不分配、含90°正俯视的极限机位有限坐标与跨零度过渡
  * [POS]: test 的多角度绘制回归，不访问GPU、网络或持久化用户图片
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -75,7 +75,7 @@ test('摄影机逐帧不重建两份球网；尺寸或DPR变化才重建，隐�
   assert.equal(grids.length,2);
   const firstGridStrokes=grids.map(grid=>grid.calls.stroke);
   assert.ok(firstGridStrokes.every(count=>count>0));
-  for(let a=0;a<=360;a+=15)for(const e of [-30,0,60])scene.draw({azimuth:a,elevation:e,distance:100});
+  for(let a=0;a<=360;a+=15)for(const e of [-30,0,60,90])scene.draw({azimuth:a,elevation:e,distance:100});
   assert.equal(grids.length,2,'拖动不创建新的缓存画布');
   for(const layer of [base,front,...grids]) {
     assert.equal(layer.calls.resize,2);

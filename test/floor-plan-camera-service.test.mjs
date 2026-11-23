@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面图摄影服务、共享任务边界、真实PNG解码、OneAPI客户端及无网络HTTP/模型替身
- * [OUTPUT]: 验证机位图复用、双侧遮挡估算与旧资产隔离、人眼平视合同、九款模型HTTP与回执、批次准入与部分失败、幂等恢复
+ * [OUTPUT]: 验证机位图复用、画外原色与双侧遮挡估算、人眼平视与取景距离及外框合同、含 Seedream 5.5 的十一款模型HTTP及Banana Pro新旧权限隔离、批次准入与部分失败、幂等恢复
  * [POS]: test 的平面图摄影合同回归，不将离线通过当作真实视角画质验收
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -78,20 +78,34 @@ function assertResponsesImage(body, prepared, background) {
 
 test('相机使用数字原值、上零顺时针、坐标边界明确；拒绝隐式转换/未知字段/越界', () => {
   assert.deepEqual(validateFloorPlanCamera(camera), camera);
-  assert.deepEqual(validateFloorPlanCamera({ ...camera, x: 0, y: 1, fov: 100, height: .8 }), { ...camera, x: 0, y: 1, fov: 100, height: .8 });
+  for (const guideDepth of [.05, .4333333333, 1.5]) {
+    const pose = { ...camera, x: 0, y: 1, fov: 100, height: .8, guideDepth };
+    assert.deepEqual(validateFloorPlanCamera(pose), pose);
+  }
+  for (const showFrame of [true, false]) {
+    const pose = { ...camera, showFrame };
+    assert.deepEqual(validateFloorPlanCamera(pose), pose);
+  }
   for (const invalid of [{ x: '0.4' }, { x: -.01 }, { y: 1.01 }, { heading: 360 }, { heading: -1 }, { fov: 34 },
-    { fov: 101 }, { height: .7 }, { height: 2.3 }, { fov: NaN }, { yaw: 0 }, { height: Infinity }]) {
+    { fov: 101 }, { height: .7 }, { height: 2.3 }, { fov: NaN }, { yaw: 0 }, { height: Infinity },
+    ...[.049, 1.501, '.3', null, Infinity].map(guideDepth => ({ guideDepth })),
+    ...['false', 0, null, undefined].map(showFrame => ({ showFrame }))]) {
     assert.throws(() => validateFloorPlanCamera({ ...camera, ...invalid }));
   }
   assert.throws(() => validateFloorPlanCamera({ x: 0, y: 0 }));
 });
 test('配置仅含资产身份、默认2K/medium，全部生图模型独立按实际Key准入', async () => {
-  const config = await readFloorPlanCameraConfig({ getModels: async () => [{ id: 'gpt-image-2.6-flare' }, { id: 'gemini-3.1-pro-preview' }], getPrompt });
+  const ids = ['gpt-image-2.6-flare', 'gemini-3.1-pro-preview', 'gemini-3-pro-image'];
+  const config = await readFloorPlanCameraConfig({ getModels: async () => ids.map(id => ({ id })), getPrompt });
   assert.equal(config.available, true); assert.equal(config.workflowVersion, FLOOR_PLAN_CAMERA_WORKFLOW);
   assert.equal(config.workflowVersion, '2026-11-07.floor-plan-camera.9');
   assert.deepEqual(config.batch, { imageCounts: [1, 2, 3, 4], maxImages: 12 });
+  assert.deepEqual(config.cameraLimits.guideDepth, [.05, 1.5]);
+  assert.equal(config.cameraLimits.showFrame, true);
+  assert.equal(Object.hasOwn(config.cameraDefaults, 'guideDepth'), false);
+  assert.equal(Object.hasOwn(config.cameraDefaults, 'showFrame'), false);
   assert.equal(config.defaultResolution, '2K'); assert.equal(config.output.quality, 'medium');
-  assert.equal(config.models.length, 9);
+  assert.equal(config.models.length, 11);
   assert.deepEqual(config.input, { referenceImageCount: 1, referenceImageRole: 'camera-annotated-plan' });
   assert.deepEqual(config.imageGeneration, imageGeneration);
   assert.deepEqual(config.models.find(model => model.key === 'seedream5').resolutions, ['2K', '4K']);
@@ -100,6 +114,7 @@ test('配置仅含资产身份、默认2K/medium，全部生图模型独立按�
   assert.equal(config.models.some(model => model.key === 'aiTextureEnhancement'), false);
   assert.equal(config.models.find(model => model.key === 'gptImage26Flare').available, true);
   assert.equal(config.models.find(model => model.key === 'gptImage25Sunburst').available, false);
+  assert.equal(config.models.find(model => model.key === 'bananaPro').available, false, '旧 ID 不能授权 Banana Pro preview');
   for (const model of config.models) {
     assert.deepEqual(model.complexityOptions, model.key.startsWith('gptImage26') ? ['low', 'medium', 'high'] : []);
   }
@@ -123,7 +138,7 @@ test('真实解码保留原图身份，服务端同尺寸标注与机位变化�
   assert.match(context.camera.field_of_view_interpretation, /无可靠的可见范围填色/);
   assert.match(compileFloorPlanCameraPrompt(prepared, agentOutput).compiledPrompt, /Trace the visible interior from the dashed angle/);
 });
-test('v7仅在双侧近墙可靠时淡化画外标注图，并向Agent提供画幅与平面边界', async () => {
+test('v7可靠的双侧近墙只向Agent提供画幅和平面边界，送模机位图保留画外原色', async () => {
   const walls = Buffer.from('<svg width="240" height="200"><rect width="240" height="200" fill="white"/><path d="M22 188V22H218V188H22 M22 110H102 M137 110H218" fill="none" stroke="black" stroke-width="4"/><rect x="47" y="71" width="20" height="14" fill="red"/></svg>');
   const bytes = await sharp(walls).png().toBuffer();
   const base = { ...await input(), camera: { x: .5, y: .75, heading: 0, fov: 90, height: 1.5 },
@@ -138,9 +153,9 @@ test('v7仅在双侧近墙可靠时淡化画外标注图，并向Agent提供画�
   const pixel = async ({ guide }) => Array.from(await sharp(Buffer.from(guide.imageUrl.split(',')[1], 'base64'))
     .extract({ left: 57, top: 77, width: 1, height: 1 }).removeAlpha().raw().toBuffer());
   assert.deepEqual(await pixel(legacy), [255, 0, 0]);
-  assert.ok((await pixel(detailed))[1] > 220);
-  assert.notEqual(detailed.guide.sha256, legacy.guide.sha256);
-  assert.match(compileFloorPlanCameraPrompt(detailed, agentOutput).compiledPrompt, /shown only in the faded area/);
+  assert.deepEqual(await pixel(detailed), [255, 0, 0]);
+  assert.equal(detailed.guide.sha256, legacy.guide.sha256);
+  assert.match(compileFloorPlanCameraPrompt(detailed, agentOutput).compiledPrompt, /hidden by either near wall/);
 });
 test('同一张送模机位图只在首面实墙之前及开口视线内填色，两阶段核对墙体与门洞', async () => {
   const bytes = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="420" height="340">
@@ -735,13 +750,13 @@ test('真实Agent HTTP空正文保留已发生请求及费用，零图片HTTP请
 });
 
 // --- 最终HTTP合同：Agent与生图共用同一张标注图，三款GPT走后台，其他模型走同步 ---
-test('九款模型最终HTTP均只携带与Agent一致的标注图，按模型走同步或后台Responses', async context => {
+test('十一款模型最终HTTP均只携带与Agent一致的标注图，按模型走同步或后台Responses', async context => {
   const calls = [], original = await input();
   context.mock.method(globalThis, 'fetch', async (target, options) => {
     assert.equal(options.method, 'POST'); assert.ok(target.endsWith('/responses'));
     const body = JSON.parse(options.body); calls.push({ target, body });
     if (body.instructions) {
-      return Response.json({ id: 'agent-nine', output: [{ type: 'message', content: [{ type: 'output_text', text: agentOutput }] }] });
+      return Response.json({ id: 'agent-catalog', output: [{ type: 'message', content: [{ type: 'output_text', text: agentOutput }] }] });
     }
     const [width, height] = body.tools[0].size.split('x').map(Number);
     return Response.json({ id: 'resp_camera_reference', status: 'completed',
@@ -749,7 +764,8 @@ test('九款模型最终HTTP均只携带与Agent一致的标注图，按模型�
   });
   const client = createOneApiClient('test-key', { diagnosticSink: () => {} });
   const config = await readFloorPlanCameraConfig({ getModels: getAllModels, getPrompt });
-  assert.equal(config.models.length, 9);
+  assert.equal(config.models.length, 11);
+  assert.equal(config.models.find(model => model.key === 'bananaPro').available, true);
   for (const model of config.models) {
     const resolution = model.resolutions.includes('1K') ? '1K' : '2K';
     const prepared = await prepareFloorPlanCameraInput({ ...original, modelKey: model.key, resolution }, { getModels: getAllModels, getPrompt });
@@ -758,12 +774,12 @@ test('九款模型最终HTTP均只携带与Agent一致的标注图，按模型�
     assert.equal(agentBody.input.length, 1);
     assert.deepEqual(agentBody.input[0].content.filter(item => item.type === 'input_image').map(item => item.image_url), [prepared.guide.imageUrl]);
     assertResponsesImage(imageBody, prepared, backgroundModels.has(model.key));
-    assert.equal(imageBody.tools[0].size, model.sizes['16:9'][resolution]);
+    assert.equal(imageBody.tools[0].size, model.key === 'bananaPro' ? '1376x768' : model.sizes['16:9'][resolution]);
     assert.equal(imageBody.tools[0].quality, MODEL_CONFIGS[model.key].defaultQuality || undefined);
     assert.equal(Object.hasOwn(imageBody.tools[0], 'complexity'), false);
     assertImageReference(result.actual, prepared.guide); assert.equal(result.viewSummary, viewSummary);
   }
-  assert.equal(calls.length, 18);
+  assert.equal(calls.length, 22);
 });
 
 test('真实Agent HTTP缺字段、摘要过长或最终提示词越界均保留Agent回执且零图片HTTP', async context => {

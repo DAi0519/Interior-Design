@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、sharp 与摄影机球机位/图片压缩/原生执行图适配器
- * [OUTPUT]: 三档景别、跨模型英文指令一致/独立版本/后半圈反打语义、长边2K、大图压缩/EXIF/准入与产物的离线验证
+ * [OUTPUT]: 三档景别、跨模型英文指令一致/独立版本/后半圈反打与90°正俯视语义、长边2K、大图压缩/EXIF/准入与产物的离线验证
  * [POS]: test 的独立多角度试跑回归，不调用 MaaS 或产生图片
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -23,7 +23,7 @@ test("摄影机正面闭合，左侧方向不误写成右转270度", () => {
   assert.match(cameraPosePrompt({ ...pose, distance: 100 }), /28 degrees to the right.*farther away.*subject smaller.*surrounding space/);
 });
 test("不允许空值、数值字符串和范围外机位隐式进入GPU", () => {
-  for (const invalid of [null, {}, { ...pose, azimuth: "28" }, { ...pose, elevation: -31 }, { ...pose, distance: 101 }, { ...pose, azimuth: NaN }]) {
+  for (const invalid of [null, {}, { ...pose, azimuth: "28" }, { ...pose, elevation: -31 }, { ...pose, elevation: 91 }, { ...pose, distance: 101 }, { ...pose, azimuth: NaN }]) {
     assert.throws(() => normalizeCameraPose(invalid), /必须为/);
   }
 });
@@ -126,7 +126,7 @@ test("三档景别仅改变文本指令，不伪造百分比或裁剪原图", ()
 
 test("Qwen和三方共用全英文镜头语义且实际工作流使用相同正文", () => {
   for (const azimuth of [0, 2, 90, 91, 168, 180, 192, 204, 269, 270, 360]) {
-    for (const elevation of [-30, 0, 8, 60]) for (const distance of [0, 50, 100]) {
+    for (const elevation of [-30, 0, 8, 60, 89, 90]) for (const distance of [0, 50, 100]) {
       const pose = { azimuth, elevation, distance };
       const prompt = cameraPosePrompt(pose);
       assert.equal(prompt, multiAngleApiPrompt(pose));
@@ -134,10 +134,12 @@ test("Qwen和三方共用全英文镜头语义且实际工作流使用相同正�
       assert.match(prompt, /Preserve the identity, materials, lighting and relative spatial arrangement/);
     }
   }
-  const shot = { azimuth: 2, elevation: 60, distance: 0 };
+  const shot = { azimuth: 180, elevation: 90, distance: 0 };
   const graph = createMultiAngleWorkflow({ artifactKey: "english", imageBase64: "bytes", width: 960, height: 1200, seed: 123,
     generationRequest: { pose: shot } });
   assert.equal(graph["12"].inputs.prompt, multiAngleApiPrompt(shot));
+  assert.match(graph["12"].inputs.prompt, /straight down for a 90-degree top-down view.*Rotate the overhead composition 180 degrees clockwise.*close-up/);
+  assert.doesNotMatch(graph["12"].inputs.prompt, /REVERSE-ANGLE|opposite-side|back toward the windows/);
   const metadata = multiAngleMetadata({ width: 960, height: 1200, actualOutputWidth: 960, actualOutputHeight: 1200, generationRequest: { pose: shot } });
   assert.equal(metadata.promptVersion, MULTI_ANGLE_PROMPT_VERSION);
   assert.notEqual(metadata.promptVersion, metadata.version);

@@ -1,11 +1,12 @@
 /**
  * [INPUT]: 依赖生成尺寸控制器的后置KS输入/旧进程门禁、效果图美化六氛围/新增纯词光影控制器、ai-render-studio-host保活宿主、白模光影、质感Prompt、精模光影、图片工具、任务/飞书状态与设计/模型/上传/结果及连接中心
- * [OUTPUT]: 异步普通模型刷新不覆盖图片工具尺寸与参数；提供效果图美化六档/九卡混合多选×模型×每模板张数、逐项标签与旧进程门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
+ * [OUTPUT]: 提供AI渲染人物宠物独立功能导航；异步普通模型刷新不覆盖图片工具尺寸与参数；提供效果图美化六档/九卡混合多选×模型×每模板张数、逐项标签与旧进程门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { isEmptyRoomDesign } from "./room-renovation.js";
-import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=1";
+import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=4";
+import { SCENE_CAST_MODE } from "./scene-cast-handoff.js";
 import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
 import { bindConnectionCenter } from "./connection-center.js";
 import { createAppElements } from "./app-elements.js?v=2";
@@ -141,6 +142,7 @@ function updateReferenceRequirements() {
 }
 function selectFeatureMode(featureMode, { navigation = false } = {}) {
   if (featureMode === "aiRenderStudio") { aiRenderStudioHost.show(); return; }
+  if (featureMode === SCENE_CAST_MODE) { aiRenderStudioHost.show(SCENE_CAST_MODE); return; }
   if (aiRenderStudioHost.isActive() && !navigation) return;
   const supported = [
     "effectEnhancement", "effectBeautification", "textureEnhancement", "lightingTransfer", "emptyRoom", "roomRenovation", "free",
@@ -542,15 +544,10 @@ async function generate({ forcePromptRegeneration = false } = {}) {
     : effectBeautificationRequest ? beautificationItemsForSelection(generationItemsForSelection(models, generationCount.value()), effectBeautification.selections())
     : generationItemsForSelection(models, generationCount.value(), refinedModelRequest ? refinedModel.selections() : null);
   const sourceImage = selectedSourceImage();
-  const task = createGenerationTask({
-    featureMode,
-    loadingLabel: loadingCopy,
-    models: generationItems,
-  });
-  generationTasks.start(task, { comparisonImage: featureMode === "imageOutpaint" ? null : sourceImage });
-
+  const task = createGenerationTask({ featureMode, loadingLabel: loadingCopy, models: generationItems });
   try {
     const baseInput = localImageRequest ? null : generationInput();
+    generationTasks.start(task, { comparisonImage: featureMode === "imageOutpaint" ? null : sourceImage });
     const batchId = generationItems.length > 1
       ? crypto.randomUUID().replaceAll("-", "")
       : null;
@@ -652,7 +649,7 @@ const connectionCenter = bindConnectionCenter({
 });
 async function initialize() {
   const initialFeature = new URLSearchParams(window.location.search).get("feature");
-  if (initialFeature === "aiRenderStudio" || imageTools.forMode(initialFeature)) selectFeatureMode(initialFeature);
+  if (initialFeature === "aiRenderStudio" || imageTools.forMode(initialFeature) || initialFeature === SCENE_CAST_MODE) selectFeatureMode(initialFeature);
   generationTasks.resume();
   const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig, relightConfig] = await Promise.all([
     api("/api/catalog"),

@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖共享 ComfyUI 客户端、节点/模型连线准入器与全景 R5_4 工厂，接收单张原始全景及取消/进度选项
- * [OUTPUT]: 对外提供全景专用客户端配置、执行前真实尺寸/完整节点准入与默认二十分钟执行窗口
+ * [INPUT]: 依赖共享 ComfyUI 客户端、节点/模型连线准入器与 FastFlux2 全景工厂，接收单张原始全景及取消/进度选项
+ * [OUTPUT]: 对外提供全景专用客户端配置、执行前真实尺寸/FastFlux2/LoRA/色彩匹配节点准入与默认二十分钟执行窗口
  * [POS]: src 的全景传输适配器，仅提交球面工作流，复用普通客户端的单次提交、产物身份与 SHA 校验
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,14 +33,14 @@ export function createPanoramaClient(options = {}) {
     async generateImage(request, runOptions = {}) {
       runOptions.signal?.throwIfAborted();
       if (request?.workflow_kind !== PANORAMA_WORKFLOW.id || request.n !== 1 || request.images?.length !== 1) {
-        throw fail("全景 R5_4 需要独立工作流身份与单张原图请求");
+        throw fail("全景 FastFlux2 需要独立工作流身份与单张原图请求");
       }
       const dataUrl = request.images[0]?.image_url;
       const match = typeof dataUrl === "string" && /^data:image\/(?:png|jpeg|webp);base64,([a-zA-Z0-9+/=\s]+)$/.exec(dataUrl);
-      if (!match) throw fail("全景 R5_4 需要原始 PNG、JPEG 或 WebP 图片");
+      if (!match) throw fail("全景 FastFlux2 需要原始 PNG、JPEG 或 WebP 图片");
       const dimensions = panoramaSourceDimensions(match[1]);
       if (request.width !== dimensions.width || request.height !== dimensions.height) {
-        throw fail("全景 R5_4 请求尺寸与原图真实尺寸不一致");
+        throw fail("全景 FastFlux2 请求尺寸与原图真实尺寸不一致");
       }
       const graph = createPanoramaWorkflow({
         artifactKey: "panorama-capability-check",
@@ -53,6 +53,9 @@ export function createPanoramaClient(options = {}) {
       });
       const catalog = await client.getObjectInfo(PANORAMA_REQUIRED_NODES);
       try {
+        for (const type of PANORAMA_REQUIRED_NODES) {
+          if (!catalog[type]) throw new Error(`MaaS 缺少节点：${type}`);
+        }
         verifyMultiAngleCapabilities(graph, catalog);
       } catch (error) {
         throw fail(error.message);

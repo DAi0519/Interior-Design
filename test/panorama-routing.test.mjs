@@ -11,7 +11,9 @@ import { createGenerationService } from "../src/generation-service.mjs";
 import { createGenerationRequest, publicModelCatalog } from "../src/model-config.mjs";
 import { createGenerationJobApiHandler, supportedGenerationFeatureCapabilities } from "../src/generation-job-api.mjs";
 import { PANORAMA_WORKFLOW } from "../src/panorama-workflow.mjs";
-import { preparePanoramaLightingInput } from "../src/panorama-lighting.mjs";
+import { preparePanoramaLightingInput as prepareLighting } from "../src/panorama-lighting.mjs";
+import { loadPanoramaRule } from "./panorama-lighting-fixture.mjs";
+const preparePanoramaLightingInput = (input, options) => prepareLighting(input, { loadRule: loadPanoramaRule, ...options });
 
 const bytes = await sharp({ create: { width: 128, height: 64, channels: 3, background: "#888888" } }).png().toBuffer();
 const image = { dataUrl: `data:image/png;base64,${bytes.toString("base64")}`, name: "panorama.png", type: "image/png", size: bytes.length };
@@ -33,6 +35,7 @@ test("全景Flux目录、请求与真实路由使用R5_4原尺寸，普通Flux�
   let calls = 0, archived;
   const progress = () => {};
   const service = createGenerationService({
+    loadPanoramaLightingRule: loadPanoramaRule,
     imageClientForModel() { throw new Error("全景不得使用普通Flux客户端"); },
     panoramaClient: { async generateImage(request, options) {
       calls += 1;

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、ComfyUI 客户端与 Flux2 Klein 工作流工厂，所有 HTTP/WebSocket 响应由内存替身提供
- * [OUTPUT]: 对外提供健康检查、主动取消、原子提交、阶段/超时/OOM 诊断、长延迟产物读取恢复、产物身份及参考图边界回归保障
+ * [OUTPUT]: 对外提供共享环境与编辑器链接正规化、健康检查、主动取消、原子提交、阶段/超时/OOM 诊断、长延迟产物读取恢复、产物身份及参考图边界回归保障
  * [POS]: test 的 ComfyUI 客户端传输与状态契约测试，不提交真实工作流、不消耗 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,7 +12,7 @@ import {
   AI_TEXTURE_DEFAULTS,
   AI_TEXTURE_WORKFLOW,
 } from "../src/ai-texture-workflow.mjs";
-import { createComfyUiClient } from "../src/comfyui-client.mjs";
+import { createComfyUiClient, DEFAULT_COMFYUI_BASE_URL } from "../src/comfyui-client.mjs";
 
 const onePixelPng =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
@@ -31,6 +31,25 @@ function fakeWebSocket() {
     },
   };
 }
+
+test("共享楚雄环境的编辑器定位不会进入健康检查与节点目录 API", async () => {
+  const requests = [];
+  const client = createComfyUiClient({
+    baseUrl: `${DEFAULT_COMFYUI_BASE_URL}?tab=workflow#e730c989-81e1-490f-825e-61a4975b5988`,
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      return Response.json({});
+    },
+  });
+
+  await client.checkHealth();
+  await client.getObjectInfo(["QunheFastFlux2Model"]);
+
+  assert.deepEqual(requests, [
+    "http://maas-workflow-plg-prodtestplgcx.k8s-chuxiong.qunhequnhe.com/system_stats",
+    "http://maas-workflow-plg-prodtestplgcx.k8s-chuxiong.qunhequnhe.com/object_info/QunheFastFlux2Model",
+  ]);
+});
 
 test("ComfyUI 客户端原子提交 Base64 单图、执行工作流并返回统一 data URL", async () => {
   let queuedWorkflow;
@@ -420,6 +439,32 @@ test("持续网关 502 返回明确服务不可用且健康检查只重试安全
     },
   );
   assert.equal(requests, 3);
+});
+
+test("已受理GPU任务的History连接短暂失败只重读，不重复POST", async () => {
+  let posts = 0, histories = 0;
+  const client = createComfyUiClient({ baseUrl: "http://comfy.example/", randomId: () => "read-retry",
+    pollIntervalMs: 0, waitImpl: async () => {}, fetchImpl: async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/prompt") { posts += 1; return Response.json({ prompt_id: "accepted-read-retry", node_errors: {} }); }
+      if (path === "/history/accepted-read-retry") {
+        if (++histories === 1) throw new TypeError("fetch failed");
+        return Response.json({ "accepted-read-retry": { status: { completed: true, status_str: "success", messages: [] },
+          outputs: { "72": { images: [{ filename: "CanvasLab_Flux2Klein_read-retry_00001_.png", subfolder: "", type: "output" }] } } } });
+      }
+      if (path === "/view") return new Response(Buffer.from(onePixelPng.split(",")[1], "base64"), { headers: { "Content-Type": "image/png" } });
+      throw new Error(`unexpected request: ${path}`);
+    } });
+  const result = await client.generateImage({ images: [{ image_url: onePixelPng }], prompt: "Keep existing space." });
+  assert.equal(result.images.length, 1); assert.equal(histories, 2); assert.equal(posts, 1);
+});
+
+test("GPU提交连接失败保留未知结果，只POST一次", async () => {
+  let posts = 0;
+  const client = createComfyUiClient({ baseUrl: "http://comfy.example/", pollIntervalMs: 0, waitImpl: async () => {},
+    fetchImpl: async (url) => { assert.equal(new URL(url).pathname, "/prompt"); posts += 1; throw new TypeError("fetch failed"); } });
+  await assert.rejects(client.generateImage({ images: [{ image_url: onePixelPng }], prompt: "Keep existing space." }), /无法连接/);
+  assert.equal(posts, 1);
 });
 
 test("节点校验失败保留具体详情且不重复提交", async () => {

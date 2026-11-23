@@ -113,10 +113,6 @@
     white-space: normal;
   }
 
-  #configurationPanel .control-panel-scroll .reference-drop-zone {
-    grid-template-columns: 24px minmax(0, 1fr);
-  }
-
   #configurationPanel .control-panel-scroll :is(.reference-drop-zone span, .reference-drop-zone small) {
     line-height: 1.5;
     overflow-wrap: anywhere;

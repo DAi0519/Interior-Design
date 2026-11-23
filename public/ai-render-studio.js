@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖共享九卡光影/下拉/可选打光编辑、HTTP/文件/尺寸工具及独立任务/飞书同步接口
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供原光影或真实库卡选择、风格下拉、按需精细控光、单次提交/只读恢复、结果对比下载与独立归档重试
+ * [INPUT]: 依赖工作台参数挂接、共享光影/下拉/打光控件及独立生成/飞书同步接口
+ * [OUTPUT]: 提供可挂接的光影、风格、精细控光和START，更新共享上传容量/张数，支持生成恢复、对比下载与同步重试
  * [POS]: public 的独立AI渲染台浏览器编排层，仅保存任务ID，不持有模型密钥或运营Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,10 +10,12 @@ import { bindRefinedLightingControls } from "./refined-lighting-controls.js";
 import { RELIGHT_MODEL_KEY, RELIGHT_IMAGE_POLICY, relightImageIssue } from "./image-relight-geometry.js";
 import { api, formatBytes, readFileAsInput } from "./workbench-utils.js";
 import { readImageDimensions } from "./image-ratio.js";
-import "./custom-select.js?v=10";
+import { mountWorkspaceControls } from "./ai-render-studio-host.js?v=4";
 
-const by = id => document.getElementById(id);
+const nodes = new Map([...document.querySelectorAll("[id]")].map(node => [node.id, node]));
+const by = id => nodes.get(id) || document.getElementById(id);
 const root = by("studioLighting"), input = by("studioSourceInput"), upload = by("studioUpload");
+const replaceSource = by("studioReplaceSource");
 const generate = by("studioGenerate"), resume = by("studioResume");
 const STORAGE_KEY = "canvas-lab.ai-render-studio.job.v1";
 const API_ROOT = "/api/ai-render-studio";
@@ -74,6 +76,12 @@ byInStage("studioCanvasTools").append(toolbar);
 root.prepend(by("studioRenderSettings"));
 by("studioAdvancedPanel").append(settings);
 root.append(stage);
+if (mountWorkspaceControls("aiRenderStudio", by("studioSettingsForm"), by("studioRenderActions"))) {
+  by("studioRenderSettings").remove();
+  document.body.classList.add("studio-integrated");
+} else {
+  void import("./custom-select.js?v=10");
+}
 function byInStage(id) { return stage.querySelector(`#${id}`); }
 settings.querySelector("h2").textContent = "光线设置";
 settings.querySelector("[data-relight-prompt-refresh]").setAttribute("aria-label", "刷新AI渲染台配置");
@@ -132,13 +140,13 @@ function render() {
   if (!relight || !lighting || !by("studioStageHeading")) return;
   const busy = generating || uploadPending;
   document.body.classList.toggle("is-busy", generating);
-  upload.disabled = busy; input.disabled = busy; by("studioRemoveSource").disabled = busy;
+  upload.disabled = replaceSource.disabled = input.disabled = by("studioRemoveSource").disabled = busy;
   by("studioPrompt").disabled = busy;
   by("studioRenderStyle").disabled = busy;
   by("studioAdvancedToggle").disabled = busy || !source;
   by("studioLightingPresets").inert = busy;
   settings.inert = busy; toolbar.inert = busy; preview.inert = busy || selectedTab !== "preview";
-  by("studioUploadPolicy").textContent = `PNG / JPEG / WebP · 最大 ${formatBytes(studioImagePolicy().maxBytesPerImage)}`;
+  by("studioUploadPolicy").textContent = `PNG / JPEG / WebP · 单张 ${Math.floor(studioImagePolicy().maxBytesPerImage / (1024 * 1024))}MB`;
   by("studioSourceCount").textContent = source ? "1 / 1" : "0 / 1";
   const issue = config?.available ? source ? relight.validate()?.message || lighting.validation() : "" : config?.reason || "正在读取渲染配置。";
   generate.disabled = busy || !source || Boolean(issue);
@@ -169,25 +177,25 @@ async function loadSource(readSource) {
     if (sequence !== uploadSequence) return;
     source = next; result = null; job = null; comparisonSource = null; saveJobId(null);
     showError("studioRequestError"); resume.hidden = true; stopPoll();
-    by("studioSourceThumbnail").src = next.dataUrl; by("studioSourceSummary").hidden = false;
+    by("studioSourceThumbnail").src = next.dataUrl; by("studioSourceSummary").hidden = false; upload.hidden = true;
     by("studioSourceName").textContent = next.name; by("studioSourceName").title = next.name;
-    by("studioSourceDimensions").textContent = `${next.width} × ${next.height} · ${formatBytes(next.size)}`;
-    upload.classList.add("has-source"); upload.querySelector("strong").textContent = "替换模型图";
+    by("studioSourceDimensions").textContent = `${next.width} × ${next.height} · ${formatBytes(next.size)} · 可替换`;
     clearResult(); relight.activate(); setTab("result");
   } catch (error) {
     if (sequence === uploadSequence) showError("studioUploadError", `${error.message}。${source ? "当前原图已保留。" : "请重新选择图片。"}`);
   } finally { if (sequence === uploadSequence) { uploadPending = false; render(); } }
 }
-upload.addEventListener("click", () => input.click());
 input.addEventListener("change", () => { const file = input.files?.[0]; input.value = ""; void chooseFile(file); });
-for (const eventName of ["dragenter", "dragover"]) upload.addEventListener(eventName, event => { event.preventDefault(); if (!generating) upload.classList.add("dragging"); });
-for (const eventName of ["dragleave", "drop"]) upload.addEventListener(eventName, event => { event.preventDefault(); upload.classList.remove("dragging"); });
-upload.addEventListener("drop", event => { void chooseFile(event.dataTransfer?.files?.[0]); });
+for (const target of [upload, replaceSource]) {
+  target.addEventListener("click", () => input.click());
+  for (const name of ["dragenter", "dragover"]) target.addEventListener(name, event => { event.preventDefault(); if (!generating) target.classList.add("dragging"); });
+  for (const name of ["dragleave", "drop"]) target.addEventListener(name, event => { event.preventDefault(); target.classList.remove("dragging"); });
+  target.addEventListener("drop", event => { void chooseFile(event.dataTransfer?.files?.[0]); });
+}
 by("studioRemoveSource").addEventListener("click", () => {
   if (generating) return;
   ++uploadSequence; source = null; result = null; job = null; comparisonSource = null; saveJobId(null); stopPoll();
-  by("studioSourceSummary").hidden = true; by("studioSourceThumbnail").removeAttribute("src");
-  upload.classList.remove("has-source"); upload.querySelector("strong").textContent = "添加或拖入模型图";
+  by("studioSourceSummary").hidden = true; by("studioSourceThumbnail").removeAttribute("src"); upload.hidden = false;
   showError("studioUploadError"); showError("studioRequestError"); resume.hidden = true; clearResult();
   relight.restore({ templateKey: "custom", blendMode: "balanced", originalLights: { action: "keep" }, lights: [], outputResolution: "1K", quality: "medium" });
   setTab("result"); render();

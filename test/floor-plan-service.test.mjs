@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面布局图像服务、真实sharp图片与内存模型/资产/OneAPI替身
- * [OUTPUT]: 验证高熵JPEG转PNG超预算后保尺寸自动压缩与真实SHA；含GPT2.6 Sunburst/Flare独立模型身份； 验证默认图生图与显式文生图的路由/冲突拒绝、布局四模型权限/PNG交付与原生格式，保留后续三动作、原文前置、资产漂移和不自动重跑
+ * [OUTPUT]: 验证高熵JPEG转PNG超预算后保尺寸自动压缩与真实SHA、GPT2.6 Sunburst/Flare及Seedream 5.5独立身份、1K/2K与失权阻断、默认图生图与显式文生图路由、布局模型PNG交付与原生格式、后续三动作及原机位60°上限、原文前置、资产漂移和无自动重跑
  * [POS]: test 的最简平面布局服务合同，不访问真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -61,7 +61,8 @@ test("配置仅返回可用图像模型和JSON资产身份，不暴露正文", a
   assert.deepEqual(config.layoutModels.map(({ key, available }) => ({ key, available })), [
     { key: "gptImage25Sunburst", available: true }, { key: "gptImage26Sunburst", available: false },
     { key: "gptImage26Flare", available: false }, { key: "banana21", available: false },
-    { key: "seedream5", available: false }, { key: "seedream5Pro", available: false }]);
+    { key: "seedream5", available: false }, { key: "seedream5Pro", available: false },
+    { key: "seedream55", available: false }]);
   assert.deepEqual(config.layoutModels.find(model => model.key === "seedream5").defaults, { resolution: "2K", quality: null, outputFormat: "png" });
   assert.equal(config.output.exactCameraGeometry, false);
   assert.doesNotMatch(JSON.stringify(config), /PRIVATE_LAYOUT_RULE|PRIVATE_ADJUST_RULE|PRIVATE_INTERIOR_RULE/);
@@ -129,6 +130,7 @@ test("动作、来源、机位、未知字段和修改文本在付费前严格�
     { userRequirements: "x".repeat(4001) }, { promptVersion: 0 }, { promptSha256: "bad" }, { cameraPose: { azimuth: 0 } },
     { action: "camera", sourceAction: "layout", userRequirements: "", cameraPose: { azimuth: 0, elevation: 0, distance: 50 } },
     { action: "camera", sourceAction: "interior", userRequirements: "改变布局", cameraPose: { azimuth: 0, elevation: 0, distance: 50 } },
+    { action: "camera", sourceAction: "interior", userRequirements: "", cameraPose: { azimuth: 0, elevation: 61, distance: 50 } },
     { action: "camera", sourceAction: "interior", userRequirements: "", cameraPose: { azimuth: 0, elevation: 0, distance: 51 } },
     { action: "camera", sourceAction: "interior", userRequirements: "", cameraPose: { azimuth: 0, elevation: 0, distance: 50, extra: true } }]) {
     await assert.rejects(prepare(await input(override)));
@@ -136,8 +138,8 @@ test("动作、来源、机位、未知字段和修改文本在付费前严格�
 });
 
 test("布局按所选模型真实执行，默认参数来自共享目录，后续动作仍固定Sunburst", async () => {
-  const allModels = async () => ["gptImage25Sunburst", "banana21", "seedream5", "seedream5Pro"].map(key => ({ id: MODEL_CONFIGS[key].id }));
-  for (const key of ["gptImage25Sunburst", "banana21", "seedream5", "seedream5Pro"]) {
+  const allModels = async () => ["gptImage25Sunburst", "banana21", "seedream5", "seedream5Pro", "seedream55"].map(key => ({ id: MODEL_CONFIGS[key].id }));
+  for (const key of ["gptImage25Sunburst", "banana21", "seedream5", "seedream5Pro", "seedream55"]) {
     const source = await prepare(await input({ modelKey: key }), { getModels: allModels });
     const client = imageClient();
     const result = await executeFloorPlan(source, { client, getModels: allModels, getPrompt });
@@ -154,6 +156,38 @@ test("布局按所选模型真实执行，默认参数来自共享目录，后�
     assert.equal(result.actual.outputResized, false);
     assert.equal(result.actual.quality, key === "gptImage25Sunburst" ? "medium" : null);
   }
+});
+
+test("Seedream 5.5布局按独立ID验权，复用1K/2K并在失权或4K请求前阻断", async () => {
+  const selectedModels = async () => [{ id: "doubao-seedream-5.5" }];
+  const oldModels = async () => [{ id: MODEL_CONFIGS.seedream5Pro.id }];
+  const requested = await input({ modelKey: "seedream55" });
+  await assert.rejects(prepare(requested, { getModels: oldModels }), { statusCode: 409 });
+  const prepared = await prepare(requested, { getModels: selectedModels });
+  assert.deepEqual(prepared.model, { key: "seedream55", id: "doubao-seedream-5.5", label: "Seedream 5.5" });
+  assert.deepEqual(prepared.defaults, { resolution: "1K", quality: null, outputFormat: "png" });
+  const client = imageClient();
+  await assert.rejects(executeFloorPlan(prepared, { client, getModels: oldModels, getPrompt }), { statusCode: 409 });
+  assert.equal(client.calls.length, 0);
+  for (const [resolution, size] of [["1K", "1152x864"], ["2K", "2368x1776"]]) {
+    const result = await generateFloorPlanImage({ ...prepared, defaults: { ...prepared.defaults, resolution } }, {
+      client, prompt: "A floor plan with preserved walls.", ratio: "4:3",
+    });
+    const request = client.calls.at(-1);
+    assert.equal(request.model, "doubao-seedream-5.5");
+    assert.equal(request.size, size);
+    assert.equal(request.images.length, 1);
+    assert.equal(result.actual.outputResolution, resolution);
+    assert.equal(result.actual.sizeMatched, true);
+  }
+  assert.deepEqual(client.methods, ["generateImage", "generateImage"]);
+  await assert.rejects(generateFloorPlanImage({ ...prepared, defaults: { ...prepared.defaults, resolution: "4K" } }, {
+    client, prompt: "A floor plan with preserved walls.", ratio: "4:3",
+  }), /不支持这个分辨率档位/);
+  assert.equal(client.calls.length, 2);
+  await assert.rejects(prepare(await input({ action: "interior", modelKey: "seedream55" }), {
+    getModels: selectedModels,
+  }), { statusCode: 400 });
 });
 
 test("所选布局模型准备与执行均验权，失权或缺方法不改用其他模型", async () => {

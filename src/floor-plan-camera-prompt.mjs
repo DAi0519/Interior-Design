@@ -1,13 +1,15 @@
 /**
- * [INPUT]: 依赖 refined-model-prompt 的同构只读记录、独立平面图机位空间推理 Agent 表与版本缓存
- * [OUTPUT]: 对外提供Agent完整纯文本资产校验、最低v2的JSON输出合同版本门槛、上架版本/SHA冻结读取与脱敏目录
+ * [INPUT]: 依赖 refined-model-prompt 的同构只读记录、独立机位 Agent 表与版本缓存、取景输出合同版本
+ * [OUTPUT]: 对外提供Agent完整纯文本资产校验、双字段及结构化取景编码分流、上架版本/SHA冻结读取与脱敏目录
  * [POS]: src 的平面图机位空间推理资产边界，不回退旧直接生图编码、设计实验室或其他渲染正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createHash } from "node:crypto";
 import { listRefinedModelPrompts } from "./refined-model-prompt.mjs";
+import { STRUCTURED_FRAME_PROMPT_MIN_VERSION } from "./floor-plan-camera-output.mjs";
 
 export const FLOOR_PLAN_CAMERA_PROMPT_CODE = "floor-plan-camera-agent";
+export const FLOOR_PLAN_CAMERA_FRAME_PROMPT_CODE = "floor-plan-camera-frame-agent";
 export const FLOOR_PLAN_CAMERA_PROMPT_MIN_VERSION = 2;
 export const FLOOR_PLAN_CAMERA_PROMPT_CONFIG = Object.freeze({
   baseToken: process.env.LARK_FLOOR_PLAN_CAMERA_PROMPT_BASE_TOKEN || "SALobKnnra17iSsGT2ccC52PnHd",
@@ -19,6 +21,11 @@ export const FLOOR_PLAN_CAMERA_PROMPT_CONFIG = Object.freeze({
 const fail = (message, statusCode = 409) => Object.assign(new Error(message), { statusCode, floorPlanSafe: true });
 const hash = (text) => createHash("sha256").update(text).digest("hex");
 const tableUrl = (config) => config.tableUrl || `https://lq9n5lvfn2i.feishu.cn/base/${encodeURIComponent(config.baseToken)}?table=${encodeURIComponent(config.tableId)}`;
+const validVersion = version => Number.isSafeInteger(version) && version > 0;
+
+export function floorPlanCameraPromptCode(version) {
+  return version >= STRUCTURED_FRAME_PROMPT_MIN_VERSION ? FLOOR_PLAN_CAMERA_FRAME_PROMPT_CODE : FLOOR_PLAN_CAMERA_PROMPT_CODE;
+}
 
 // --- 只校验完整正文合同，不在代码中提供运营词或跨表兜底 ---
 export function parseFloorPlanCameraPrompt(source) {
@@ -47,16 +54,19 @@ function normalizeHash(value) {
 }
 
 function select(records, version) {
-  const matching = records.filter((entry) => entry.code === FLOOR_PLAN_CAMERA_PROMPT_CODE);
+  // --- 固定版本只读对应编码，结构化资产与旧版工作台隔离 ---
+  const codes = version === null ? [FLOOR_PLAN_CAMERA_PROMPT_CODE, FLOOR_PLAN_CAMERA_FRAME_PROMPT_CODE] : [floorPlanCameraPromptCode(version)];
+  const matching = records.filter(entry => codes.includes(entry.code)
+    && (!validVersion(entry.version) || entry.code === floorPlanCameraPromptCode(entry.version)));
   if (!matching.length) throw fail("飞书独立表缺少平面图机位空间推理 Agent");
   const seen = new Set();
   for (const entry of matching) {
-    if (Number.isSafeInteger(entry.version) && entry.version > 0) {
+    if (validVersion(entry.version)) {
       if (seen.has(entry.version)) throw fail("平面图机位空间推理 Agent 存在重复版本");
       seen.add(entry.version);
     }
     if (entry.published) {
-      if (!entry.validPrompt || !Number.isSafeInteger(entry.version) || entry.version < 1) {
+      if (!entry.validPrompt || !validVersion(entry.version)) {
         throw fail("平面图机位渲染已上架 Prompt 的名称、版本或正文不完整");
       }
       parseFloorPlanCameraPrompt(entry.prompt);
@@ -80,9 +90,9 @@ function safeError(error) {
 
 function assetFrom(record, config) {
   const prompt = parseFloorPlanCameraPrompt(record.prompt);
-  return { code: FLOOR_PLAN_CAMERA_PROMPT_CODE, name: record.name, version: record.version,
+  return { code: record.code, name: record.name, version: record.version,
     published: true, prompt, sha256: hash(prompt),
-    source: `feishu:${config.tableId}:${FLOOR_PLAN_CAMERA_PROMPT_CODE}@v${record.version}`, tableUrl: tableUrl(config) };
+    source: `feishu:${config.tableId}:${record.code}@v${record.version}`, tableUrl: tableUrl(config) };
 }
 
 export async function getFloorPlanCameraPrompt({ version = null, expectedSha256 = null, ...options } = {}) {

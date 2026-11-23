@@ -1,20 +1,22 @@
 /**
- * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta含户型布局的十三功能目录、旧房设计配置/空房判定、Flux负向草稿、扩图/超分、持久配置、样本库/预警/Run ID和API工具
- * [OUTPUT]: 自由生图按样本×模型共用一条整批提示词；户型布局逐图标注/版本选择与同源执行； 提供旧房样本×模型批测、逐图房型/独立Agent版本与场景投影及旧进程门禁；美化/精模/全景按光影×模型×样本展开、尺寸与Prompt准入、可恢复配置、仅失败项冻结RETRY和生成/归档双阶段监控
+ * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta功能目录与平面图适配器、旧房设计配置/空房判定、Flux负向草稿、扩图/超分/多角度、持久配置、样本库/预警/Run ID和API工具
+ * [OUTPUT]: 自由生图共用整批提示词、多角度共用整批机位、户型布局逐图标注、机位推理或整批原词直出、旧房独立Agent和房型、光影多选、尺寸与Prompt准入、可恢复配置、冻结RETRY与双阶段监控
  * [POS]: public 的 Beta跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createBetaHousePlanConfiguration } from "./beta-house-plan.js?v=3";
+import { createBetaFloorPlanCameraConfiguration } from "./beta-floor-plan-camera.js?v=12";
 import { isLightingReference } from "./refined-flux-reference.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection, generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
 import "./custom-select.js?v=9";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=11";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=11";
-import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaPanoramaSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=8";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=12";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=12";
+import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaImageSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=9";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
+import { createBetaMultiAngleConfiguration } from "./beta-multi-angle.js";
 import { createBetaUpscaleConfiguration } from "./beta-upscale.js?v=3";
 import { createBetaDesignConfiguration } from "./beta-design-config.js";
 import { betaRefinedLightingRunSummary, createBetaRefinedRenderConfiguration } from "./beta-refined-render.js";
@@ -23,14 +25,12 @@ import { bindPanoramaLightingControls } from "./panorama-lighting-controls.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js?v=2";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
-import { bindImageDrop, renderImagePreviews } from "./beta-upload.js";
+import { bindImageDrop, readBetaImage as readImage, renderImagePreviews } from "./beta-upload.js";
 import { createBetaSampleLibrary } from "./beta-sample-library.js?v=9";
 import { fillBetaSelect as fillSelect, renderBetaProgress as renderProgress, renderBetaWarnings } from "./beta-results.js?v=2";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=2";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
-import { readImageDimensions } from "./image-ratio.js";
-import { api, readFileAsInput } from "./workbench-utils.js";
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+import { api } from "./workbench-utils.js";
 const JOB_STORAGE_KEY = "canvas-lab:beta-run-job";
 const restoredPageState = readBetaPageState(localStorage);
 const refinedModelSelection = createRefinedModelSelection({ saved: restoredPageState.refinedModelSelection });
@@ -46,6 +46,8 @@ const elements = Object.fromEntries([
   "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
   "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
   "monitorWarnings", "monitorWarningsCount",
+  "multiAngleFields", "multiAngleModelField", "multiAngleModelOptions", "multiAngleAzimuth", "multiAngleElevation",
+  "multiAngleAzimuthValue", "multiAngleElevationValue", "multiAngleTopDownButton", "multiAngleDistance",
   "negativePromptField", "negativePromptInput", "negativePromptCount", "negativePromptNote", "promptAgentAvailability", "promptAgentModelSelect",
   "ordinaryOutputFields", "outpaintFields", "outpaintWorkflowOptions", "outpaintRatioSelect",
   "outpaintMultipleSelect", "outpaintAvailability", "outputSettingsHint", "taskSettingsSection",
@@ -115,6 +117,11 @@ const upscaleConfiguration = createBetaUpscaleConfiguration({
   onChange() { renderRunSummary(); saveConfiguration(); },
   onMessage(message) { elements.runHint.textContent = message; },
 });
+const multiAngleConfiguration = createBetaMultiAngleConfiguration({
+  elements, initialState: restoredPageState.multiAngle,
+  onChange() { renderRunSummary(); saveConfiguration(); },
+  onMessage(message) { elements.runHint.textContent = message; },
+});
 const sampleLibrary = createBetaSampleLibrary({
   api,
   elements,
@@ -125,11 +132,14 @@ const sampleLibrary = createBetaSampleLibrary({
     saveConfiguration();
   },
   readImage,
-  validateSourceImage: assertBetaPanoramaSource,
-  canSave: featureMode => featureMode !== "free" || state.betaConfig?.freeSharedPrompt === true,
+  validateSourceImage: assertBetaImageSource,
+  canSave: featureMode => featureMode === "free" ? state.betaConfig?.freeSharedPrompt === true
+    : featureMode !== "imageMultiAngle" || !betaFeatureUnavailableReason(featureMode, state.betaConfig),
 });
 const housePlanConfiguration = createBetaHousePlanConfiguration({ getState: () => state, sampleLibrary, fillSelect,
   onChange() { if (state.featureMode === "housePlanLayout") renderModels(); }, onError: reportUploadError });
+const floorPlanCameraConfiguration = createBetaFloorPlanCameraConfiguration({ getState: () => state, getModels: selectedModels,
+  sampleLibrary, fillSelect, output: elements, onChange() { if (state.featureMode === "floorPlanCamera") renderModels(); }, onPromptChange: renderRunSummary, onError: reportUploadError });
 const designConfiguration = createBetaDesignConfiguration({ elements, fillSelect, getState: () => state, restoredPageState });
 const refinedRenderConfiguration = createBetaRefinedRenderConfiguration({ elements, fillSelect, getState: () => state,
   getModels: selectedModels, showToast: message => { elements.runHint.textContent = message; },
@@ -141,6 +151,7 @@ const configuration = createBetaConfigurationPersistence({
     sampleSetIds: state.sampleSetIds,
     selectedModelKeys: state.selectedModelKeys,
     refinedModelSelection: refinedModelSelection.snapshot(),
+    multiAngle: multiAngleConfiguration.snapshot(),
     outpaint: outpaintConfiguration.snapshot(),
     upscale: upscaleConfiguration.snapshot(),
     stylesReady: Boolean(state.stylesConfig),
@@ -155,9 +166,7 @@ const configuration = createBetaConfigurationPersistence({
   restoredPageState,
   storage: localStorage,
 });
-function saveConfiguration() {
-  configuration.save();
-}
+const saveConfiguration = configuration.save;
 function renderPromptAgentModels() {
   const models = state.catalog.agentModels.filter((model) => model.imageInput);
   const previousKey = elements.promptAgentModelSelect.value;
@@ -192,43 +201,23 @@ function selectedModels() {
     .filter(Boolean);
 }
 function selectedCandidates() {
+  if (state.featureMode === "imageMultiAngle") return multiAngleConfiguration.selectedModels();
   if (state.featureMode === "imageUpscale") return upscaleConfiguration.selectedWorkflows();
   return state.featureMode === "imageOutpaint" ? outpaintConfiguration.selectedWorkflows() : selectedModels();
 }
 function sampleCount() { return sampleLibrary.sampleCount(); }
-function postUpscaleIssue() { if (state.featureMode === "housePlanLayout") return null; return betaPostUpscaleUnavailableReason({ featureMode: state.featureMode, models: selectedModels(), resolution: elements.resolutionSelect.value, sources: sampleLibrary.sourceDimensions(state.freeReference), refinedLighting: refinedRenderConfiguration.snapshot() }); }
+function postUpscaleIssue() { if (["housePlanLayout", "floorPlanCamera", "imageMultiAngle"].includes(state.featureMode)) return null; return betaPostUpscaleUnavailableReason({ featureMode: state.featureMode, models: selectedModels(), resolution: elements.resolutionSelect.value, sources: sampleLibrary.sourceDimensions(state.freeReference), refinedLighting: refinedRenderConfiguration.snapshot() }); }
 function runCount() {
   return sampleCount() * selectedCandidates().length
     * (state.featureMode === "refinedModel" ? refinedRenderConfiguration.selections().length
       : state.featureMode === "effectBeautification" ? effectBeautificationControls.selections().length
-      : state.featureMode === "panoramaEnhancement" ? Math.max(1, panoramaLighting.getSelections().length) : 1);
+      : state.featureMode === "panoramaEnhancement" ? Math.max(1, panoramaLighting.getSelections().length)
+      : state.featureMode === "floorPlanCamera" ? floorPlanCameraConfiguration.imageCount() : 1);
 }
 function showStatus(message, { error = false, ready = false } = {}) {
   elements.betaConnectionStatus.textContent = message;
   elements.betaConnectionStatus.classList.toggle("ready", ready);
   elements.betaConnectionStatus.classList.toggle("error", error);
-}
-async function readImage(file, { previewOnly = false } = {}) {
-  if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-    throw new Error(`${file?.name || "文件"} 不是 PNG、JPEG 或 WebP`);
-  }
-  if (file.size > MAX_IMAGE_BYTES) throw new Error(`${file.name} 超过 8MB`);
-  if (previewOnly) {
-    const previewUrl = URL.createObjectURL(file);
-    try {
-      return { file, name: file.name, size: file.size, type: file.type, previewUrl,
-        ...await readImageDimensions(previewUrl, file.name), lastModified: file.lastModified };
-    } catch (error) {
-      URL.revokeObjectURL(previewUrl);
-      throw error;
-    }
-  }
-  const input = await readFileAsInput(file);
-  return {
-    ...input,
-    ...await readImageDimensions(input.dataUrl, file.name),
-    lastModified: file.lastModified,
-  };
 }
 function renderSingleReference(key, list, dropZone) {
   const images = state[key] ? [state[key]] : [];
@@ -250,12 +239,14 @@ function renderReferenceInputs() {
 }
 function renderRunSummary() {
   housePlanConfiguration.decorateSamples();
+  floorPlanCameraConfiguration.decorateSamples();
   elements.betaFeatureSelect.disabled = sampleLibrary.isBusy();
   elements.freeReferenceField.classList.toggle("hidden", state.featureMode !== "free" || !sampleLibrary.usesTextSamples());
   const total = runCount();
   const samples = sampleCount();
   const outpaint = state.featureMode === "imageOutpaint";
   const upscale = state.featureMode === "imageUpscale";
+  const multiAngle = state.featureMode === "imageMultiAngle";
   const models = selectedCandidates().length;
   const candidateLabel = outpaint || upscale ? "工作流" : "模型";
   elements.runSummary.textContent = samples && models
@@ -264,7 +255,7 @@ function renderRunSummary() {
       : state.featureMode === "effectBeautification" ? `${samples} 个样本 × ${effectBeautificationControls.selections().length} 种光影 × ${models} 个模型 = ${total} 张结果`
       : state.featureMode === "panoramaEnhancement" && panoramaLighting.getSelections().length > 1
         ? `${samples} 个样本 × ${models} 个模型 × ${panoramaLighting.getSelections().length} 种光影 = ${total} 张结果`
-      : `${samples} 个样本 × ${models} 个${candidateLabel} = ${total} 张结果`
+      : `${samples} 个样本 × ${models} 个${candidateLabel}${state.featureMode === "floorPlanCamera" ? ` × ${floorPlanCameraConfiguration.imageCount()} 张` : ""} = ${total} 张结果`
     : samples ? `请选择${upscale ? "超分工作流" : outpaint ? "扩图工作流" : "出图模型"}` : "请选择样本集";
   const failed = state.job?.status === "failed";
   elements.newBatchButton.classList.toggle("hidden", !failed || state.submitting);
@@ -286,7 +277,8 @@ function renderRunSummary() {
     || state.featureMode === "effectBeautification" && !effectBeautificationControls.requiresOriginalPrompt()
     || state.stylesConfig?.[effectPromptKey]?.available;
   const sharedPromptReady = state.featureMode !== "free" || elements.freeSharedPromptInput.value.trim().length >= 3;
-  const targetIssue = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || postUpscaleIssue()
+  const targetIssue = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || floorPlanCameraConfiguration.reason() || postUpscaleIssue()
+    || (multiAngle ? multiAngleConfiguration.unavailableReason() : null)
     || (["styleTransfer", "roomRenovation"].includes(state.featureMode) ? designConfiguration.unavailableReason() : null);
   const targetReady = !targetIssue;
   const lightingIssue = state.featureMode === "refinedModel" ? refinedRenderConfiguration.validation()
@@ -295,6 +287,7 @@ function renderRunSummary() {
   const workflowConfiguration = upscale ? upscaleConfiguration : outpaintConfiguration;
   const workflowsReady = !(outpaint || upscale) || workflowConfiguration.ready();
   if (upscale) showStatus(workflowsReady ? "ComfyUI 已就绪" : "超分工作流未就绪", { ready: workflowsReady });
+  if (multiAngle) showStatus(targetReady ? "多角度已就绪" : "多角度未就绪", { ready: targetReady });
   if (!failed && !agentReady && !running) {
     elements.runHint.textContent = state.agentAccessChecked
       ? "提示词模型不可用，请选择当前 Key 已开放的模型"
@@ -304,7 +297,7 @@ function renderRunSummary() {
   if (!failed && !workflowsReady && !running) elements.runHint.textContent = workflowConfiguration.unavailableReason() || `请选择${upscale ? "超分" : "扩图"}工作流`;
   if (!failed && lightingIssue && !running) elements.runHint.textContent = lightingIssue;
   if (!failed && !running && targetReady && !sharedPromptReady && samples) elements.runHint.textContent = "请填写整批提示词（至少 3 个字符）";
-  elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !state.connected)
+  elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !multiAngle && !state.connected)
     || !sampleLibrary.isReady()
     || total < 1
     || !agentReady
@@ -324,14 +317,15 @@ function modelAvailable(model) {
 }
 function renderModels() {
   if (state.featureMode === "housePlanLayout" && !housePlanConfiguration.configured()) { renderOutputControls(); return; }
+  if (state.featureMode === "floorPlanCamera" && !floorPlanCameraConfiguration.configured()) { renderOutputControls(); return; }
   state.selectedModelKeys = refinedModelSelection.forFeature(state.featureMode, state.selectedModelKeys, state.catalog.models, state.modelAccessChecked ? [...state.modelAccess.values()] : undefined);
-  if (["imageOutpaint", "imageUpscale"].includes(state.featureMode)) { renderOutputControls(); return; }
-  const runnable = state.catalog.models.filter((model) => modelAvailable(model) && housePlanConfiguration.selectable(model));
+  if (["imageOutpaint", "imageUpscale", "imageMultiAngle"].includes(state.featureMode)) { renderOutputControls(); return; }
+  const runnable = state.catalog.models.filter((model) => modelAvailable(model) && housePlanConfiguration.selectable(model) && floorPlanCameraConfiguration.selectable(model));
   const selectable = runnable.filter((model) => betaModelSelectable(model, state.featureMode));
   state.selectedModelKeys = state.selectedModelKeys.filter((key) =>
     selectable.some((model) => model.key === key));
   if (!state.selectedModelKeys.length && selectable[0] && state.featureMode !== "refinedModel") {
-    const defaultModel = selectable.find((model) => model.key === (state.featureMode === "housePlanLayout" ? "gptImage25Sunburst" : DEFAULT_BETA_MODEL_KEY))
+    const defaultModel = selectable.find((model) => model.key === (state.featureMode === "housePlanLayout" ? "gptImage25Sunburst" : state.featureMode === "floorPlanCamera" ? "banana21" : DEFAULT_BETA_MODEL_KEY))
       || selectable[0];
     state.selectedModelKeys = [defaultModel.key];
   }
@@ -339,6 +333,7 @@ function renderModels() {
   renderOutputControls();
 }
 function renderOutputControls() {
+  if (state.featureMode === "imageMultiAngle") { renderRunSummary(); return; }
   if (state.featureMode === "imageUpscale") { upscaleConfiguration.render(); renderRunSummary(); return; }
   if (state.featureMode === "imageOutpaint") {
     outpaintConfiguration.render();
@@ -346,6 +341,7 @@ function renderOutputControls() {
     return;
   }
   if (state.featureMode === "housePlanLayout") { elements.negativePromptField.classList.add("hidden"); renderRunSummary(); return; }
+  if (state.featureMode === "floorPlanCamera") { floorPlanCameraConfiguration.renderOutput(); renderRunSummary(); return; }
   const models = selectedModels();
   refinedRenderConfiguration.setModels(models);
   const sizes = betaSizeOptions({ models, featureMode: state.featureMode, refinedLighting: refinedRenderConfiguration.snapshot(),
@@ -368,7 +364,6 @@ function renderOutputControls() {
   );
   renderRunSummary();
 }
-function renderDesignConfig() { designConfiguration.render(); }
 function renderFeature() {
   housePlanConfiguration.render();
   const copy = FEATURE_COPY[state.featureMode];
@@ -376,17 +371,21 @@ function renderFeature() {
   const free = state.featureMode === "free";
   const outpaint = state.featureMode === "imageOutpaint";
   const upscale = state.featureMode === "imageUpscale";
+  const multiAngle = state.featureMode === "imageMultiAngle";
   const design = ["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode);
   const effect = Boolean(copy.promptConfig);
   const refined = state.featureMode === "refinedModel";
   elements.taskSettingsSection.classList.toggle("hidden", outpaint || upscale);
   elements.outpaintFields.classList.toggle("hidden", !outpaint);
   elements.upscaleFields.classList.toggle("hidden", !upscale);
-  elements.ordinaryOutputFields.classList.toggle("hidden", outpaint || upscale);
+  elements.multiAngleFields.classList.toggle("hidden", !multiAngle);
+  elements.multiAngleModelField.classList.toggle("hidden", !multiAngle);
+  elements.ordinaryOutputFields.classList.toggle("hidden", outpaint || upscale || multiAngle);
   elements.ordinaryOutputFields.classList.toggle("is-house-plan", state.featureMode === "housePlanLayout");
-  elements.outputSettingsHint.textContent = state.featureMode === "housePlanLayout" ? "沿用户型布局默认参数 · 可多选模型对比" : upscale ? "对比超分工作流 · 保持原图比例" : outpaint ? "对比不同扩图工作流 · 固定 2K" : "可多选全部可用模型";
-  elements.commonPromptField.classList.toggle("hidden", free || effect || outpaint || upscale);
-  if (!upscale) showStatus(state.connected ? "服务已连接" : "请先连接 API", { ready: state.connected });
+  elements.outputSettingsHint.textContent = state.featureMode === "housePlanLayout" ? "沿用户型布局默认参数 · 可多选模型对比" : multiAngle ? "同机位对比模型 · 长边最高 2K" : upscale ? "对比超分工作流 · 保持原图比例" : outpaint ? "对比不同扩图工作流 · 固定 2K" : "可多选全部可用模型";
+  elements.commonPromptField.classList.toggle("hidden", free || effect || outpaint || upscale || multiAngle);
+  floorPlanCameraConfiguration.render();
+  if (!upscale && !multiAngle) showStatus(state.connected ? "服务已连接" : "请先连接 API", { ready: state.connected });
   elements.designFields.classList.toggle("hidden", !design);
   elements.styleReferenceField.classList.toggle("hidden", !design);
   elements.emptyRoomFields.classList.add("hidden");
@@ -401,7 +400,7 @@ function renderFeature() {
   elements.sourceFilesHint.textContent = `PNG / JPEG / WebP · 单张 8MB · 逐张上传${state.featureMode === "panoramaEnhancement" ? " · 必须为 2:1 全景图" : ""}`;
   elements.commonPromptLabel.textContent = copy.prompt;
   elements.configStatus.textContent = design ? "读取设计配置" : effect ? "使用当前上架 Prompt" : refined ? "读取精模 Prompt" : "工作台同源";
-  if (design) renderDesignConfig();
+  if (design) designConfiguration.render();
   if (effect) {
     const effectConfig = state.stylesConfig?.[copy.promptConfig];
     elements.configStatus.textContent = state.featureMode === "effectBeautification" && !effectBeautificationControls.requiresOriginalPrompt()
@@ -415,13 +414,13 @@ function renderFeature() {
 }
 function currentCases() {
   return sampleLibrary.currentCases({
-    commonPrompt: state.featureMode === "free" ? elements.freeSharedPromptInput.value.trim() : ["imageOutpaint", "imageUpscale", "textureEnhancement"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
+    commonPrompt: state.featureMode === "free" ? elements.freeSharedPromptInput.value.trim() : ["imageOutpaint", "imageUpscale", "imageMultiAngle", "textureEnhancement"].includes(state.featureMode) ? "" : elements.commonPromptInput.value.trim(),
     freeReference: state.freeReference });
 }
 function designSettings() { return designConfiguration.settings(); }
 function assertFeatureConfig() {
-  const unavailableReason = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || postUpscaleIssue()
-    || (state.featureMode === "housePlanLayout" ? null : generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()));
+  const unavailableReason = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || floorPlanCameraConfiguration.reason() || postUpscaleIssue()
+    || (["housePlanLayout", "floorPlanCamera", "imageMultiAngle"].includes(state.featureMode) ? null : generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()));
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
   if (state.featureMode === "refinedModel") refinedRenderConfiguration.validate();
@@ -443,8 +442,10 @@ function buildItems(startedAt = new Date()) {
   assertFeatureConfig();
   const cases = currentCases();
   if (state.featureMode === "housePlanLayout") return housePlanConfiguration.buildItems(cases, selectedModels(), startedAt);
+  if (state.featureMode === "floorPlanCamera") return floorPlanCameraConfiguration.buildItems(cases, selectedModels(), startedAt);
   if (state.featureMode === "imageOutpaint") return outpaintConfiguration.buildItems(cases, startedAt);
   if (state.featureMode === "imageUpscale") return upscaleConfiguration.buildItems(cases, startedAt);
+  if (state.featureMode === "imageMultiAngle") return multiAngleConfiguration.buildItems(cases, startedAt);
   const models = state.featureMode === "refinedModel"
     ? generationItemsForSelection(selectedModels(), 1, refinedRenderConfiguration.selections())
     : state.featureMode === "effectBeautification" ? beautificationItemsForSelection(selectedModels(), effectBeautificationControls.selections())
@@ -559,7 +560,9 @@ async function followJob(jobId) {
 
 async function startBatch(previousJob = null) {
   if (previousJob?.status === "failed" && previousJob.jobId) {
-    const retryUnavailable = generationFeatureUnavailableReason(previousJob.featureMode, state.catalog.generationFeatureModes, state.catalog.models);
+    const retryUnavailable = previousJob.featureMode === "imageMultiAngle"
+      ? betaFeatureUnavailableReason(previousJob.featureMode, state.betaConfig)
+      : generationFeatureUnavailableReason(previousJob.featureMode, state.catalog.generationFeatureModes, state.catalog.models);
     if (retryUnavailable) throw new Error(retryUnavailable);
     const { job } = await api("/api/beta/jobs", {
       body: JSON.stringify({ retryOfJobId: previousJob.jobId, jobId: `beta-${crypto.randomUUID()}` }),
@@ -636,6 +639,7 @@ function bindEvents() {
     if (sampleLibrary.isBusy() || !Object.hasOwn(FEATURE_COPY, featureMode) || featureMode === state.featureMode) return;
     state.featureMode = featureMode;
     if (featureMode === "housePlanLayout") { state.selectedModelKeys = ["gptImage25Sunburst"]; void housePlanConfiguration.refresh(); }
+    if (featureMode === "floorPlanCamera") void floorPlanCameraConfiguration.refresh();
     renderFeature();
     sampleLibrary.setFeatureMode(
       state.featureMode,
@@ -655,7 +659,7 @@ function bindEvents() {
     });
   }
   elements.renderModeSelect.addEventListener("change", () => {
-    renderDesignConfig();
+    designConfiguration.render();
     renderRunSummary();
     saveConfiguration();
   });
@@ -683,7 +687,7 @@ function bindEvents() {
     elements.resolutionSelect,
     elements.styleSelect,
   ]) select.addEventListener("change", () => {
-    if (select === elements.styleSelect) renderDesignConfig();
+    if (select === elements.styleSelect) designConfiguration.render();
     renderRunSummary(); saveConfiguration();
   });
   elements.newBatchButton.addEventListener("click", () => {
@@ -732,8 +736,10 @@ async function load() {
     state.connected = session.connected === true;
     state.betaConfig = betaConfig;
     if (state.featureMode === "housePlanLayout") await housePlanConfiguration.refresh();
+    if (state.featureMode === "floorPlanCamera") await floorPlanCameraConfiguration.refresh();
     outpaintConfiguration.configure(betaConfig.outpaint);
     upscaleConfiguration.configure(betaConfig.upscale);
+    multiAngleConfiguration.configure(betaConfig.multiAngle);
     elements.monitorBaseLink.href = betaConfig.baseUrl;
     fillSelect(elements.roomTypeSelect, [
       { label: "请选择", value: "" },
@@ -789,5 +795,4 @@ async function load() {
     renderRunSummary();
   }
 }
-
 load();

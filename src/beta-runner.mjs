@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖户型布局适配器及实际标注图归档投影、任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、普通Flux后置超分身份/尺寸规划、Beta扩图/六工作流超分真源与只读能力、源图尺寸、风格转换/旧房独立Agent版本、模型2:1矩阵与用户提示词长度、三表Schema/资产Store及参考图/全景/房型/Agent准入
- * [OUTPUT]: 自由生图冻结整批提示词并按样本ID读取原图，兼容旧文字集；含GPT2.6 Sunburst/Flare独立模型身份； 对外提供按当前功能新建样本、已有跨功能样本按ID复用及目标功能内容准入、草稿/逐张保存/完成回读、Schema/Agent/精模/全景/扩图/超分准入、精模唯一配置串行冻结及失败零入队、逐项原图读取和含户型平面布局的十三功能两路并发执行，旧房独立归档并映射空房单流程、冻结精模/氛围版本摘要与真实图片工作流及全景/风格转换版本、生成/同步双阶段与逐Run预警快照、失败项手动续Attempt及旧批次恢复、仅同步失败复用服务端原结果、回读后预览、合同错误不自动重试；旧原始光影仅恢复已有结果，缺结果零建档/出图；Sunburst扩图最多一次收费提交；受信旧KS失败批次只恢复已有结果，缺结果在建档/GPU前拒旧版本
- * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，分别记录模型生成和飞书回读进度，并只以后者为完成与结果可见条件
+ * [INPUT]: 依赖户型布局与平面图机位适配器及实际标注图归档投影、任务批处理、generation-service、美化/精模及全景光影版本/SHA冻结、普通Flux后置超分身份/尺寸规划、Beta图片工具能力与真实原图校验、风格转换/旧房独立Agent版本、模型2:1矩阵与用户词长度、三表Schema/资产Store及参考图/全景/房型/Agent准入
+ * [OUTPUT]: 对外提供Beta样本集、原图和墙线读取、自由生图整批共享提示词、功能准入、配置和飞书全景规则ID/版本/SHA冻结、两路并发及逐图归档。机位共享一次已确认推理，各模型独立成图。多角度冻结机位且只提交一次，复用同步失败的原结果并按原工作流约束恢复旧批次。
+ * [POS]: src 的 Beta跑图应用服务，隔离整批队列总数与正式生成服务单次批次语义，同机位共享分析，分别记录模型生成和飞书回读进度
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { normalizeBetaHousePlanInput, housePlanArchiveItem } from "./beta-house-plan.mjs";
+import { normalizeBetaFloorPlanCameraInput, floorPlanCameraArchiveItem } from "./beta-floor-plan-camera.mjs";
 import { normalizeEmptyRoomType, normalizeEmptyRoomTypeDetail, EMPTY_ROOM_TYPE_DETAIL_MAX_LENGTH } from "./empty-room-type.mjs";
 import { normalizeBetaSampleImage, singleSharedImages } from "./beta-sample-store.mjs";
 import { REFERENCE_IMAGE_POLICY } from "./reference-image.mjs";
@@ -15,9 +16,10 @@ import { prepareRefinedRenderInput } from "./refined-render-prompt.mjs";
 import { assertRefinedLightingAdmission, hasRefinedLightingInput, prepareRefinedLightingInput, refinedLightingFreezeKey } from "./refined-lighting.mjs";
 import { normalizePanoramaLighting, preparePanoramaLightingInput } from "./panorama-lighting.mjs";
 import { assertEffectBeautificationLightingFeature, prepareEffectBeautificationLightingInput } from "./effect-beautification-lighting.mjs";
-import { normalizeImageOutpaintInput } from "./image-outpaint-service.mjs";
-import { BETA_OUTPAINT_WORKFLOWS, normalizeBetaOutpaintInput, publicBetaOutpaintConfig, verifyBetaOutpaintBatch } from "./beta-outpaint.mjs";
-import { normalizeBetaUpscaleInput, publicBetaUpscaleConfig, validateBetaUpscaleSource, verifyBetaUpscaleBatch } from "./beta-upscale.mjs";
+import { BETA_OUTPAINT_WORKFLOWS, normalizeBetaOutpaintInput } from "./beta-outpaint.mjs";
+import { normalizeBetaUpscaleInput } from "./beta-upscale.mjs";
+import { createBetaImageToolAdmission, multiAngleRecoveryError, normalizeBetaMultiAngleInput, singleBetaImageToolAttempt } from "./beta-image-tools.mjs";
+import { resolveMultiAngleModel } from "./image-multi-angle-service.mjs";
 
 import {
   createGenerationJobRegistry,
@@ -26,6 +28,7 @@ import {
 
 export const BETA_FEATURE_MODES = Object.freeze([
   "housePlanLayout",
+  "floorPlanCamera",
   "whiteModel",
   "emptyRoom",
   "roomRenovation",
@@ -37,6 +40,7 @@ export const BETA_FEATURE_MODES = Object.freeze([
   "panoramaEnhancement",
   "free",
   "imageOutpaint",
+  "imageMultiAngle",
   "imageUpscale",
 ]);
 export const BETA_MAX_ATTEMPTS = 3;
@@ -248,7 +252,7 @@ function normalizeBetaDesignInput(input, featureMode) {
   return next;
 }
 
-function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
+function normalizeBatch(body = {}, { recovering = false } = {}) {
   const batchId = String(body.batchId || "").trim();
   const featureMode = String(body.featureMode || "").trim();
   const jobId = String(body.jobId || "").trim();
@@ -315,6 +319,7 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
       ...(lightingReferenceImages ? { lightingReferenceImages } : {}),
     };
     if (featureMode === "housePlanLayout") input = normalizeBetaHousePlanInput(input);
+    if (featureMode === "floorPlanCamera") input = normalizeBetaFloorPlanCameraInput(input);
     input = normalizeBetaDesignInput(input, featureMode);
     assertEffectBeautificationLightingFeature(input, featureMode);
     if (featureMode === "textureEnhancement") {
@@ -338,18 +343,20 @@ function normalizeBatch(body = {}, { recoveringLegacyUpscale = false } = {}) {
       if (selection.renderMode === "style-reference") delete input.styleCode;
     }
     if (featureMode === "imageOutpaint") input = normalizeBetaOutpaintInput(input);
+    if (featureMode === "imageMultiAngle") input = normalizeBetaMultiAngleInput(input, { recovering });
     if (featureMode === "imageUpscale") input = normalizeBetaUpscaleInput(input,
-      { recoveringLegacy: recoveringLegacyUpscale });
-    input = normalizeFluxPostUpscaleInput(input, { legacy: recoveringLegacyUpscale });
+      { recoveringLegacy: recovering });
+    input = normalizeFluxPostUpscaleInput(input, { legacy: recovering });
     const outpaintWorkflow = featureMode === "imageOutpaint"
       ? BETA_OUTPAINT_WORKFLOWS.find((workflow) => workflow.key === input.outpaintWorkflowKey) : null;
+    const modelLabel = featureMode === "imageMultiAngle" ? resolveMultiAngleModel(input.multiAngleModel).label : outpaintWorkflow?.label;
     return {
       attempt: Number.isInteger(item.attempt) && item.attempt > 0 ? item.attempt : 1,
       caseId,
       input: featureMode === "panoramaEnhancement" ? normalizePanoramaInput(input) : input,
       key: runId,
       label: String(item.label || caseId).slice(0, 160),
-      modelLabel: outpaintWorkflow?.label || String(item.modelLabel || item.input.modelKey || "").slice(0, 120),
+      modelLabel: modelLabel || String(item.modelLabel || item.input.modelKey || "").slice(0, 120),
       ...(outpaintWorkflow ? { outpaintWorkflowKey: outpaintWorkflow.key } : {}),
       runId,
       sampleId: String(item.sampleId || "").trim(),
@@ -363,8 +370,10 @@ export function createBetaRunnerService({
   baseStore,
   generationService,
   housePlanService = null,
+  floorPlanCameraService = null,
   getOutpaintConfig = null,
   getUpscaleConfig = null,
+  getMultiAngleConfig = null,
   prepareRefinedInput = prepareRefinedRenderInput,
   prepareRefinedLighting = prepareRefinedLightingInput,
   preparePanoramaLighting = preparePanoramaLightingInput,
@@ -376,8 +385,10 @@ export function createBetaRunnerService({
   if (!baseStore || !generationService) {
     throw new TypeError("Beta跑图需要独立 Base Store 与生成服务");
   }
-  const afterSchemaVerification = (operation) => baseStore.verifySchema
-    ? Promise.resolve(baseStore.verifySchema()).then(operation)
+  const imageTools = createBetaImageToolAdmission({ getOutpaintConfig, getUpscaleConfig, getMultiAngleConfig });
+  const needsFeatureSchema = featureMode => ["floorPlanCamera", "imageMultiAngle"].includes(featureMode);
+  const afterSchemaVerification = (operation, featureMode) => baseStore.verifySchema
+    ? Promise.resolve(baseStore.verifySchema(needsFeatureSchema(featureMode) ? { featureMode } : undefined)).then(operation)
     : operation();
 
   const batches = new Map();
@@ -398,7 +409,9 @@ export function createBetaRunnerService({
     const states = previous ? previous.states.map((state) => ({ ...state }))
       : batch.items.map((item, index) => ({ item, index, attempt: item.attempt - 1,
         generated: false, synced: false, archive: null, result: null, error: null, stage: "generation" }));
-    const context = { batch, states };
+    const cameraAnalysis = batch.featureMode === "floorPlanCamera"
+      ? floorPlanCameraService.createAnalysisCache(previous?.cameraAnalysis) : null;
+    const context = { batch, states, cameraAnalysis };
     batches.set(batch.jobId, context);
     if (previous) previous.retryJobId = batch.jobId;
     const count = (key) => states.filter((state) => state[key]).length;
@@ -454,9 +467,14 @@ export function createBetaRunnerService({
               throw error;
             }
           }
+          if (state.multiAngleDispatched && !state.result) {
+            state.error ||= multiAngleRecoveryError();
+            updateStages(`${item.label} · ${betaErrorMessage(state.error)}`);
+            throw state.error;
+          }
           if (batch.featureMode === "refinedModel" && !state.result) assertRefinedLightingAdmission(item.input);
-          const attempts = batch.featureMode === "housePlanLayout" || batch.featureMode === "panoramaEnhancement" && MODEL_CONFIGS[item.input.modelKey]?.panoramaWorkflow
-            || batch.featureMode === "imageOutpaint" && ["gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare"].includes(item.input.outpaintEngine)
+          const attempts = ["housePlanLayout", "floorPlanCamera"].includes(batch.featureMode) || batch.featureMode === "panoramaEnhancement" && MODEL_CONFIGS[item.input.modelKey]?.panoramaWorkflow
+            || singleBetaImageToolAttempt(batch.featureMode, item.input)
             ? 1 : maxAttempts;
           try {
             for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -473,21 +491,20 @@ export function createBetaRunnerService({
                     currentItem.input = { ...currentItem.input,
                       referenceImages: [normalizeBetaSampleImage(source.image, batch.featureMode)] };
                   }
-                  if (batch.featureMode === "imageOutpaint") {
-                    verifyBetaOutpaintBatch({ ...batch, items: [currentItem] }, getOutpaintConfig ? await getOutpaintConfig() : {});
-                    await normalizeImageOutpaintInput(currentItem.input);
-                  }
-                  if (batch.featureMode === "imageUpscale") {
-                    verifyBetaUpscaleBatch({ ...batch, items: [currentItem] }, getUpscaleConfig ? await getUpscaleConfig() : {});
-                    validateBetaUpscaleSource(currentItem.input);
-                  }
+                  if (imageTools.handles(batch.featureMode)) await imageTools.validateItem(batch, currentItem);
                   if (currentItem.input.postUpscaleWorkflowKey) createGenerationRequest(currentItem.input);
                   const housePlan = batch.featureMode === "housePlanLayout" ? await housePlanService.prepare(currentItem.input) : null;
+                  const camera = cameraAnalysis ? await floorPlanCameraService.prepare(currentItem.input) : null;
+                  const archiveItem = camera ? floorPlanCameraArchiveItem(currentItem, camera)
+                    : housePlan ? housePlanArchiveItem(currentItem, housePlan) : currentItem;
                   state.stage = "archive";
                   state.archive = await baseStore.beginRun({ batchId: batch.batchId,
-                    featureMode: batch.featureMode, item: housePlan ? housePlanArchiveItem(currentItem, housePlan) : currentItem, testTime: batch.testTime });
+                    featureMode: batch.featureMode, item: archiveItem, testTime: batch.testTime });
                   state.stage = "generation";
-                  state.result = housePlan ? await housePlanService.execute(housePlan) : await generationService.executeForMode(batch.featureMode === "roomRenovation" ? "emptyRoom" : batch.featureMode, singleRunGenerationInput(currentItem.input));
+                  if (batch.featureMode === "imageMultiAngle") state.multiAngleDispatched = true;
+                  if (camera) state.result = await floorPlanCameraService.execute(currentItem, camera, cameraAnalysis);
+                  else if (housePlan) state.result = await housePlanService.execute(housePlan);
+                  else state.result = await generationService.executeForMode(batch.featureMode === "roomRenovation" ? "emptyRoom" : batch.featureMode, singleRunGenerationInput(currentItem.input));
                   state.generated = true;
                   state.stage = "sync";
                   updateStages(`已生成 ${count("generated")} / ${batch.items.length} · 正在同步飞书`);
@@ -504,7 +521,8 @@ export function createBetaRunnerService({
                   runId: state.currentItem.runId };
                 updateStages(`已同步 ${count("synced")} / ${batch.items.length}`);
                 return { archive: completedArchive, attempt: state.attempt };
-              } catch (error) {
+              } catch (cause) {
+                const error = state.multiAngleDispatched && !state.result ? multiAngleRecoveryError(cause) : cause;
                 state.error = error;
                 if (state.archive?.recordId) {
                   try { await baseStore.failRun(state.archive.recordId, error, { retainArchive: Boolean(state.result) }); }
@@ -532,10 +550,11 @@ export function createBetaRunnerService({
   const admitBatch = (batch, previous = null) => afterSchemaVerification(() => {
     const bindAndEnqueue = () => baseStore.getSampleSet
       ? bindBatchSamples(batch, baseStore, { preserveInput: Boolean(previous) }).then(() => enqueueBatch(batch, previous)) : enqueueBatch(batch, previous);
-    if (batch.featureMode === "housePlanLayout") {
-      if (!housePlanService) throw inputError("当前服务未加载户型布局");
+    if (["housePlanLayout", "floorPlanCamera"].includes(batch.featureMode)) {
+      const service = batch.featureMode === "housePlanLayout" ? housePlanService : floorPlanCameraService;
+      if (!service) throw inputError(batch.featureMode === "housePlanLayout" ? "当前服务未加载户型布局" : "当前服务未加载平面图机位");
       const pending = { ...batch, items: batch.items.filter((_, index) => !previous?.states[index]?.result && !previous?.states[index]?.synced && !previous?.states[index]?.recoverArchived) };
-      return (pending.items.length ? housePlanService.verify(pending) : Promise.resolve()).then(bindAndEnqueue);
+      return (pending.items.length ? service.verify(pending) : Promise.resolve()).then(bindAndEnqueue);
     }
     if (batch.featureMode === "effectBeautification") {
       const prepareItems = async () => {
@@ -562,10 +581,11 @@ export function createBetaRunnerService({
         for (const [index, item] of batch.items.entries()) {
           const state = previous?.states[index];
           if (state?.synced || state?.result || state?.recoverArchived) continue;
-          const key = JSON.stringify([item.input.panoramaLighting, item.input.prompt]);
+          const key = JSON.stringify([item.input.panoramaLighting, item.input.prompt, item.input.panoramaLightingRule]);
           if (!prepared.has(key)) prepared.set(key, await preparePanoramaLighting(item.input));
           const frozen = prepared.get(key);
           item.input.panoramaLighting = structuredClone(frozen.panoramaLighting);
+          item.input.panoramaLightingRule = structuredClone(frozen.panoramaLightingRule);
           item.input.prompt = frozen.prompt;
         }
       };
@@ -598,41 +618,41 @@ export function createBetaRunnerService({
       };
       return prepareItems().then(bindAndEnqueue);
     }
-    if (!["imageOutpaint", "imageUpscale"].includes(batch.featureMode)) return bindAndEnqueue();
-    const capabilityBatch = batch.featureMode === "imageUpscale" && previous
+    if (!imageTools.handles(batch.featureMode)) return bindAndEnqueue();
+    const capabilityBatch = batch.featureMode !== "imageOutpaint" && previous
       ? { ...batch, items: batch.items.filter((_item, index) => {
         const state = previous.states[index];
-        return !state.synced && !state.result && !state.recoverArchived;
+        return !state.synced && !state.result && !state.recoverArchived && !state.multiAngleDispatched;
       }) } : batch;
-    if (!capabilityBatch.items.length) return bindAndEnqueue();
-    const readConfig = batch.featureMode === "imageUpscale" ? getUpscaleConfig : getOutpaintConfig;
-    return Promise.resolve(readConfig ? readConfig() : {}).then((config) => {
-      if (batch.featureMode === "imageUpscale") verifyBetaUpscaleBatch(capabilityBatch, config);
-      else verifyBetaOutpaintBatch(batch, config);
-      return bindAndEnqueue();
-    });
-  });
+    return capabilityBatch.items.length ? imageTools.verify(capabilityBatch).then(bindAndEnqueue) : bindAndEnqueue();
+  }, batch.featureMode);
 
   return {
     async config() {
       return {
         baseUrl: baseStore.config.baseUrl,
         freeSharedPrompt: true,
-        features: BETA_FEATURE_MODES.filter(mode => mode !== "housePlanLayout" || housePlanService),
+        features: BETA_FEATURE_MODES.filter(mode => mode !== "housePlanLayout" || housePlanService)
+          .filter(mode => mode !== "floorPlanCamera" || floorPlanCameraService)
+          .filter(mode => mode !== "imageMultiAngle" || getMultiAngleConfig),
         tableId: baseStore.config.tableId,
-        outpaint: publicBetaOutpaintConfig(getOutpaintConfig ? await getOutpaintConfig() : {}),
-        upscale: publicBetaUpscaleConfig(getUpscaleConfig ? await getUpscaleConfig() : {}),
+        ...await imageTools.config(),
       };
+    },
+    getFloorPlanCameraConfig() {
+      if (!floorPlanCameraService) throw inputError("当前服务未加载平面图机位");
+      return floorPlanCameraService.config();
     },
     createSampleSet(body) {
       const sampleSet = normalizeSampleSet(body);
-      return afterSchemaVerification(() => baseStore.createSampleSet(sampleSet));
+      return afterSchemaVerification(() => baseStore.createSampleSet(sampleSet), sampleSet.featureMode);
     },
     addSample(sampleSetId, body) {
       return afterSchemaVerification(async () => {
         const set = await baseStore.getSampleSet(sampleSetId, { includeDraft: true });
         if (!set) throw Object.assign(inputError("样本集不存在或已归档"), { statusCode: 404 });
-        return baseStore.addSample(sampleSetId, normalizeSingleSample(body, set));
+        const add = () => baseStore.addSample(sampleSetId, normalizeSingleSample(body, set));
+        return needsFeatureSchema(set.featureMode) ? afterSchemaVerification(add, set.featureMode) : add();
       });
     },
     completeSampleSet(sampleSetId, body = {}) {
@@ -644,6 +664,11 @@ export function createBetaRunnerService({
     },
     getSampleImage(sampleSetId, sampleId) {
       return baseStore.getSampleImage(sampleSetId, sampleId);
+    },
+    async getSampleCameraAnnotation(sampleSetId, sampleId) {
+      if (!floorPlanCameraService || !baseStore.resolveSample) throw inputError("当前服务未加载平面图机位样本");
+      const sample = await baseStore.resolveSample(sampleSetId, sampleId, { targetFeatureMode: "floorPlanCamera" });
+      return floorPlanCameraService.analyzeAnnotation(sample.image);
     },
     getSampleSet(sampleSetId) {
       return baseStore.getSampleSet(String(sampleSetId || "").trim());
@@ -660,7 +685,7 @@ export function createBetaRunnerService({
     start(body) {
       if (body.retryOfJobId && !body.items) return this.retry(String(body.retryOfJobId), body);
       const previousJob = body.retryOfJobId ? requireRetrySource(String(body.retryOfJobId)) : null;
-      const batch = normalizeBatch(body, { recoveringLegacyUpscale: Boolean(previousJob) });
+      const batch = normalizeBatch(body, { recovering: Boolean(previousJob) });
       if (!body.retryOfJobId) return admitBatch(batch);
       const previous = batches.get(String(body.retryOfJobId));
       if (previous) {
@@ -677,9 +702,10 @@ export function createBetaRunnerService({
           throw inputError("重试 Run 与原成功记录不一致");
         }
         return { item, index, attempt: result?.attempt || Math.max(item.attempt - 1,
-          batch.featureMode === "imageOutpaint" && ["gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare"].includes(item.input.outpaintEngine) ? 1 : maxAttempts),
+          singleBetaImageToolAttempt(batch.featureMode, item.input) ? 1 : maxAttempts),
           generated: Boolean(result), synced: Boolean(result), archive: null, result: null,
-          error: null, stage: "generation", publicResult: result, recoverArchived: !result };
+          error: null, stage: "generation", publicResult: result, recoverArchived: !result,
+          multiAngleDispatched: batch.featureMode === "imageMultiAngle" && !result };
       });
       batch.retryOfJobId = String(body.retryOfJobId);
       return admitBatch(batch, { states });
@@ -701,6 +727,10 @@ export function createBetaApiHandler({ getAgentModels, readJson, sendImage, send
       sendJson(response, 200, await service.config());
       return true;
     }
+    if (request.method === "GET" && pathname === "/api/beta/floor-plan-camera/config") {
+      sendJson(response, 200, await service.getFloorPlanCameraConfig());
+      return true;
+    }
     if (request.method === "GET" && pathname === "/api/beta/sample-sets") {
       sendJson(response, 200, { sampleSets: await service.listSampleSets() });
       return true;
@@ -714,6 +744,11 @@ export function createBetaApiHandler({ getAgentModels, readJson, sendImage, send
     const sampleImageRoute = pathname.match(/^\/api\/beta\/sample-sets\/([^/]+)\/samples\/([^/]+)\/image$/);
     if (request.method === "GET" && sampleImageRoute) {
       sendImage(response, await service.getSampleImage(decodeURIComponent(sampleImageRoute[1]), decodeURIComponent(sampleImageRoute[2])));
+      return true;
+    }
+    const sampleCameraRoute = pathname.match(/^\/api\/beta\/sample-sets\/([^/]+)\/samples\/([^/]+)\/camera-annotation$/);
+    if (request.method === "GET" && sampleCameraRoute) {
+      sendJson(response, 200, await service.getSampleCameraAnnotation(decodeURIComponent(sampleCameraRoute[1]), decodeURIComponent(sampleCameraRoute[2])));
       return true;
     }
     const sampleUploadRoute = pathname.match(/^\/api\/beta\/sample-sets\/([^/]+)\/samples$/);

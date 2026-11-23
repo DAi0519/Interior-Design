@@ -61,7 +61,7 @@ test("任务原图只保存在当前页面内存并由生成入口显式传入",
     read("../public/generation-task-controller.js"),
     read("../public/index.html"),
   ]);
-  assert.match(app, /generationTasks\.start\(task, \{ comparisonImage: featureMode === "imageOutpaint" \? null : sourceImage \}\)/);
+  assert.match(app, /generationTasks\.start\(task, \{[^}]*\bcomparisonImage: featureMode === "imageOutpaint" \? null : sourceImage\b[^}]*\}\)/);
   assert.match(controller, /const comparisonImages = new Map\(\)/);
   assert.match(controller, /comparisonImages\.set\(currentTask\.featureMode, comparisonImage\)/);
   assert.match(controller, /saveGenerationTask\(storage, currentTask\)/);

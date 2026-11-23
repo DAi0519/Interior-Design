@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Node测试、sharp、主工作台任务/API/多角度应用服务与真实执行图
- * [OUTPUT]: 单图准入、共享任务恢复、专用客户端/2K实际输入、失败回执和脱敏结果的跨层回归
+ * [OUTPUT]: 单图与90°正俯视准入、共享任务恢复、专用客户端/2K实际输入、失败回执和脱敏结果的跨层回归
  * [POS]: test 的多角度接入验证，使用内存ComfyUI替身，不发起真实GPU任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -16,7 +16,7 @@ import { createGenerationTask, generationTaskView, readGenerationTasks, saveGene
 import { generationActionState } from "../public/generation-actions.js";
 import { readMultiAngleConfig } from "../src/image-multi-angle-service.mjs";
 
-const pose = { azimuth: 28, elevation: -30, distance: 100 };
+const pose = { azimuth: 180, elevation: 90, distance: 100 };
 function catalog() {
   const type = name => ({ UNETLoader: "MODEL", LoraLoaderModelOnly: "MODEL", ModelSamplingAuraFlow: "MODEL", CFGNorm: "MODEL", ImageScale: "IMAGE", "easy loadImageBase64": "IMAGE", VAEDecode: "IMAGE", VAEEncode: "LATENT", KSampler: "LATENT", TextEncodeQwenImageEditPlus: "CONDITIONING", ReferenceLatent: "CONDITIONING" })[name] || name;
   const graph = createMultiAngleWorkflow({ artifactKey: "test", imageBase64: "", width: 864, height: 1184, seed: 1, generationRequest: { pose } });
@@ -78,6 +78,7 @@ test("主工作台统一任务用专用客户端压到2K、直出并同步飞书
   assert.equal(output.value.request.syncMode, "lark");
   assert.equal(f.syncChecks(), 1);
   assert.equal(f.archive().finalPrompt, f.submitted().prompt);
+  assert.match(f.submitted().prompt, /straight down for a 90-degree top-down view/);
   assert.equal(f.archive().workflow.feature, "image-multi-angle");
   assert.equal(f.archive().workflow.promptVersion, output.value.workflow.promptVersion);
   assert.deepEqual(f.archive().workflow.pose, pose);

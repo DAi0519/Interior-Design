@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖统一精模Prompt可用性/双图身份、多光影及预设执行能力/版本化预览、精模Flux双图能力及共享参考图上传与图片策略
+ * [INPUT]: 依赖统一精模Prompt可用性/双图身份、多光影及预设执行能力/版本化预览、精模Flux双图能力及共享参考图上传、图标与图片策略
  * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、同网格无图选项/混合选择摘要、失效阻断和上传互斥
  * [POS]: public 的白模可选纯词/精模光影共享选择层，卡图由服务端读取、上传图直接参考，无选中高亮框或说明段，不持有Prompt正文或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -170,7 +170,7 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
       <div data-lighting-list class="reference-list"></div>
       <div data-lighting-drop class="reference-drop-zone">
         <input data-lighting-input class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加氛围参考图" />
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" /><path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" /></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
         <span>添加或拖入光影参考图</span><small data-lighting-upload-hint>PNG / JPEG / WebP</small>
       </div>
     </section>

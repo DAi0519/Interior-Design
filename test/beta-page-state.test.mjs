@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供自由生图整批多行提示词独立保存恢复、Beta美化混合多选/显式空选/旧单选迁移与卡片身份保存恢复、默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
+ * [OUTPUT]: 对外提供自由生图整批多行提示词和多角度机位与模型保存恢复、Beta美化混合多选/显式空选/旧单选迁移与卡片身份保存恢复、默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,6 +33,25 @@ test("Beta跑图首次进入默认选择 Flux2 Klein", () => {
   assert.deepEqual(state.selectedModelKeys, [DEFAULT_BETA_MODEL_KEY]);
   assert.equal(state.controls.effectBeautificationIntensity, "low");
   assert.equal(state.controls.effectBeautificationTone, "natural");
+});
+
+test("Beta多角度首次为90°正俯视，独立记忆模型、批次机位和样本集", () => {
+  const storage = memoryStorage();
+  assert.deepEqual(readBetaPageState(storage).multiAngle, {
+    modelKeys: null, cameraPose: { azimuth: 0, elevation: 90, distance: 50 },
+  });
+  const cameraPose = { azimuth: 240, elevation: 88, distance: 100 };
+  saveBetaPageState(storage, {
+    featureMode: "imageMultiAngle",
+    sampleSetIds: { imageMultiAngle: "SET-ANGLE" },
+    selectedModelKeys: [DEFAULT_BETA_MODEL_KEY],
+    multiAngle: { modelKeys: ["qwenMultiAngle", "banana21", "qwenMultiAngle"], cameraPose },
+  });
+  const restored = readBetaPageState(storage);
+  assert.equal(restored.featureMode, "imageMultiAngle");
+  assert.equal(restored.sampleSetIds.imageMultiAngle, "SET-ANGLE");
+  assert.deepEqual(restored.selectedModelKeys, [DEFAULT_BETA_MODEL_KEY]);
+  assert.deepEqual(restored.multiAngle, { modelKeys: ["qwenMultiAngle", "banana21"], cameraPose });
 });
 
 test("Beta 全部可用模型跨页和刷新恢复时去重且不截断", () => {

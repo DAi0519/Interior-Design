@@ -1,15 +1,20 @@
 /**
- * [INPUT]: 依赖出图/独立扩图模型/六套超分工作流/图片输入 Agent/空房房型真源、Beta 三表实时字段响应、含 AI超分/旧房改造的含质感增强的十三功能标签与配置中的表/附件 ID
- * [OUTPUT]: 对外提供三表字段类型/扩图模型及真实超分工作流单选标签/附件/关联目标准入，超分/扩图/风格转换复用配置、版本、生成参数和附件字段，实时 Schema 读取与不可重试合同错误归一化
+ * [INPUT]: 依赖出图/扩图/多角度模型、超分工作流、按功能准入的图片输入 Agent/房型真源及 Beta 三表字段响应与表/附件 ID
+ * [OUTPUT]: 提供建档模型标签、三表字段/选项/附件/关联目标准入、实时 Schema 读取与不可重试合同错误归一化
  * [POS]: src 的 Beta 独立归档合同边界，被 beta-base Store 和批量入队前检查消费，不访问旧生成记录或 Benchmark 表
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { EMPTY_ROOM_TYPES } from "./empty-room-type.mjs";
 import { publicAgentModelCatalog } from "./agent-model-config.mjs";
-import { publicModelCatalog } from "./model-config.mjs";
+import { MODEL_CONFIGS, publicModelCatalog } from "./model-config.mjs";
 import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "./image-outpaint-archive.mjs";
-import { IMAGE_UPSCALE_WORKFLOWS } from "./image-upscale-workflow.mjs";
+import { ONEAPI_OUTPAINT_ENGINE_KEYS } from "./image-outpaint-oneapi.mjs";
+import { QWEN_OUTPAINT_ENGINE_KEY, QWEN_OUTPAINT_WORKFLOW } from "./image-outpaint-qwen.mjs";
+import { resolveImageOutpaintModel } from "./image-outpaint-workflow.mjs";
+import { IMAGE_UPSCALE_WORKFLOWS, imageUpscaleWorkflow } from "./image-upscale-workflow.mjs";
+import { MULTI_ANGLE_ARCHIVE_MODEL_LABELS } from "./image-multi-angle-archive.mjs";
+import { resolveMultiAngleModel } from "./image-multi-angle-service.mjs";
 
 const RUN_FIELD_TYPES = Object.freeze({
   "Run ID": "text", "批次 ID": "text", "测试时间": "text", "功能": "select",
@@ -43,13 +48,46 @@ export function normalizeBetaBaseError(error) {
   return error;
 }
 
-function tableContracts(config, featureLabels) {
+export function betaRunModelLabel(item, featureMode) {
+  if (featureMode === "imageMultiAngle") {
+    try {
+      const model = resolveMultiAngleModel(item.input?.multiAngleModel);
+      if (item.input?.modelKey !== model.key) throw new Error("模型与多角度候选不一致");
+      return model.label;
+    } catch (cause) { throw betaBaseContractError("Beta 多角度模型缺少合法的目录标签", cause); }
+  }
+  if (featureMode === "imageUpscale") {
+    try {
+      const workflow = imageUpscaleWorkflow(item.input?.upscaleWorkflowKey);
+      if (item.input.modelKey != null && item.input.modelKey !== workflow.key) throw new Error("模型与工作流不一致");
+      return workflow.label;
+    } catch (cause) { throw betaBaseContractError("Beta 超分工作流缺少合法的目录标签", cause); }
+  }
+  if (featureMode === "imageOutpaint") {
+    const engine = item.input?.outpaintEngine ?? "comfyui";
+    if (engine === QWEN_OUTPAINT_ENGINE_KEY) return QWEN_OUTPAINT_WORKFLOW.label;
+    if (ONEAPI_OUTPAINT_ENGINE_KEYS.includes(engine)) return MODEL_CONFIGS[engine].label;
+    if (engine === "comfyui") {
+      try { return resolveImageOutpaintModel(item.input?.outpaintModel).label; }
+      catch (cause) { throw betaBaseContractError("Beta 扩图模型缺少合法的目录标签", cause); }
+    }
+    throw betaBaseContractError("Beta 扩图引擎缺少合法的目录标签");
+  }
+  const catalog = publicModelCatalog();
+  const model = catalog.find((entry) => entry.key === item.input?.modelKey)
+    || catalog.find((entry) => entry.label === item.modelLabel || entry.legacyLabels?.includes(item.modelLabel));
+  if (!model) throw betaBaseContractError("Beta 出图模型缺少合法的目录标签");
+  return model.key === item.input?.modelKey ? model.label : item.modelLabel;
+}
+
+function tableContracts(config, featureLabels, featureMode) {
   return [
     { name: "跑图明细", tableId: config.tableId, types: RUN_FIELD_TYPES,
       options: { "功能": featureLabels, "状态": ["运行中", "成功", "失败"], "场景标签": EMPTY_ROOM_TYPES,
         "出图模型": [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS,
+          ...(featureMode === "imageMultiAngle" ? MULTI_ANGLE_ARCHIVE_MODEL_LABELS : []),
           ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map((workflow) => workflow.label)],
-        "Prompt融合": publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label) },
+        "Prompt融合": publicAgentModelCatalog(featureMode).filter((model) => model.imageInput).map((model) => model.label) },
       attachments: { "输入图": config.inputFieldId, "风格参考图": config.styleReferenceFieldId, "结果图": config.resultFieldId },
       fieldIds: { "测试时间": config.testTimeFieldId } },
     { name: "样本集", tableId: config.sampleSetTableId, types: SAMPLE_SET_FIELD_TYPES,
@@ -60,9 +98,10 @@ function tableContracts(config, featureLabels) {
   ];
 }
 
-export function assertBetaBaseSchemas(bodies, { config, featureLabels }) {
+export function assertBetaBaseSchemas(bodies, { config, featureLabels, featureMode }) {
   const issues = [];
-  for (const contract of tableContracts(config, featureLabels)) {
+  const contracts = tableContracts(config, featureLabels, featureMode);
+  for (const contract of contracts) {
     const fields = bodies[contract.tableId]?.data?.fields;
     if (!Array.isArray(fields)) {
       issues.push(`${contract.name}字段响应无效`);
@@ -94,11 +133,11 @@ export function assertBetaBaseSchemas(bodies, { config, featureLabels }) {
     }
   }
   if (issues.length) throw betaBaseContractError(`飞书 Beta Schema 不兼容：${issues.join("；")}`);
-  return { tableIds: tableContracts(config, featureLabels).map((entry) => entry.tableId) };
+  return { tableIds: contracts.map((entry) => entry.tableId) };
 }
 
-export async function verifyBetaBaseSchema({ config, featureLabels, run }) {
-  const contracts = tableContracts(config, featureLabels);
+export async function verifyBetaBaseSchema({ config, featureLabels, featureMode, run }) {
+  const contracts = tableContracts(config, featureLabels, featureMode);
   const entries = await Promise.all(contracts.map(async ({ tableId }) => {
     const fields = [];
     let offset = 0;
@@ -114,5 +153,5 @@ export async function verifyBetaBaseSchema({ config, featureLabels, run }) {
     }
     return [tableId, { data: { fields } }];
   }));
-  return assertBetaBaseSchemas(Object.fromEntries(entries), { config, featureLabels });
+  return assertBetaBaseSchemas(Object.fromEntries(entries), { config, featureLabels, featureMode });
 }

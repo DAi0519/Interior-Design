@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖脱敏GPT光照模板/飞书Prompt版本身份/历史参数/光源编辑目录、共享整体原灯/标注/图片/输出规则、主图上传、画布交互与统一任务/摘要回调
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
+ * [OUTPUT]: 控光配置和画布可以分属同源文档并保留原交互；含GPT2.6 Sunburst/Flare独立模型身份； 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
  * [POS]: public 的AI编辑打光控制器，复用既有主图与后台任务，不持有服务地址、模型密钥或Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -90,7 +90,8 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   showToast = () => {}, onRefresh = null, emptyModel, emptySize, exactSize,
   allowMaterialRender = false, promptCode = "image-relight" }) {
   root.innerHTML = template;
-  const by = selector => root.querySelector(selector);
+  const settingsPanel = root.querySelector(".relight-settings");
+  const by = selector => settingsPanel.querySelector(selector);
   const modelSelect = by("[data-relight-model]");
   let modelKey = RELIGHT_MODEL_KEY;
   modelSelect.addEventListener("change", () => { modelKey = modelSelect.value; renderSummary(); onChange(); });
@@ -98,7 +99,8 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   const kelvin = by("[data-relight-kelvin]"), intensity = by("[data-relight-intensity]");
   const softness = by("[data-relight-softness]"), fixture = by("[data-relight-fixture]");
   const originalAction = by("[data-relight-original-action]"), amount = by("[data-relight-amount]");
-  const editor = by("[data-relight-editor]"), toolbar = by(".relight-toolbar");
+  const editor = by("[data-relight-editor]"), toolbar = root.querySelector(".relight-toolbar");
+  const preview = root.querySelector(".relight-preview");
   let config = { available: false, reason: "读取打光模型中…" }, fieldIssue = "", selectedLightId = null;
   let templateKey = RELIGHT_DEFAULT_TEMPLATE_KEY, blendMode = "balanced", outputResolution = "1K", quality = "medium";
   let drawing, manualDraft = [], restoredTemplateEdits = false, draftSourceKey = null, refreshPending = false;
@@ -107,7 +109,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   const editingVisible = () => templateKey === "custom" || restoredTemplateEdits;
   const appliedOriginalLights = () => templateKey === "custom" ? normalizeRelightOriginalLights(originalLights) : null;
 
-  const templates = [...root.querySelectorAll("[data-relight-template]")];
+  const templates = [...settingsPanel.querySelectorAll("[data-relight-template]")];
   const supported = (entries, key) => Array.isArray(entries) && entries.some(item => item.key === key);
   const planIssue = () => !supported([...(config.templates || []), ...(config.legacyTemplates || [])], templateKey) || !supported(config.blendModes, blendMode)
     || EDIT_ACTIONS.some(item => !supported(config.actions, item.key))
@@ -151,7 +153,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
       });
     });
   }
-  const originalLightChoices = [...root.querySelectorAll("[data-relight-original-lights-action]")];
+  const originalLightChoices = [...settingsPanel.querySelectorAll("[data-relight-original-lights-action]")];
   function renderOriginalLights() {
     by("[data-relight-original-lights]").hidden = templateKey !== "custom";
     originalLightChoices.forEach(button => {
@@ -189,7 +191,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     control.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  const editModes = [...root.querySelectorAll("[data-relight-edit-mode]")];
+  const editModes = [...settingsPanel.querySelectorAll("[data-relight-edit-mode]")];
   bindPlanChoices(editModes, "relightEditMode", value => {
     drawing.cancel(); editMode = value; fieldIssue = "";
     drawing.select(null);
@@ -219,13 +221,14 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     const selectionChanged = selectedLightId !== (selected?.id || null);
     if (selectionChanged) fieldIssue = "";
     selectedLightId = selected?.id || null;
-    const focused = list.contains(root.ownerDocument.activeElement) ? root.ownerDocument.activeElement.dataset.relightId : null;
+    const doc = settingsPanel.ownerDocument;
+    const focused = list.contains(doc.activeElement) ? doc.activeElement.dataset.relightId : null;
     list.replaceChildren(...lights.map((light, index) => {
-      const button = root.ownerDocument.createElement("button");
+      const button = doc.createElement("button");
       button.type = "button"; button.dataset.relightId = light.id;
       button.className = `relight-light-item${light.id === selected?.id ? " selected" : ""}`;
       button.setAttribute("aria-pressed", String(light.id === selected?.id));
-      const label = root.ownerDocument.createElement("span"), detail = root.ownerDocument.createElement("small");
+      const label = doc.createElement("span"), detail = doc.createElement("small");
       const key = actionKey(light);
       label.textContent = `${index + 1} · ${key === "brighten" ? TYPE_LABEL[light.type] : ACTION_LABEL[key]}`;
       detail.textContent = key === "brighten" ? `${light.kelvin}K · ${light.mode === "addFixture" ? "新增灯具" : "仅打光"}`
@@ -252,18 +255,18 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
       return;
     }
     // -------- 输入事件已提交状态，同值不回写DOM，保留光标与中文输入法组合 --------
-    const editingKelvin = root.ownerDocument.activeElement === kelvin && Number(kelvin.value) === selected.kelvin;
+    const editingKelvin = doc.activeElement === kelvin && Number(kelvin.value) === selected.kelvin;
     const incompleteKelvin = !selectionChanged && Boolean(fieldIssue);
     if (!editingKelvin && !incompleteKelvin && String(kelvin.value) !== String(selected.kelvin)) kelvin.value = selected.kelvin;
     intensity.value = selected.intensity; syncSelectValue(softness, selected.softness);
     if (fixture.value !== (selected.fixture || "")) fixture.value = selected.fixture || "";
     by("[data-relight-intensity-value]").textContent = `${selected.intensity.toFixed(1)}×`;
     by("[data-relight-fixture-field]").hidden = selected.mode !== "addFixture";
-    root.querySelectorAll("[data-relight-mode]").forEach(button => {
+    settingsPanel.querySelectorAll("[data-relight-mode]").forEach(button => {
       const active = button.dataset.relightMode === selected.mode;
       button.classList.toggle("selected", active); button.setAttribute("aria-checked", String(active)); button.tabIndex = active ? 0 : -1;
     });
-    root.querySelectorAll("[data-relight-temperature]").forEach(button => {
+    settingsPanel.querySelectorAll("[data-relight-temperature]").forEach(button => {
       const active = Number(button.dataset.relightTemperature) === selected.kelvin;
       button.classList.toggle("selected", active); button.setAttribute("aria-pressed", String(active));
     });
@@ -346,7 +349,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     } finally { refreshPending = false; renderStatus(); }
   });
 
-  drawing = bindRelightCanvas({ preview: by(".relight-preview"), toolbar: by(".relight-toolbar"), showToast,
+  drawing = bindRelightCanvas({ preview, toolbar, showToast,
     onChange() {
       if (editingVisible()) manualDraft = drawing.value();
       renderProperties(); renderContext(); renderStatus(); onChange();
@@ -361,7 +364,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
   });
   amount.addEventListener("input", () => drawing.update({ amount: Number(amount.value) / 100 }));
   const selectMode = mode => { drawing.update({ mode }); };
-  const modeButtons = [...root.querySelectorAll("[data-relight-mode]")];
+  const modeButtons = [...settingsPanel.querySelectorAll("[data-relight-mode]")];
   modeButtons.forEach((button, index) => {
     button.addEventListener("click", () => selectMode(button.dataset.relightMode));
     button.addEventListener("keydown", event => {
@@ -371,7 +374,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
       selectMode(modeButtons[next].dataset.relightMode); modeButtons[next].focus();
     });
   });
-  root.querySelectorAll("[data-relight-temperature]").forEach(button => button.addEventListener("click", () => {
+  settingsPanel.querySelectorAll("[data-relight-temperature]").forEach(button => button.addEventListener("click", () => {
     fieldIssue = ""; drawing.update({ kelvin: Number(button.dataset.relightTemperature) });
   }));
   const commitKelvin = () => {
@@ -395,7 +398,7 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     if (draftSourceKey !== nextSourceKey) { manualDraft = []; originalLights = { action: "keep" }; restoredTemplateEdits = false; draftSourceKey = nextSourceKey; }
     drawing.setSource(issue ? null : source); onSourceChange(source);
     renderEditing(); renderContext();
-    if (source && issue) by("[data-relight-empty]").textContent = issue;
+    if (source && issue) preview.querySelector("[data-relight-empty]").textContent = issue;
     let size = null;
     if (source && !issue) try { size = relightOutputSize(source, outputResolution, modelConfig().sizes || config.sizes); } catch {}
     if (emptyModel) emptyModel.textContent = modelConfig().label || "GPT 图像";
@@ -410,7 +413,8 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     configure(value) {
       config = value?.loading ? { ...config, ...value } : value || { available: false, reason: "打光模型读取失败" };
       modelSelect.replaceChildren(...(config.models || [config.model].filter(Boolean)).map(model => {
-        const option = document.createElement("option"); option.value = model.key; option.textContent = model.label; option.disabled = model.available === false; return option;
+        const option = settingsPanel.ownerDocument.createElement("option");
+        option.value = model.key; option.textContent = model.label; option.disabled = model.available === false; return option;
       }));
       modelSelect.value = modelKey;
       renderPlan(); renderSummary();

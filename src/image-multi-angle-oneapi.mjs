@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖模型尺寸目录、共享英文镜头语义/版本、图片读取、sharp与注入的OneAPI客户端
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 三方多角度候选与质量档位校验、共用英文机位指令及保留实际档位/费用/真实尺寸的长边2K结果
+ * [OUTPUT]: 提供Banana 2.1、Seedream 5.0 Pro/5.5与GPT Sunburst/Flare多角度候选、质量档位校验及保留实际档位/费用/真实尺寸的长边2K结果
  * [POS]: src 的多角度三方适配层，与Qwen工作流并列，复用OneAPI请求封装
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@ import { MULTI_ANGLE_IMAGE_POLICY } from "./image-multi-angle-image.mjs";
 
 export const multiAngleApiPrompt = multiAnglePrompt;
 
-export const MULTI_ANGLE_API_MODELS = ["banana21", "gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare"].map(key => ({
+export const MULTI_ANGLE_API_MODELS = ["banana21", "gptImage25Sunburst", "gptImage26Sunburst", "gptImage26Flare", "seedream5Pro", "seedream55"].map(key => ({
   key, label: MODEL_CONFIGS[key].label, provider: "oneapi", id: MODEL_CONFIGS[key].id,
   qualityOptions: [...MODEL_CONFIGS[key].qualityOptions], defaultQuality: MODEL_CONFIGS[key].defaultQuality || null,
 }));

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖美化六档规范化/白模纯词/光影转换/精模及全景光影版本SHA准备、独立超分双噪声合同、GPT打光/多光源准入、生成服务、任务注册表、Flux后置超分身份及尺寸规划、模型目录、Schema与JSON读写
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供独立超分双噪声入队前400准入及数值冻结、Flux4K/6K后置超分身份冻结与Agent/收费前尺寸准入、局部消除操作冻结、运行进程功能及美化/全景多光影能力目录、各组合限额、打光正文冻结和任务入队/查询
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供独立超分双噪声入队前400准入及数值冻结、Flux4K/6K后置超分身份冻结与Agent/收费前尺寸准入、局部消除操作冻结、运行进程功能及美化/全景多光影能力目录、各组合限额、打光正文/飞书全景规则身份冻结和任务入队/查询
  * [POS]: src 的日常生图 HTTP 适配层，从 server.mjs 抽离以给 Beta跑图独立 API 留出根入口边界，并作为前台提交到飞书同步的后端准入门
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -346,11 +346,12 @@ export function createGenerationJobApiHandler({
         const prepared = new Map();
         for (let index = 0; index < items.length; index += 1) {
           const input = { ...sharedInput, ...items[index].input };
-          const key = JSON.stringify([input.panoramaLighting, input.prompt]);
+          const key = JSON.stringify([input.panoramaLighting, input.prompt, input.panoramaLightingRule]);
           if (!prepared.has(key)) prepared.set(key, await preparePanoramaLighting(input));
           const frozen = prepared.get(key);
           items[index] = { ...items[index], input: { ...items[index].input,
-            panoramaLighting: structuredClone(frozen.panoramaLighting), prompt: frozen.prompt } };
+            panoramaLighting: structuredClone(frozen.panoramaLighting),
+            panoramaLightingRule: structuredClone(frozen.panoramaLightingRule), prompt: frozen.prompt } };
         }
       } catch (error) { sendJson(response, error.statusCode || 409, { error: error.message }); return true; }
     }

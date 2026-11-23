@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖http-response的统一响应写入；依赖floor-plan-camera-service的平面机位渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: 提供三个平面图出图入口与逐图飞书归档，归档状态查询和续传；组合AI渲染台、主工作台、Beta、模型评测、更新忙碌守卫及配置、连接、生成和下载接口。
- * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界
+ * [INPUT]: 依赖http-response的统一响应写入；依赖floor-plan-camera-service的机位墙线分析、裁剪送模预览、渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步、scene-cast-api的模特任务与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [OUTPUT]: 提供三个平面图出图入口、机位墙线分析/实际送模预览与逐图飞书归档，归档状态查询和续传；组合AI渲染台、AI模特、主工作台、Beta机位与多角度跑图、模型评测、更新忙碌守卫及配置、连接、生成和下载接口。
+ * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界；仅向主工作台机位任务注入 Qwen 生图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createReadStream, existsSync } from "node:fs";
@@ -25,13 +25,16 @@ import { createBetaHousePlanService } from "./src/beta-house-plan.mjs";
 import { captureBetaGenerationArchive, createBetaBaseStore } from "./src/beta-base.mjs";
 import { readBetaUpscaleConfig } from "./src/beta-upscale.mjs";
 import { createBetaApiHandler, createBetaRunnerService } from "./src/beta-runner.mjs";
+import { createBetaFloorPlanCameraService } from "./src/beta-floor-plan-camera.mjs";
 import { readGenerationConfig } from "./src/generation-config.mjs";
 import { createGenerationJobApiHandler, supportedGenerationFeatureCapabilities, supportedGenerationFeatureModes } from "./src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createAiRenderStudioApiHandler } from "./src/ai-render-studio-api.mjs";
+import { createSceneCastApiHandler } from "./src/scene-cast-api.mjs";
 import { createFloorPlanApiHandler } from "./src/floor-plan-api.mjs";
 import { readHousePlanConfig, prepareHousePlanInput, executeHousePlan } from "./src/house-plan-service.mjs";
-import { readFloorPlanCameraConfig, prepareFloorPlanCameraInput, executeFloorPlanCamera, floorPlanCameraTaskTotal } from "./src/floor-plan-camera-service.mjs";
+import { readFloorPlanCameraConfig, analyzeFloorPlanCameraAnnotation, previewFloorPlanCameraInput, prepareFloorPlanCameraInput, executeFloorPlanCamera, floorPlanCameraTaskTotal } from "./src/floor-plan-camera-service.mjs";
+import { createFloorPlanCameraQwenClient } from "./src/floor-plan-camera-qwen.mjs";
 import { createGenerationService } from "./src/generation-service.mjs";
 import { readMultiAngleConfig } from "./src/image-multi-angle-service.mjs";
 import { IMAGE_MASK_FILL_CLIENT_OPTIONS } from "./src/image-mask-fill-workflow.mjs";
@@ -84,7 +87,7 @@ const handleAppUpdateApi = createAppUpdateApiHandler({
   hasActiveJobs: () => activeApiMutations > 0 || generationJobs.hasActiveJobs()
     || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs()
     || handleAiRenderStudioApi.hasActiveJobs() || handleFloorPlanApi.hasActiveJobs() || handleHousePlanApi.hasActiveJobs()
-    || handleFloorPlanCameraApi.hasActiveJobs(),
+    || handleFloorPlanCameraApi.hasActiveJobs() || handleSceneCastApi.hasActiveJobs(),
 });
 const PUBLIC_DIR = join(ROOT_DIR, "public");
 const INTER_VARIABLE_LATIN_FONT = join(ROOT_DIR, "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2");
@@ -120,6 +123,7 @@ const panoramaClient = createPanoramaClient();
 const imageMultiAngleClient = createComfyUiClient({ artifactPrefix: multiAngleArtifactPrefix, outputNodeId: MULTI_ANGLE.outputNodeId, workflowFactory: createMultiAngleWorkflow, workflowMetadataFactory: multiAngleMetadata });
 const imageOutpaintClient = createComfyUiClient(IMAGE_OUTPAINT_CLIENT_OPTIONS);
 const qwenImageClient = createComfyUiClient(QWEN_OUTPAINT_CLIENT_OPTIONS);
+const floorPlanCameraQwenClient = createFloorPlanCameraQwenClient();
 const imageMaskFillClient = createComfyUiClient(IMAGE_MASK_FILL_CLIENT_OPTIONS), qwenMaskFillClient = createComfyUiClient(QWEN_MASK_FILL_CLIENT_OPTIONS);
 const getImageMaskFillConfig = () => generationService.getImageMaskFillConfig();
 const getImageRelightConfig = (options = {}) => generationService.getImageRelightConfig(options);
@@ -317,6 +321,10 @@ const handleAiRenderStudioApi = createAiRenderStudioApiHandler({
   getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey())),
   readJson, sendJson,
 });
+const handleSceneCastApi = createSceneCastApiHandler({
+  getImageClient: () => createOneApiClient(requireApiKey()),
+  getOneApiModels: () => getSessionModelCatalog(createOneApiClient(requireApiKey())), readJson, sendJson,
+});
 const floorPlanRuntime = { getClient: () => createOneApiClient(requireApiKey()), requireKey: requireApiKey, readJson, sendJson,
   getModels: ({ forceRefresh } = {}) => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: forceRefresh }) };
 const floorPlanArchiveRuntime = { ...floorPlanRuntime, verifyArchive: verifyFloorPlanArchiveSchema, scheduleArchive: createFloorPlanArchiveScheduler(syncJobs) };
@@ -324,14 +332,21 @@ const handleFloorPlanApi = createFloorPlanApiHandler(floorPlanArchiveRuntime);
 const handleHousePlanApi = createFloorPlanApiHandler({ ...floorPlanArchiveRuntime, prefix: "/api/house-plan", featureMode: "housePlanLayout",
   geometryEnabled: false, readConfig: readHousePlanConfig, prepareInput: prepareHousePlanInput, execute: executeHousePlan });
 const handleFloorPlanCameraApi = createFloorPlanApiHandler({ ...floorPlanArchiveRuntime, prefix: "/api/floor-plan-camera", featureMode: "floorPlanCamera",
-  geometryEnabled: false, getTaskTotal: floorPlanCameraTaskTotal, readConfig: readFloorPlanCameraConfig, prepareInput: prepareFloorPlanCameraInput, execute: executeFloorPlanCamera });
+  geometryEnabled: false, getTaskTotal: floorPlanCameraTaskTotal,
+  readConfig: options => readFloorPlanCameraConfig({ ...options, qwenClient: floorPlanCameraQwenClient }),
+  analyzeAnnotation: analyzeFloorPlanCameraAnnotation, previewInput: previewFloorPlanCameraInput,
+  prepareInput: (input, options) => prepareFloorPlanCameraInput(input, { ...options, qwenClient: floorPlanCameraQwenClient }),
+  execute: (input, options) => executeFloorPlanCamera(input, { ...options, qwenClient: floorPlanCameraQwenClient }) });
 const betaGenerationService = createGenerationService({ ...generationDependencies, archiveImageUpscale: true,
+  imageMultiAngleClient,
   scheduleGenerationSync: captureBetaGenerationArchive,
 });
 const betaRunner = createBetaRunnerService({
   baseStore: createBetaBaseStore(),
   generationService: betaGenerationService,
   housePlanService: createBetaHousePlanService(floorPlanRuntime),
+  floorPlanCameraService: createBetaFloorPlanCameraService(floorPlanRuntime),
+  getMultiAngleConfig: getImageMultiAngleConfig,
   getOutpaintConfig: getImageOutpaintConfig,
   getUpscaleConfig: () => readBetaUpscaleConfig(imageUpscaleClient),
 });
@@ -381,6 +396,7 @@ async function handleApi(request, response, pathname) {
   if (await handleAppUpdateApi(request, response, pathname)) return;
 
   if (await handleAiRenderStudioApi(request, response, pathname)) return;
+  if (await handleSceneCastApi(request, response, pathname)) return;
   if (await handleFloorPlanApi(request, response, pathname)) return;
   if (await handleHousePlanApi(request, response, pathname)) return;
   if (await handleFloorPlanCameraApi(request, response, pathname)) return;

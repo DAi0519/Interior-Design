@@ -1,0 +1,12 @@
+<!--
+[INPUT]: 依赖上传框的描边、尺寸与颜色样式
+[OUTPUT]: 提供 ID 为 upload 的共享上传图标
+[POS]: public 的工作台单图和参考图上传空态图标
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="upload" viewBox="0 0 24 24">
+    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+    <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+  </symbol>
+</svg>

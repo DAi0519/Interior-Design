@@ -1,11 +1,12 @@
 /**
  * [INPUT]: 依赖正式生图记录映射、node:test/assert、sharp 真实编码夹具、Beta Base 配置/字段映射与独立扩图真源
- * [OUTPUT]: 验证自由生图图片集类型标记、完整批次词、附件回读及直连OneAPI冷恢复；对外提供新 Base 隔离、KS工作流版本快照、精模模板/双Prompt版本摘要投影、目录模型单选标签与无 Agent 清空、草稿回读/关联、十功能映射、扩图场景/配置/版本/费用及元数据/附件漂移拒绝成功的回归保障
+ * [OUTPUT]: 验证新 Base 隔离、版本及模型身份冻结、自由生图原件、扩图与机位 GPT 6.1 Sol 单选回读、多角度结果及冻结机位核验和冷恢复
  * [POS]: test 的 Beta跑图独立持久化合同测试，不调用 CLI、不读写真实 Base
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
@@ -25,6 +26,9 @@ import {
 import { LARK_SYNC_CONFIG } from "../src/lark-sync.mjs";
 import { normalizeBetaSampleImage } from "../src/beta-sample-store.mjs";
 import { imageUpscaleWorkflow } from "../src/image-upscale-workflow.mjs";
+import { FLOOR_PLAN_CAMERA_WORKFLOW } from "../src/floor-plan-camera-service.mjs";
+import { MULTI_ANGLE_PROMPT_VERSION, multiAnglePrompt } from "../src/image-multi-angle-prompt.mjs";
+import { createGenerationService } from "../src/generation-service.mjs";
 
 const onePixelPngBytes = await sharp({
   create: { background: "#f37021", channels: 3, height: 8, width: 8 },
@@ -429,8 +433,8 @@ test("Beta 完成归档使用字符串模型标签，无 Agent 时清空并核�
   }
 });
 
-test("Beta 禁止向 Prompt融合 单选提交未知模型、纯文本 Agent 或多值数组", async () => {
-  for (const value of ["未知模型", "DeepSeek 4 Pro", ["Gemini 3.1 Pro"]]) {
+test("Beta 禁止向 Prompt融合 单选提交未知模型、纯文本 Agent、非机位任务的机位专用标签或多值数组", async () => {
+  for (const value of ["未知模型", "DeepSeek 4 Pro", "GPT 6.1 Sol", ["Gemini 3.1 Pro"]]) {
     const commands = [];
     const store = createBetaBaseStore({ run: async (_config, args) => { commands.push(args); return { ok: true, data: {} }; } });
     await assert.rejects(store.completeRun("rec-invalid-tag", {
@@ -543,6 +547,97 @@ test("AI扩图只在独立Beta表归档真实Prompt/工作流/费用与源图结
   }
 });
 
+test("Beta 机位归档实际送模图与最终词，成功和冷恢复都核对下载字节", async () => {
+  const digest = value => createHash("sha256").update(value).digest("hex");
+  const guide = await sharp(onePixelPngBytes).resize(16, 8).png().toBuffer();
+  const resultSha = digest(onePixelPngBytes);
+  const sourceSha = digest("original sample");
+  const guideSha = digest(guide);
+  const camera = { x: .25, y: .55, heading: 91, fov: 60, height: 1.5 };
+  const prompt = { code: "floor-plan-camera-frame-agent", version: 9, sha256: digest("immutable agent") };
+  const agent = { key: "gpt61Sol", id: "gpt-6.1-sol", label: "GPT 6.1 Sol" };
+  const item = { runId: "RUN-camera-base", caseId: "CASE-camera", input: {
+    featureMode: "floorPlanCamera", modelKey: "banana21", camera, aspectRatio: "16:9", resolution: "2K",
+    outputFormat: "png", prompt: "保持墙体", promptVersion: prompt.version, promptAgentModelKey: agent.key,
+    floorPlanCameraWorkflowVersion: FLOOR_PLAN_CAMERA_WORKFLOW, floorPlanCameraPromptSha256: prompt.sha256,
+  } };
+  const archiveItem = { ...item, input: { ...item.input, floorPlanCameraSubmittedSha256: guideSha,
+    floorPlanCameraSourceSha256: sourceSha, referenceImages: [{ type: "image/png", size: guide.length,
+      name: "机位标注图.png", dataUrl: `data:image/png;base64,${guide.toString("base64")}` }] } };
+  const finalPrompt = "Exact final prompt\nincluding line breaks.";
+  const receipts = { agent: { requestId: "shared-agent", usageCost: { costUsd: .01 } },
+    image: { requestId: "image-slot", usageCost: { costUsd: .02 } } };
+  const result = {
+    images: [{ url: onePixelPng }], prompt, durationMs: 123, request: { outputFormat: "png" },
+    upstream: { metadata: { costUsd: .03 } }, workflow: { key: "floor-plan-camera", version: FLOOR_PLAN_CAMERA_WORKFLOW },
+    sync: { archiveFields: { "最终 Prompt": finalPrompt, "Prompt融合": agent.label,
+      "Agent 编码": prompt.code, "Agent 版本": prompt.version, "生成参数": JSON.stringify({
+        referenceImageCount: 1, workflow: { featureMode: "floorPlanCamera", workflowVersion: FLOOR_PLAN_CAMERA_WORKFLOW,
+          camera, prompt, agent, model: { key: "banana21" }, resolution: "2K", aspectRatio: "16:9",
+          compiledPromptSha256: digest(finalPrompt), source: { sha256: sourceSha }, receipts, agentCostAttributed: true,
+          betaCostUsd: .03, outputWidth: 8, outputHeight: 8, outputSha256: resultSha,
+          actual: { camera, aspectRatio: "16:9", referenceImageCount: 1, referenceImageRole: "camera-annotated-plan",
+            generationMode: "image-to-image", referenceImageSha256: guideSha, agentInputImageSha256: guideSha,
+            agentInputImageFormat: "png", agentInputImageWidth: 16, agentInputImageHeight: 8,
+            actualOutputWidth: 8, actualOutputHeight: 8, outputSha256: resultSha } },
+      }) } },
+  };
+  const fields = {}, files = new Map(), commands = [];
+  const recordId = "rec-camera";
+  const run = async (config, args, { cwd } = {}) => {
+    const param = name => args[args.indexOf(name) + 1];
+    assert.equal(config.baseToken, BETA_BASE_CONFIG.baseToken);
+    assert.equal(param("--table-id"), BETA_BASE_CONFIG.tableId);
+    commands.push(args[1]);
+    if (args.includes("+record-batch-create")) {
+      const body = JSON.parse(param("--json"));
+      for (const [index, name] of body.fields.entries()) fields[name] = body.rows[0][index];
+      return { ok: true, data: { record_id_list: [recordId] } };
+    }
+    if (args.includes("+record-upsert")) Object.assign(fields, JSON.parse(param("--json")));
+    if (args.includes("+record-upload-attachment")) {
+      const isInput = param("--field-id") === config.inputFieldId;
+      const name = param("--file");
+      const bytes = await readFile(join(cwd, name));
+      const token = isInput ? "guide-token" : "result-token";
+      files.set(token, bytes);
+      fields[isInput ? "输入图" : "结果图"] = [{ name, size: bytes.length, file_token: token }];
+    }
+    if (args.includes("+record-download-attachment")) {
+      await writeFile(join(cwd, param("--output")), files.get(param("--file-token")));
+    }
+    if (args.includes("+record-get")) return recordEnvelope(recordId, { ...fields });
+    if (args.includes("+record-list")) return recordEnvelope(recordId, { ...fields });
+    return { ok: true, data: {} };
+  };
+  const testTime = "2026-11-10 12:00:00", batchId = "BETA-camera-base", featureMode = "floorPlanCamera";
+  const store = createBetaBaseStore({ run });
+  await assert.rejects(store.beginRun({ batchId, featureMode, testTime, item }), /实际送模标注图/);
+  assert.equal(commands.length, 0);
+  await store.beginRun({ batchId, featureMode, testTime, item: archiveItem });
+  assert.deepEqual(JSON.parse(fields["场景参数"]).camera, camera);
+  assert.equal(JSON.parse(fields["配置快照"]).floorPlanCameraSubmittedSha256, guideSha);
+  assert.deepEqual(files.get("guide-token"), guide);
+  const altered = Buffer.from(guide);
+  altered[altered.length - 1] ^= 1;
+  files.set("guide-token", altered);
+  await assert.rejects(store.completeRun(recordId, result), /输入附件字节/);
+  assert.equal(fields["状态"], "运行中");
+  files.set("guide-token", guide);
+  await store.completeRun(recordId, result);
+  assert.equal(fields["状态"], "成功");
+  assert.equal(fields["最终 Prompt"], finalPrompt);
+  assert.equal(fields["Prompt融合"], agent.label);
+  assert.equal(fields["费用（USD）"], .03);
+  assert.deepEqual(JSON.parse(fields["生成参数"]).workflow.agent, agent);
+  assert.deepEqual(JSON.parse(fields["生成参数"]).workflow.receipts, receipts);
+  assert.equal(commands.filter(command => command === "+record-upload-attachment").length, 2);
+  const coldStore = createBetaBaseStore({ run });
+  assert.equal((await coldStore.recoverRun({ batchId, featureMode, item, testTime })).runId, item.runId);
+  files.set("guide-token", altered);
+  await assert.rejects(coldStore.recoverRun({ batchId, featureMode, item, testTime }), /输入附件字节/);
+});
+
 test("自由生图图片批次归档保留多行提示词，源图缺失不能完成或冷恢复", async () => {
   const fields = {}, recordId = "rec-free-image";
   const run = async (config, args, { cwd } = {}) => {
@@ -589,4 +684,64 @@ test("自由生图图片批次归档保留多行提示词，源图缺失不能�
   fields["最终 Prompt"] = prompt;
   fields["输入图"] = [];
   await assert.rejects(coldStore.recoverRun(recovery), /输入附件不可恢复/);
+});
+
+test("Beta多角度实际指令和90°机位入档，可回读原件并冷恢复现有结果", async () => {
+  const fields = {}, attachments = new Map(), recordId = "rec-beta-multi-angle";
+  const reference = await sharp({ create: { width: 80, height: 64, channels: 3, background: "#ff8800" } }).png().toBuffer();
+  const run = async (config, args, { cwd } = {}) => {
+    const flag = (key) => args[args.indexOf(key) + 1];
+    assert.equal(flag("--table-id"), config.tableId);
+    if (args.includes("+record-batch-create")) {
+      const body = JSON.parse(flag("--json"));
+      Object.assign(fields, Object.fromEntries(body.fields.map((name, index) => [name, body.rows[0][index]])));
+      return { ok: true, data: { record_id_list: [recordId] } };
+    }
+    if (args.includes("+record-upsert")) Object.assign(fields, JSON.parse(flag("--json")));
+    if (args.includes("+record-upload-attachment")) {
+      const name = flag("--file"), bytes = await readFile(join(cwd, name));
+      const fieldName = flag("--field-id") === config.inputFieldId ? "输入图" : "结果图";
+      attachments.set(fieldName, bytes);
+      fields[fieldName] = [{ name, size: bytes.length, file_token: fieldName }];
+    }
+    if (args.includes("+record-download-attachment")) await writeFile(join(cwd, flag("--output")), attachments.get(flag("--file-token")));
+    if (args.includes("+record-get") || args.includes("+record-list")) return recordEnvelope(recordId, { ...fields });
+    return { ok: true, data: {} };
+  };
+  const modelKey = "gptImage26Sunburst", cameraPose = { azimuth: 120, elevation: 90, distance: 100 };
+  const input = { modelKey, multiAngleModel: modelKey, cameraPose, multiAnglePromptVersion: MULTI_ANGLE_PROMPT_VERSION,
+    resolution: "2K", quality: "medium", referenceImages: [{ name: "room.png", type: "image/png",
+      dataUrl: `data:image/png;base64,${reference.toString("base64")}` }] };
+  const item = { runId: "RUN-beta-angle-001", caseId: "ROOM-1", input };
+  const batch = { batchId: "BETA-angle", featureMode: "imageMultiAngle", testTime: "2026-11-10 12:00:00", item };
+  const store = createBetaBaseStore({ run });
+  await store.beginRun(batch);
+  assert.equal(fields["功能"], "多角度");
+  assert.equal(fields["出图模型"], "GPT Image 2.6 Sunburst");
+  assert.deepEqual(JSON.parse(fields["配置快照"]).cameraPose, cameraPose);
+  assert.deepEqual(attachments.get("输入图"), reference);
+  let calls = 0;
+  const service = createGenerationService({
+    imageClientForModel: () => ({ async editImage(request) {
+      calls++;
+      assert.equal(request.prompt, multiAnglePrompt(cameraPose));
+      assert.equal(request.images.length, 1);
+      return { images: [{ url: onePixelPng }], transport: "fixture", usageCost: { costUsd: 0.01 } };
+    } }),
+    getSessionModelCatalog: async () => [{ id: "gpt-image-2.6-sunburst" }],
+    scheduleGenerationSync: captureBetaGenerationArchive,
+  });
+  const result = await service.executeForMode(batch.featureMode, input);
+  await store.completeRun(recordId, { ...result, durationMs: 123 });
+  assert.equal(fields["最终 Prompt"], multiAnglePrompt(cameraPose));
+  assert.equal(fields["费用（USD）"], 0.01);
+  assert.equal(fields["Prompt融合"], null);
+  assert.deepEqual(JSON.parse(fields["生成参数"]).workflow.pose, cameraPose);
+  const coldStore = createBetaBaseStore({ run });
+  assert.equal((await coldStore.recoverRun(batch)).runId, item.runId);
+  const parameters = JSON.parse(fields["生成参数"]);
+  parameters.workflow.pose.elevation = 60;
+  fields["生成参数"] = JSON.stringify(parameters);
+  await assert.rejects(coldStore.recoverRun(batch), /实际机位.*冻结配置不一致/);
+  assert.equal(calls, 1);
 });

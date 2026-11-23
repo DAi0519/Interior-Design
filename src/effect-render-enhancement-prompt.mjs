@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖版本化 Prompt 读取边界，以及飞书“效果图氛围转换 Prompt”与“全景图美化 Prompt”两张独立版本表，保留原效果图表 ID 和编码
- * [OUTPUT]: 对外提供氛围转换模块 Schema、允许纯文本或开放 JSON 容器的全景 Prompt、受控环境拼接、指定/当前上架 Prompt 读取及两功能脱敏可用性目录
+ * [OUTPUT]: 对外提供氛围转换模块 Schema、全景 Prompt 解析与 Flux 触发词幂等前置、受控环境拼接、版本读取及两功能脱敏目录
  * [POS]: src 的效果图氛围转换/全景图美化 Prompt 资产边界，两张飞书表分别是真源且浏览器不接触正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -165,6 +165,14 @@ export function parsePanoramaEnhancementPrompt(source) {
 
 export function composePanoramaEnhancementPrompt(source) {
   return parsePanoramaEnhancementPrompt(source).main;
+}
+
+export function composeFluxPanoramaPrompt(source) {
+  const body = String(source || "").trim()
+    .replace(/^(?:zhiganEnhance(?:[,\s]+|$))+/i, "")
+    .replace(/(?:[,\s]+zhiganEnhance)+$/i, "")
+    .trim();
+  return body ? `zhiganEnhance ${body}` : "zhiganEnhance";
 }
 
 export async function getEffectEnhancementPrompt(options = {}) {

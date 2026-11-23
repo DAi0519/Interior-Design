@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖工作台令牌、二次编辑表单/工具栏和共享START按钮
- * [OUTPUT]: 提供参数栏与大画布、底部框选工具、固定START及窄屏分区
+ * [INPUT]: 依赖保活宿主的参数挂接槽；依赖工作台令牌、二次编辑表单/工具栏和共享START按钮
+ * [OUTPUT]: 嵌入样式仅保留户型布局局部覆盖；提供参数栏与大画布、底部框选工具、固定START及窄屏分区
  * [POS]: public 的户型平面布局局部样式，与二次编辑保持相同操作层级
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,30 +64,16 @@
   .house-plan-viewer { padding: 16px 0; }
 }
 
-/* --- 嵌入时复用主工作台的参数宽度、伸缩、抽屉与跨栏START --- */
+/* --- 嵌入画布与参数局部样式，布局由保活宿主管理 --- */
 .house-plan-integrated .house-plan-shell { display: block; height: 100%; }
 .house-plan-integrated .house-plan-workspace { height: 100%; margin: 0; box-sizing: border-box; }
-.house-plan-parent-settings { grid-column: 2; grid-row: 2; min-height: 0; min-width: 0; overflow: auto; }
-.house-plan-parent-actions { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
-.house-plan-parent-settings[hidden], .house-plan-parent-actions[hidden], .house-plan-parent-settings [hidden] { display: none !important; }
 
 .house-plan-parent-settings .house-plan-error { color: #b02c25; }
 .house-plan-parent-settings .mask-fill-instruction textarea { box-sizing: border-box; width: 100%; font-size: 12px; line-height: 1.8; }
 .house-plan-parent-settings .section-heading h2 { font-size: 12px; }
 .house-plan-parent-settings .house-plan-settings-scroll { overflow: visible; }
 .house-plan-parent-actions .house-plan-actions { margin: 0; padding: 12px; }
-@media (min-width: 901px) {
-  .workspace.workspace-panel-layout.is-house-plan { grid-template-columns: var(--workspace-panel-width, clamp(448px, 33vw, 490px)) minmax(0, 1fr); }
-  body.is-house-plan #configurationPanel.workspace-configuration-panel { grid-template-columns: 144px minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr) auto; }
-  body.is-house-plan #configurationPanel > .workspace-panel-header { grid-template-columns: 144px minmax(0, 1fr); }
-  body.is-house-plan #configurationPanel .workspace-panel-title { display: flex; }
-  body.is-house-plan #workspacePanelResize { display: block !important; }
-  body.is-house-plan #configurationPanel:is(.is-parameters-clipping, .is-panel-collapsed) > :is(.house-plan-parent-settings, .house-plan-parent-actions) { display: none !important; }
-}
 @media (max-width: 900px) {
-  body.is-house-plan #workspacePanelDialog { height: min(90dvh, 900px); max-height: 90dvh; }
-  body.is-house-plan #workspacePanelDialog > #configurationPanel.workspace-configuration-panel { height: 100%; grid-template-rows: 52px minmax(0, 1fr) auto; }
-  .house-plan-parent-settings { grid-column: 1 / -1; }
   .house-plan-integrated { overflow: hidden; }
   .house-plan-integrated .house-plan-workspace { min-height: 0; }
 }

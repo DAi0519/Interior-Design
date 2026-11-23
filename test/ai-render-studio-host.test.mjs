@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式渲染台宿主、主目录/编排/布局源码和内存DOM/历史记录替身
- * [OUTPUT]: 验证正式入口、平面机位/实验室Beta命名、旧START隔离、iframe保活、移动抽屉退出、原功能输入/任务保存及URL直达
+ * [OUTPUT]: 验证独立入口、渲染工作区与户型布局挂载隔离、保活/交接、移动抽屉和旧动作恢复
  * [POS]: test 的主工作台渲染台集成合同，不加载真实iframe、不调用网络或生图模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,7 +11,7 @@ import { bindAiRenderStudioHost } from "../public/ai-render-studio-host.js";
 
 function fixture() {
   const created = [], events = [], menus = [], map = new Map();
-  const win = { location: { href: "http://127.0.0.1:4192/?other=keep#result" },
+  const win = { location: { href: "http://127.0.0.1:4192/?other=keep#result", origin: "http://127.0.0.1:4192" },
     history: { state: { saved: true }, replaceState(state, _title, url) {
       assert.deepEqual(state, { saved: true }); win.location.href = String(url);
     } }, Event: class { constructor(type) { this.type = type; } }, dispatchEvent(event) { events.push(event.type); } };
@@ -26,6 +26,11 @@ function fixture() {
         setAttribute: (name, value) => attributes.set(name, String(value)),
         getAttribute: (name) => attributes.get(name) ?? null };
       if (tagName === "iframe") {
+        const frameEvents = new Map(), messages = [];
+        node.addEventListener = (event, handler) => frameEvents.set(event, handler);
+        node.fire = (event) => frameEvents.get(event)?.();
+        node.messages = messages;
+        node.contentWindow = { postMessage: (...args) => messages.push(args) };
         let source;
         node.sourceWrites = 0;
         Object.defineProperty(node, "src", { get: () => source, set(value) { source = value; node.sourceWrites += 1; } });
@@ -37,7 +42,7 @@ function fixture() {
   const scroll = doc.createElement("div"), actions = doc.createElement("section"), result = doc.createElement("section");
   scroll.inputValue = "旧功能用户输入"; actions.runningJob = { jobId: "old-job-keep", status: "running" };
   const dialog = { open: false, closeCount: 0, close() { this.open = false; this.closeCount += 1; } };
-  const buttons = ["whiteModel", "aiRenderStudio", "refinedModel"].map((featureMode) => {
+  const buttons = ["whiteModel", "aiRenderStudio", "refinedModel", "sceneCast", "housePlanLayout"].map((featureMode) => {
     const button = doc.createElement("button"); button.dataset.featureMode = featureMode;
     button.setAttribute("aria-checked", String(featureMode === "whiteModel")); return button;
   });
@@ -58,7 +63,7 @@ test("正式目录项使用同源独立宿主，不保留预览链接或接入�
   ]);
   assert.match(html, /<button[^>]*data-feature-mode="aiRenderStudio"[^>]*>AI渲染台<\/button>/);
   assert.doesNotMatch(html, /feature-preview-link/);
-  assert.match(app, /from "\.\/ai-render-studio-host\.js\?v=1"/);
+  assert.match(app, /from "\.\/ai-render-studio-host\.js\?v=\d+"/);
   assert.match(app, /if \(featureMode === "aiRenderStudio"\) \{ aiRenderStudioHost\.show\(\); return; \}/);
   assert.doesNotMatch(app.match(/const supported = \[[\s\S]*?\];/)?.[0] || "", /aiRenderStudio/);
   assert.doesNotMatch(hostSource, /fetch\(|\/api\/generation-jobs|method:\s*["']POST/);
@@ -103,13 +108,16 @@ test("切回再进入保留iframe同一文档及两路输入/任务，不重复�
   assert.equal(f.created.filter(({ tagName }) => tagName === "iframe").length, 1);
 });
 
-test("切换时关闭旧popover与移动配置抽屉，返回正常功能恢复原隐藏和inert状态", () => {
+test("切换时关闭旧popover，挂载式渲染保留移动抽屉，独立工具关闭抽屉", () => {
   const f = fixture();
   f.scroll.inert = true; f.result.hidden = true; f.dialog.open = true;
   let closed = 0;
   f.menus.push({ hidePopover() { closed += 1; } }, { hidePopover() { throw new Error("already closed"); } });
   f.host.show();
   assert.equal(closed, 1);
+  assert.equal(f.dialog.open, true);
+  assert.equal(f.dialog.closeCount, 0);
+  f.host.show("floorPlan");
   assert.equal(f.dialog.open, false);
   assert.equal(f.dialog.closeCount, 1);
   f.host.hide("whiteModel");
@@ -180,4 +188,54 @@ test("平面机位渲染切换保留相机和任务，与旧START隔离", () => 
   assert.equal(new URL(f.doc.defaultView.location.href).searchParams.get("feature"), "floorPlanCamera");
   f.host.hide("whiteModel");
   assert.equal(f.actions.hidden, false);
+});
+
+test("场景结果带入人物宠物配置挂接槽，切换时保留会话与移动抽屉", () => {
+  const f = fixture();
+  const slot = (id) => f.panel.children.find(node => node.id === id);
+  const cast = [slot("sceneCastSettingsMount"), slot("sceneCastActionsMount")];
+  const studio = [slot("aiRenderStudioSettingsMount"), slot("aiRenderStudioActionsMount")];
+  const camera = [slot("floorPlanCameraSettingsMount"), slot("floorPlanCameraActionsMount")];
+  const house = [slot("housePlanSettingsMount"), slot("housePlanActionsMount")];
+  const checkDock = (nodes, unavailable) => {
+    for (const node of nodes) { assert.equal(node.hidden, unavailable); assert.equal(node.inert, unavailable); }
+  };
+  checkDock([...cast, ...house, ...studio, ...camera], true);
+  f.dialog.open = true;
+  const payload = { imageUrl: "data:image/png;base64,AAAA", sourceRender: { featureMode: "whiteModel" } };
+  f.host.importSceneCast(payload);
+  const frame = f.frame();
+  assert.equal(frame.src, "/scene-cast.html?embedded=1");
+  assert.equal(f.dialog.open, true);
+  assert.equal(f.root.classList.contains("is-docked-workspace"), true);
+  assert.equal(f.buttons[3].getAttribute("aria-checked"), "true");
+  checkDock(cast, false);
+  checkDock(house, true);
+  checkDock([f.scroll, f.actions, f.result], true);
+  assert.match(cast[0].className, /\bcontrol-panel-scroll\b/);
+  assert.match(cast[1].className, /\baction-section\b/);
+  assert.deepEqual(frame.messages, []);
+  frame.fire("load");
+  assert.deepEqual(frame.messages, [[{ type: "canvas-lab:scene-cast:import", payload }, f.doc.defaultView.location.origin]]);
+  f.host.show();
+  assert.equal(f.dialog.open, true);
+  checkDock(studio, false);
+  checkDock([...cast, ...camera], true);
+  f.host.show("floorPlanCamera");
+  assert.equal(f.dialog.open, true);
+  checkDock(camera, false);
+  checkDock([...cast, ...studio], true);
+  f.host.show("housePlanLayout");
+  assert.equal(f.dialog.open, false);
+  checkDock(cast, true);
+  checkDock(house, false);
+  f.host.show("sceneCast");
+  assert.equal(frame.sourceWrites, 1);
+  checkDock(cast, false);
+  checkDock(house, true);
+  f.host.hide("whiteModel");
+  checkDock([...cast, ...house, ...studio, ...camera], true);
+  checkDock([f.scroll, f.actions, f.result], false);
+  assert.equal(f.root.classList.contains("is-docked-workspace"), false);
+  assert.equal(f.buttons[0].getAttribute("aria-checked"), "true");
 });

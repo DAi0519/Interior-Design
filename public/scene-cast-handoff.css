@@ -1,0 +1,13 @@
+/**
+ * [INPUT]: 依赖工作台弹层令牌与独立渲染页的人物宠物入口
+ * [OUTPUT]: 提供直接访问渲染页时的同源合成弹层与关闭操作
+ * [POS]: public 的渲染结果传递弹层，主工作台内由保活宿主导航
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+.scene-cast-handoff-dialog { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; height: 92dvh; max-height: none; max-width: none; overflow: hidden; padding: 0; width: min(95vw, 1280px); }
+.scene-cast-handoff-dialog[open] { display: grid; grid-template-rows: 38px minmax(0, 1fr); }
+.scene-cast-handoff-dialog::backdrop { background: rgb(20 20 24 / 38%); }
+.scene-cast-handoff-dialog > button { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text); font-size: 12px; justify-self: end; margin: 4px 12px; padding: 4px 10px; }
+.scene-cast-handoff-dialog > iframe { border: 0; display: block; height: 100%; width: 100%; }
+.scene-cast-render-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: end; }
+.scene-cast-render-actions:has(> button[hidden] + button[hidden]) { display: none; }

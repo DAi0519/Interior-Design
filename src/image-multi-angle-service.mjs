@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖多角度尺寸/图片准备、机位与原生执行图、注入的ComfyUI/OneAPI客户端、权限目录及阶段回调
- * [OUTPUT]: 多角度脱敏能力/质量档位目录、单图与档位准入及原图/结果/实际英文指令及独立版本飞书归档，三模型逐项准入，输入/交付最高2K，保留真实尺寸及机位
- * [POS]: src 的多角度应用服务，被主工作台统一生成任务消费，复用飞书调度，不变更正式MaaS策略
+ * [OUTPUT]: Qwen与OneAPI逐模型脱敏能力/质量档位目录、单图与档位准入、原图/结果/实际英文指令和独立版本归档，输入/交付最高2K，保留真实尺寸及机位
+ * [POS]: src 的多角度应用服务，供主工作台和Beta统一生成任务复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { prepareMultiAngleImage, MULTI_ANGLE_IMAGE_POLICY } from "./image-multi-angle-image.mjs";

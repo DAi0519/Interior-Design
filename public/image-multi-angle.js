@@ -1,16 +1,17 @@
 /**
- * [INPUT]: 依赖三模型能力目录、固定语义控件模板、共享摄影机球、尺寸策略、主图上传、工作流配置与统一任务接口
+ * [INPUT]: 依赖模型能力目录、共享摄影机球及俯仰范围、尺寸策略、主图上传、工作流配置与统一任务接口
  * [OUTPUT]: bindImageMultiAngle 单图工具控制器，公开能力/尺寸与Sunburst质量档位记忆、机位预览/结果切换、冻结模型/档位/机位请求和飞书同步结果任务
  * [POS]: public 的多角度主工作台适配层，不持有模型路径或提示词
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { bindCameraSphere } from "./camera-sphere.js";
-import { planMultiAngleImage, MULTI_ANGLE_IMAGE_POLICY } from "./image-multi-angle-geometry.js";
+import { planMultiAngleImage, MULTI_ANGLE_ELEVATION_RANGE, MULTI_ANGLE_IMAGE_POLICY } from "./image-multi-angle-geometry.js";
 
+const [minElevation, maxElevation] = MULTI_ANGLE_ELEVATION_RANGE;
 const icon = (body, className = '') => `<svg class="${className}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 const arrow = rotation => icon(`<path d="M12 18V6m-5 5 5-5 5 5" transform="rotate(${rotation} 12 12)"/>`);
 const positionButtons = [
-  ['315,45','左上',135],['0,60','上方',180],['45,45','右上',225],
+  ['315,45','左上',135],[`0,${maxElevation}`,'正俯视',180],['45,45','右上',225],
   ['270,0','左侧',90],['0,0','正面',null],['90,0','右侧',270],
   ['315,-30','左下',45],['0,-30','下方',0],['45,-30','右下',315],
 ].map(([pose,label,rotation])=>`<button type="button" data-preset="${pose}" aria-pressed="false">${rotation === null ? icon('<rect x="5" y="6" width="14" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>') : arrow(rotation)}<span>${label}</span></button>`).join('');
@@ -41,8 +42,8 @@ const CONTROLS = `
     </div>
     <div class="cs-slider">
       <div class="cs-slider-head"><label for="cs-elevation">俯仰角度</label><output for="cs-elevation" data-el-value>0°</output></div>
-      <input id="cs-elevation" type="range" min="-30" max="60" step="1" value="0"/>
-      <div class="cs-ticks" aria-hidden="true"><span>-30°</span><span>0°</span><span>30°</span><span>60°</span></div>
+      <input id="cs-elevation" type="range" min="${minElevation}" max="${maxElevation}" step="1" value="0"/>
+      <div class="cs-ticks" aria-hidden="true"><span>${minElevation}°</span><span>0°</span><span>30°</span><span>60°</span><span>${maxElevation}°</span></div>
     </div>
     <div class="cs-framing-group"><div class="cs-label" id="framing-label">景别</div><div class="cs-framing" role="group" aria-labelledby="framing-label">
       <button type="button" data-distance="0" aria-pressed="false" title="镜头靠近，突出局部细节">${frameIcon(13)}<span>特写</span></button>

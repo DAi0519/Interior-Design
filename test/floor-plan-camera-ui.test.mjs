@@ -1,132 +1,16 @@
 /**
- * [INPUT]: 依赖平面图机位渲染页面、控制脚本、共享归档状态控制器、相机几何与内存DOM/HTTP替身
- * [OUTPUT]: 验证墙体估算叠层和回退、参考图门禁、机位与多模型张数冻结、分组结果及仅GET恢复、逐图飞书记录和仅归档重试
+ * [INPUT]: 依赖共享相机几何和平面图机位 UI 夹具运行页面控制器与归档状态
+ * [OUTPUT]: 验证参数挂载与START、墙线及取景冻结、推理/直出选模、失败恢复和逐图归档
  * [POS]: test 的平面图机位前端回归，不访问模型、飞书或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import vm from 'node:vm';
 import * as geometry from '../public/floor-plan-camera-geometry.js';
-import { FLOOR_PLAN_WALL_ANALYSIS_MAX_SIDE } from '../public/floor-plan-camera-visibility.js';
-import { toggleModelSelection } from '../public/model-multi-select.js';
-import { publicModelCatalog } from '../src/model-config.mjs';
-const [page, script] = await Promise.all(['html', 'js'].map(extension => readFile(new URL(`../public/floor-plan-camera.${extension}`, import.meta.url), 'utf8')));
-const generationSyncScript = await readFile(new URL('../public/generation-sync.js', import.meta.url), 'utf8');
-const SESSION = 'canvas-lab:floor-plan-camera:v1';
-const canvasBounds = { left: 10, top: 20, width: 600, height: 300 };
-const modelOption = key => {
-  const model = publicModelCatalog().find(model => model.key === key);
-  return { ...model, available: true, resolutions: ['1K', '2K', '4K'], aspectRatios: ['16:9', '4:3', '1:1'],
-    defaults: { resolution: '2K', aspectRatio: '16:9' } };
-};
-const planReference = { referenceImageCount: 1, referenceImageRole: 'camera-annotated-plan' };
-const config = { available: true, featureMode: 'floorPlanCamera', workflowVersion: '2026-11-07.floor-plan-camera.9', pipeline: 'camera-view-agent-to-image-reference',
-  input: planReference,
-  imageGeneration: { mode: 'image-to-image', ...planReference },
-  batch: { imageCounts: [1, 2, 3, 4], maxImages: 12 },
-  archive: { required: true, available: true },
-  cameraDefaults: { x: .5, y: .5, heading: 0, fov: 60, height: 1.5 },
-  defaultAgentModel: 'gemini3pro', agentModels: [
-    { key: 'gemini3pro', id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', available: true, selectable: true },
-    { key: 'gpt', id: 'gpt-5.5', label: 'GPT 5.5', available: true, selectable: true }],
-  defaultModel: 'gptImage25Sunburst', models: ['gptImage25Sunburst', 'gptImage26Sunburst'].map(modelOption),
-  resolutions: ['1K', '2K', '4K'], aspectRatios: ['16:9', '4:3', '1:1'], prompt: { code: 'floor-plan-camera-agent', version: 2, sha256: 'a'.repeat(64) } };
-const source = name => ({ name: `${name}.png`, type: 'image/png', width: 1200, height: 600, size: 128, dataUrl: `data:image/png;base64,${Buffer.from(name).toString('base64')}` });
-const rendered = camera => ({ action: 'render', source: { fileName: '原户型.png' }, camera, model: { label: 'GPT 2.5' }, image: { url: source('效果图').dataUrl, width: 2048, height: 1152 } });
-async function fixture({ saved, respond = async () => ({ job: { status: 'failed', error: '模拟失败' } }), configuration = config, wallAnalysis = {} } = {}) {
-  const ids = new Map(), calls = [], timers = [], storage = new Map(), downloads = [], drawing = [];
-  if (saved) storage.set(SESSION, JSON.stringify(saved));
-  class Element {
-    constructor(tag) { this.tagName = tag; this.listeners = new Map(); this.children = []; this.attributes = new Map(); this._value = ''; this.disabled = false; this.hidden = false; this.open = false; this.textContent = ''; this.classList = { add() {}, remove() {} }; }
-    append(...nodes) { this.children.push(...nodes); }
-    replaceChildren(...nodes) { this.children = nodes; }
-    get value() { return this.tagName === 'select' ? this.children.find(item => item.selected)?.value || '' : this._value; }
-    set value(value) { this._value = String(value); if (this.tagName === 'select') this.children.forEach(item => { item.selected = item.value === this._value; }); }
-    get options() { return this.children; }
-    set innerHTML(value) { throw new Error('结果不得作为HTML插入'); }
-    setAttribute(key, value) { this.attributes.set(key, String(value)); }
-    removeAttribute(key) { this.attributes.delete(key); delete this[key]; }
-    addEventListener(name, callback) { this.listeners.set(name, [...(this.listeners.get(name) || []), callback]); }
-    async fire(name, values = {}) { for (const callback of this.listeners.get(name) || []) await callback({ preventDefault() {}, target: this, ...values }); }
-    click() { if (this.tagName === 'a') downloads.push({ href: this.href, download: this.download }); else if (!this.disabled) void this.fire('click'); }
-    focus() {} remove() {} setPointerCapture() {} releasePointerCapture() {} hasPointerCapture() { return true; }
-    getBoundingClientRect() { return canvasBounds; }
-    getContext() {
-      return new Proxy({}, { get: (_, name) => (...args) => {
-        drawing.push({ name, args });
-        if (name !== 'getImageData') return;
-        if (wallAnalysis.readFails) throw new Error('像素不可读取');
-        const [, , width, height] = args;
-        return { width, height, data: new Uint8ClampedArray(width * height * 4) };
-      } });
-    }
-  }
-  for (const [, tag, attributes] of page.matchAll(/<([\w-]+)\b([^>]*)>/g)) {
-    const id = attributes.match(/\bid="([^"]+)"/)?.[1]; if (!id) continue;
-    const node = new Element(tag); node.hidden = /\bhidden(?:\s|$)/.test(attributes); node.disabled = /\bdisabled(?:\s|$)/.test(attributes);
-    node.value = attributes.match(/\bvalue="([^"]+)"/)?.[1] || ''; ids.set(id, node);
-  }
-  const picker = { keys: [], models: [] };
-  const node = id => ids.get(id) || ids.get('complexityField').children.flatMap(label => label.children).find(child => child.id === id);
-  const context = vm.createContext({ ...geometry, FLOOR_PLAN_WALL_ANALYSIS_MAX_SIDE,
-    detectFloorPlanWalls: wallAnalysis.detect ?? (() => null), cameraVisibility: wallAnalysis.visible ?? (() => null),
-    document: { getElementById: id => ids.get(id), createElement: tag => new Element(tag), body: new Element('body') },
-    sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-    crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000001' },
-    ResizeObserver: class { observe() {} }, URL,
-    setTimeout: callback => { timers.push(callback); return callback; },
-    clearTimeout: callback => { const index = timers.indexOf(callback); if (index !== -1) timers.splice(index, 1); },
-    createImageBitmap: async file => ({ width: file.width, height: file.height, close() {} }),
-    readFileAsInput: async file => { if (file.fail) throw new Error('文件读取失败'); return { ...file }; },
-    fillSelect: (select, options, current) => select.replaceChildren(...options.map(entry => {
-      const node = new Element('option'), item = typeof entry === 'string' ? { value: entry, label: entry } : entry;
-      node.value = item.value; node.textContent = item.label; node.selected = item.value === current; return node;
-    })),
-    bindModelMultiSelect({ container, presentOption, onChange, onMessage }) {
-      picker.toggle = key => {
-        if (container.disabled) return;
-        const model = picker.models.find(item => item.key === key);
-        assert.ok(model, key);
-        const { changed, message, values } = toggleModelSelection(picker.keys, key, presentOption(model));
-        if (changed) onChange(values);
-        if (message) onMessage(message);
-      };
-      return {
-        render(models, keys) { picker.models = [...models]; picker.keys = [...keys]; },
-        setDisabled(value) { container.disabled = value; },
-      };
-    },
-    api: async (path, options = {}) => {
-      const call = { path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : undefined }; calls.push(call);
-      return path.includes('/config?') ? structuredClone(typeof configuration === 'function' ? configuration() : configuration) : respond(call);
-    },
-  });
-  await vm.runInContext(`(async () => {${generationSyncScript.replace('export function', 'function')}
-    ${script.replace(/^import\s+[^;]+;\n/gm, '')}})()`, context);
-  async function settle() { for (let i = 0; i < 3; i++) await new Promise(resolve => setImmediate(resolve)); }
-  const fire = async (id, event = 'click', values = {}) => { await node(id).fire(event, values); await settle(); };
-  await settle();
-  return { node, calls, storage, downloads, drawing, models: () => picker.keys,
-    posts: () => calls.filter(call => call.method === 'POST'), reads: () => calls.filter(call => call.path.includes('/jobs/')),
-    click: id => fire(id),
-    toggleModel: async key => { picker.toggle(key); await settle(); },
-    useModel: async key => {
-      if (!picker.keys.includes(key)) picker.toggle(key);
-      for (const other of picker.keys.filter(value => value !== key)) picker.toggle(other);
-      await settle();
-    },
-    input: async (id, value, event = 'input') => { node(id).value = value; await fire(id, event); },
-    upload: async file => { ids.get('sourceInput').files = [file]; await fire('sourceInput', 'change'); },
-    pointer: (type, x, y) => fire('canvas', type, { pointerId: 1, button: 0, clientX: x, clientY: y }),
-    key: (key, shiftKey = false) => fire('canvas', 'keydown', { key, shiftKey }),
-    nextPoll: async () => { assert.ok(timers.length); timers.shift()(); await settle(); },
-  };
-}
+import { SESSION, canvasBounds, config, fixture, modelOption, planReference, rendered, source } from './floor-plan-camera-ui-fixture.mjs';
 
-async function drag(f, from, to) {
-  const pointer = (type, { x, y }) => f.pointer(type, x + canvasBounds.left, y + canvasBounds.top);
+async function drag(f, from, to, pointerType) {
+  const pointer = (type, { x, y }) => f.pointer(type, x + canvasBounds.left, y + canvasBounds.top, pointerType);
   await pointer('pointerdown', from);
   await pointer('pointermove', to);
   await pointer('pointerup', to);
@@ -134,9 +18,34 @@ async function drag(f, from, to) {
 
 function canvasGuide(camera) {
   const { width, height } = canvasBounds;
-  const handleLength = Math.min(76, Math.min(width, height) * .38 * .66);
-  return geometry.cameraGuide(camera, width, height, handleLength);
+  return geometry.cameraGuide(camera, width, height, 76);
 }
+
+test('嵌入时参数及START挂入原容器，生成状态与画布任务共用', async () => {
+  const submission = Promise.withResolvers();
+  const f = await fixture({ embedded: true, respond: call => call.method === 'POST' ? submission.promise
+    : Promise.resolve({ job: { status: 'failed', error: '模拟失败' } }) });
+  assert.deepEqual(f.mounting, [['floorPlanCamera', 'camera-settings', 'camera-actions']]);
+  assert.equal(f.body.classList.contains('plan-camera-integrated'), true);
+  assert.equal(f.node('sidebar').removed, true);
+  assert.equal(f.node('status').hidden, true);
+  assert.equal(f.node('sourceCount').textContent, '0 / 1');
+  await f.upload(source('户型')); await f.click('placeCenter');
+  assert.equal(f.node('sourceCount').textContent, '1 / 1');
+  assert.equal(f.node('sourceInput').attributes.get('aria-label'), '替换平面图');
+  assert.equal(f.node('sourceHint').textContent, '点击或拖入新图替换');
+  assert.equal(f.node('generateLabel').textContent, 'START');
+  await f.click('generate');
+  assert.equal(f.posts().length, 1);
+  assert.equal(f.node('generateLabel').textContent, 'RUNNING…');
+  assert.equal(f.node('generate').attributes.get('aria-busy'), 'true');
+  assert.equal(f.node('generationActions').classList.contains('is-busy'), true);
+  submission.resolve({ job: { status: 'running' } });
+  await f.click('showSource');
+  assert.equal(f.node('generateLabel').textContent, 'START');
+  assert.equal(f.node('generate').attributes.get('aria-busy'), 'false');
+  assert.equal(f.node('generationActions').classList.contains('is-busy'), false);
+});
 
 test('长宽图朝向使用图像像素比例，正交视角与归一化指针正确', () => {
   const camera = { x: .5, y: .5, heading: 0, fov: 60 };
@@ -185,44 +94,109 @@ test('图上按拖摆放并转向，拖机身保持按下偏移，手柄调整�
   assert.equal(f.posts().length, 1, '调整机位不得触发生图');
 });
 
-test('只分析一次原图比例像素，可见区与虚线开角分层，机位无法估算时隐藏填充', async () => {
-  const rasterReads = [];
-  const mask = {};
-  const f = await fixture({ wallAnalysis: {
-    detect: ({ width, height, data }) => { rasterReads.push([width, height, data.length]); return mask; },
+test('每次上传只读取一份共用墙线，用原图尺寸绘制标注并冻结当前机位', async () => {
+  const input = { ...source('双房间'), width: 2400, height: 1200 };
+  const wireWalls = { width: 2, height: 2, left: 0, right: 2, top: 0, bottom: 2, mask: 'AAEBAA==' };
+  const f = await fixture({ configuration: { ...config, prompt: { ...config.prompt, version: 9, code: 'floor-plan-camera-frame-agent' },
+    annotation: { sharedWallAnalysis: true, protectOcclusion: true, emphasizeFrame: true } }, wallAnalysis: {
+    respond: async () => ({ width: input.width, height: input.height, walls: wireWalls }),
     visible: (camera, walls) => {
-      assert.equal(walls, mask);
+      assert.deepEqual({ ...walls, mask: Array.from(walls.mask) }, { ...wireWalls, mask: [0, 1, 1, 0] });
       return camera.heading === 0 ? [camera, { x: .4, y: .2 }, { x: .6, y: .2 }] : null;
     },
   } });
-  await f.upload(source('双房间')); assert.equal(f.node('visibilityLegend').hidden, true);
-  assert.equal(f.node('canvas').attributes.get('aria-describedby'), 'drawingHint');
+  await f.upload(input);
+  assert.equal(f.node('showPreview'), undefined);
+  assert.equal(f.node('visibilityLegend').hidden, true); assert.equal(f.node('canvas').attributes.get('aria-describedby'), 'drawingHint');
   const drawCalls = () => f.drawing.slice(f.drawing.findLastIndex(call => call.name === 'clearRect'));
   await f.click('placeCenter');
   const clipped = drawCalls(), operations = clipped.map(call => call.name);
   assert.equal(f.node('visibilityLegend').hidden, false);
   assert.equal(f.node('canvas').attributes.get('aria-describedby'), 'drawingHint visibilityLegend');
   assert.equal(f.node('visibilityKey').hidden, false);
-  assert.match(f.node('visibilityNote').textContent, /估算.*核对门窗/);
-  assert.deepEqual(clipped.find(call => call.name === 'lineTo').args, [480, 120]);
-  assert.ok(operations.indexOf('fill') < operations.indexOf('setLineDash'));
+  assert.equal(f.node('visibilityNote').textContent, '三角内按墙线估算，请核对门窗');
+  assert.deepEqual(clipped.find(call => call.name === 'scale').args, [.75, .75]);
+  assert.deepEqual(clipped.find(call => call.name === 'annotation').args.slice(1), [2400, 1200, [
+    { x: .5, y: .5, heading: 0, fov: 60 }, { x: .4, y: .2 }, { x: .6, y: .2 },
+  ]]);
+  assert.ok(operations.indexOf('annotation') < operations.indexOf('arc'));
   await f.input('heading', 90);
-  assert.equal(f.node('visibilityLegend').hidden, false);
   assert.equal(f.node('visibilityKey').hidden, true);
-  assert.match(f.node('visibilityNote').textContent, /仅显示镜头开角/);
-  const fallback = drawCalls().map(call => call.name);
-  assert.ok(fallback.indexOf('stroke') < fallback.indexOf('fill'), '回退只画开角虚线和手柄');
-  assert.deepEqual(rasterReads, [[640, 320, 640 * 320 * 4]]);
+  assert.equal(f.node('visibilityNote').textContent, '暂无法估算墙体遮挡');
+  assert.equal(drawCalls().find(call => call.name === 'annotation').args[3], null);
+  assert.deepEqual(f.annotations().map(call => call.body), [{ referenceImage: input }]);
+  assert.equal(f.posts().length, 0);
+  assert.equal(f.node('showFrame').checked, true);
+  f.node('showFrame').checked = false;
+  await f.input('showFrame', '', 'change');
+  assert.equal(f.node('frameKey').hidden, true);
+  assert.equal(JSON.parse(f.storage.get(SESSION)).showFrame, false);
+  const [camera] = drawCalls().find(call => call.name === 'annotation').args;
+  assert.equal(camera.showFrame, false);
+  await f.click('generate');
+  const [job] = f.posts();
+  assert.deepEqual(job.body.camera, { ...camera, height: 1.5 });
+  assert.deepEqual(job.body.referenceImage, input);
+  assert.equal(f.annotations().length, 1);
 });
 
-test('墙体像素读取失败仍可摆放并生成，只显示开角图例', async () => {
-  const f = await fixture({ wallAnalysis: { readFails: true } });
-  await f.upload(source('像素读取失败')); await f.click('placeCenter');
+test('拖外框远边可独立伸缩，触屏拉回后仍冻结相同的机位与开角', async () => {
+  const f = await fixture();
+  await f.upload(source('视野深度')); await f.click('placeCenter');
+  await f.input('heading', 90);
+  const original = { x: .5, y: .5, heading: 90, fov: 60 };
+  const first = canvasGuide(original);
+  const farEdge = { x: first.viewFrame.right, y: first.origin.y + 15 };
+  const currentCamera = () => f.drawing.findLast(call => call.name === 'annotation').args[0];
+  assert.deepEqual(currentCamera(), original);
+  const pointer = (type, x) => f.pointer(type, x + canvasBounds.left, farEdge.y + canvasBounds.top);
+  await pointer('pointerdown', farEdge.x);
+  await pointer('pointermove', farEdge.x + 40);
+  assert.ok(currentCamera().guideDepth > first.depth);
+  await pointer('pointermove', farEdge.x);
+  await pointer('pointerup', farEdge.x);
+  assert.deepEqual(currentCamera(), original);
+  await drag(f, farEdge, { x: farEdge.x + 84, y: farEdge.y + 30 });
+  const expanded = currentCamera();
+  assert.ok(Math.abs(expanded.guideDepth - first.depth - .28) < .0001);
+  assert.deepEqual({ ...original, guideDepth: expanded.guideDepth }, expanded);
+  assert.ok(canvasGuide(expanded).viewFrame.right > first.viewFrame.right + 83);
+  const { depthHandle } = canvasGuide(expanded);
+  await drag(f, depthHandle, { x: depthHandle.x - 42, y: depthHandle.y }, 'touch');
+  assert.ok(Math.abs(currentCamera().guideDepth - expanded.guideDepth + .14) < .0001);
+  await f.key('PageUp');
+  assert.ok(Math.abs(currentCamera().guideDepth - expanded.guideDepth + .09) < .0001);
+  const finalPose = currentCamera();
+  assert.equal(f.posts().length, 0);
+  await f.click('generate');
+  assert.deepEqual(f.posts()[0].body.camera, { ...finalPose, height: 1.5 });
+});
+
+test('服务端没有可靠墙线时不显示可见区填色，仍可摆放和生成', async () => {
+  const f = await fixture();
+  await f.upload(source('无墙线')); await f.click('placeCenter');
   assert.equal(f.node('error').hidden, true);
   assert.equal(f.node('visibilityLegend').hidden, false);
   assert.equal(f.node('visibilityKey').hidden, true);
-  assert.match(f.node('visibilityNote').textContent, /仅显示镜头开角/);
+  assert.match(f.node('visibilityNote').textContent, /暂无法估算墙体遮挡/);
   assert.equal(f.node('generate').disabled, false);
+});
+
+test('替换图的墙线请求失败时保留原图和机位', async () => {
+  const original = source('原户型'), replacement = source('新户型');
+  const f = await fixture({ wallAnalysis: { respond: async ({ body: { referenceImage } }) => {
+    if (referenceImage.name === replacement.name) throw new Error('墙线识别未完成');
+    return { width: original.width, height: original.height, walls: null };
+  } } });
+  await f.upload(original); await f.click('placeCenter'); await f.input('heading', 125);
+  await f.upload(replacement);
+  assert.equal(f.node('sourceName').textContent, original.name);
+  assert.equal(f.node('sourceCount').textContent, '1 / 1');
+  assert.equal(f.node('sourceThumbnail').src, original.dataUrl);
+  assert.equal(f.node('heading').value, '125');
+  assert.match(f.node('error').textContent, /墙线识别未完成/);
+  await f.click('generate');
+  assert.deepEqual(f.posts()[0].body.referenceImage, original);
 });
 
 test('中心圆点沿视线伸缩同步视野与焦距，斜拖可同时转向，机身位置不变', async () => {
@@ -325,7 +299,7 @@ test('提交响应未知保留原任务，检查及会话恢复只GET不再POST'
     return { job: { status: 'success', result: rendered(camera) } };
   } });
   await f.upload(source('原户型')); await f.click('placeCenter'); await f.click('generate');
-  assert.equal(f.posts().length, 1); assert.equal(f.node('generate').disabled, true); assert.equal(f.node('upload').disabled, true);
+  assert.equal(f.posts().length, 1); assert.equal(f.node('generate').disabled, true); assert.equal(f.node('sourceInput').disabled, true);
   const saved = JSON.parse(f.storage.get(SESSION)); assert.ok(saved.pending);
   await f.click('generate'); assert.equal(f.posts().length, 1);
   await f.click('refresh'); assert.equal(f.posts().length, 1); assert.equal(f.reads().length, 1);
@@ -334,6 +308,47 @@ test('提交响应未知保留原任务，检查及会话恢复只GET不再POST'
   assert.equal(restored.node('result').src, rendered(camera).image.url);
   assert.equal(restored.node('generate').disabled, true, '恢复结果不伪造原平面图或新机位');
   await restored.click('download'); assert.equal(restored.downloads[0].href, rendered(camera).image.url);
+});
+
+test('取景格式失败结束进度提示，保留原设置并允许手动重试', async () => {
+  let failed = false;
+  const f = await fixture({ respond: async ({ method }) => ({ job: method === 'POST' || !failed
+    ? { status: 'running', message: '空间推理模型正在分析机位、可见空间与画面质感…' }
+    : { status: 'failed', error: '空间推理输出不是有效 JSON', result: { diagnostic: { code: 'camera_agent_output_invalid' } } } }) });
+  await f.upload(source('原户型')); await f.click('placeCenter');
+  await f.input('heading', 90); await f.input('imageCount', 2, 'change');
+  await f.input('agentModel', 'gpt', 'change'); await f.click('generate');
+  assert.match(f.node('status').textContent, /正在分析/);
+  failed = true; await f.nextPoll();
+  assert.equal(f.node('status').textContent, '取景说明不完整');
+  assert.match(f.node('error').textContent, /未开始生图.*重试.*更换推理模型/);
+  assert.doesNotMatch(f.node('error').textContent, /JSON/);
+  assert.equal(f.node('generate').disabled, false);
+  assert.equal(f.node('refreshLabel').textContent, '刷新');
+  assert.equal(JSON.parse(f.storage.get(SESSION)).pending, null);
+  assert.equal(f.posts().length, 1);
+  await f.click('refresh');
+  assert.equal(f.node('status').textContent, '机位已设置，可以生成');
+  assert.equal(f.node('error').hidden, true);
+  assert.equal(f.posts().length, 1);
+  assert.equal(f.reads().length, 2, '刷新失败终态不继续轮询原任务');
+  await f.click('generate');
+  assert.deepEqual(f.posts().map(call => [call.body.camera.heading, call.body.imageCount, call.body.agentModelKey]), [[90, 2, 'gpt'], [90, 2, 'gpt']]);
+  assert.notEqual(f.posts()[0].body.jobId, f.posts()[1].body.jobId);
+});
+
+test('不可确认的机位和普通任务失败各显示对应终态', async () => {
+  for (const [diagnostic, expected, detail] of [
+    [{ code: 'camera_view_unresolved' }, '该机位的可见范围未确认', '请调整机位或补充空间说明后再生成。'],
+    [{ phase: 'image' }, '生成任务未完成', '图片服务超时'],
+  ]) {
+    const f = await fixture({ saved: { pending: 'original-task' }, respond: async () => ({ job: {
+      status: 'failed', error: '图片服务超时', result: { diagnostic },
+    } }) });
+    assert.equal(f.node('status').textContent, expected);
+    assert.equal(f.node('error').textContent, detail);
+    assert.equal(f.posts().length, 0);
+  }
 });
 
 test('运行时锁定输入、失权不切换模型、非法参数不能提交', async () => {
@@ -347,9 +362,8 @@ test('运行时锁定输入、失权不切换模型、非法参数不能提交',
   assert.deepEqual(f.models(), ['gptImage26Sunburst']); assert.equal(f.node('generate').disabled, true);
   await f.useModel('gptImage25Sunburst'); assert.equal(f.node('generate').disabled, false);
   await f.click('generate');
-  for (const id of ['upload','placeCenter','heading','fov','model','agentModel','imageCount','requirements','generate']) assert.equal(f.node(id).disabled, true, id);
+  for (const id of ['sourceInput','placeCenter','heading','fov','model','agentModel','imageCount','requirements','generate']) assert.equal(f.node(id).disabled, true, id);
 });
-
 
 test('非法机位参数显示范围、清除旧视锥，合法恢复仅清除参数错误', async () => {
   const f = await fixture(); await f.upload(source('原户型')); await f.click('placeCenter');
@@ -412,7 +426,8 @@ test('张数乘模型数预告本批总数，超过上限不提交，合法批�
   await f.click('generate'); assert.equal(f.posts().length, 0);
   await f.input('imageCount', '3', 'change');
   assert.match(f.node('batchTotal').textContent, /4 个模型 × 3 张，共 12 张/);
-  assert.equal(f.node('generateLabel').textContent, '生成 12 张室内效果图');
+  assert.equal(f.node('generateLabel').textContent, 'START');
+  assert.equal(f.node('generate').attributes.get('aria-label'), '生成 12 张室内效果图');
   await f.click('generate'); assert.equal(f.posts().length, 1);
   const [request] = f.posts();
   assert.equal(request.body.imageCount, 3);
@@ -618,7 +633,6 @@ test('思考能力刷新失效不静默降档，明确重选后恢复生成', as
   await f.click('generate'); assert.equal(Object.hasOwn(f.posts()[0].body.modelSelections[0], 'complexity'), false);
 });
 
-
 test('空间推理模型按默认选择并记忆，刷新失权或移除不静默换模', async () => {
   let current = structuredClone(config);
   const f = await fixture({ configuration: () => current });
@@ -641,19 +655,104 @@ test('空间推理模型按默认选择并记忆，刷新失权或移除不静�
   await f.click('generate'); assert.equal(f.posts()[0].body.agentModelKey, 'gemini3pro');
 });
 
-test('空间推理选择冻结到一次提交，可见内容与画面提示词按纯文本展示并归属于原结果', async () => {
+test('GPT 6.1 Sol 以独立空间推理选项提交', async () => {
+  const gpt61Sol = { key: 'gpt61Sol', id: 'gpt-6.1-sol', label: 'GPT 6.1 Sol', selectable: true };
+  const f = await fixture({ configuration: { ...config, agentModels: [...config.agentModels, gpt61Sol] } });
+  await f.upload(source('户型')); await f.click('placeCenter');
+  assert.equal(f.node('agentModel').value, 'gemini3pro');
+  assert.ok(f.node('agentModel').options.some(option => option.value === 'gpt' && !option.disabled));
+  await f.input('agentModel', gpt61Sol.key, 'change');
+  await f.click('generate');
+  assert.equal(f.posts()[0].body.agentModelKey, gpt61Sol.key);
+  assert.equal(f.posts()[0].body.modelSelections[0].key, 'gptImage25Sunburst');
+});
+
+test('提示词直出脱离推理配置，保留提示词原文、机位、批次参数和结果模式', async () => {
+  const configuration = { ...config, available: false, reason: '空间推理提示词不可用',
+    prompt: null, agentModels: [], defaultAgentModel: '', generationModes: ['agent', 'direct'] };
+  const prompt = '  从相机位置看向窗边。\n\n浅色橡木与自然光。  ';
+  let result;
+  const respond = async ({ method, body }) => {
+    if (method === 'POST') {
+      result = { ...rendered(body.camera), generationMode: 'direct', compiledPrompt: body.userRequirements,
+        viewSummary: '旧推理摘要', agent: { label: '旧推理模型' }, actual: { generationMode: 'image-to-image', ...planReference } };
+      return { job: { status: 'running' } };
+    }
+    return { job: { status: 'success', result } };
+  };
+  const f = await fixture({ configuration, respond });
+  await f.upload(source('户型')); await f.click('placeCenter');
+  assert.equal(f.node('generationMode').value, 'agent');
+  assert.equal(f.node('generate').disabled, true);
+  assert.equal(f.node('directPromptField').hidden, true);
+  await f.input('requirements', '空间推理专用的原木风格要求');
+  await f.input('generationMode', 'direct', 'change');
+  assert.equal(f.node('agentModelField').hidden, true);
+  assert.equal(f.node('directPromptField').hidden, false);
+  assert.equal(f.node('requirementsField').hidden, true);
+  assert.equal(f.node('generate').disabled, true);
+  await f.input('directPrompt', '   \n');
+  await f.click('generate'); assert.equal(f.posts().length, 0);
+  await f.input('directPrompt', prompt);
+  await f.input('generationMode', 'agent', 'change');
+  assert.equal(f.node('requirements').value, '空间推理专用的原木风格要求');
+  await f.input('generationMode', 'direct', 'change');
+  assert.equal(f.node('directPrompt').value, prompt);
+  await f.input('imageCount', '2', 'change');
+  await f.click('generate'); assert.equal(f.posts().length, 1);
+  const request = f.posts()[0].body;
+  assert.equal(request.generationMode, 'direct');
+  assert.equal(request.userRequirements, prompt);
+  for (const key of ['agentModelKey', 'promptVersion', 'promptSha256']) assert.ok(!Object.hasOwn(request, key), key);
+  assert.deepEqual(request.camera, { x: .5, y: .5, heading: 0, fov: 60, height: 1.5 });
+  assert.equal(request.referenceImage.name, '户型.png');
+  assert.deepEqual(request.modelSelections, [{ key: 'gptImage25Sunburst' }]);
+  assert.equal(request.imageCount, 2);
+  const saved = JSON.parse(f.storage.get(SESSION));
+  const restored = await fixture({ saved, configuration, respond });
+  assert.equal(restored.posts().length, 0);
+  assert.equal(restored.node('generationMode').value, 'direct');
+  assert.equal(restored.node('directPrompt').value, prompt);
+  assert.equal(restored.node('requirements').value, '空间推理专用的原木风格要求');
+  assert.equal(restored.node('scenePromptTitle').textContent, '最终提示词');
+  assert.equal(restored.node('scenePrompt').textContent, prompt);
+  assert.equal(restored.node('viewSummarySection').hidden, true);
+  assert.match(restored.node('resultMeta').textContent, /提示词直出/);
+  assert.doesNotMatch(restored.node('resultMeta').textContent, /旧推理模型/);
+});
+
+test('旧进程阻断已保存的直出模式，明确切回空间推理后才能提交', async () => {
+  const f = await fixture({ saved: { generationMode: 'direct', requirements: '之前输入的提示词' } });
+  await f.upload(source('户型')); await f.click('placeCenter');
+  assert.equal(f.node('generationMode').options.find(option => option.value === 'direct').disabled, true);
+  assert.equal(f.node('directPrompt').value, '之前输入的提示词');
+  assert.equal(f.node('generate').disabled, true);
+  await f.click('generate'); assert.equal(f.posts().length, 0);
+  await f.input('generationMode', 'agent', 'change');
+  assert.equal(f.node('agentModelField').hidden, false);
+  assert.equal(f.node('requirementsField').hidden, false);
+  await f.click('generate'); assert.equal(f.posts().length, 1);
+  assert.equal(f.posts()[0].body.agentModelKey, 'gemini3pro');
+  assert.equal(f.posts()[0].body.userRequirements, '');
+});
+
+test('新任务忽略旧裁切配置，空间推理选择冻结，旧结果仍只读恢复', async () => {
   let request, completed = false;
   const scenePrompt = 'Camera-level view, warm oak. <img src=x onerror=alert(1)>\nSoft daylight.';
   const viewSummary = '机位朝向90°，左侧门洞，正前方实墙。\n<b>墙后卧室不可见。</b>';
   const result = () => ({ ...rendered(request.camera), agent: { key: 'gpt', label: 'GPT 5.5' }, viewSummary, scenePrompt,
     actual: { generationMode: 'image-to-image', ...planReference } });
-  const f = await fixture({ respond: async call => {
+  const configuration = { ...config, foregroundCrop: { min: 4, max: 30, default: 10 },
+    prompt: { ...config.prompt, version: 9, code: 'floor-plan-camera-frame-agent' } };
+  const f = await fixture({ saved: { foregroundCrop: 13 }, configuration, respond: async call => {
     if (call.method === 'POST') { request = call.body; return { job: { status: 'running' } }; }
     return completed ? { job: { status: 'success', result: result() } }
       : { job: { status: 'running', message: '正在分析该机位的可见空间…' } };
   } });
   await f.upload(source('户型')); await f.click('placeCenter'); await f.input('heading', 90);
+  for (const id of ['foregroundCropEnabled', 'foregroundCropDistance', 'foregroundCropKey']) assert.equal(f.node(id), undefined);
   await f.input('agentModel', 'gpt', 'change'); await f.click('generate');
+  assert.equal(Object.hasOwn(request, 'foregroundCrop'), false);
   assert.equal(request.agentModelKey, 'gpt'); assert.equal(f.node('agentModel').disabled, true);
   assert.equal(request.workflowVersion, '2026-11-07.floor-plan-camera.9');
   assert.match(f.node('status').textContent, /分析.*可见空间/);
@@ -663,28 +762,25 @@ test('空间推理选择冻结到一次提交，可见内容与画面提示词�
   assert.equal(f.posts().length, 1); assert.equal(f.node('scenePrompt').textContent, scenePrompt);
   assert.equal(f.node('viewSummarySection').hidden, false); assert.equal(f.node('viewSummary').textContent, viewSummary);
   assert.equal(f.node('scenePromptDetails').hidden, false); assert.equal(f.node('scenePromptDetails').open, false);
-  assert.match(f.node('resultMeta').textContent, /空间推理：GPT 5.5/);
-  assert.match(f.node('resultMeta').textContent, /机位图参考/);
+  assert.match(f.node('resultMeta').textContent, /空间推理：GPT 5.5.*机位图参考/);
+  assert.doesNotMatch(f.node('resultMeta').textContent, /前景裁切/);
   await f.input('agentModel', 'gemini3pro', 'change'); await f.input('heading', 180);
   assert.match(f.node('resultMeta').textContent, /空间推理：GPT 5.5/);
   assert.match(f.node('resultMeta').textContent, /朝向 90°/); assert.equal(f.node('viewSummary').textContent, viewSummary);
-  const restored = await fixture({ saved: JSON.parse(f.storage.get(SESSION)), respond: async () => ({ job: { status: 'success', result: result() } }) });
+  const restored = await fixture({ saved: JSON.parse(f.storage.get(SESSION)), respond: async () => ({ job: { status: 'success', result: { ...result(), foregroundCrop: 13 } } }) });
   assert.equal(restored.posts().length, 0); assert.equal(restored.node('scenePrompt').textContent, scenePrompt);
   assert.equal(restored.node('viewSummarySection').hidden, false); assert.equal(restored.node('viewSummary').textContent, viewSummary);
   assert.equal(restored.node('scenePromptDetails').open, false);
-  assert.match(restored.node('resultMeta').textContent, /机位图参考/);
+  assert.match(restored.node('resultMeta').textContent, /机位图参考.*前景裁切 13%/);
 });
 
 test('单张机位图参考门禁阻断不匹配的服务配置，旧结果不补摘要或模式标签', async () => {
   for (const incompatible of [
-    { ...config, workflowVersion: '2026-11-07.floor-plan-camera.3' },
-    { ...config, workflowVersion: '2026-11-07.floor-plan-camera.4' },
-    { ...config, workflowVersion: '2026-11-07.floor-plan-camera.5' },
-    { ...config, workflowVersion: '2026-11-07.floor-plan-camera.6' },
-    { ...config, workflowVersion: '2026-11-07.floor-plan-camera.7' },
-    { ...config, workflowVersion: '2026-11-07.floor-plan-camera.8' },
+    ...[3, 4, 5, 6, 7, 8].map(version => ({ ...config, workflowVersion: `2026-11-07.floor-plan-camera.${version}` })),
     { ...config, batch: undefined }, { ...config, batch: { ...config.batch, imageCounts: [1] } },
     { ...config, pipeline: undefined }, { ...config, prompt: { ...config.prompt, code: 'floor-plan-camera' } },
+    { ...config, prompt: { ...config.prompt, version: 9 } },
+    { ...config, prompt: { ...config.prompt, code: 'floor-plan-camera-frame-agent' } },
     { ...config, pipeline: 'scene-agent-to-image' }, { ...config, imageGeneration: undefined },
     { ...config, imageGeneration: { ...config.imageGeneration, referenceImageCount: 0 } },
     { ...config, imageGeneration: { ...config.imageGeneration, referenceImageCount: 2 } },
@@ -696,11 +792,13 @@ test('单张机位图参考门禁阻断不匹配的服务配置，旧结果不�
     await f.upload(source('户型')); await f.click('placeCenter'); await f.click('generate');
     assert.equal(f.node('generate').disabled, true); assert.equal(f.posts().length, 0);
   }
-  const f = await fixture({ configuration: { ...config, agentModels: config.agentModels.map(({key,id,label}) => ({key,id,label})) },
+  const f = await fixture({ configuration: { ...config, prompt: { ...config.prompt, version: 9, code: 'floor-plan-camera-frame-agent' },
+    agentModels: config.agentModels.map(({key,id,label}) => ({key,id,label})) },
     respond: async () => ({ job: { status: 'success', result: { ...rendered({x:.5,y:.5,heading:0,fov:60,height:1.5}),
       actual: { generationMode: 'image-to-image', referenceImageCount: 1 } } } }) });
   await f.upload(source('户型')); await f.click('placeCenter'); await f.click('generate');
   assert.equal(f.posts().length, 1); assert.equal(f.node('scenePromptDetails').hidden, true);
+  assert.equal(f.posts()[0].body.promptVersion, 9);
   assert.equal(f.node('scenePrompt').textContent, '');
   assert.equal(f.node('viewSummarySection').hidden, true); assert.equal(f.node('viewSummary').textContent, '');
   assert.doesNotMatch(f.node('resultMeta').textContent, /文生图|机位图参考|墙体遮挡估算|仅示镜头开角/);

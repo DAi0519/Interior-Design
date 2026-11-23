@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 含户型布局的十三功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供自由生图一条多行提示词与图片样本 ID 提交、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
+ * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
+ * [OUTPUT]: 对外提供机位直出原词、取景框开关及旧进程门禁、视野深度拖动、自由生图一条多行提示词与图片样本 ID 提交、多角度入口与旧进程门禁、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
  * [POS]: test 的 Beta跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,10 +9,189 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { packBatchAssets } from "../public/beta-assets.js";
+import { createBetaFloorPlanCameraConfiguration } from "../public/beta-floor-plan-camera.js";
 import { BETA_FEATURE_COPY, betaFeatureUnavailableReason } from "../public/beta-model-rules.js";
 import { isEmptyRoomDesign } from "../public/room-renovation.js";
 import { betaJobWarnings, renderBetaWarnings } from "../public/beta-results.js";
+import { cameraGuide } from "../public/floor-plan-camera-geometry.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection } from "../public/generation-task-request.js";
+
+test("Beta机位使用原尺寸底图，保存逐样本取景框设置并冻结直出批次", async (t) => {
+  const createNode = () => {
+    const classes = new Set();
+    return Object.assign(new EventTarget(), { value: "", children: [], classList: {
+      toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name),
+      contains: name => classes.has(name),
+    } });
+  };
+  const nodes = new Map();
+  const getElementById = id => {
+    if (!nodes.has(id)) nodes.set(id, createNode());
+    return nodes.get(id);
+  };
+  const cameras = {
+    first: { x: 0.3, y: 0.4, heading: 25, fov: 48 },
+    second: { x: 0.7, y: 0.5, heading: 200, fov: 52 },
+  };
+  let savedDraft = JSON.stringify({ imageCount: 2, cameras });
+  const [width, height] = [400, 320];
+  const dialog = getElementById("betaCameraDialog");
+  const canvas = getElementById("betaCameraCanvas");
+  let drawnImageUrl, annotationStrokes = 0;
+  const context = new Proxy({}, { get: (_target, method) => method === "drawImage"
+    ? image => { drawnImageUrl = image.src; annotationStrokes = 0; }
+    : method === "stroke" ? () => { annotationStrokes++; } : () => {} });
+  Object.assign(canvas, { dataset: {}, setPointerCapture: () => {}, getContext: () => context,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width, height }) });
+  const samples = Object.keys(cameras).map(sampleId => ({ sampleId, name: sampleId, previewUrl: "/sample.png" }));
+  let button;
+  getElementById("sampleList").children = [{ querySelector: () => button, append: node => { button = node; } }];
+  for (const [name, value] of Object.entries({
+    document: { getElementById, createElement: () => Object.assign(createNode(), { dataset: {} }) },
+    Image: class { async decode() {} },
+    Path2D: class { arc() {} },
+    localStorage: { getItem: () => savedDraft, setItem: (_key, data) => { savedDraft = data; } },
+  })) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, value });
+    t.after(() => original ? Object.defineProperty(globalThis, name, original) : delete globalThis[name]);
+  }
+  const model = { key: "banana21", label: "Banana 2.1", available: true };
+  let config = {
+    available: true, generationModes: ["agent", "direct"],
+    prompt: { version: 3, sha256: "prompt-sha" }, defaultAgentModel: "qwen",
+    agentModels: [{ key: "qwen", label: "Qwen", selectable: true }],
+    models: [model], batch: { imageCounts: [1, 2], maxImages: 4 }, cameraDefaults: { heading: 0, fov: 50, height: 1.5 },
+    cameraLimits: { guideDepth: [.05, 1.5], showFrame: true }, workflowVersion: "v1",
+  };
+  const imageDataUrl = "data:image/png;base64,aGlnaC1yZXM=";
+  t.mock.method(globalThis, "fetch", async url => ({ ok: true, json: async () =>
+    url.endsWith("/camera-annotation") ? { width, height, walls: null, imageDataUrl } : config }));
+  const commonPromptField = createNode();
+  const cases = Object.keys(cameras).map(caseId => ({ caseId, label: caseId, prompt: "补充要求" }));
+  const controller = createBetaFloorPlanCameraConfiguration({
+    getState: () => ({ featureMode: "floorPlanCamera" }), getModels: () => [model],
+    sampleLibrary: { sourceImages: () => samples, isBusy: () => false, activeSampleSetId: () => "set" },
+    fillSelect: (select, options, value) => { select.options = options; select.value = value; },
+    output: { commonPromptField, outputSettingsHint: createNode(),
+      ratioSelect: { value: "16:9" }, resolutionSelect: { value: "2K" } },
+    onChange: () => {}, onError: error => { throw error; },
+  });
+  const run = () => controller.buildItems(cases, [model], new Date("2026-11-11T10:00:00Z"));
+  const mode = getElementById("betaCameraMode");
+  const prompt = getElementById("betaCameraDirectPrompt");
+  const changeMode = value => { mode.value = value; mode.dispatchEvent(new Event("change")); };
+  await controller.refresh();
+  assert.equal(mode.value, "agent");
+  assert.equal(mode.options.find(option => option.value === "direct").disabled, true);
+  changeMode("direct");
+  assert.equal(mode.value, "agent");
+  assert.equal(run()[0].input.promptAgentModelKey, "qwen");
+
+  config = { ...config, betaGenerationModes: ["agent", "direct"], available: false, prompt: null, agentModels: [] };
+  await controller.refresh();
+  changeMode("direct");
+  assert.equal(getElementById("betaCameraAgentField").classList.contains("hidden"), true);
+  assert.equal(getElementById("betaCameraDirectPromptField").classList.contains("hidden"), false);
+  assert.equal(commonPromptField.classList.contains("hidden"), true);
+  assert.match(controller.reason(), /请填写整批直出提示词/);
+  const fixedPrompt = "  蓝色点位是模拟人物点位。\n\nArchitectural photograph.  ";
+  prompt.value = fixedPrompt;
+  prompt.dispatchEvent(new Event("input"));
+  assert.equal(controller.reason(), null);
+  const items = run();
+  assert.deepEqual(items.map(item => item.sampleId), ["first", "first", "second", "second"]);
+  assert.equal(new Set(items.map(item => item.runId)).size, 4);
+  for (const { input, sampleId } of items) {
+    assert.equal(input.prompt, fixedPrompt);
+    assert.equal(input.floorPlanCameraGenerationMode, "direct");
+    assert.deepEqual(input.camera, { ...cameras[sampleId], height: 1.5 });
+    for (const key of ["promptAgentModelKey", "promptVersion", "floorPlanCameraPromptSha256"]) assert.equal(Object.hasOwn(input, key), false);
+  }
+  changeMode("agent");
+  changeMode("direct");
+  assert.equal(prompt.value, fixedPrompt);
+  assert.equal(JSON.parse(savedDraft).directPrompt, fixedPrompt);
+
+  const openCamera = () => new Promise(resolve => {
+    dialog.showModal = resolve;
+    dialog.close = () => {};
+    button.dispatchEvent(new Event("click"));
+  });
+  await openCamera();
+  assert.equal(drawnImageUrl, imageDataUrl);
+  assert.equal(samples[0].previewUrl, "/sample.png");
+  const showFrame = getElementById("betaCameraShowFrame");
+  assert.equal(showFrame.checked, true);
+  assert.equal(showFrame.disabled, false);
+  const guide = cameraGuide(cameras.first, width, height);
+  const { x, y } = guide.depthHandle;
+  const pointer = (clientX, clientY) => ({ clientX, clientY, pointerId: 1, pointerType: "mouse", button: 0 });
+  const farPoint = pointer(x + guide.direction.x * 48, y + guide.direction.y * 48);
+  canvas.onpointerdown(pointer(x, y));
+  canvas.onpointermove(farPoint);
+  canvas.onpointermove(pointer(x, y));
+  canvas.onpointerup(pointer(x, y));
+  getElementById("betaCameraSave").onclick();
+  assert.deepEqual(JSON.parse(savedDraft).cameras.first, cameras.first);
+  await openCamera();
+  canvas.onpointerdown(pointer(x, y));
+  canvas.onpointermove(farPoint);
+  canvas.onpointerup(farPoint);
+  getElementById("betaCameraSave").onclick();
+  const expectedDepth = Math.round((guide.depth + .15) * 10000) / 10000;
+  const expectedPose = { ...cameras.first, guideDepth: expectedDepth };
+  assert.deepEqual(JSON.parse(savedDraft).cameras.first, expectedPose);
+  await openCamera();
+  const strokesWithFrame = annotationStrokes;
+  showFrame.checked = false;
+  showFrame.onchange();
+  assert.equal(annotationStrokes, strokesWithFrame - 1);
+  assert.equal(Object.hasOwn(JSON.parse(savedDraft).cameras.first, "showFrame"), false);
+  getElementById("betaCameraSave").onclick();
+  assert.deepEqual(JSON.parse(savedDraft).cameras.first, { ...expectedPose, showFrame: false });
+  assert.deepEqual(run()[0].input.camera, { ...expectedPose, height: 1.5, showFrame: false });
+  assert.deepEqual(run().at(-1).input.camera, { ...cameras.second, height: 1.5 });
+  await openCamera();
+  assert.equal(showFrame.checked, false);
+  assert.equal(annotationStrokes, strokesWithFrame - 1);
+  assert.match(getElementById("betaCameraHelp").textContent, /虚线三角远边的白色握把/);
+  const hiddenGuide = cameraGuide({ ...expectedPose, showFrame: false }, width, height);
+  const handle = hiddenGuide.depthHandle;
+  const fartherPoint = pointer(handle.x + hiddenGuide.direction.x * 16, handle.y + hiddenGuide.direction.y * 16);
+  canvas.onpointerdown(pointer(handle.x, handle.y));
+  assert.equal(canvas.dataset.depthDrag, "active");
+  canvas.onpointermove(fartherPoint);
+  canvas.onpointerup(fartherPoint);
+  getElementById("betaCameraSave").onclick();
+  const resizedPose = { ...expectedPose, guideDepth: Math.round((expectedDepth + .05) * 10000) / 10000 };
+  assert.deepEqual(run()[0].input.camera, { ...resizedPose, height: 1.5, showFrame: false });
+  config = { ...config, cameraLimits: { guideDepth: [.05, 1.5] } };
+  await controller.refresh();
+  assert.throws(run, /更新服务后提交不带取景框的机位/);
+  await openCamera();
+  assert.equal(showFrame.disabled, true);
+  getElementById("betaCameraCancel").onclick();
+  config = { ...config, cameraLimits: { showFrame: true } };
+  await controller.refresh();
+  assert.match(controller.reason(), /刷新配置以使用已调整的视野范围/);
+  assert.throws(run, /刷新配置以使用已调整的视野范围/);
+  config = { ...config, cameraLimits: { guideDepth: [.05, 1.5], showFrame: true } };
+  await controller.refresh();
+  await openCamera();
+  showFrame.checked = true;
+  showFrame.onchange();
+  assert.equal(annotationStrokes, strokesWithFrame);
+  getElementById("betaCameraSave").onclick();
+  assert.deepEqual(run()[0].input.camera, { ...resizedPose, height: 1.5 });
+  config = { ...config, models: [] };
+  await controller.refresh();
+  assert.match(controller.reason(), /请选择当前可用的生图模型/);
+  assert.equal(button.disabled, false);
+  await openCamera();
+  assert.equal(showFrame.disabled, false);
+  getElementById("betaCameraCancel").onclick();
+});
 
 test("Beta提示词模型正常授权不显示说明，检测/断连/权限失败与自动候补仍可见", async () => {
   const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
@@ -51,7 +230,7 @@ test("Beta提示词模型正常授权不显示说明，检测/断连/权限失�
   }
 });
 
-test("Beta跑图是独立第三工作台，含户型布局的十三功能任务使用共享可搜索下拉并保留配置与监控", async () => {
+test("Beta跑图用共享可搜索下拉提供各功能任务及配置和监控", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -72,12 +251,12 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
   assert.match(featureSelect, /aria-label="选择任务"/);
   assert.doesNotMatch(html, /betaFeatureOptions|data-feature-mode=/);
   assert.deepEqual(Object.entries(BETA_FEATURE_COPY).map(([key, copy]) => [key, copy.label]), [
-    ["housePlanLayout", "户型平面布局"], ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["roomRenovation", "旧房改造"], ["styleTransfer", "风格转换"],
+    ["housePlanLayout", "户型平面布局"], ["floorPlanCamera", "平面图机位渲染"], ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["roomRenovation", "旧房改造"], ["styleTransfer", "风格转换"],
     ["refinedModel", "精模渲染"], ["textureEnhancement", "质感增强"], ["effectEnhancement", "效果图氛围转换"],
     ["effectBeautification", "效果图美化"], ["panoramaEnhancement", "全景图美化"],
-    ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageUpscale", "AI超分"],
+    ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageMultiAngle", "多角度"], ["imageUpscale", "AI超分"],
   ]);
-  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=8"/);
+  assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=9"/);
   assert.match(source, /fillSelect\(elements\.betaFeatureSelect,\s*Object\.entries\(FEATURE_COPY\)\.map/);
   assert.match(source, /elements\.betaFeatureSelect\.value = state\.featureMode/);
   assert.match(source, /elements\.betaFeatureSelect\.disabled = sampleLibrary\.isBusy\(\)/);
@@ -105,7 +284,16 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=10/);
   assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=46/);
+  assert.match(html, /beta-app\.js\?v=57/);
+  assert.match(html, /<select id="betaCameraMode"[^>]*aria-label="机位生成模式"/);
+  assert.match(html, /<textarea id="betaCameraDirectPrompt"[^>]*maxlength="4000"[^>]*aria-required="true"/);
+  assert.match(source, /createBetaFloorPlanCameraConfiguration[^\n]+"\.\/beta-floor-plan-camera\.js\?v=12"/);
+  assert.match(html, /<input id="betaCameraShowFrame" type="checkbox" checked disabled[^>]*> 显示取景框/);
+  assert.match(html, /id="multiAngleTopDownButton"[^>]*>正俯视/);
+  assert.match(html, /id="multiAngleElevation"[^>]*min="-30" max="90"/);
+  assert.match(source, /multiAngleConfiguration\.configure\(betaConfig\.multiAngle\)/);
+  assert.match(source, /multiAngleConfiguration\.buildItems\(cases, startedAt\)/);
+  assert.match(betaFeatureUnavailableReason("imageMultiAngle", {}), /更新工作台服务/);
   assert.match(html, /id="upscaleResolutionField"[^>]*><span>输出尺寸<\/span>/);
   assert.match(html, /id="upscaleResolutionSelect"[^>]*aria-label="超分输出尺寸"[^>]*><\/select>/);
   assert.match(html, /id="upscaleResolutionNote"[^>]*>按所选工作流的共同尺寸输出，保持每张原图比例。/);
@@ -159,7 +347,7 @@ test("Beta跑图是独立第三工作台，含户型布局的十三功能任务�
   assert.match(configuration, /window\.addEventListener\("pagehide", save\)/);
   assert.match(configuration, /document\.visibilityState === "hidden"/);
   assert.match(source, /state\.sampleSetIds\[state\.featureMode\]/);
-  assert.match(source, /selectable\.find\(\(model\) => model\.key === \(state\.featureMode === "housePlanLayout" \? "gptImage25Sunburst" : DEFAULT_BETA_MODEL_KEY\)\)/);
+  assert.match(source, /selectable\.find\(\(model\) => model\.key === \(state\.featureMode === "housePlanLayout" \? "gptImage25Sunburst" : state\.featureMode === "floorPlanCamera" \? "banana21" : DEFAULT_BETA_MODEL_KEY\)\)/);
   assert.match(source, /bindImageDrop/);
   assert.match(source, /createBetaSampleLibrary/);
   assert.match(source, /runButtonLabel\.textContent = running \? "RUNNING…" : failed \? "RETRY" : "START"/);
@@ -339,7 +527,8 @@ test("Beta美化新增模板无需旧六档Prompt，但失效卡片必须在提�
   let requiresOriginalPrompt = true, issue = null;
   const context = {
     state: { featureMode: "effectBeautification", catalog: {}, stylesConfig: { effectBeautificationPrompt: { available: false } } },
-    housePlanConfiguration: { reason: () => null }, generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason, postUpscaleIssue: () => null,
+    housePlanConfiguration: { reason: () => null }, floorPlanCameraConfiguration: { reason: () => null },
+    generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason, postUpscaleIssue: () => null,
     selectedModels: () => [], sampleLibrary: { assertRoomTypes() {} }, FEATURE_COPY: BETA_FEATURE_COPY,
     effectBeautificationControls: { requiresOriginalPrompt: () => requiresOriginalPrompt, validation: () => issue },
   };

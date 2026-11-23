@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 src/agent-model-config.mjs 的 Prompt Agent 候选目录与能力过滤
- * [OUTPUT]: 验证十一个决策模型的真实 ID、DeepSeek V4.1 Flash、Doubao Seed 2.0 Lite、图片输入门槛及接口可用性组合
+ * [OUTPUT]: 验证十一个通用模型的真实 ID、机位专用 GPT 6.1 Sol、图片输入门槛及接口可用性组合
  * [POS]: test 的 Prompt Agent 模型回归测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  agentModelOrThrow,
   checkAgentModelAvailability,
   publicAgentModelCatalog,
 } from "../src/agent-model-config.mjs";
@@ -75,4 +76,22 @@ test("API Key 未开放的候选模型不可选择", () => {
   assert.equal(gemini.available, false);
   assert.equal(gemini.selectable, false);
   assert.equal(gemini.reason, "当前 API Key 未开放");
+});
+
+test("GPT 6.1 Sol 仅在平面图机位目录按当前 Key 开放", () => {
+  const featureMode = "floorPlanCamera";
+  const key = "gpt61Sol";
+  const id = "gpt-6.1-sol";
+  const label = "GPT 6.1 Sol";
+  const listed = [{ id }];
+  const scoped = publicAgentModelCatalog(featureMode).find((model) => model.key === key);
+  assert.deepEqual({ id: scoped.id, label: scoped.label, imageInput: scoped.imageInput }, { id, label, imageInput: true });
+  assert.equal(agentModelOrThrow(key, featureMode).id, id);
+  assert.throws(() => agentModelOrThrow(key), /允许列表/);
+  assert.equal(checkAgentModelAvailability(listed).some((model) => model.id === id), false);
+  assert.equal(checkAgentModelAvailability(listed, "housePlanLayout").some((model) => model.id === id), false);
+  assert.equal(checkAgentModelAvailability(listed, featureMode).find((model) => model.key === key).selectable, true);
+  const disabled = checkAgentModelAvailability([], featureMode).find((model) => model.key === key);
+  assert.equal(disabled.selectable, false);
+  assert.equal(disabled.reason, "当前 API Key 未开放");
 });

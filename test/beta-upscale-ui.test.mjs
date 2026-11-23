@@ -74,8 +74,8 @@ function storageFixture() {
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
 }
 
-test("AI超分在十三任务中默认攸行且目录与六套真源相同", () => {
-  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 13);
+test("AI超分在功能目录中默认攸行且目录与六套真源相同", () => {
+  assert.equal(Object.keys(BETA_FEATURE_COPY).length, 15);
   assert.deepEqual(BETA_FEATURE_COPY.imageUpscale, { label: "AI超分", prompt: "", source: "待超分图片" });
   assert.deepEqual(CONFIG.workflows.map((workflow) => workflow.key), [...BETA_UPSCALE_WORKFLOW_KEYS]);
   const ui = fixture();

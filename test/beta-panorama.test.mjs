@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、sharp 真实图片夹具、Beta 样本/批次/归档边界、独立全景工作流、共享设计模式判定和浏览器模型尺寸规则
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供全景真实2:1、ID惰性取图、多光影逐样本模型展开/计数/标签/身份冻结、非2:1模型零调用准入、冻结Prompt版本、重试归档、Seedream全景4K与R5_4独立Flux请求合同
+ * [INPUT]: 依赖 node:test/assert、sharp 真实图片夹具、Beta 样本/批次/归档边界、独立全景工作流、飞书规则冻结夹具、共享设计模式判定和浏览器模型尺寸规则
+ * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供全景真实2:1、ID惰性取图、多光影逐样本模型展开/计数/标签/身份冻结、Banana Pro非2:1阻断与Seedream 5.5的2:1准入、冻结Prompt版本、重试归档、Seedream全景4K与全景Flux触发词最前请求合同
  * [POS]: test 的 Beta 全景跨层合同测试，使用内存 Store/模型替身，不调用真实模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,13 +13,17 @@ import sharp from "sharp";
 import { betaConfigSnapshot, buildBetaRunFields } from "../src/beta-base.mjs";
 import { createBetaRunnerService } from "../src/beta-runner.mjs";
 import { normalizeBetaSampleImage } from "../src/beta-sample-store.mjs";
-import { executeEffectRenderEnhancementWorkflow } from "../src/effect-render-enhancement-workflow.mjs";
+import { executeEffectRenderEnhancementWorkflow as executeWorkflow } from "../src/effect-render-enhancement-workflow.mjs";
 import { publicModelCatalog } from "../src/model-config.mjs";
 import { adaptGenerationInputForModel } from "../public/generation-batch.js";
 import { isEmptyRoomDesign } from "../public/room-renovation.js";
 import { panoramaItemsForSelection, panoramaLightingRequestSelection } from "../public/generation-task-request.js";
-import { preparePanoramaLightingInput } from "../src/panorama-lighting.mjs";
+import { preparePanoramaLightingInput as prepareLighting } from "../src/panorama-lighting.mjs";
 import { assertBetaPanoramaSource, betaModelSelectable, betaSizeOptions } from "../public/beta-model-rules.js";
+
+import { loadPanoramaRule } from "./panorama-lighting-fixture.mjs";
+const executeEffectRenderEnhancementWorkflow = (input, options) => executeWorkflow(input, { loadPanoramaLightingRule: loadPanoramaRule, ...options });
+const preparePanoramaLightingInput = (input, options) => prepareLighting(input, { loadRule: loadPanoramaRule, ...options });
 
 const FEATURE_MODE = "panoramaEnhancement";
 const SET_ID = "SET-PANORAMA123";
@@ -325,7 +329,7 @@ test("Flux 全景请求路由R5_4独立工作流并保留独立Prompt", async ()
       return { code: "panorama-render-enhancement", name: "全景图美化", prompt: PROMPT, published: true, version };
     },
   });
-  assert.equal(request.prompt, PROMPT);
+  assert.equal(request.prompt, `zhiganEnhance ${PROMPT}`);
   assert.equal(request.model, "comfyui:ai-texture-enhancement");
   assert.equal(request.images.length, 1);
   assert.equal(request.n, 1);
@@ -336,10 +340,10 @@ test("Flux 全景请求路由R5_4独立工作流并保留独立Prompt", async ()
   assert.equal(request.width, request.height * 2);
 });
 
-test("浏览器全景规则固定 2:1，屏蔽两个 GPT2.5 和 Banana 2.1 并保留普通功能能力", () => {
+test("浏览器全景规则固定 2:1，排除不支持该画幅的 GPT 和 Banana 模型", () => {
+  const unsupported = new Set(["gptImage25Sunburst", "gptImage25Flare", "gptImage26Sunburst", "gptImage26Flare", "banana21", "bananaPro"]);
   for (const model of models) {
-    const supported = !["gptImage25Sunburst", "gptImage25Flare", "gptImage26Sunburst", "gptImage26Flare", "banana21"].includes(model.key);
-    assert.equal(betaModelSelectable(model, FEATURE_MODE), supported, model.key);
+    assert.equal(betaModelSelectable(model, FEATURE_MODE), !unsupported.has(model.key), model.key);
     assert.equal(betaModelSelectable(model, "effectBeautification"), true, model.key);
   }
   const seedream = models.find((model) => model.key === "seedream5Pro");
@@ -420,4 +424,6 @@ test("Beta多光影跨模型只冻结每张卡一次，每个Run独立保留光�
     assert.equal(actual.prompt, "用户要求");
   }
   assert.deepEqual(snapshots.map(snapshot => snapshot.panoramaLighting), received.map(actual => actual.panoramaLighting));
+  assert.deepEqual(snapshots.map(snapshot => snapshot.panoramaLightingRule), received.map(actual => actual.panoramaLightingRule));
+  assert.ok(received.every(actual => actual.panoramaLightingRule?.id === "recPanoramaRuleOne"));
 });

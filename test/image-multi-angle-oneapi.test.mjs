@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖Node测试、sharp、多角度三方服务、统一生成任务及结果摘要
- * [OUTPUT]: 含GPT2.6 Sunburst/Flare独立模型身份； 三方权限隔离/Sunburst五档质量透传与归档/非法档位零调用/真实字节2K/模型冻结/无重试/尺寸证据/机位指令的回归
+ * [OUTPUT]: 三方权限隔离、Seedream 5.0 Pro/5.5正俯视Responses请求与5.5独立授权、Sunburst五档质量与归档、真实字节2K、模型冻结、无重试及机位指令回归
  * [POS]: test 的三方多角度合同测试，内存客户端，不调用收费接口
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import { multiAngleApiPrompt } from "../src/image-multi-angle-oneapi.mjs";
 import { createGenerationService } from "../src/generation-service.mjs";
 import { createGenerationJobApiHandler } from "../src/generation-job-api.mjs";
 import { createGenerationJobRegistry } from "../src/generation-jobs.mjs";
+import { createOneApiClient } from "../src/oneapi-client.mjs";
 import { resultMetadata } from "../public/workbench-utils.js";
 
 const pose = { azimuth: 180, elevation: 0, distance: 50 };
@@ -20,9 +21,9 @@ const url = bytes => `data:image/png;base64,${bytes.toString("base64")}`;
 const fail = () => { throw new Error("不得访问其他模型或飞书"); };
 
 test("三方目录独立于ComfyUI，仅当前Key授权模型可选，断开后失效", async () => {
-  const config = await readMultiAngleConfig(null, { getOneApiModels: async () => [{ id: resolveMultiAngleModel("banana21").id }] });
+  const config = await readMultiAngleConfig(null, { getOneApiModels: async () => [{ id: "doubao-seedream-5.0-pro" }] });
   assert.equal(config.available, true);
-  assert.deepEqual(config.models.map(model => model.available), [false, true, false, false, false]);
+  assert.deepEqual(config.models.filter(model => model.available).map(model => model.key), ["seedream5Pro"]);
   const disconnected = await readMultiAngleConfig(null, { getOneApiModels: async () => { throw Error("secret"); } });
   assert.equal(disconnected.available, false);
   assert.doesNotMatch(JSON.stringify(disconnected), /secret/);
@@ -79,6 +80,61 @@ for (const key of ["banana21", "gptImage25Sunburst"]) {
   });
 }
 
+for (const [modelKey, modelId, modelLabel, requestedSize] of [
+  ["seedream5Pro", "doubao-seedream-5.0-pro", "Seedream 5.0 Pro", "2304x1728"],
+  ["seedream55", "doubao-seedream-5.5", "Seedream 5.5", "2368x1776"],
+]) test(`${modelLabel}正俯视按正式2K画幅用Responses发送一张原图，保留请求和交付尺寸`, async (context) => {
+  const original = await png(4000, 3000);
+  const output = await png(...requestedSize.split("x").map(Number));
+  const cameraPose = { azimuth: 0, elevation: 90, distance: 50 };
+  const previousFetch = globalThis.fetch;
+  context.after(() => { globalThis.fetch = previousFetch; });
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, method: options.method, body: JSON.parse(options.body) });
+    return Response.json({ id: "resp-seedream-pro", output: [{ type: "image_generation_call", result: output.toString("base64") }] });
+  };
+  let archive;
+  const result = await executeImageMultiAngle({
+    multiAngleModel: modelKey, cameraPose, referenceImages: [{ dataUrl: url(original) }],
+  }, {
+    imageClient: createOneApiClient("test-key"),
+    getOneApiModels: async () => [{ id: modelId }],
+    scheduleSync: value => { archive = value; return { status: "pending" }; },
+  });
+  assert.equal(calls.length, 1);
+  const [call] = calls;
+  assert.match(call.url, /\/responses$/);
+  assert.equal(call.method, "POST");
+  assert.equal(call.body.model, modelId);
+  assert.deepEqual(call.body.tools, [{ type: "image_generation", image_format: "png", size: requestedSize, n: 1, response_format: "b64_json" }]);
+  const [prompt, source] = call.body.input[0].content;
+  assert.equal(call.body.input[0].content.length, 2);
+  assert.match(prompt.text, /straight down for a 90-degree top-down view/);
+  const image = await sharp(Buffer.from(source.image_url.split(",")[1], "base64")).metadata();
+  assert.deepEqual([image.width, image.height], [2048, 1536]);
+  assert.equal(result.upstream.transport, "responses");
+  assert.equal(result.request.size, "2048x1536");
+  assert.equal(archive.modelLabel, modelLabel);
+  assert.equal(archive.finalPrompt, prompt.text);
+  assert.equal(archive.workflow.requestedSize, requestedSize);
+  assert.deepEqual(archive.workflow.pose, cameraPose);
+});
+
+test("Seedream 5.5多角度须独立授权，5.0 Pro权限不会替代且失权零出图", async () => {
+  const config = await readMultiAngleConfig(null, { getOneApiModels: async () => [{ id: "doubao-seedream-5.5" }] });
+  assert.deepEqual(config.models.filter(model => model.available).map(model => model.key), ["seedream55"]);
+  const source = { dataUrl: url(await png(128, 128)) };
+  let calls = 0;
+  await assert.rejects(executeImageMultiAngle({
+    multiAngleModel: "seedream55", cameraPose: pose, referenceImages: [source],
+  }, {
+    imageClient: { generateImage: async () => { calls++; return { images: [{ url: source.dataUrl }] }; } },
+    getOneApiModels: async () => [{ id: "doubao-seedream-5.0-pro" }],
+  }), error => error.statusCode === 409 && /未开放 Seedream 5\.5/.test(error.message));
+  assert.equal(calls, 0);
+});
+
 test("Sunburst五档质量原样提交并写入结果/费用对应的归档，默认保持medium", async () => {
   const model = resolveMultiAngleModel("gptImage25Sunburst");
   const source = { dataUrl: url(await png(960, 1200)) };
@@ -111,7 +167,7 @@ test("非法质量或不支持档位的模型在权限读取及收费调用前�
   const source = { dataUrl: url(await png(128, 128)) };
   for (const [multiAngleModel, quality] of [
     ...["auto", "ultra", "", null].map(quality => ["gptImage25Sunburst", quality]),
-    ["banana21", "low"], ["qwenMultiAngle", "low"],
+    ["banana21", "low"], ["seedream5Pro", "low"], ["seedream55", "low"], ["qwenMultiAngle", "low"],
   ]) {
     await assert.rejects(executeImageMultiAngle({
       multiAngleModel, quality, cameraPose: pose, referenceImages: [source],

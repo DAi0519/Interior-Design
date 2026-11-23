@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖公司 Model Link 当前模型目录、2026-07-28 图片输入探针、2026-08-04 Seed 2.0 路由别名与 2026-09-11 DeepSeek Flash 图片输入探针
- * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器
+ * [INPUT]: 依赖公司 Model Link 当前模型目录、OneAPI 图片输入探针和调用方传入的功能标识
+ * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器，支持限定平面图机位专用候选
  * [POS]: src 的 Prompt Agent 模型白名单，区分“接口存在”与“可读取白模图片”
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -94,23 +94,38 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     note: "中文与长上下文候选，已通过白模图片输入探针",
     shortLabel: "Kimi K2.5",
   },
+  gpt61Sol: {
+    accent: "lime",
+    featureMode: "floorPlanCamera",
+    id: "gpt-6.1-sol",
+    imageInput: true,
+    label: "GPT 6.1 Sol",
+    note: "支持平面图机位标注输入",
+    shortLabel: "GPT 6.1 Sol",
+  },
 });
 
-export function publicAgentModelCatalog() {
-  return Object.entries(AGENT_MODEL_CONFIGS).map(([key, model]) => ({
-    accent: model.accent,
-    id: model.id,
-    imageInput: model.imageInput,
-    key,
-    label: model.label,
-    note: model.note,
-    shortLabel: model.shortLabel,
-  }));
+function supportsFeature(model, featureMode) {
+  return !model.featureMode || model.featureMode === featureMode;
 }
 
-export function agentModelOrThrow(modelKey) {
+export function publicAgentModelCatalog(featureMode) {
+  return Object.entries(AGENT_MODEL_CONFIGS)
+    .filter(([, model]) => supportsFeature(model, featureMode))
+    .map(([key, model]) => ({
+      accent: model.accent,
+      id: model.id,
+      imageInput: model.imageInput,
+      key,
+      label: model.label,
+      note: model.note,
+      shortLabel: model.shortLabel,
+    }));
+}
+
+export function agentModelOrThrow(modelKey, featureMode) {
   const model = AGENT_MODEL_CONFIGS[String(modelKey || "")];
-  if (!model) {
+  if (!model || !supportsFeature(model, featureMode)) {
     const error = new Error("Prompt Agent 模型不在允许列表中");
     error.statusCode = 400;
     throw error;
@@ -123,12 +138,12 @@ export function agentModelOrThrow(modelKey) {
   return model;
 }
 
-export function checkAgentModelAvailability(availableModels) {
+export function checkAgentModelAvailability(availableModels, featureMode) {
   const availableIds = new Set(
     availableModels.map((model) => model.id || model.name).filter(Boolean),
   );
 
-  return publicAgentModelCatalog().map((model) => {
+  return publicAgentModelCatalog(featureMode).map((model) => {
     const listed = availableIds.has(model.id);
     const selectable = listed && model.imageInput;
     return {

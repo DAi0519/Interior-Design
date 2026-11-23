@@ -29,7 +29,7 @@
 
 - 平面方案由图像模型理解原户型并直接生成图片，不输出毫米HouseSpec，不再宣称几何识别校验通过。文字与尺寸也可能生成错误，需对照原图检查结构、开口、比例、家具和通行。
 - 室内预览从平面图推断房间透视；多角度复用现有照片变角度能力。它们是AI生成图片，不提供真实相机落点、工程尺寸或严格多视角几何一致保证。
-- 布局提供GPT Image 2.5 Sunburst、Banana 2.1、Seedream 5.0 Lite和Pro的现有图生图能力，按当前Key权限显示可用状态，选择失权不静默切换；各模型默认分辨率由既有目录决定。调整/室内继续固定Sunburst 1K、medium、原生PNG并强验实际尺寸。角度沿用已有多角度2K-max交付合同，记录原生和交付尺寸及是否缩小。
+- 布局提供GPT Image 2.5 Sunburst、Banana 2.1、Seedream 5.0 Lite、Pro及Seedream 5.5的现有图生图链路，按当前Key权限显示可用状态，选择失权不静默切换；各模型默认分辨率由既有目录决定。调整/室内继续固定Sunburst 1K、medium、原生PNG并强验实际尺寸。角度沿用已有多角度2K-max交付合同，记录原生和交付尺寸及是否缩小。
 - 独立平面布局的出图动作逐图归档为飞书「生成记录」的“设计实验室 · Beta”。几何识别输出结构数据。记录保存上传原图、实际送模图、结果图、最终提示词、模型、参数和实际尺寸。Prompt 正文与原图请求不进入公开配置或失败诊断。
 
 ## 接口与资产
@@ -57,7 +57,7 @@ v2 trim SHA-256：`a583dca3fdc43aa0c0849b4726bc94e6a10e3a35c40ce81ef5897a3709969
 
 - 本轮布局模型选择：1839/1839完整回归通过（服务11项、前端9项、独立API/Prompt合同均保留）；当前4192回读workflow .3，四模型在当前Key均可用。Edge已实际展开选项、切换Banana与Lite并显示1K/2K默认值、刷新配置保留Lite，最终恢复原Sunburst选择；390×844窄屏与桌面下拉均可见，后续功能入口保留。本轮未追加收费出图；自动文件上传因Edge扩展未启用本地文件访问而未完成，未改权限。历史五张实图仅验证当时Sunburst流程，不外推新增模型布局质量。
 
-模型默认参数与真实送模：布局默认Sunburst/Banana2.1/SeedreamPro为1K，Lite为2K；Sunburst沿用medium质量。非GPT走既有generateImage请求封装，并在准备期使用同一压缩边界后记录submittedFormat/Width/Height/SHA；JPEG/WebP结果仅转PNG交付、保持实际尺寸并记录nativeFormat/nativeSha256/outputConverted/sizeMatched，不把转换或尺寸偏差伪称原生精准输出。
+模型默认参数与真实送模：布局默认Sunburst/Banana2.1/SeedreamPro为1K，Lite和5.5为2K；Sunburst沿用medium质量。非GPT走既有generateImage请求封装，并在准备期使用同一压缩边界后记录submittedFormat/Width/Height/SHA；JPEG/WebP结果仅转PNG交付、保持实际尺寸并记录nativeFormat/nativeSha256/outputConverted/sizeMatched，不把转换或尺寸偏差伪称原生精准输出。
 
 家具编辑 / 3D 从工作台顶部打开。识别当前平面结果或新上传的户型时，用户单独选择当前 OneAPI Key 可用的视觉模型。独立 floor-plan-geometry Prompt 产出墙、门窗和家具体块；手动编辑和同一方案3D预览在本机完成。支持保存、导入原有几何方案。
 

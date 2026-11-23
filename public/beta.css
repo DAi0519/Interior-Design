@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖beta.html的十功能样本集/独立扩图和超分工作流/双阶段监控语义、Raycast银灰令牌与共享动作/下拉控件
- * [OUTPUT]: 对外提供共享任务下拉的页面布局与逐样本房型布局、与共享顶栏等宽、阻止根容器焦点滚动、约束绝对定位控件的桌面视口内配置/监控双栏、无步骤编号分区标题、精模光影标题到控件12px留白与辅助文字层级、样本集选择/创建与整批提示词共享字段、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、同选项键帽近距阴影的 38px 中性保存与飞书结果动作、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及可滚动逐项异常预警
+ * [INPUT]: 依赖beta.html的样本集/整批多角度与平面图机位/独立扩图和超分工作流/双阶段监控语义、Raycast银灰令牌与共享动作/下拉控件
+ * [OUTPUT]: 对外提供共享任务下拉的页面布局与逐样本房型、机位工具栏和视野框拖动光标、桌面配置/监控双栏、精模光影辅助文字层级、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及逐项异常预警
  * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、生成/同步异常可见和窄屏自然单栏为边界
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,6 +57,9 @@ button { cursor: pointer; }
 .beta-ordinary-output, .beta-outpaint-fields, .beta-upscale-fields { display: grid; gap: 16px; min-width: 0; }
 .beta-outpaint-hint, .beta-outpaint-availability, .beta-upscale-hint, .beta-upscale-availability { color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .beta-outpaint-availability, .beta-upscale-availability { color: var(--danger); }
+.beta-multi-angle-fields { display: grid; gap: 8px; }
+.beta-multi-angle-fields input[type="range"] { accent-color: var(--ink); padding: 0 8px; }
+.beta-multi-angle-fields output { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .visually-hidden {
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
@@ -523,5 +526,17 @@ button { cursor: pointer; }
 
 /* 样本房型跟随对应图片，窄屏保持完整行 */
 .beta-sample-room { grid-column: 1 / -1; width: 100%; margin-top: 8px; }
+
+#betaCameraFields { display: grid; gap: 14px; }
+#betaCameraFields h3, .beta-multi-angle-fields h3 { font-size: 12px; font-weight: 600; margin: 0; }
+.reference-item [data-beta-camera-sample] { grid-column: 1 / -1; justify-self: start; max-width: 100%; }
+#betaCameraCanvas { display: block; max-width: 100%; max-height: 60dvh; touch-action: none; cursor: crosshair; }
+#betaCameraCanvas[data-depth-drag="hover"] { cursor: grab; }
+#betaCameraCanvas[data-depth-drag="active"] { cursor: grabbing; }
+#betaCameraCanvas:focus-visible { outline: 1px dashed var(--muted); outline-offset: -1px; }
+#betaCameraHelp, #betaCameraPosition { color: var(--muted); font-size: 12px; }
+.beta-camera-tools { align-items: end; }
+.beta-camera-tools .field { width: 105px; }
+.beta-camera-tools .house-plan-beta-save { margin-left: auto; }
 
 .sample-list .reference-item { align-content: start; }

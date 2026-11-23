@@ -73,7 +73,7 @@ async function fixture(respond) {
   }
   parse(page);
   const document = { body: new Node("body"), hidden: false, createElement: tag => new Node(tag),
-    getElementById: id => ids.get(id), querySelectorAll: selector => selector === "[data-render-style]" ? styles : [],
+    getElementById: id => ids.get(id), querySelectorAll: selector => selector === "[id]" ? [...ids.values()] : selector === "[data-render-style]" ? styles : [],
     querySelector: selector => styles.find(node => node.dataset.renderStyle === selector.match(/data-render-style="([^"]+)"/)?.[1]),
     addEventListener() {} };
   const context = vm.createContext({ document, location: { href: "http://localhost/ai-render-studio.html?embedded=1", search: "?embedded=1", origin: "http://localhost" },
@@ -91,6 +91,7 @@ async function fixture(respond) {
       if (path === "/api/ai-render-studio/config") return config;
       return respond(call, calls);
     },
+    mountWorkspaceControls: () => false,
     bindRefinedLightingControls({ onChange }) {
       let selection = { mode: "unselected" };
       selectLighting = value => { selection = value; onChange(); };
@@ -101,7 +102,8 @@ async function fixture(respond) {
         value: () => ({ lights: manualLights, originalLights: { action: "keep" }, templateKey: "custom", blendMode: "balanced", outputResolution: "1K", quality: "medium" }) };
     },
   });
-  await vm.runInContext(`(async () => {\n${script.replace(/^import[^\n]*\n/gm, "")}\n})()`, context);
+  const moduleBody = script.replace(/^import[^\n]*\n/gm, "").replace(/^\s*void import\([^\n]*\n/m, "");
+  await vm.runInContext(`(async () => {\n${moduleBody}\n})()`, context);
   const node = id => ids.get(id);
   node("studioCompareEnabled").parentElement = new Node("label");
   async function settle() { for (let index = 0; index < 3; index += 1) await new Promise(resolve => setImmediate(resolve)); }

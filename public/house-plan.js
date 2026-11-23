@@ -20,7 +20,7 @@ if (window.parent !== window) {
     const settings = parentDoc.getElementById('housePlanSettingsMount');
     const actions = parentDoc.getElementById('housePlanActionsMount');
     if (settings && actions) {
-      for (const path of ['/house-plan.css?v=4']) {
+      for (const path of ['/house-plan.css?v=5']) {
         if (!parentDoc.querySelector(`link[href="${path}"]`)) { const link = parentDoc.createElement('link'); link.rel = 'stylesheet'; link.href = path; parentDoc.head.append(link); }
       }
       settings.replaceChildren(document.querySelector('.house-plan-settings-scroll'));
