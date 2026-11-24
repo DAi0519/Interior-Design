@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:child_process/fs/url/util、项目固定安装的 lark-cli 与本机用户身份
- * [OUTPUT]: 对外提供项目 CLI 优先解析、最低版本校验、脱敏子进程环境与统一执行/错误归一化
+ * [OUTPUT]: 对外提供项目 CLI 优先解析（Windows 使用原生 exe）、最低版本校验、脱敏环境与统一执行/错误归一化
  * [POS]: src 的飞书 CLI 基础设施，被风格读取与生成记录同步共同复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,13 +40,16 @@ export function resolveLarkCliPath(
     fileExists = existsSync,
     platform = process.platform,
     projectCliPath = fileURLToPath(new URL(
-      `../node_modules/.bin/lark-cli${platform === "win32" ? ".cmd" : ""}`,
+      platform === "win32"
+        ? "../node_modules/@larksuite/cli/bin/lark-cli.exe"
+        : "../node_modules/.bin/lark-cli",
       import.meta.url,
     )),
   } = {},
 ) {
   if (cliPath !== "lark-cli") return cliPath;
-  return fileExists(projectCliPath) ? projectCliPath : cliPath;
+  if (fileExists(projectCliPath)) return projectCliPath;
+  return platform === "win32" ? "lark-cli.exe" : cliPath;
 }
 
 export function larkCliEnvironment(source = process.env) {

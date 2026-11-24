@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、临时文件系统、真实 ZIP 字节/系统解压和 app-installer 的 fetch 注入接口
- * [OUTPUT]: 对外提供受信下载/官方摘要、Git 工作区保护、Release 原地版本更新/配置数据保留/失败回滚和 ZIP 路径合同的回归保障
+ * [INPUT]: 依赖 node:test/assert、临时文件系统、Store/Deflate ZIP 字节及 app-installer 的 fetch 注入接口
+ * [OUTPUT]: 验证受信摘要、内置解压与文件内容、Windows 路径、源码保护、原地更新及失败回滚
  * [POS]: test 的应用安装集成测试，网络完全由 Response 替身提供；只创建并清理测试临时目录，不启动服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateRawSync } from "node:zlib";
 import { createAppInstaller, validateAppInstallRequest } from "../src/app-installer.mjs";
 
 const version = "0.1.11";
@@ -33,36 +34,40 @@ function crc32(bytes) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function storedZip(entries) {
+function fixtureZip(entries) {
   const locals = [];
   const central = [];
   let offset = 0;
-  for (const { name, content = "", mode = 0o100644 } of entries) {
+  for (const { name, content = "", mode = 0o100644, deflated = false } of entries) {
     const filename = Buffer.from(name);
     const data = Buffer.from(content);
+    const packed = deflated ? deflateRawSync(data) : data;
+    const method = deflated ? 8 : 0;
     const crc = crc32(data);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(0x0800, 6);
+    local.writeUInt16LE(method, 8);
     local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(packed.length, 18);
     local.writeUInt32LE(data.length, 22);
     local.writeUInt16LE(filename.length, 26);
-    locals.push(local, filename, data);
+    locals.push(local, filename, packed);
     const header = Buffer.alloc(46);
     header.writeUInt32LE(0x02014b50, 0);
     header.writeUInt16LE(0x0314, 4);
     header.writeUInt16LE(20, 6);
     header.writeUInt16LE(0x0800, 8);
+    header.writeUInt16LE(method, 10);
     header.writeUInt32LE(crc, 16);
-    header.writeUInt32LE(data.length, 20);
+    header.writeUInt32LE(packed.length, 20);
     header.writeUInt32LE(data.length, 24);
     header.writeUInt16LE(filename.length, 28);
     header.writeUInt32LE((mode << 16) >>> 0, 38);
     header.writeUInt32LE(offset, 42);
     central.push(header, filename);
-    offset += local.length + filename.length + data.length;
+    offset += local.length + filename.length + packed.length;
   }
   const directory = Buffer.concat(central);
   const end = Buffer.alloc(22);
@@ -132,7 +137,7 @@ test("安装请求必须匹配固定仓库、正式版本和标准 ZIP", () => {
 
 test("真实 ZIP 安装到默认持久同级目录，清理 staging 后仍完整保留且不迁移旧配置", async (t) => {
   const { root, currentRootDir } = await temporaryProject(t);
-  const download = mockDownload(storedZip(runtimeEntries()));
+  const download = mockDownload(fixtureZip(runtimeEntries()));
   const installer = createAppInstaller({ currentRootDir, fetchImpl: download.fetchImpl });
   const stages = [];
   const result = await installer.install({ downloadUrl, version, onProgress: ({ stage }) => stages.push(stage) });
@@ -155,7 +160,7 @@ test("真实 ZIP 安装到默认持久同级目录，清理 staging 后仍完整
 test("自定义带空格和 shell 字符的父目录安装成功，缺失父目录自动创建", async (t) => {
   const { root, currentRootDir } = await temporaryProject(t);
   const base = join(root, "new folder ' $(no-shell)", "updates");
-  const { fetchImpl } = mockDownload(storedZip(runtimeEntries()));
+  const { fetchImpl } = mockDownload(fixtureZip(runtimeEntries()));
   const result = await createAppInstaller({ currentRootDir, installBaseDir: base, fetchImpl }).install({ downloadUrl, version });
   assert.equal(result.path, join(base, `canvas-lab-v${version}`));
   assert.equal(await readFile(join(result.path, "public/index.html"), "utf8"), "Canvas Lab");
@@ -167,12 +172,12 @@ test("已有目标目录或安装期间出现的目标目录不被覆盖", async
   const target = join(root, `canvas-lab-v${version}`);
   await mkdir(target);
   await writeFile(join(target, ".env.local"), "DO_NOT_DELETE=yes");
-  const blocked = mockDownload(storedZip(runtimeEntries()));
+  const blocked = mockDownload(fixtureZip(runtimeEntries()));
   await assert.rejects(createAppInstaller({ currentRootDir, fetchImpl: blocked.fetchImpl }).install({ downloadUrl, version }), code("TARGET_EXISTS"));
   assert.equal(blocked.calls.length, 0);
   assert.equal(await readFile(join(target, ".env.local"), "utf8"), "DO_NOT_DELETE=yes");
   await rm(target, { recursive: true });
-  const racing = mockDownload(storedZip(runtimeEntries()), { onRequest: async (url) => {
+  const racing = mockDownload(fixtureZip(runtimeEntries()), { onRequest: async (url) => {
     if (url === checksumUrl) {
       await mkdir(target);
       await writeFile(join(target, ".env.local"), "APPEARED_DURING_INSTALL=yes");
@@ -190,7 +195,7 @@ test("官方摘要错误、校验文件名错误和包版本错误均失败并�
     { checksum: `${"0".repeat(64)}  another.zip`, expected: "INVALID_CHECKSUM" },
     { packageVersion: "0.1.10", expected: "VERSION_MISMATCH" },
   ]) {
-    const { fetchImpl } = mockDownload(storedZip(runtimeEntries(scenario)), scenario);
+    const { fetchImpl } = mockDownload(fixtureZip(runtimeEntries(scenario)), scenario);
     const installer = createAppInstaller({ currentRootDir, fetchImpl });
     await assert.rejects(installer.install({ downloadUrl, version }), code(scenario.expected));
     assert.equal(installer.isInstalling(), false);
@@ -198,13 +203,16 @@ test("官方摘要错误、校验文件名错误和包版本错误均失败并�
   }
 });
 
-test("SHA-256 正确的 ZIP 仍拒绝路径穿越、符号链接和局部头路径漂移", async (t) => {
+test("SHA-256 正确的 ZIP 仍拒绝路径穿越、链接、局部头漂移和 Windows 歧义路径", async (t) => {
   const { root, currentRootDir } = await temporaryProject(t);
   const cases = [
-    storedZip([...runtimeEntries(), { name: `canvas-lab-v${version}/../../escaped`, content: "unsafe" }]),
-    storedZip([...runtimeEntries(), { name: `canvas-lab-v${version}/link`, content: "../../outside", mode: 0o120777 }]),
+    fixtureZip([...runtimeEntries(), { name: `canvas-lab-v${version}/../../escaped`, content: "unsafe" }]),
+    fixtureZip([...runtimeEntries(), { name: `canvas-lab-v${version}/link`, content: "../../outside", mode: 0o120777 }]),
+    ...["public/NUL.txt", "public/index.html.", "public/INDEX.HTML", "public/bad?.txt"].map(
+      (path) => fixtureZip([...runtimeEntries(), { name: `canvas-lab-v${version}/${path}` }]),
+    ),
   ];
-  const mismatchedHeader = storedZip(runtimeEntries());
+  const mismatchedHeader = fixtureZip(runtimeEntries());
   mismatchedHeader[30] = "/".charCodeAt(0);
   cases.push(mismatchedHeader);
   for (const zip of cases) {
@@ -214,13 +222,39 @@ test("SHA-256 正确的 ZIP 仍拒绝路径穿越、符号链接和局部头路�
   }
 });
 
+test("内置解压支持 Deflate 和带括号的安装路径，内容校验失败时保留旧版本", async (t) => {
+  const { root, currentRootDir } = await prepareRelease(t);
+  const target = join(root, "项目 [更新测试]");
+  await rename(currentRootDir, target);
+  const snapshot = await directorySnapshot(target);
+  const entries = runtimeEntries().map((entry) => ({ ...entry, deflated: true }));
+  const archive = fixtureZip(entries);
+  const corrupt = Buffer.from(archive);
+  const end = corrupt.length - 22;
+  const directory = corrupt.readUInt32LE(end + 16);
+  corrupt.writeUInt32LE(1, directory + 24);
+  const wrongChecksum = Buffer.from(archive);
+  wrongChecksum.writeUInt32LE(0, directory + 16);
+  for (const zip of [corrupt, wrongChecksum]) {
+    const { fetchImpl } = mockDownload(zip);
+    const installer = createAppInstaller({ currentRootDir: target, fetchImpl });
+    await assert.rejects(installer.install({ downloadUrl, version }), code("INVALID_ARCHIVE"));
+    assert.deepEqual(await directorySnapshot(target), snapshot);
+  }
+  const { fetchImpl } = mockDownload(archive);
+  const installer = createAppInstaller({ currentRootDir: target, fetchImpl });
+  assert.equal((await installer.install({ downloadUrl, version })).success, true);
+  assert.equal(await readFile(join(target, "public/index.html"), "utf8"), "Canvas Lab");
+  assert.equal(await readFile(join(target, ".env.local"), "utf8"), "PRESERVED=yes\n");
+});
+
 test("下载拒绝不受信重定向与截断内容，允许 GitHub 官方资产重定向", async (t) => {
   const { root, currentRootDir } = await temporaryProject(t);
   const badRedirect = createAppInstaller({ currentRootDir, fetchImpl: async () => new Response(null, { status: 302, headers: { location: "https://evil.test/zip" } }) });
   await assert.rejects(badRedirect.install({ downloadUrl, version }), code("UNTRUSTED_REDIRECT"));
   const truncated = createAppInstaller({ currentRootDir, fetchImpl: async () => new Response("abc", { headers: { "content-length": "9" } }) });
   await assert.rejects(truncated.install({ downloadUrl, version }), code("INCOMPLETE_DOWNLOAD"));
-  const zip = storedZip(runtimeEntries());
+  const zip = fixtureZip(runtimeEntries());
   const mock = mockDownload(zip);
   const redirectUrl = "https://release-assets.githubusercontent.com/github-production-release-asset/file?signature=test";
   const trusted = createAppInstaller({ currentRootDir, fetchImpl: async (url, options) => {
@@ -238,7 +272,7 @@ test("在途安装互斥且失败后恢复，非法 URL 不锁死安装器", asy
   let resume;
   const started = new Promise((resolve) => { begin = resolve; });
   const gate = new Promise((resolve) => { resume = resolve; });
-  const mock = mockDownload(storedZip(runtimeEntries()), { onRequest: async (url) => {
+  const mock = mockDownload(fixtureZip(runtimeEntries()), { onRequest: async (url) => {
     if (url === downloadUrl) { begin(); await gate; }
   } });
   const installer = createAppInstaller({ currentRootDir, fetchImpl: mock.fetchImpl });
@@ -255,7 +289,7 @@ test("在途安装互斥且失败后恢复，非法 URL 不锁死安装器", asy
 
 test("目标写入后失败只清理本次新目录，旧配置始终保留", async (t) => {
   const { root, currentRootDir } = await temporaryProject(t);
-  const mock = mockDownload(storedZip(runtimeEntries()));
+  const mock = mockDownload(fixtureZip(runtimeEntries()));
   const installer = createAppInstaller({ currentRootDir, fetchImpl: mock.fetchImpl });
   await assert.rejects(installer.install({ downloadUrl, version, onProgress: ({ stage, percent }) => {
     if (stage === "installing" && percent === 100) throw new Error("injected failure");
@@ -319,7 +353,7 @@ test("Release 在原目录更新版本与运行文件、删除旧模块并保留
   const { root, currentRootDir } = await prepareRelease(t);
   const before = await directorySnapshot(currentRootDir);
   const originalRoot = await lstat(currentRootDir);
-  const download = mockDownload(storedZip(runtimeEntries()));
+  const download = mockDownload(fixtureZip(runtimeEntries()));
   const configuredSourceBase = join(root, "source-only-install-base");
   const installer = createAppInstaller({ currentRootDir, installBaseDir: configuredSourceBase, fetchImpl: download.fetchImpl });
   assert.deepEqual(await installer.getPolicy(), releasePolicy);
@@ -350,7 +384,7 @@ test("Release 在原目录更新版本与运行文件、删除旧模块并保留
 test("原地应用中单次移动失败会恢复完整旧运行目录及全部配置数据", async (t) => {
   const { currentRootDir } = await prepareRelease(t);
   const before = await directorySnapshot(currentRootDir);
-  const download = mockDownload(storedZip(runtimeEntries()));
+  const download = mockDownload(fixtureZip(runtimeEntries()));
   let injected = false;
   const installer = createAppInstaller({ currentRootDir, fetchImpl: download.fetchImpl, renameImpl: async (from, to) => {
     if (!injected && from.includes("extracted") && from.endsWith("src")) {
@@ -370,7 +404,7 @@ test("原地应用中单次移动失败会恢复完整旧运行目录及全部�
 test("原地安装尾部回调失败也回滚，验证后新出现 .git 则在修改源码前阻断", async (t) => {
   const { currentRootDir } = await prepareRelease(t);
   const before = await directorySnapshot(currentRootDir);
-  const download = mockDownload(storedZip(runtimeEntries()));
+  const download = mockDownload(fixtureZip(runtimeEntries()));
   const installer = createAppInstaller({ currentRootDir, fetchImpl: download.fetchImpl });
   await assert.rejects(installer.install({ downloadUrl, version, onProgress: ({ stage, percent }) => {
     if (stage === "installing" && percent === 100) throw new Error("injected final callback error");
@@ -387,7 +421,7 @@ test("原地安装尾部回调失败也回滚，验证后新出现 .git 则在�
 test("下载完成后业务忙碌复查保留 APP_BUSY 且不改变运行文件", async (t) => {
   const { currentRootDir } = await prepareRelease(t);
   const before = await directorySnapshot(currentRootDir);
-  const download = mockDownload(storedZip(runtimeEntries()));
+  const download = mockDownload(fixtureZip(runtimeEntries()));
   const installer = createAppInstaller({ currentRootDir, fetchImpl: download.fetchImpl });
   await assert.rejects(installer.install({ downloadUrl, version, beforeApply: async () => {
     throw Object.assign(new Error("请等待任务完成。"), { code: "APP_BUSY" });
@@ -399,7 +433,7 @@ test("下载完成后业务忙碌复查保留 APP_BUSY 且不改变运行文件"
 
 test("无法完成回滚时保留旧运行备份并明确错误，不删除配置数据", async (t) => {
   const { currentRootDir } = await prepareRelease(t);
-  const download = mockDownload(storedZip(runtimeEntries()));
+  const download = mockDownload(fixtureZip(runtimeEntries()));
   const installer = createAppInstaller({ currentRootDir, fetchImpl: download.fetchImpl, renameImpl: async (from, to) => {
     if (from.endsWith("src") && (from.includes("extracted") || from.includes("backup"))) {
       throw Object.assign(new Error("injected persistent file lock"), { code: "EPERM" });

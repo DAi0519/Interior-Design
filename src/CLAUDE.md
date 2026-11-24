@@ -79,7 +79,7 @@ image-tools-api.mjs: 含GPT打光脱敏Prompt及forceRefresh透传的图片工�
 CLAUDE.md: 本模块地图，维护服务端业务模块清单
 app-update.mjs: GitHub 正式 Release 更新检测边界，比较 SemVer、核验标准运行 ZIP 与仓库链接、匿名读取公开仓库及无说明正文的版本页 HEAD 兜底，并提供总超时、并发去重和成功/失败分档缓存
 app-update-api.mjs: 共享版本检查与安装 HTTP 边界，按服务端最新正式版回执、安装政策及运行任务状态准入，流式返回安装进度/错误并保护待重启与恢复失败状态
-app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 与受信重定向/容量/ZIP 路径准入，无 shell 解压；含 .git 的源码工作区仅安装到持久新目录，无 .git 的 Release 目录原地事务替换发布运行根项、保留配置/依赖/数据并失败回滚；公开 getPolicy/isRestartRequired/isRecoveryRequired，成功后要求重启，恢复失败保留备份与操作指引并阻断再次安装，不自动重启
+app-installer.mjs: 正式版本安装边界，固定仓库 ZIP/官方 SHA-256 与受信重定向/容量/跨平台 ZIP 路径准入，Node 内置 Store/Deflate 解压与 CRC32 校验，保留启动脚本执行位；含 .git 的源码工作区仅安装到持久新目录，无 .git 的 Release 目录原地事务替换发布运行根项、保留配置/依赖/数据并失败回滚；公开 getPolicy/isRestartRequired/isRecoveryRequired，成功后要求重启，恢复失败保留备份与操作指引并阻断再次安装，不自动重启
 model-config.mjs: Seedream 5.5 独立九比例1K/2K与准确OneAPI身份；Banana Pro使用OneAPI preview ID、十比例1K/2K/4K，不开放2:1；共享用户提示词3–8000字符边界；GPT2.6双模型独立complexityOptions目录与normalizeImageComplexity严格准入，默认不传且不替代quality；GPT2.6双模型身份/权限与历史兼容； 服务端编译正文32k/普通用户8k分离与请求字段不可提额；模型参数/Provider/完整型号和历史别名真源；普通Flux4K/6K公开KS直入27.1身份/版本/输入限制，normalizeFluxPostUpscaleInput冻结新KS或历史3B，真实2K尺寸预检与目标规划；保留旧房负向、GPT尺寸矩阵、全景原尺寸和精模/光影转换双图1K/2K
 generation-batch.mjs: 单模型多张/多模型生成批次契约，批次总数不受模型数量上限约束，严格校验共同批次 ID、正安全整数总数与批内序号；单模型张数由任务入口独立约束
 generation-jobs.mjs: 日常生图后台任务层，提供最多两路并发的保序批执行、部分失败、进程内任务查询、领域阶段快照透传及有界结果保留；只读hasActiveJobs守护running任务供原地更新准入
@@ -106,8 +106,8 @@ ai-texture-workflow-config.mjs: Flux默认参数和工作流身份、后置超�
 ai-texture-workflow.mjs: 普通Flux9B7步或美化六预设核心，经2K中间图进入正式KS直入7B后置阶段；显式源尺寸/版本、4K或固定5K到6K、唯一72 SaveImage，历史3B显式兼容及原负向规则保留
 comfyui-client.mjs: GET网关/连接短暂错误有界重读且GPU POST始终一次；全工作流共享楚雄默认环境、URL去query/hash；原子提交/History/view/取消及数字分段耗时；嵌入KS按实际子图校验节点和7B枚举、15分钟执行/5分钟排队、未知提交或后续异常不自动重提且保留Prompt ID，PNG和真实交付尺寸强验；其他消费者保持原合同
 comfyui-timing.mjs: 请求内单调时钟分段与HTTP状态/尝试计数，仅有限数字叶子；History网络等待覆盖远端执行不可累加，原始远端时间戳及POST ack差标跨时钟，缺失不编造纯排队，无Prompt/URL/图片/Key
-lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77、首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
-lark-setup.mjs: 运营首次运行边界，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
+lark-cli.mjs: 飞书 CLI 基础设施，优先解析项目内固定版 1.0.77，Windows 解析原生 lark-cli.exe，首次调用校验最低版本，移除 OneAPI Key 后统一子进程环境、执行、JSON 解析、超时和错误归一化
+lark-setup.mjs: 运营首次运行边界，复用 lark-cli.mjs 的平台路径解析，检查固定版本 CLI、应用配置、用户 Token、字段读取/记录读写/附件上传最小 Scope 与 Base 可读性，并编排非阻塞 Device Flow 和临时二维码
 local-settings.mjs: 本机设置边界，保留未知环境项并原子写入或删除 .env.local 中的 OneAPI Key
 lark-sync.mjs: 导出既有记录/附件I/O及字段/token回读供独立渲染台复用；二次编辑新字段/选项写入与历史Flux模型标签补归档规范化，保留内部feature与模式key；光影转换与质感增强独立功能枚举/固定词归档，含打光独立scope/原件与实际引导图双参考附件/参数及字段附件双回读的飞书生成记录同步边界，既有Schema/字段/附件与生成投影保持原范围；遮罩专属scope要求七列/模式/功能/模型枚举并动态解析附件ID，原图/结果/遮罩/编辑参考图/框选原图分列，框图实际PNG/size/送模SHA校验，GPT无mask时附件留空并校验hasMask，结果真实SHA与附件manifest留档、字段和token/字节两次回读通过才成功；失败只标同步失败，不重跑GPU
 image-artifact.mjs: 图片产物基础设施，依赖 sharp 统一生成结果 data URL 解码、受限远程下载、输出扩展名、不修改原件的模型请求 JPEG 降质/缩放压缩与任务快照用轻量 WebP 预览

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 launcher.mjs 的 Node、端口、依赖摘要及服务就绪纯规则
- * [OUTPUT]: 对外提供一键启动版本门槛、配置优先级、重复安装避免和有限轮询回归保障
+ * [OUTPUT]: 验证一键启动版本门槛、配置优先级、Windows npm 无 shell 调用、重复安装避免和有限轮询
  * [POS]: test 的跨平台启动器测试，不安装依赖、不启动服务、不打开浏览器
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -12,6 +12,7 @@ import {
   assertSupportedNode,
   hasLarkAppConfiguration,
   packageLockDigest,
+  resolveNpmCommand,
   resolvePort,
   shouldInstallDependencies,
   waitForCanvasLab,
@@ -44,6 +45,14 @@ test("package-lock 摘要未变化时跳过重复 npm ci", () => {
     currentDigest: digest,
     markerDigest: "old",
   }), true);
+});
+
+test("Windows 启动器使用 Node 执行 npm JS 入口，保留包含空格的路径", () => {
+  const nodePath = "C:\\Program Files\\nodejs\\node.exe";
+  const npmCli = "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js";
+  assert.deepEqual(resolveNpmCommand({ platform: "win32", nodePath, fileExists: file => file === npmCli }), [nodePath, npmCli]);
+  assert.throws(() => resolveNpmCommand({ platform: "win32", nodePath, fileExists: () => false }), /安装包含 npm 的 Node.js/);
+  assert.deepEqual(resolveNpmCommand({ platform: "darwin" }), ["npm"]);
 });
 
 test("飞书 CLI 只接受包含真实 appId 的应用配置", () => {

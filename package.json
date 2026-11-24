@@ -1,16 +1,13 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "生图工作台顶栏显示当前 OneAPI Key 的剩余额度，点击金额可打开连接中心，点击刷新图标可重新查询。",
-    "「Beta跑图」更名为「批量跑图」，新增平面图机位渲染和多角度批量出图。各页面的刷新图标统一为圆角单箭头。",
-    "平面图机位渲染支持取景裁剪、送模预览、提示词直出与空间推理，主工作台可选择 Qwen Image Edit 2511。",
-    "新增「添加人物/宠物」入口，可在场景图中合成人物或宠物，并从 AI 渲染台带入渲染结果。",
-    "生图模型目录新增 Banana Pro 和 Seedream 5.5，可用性取决于当前 OneAPI Key 权限。",
-    "全景图美化更新 FastFlux2 工作流和光影预设，支持按多个光影模板独立出图对比。"
+    "修复 Windows 网页更新的 EXTRACT_ERROR。安装器使用 Node 内置解压，并校验官方摘要和文件内容。",
+    "修复 Windows 双击启动时的 npm 调用，工作台使用原生飞书 CLI 执行连接和归档操作。",
+    "旧版已遇到 EXTRACT_ERROR 的用户请手动解压本运行包到新目录，从旧目录复制 .env.local 和所需本地数据，再双击 start-windows.cmd。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

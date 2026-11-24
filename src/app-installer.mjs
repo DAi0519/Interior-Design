@@ -1,21 +1,20 @@
 /**
- * [INPUT]: 依赖 Node fs/crypto/child_process、固定 GitHub 正式 Release ZIP 与官方 SHA-256、当前项目路径及可注入 fetch
- * [OUTPUT]: 对外提供 validateAppInstallRequest 与 createAppInstaller/getPolicy/isRestartRequired/isRecoveryRequired，校验来源/摘要/ZIP 路径，源码新目录安装或 Release 原地事务更新
+ * [INPUT]: 依赖 Node fs/crypto/zlib、固定 GitHub 正式 Release ZIP 与官方 SHA-256、当前项目路径及可注入 fetch
+ * [OUTPUT]: 提供受信发布包校验与 Node 内置解压、源码新目录安装和 Release 原地事务更新
  * [POS]: src 的应用安装边界，由 app-update-api 绑定最新回执并检查任务；保护 Git 工作区，原地仅替换发布运行根项、保留配置/数据，失败回滚且不自动重启
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { createReadStream } from "node:fs";
-import { cp, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm } from "node:fs/promises";
+import { cp, lstat, mkdir, mkdtemp, open, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { execFile } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { crc32, inflateRaw } from "node:zlib";
 
-const execFileAsync = promisify(execFile);
+const inflateEntry = promisify(inflateRaw);
 const REPOSITORY_PATH = "/DAi0519/Interior-Design/releases/download/";
 const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
-const EXTRACT_TIMEOUT_MS = 2 * 60_000;
 const MAX_ARCHIVE_BYTES = 100 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_CHECKSUM_BYTES = 1024;
@@ -125,29 +124,42 @@ async function verifyChecksum(zipPath, checksumPath, archiveName) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* ZIP 中央目录校验与无 shell 解压                                             */
+/* ZIP 中央目录校验与内置解压                                                 */
 /* -------------------------------------------------------------------------- */
 
-async function validateZipEntries(zipPath, version) {
-  const bytes = await readFile(zipPath);
+function invalidZip() {
+  return new InstallationError("安装包 ZIP 结构、文件路径或内容无效。", "INVALID_ARCHIVE");
+}
+
+function unsafeZipPathPart(part) {
+  return !part || part === "." || part === ".."
+    || /[<>:"\\|?*\x00-\x1f]|[. ]$/.test(part)
+    || /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(part);
+}
+
+function readZipEntries(bytes, version) {
   const prefix = `canvas-lab-v${version}/`;
   let end = -1;
   for (let cursor = bytes.length - 22; cursor >= Math.max(0, bytes.length - 65_557); cursor -= 1) {
     if (bytes.readUInt32LE(cursor) === 0x06054b50 && cursor + 22 + bytes.readUInt16LE(cursor + 20) === bytes.length) { end = cursor; break; }
   }
-  const invalid = () => new InstallationError("安装包 ZIP 结构或文件路径无效。", "INVALID_ARCHIVE");
-  if (end < 0 || bytes.readUInt16LE(end + 4) || bytes.readUInt16LE(end + 6)) throw invalid();
+  if (end < 0 || bytes.readUInt16LE(end + 4) || bytes.readUInt16LE(end + 6)) throw invalidZip();
   const count = bytes.readUInt16LE(end + 10);
   const directorySize = bytes.readUInt32LE(end + 12);
   let cursor = bytes.readUInt32LE(end + 16);
-  const directoryEnd = cursor + directorySize;
-  if (!count || count > 10_000 || bytes.readUInt16LE(end + 8) !== count || directoryEnd !== end) throw invalid();
+  const directoryOffset = cursor;
+  const directoryEnd = directoryOffset + directorySize;
+  if (!count || count > 10_000 || bytes.readUInt16LE(end + 8) !== count || directoryEnd !== end) throw invalidZip();
   let expandedBytes = 0;
   let hasPackage = false;
   const names = new Set();
+  const entries = [];
   for (let index = 0; index < count; index += 1) {
-    if (cursor + 46 > directoryEnd || bytes.readUInt32LE(cursor) !== 0x02014b50) throw invalid();
+    if (cursor + 46 > directoryEnd || bytes.readUInt32LE(cursor) !== 0x02014b50) throw invalidZip();
     const flags = bytes.readUInt16LE(cursor + 8);
+    const method = bytes.readUInt16LE(cursor + 10);
+    const checksum = bytes.readUInt32LE(cursor + 16);
+    const compressedSize = bytes.readUInt32LE(cursor + 20);
     const size = bytes.readUInt32LE(cursor + 24);
     const nameLength = bytes.readUInt16LE(cursor + 28);
     const extraLength = bytes.readUInt16LE(cursor + 30);
@@ -155,38 +167,57 @@ async function validateZipEntries(zipPath, version) {
     const mode = bytes.readUInt32LE(cursor + 38) >>> 16;
     const localOffset = bytes.readUInt32LE(cursor + 42);
     const next = cursor + 46 + nameLength + extraLength + commentLength;
-    if (next > directoryEnd || flags & 1 || size === 0xffffffff || bytes.readUInt16LE(cursor + 34)
-      || localOffset + 30 > directoryEnd || bytes.readUInt32LE(localOffset) !== 0x04034b50) throw invalid();
-    const name = bytes.toString("utf8", cursor + 46, cursor + 46 + nameLength);
+    if (next > directoryEnd || flags & 1 || ![0, 8].includes(method) || bytes.readUInt16LE(cursor + 34)
+      || localOffset + 30 > directoryOffset || bytes.readUInt32LE(localOffset) !== 0x04034b50
+      || bytes.readUInt16LE(localOffset + 6) !== flags || bytes.readUInt16LE(localOffset + 8) !== method) throw invalidZip();
+    const filename = bytes.subarray(cursor + 46, cursor + 46 + nameLength);
+    const name = filename.toString("utf8");
     const localNameLength = bytes.readUInt16LE(localOffset + 26);
-    if (localOffset + 30 + localNameLength > directoryEnd
-      || bytes.toString("utf8", localOffset + 30, localOffset + 30 + localNameLength) !== name) throw invalid();
-    const parts = name.split("/");
-    if (!name.startsWith(prefix) || name.includes("\\") || name.includes(":") || name.includes("\0")
-      || parts.some((part, partIndex) => part === ".." || part === "." || (!part && partIndex !== parts.length - 1))
-      || ![0, 0x8000, 0x4000].includes(mode & 0xf000) || names.has(name)) throw invalid();
-    names.add(name);
+    const localNameEnd = localOffset + 30 + localNameLength;
+    const dataOffset = localNameEnd + bytes.readUInt16LE(localOffset + 28);
+    const dataEnd = dataOffset + compressedSize;
+    if (dataEnd > directoryOffset || !filename.equals(bytes.subarray(localOffset + 30, localNameEnd))
+      || !Buffer.from(name, "utf8").equals(filename)) throw invalidZip();
+
+    const directory = name.endsWith("/");
+    const parts = (directory ? name.slice(0, -1) : name).split("/");
+    const key = parts.join("/").normalize("NFC").toLowerCase();
+    const entryType = mode & 0xf000;
+    if (!name.startsWith(prefix) || parts.some(unsafeZipPathPart)
+      || (entryType !== 0 && entryType !== (directory ? 0x4000 : 0x8000)) || names.has(key)
+      || (directory && (size !== 0 || compressedSize !== 0 || checksum !== 0))
+      || (method === 0 && compressedSize !== size)) throw invalidZip();
+    names.add(key);
     expandedBytes += size;
-    if (expandedBytes > MAX_EXPANDED_BYTES) throw invalid();
+    if (expandedBytes > MAX_EXPANDED_BYTES) throw invalidZip();
     if (name === `${prefix}package.json`) hasPackage = true;
+    entries.push({ parts, directory, mode, method, size, checksum, data: bytes.subarray(dataOffset, dataEnd) });
     cursor = next;
   }
-  if (cursor !== directoryEnd || !hasPackage) throw invalid();
+  if (cursor !== directoryEnd || !hasPackage) throw invalidZip();
+  return entries;
 }
 
-async function extractZip(zipPath, targetDir) {
-  await mkdir(targetDir);
+async function extractZip(entries, targetDir) {
   try {
-    const options = { timeout: EXTRACT_TIMEOUT_MS, maxBuffer: 1024 * 1024 };
-    if (process.platform === "win32") {
-      const literal = (value) => `'${value.replaceAll("'", "''")}'`;
-      const script = `$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath ${literal(zipPath)} -DestinationPath ${literal(targetDir)}`;
-      await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], options);
-    } else {
-      await execFileAsync("unzip", ["-q", zipPath, "-d", targetDir], options);
+    await mkdir(targetDir);
+    for (const entry of entries) {
+      const path = join(targetDir, ...entry.parts);
+      if (entry.directory) {
+        await mkdir(path, { recursive: true });
+        continue;
+      }
+      const data = entry.method === 0
+        ? entry.data
+        : await inflateEntry(entry.data, { maxOutputLength: Math.max(1, entry.size) }).catch(() => { throw invalidZip(); });
+      if (data.length !== entry.size || crc32(data) !== entry.checksum) throw invalidZip();
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, data, { flag: "wx", mode: entry.mode & 0o111 ? 0o755 : 0o644 });
     }
   } catch (error) {
-    throw new InstallationError(error.killed ? "解压超时。" : "安装包解压失败，请检查 unzip 或 PowerShell 是否可用。", "EXTRACT_ERROR");
+    if (error instanceof InstallationError) throw error;
+    const detail = typeof error.code === "string" ? `（${error.code}）` : "";
+    throw new InstallationError(`写入解压目录失败${detail}，请检查目录权限与剩余空间。`, "EXTRACT_ERROR");
   }
 }
 
@@ -317,11 +348,11 @@ export function createAppInstaller({ installBaseDir = null, currentRootDir = pro
       onProgress?.({ stage: "verifying", percent: 0 });
       await downloadFile(release.checksumUrl, checksumPath, { fetchImpl, maxBytes: MAX_CHECKSUM_BYTES });
       const sha256 = await verifyChecksum(zipPath, checksumPath, release.archiveName);
-      await validateZipEntries(zipPath, release.version);
+      const entries = readZipEntries(await readFile(zipPath), release.version);
       onProgress?.({ stage: "verifying", percent: 100, sha256 });
       onProgress?.({ stage: "extracting", percent: 0 });
       const extractDir = join(stagingDir, "extracted");
-      await extractZip(zipPath, extractDir);
+      await extractZip(entries, extractDir);
       onProgress?.({ stage: "extracting", percent: 100 });
       const projectRoot = join(extractDir, `canvas-lab-v${release.version}`);
       onProgress?.({ stage: "validating", percent: 0 });

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 node:child_process/fs/os/path/crypto、固定版本 lark-cli 与用户显式飞书授权
+ * [INPUT]: 依赖 node:child_process/fs/os/path/crypto、lark-cli.mjs 的平台路径与执行环境、用户显式飞书授权
  * [OUTPUT]: 对外提供脱敏的 CLI/用户/Scope 状态、字段读取与记录同步最小权限、非阻塞 Device Flow、二维码与登录完成能力
  * [POS]: src 的运营首次运行边界，与业务 Base 读取和生成记录同步解耦
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { larkCliEnvironment } from "./lark-cli.mjs";
+import { larkCliEnvironment, resolveLarkCliPath } from "./lark-cli.mjs";
 
 const execFileAsync = promisify(execFile);
 const LOGIN_TTL_MS = 10 * 60 * 1000;
@@ -93,7 +93,7 @@ export function publicAuthStatus(body) {
 }
 
 async function defaultRun(cliPath, args, options = {}) {
-  return execFileAsync(cliPath, args, {
+  return execFileAsync(resolveLarkCliPath(cliPath), args, {
     cwd: options.cwd,
     encoding: "utf8",
     env: larkCliEnvironment(),

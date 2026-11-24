@@ -1,20 +1,20 @@
 /**
  * [INPUT]: 依赖 Node.js 24+、package-lock.json、npm、lark-cli、server.mjs 与可选 .env.local
- * [OUTPUT]: 对外提供版本/端口/依赖纯规则，并完成依赖安装、飞书初始化、服务启动与浏览器打开
+ * [OUTPUT]: 对外提供版本/端口/依赖与 npm 命令解析，完成依赖安装、飞书初始化、服务启动与浏览器打开
  * [POS]: 项目根目录的一键启动编排器，被 macOS 与 Windows 双击入口共同调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 const defaultPort = 4173;
 const dependencyMarker = ".canvas-lab-package-lock.sha256";
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function stripQuotes(value) {
   const text = String(value || "").trim();
@@ -60,6 +60,20 @@ export function shouldInstallDependencies({ currentDigest, markerDigest }) {
 
 export function hasLarkAppConfiguration(output) {
   return /"appId"\s*:\s*"[^"]+"/.test(String(output || ""));
+}
+
+export function resolveNpmCommand({
+  platform = process.platform,
+  nodePath = process.execPath,
+  fileExists = existsSync,
+} = {}) {
+  if (platform !== "win32") return ["npm"];
+  // Windows 的 npm.cmd 需要 shell，直接运行随 Node 安装的 npm 入口。
+  const npmCli = win32.join(win32.dirname(nodePath), "node_modules", "npm", "bin", "npm-cli.js");
+  if (!fileExists(npmCli)) {
+    throw new Error("未找到 npm，请安装包含 npm 的 Node.js 24 或更高版本。");
+  }
+  return [nodePath, npmCli];
 }
 
 export function withLocalExecutablePath(
@@ -150,7 +164,7 @@ async function optionalText(path) {
   }
 }
 
-async function ensureDependencies() {
+async function ensureDependencies([npm, ...npmArgs]) {
   const lockPath = join(projectRoot, "package-lock.json");
   const nodeModules = join(projectRoot, "node_modules");
   const markerPath = join(nodeModules, dependencyMarker);
@@ -171,7 +185,7 @@ async function ensureDependencies() {
   }
 
   process.stdout.write("→ 首次运行或依赖已更新，正在执行 npm ci...\n");
-  await runCommand(npmCommand, ["ci", "--no-audit", "--no-fund"]);
+  await runCommand(npm, [...npmArgs, "ci", "--no-audit", "--no-fund"]);
   await writeFile(markerPath, `${currentDigest}\n`, "utf8");
   process.stdout.write("✓ 运行依赖安装完成\n");
 }
@@ -182,9 +196,10 @@ function larkCliEnvironment() {
   return environment;
 }
 
-async function ensureLarkConfiguration() {
+async function ensureLarkConfiguration([npm, ...npmArgs]) {
   const environment = larkCliEnvironment();
-  const current = await captureCommand(npmCommand, [
+  const current = await captureCommand(npm, [
+    ...npmArgs,
     "exec",
     "--",
     "lark-cli",
@@ -201,7 +216,7 @@ async function ensureLarkConfiguration() {
     "  浏览器将打开飞书配置页面，请按页面提示完成后返回此窗口。",
     "",
   ].join("\n"));
-  await runCommand(npmCommand, ["run", "lark:init"], { env: environment });
+  await runCommand(npm, [...npmArgs, "run", "lark:init"], { env: environment });
   process.stdout.write("✓ 飞书 CLI 应用初始化完成\n");
 }
 
@@ -293,8 +308,9 @@ export async function launchCanvasLab() {
     process.stdout.write(`✓ Canvas Lab 已在运行：${url}\n`);
     return;
   }
-  await ensureDependencies();
-  await ensureLarkConfiguration();
+  const npmCommand = resolveNpmCommand();
+  await ensureDependencies(npmCommand);
+  await ensureLarkConfiguration(npmCommand);
   await startServer(url);
 }
 
