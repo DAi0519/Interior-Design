@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖平面布局页面、共享归档状态、内存DOM、HTTP、会话存储和时钟替身
- * [OUTPUT]: 验证模型准入、换源阻断收费、图片来源、原任务恢复及逐图飞书归档状态
+ * [INPUT]: 依赖平面布局页面和样式、共享归档状态、内存DOM、HTTP、会话存储和时钟替身
+ * [OUTPUT]: 验证嵌入工作台对齐、模型准入、换源阻断收费、图片来源、真实任务反馈及新图显现、原任务恢复及逐图飞书归档状态
  * [POS]: test 的平面布局交互回归，执行真实生产脚本，不访问网络、模型、飞书或运行中服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,10 +9,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 
-const [page, script, syncScript] = await Promise.all([
+const [page, script, syncScript, styles] = await Promise.all([
   readFile(new URL("../public/floor-plan.html", import.meta.url), "utf8"),
   readFile(new URL("../public/floor-plan.js", import.meta.url), "utf8"),
   readFile(new URL("../public/generation-sync.js", import.meta.url), "utf8"),
+  readFile(new URL("../public/floor-plan.css", import.meta.url), "utf8"),
 ]);
 const SESSION_KEY = "canvas-lab:floor-plan:images:v2";
 const config = { available: true, workflowVersion: "2026-11-04.floor-plan.3", defaultModel: "gptImage25Sunburst",
@@ -31,8 +32,8 @@ const success = value => ({ job: { status: "success", result: value } });
 const missing = () => Object.assign(new Error("原任务不存在或已过期"), { statusCode: 404 });
 
 // --- 只模拟浏览器边界；所有生成门禁、任务身份与视图状态来自生产脚本 ---
-async function fixture({ saved = null, configuration = config, respond = async () => { throw missing(); } } = {}) {
-  const ids = new Map(), cameras = [], calls = [], timers = new Map(), storage = new Map(), downloads = [], blobs = [];
+async function fixture({ saved = null, configuration = config, search = "", respond = async () => { throw missing(); } } = {}) {
+  const ids = new Map(), cameras = [], calls = [], timers = new Map(), storage = new Map(), downloads = [], blobs = [], reveals = [];
   let uuidSequence = 0, timerSequence = 0;
   if (saved) storage.set(SESSION_KEY, JSON.stringify(saved));
   class Element {
@@ -80,10 +81,12 @@ async function fixture({ saved = null, configuration = config, respond = async (
   }
   const document = { body: new Element("body"), createElement: tag => new Element(tag),
     getElementById: id => ids.get(id), querySelectorAll: selector => selector === "[data-camera]" ? cameras : [] };
-  const context = vm.createContext({ document, Blob, atob,
+  const context = vm.createContext({ document, Blob, atob, URLSearchParams, location: { search },
     URL: class extends URL { static createObjectURL(blob) { blobs.push(blob); return `blob:fixture-${blobs.length}`; } static revokeObjectURL() {} },
     sessionStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
     crypto: { randomUUID: () => `00000000-0000-4000-8000-${String(++uuidSequence).padStart(12, "0")}` },
+    cancelGenerationReveal() {},
+    revealGenerationImage(image) { reveals.push(image.src); },
     setTimeout(callback, delay) { const id = ++timerSequence; timers.set(id, { callback, delay }); return id; },
     clearTimeout(id) { timers.delete(id); },
     createImageBitmap: async file => ({ width: file.width, height: file.height, close() {} }),
@@ -107,7 +110,7 @@ async function fixture({ saved = null, configuration = config, respond = async (
   const node = name => ids.get(`floorPlan${name}`);
   async function fire(target, event = "click", values = {}) { await target.fire(event, values); await settle(); }
   await settle();
-  return { node, calls, storage, downloads, blobs, settle,
+  return { body: document.body, node, calls, storage, downloads, blobs, reveals, settle,
     camera: angle => cameras.find(button => button.dataset.camera === String(angle)),
     posts: () => calls.filter(call => call.method === "POST"),
     reads: () => calls.filter(call => call.method === "GET" && call.path.includes("/jobs/")),
@@ -128,6 +131,14 @@ async function fixture({ saved = null, configuration = config, respond = async (
     },
   };
 }
+
+test("设计实验室内嵌时表单、错误和底栏沿工作台内容线对齐，独立入口保留自己的布局", async () => {
+  const embedded = await fixture({ search: "?embedded=1" });
+  assert.equal(embedded.body.classList.contains("floor-plan-embedded"), true);
+  const standalone = await fixture();
+  assert.equal(standalone.body.classList.contains("floor-plan-embedded"), false);
+  assert.match(styles, /\.floor-plan-embedded :is\(\.floor-plan-inputs, \.floor-plan-error, \.floor-plan-statusbar\)\s*\{\s*padding-inline: 16px;/);
+});
 
 test("原结果恢复后按当前图显示归档，切图时忽略旧响应，重试仅请求同步", async () => {
   const layout = { ...result("layout"), sync: { generationId: "layout-sync-id", status: "pending" } };
@@ -164,6 +175,7 @@ test("旧进程缺少归档能力时阻止出图，仍可恢复旧任务", async
   await f.upload(source("新原图"));
   assert.equal(f.node("Generate").disabled, true);
   assert.equal(f.node("LayoutImage").hidden, false);
+  assert.deepEqual(f.reveals, []);
   assert.equal(f.node("Archive").hidden, true);
   assert.match(f.node("ConfigNote").textContent, /尚未接入飞书生成记录/);
   assert.equal(f.posts().length, 0);
@@ -197,6 +209,7 @@ test("换原图阻断旧方案三种收费动作，新布局成功后按当前�
   assert.equal(f.posts()[0].body.referenceImage.dataUrl, replacement.dataUrl);
   assert.equal(f.posts()[0].body.modelKey, "banana21", "布局必须使用用户明确选择的模型");
   assert.equal(f.node("LayoutImage").src, result("layout", "新layout").image.url);
+  assert.deepEqual(f.reveals, [f.node("LayoutImage").src]);
   assert.equal(f.node("CameraPanel").hidden, true, "新布局成功应清除旧室内图与机位");
   await f.input("Adjustment", "改为四人餐桌");
   assert.equal(f.node("Adjust").disabled, false);
@@ -205,6 +218,7 @@ test("换原图阻断旧方案三种收费动作，新布局成功后按当前�
   assert.equal(f.posts()[1].body.referenceImage.dataUrl, result("layout", "新layout").image.url);
   await f.click("RenderInterior");
   assert.equal(f.posts()[2].body.referenceImage.dataUrl, result("adjust", "新adjust").image.url);
+  assert.equal(f.reveals.at(-1), f.node("InteriorImage").src);
   await f.fireCamera(90); await f.fireCamera(180);
   for (const call of f.posts().slice(3)) {
     assert.equal(call.body.referenceImage.dataUrl, result("interior", "新interior").image.url, "换角度始终参考原室内图");
@@ -229,7 +243,13 @@ test("选择模型后实际提交所选模型，生成中锁定选择且会话�
   assert.equal(f.posts()[0].body.modelKey, "banana21");
   assert.equal(f.node("Model").disabled, true, "原模型任务未完成时不能改变下一次选择");
   assert.equal(f.node("Generate").disabled, true);
+  assert.equal(f.node("LayoutFeedback").hidden, false);
+  assert.equal(f.node("LayoutFeedbackText").textContent, "模型正在生成");
+  assert.equal(f.node("InteriorFeedback").hidden, true);
+  assert.equal(f.node("Status").hidden, true);
   await f.nextPoll();
+  assert.equal(f.node("LayoutFeedback").hidden, true);
+  assert.equal(f.node("Status").hidden, false);
   assert.equal(f.node("Model").disabled, false);
   assert.equal(f.node("Model").value, "banana21");
   assert.match(f.node("LayoutMeta").textContent, /Banana 2.1/);

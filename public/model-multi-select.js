@@ -4,7 +4,7 @@
  * [POS]: public 的模型业务适配层，不再维护独立菜单 DOM 或视觉状态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import { bindChoiceSelect, filterChoiceCatalog as filterModelCatalog } from "./choice-select.js?v=1";
+import { bindChoiceSelect, filterChoiceCatalog as filterModelCatalog } from "./choice-select.js?v=2";
 export { filterModelCatalog };
 
 export function toggleModelSelection(currentKeys, modelKey, { selectable = true } = {}) {

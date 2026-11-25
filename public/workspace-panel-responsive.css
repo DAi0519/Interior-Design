@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖workspace-panel.css的workspace-parameters内联尺寸容器，以及各功能既有表单、上传、单选、共享下拉和镜头控件类名
- * [OUTPUT]: 按真实参数栏宽度重排字段、标题、上传信息、模型和机位按钮，保留字体/38px点击区/共享选择配色及完整可读文本
+ * [OUTPUT]: 按真实参数栏宽度重排字段、标题、上传信息、模型和机位按钮，沿用共享侧边距及完整可读文本
  * [POS]: public 主工作台参数容器适配层，紧随workspace-panel.css加载，覆盖所有功能并与移动dialog共用原表单
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,10 +31,6 @@
 
 /* -------- 280px参数栏：所有功能的双列字段、模型与上传改成完整单列 -------- */
 @container workspace-parameters (max-width: 280px) {
-  #configurationPanel .control-panel-scroll .panel-section {
-    padding-inline: 14px;
-  }
-
   #configurationPanel .control-panel-scroll :is(.field-grid, .model-option-list, .reference-list) {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -176,10 +172,6 @@
 
 /* -------- 250px以下参数栏：保留正文大小，用折行替代挤字和裁字 -------- */
 @container workspace-parameters (max-width: 250px) {
-  #configurationPanel .control-panel-scroll .panel-section {
-    padding-inline: 12px;
-  }
-
   #configurationPanel .control-panel-scroll .section-heading-actions {
     margin-left: 0;
   }

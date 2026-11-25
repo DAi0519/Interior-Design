@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert 与 image-outpaint-workspace.js，使用可重挂载节点和键盘事件的内存 DOM
- * [OUTPUT]: 对外提供构图节点/事件保留、新图默认预览与旧任务隔离、任务阶段/页签选择、隐藏时关闭设置、键盘访问及跨功能结果/飞书链接隔离回归保障
+ * [OUTPUT]: 对外验证无标题栏的构图节点重挂、条件显示的图标页签、任务阶段/选择、新图与旧任务隔离、键盘访问、设置收起及跨功能结果恢复
  * [POS]: test 的 AI扩图主画布交互测试，与几何/请求测试互补，不访问浏览器、网络或 GPU
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -74,6 +74,7 @@ class Element {
 function fixture({ resultRole = null, resultLabel = null, onHide, now } = {}) {
   const document = new Element(null, "document");
   document.createElement = (tag) => new Element(document, tag);
+  document.createElementNS = (_namespace, tag) => document.createElement(tag);
   const create = (className = "", id = "", tag = "div") => {
     const node = document.createElement(tag);
     Object.assign(node, { className, id });
@@ -95,7 +96,6 @@ function fixture({ resultRole = null, resultLabel = null, onHide, now } = {}) {
   output.append(size);
   root.append(figure, position, output);
   const panel = create("result-panel", "", "section");
-  const toolbar = create("result-toolbar");
   const resultStage = create("result-stage", "resultStage");
   if (resultRole !== null) resultStage.setAttribute("role", resultRole);
   if (resultLabel !== null) resultStage.setAttribute("aria-labelledby", resultLabel);
@@ -104,7 +104,7 @@ function fixture({ resultRole = null, resultLabel = null, onHide, now } = {}) {
   recordLink.href = "https://example.feishu.cn/base/test?record=completed";
   gallery.append(recordLink);
   resultStage.append(gallery);
-  panel.append(toolbar, resultStage);
+  panel.append(resultStage);
   document.append(root, panel);
   let moves = 0;
   let resets = 0;
@@ -112,9 +112,9 @@ function fixture({ resultRole = null, resultLabel = null, onHide, now } = {}) {
   reset.addEventListener("click", () => { resets += 1; });
   const binding = bindImageOutpaintWorkspace({ root, onHide, now });
   return {
-    binding, document, root, figure, canvas, image, position, reset, output, size, panel, toolbar, resultStage, gallery, recordLink,
+    binding, document, root, figure, canvas, image, position, reset, output, size, panel, resultStage, gallery, recordLink,
     workspace: document.querySelector("#imageOutpaintWorkspace"),
-    tabs: document.querySelector(".outpaint-workspace-tabs"),
+    tabs: document.querySelector(".image-tool-view-switch"),
     previewTab: document.querySelector("#imageOutpaintPreviewTab"),
     resultTab: document.querySelector("#imageOutpaintResultTab"),
     events: () => ({ moves, resets }),
@@ -123,6 +123,7 @@ function fixture({ resultRole = null, resultLabel = null, onHide, now } = {}) {
 
 const hidden = (node) => node.classList.contains("hidden");
 const selected = (node) => node.getAttribute("aria-selected") === "true";
+const accessibleName = (node) => node.getAttribute("aria-label");
 const source = (id) => ({ id, dataUrl: `data:image/png;base64,${id}`, width: 1080, height: 810 });
 const task = (id, createdAt) => ({ jobId: `generation-${id}`, createdAt });
 
@@ -141,21 +142,32 @@ test("大画布重挂原构图节点，已绑定的定位/居中事件和尺寸�
   assert.deepEqual(ui.events(), { moves: 1, resets: 1 });
 });
 
-test("空任务打开构图预览且禁用结果页签，不影响其他功能初始结果面板", () => {
+test("空任务直接显示构图画布，图标切换区仅在存在任务时显示", () => {
   const ui = fixture();
   assert.equal(hidden(ui.tabs), true);
   assert.equal(hidden(ui.workspace), true);
   assert.equal(hidden(ui.resultStage), false);
-  assert.equal(hidden(ui.toolbar), false);
   ui.binding.setActive(true);
-  assert.equal(hidden(ui.tabs), false);
+  assert.equal(hidden(ui.tabs), true);
   assert.equal(hidden(ui.workspace), false);
   assert.equal(hidden(ui.resultStage), true);
-  assert.equal(hidden(ui.toolbar), true);
+  assert.equal(ui.workspace.getAttribute("role"), "region");
   assert.equal(selected(ui.previewTab), true);
   assert.equal(ui.resultTab.disabled, true);
   ui.resultTab.dispatch("click");
   assert.equal(hidden(ui.workspace), false);
+  ui.binding.setStage("loading");
+  assert.equal(hidden(ui.tabs), false);
+  assert.equal(ui.workspace.getAttribute("role"), "tabpanel");
+  assert.equal(ui.tabs.getAttribute("role"), "tablist");
+  assert.deepEqual(ui.panel.children, [ui.tabs, ui.workspace, ui.resultStage]);
+  for (const [tab, name, icon] of [[ui.previewTab, "构图预览", "frame"], [ui.resultTab, "任务状态", "result"]]) {
+    assert.equal(tab.textContent, "");
+    assert.equal(tab.title, name);
+    assert.equal(accessibleName(tab), name);
+    assert.equal(tab.querySelector("svg").getAttribute("aria-hidden"), "true");
+    assert.equal(tab.querySelector("use").getAttribute("href"), `/icons/workbench.svg#${icon}`);
+  }
 });
 
 test("任务开始和完成切到状态/结果，重复渲染不抢走用户构图选择或清空飞书结果", () => {
@@ -164,10 +176,10 @@ test("任务开始和完成切到状态/结果，重复渲染不抢走用户构�
   ui.binding.setStage("loading");
   assert.equal(hidden(ui.workspace), true);
   assert.equal(hidden(ui.resultStage), false);
-  assert.equal(ui.resultTab.textContent, "任务状态");
+  assert.equal(accessibleName(ui.resultTab), "任务状态");
   assert.equal(ui.resultTab.disabled, false);
   ui.binding.setStage("results");
-  assert.equal(ui.resultTab.textContent, "生成结果");
+  assert.equal(accessibleName(ui.resultTab), "生成结果");
   assert.equal(selected(ui.resultTab), true);
   ui.previewTab.dispatch("click");
   ui.binding.setStage("results");
@@ -192,7 +204,7 @@ test("失败默认保留错误状态，用户可返回构图且相同错误重�
   ui.binding.setActive(true);
   ui.binding.setStage("error");
   assert.equal(selected(ui.resultTab), true);
-  assert.equal(ui.resultTab.textContent, "任务状态");
+  assert.equal(accessibleName(ui.resultTab), "任务状态");
   assert.equal(hidden(ui.resultStage), false);
   ui.previewTab.dispatch("click");
   ui.binding.setStage("error");
@@ -203,14 +215,15 @@ test("失败默认保留错误状态，用户可返回构图且相同错误重�
   ui.binding.setStage("empty");
   assert.equal(selected(ui.previewTab), true);
   assert.equal(ui.resultTab.disabled, true);
+  assert.equal(hidden(ui.tabs), true);
 });
 
 test("页签方向键/Home/End切换选择与焦点，空任务不能键盘进入无结果页", () => {
   const ui = fixture();
   ui.binding.setActive(true);
   const emptyKey = ui.previewTab.dispatch("keydown", { key: "ArrowRight" });
-  assert.equal(emptyKey.defaultPrevented, true);
-  assert.equal(ui.document.activeElement, ui.previewTab);
+  assert.equal(emptyKey.defaultPrevented, false);
+  assert.equal(ui.document.activeElement, undefined);
   ui.binding.setStage("results");
   for (const [start, key, target] of [
     [ui.resultTab, "ArrowRight", ui.previewTab],
@@ -239,7 +252,6 @@ test("跨功能隐藏扩图工作区并恢复原面板语义，其他功能阶�
     assert.equal(hidden(ui.tabs), true);
     assert.equal(hidden(ui.workspace), true);
     assert.equal(hidden(ui.resultStage), false);
-    assert.equal(hidden(ui.toolbar), false);
     assert.equal(ui.panel.classList.contains("outpaint-workspace-active"), false);
     assert.equal(ui.resultStage.getAttribute("role"), original.resultRole ?? null);
     assert.equal(ui.resultStage.getAttribute("aria-labelledby"), original.resultLabel ?? null);
@@ -248,7 +260,7 @@ test("跨功能隐藏扩图工作区并恢复原面板语义，其他功能阶�
     ui.binding.setStage("results");
     assert.equal(selected(ui.previewTab), true);
     assert.equal(hidden(ui.workspace), false);
-    assert.equal(ui.resultTab.textContent, "生成结果");
+    assert.equal(accessibleName(ui.resultTab), "生成结果");
   }
 });
 
@@ -338,7 +350,7 @@ test("旧任务进行中换图保持新构图，下一次 START 的新任务正�
   assert.equal(selected(ui.previewTab), true, "旧任务完成保留新图的编辑上下文");
   ui.binding.setStage("loading", next);
   assert.equal(selected(ui.resultTab), true);
-  assert.equal(ui.resultTab.textContent, "任务状态");
+  assert.equal(accessibleName(ui.resultTab), "任务状态");
   ui.previewTab.dispatch("click");
   ui.binding.setStage("results", next);
   assert.equal(selected(ui.resultTab), true, "新任务完成正常自动显示生成结果");

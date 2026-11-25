@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖工作台参数与结果面板、共享上传、下拉及START的令牌和布局
- * [OUTPUT]: 提供挂载前后一致的参数节奏、无套框角色组、参考图移除和结果画布
+ * [INPUT]: 依赖 ai-render-studio.css 的无外框嵌入结果面、工作台参数、共享上传、下拉、START及生图反馈样式
+ * [OUTPUT]: 提供挂载前后一致的参数节奏、无套框角色组、参考图移除、生成状态与完整的嵌入图片画布
  * [POS]: public 的人物宠物合成局部样式，主工作台负责参数伸缩、抽屉和START停靠
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -36,19 +36,19 @@
 .scene-cast-reference .studio-icon-button { align-items: center; background: transparent; border: 0; color: var(--muted); display: grid; flex: 0 0 32px; height: 32px; place-items: center; }
 .scene-cast-reference .studio-icon-button svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; }
 .scene-cast-stage { align-items: center; display: grid; flex: 1 1 0; justify-items: center; min-height: 0; overflow: hidden; padding: 16px; position: relative; }
+.scene-cast-integrated .scene-cast-stage { grid-template-rows: minmax(0, 1fr); }
 .scene-cast-stage img { grid-area: 1 / 1; height: 100%; min-height: 0; object-fit: contain; width: 100%; }
-.scene-cast-empty, .scene-cast-progress { color: var(--muted); font-size: 12px; grid-area: 1 / 1; margin: 0; max-width: 28ch; text-align: center; }
-.scene-cast-progress { align-self: end; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 8px 12px; z-index: 1; }
+.scene-cast-empty { color: var(--muted); font-size: 12px; grid-area: 1 / 1; margin: 0; max-width: 28ch; text-align: center; }
+.scene-cast-progress { grid-area: 1 / 1; inline-size: min(100%, 320px); }
+.scene-cast-progress p:not(.generation-feedback-text) { color: var(--muted); font-size: 12px; line-height: 1.8; margin: 0; overflow-wrap: anywhere; }
 .scene-cast-result-meta { color: var(--muted); font-size: 12px; max-height: 40%; overflow: auto; }
-.scene-cast-integrated .studio-lighting { display: grid; grid-template-columns: minmax(0, 1fr); height: 100%; }
-.scene-cast-integrated .studio-stage { min-height: 0; }
 .scene-cast-actions .studio-error, .scene-cast-settings .studio-error { color: var(--danger); font-size: 11px; line-height: 1.65; margin: 8px 0; overflow-wrap: anywhere; }
 .scene-cast-actions .studio-secondary { margin-top: 8px; width: 100%; }
 @media (max-width: 740px) {
   .scene-cast-page { padding: 4px; }
-  .scene-cast-page.scene-cast-integrated { height: 100%; min-height: 0; overflow: hidden; padding: 0; }
+  .scene-cast-page.scene-cast-integrated { height: 100dvh; min-height: 0; overflow: hidden; padding: 0; }
   .scene-cast-page:not(.scene-cast-integrated) .scene-cast-stage { flex: 0 0 auto; min-height: 250px; }
-  .scene-cast-stage img { height: auto; max-height: 58vh; }
+  .scene-cast-page:not(.scene-cast-integrated) .scene-cast-stage img { height: auto; max-height: 58vh; }
   .scene-cast-page:not(.scene-cast-integrated) .scene-cast-result-meta { max-height: none; }
 }
 @media (pointer: coarse) {

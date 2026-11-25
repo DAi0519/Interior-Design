@@ -4,8 +4,8 @@
  * [POS]: public 表单适配层；所有页面及动态插入 select 统一接入组件，不维护第二套下拉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import { bindChoiceSelect } from "./choice-select.js?v=1";
-export { stabilizePointerFocus } from "./choice-select.js?v=1";
+import { bindChoiceSelect } from "./choice-select.js?v=2";
+export { stabilizePointerFocus } from "./choice-select.js?v=2";
 
 export function enhanceSearchableSelect(select, bindChoice = bindChoiceSelect, { searchable = true } = {}) {
   const doc = select.ownerDocument || document;

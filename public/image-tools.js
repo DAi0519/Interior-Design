@@ -6,11 +6,11 @@
  */
 
 import { bindImageMultiAngle } from "./image-multi-angle.js";
-import { bindImageMaskFill } from "./image-mask-fill.js";
+import { bindImageMaskFill } from "./image-mask-fill.js?v=2";
 import { bindImageRelight } from "./image-relight.js";
 import { bindImageUpscale } from "./image-upscale.js?v=4";
 import { bindImageOutpaint } from "./image-outpaint.js?v=2";
-import { bindImageOutpaintWorkspace, bindImageToolWorkspace } from "./image-outpaint-workspace.js";
+import { bindImageOutpaintWorkspace, bindImageToolWorkspace } from "./image-outpaint-workspace.js?v=2";
 
 export async function refreshImageOutpaintConfig(api, controller) {
   try {

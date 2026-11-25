@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖光照模板/Prompt脱敏版本与飞书入口/整体原灯和可选新增光源及单灯精修状态、共享大画布工作区及工作台银灰控件令牌
- * [OUTPUT]: 对外提供轻量Prompt版本刷新行、五模板直接生成及整体原灯三选/可选精修、两灯具模式/色温预设、混合标注列表、等比画布、窄屏工具可达与焦点样式
+ * [OUTPUT]: 对外提供轻量Prompt版本刷新行、五模板直接生成及整体原灯三选/可选精修、两灯具模式/色温预设、混合标注列表、等比画布、窄屏工具可达及选择/按压/焦点样式
  * [POS]: public 的AI编辑打光视觉层，沿用38px共享控件与黑白选中态，光源彩色标记仅用于定位
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -41,7 +41,16 @@
 .relight-template-grid > button.selected, .relight-light-item.selected, .relight-modes > button.selected, .relight-presets > button.selected, .relight-drawing-actions > button.selected {
   background: #000; border-color: #000; color: #fff;
 }
-.relight-template-grid > button:hover:not(.selected):not(:disabled), .relight-light-item:hover:not(.selected), .relight-modes > button:hover:not(.selected), .relight-presets > button:hover:not(.selected), .relight-drawing-actions > button:hover:not(.selected):not(:disabled) { background: #e9e9ed; }
+@media (prefers-reduced-motion: no-preference) {
+  :is(.relight-template-grid > button, .relight-light-item, .relight-modes > button, .relight-presets > button, .relight-drawing-actions > button):active:enabled {
+    transform: scale(.985);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  :is(.relight-template-grid > button, .relight-light-item, .relight-modes > button, .relight-presets > button, .relight-drawing-actions > button):hover:enabled:not(.selected) {
+    background: var(--graphite);
+  }
+}
 .relight-settings button:focus-visible, .relight-toolbar button:focus-visible, .relight-frame canvas:focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
 .relight-settings input:focus-visible, .relight-settings textarea:focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
 .relight-settings button:disabled, .relight-toolbar button:disabled { cursor: default; opacity: .4; }

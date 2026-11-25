@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面图机位 UI 夹具与可控的送模预览响应
- * [OUTPUT]: 验证射线外接矩形裁剪开关的能力门禁、持久化和提交，以及只读预览、模式冻结和过时响应隔离、旧前景裁切及历史结果只读恢复
+ * [OUTPUT]: 验证射线外接矩形裁剪开关的能力门禁、持久化和提交，以及只读预览与真实生成反馈分离、模式冻结和过时响应隔离、旧前景裁切及历史结果只读恢复
  * [POS]: test 的机位裁剪界面专项回归，不访问模型、飞书或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -55,7 +55,9 @@ test('送模预览仅按点击读取，共用生成机位并携带旧版标记�
     return preview('裁剪图');
   } });
   assert.equal(f.node('showInputPreview').disabled, true);
+  assert.equal(f.node('viewActions').hidden, true);
   await place(f); await crop(f, true); await f.input('heading', 90);
+  assert.equal(f.node('viewActions').hidden, false);
   assert.equal(f.posts().length, 0);
   await f.click('showInputPreview');
   const [request] = callsAt(f, '/preview');
@@ -96,6 +98,8 @@ test('返回改机位再预览时，较晚完成的旧请求不能覆盖新图�
   const f = await fixture({ configuration: cropConfig, respond: () => attempts++ ? second.promise : first.promise });
   await place(f); await f.click('showInputPreview');
   assert.equal(f.node('inputPreviewView').attributes.get('aria-busy'), 'true');
+  assert.equal(f.node('generationFeedback').hidden, true);
+  assert.equal(f.node('viewActions').hidden, false);
   await f.click('showSource'); await f.input('heading', 90); await f.click('showInputPreview');
   second.resolve(preview('新机位'));
   await f.click('showInputPreview');

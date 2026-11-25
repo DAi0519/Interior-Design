@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 DOM/Popover、选项目录与展示函数、可选多选业务规则
- * [OUTPUT]: bindChoiceSelect / filterChoiceCatalog / stabilizePointerFocus，统一下拉、键盘及模态浮层，挂载到同一文档的菜单ID唯一
+ * [INPUT]: 依赖 DOM/Popover、选项目录与展示函数、可选多选业务规则及触发器的像素菜单最小宽度
+ * [OUTPUT]: bindChoiceSelect / filterChoiceCatalog / stabilizePointerFocus，统一下拉指针、键盘、输入法与模态浮层，菜单ID在文档内唯一
  * [POS]: public 共享下拉组件库唯一渲染器；custom-select 适配原生表单，model-multi-select 注入模型规则
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,10 +8,13 @@ const PANEL_MAX_HEIGHT = 330;
 const VIEWPORT_GUTTER = 12;
 const PANEL_GAP = 4;
 const MIN_USABLE_HEIGHT = 220;
+const MOUSE_PICK_DISTANCE = 10;
+const TYPEAHEAD_TIMEOUT = 1000;
+const IME_END_GRACE = 5;
 let pickerSequence = 0;
 
 export function stabilizePointerFocus(event, item) {
-  if (event.isPrimary === false || event.button !== 0) return false;
+  if (event.pointerType !== "mouse" || event.isPrimary === false || event.button !== 0 || event.ctrlKey) return false;
   event.preventDefault();
   item.focus({ preventScroll: true });
   return true;
@@ -45,6 +48,13 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
   let isOpen = false;
   let positionFrame = null;
   let disabled = false;
+  let openingPress = null;
+  let mouseTriggerPress = false;
+  let outsideTouchPress = false;
+  let composing = false;
+  let compositionEndedAt = -Infinity;
+  let typeahead = "";
+  let typedAt = -Infinity;
 
   function element(tag, className, text) {
     const node = doc.createElement(tag);
@@ -106,7 +116,8 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
     if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= win.innerHeight) { close(); return; }
     const viewportWidth = win.innerWidth;
     const viewportHeight = win.innerHeight;
-    const width = Math.min(rect.width, viewportWidth - VIEWPORT_GUTTER * 2);
+    const menuMinimum = Number.parseFloat(win.getComputedStyle?.(trigger)?.getPropertyValue?.("--model-picker-menu-min-width")) || 0;
+    const width = Math.min(Math.max(rect.width, menuMinimum), viewportWidth - VIEWPORT_GUTTER * 2);
     panel.style.width = `${width}px`;
     panel.style.maxHeight = `${Math.min(PANEL_MAX_HEIGHT, viewportHeight - VIEWPORT_GUTTER * 2)}px`;
     const desiredHeight = panel.getBoundingClientRect().height;
@@ -131,8 +142,24 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
     positionFrame = win.requestAnimationFrame(() => { positionFrame = null; positionPanel(); });
   }
 
+  function clearOpeningPress() {
+    if (!openingPress) return;
+    openingPress = null;
+    doc.removeEventListener("pointerup", finishOpeningPress, true);
+    doc.removeEventListener("pointercancel", finishOpeningPress, true);
+  }
+
+  function resetInteraction() {
+    clearOpeningPress();
+    outsideTouchPress = false;
+    composing = false;
+    compositionEndedAt = -Infinity;
+    typeahead = "";
+  }
+
   function close({ restoreFocus = false } = {}) {
     if (!isOpen) return;
+    resetInteraction();
     isOpen = false;
     trigger.setAttribute("aria-expanded", "false");
     if (nativePopover) panel.hidePopover();
@@ -143,15 +170,17 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
   function open({ focusSearch = true } = {}) {
     if (trigger.disabled || isOpen) return;
     // -------- 浮层保留在当前模态内，避免被原生 dialog 的 inert 隔离 --------
-    const host = container.closest?.('dialog[open], [role="dialog"][aria-modal="true"]') || doc.body;
+    const host = container.closest?.('dialog[open], [role="dialog"][aria-modal="true"], .parameter-popover') || doc.body;
     if (panel.parentNode !== host) host.append(panel);
     isOpen = true;
     trigger.setAttribute("aria-expanded", "true");
     if (nativePopover) panel.showPopover({ source: trigger });
     else { panel.hidden = false; panel.classList.add("open"); }
     positionPanel();
-    if (!searchable) focusRow();
-    else if (focusSearch) search.focus({ preventScroll: true });
+    if (isOpen) {
+      if (!searchable) focusRow();
+      else if (focusSearch) search.focus({ preventScroll: true });
+    }
   }
 
   function commit(nextKeys) {
@@ -256,38 +285,125 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
     schedulePosition();
   }
 
+  function isInsidePicker(target) {
+    return panel.contains(target) || trigger.contains(target);
+  }
+
+  function preventDragClick(event) {
+    if (event.detail === 0) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+
+  // -------- 鼠标按下开菜单，移动后才允许松手选择，触屏在点击时打开 --------
+  function finishOpeningPress(event) {
+    if (!openingPress || event.pointerId !== openingPress.id) return;
+    const moved = Math.max(Math.abs(event.clientX - openingPress.x), Math.abs(event.clientY - openingPress.y));
+    clearOpeningPress();
+    if (event.type === "pointercancel" || moved <= MOUSE_PICK_DISTANCE) return;
+    // 拦住随后派发到公共祖先的点击，特别是包含菜单的 dialog。
+    doc.addEventListener("click", preventDragClick, true);
+    win.setTimeout(() => doc.removeEventListener("click", preventDragClick, true), 0);
+    const target = doc.elementFromPoint?.(event.clientX, event.clientY) || event.target;
+    const item = target.closest?.(".model-picker-option");
+    if (item && panel.contains(item) && !item.disabled) {
+      item.focus({ preventScroll: true });
+      item.click();
+    } else if (!isInsidePicker(target)) close();
+  }
+
+  listen(trigger, "pointerdown", (event) => {
+    mouseTriggerPress = event.pointerType === "mouse";
+    if (!mouseTriggerPress || !stabilizePointerFocus(event, trigger)) return;
+    if (isOpen) { close({ restoreFocus: true }); return; }
+    open({ focusSearch: false });
+    if (!isOpen) return;
+    openingPress = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    doc.addEventListener("pointerup", finishOpeningPress, true);
+    doc.addEventListener("pointercancel", finishOpeningPress, true);
+  });
   listen(trigger, "click", (event) => {
     event.preventDefault();
+    if (event.detail !== 0 && (mouseTriggerPress || event.ctrlKey)) return;
     if (isOpen) close(); else open({ focusSearch: event.detail === 0 });
   });
+
   // -------- 所有下拉共享键盘导航，搜索过滤不改变选择 --------
+  function availableOptions() {
+    return catalog.map(({ key }) => rows.get(key)).filter(({ button }) => !button.hidden && !button.disabled);
+  }
+
+  function focusOption(button) {
+    button.focus({ preventScroll: true });
+    button.scrollIntoView?.({ block: "nearest" });
+  }
+
   function focusRow(direction = 0, edge = null) {
-    const items = [...rows.values()].map(row => row.button).filter(button => !button.hidden && !button.disabled);
+    const items = availableOptions().map(({ button }) => button);
     if (!items.length) return;
     const current = items.indexOf(doc.activeElement);
     const selected = items.findIndex(button => selectedKeys.includes(button.dataset.modelKey));
     const base = current >= 0 ? current : selected;
     const index = edge === "first" ? 0 : edge === "last" ? items.length - 1
       : current < 0 ? Math.max(0, selected) : (base + direction + items.length) % items.length;
-    items[index].focus({ preventScroll: true });
-    items[index].scrollIntoView?.({ block: "nearest" });
+    focusOption(items[index]);
+  }
+
+  function navigateByTyping(event) {
+    if (searchable || event.key.length !== 1 || event.metaKey || event.ctrlKey || event.altKey) return false;
+    if (event.timeStamp - typedAt >= TYPEAHEAD_TIMEOUT) typeahead = "";
+    if (event.key === " " && !typeahead) return false;
+    typeahead += event.key.toLocaleLowerCase();
+    typedAt = event.timeStamp;
+    const query = [...typeahead].every(character => character === typeahead[0]) ? typeahead[0] : typeahead;
+    const options = availableOptions();
+    const current = options.findIndex(({ button }) => button === doc.activeElement);
+    const start = query.length === 1 ? current + 1 : Math.max(current, 0);
+    const ordered = [...options.slice(start), ...options.slice(0, start)];
+    const match = ordered.find(({ label }) => label.textContent.toLocaleLowerCase().startsWith(query));
+    if (match) focusOption(match.button);
+    event.preventDefault();
+    return true;
+  }
+
+  function handleEscape(event) {
+    if (event.key !== "Escape" || (!isOpen && !event.repeat)) return false;
+    event.stopPropagation?.();
+    const nativeComposition = event.isComposing || event.keyCode === 229;
+    if (!nativeComposition) event.preventDefault();
+    if (!event.repeat && !nativeComposition && !composing
+      && !(event.timeStamp - compositionEndedAt < IME_END_GRACE)) close({ restoreFocus: true });
+    return true;
   }
   listen(trigger, "keydown", (event) => {
+    if (handleEscape(event) || event.isComposing || event.keyCode === 229) return;
+    if (event.repeat && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      return;
+    }
     if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
     event.preventDefault();
     if (isOpen) focusRow(event.key === "ArrowDown" ? 1 : -1);
     else { open({ focusSearch: false }); if (searchable) focusRow(); }
   });
   listen(panel, "keydown", (event) => {
+    if (handleEscape(event) || event.isComposing || event.keyCode === 229 || composing) return;
+    if (navigateByTyping(event)) return;
     if (["ArrowDown", "ArrowUp"].includes(event.key)) {
       event.preventDefault(); focusRow(event.key === "ArrowDown" ? 1 : -1);
     } else if (doc.activeElement !== search && ["Home", "End"].includes(event.key)) {
       event.preventDefault(); focusRow(0, event.key === "Home" ? "first" : "last");
     } else if (event.key === "Enter" || event.key === " ") {
       const item = doc.activeElement;
+      if (event.repeat && item !== search) { event.preventDefault(); return; }
       if (!list.contains(item)) return;
       event.preventDefault(); item.click();
     }
+  });
+  listen(search, "compositionstart", () => { composing = true; });
+  listen(search, "compositionend", (event) => {
+    composing = false;
+    compositionEndedAt = event.timeStamp;
   });
   listen(search, "input", refresh);
   listen(selectAll, "click", () => {
@@ -299,16 +415,24 @@ export function bindChoiceSelect({ container, onChange, onMessage = () => {},
     if (!nativePopover) return;
     isOpen = event.newState === "open";
     trigger.setAttribute("aria-expanded", String(isOpen));
+    if (!isOpen) resetInteraction();
   });
   listen(panel, "focusout", (event) => {
-    if (isOpen && !panel.contains(event.relatedTarget) && event.relatedTarget !== trigger) close();
+    if (isOpen && event.relatedTarget && !isInsidePicker(event.relatedTarget)) close();
   });
-  listen(doc, "keydown", (event) => {
-    if (event.key === "Escape" && isOpen) { event.preventDefault(); close({ restoreFocus: true }); }
-  });
-  listen(doc, "pointerdown", (event) => {
-    if (!nativePopover && isOpen && !panel.contains(event.target) && !trigger.contains(event.target)) close();
-  });
+  if (!nativePopover) {
+    listen(doc, "pointerdown", (event) => {
+      if (!isOpen || event.isPrimary === false) return;
+      const outside = !isInsidePicker(event.target);
+      const waitsForClick = event.pointerType === "touch" || event.pointerType === "pen";
+      outsideTouchPress = outside && waitsForClick;
+      if (outside && !waitsForClick) close();
+    });
+    listen(doc, "click", (event) => {
+      if (outsideTouchPress && isOpen && isInsidePicker(event.target) === false) close();
+      outsideTouchPress = false;
+    });
+  }
   listen(doc, "focusin", (event) => {
     if (isOpen && !panel.contains(event.target) && !trigger.contains(event.target)) close();
   });

@@ -5,7 +5,7 @@ gpt26-integration.test.mjs: GPT2.6跨场景身份、尺寸、权限和原生输�
 成员清单
 floor-plan-camera-crop.test.mjs: 无限射线与矩形求交、四向/非正方形/斜向多边形、边界朝外和角点、整数裁边及远边/外框独立
 floor-plan-camera-crop-service.test.mjs: 相机坐标/角度/深度与取景框准入、裁剪开关准入和默认兼容、交集外接矩形内左右角域外原色保留/矩形外裁除/留边、空交集阻断、实际送模预览API零模型/任务副作用、Beta显式裁剪与旧快照、Agent坐标换算、两阶段同字节和直出原文/裁剪归档
-floor-plan-camera-crop-ui.test.mjs: 裁剪默认关闭和持久化、服务能力门禁、只读预览同机位/旧版标记、失败重试及过时响应隔离、旧前景裁切配置忽略、旧结果只读恢复及原空间推理冻结
+floor-plan-camera-crop-ui.test.mjs: 裁剪默认关闭和持久化、服务能力门禁、只读预览与生成反馈分离及同机位/旧版标记、失败重试及过时响应隔离、旧前景裁切配置忽略、旧结果只读恢复及原空间推理冻结
 floor-plan-camera-qwen-adapter.test.mjs: Qwen 2511 单图原词节点图、固定 1K/16:9、权重缺失零提交及同次原生 PNG 与任务回执，内存 HTTP 不使用 GPU
 beta-base-read-retry.test.mjs: 只读EOF/TLS恢复/持续三次上限及任何记录写入只发一次，CLI替身无收费
 seedream55.test.mjs: Seedream 5.5独立官方尺寸、九比例1K/2K、文生图/多参考图真实HTTP包、JPEG与单次提交、未开放分辨率/格式阻断与2:1全景准入，无外部调用
@@ -15,8 +15,8 @@ panorama-lighting-slot.prompt.txt: 用户审阅的四部分光影槽正文测试
 floor-plan-camera-prompt.test.mjs: Agent最低v2门槛、v9新编码与旧版隔离、默认和冻结版本读取、正文上架/版本SHA/下架重复漂移阻断与公开目录脱敏
 floor-plan-camera-visibility.test.mjs: 双侧近墙的画幅与远端平面命中点、三角内首墙可见区填色、矩形外框包住三角及取消后只移除矩形、旧 C 标记、画外墙线与原色像素、单侧遮挡与缺失命中回退
 floor-plan-camera-frame.test.mjs: 旧裁切参数阻断与历史归档兼容、共用送模图与双阶段几何取景、画外排除及空场保真、结果和归档，v9照片左右方向映射、显式取景距离与外框的推理说明、双语取景顺序及裁切和画外排除送模、移除固定收尾段并保留双侧近墙提示、不确定项隔离、单对象包装和顶层六项恢复、截断与缺项零生图、v8兼容、v10自然正文和用户原文兼容、成片方位清理、空白和无法确认守卫、摄影段随视野换算焦距、v11用户要求只由Agent转成成图正文、原文归档及实际成图词同文
-floor-plan-camera-ui.test.mjs: 父工作台参数及START挂载与忙碌反馈；.9单张机位图门禁/冻结与历史结果、GPT 6.1 Sol 独立推理选模与提交、提示词直出模式门禁与原文/结果恢复、上传墙线分析和画外原色的画布标注合同、推理失败终态与手动重试、多模型批次、中心手柄变焦转向、取景框开关随画布与请求冻结、外框远边与触屏握把独立伸缩和冻结、遮挡回退、键盘及GET恢复、逐图归档与重试
-floor-plan-camera-ui-fixture.mjs: 独立/挂载内存DOM机位控制器及归档状态，提供图片、配置、机位标注与握把记录、模型和同源HTTP替身
+floor-plan-camera-ui.test.mjs: 父工作台参数及START挂载、首页上传/恢复/发送状态与同一准入门槛、真实任务反馈及新图显现；.9单张机位图门禁/冻结与历史结果、GPT 6.1 Sol 独立推理选模与提交、提示词直出模式门禁与原文/结果恢复、上传墙线分析和画外原色的画布标注合同、推理失败终态与手动重试、多模型批次、中心手柄变焦转向、取景框开关随画布与请求冻结、外框远边与触屏握把独立伸缩和冻结、遮挡回退、键盘及GET恢复、逐图归档与重试
+floor-plan-camera-ui-fixture.mjs: 独立/挂载内存DOM机位控制器及归档状态，提供图片、配置、机位标注与握把记录、显现回调、模型和同源HTTP替身
 floor-plan-camera-qwen-ui.test.mjs: 主工作台机位目录选择 Qwen Image Edit 2511、固定 16:9/1K、裁剪冻结及推理/直出请求
 floor-plan-camera-service.test.mjs: 十模型HTTP验证Agent与生图共用唯一标注图、图生图路由、Banana Pro新旧ID权限及1K实际请求尺寸、GPT图像工具complexity；两字段JSON、取景距离与取景框准入、墙线可见区像素、画外原色和摄影要求、资产准入、两阶段回执与幂等、同图同词单次推理与部分失败
 floor-plan-camera-direct.test.mjs: 主工作台机位提示词直出的输入准入、取景距离及无框图送模、Qwen仅在注入时可用/独立ComfyUI请求/裁剪送模与归档回执、多模型批次与同文归档、费用和只读恢复
@@ -25,14 +25,14 @@ beta-house-plan.test.mjs: DeepSeek Flash+v4纯正文到GPT2.6及同文归档； 
 house-plan.test.mjs: 纯文本/旧JSON兼容及未知设计字段保留、可选展示字段、Agent与生图指令隔离； 空/损坏/识图失败/截断零生图； 标注像素/颜色/安全转义及同图归档； 默认模型、Prompt版本/SHA与权限、费用回执及API隔离
 room-design-prompt-output.test.mjs: 共享design-prompt-output抽取后空房/旧房自由JSON与纯文本、三种风格输入及双Provider、原文前置/同文归档、缓存隔离和主动重算、空/损坏零出图、32000上限与白模/风格转换校验隔离；全部内存替身
 floor-plan-geometry.test.mjs: 验证识图模型实际路由、撤权和版本漂移门禁
-floor-plan-engine.test.mjs: 同源引擎加载、视图、保存、机位与资源边界回归
+floor-plan-engine.test.mjs: 同源引擎加载、视图、保存、机位、无选中高亮框和资源边界回归
 floor-plan-spec.test.mjs: 单层户型与原文校验回归
 floor-plan-state.test.mjs: 本机方案保存与旧文件恢复回归
 floor-plan-archive.test.mjs: 归档Schema/逐图身份去重/缺失附件续传/字段和下载字节SHA
 floor-plan-api.test.mjs: 机位上传墙线与实际送模标注一致、仅开角回退与无出图归档副作用；图像任务幂等、恢复、失败费用、连接隔离、归档准入和逐图同步
 floor-plan-service.test.mjs: Seedream 5.5布局身份/权限/1K2K与后续动作隔离； 大JPEG转PNG超限后自动压缩、保持尺寸及实际SHA； 显式文生图无参考字段/拒绝混入图片及默认图生图不变；GPT2.6双模型身份/权限与历史兼容； 布局四模型实际路由/默认参数/失权无降级、送模压缩SHA/原生格式与PNG交付、后续三动作及原机位60°上限、资产/费用离线合同
 floor-plan-prompt.test.mjs: 独立v2 JSON资产字段、完整文本/版本SHA、下架漂移阻断与脱敏目录合同
-floor-plan-ui.test.mjs: 真实页面脚本的选模、换源、原任务恢复及未知提交只GET，归档能力门禁、切图隔离与重试仅同步；内存DOM/HTTP无收费
+floor-plan-ui.test.mjs: 内嵌表单16px与独立布局回归，真实页面脚本的选模、换源、生成反馈与新图显现、原任务恢复及未知提交只GET，归档能力门禁、切图隔离与重试仅同步；内存DOM/HTTP无收费
 workbench-prompt-order.test.mjs: 白模/空房/旧房/风格转换十一模式×双Provider的Agent首段/JSON首字段与缓存/同文归档，空输入/Agent同名字段隔离/8k用户与32k合成边界、打光typed动作/二次编辑/Flux触发词和自由生图原文合同，零外部调用
 flux-post-upscale.test.mjs: 各功能KS身份/正式执行图及4K/5K到6K、实际元数据、美化核心隔离、版本/输入边界和历史3B合同替身
 flux-post-upscale-client.test.mjs: 实际KS子图节点/7B准入、未知提交和超时不重提、PNG精确交付与其他Comfy消费者隔离
@@ -42,13 +42,13 @@ beta-room-renovation.test.mjs: 旧房独立版本/权限/房型准入、跨功�
 beta-room-renovation-ui.test.mjs: 旧房独立配置/版本切换恢复、缺失下架阻断、逐图房型临时补选、样本×模型/共享参考图和负向草稿隔离，七项无收费行为回归
 effect-beautification-lighting.test.mjs: Main美化混选逐模型模板限额/卡片版本SHA防绕过/非法身份零入队、用户首段与实际节点同文、新卡Flux/OneAPI低自然图及归档、冻结漂移阻断与Beta合同，全部替身
 ai-render-studio-lighting.test.mjs: 真实共享库形态九卡/最高上架版、三段词单次编译、原光影零读取与版本/正文漂移阻断，无收费
-ai-render-studio-ui.test.mjs: 无网络DOM的未知提交/GET恢复、同步状态刷新和不重复模型提交回归
+ai-render-studio-ui.test.mjs: 画布无展示标题和按需返回结果，无网络DOM的未知提交/GET恢复、任务反馈与一次结果揭示、同步状态刷新和不重复模型提交回归
 
 ai-render-studio-archive.test.mjs: 真实CLI选项形态/Schema完整性、独立Prompt身份/风格/光源/实际正文冻结、原件guide与结果SHA尺寸漂移阻断
 ai-render-studio-sync.test.mjs: 同步字段/附件双回读与下载SHA、响应未知时续传不重复附件、同步失败重试模型仍一次的全链替身
 
 http-security.test.mjs: 仅渲染台静态页开放同源嵌入，其余安全头与API/页面拒绝策略保持
-ai-render-studio-host.test.mjs: 渲染台、平面机位、人物宠物与户型布局参数挂载隔离、移动抽屉及同源结果交接，含旧START恢复和URL直达
+ai-render-studio-host.test.mjs: 渲染台、平面机位、人物宠物与户型布局参数挂载隔离、移动抽屉及同源结果交接，含独立直达、对话挂载不变更地址与草稿保活
 ai-render-studio-prompt.test.mjs: 独立JSON四风格/保材质结构、上架版本唯一性/SHA/缺失与重复阻断及公开目录脱敏
 ai-render-studio-service.test.mjs: 用户要求前置/唯一所选风格与typed控光单次编译、服务端快照防伪、保材质零标注可用、原打光6MiB隔离与原生PNG
 ai-render-studio-api.test.mjs: 独立任务HTTP/入队前准入/同ID幂等、私有Prompt隔离及查询/归档恢复边界
@@ -130,7 +130,7 @@ image-outpaint-fixture.mjs: 含原比例首项的固定2K共享内存DOM/冒泡�
 image-outpaint-performance.test.mjs: 高频输入合帧/末坐标提交/失效帧取消与局部绘制隔离测试，覆盖30/60/120Hz输入和60Hz帧调度，不访问网络或GPU
 image-outpaint-continuous.test.mjs: 三引擎100帧0.1/0.2px真实绑定轨迹与旧网格冻结对照、四角固定对角/原图比例、松手及重绘无回弹、4K源图按2K目标仅transform无源图布局写入、提交仍满足整数模型网格与误差界限测试，不访问网络或GPU
 image-outpaint-transform.test.mjs: 四角锚点与边界、鼠标/触屏/键盘缩放和取消、倍率预设/range连续端点/自定义/提示、浮层重排关闭及移动与缩放互斥的DOM交互测试，不调用网络或GPU
-image-outpaint-workspace.test.mjs: 主画布DOM节点/事件保留、四种任务阶段与页签选择保持、键盘焦点、原结果/飞书链接保留、隐藏构图时关闭浮层、上传默认预览/旧任务恢复与完成不覆盖新构图、新任务身份及跨功能ARIA恢复的内存交互测试，不调用模型或网络
+image-outpaint-workspace.test.mjs: 主画布DOM节点/事件保留、空任务隐藏图标、四种任务阶段与图标页签选择保持、键盘焦点、原结果/飞书链接保留、隐藏构图时关闭浮层、上传默认预览/旧任务恢复与完成不覆盖新构图、新任务身份及跨功能ARIA恢复的内存交互测试，不调用模型或网络
 image-outpaint-ui.test.mjs: 原比例首项/真实初始默认/上传换图动态重算与显式预设保留、Flux/Qwen/Sunburst三引擎原比例网格及模型参数隔离、双Flux模型下拉/默认值/失效及空目录阻断、无分辨率选项/固定2K与4K源图、鼠标触摸键盘构图/居中、默认1.5倍与scale请求、刷新保留构图/单份原图请求测试；正常说明清空，服务/节点/尺寸实际错误可见及恢复清除
 image-outpaint-qwen.test.mjs: Janus未扩边原图描述/question与采样配置不变、25节点原文直连SaveText/positive且无固定前缀/Scene continuation/StringConcatenate、实际History原文捕获及缺失不伪造、独立2511/4步LoRA与约1MP图像/条件/遮罩共同尺度、2K/4K横竖偏心/非16源几何、单一解码图恢复/无回贴来源及边界连续性、COMBO/节点/INT与STRING槽位漂移阻断、真实PNG尺寸/摘要与跨请求旧图零下载，不访问远端或GPU
 image-outpaint-archive.test.mjs: 三引擎四模型固定2K及任意原比例选择/实际尺寸/画布参数JSON原样归档、真实Prompt/源图/模型/费用投影、Qwen/Flux仅实际正文与缺失留空、EXIF字节、错尺寸失败零同步、已完成产物无GPU补写合同与超分本机路径回归
@@ -144,15 +144,16 @@ CLAUDE.md: 本模块地图，维护自动化测试成员清单
 app-update.test.mjs: GitHub 正式 Release 与 SemVer/标准 ZIP 准入、匿名查询、HEAD 兜底不伪造说明、失败降级、超时、缓存与并发去重测试，不访问外部网络
 app-update-api.test.mjs: 最新正式版回执绑定、安装政策/安装前与替换前任务空闲、非法 URL/版本/不可检查/并发、待重启/恢复失败保护与 NDJSON 成功失败合同的内存 HTTP 测试
 app-installer.test.mjs: 注入 Response 的真实临时 ZIP 安装测试，覆盖官方摘要、Git 源码保护/持久新目录、Release 原地同路径版本更新/旧模块删除/配置数据保留/事务失败回滚与恢复失败备份/人工恢复指引/重复安装阻断、目录竞态/ZIP 路径/重定向/截断/并发合同，不访问网络或启动服务
-app-update-ui.test.mjs: 无外链的单一下载安装/按需检查/原位失败重试、发布模板亮点提取/非模板保留/空说明隐藏、完整安装终态/错误码/互斥、两模式确认/指导与未知模式回退、待重启/恢复失败回归，不下载或安装新版
-custom-select.test.mjs: 原生select共享适配回归，验证值/change/动态选项/禁用/空占位与唯一视觉入口；指针焦点稳定及无重复菜单实现
+app-update-ui.test.mjs: 底部常显版号、仅新版圆点、恢复与待重启提示及弹层焦点恢复、无外链的单一下载安装/按需检查/原位失败重试、发布模板亮点提取/非模板保留/空说明隐藏、完整安装终态/错误码/互斥、两模式确认/指导与未知模式回退、待重启/恢复失败回归，不下载或安装新版
+custom-select.test.mjs: 原生select共享适配回归，验证值/change/动态选项/禁用/空占位与唯一视觉入口、纯黑选中与独立键盘焦点；指针焦点稳定及无重复菜单实现
 choice-controls.test.mjs: 生图页功能/超分按钮共享尺寸、选中态与风格下拉引用，以及主工作台、批量跑图和嵌入工具共用14px刷新图标的回归
 generation-count.test.mjs: 单模型生成张数下拉回归测试，验证 1–4 张归一化、原生 select 渐进增强结构及向上菜单定位
-product-navigation.test.mjs: 三页「批量跑图」导航文案、共享顶栏字体与全局动效回归测试，验证三页预加载同源 Inter Variable、Raycast OpenType 特性、全部 CSS 禁止 transition all/布局属性补间、三页静态首帧激活层、140ms 导航前双层 transform、反复点击重定向、原生链接降级与 reduced-motion 瞬时切换
-raycast-accent.test.mjs: 主工作台顶栏连接与额度合并交互结构和跨工作台最终颜色层的回归测试，验证冷白银灰顶栏、纯黑白字选中态、中性浅色普通按钮、含 Beta 全宽 START 的唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、三页最终加载顺序、中性焦点及同源近距阴影的含下载安装的中性弹层动作
+product-navigation.test.mjs: 三工作台无桌面顶栏、底部状态和更新入口及移动焦点移交、共享侧栏工作台横排/收起纵排、原生链接完整无障碍名称与首帧当前页、桌面宽度记忆/移动抽屉防误触收起和焦点、同源 Inter 字体及全局无布局补间回归
+connection-center-quota.test.mjs: 侧栏直接刷新与弹层额度读数同步、刷新焦点与请求互斥、断开清理和错误重试。
+raycast-accent.test.mjs: 侧栏额度和刷新入口、连接弹层共享读数和跨工作台最终颜色层的回归测试，验证冷白银灰顶栏、无阴影的纯黑白字选中态、共享银灰变量、中性浅色普通按钮、含 Beta 全宽 START 的唯一 `#f37021` 标志性盒橙关键动作/保色 RUNNING/小面积状态回声、pointer-down 即时反馈、减少动态/透明度与增强对比度系统偏好、三页最终加载顺序、中性焦点及同源近距阴影的含下载安装的中性弹层动作与密钥输入底色焦点
 local-settings.test.mjs: .env.local 未知项保留、OneAPI Key 原子写入/覆盖/删除、格式校验与持久化状态测试
 lark-setup.test.mjs: CLI 配置 JSON、字段读取必需 Scope 与中文授权能力、共享 Base 状态、非阻塞 Device Flow、二维码与授权过期测试
-model-config.test.mjs: 十一个 OneAPI 模型及 Flux 目录、Seedream 5.5独立身份，Banana Pro preview 身份、1K/2K/4K 代表尺寸与 512/2:1 拒绝；GPT 画幅质量与2.6思考强度、Seedream Pro 全景 4K 实验档、单图、Flux 原图比例及 KS 超分、全景准入和请求白名单，无真实请求
+model-config.test.mjs: 十一个 OneAPI 模型及 Flux 目录、Seedream 5.5独立身份，Banana Pro preview 身份、1K/2K/4K 代表尺寸与 512/2:1 拒绝；GPT 画幅质量与2.6思考强度、Seedream Pro 全景 4K 实验档、单图数量提示、Flux 原图比例及 KS 超分、全景准入和请求白名单，无真实请求
 banana21-model.test.mjs: Banana 2.1 与旧模型身份共存、Main/Beta/API 全档位尺寸一致、512 旧缓存回退与单份原图、Benchmark 稳定配置和 512/2:1 前置拒绝合同测试，不调用模型或真实飞书
 generation-batch.test.mjs: 不限总项数的服务端批次标识、浏览器逐模型及功能尺寸/质量适配、Seedream 5.0 Pro 全景 4K 保留、白模/空房/精模格式限制与遗留工作流档位剥离、ComfyUI 分段耗时摘要、并发度二、保序和部分失败测试，不发送真实请求
 generation-jobs.test.mjs: 日常生图付费执行前飞书同步合同阻断、任务即时入队、查询恢复、领域阶段快照透传、最多两路并发、八模型端到端批次归档、保序与部分失败测试，不调用真实生图服务；deferred 测试确保成功/失败终态前始终忙碌
@@ -170,23 +171,25 @@ beta-multi-angle.test.mjs: 两张样本×含Seedream 5.5的七模型真实图片
 beta-outpaint.test.mjs: GPT2.6双模型身份/权限与历史兼容； 六工作流真源/脱敏能力与固定2K原比例/预设/居中/三倍率合同，客户端身份冲突/非2K/四边/资产重传零入队、不可用候选及排队后失效阻断、同样本六工作流lazy读取/真实标签、建档前真实尺寸400与4000px源适配、Comfy无Prompt Agent Key、Sunburst生成/归档失败不重复收费提交；内存替身无外部调用
 beta-outpaint-integration.test.mjs: 真实建档字段覆盖GPT2.6，避免仅mock绕过身份校验； GPT2.6双模型身份/权限与历史兼容； 页面样本乘六工作流经Runner与真实generationService/扩图适配器到captureBetaGenerationArchive的跨层测试，验证两Flux模型/Qwen/Sunburst单次路由、实际Prompt/版本/2K画布及独立Beta归档、生成同步6/6、普通模型/4K配置与扩图状态隔离；模型和Base全部mock
 beta-panorama.test.mjs: 全景Flux触发词统一最前及冻结送模词；Seedream 5.5的2:1准入；GPT2.6双模型身份/权限与历史兼容；共享设计模式判定、全景批次隔离、2:1真实尺寸与8MB保护、ID元数据入队、多光影逐样本/模型展开去重冻结、执行时原图比例校验、含Banana Pro的非2:1模型阻断、冻结Prompt归档及Seedream全景4K/R5_4内存合同测试
-beta-ui.test.mjs: 批量跑图标题与当前导航状态、机位直出和取景框的旧服务门禁、视野深度拖动与恢复、取景框开关即时绘制和逐样本保存恢复、原词与机位冻结；多角度界面、机位共享、真实样本×模型请求、缺目录阻断；自由生图整批提示词可换行及仅批次提交、原样本ID与旧进程门禁；含平面图机位的十四功能名称、顺序和页面接线及Beta质感增强固定Prompt批跑、共享可搜索任务单选/忙碌禁用/切换与保存接线、默认Flux/标签页恢复、样本集选择/逐张保存/完成回读、样本ID入队及free/style共用资产、无限结果和独立测试时间、模型多选摘要/搜索及配置恢复、配置/监控双栏、仅失败项RETRY、冻结批次引用/提交互斥/新批次退出、生成/同步双进度、逐项/旧任务/连接预警及安全文本零图片渲染；保留clip/定位/38px中性保存及飞书结果按钮静态合同；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除；美化新增模板真实buildItems逐模型投影/门禁与原六档隔离；实际美化样本×氛围×模型矩阵/唯一RunID与旧新逐项参数、混选Prompt准入
+beta-ui.test.mjs: 批量跑图标题、侧栏当前页、字段与 START/RETRY 的 720px 限宽和监控布局容器、机位直出和取景框的旧服务门禁、视野深度拖动与恢复、取景框开关即时绘制和逐样本保存恢复、原词与机位冻结；多角度界面、机位共享、真实样本×模型请求、缺目录阻断；自由生图整批提示词可换行及仅批次提交、原样本ID与旧进程门禁；含平面图机位的十四功能名称、顺序和页面接线及Beta质感增强固定Prompt批跑、共享可搜索任务单选/忙碌禁用/切换与保存接线、默认Flux/标签页恢复、样本集选择/逐张保存/完成回读、样本ID入队及free/style共用资产、无限结果和独立测试时间、模型多选摘要/搜索及配置恢复、配置/监控双栏、仅失败项RETRY、冻结批次引用/提交互斥/新批次退出、生成/同步双进度、逐项/旧任务/连接预警及安全文本零图片渲染；保留clip/定位/38px中性保存及飞书结果按钮静态合同；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除；美化新增模板真实buildItems逐模型投影/门禁与原六档隔离；实际美化样本×氛围×模型矩阵/唯一RunID与旧新逐项参数、混选Prompt准入
+generation-feedback.test.mjs: 真实图像解码前防止提前露图，验证模糊首帧定位、揭示和清理，以及旧地址和减少动态效果
 generation-task-state.test.mjs: 当前标签页按功能保留生成任务 ID、按图片计数及 ComfyUI/API 编辑阶段消息推导生成中状态、结果与过期/原始错误纯状态测试，不访问真实浏览器存储
 generation-task-request.test.mjs: 美化十五模板混选×每模板张数/模型展开、逐项覆盖共享卡片与总数文案；全景六光影×每卡张数/模型独立展开、逐卡身份标签和底图去重；日常生图前台生图及扩图飞书实时 Schema 就绪阻断与仅图片超分豁免、空白默认正向提示词、Flux2 Klein 默认选择、固定 PNG 且无格式 UI、单模型 1–4 张及超过四模型展开、美化六组合/指定版本穿透与氛围转换/全景美化分功能加载文案、后台任务参数适配与图片载荷只传一份测试，不发送真实生图请求；美化新卡逐模型身份透传/固定低自然/回原六档与跨功能隔离
 image-upscale.test.mjs: 六套SeedVR2来源/输入预处理与原字节保真，KS两套2X/4K/6K目标及非法8K/输入边界、节点max/倍率元数据、源/请求/实际尺寸、Flux嵌入兼容与时限、本机结果和OneAPI/飞书豁免；无GPU
 image-upscale-noise.test.mjs: 双噪声数值/0.001步长、六工作流实际节点与元数据、非法值零调用/零入队、冻结与既有jobId幂等、缺省零及非零能力门禁；无网络或GPU
 effect-render-enhancement.test.mjs: 效果图氛围转换旧编码/新展示名、环境模块与全景纯文本/开放 MAIN JSON和指定冻结版本、Seedream 全景 4K、普通 Flux 工作流、单图/原比例、脱敏响应与归档元数据内存集成测试；迁移与氛围词前置只读且基础记忆隔离，真实错误标记/恢复清除
-model-multi-select.test.mjs: 共享单/多选下拉的摘要/搜索、筛选全选取消与首选保序、键盘导航、同文档浮层ID唯一、同宽4px定位、模态内迁移和归焦
-workspace-panel.test.mjs: 固定144px目录与参数独立伸缩、368px以上任意可读中间值持久化、144px参数收空/旧80及304/320偏好迁移、RAF/取消/键盘/预览保护和同DOM移动抽屉焦点回归，不启动服务或提交生成
+model-multi-select.test.mjs: 紧凑触发器的可选菜单宽度和视口裁剪；共享单/多选下拉的摘要/搜索、筛选全选取消与首选保序、键盘导航、同文档浮层ID唯一、同宽4px定位、鼠标拖选与触屏点击、键入匹配、输入法与重复键、模态内迁移和归焦
+workspace-panel.test.mjs: 侧栏与参数独立、读写224px以上的参数宽度与旧偏好、统一分隔线点击/触摸/Enter收展与横拖判定、刷新默认展开并恢复原宽、输入法回车与抽屉拖出防误触、静态移动参数文案、RAF/取消/键盘/预览保护及移动配置抽屉
 comfyui-client.test.mjs: 已受理任务History短暂网络失败只重读/不重提GPU及POST连接失败只提交一次；楚雄默认环境与编辑器URL去query/hash、ComfyUI 健康、取消、Base64 原子提交、WebSocket 阶段、队列兜底、超时、`completed=false` OOM 即时报错、网关恢复、节点详情、唯一产物、旧图拒绝、404 恢复、输出指纹与参考图边界测试，不提交真实任务
 comfyui-timing.test.mjs: 可控时钟精确分离POST/History/view headers/body/等待/空轮询与HTTP重试计数，跨时钟保留负差/缺失不伪造、仅数字脱敏/快照及并发隔离；25次404 body取消、非图片/终止错误不阻塞、原PNG/SHA与一次POST不变，纯替身零GPU
 comfyui-workflow.test.mjs: Flux 9B FP8/7 steps、1K/2K、4K/6K 同图无 Prompt 攸行超分、全景复用普通 `euler` 与空 Latent 工作流、废弃全景采样字段隔离和 Prompt 注入的工作流图合同测试
 flux-negative-prompt.test.mjs: Flux 普通负向默认不变、旧房独立默认及场景准入、旧房/普通两组内存草稿切换恢复与说明隔离、自定义整段覆盖、实际节点/归档正文一致、仅 Flux 显示/消费、长度边界、追溯元数据与结果标记测试，不提交真实任务
 image-dimensions.test.mjs: PNG/JPEG/WebP 图片头真实宽高与无效字节降级测试
 image-ratio.test.mjs: 浏览器原图比例标签、缺图默认值与最近合法比例选择纯函数测试
-generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与忙碌态、内嵌 Smiley Sans、版本化主题引用、精密键帽反馈、761px 起禁止外面板焦点滚动的独立配置区、不遮挡控件的底部动作栏及窄屏自然流布局
-generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离、带版本的入口与页面内存边界，不提交真实生图任务
-feature-directory.test.mjs: 白模/精模归AI渲染且默认选中保持；二次编辑入口命名、光影转换归属AI渲染、桌面外面板禁止焦点滚动与隐藏下拉定位边界、生图工作台信息架构静态合同测试，覆盖AI设计/AI渲染/AI编辑/AI创作四组、二十二功能唯一入口/添加人物宠物归AI渲染/旧房改造与风格转换归属AI设计/图片超分与AI扩图归属AI编辑、黑色粗体分类、144px目录与11/12px字号、图片上传置顶、桌面双面板及窄屏两列分组
+generation-actions.test.mjs: 白模/空房生成动作状态与静态视觉合同测试，覆盖提示词复用、START/RUNNING… 中文语义与静态忙碌态、内嵌 Smiley Sans、版本化主题引用、精密键帽反馈、761px 起禁止外面板焦点滚动的独立配置区、不遮挡控件的底部动作栏及窄屏自然流布局
+generation-comparison.test.mjs: 生成结果原图/结果图滑动对比专项测试，覆盖默认关闭、按需开启后的 50% 轻量分界、无箭头及无聚焦外圈抓手、拖动态、原生 range 键盘语义、四图画廊完整图片高度、纯结果切换、无原图降级、扩图异画幅对比隔离、带版本的入口、后台任务隔离与首次揭示，不提交真实生图任务
+feature-directory.test.mjs: 白模/精模归AI渲染，根地址默认折叠且无功能选中、会话任务隔离和新对话入口，复用自由生图提交与原有尺寸和张数节点；二次编辑入口命名、光影转换归属AI渲染、桌面外面板禁止焦点滚动与隐藏下拉定位边界、生图工作台信息架构静态合同测试，覆盖AI设计/AI渲染/AI编辑/AI创作四组、二十二功能唯一入口/添加人物宠物归AI渲染/旧房改造与风格转换归属AI设计/图片超分与AI扩图归属AI编辑、黑色粗体分类、独立侧栏目录与11/12px字号、无可见快捷键提示的查找入口、唯一可聚焦参数分隔线及内嵌短线、统一参数栏内距、无标题带的结果与风格反推、图片上传置顶、桌面分组目录及窄屏操作行和原生配置抽屉
+feature-catalog.test.mjs: 首页对话中打开动态功能选择、保留侧栏状态与按名称、分类、别名和 ID 匹配，覆盖全半角、大小写、多词交集、弹窗互斥、遮罩拖出防误关、输入法与重复键、窄屏方向键与确认、嵌入画布及嵌套文档快捷键和归焦
 image-upscale-ui.test.mjs: 双噪声控件校验/缓存/冻结请求/运行锁定、旧进程门禁与历史实际参数摘要；六工作流真实控制器、KS2X/4K/6K尺寸与两条输入路径、4K/6K切换保留和8K回退/旧倍率缓存、增强select同步、前后端几何一致、冻结执行版本、候选失效原因及单份图片请求；无网络或GPU；正常说明清空，服务/节点/尺寸实际错误可见及恢复清除
 empty-room-furniture.test.mjs: 空房家具跨层合同测试，覆盖线上目录推荐合法性、剥离“其他”入口、已选正向需求、未选及空条件省略、明确排除原文保留、其他家具/非法输入、浏览器请求、两条 Agent 路由、缓存隔离和飞书可读归档
 empty-room-type.test.mjs: 空房房间类型前后端合同测试，验证十项受控目录、客户无默认选择、“其他”详情条件必填/空白归一化/40 字上限与非法值拒绝
@@ -202,7 +205,7 @@ panorama-viewer.test.mjs: 从共享HTTP策略验证全景图片/blob网络准入
 benchmark-base.test.mjs: 旧配置名正规化与历史附件列ID上传兼容；Benchmark 五表环境配置、全部普通回填的实时字段存在性/可写类型/单选选项阻断、稳定编码配置映射、系统字段隔离、样本录入、三类实验筛选、快照、Prompt/Run/三维评分/费用/横评关联与附件测试，不读写真实 Base
 benchmark-runner.test.mjs: 成功Run/旧名宽表/失败Run混合恢复只重跑失败项；横评计划规模、提示/出图阶段 Prompt 共享边界与飞书实验类型映射、Case/配置筛选、Provider 路由、主动取消、费用传递、逐 Run 真源进度、失败重试、横评同步与计划阶段零调用的内存集成测试
 benchmark-experiment-config.test.mjs: 八类质量配置单变量草稿冻结、阶段推导、稳定配置 ID、双 Provider 智能分辨率与合法参数测试
-benchmark-experiment-ui.test.mjs: 实验 ID、智能分辨率、八类因子互斥切换、因子上置、选择器与计数同组、重复候选标题隐藏、收窄固定参数与紧凑候选项测试
+benchmark-experiment-ui.test.mjs: 主区宽度驱动参数栅格，实验 ID、智能分辨率、八类因子互斥切换、因子上置、选择器与计数同组、重复候选标题隐藏、收窄固定参数与紧凑候选项测试
 benchmark-job-ui.test.mjs: 运行中出图停止准入、停止任务真实进度/继续生成、部分失败任务的完整进度/失败数文案、出图重试准入、评分失败卡剩余数及同实验冻结参数恢复纯函数测试
 benchmark-review.test.mjs: seven_evaluate_v3.1 单次 AI 评分、1–5 小数分、三维证据隔离、完整 JSON 提取/严格契约、单次契约修复/原文留存、正式评分 Run 断点筛选、输入准入、问题严重度封顶、40%/30%/30% 加权准入、飞书可读评分细则、旧协议分析隔离、可用图漏斗、模型分类分析与 P95 测试
 benchmark-review-ui.test.mjs: AI 评分前端当前样本集成功结果筛选、GPT 默认评分模型、部分完成剩余数/继续动作、每 Run 最新 v3.1 评分选择、旧协议计数、三维/加权摘要及评分任务保持在评分面板的纯函数测试

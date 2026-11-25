@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖共享下拉、人物宠物特征/位置动作目录、角色参考图上传、同源结果与异步任务 API
- * [OUTPUT]: 提供共享参数栏挂载、角色表单与双参考图、单图槽计数、统一START状态、同ID恢复及结果参数
+ * [INPUT]: 依赖共享下拉、人物宠物特征/位置动作目录、角色参考图上传、生图反馈、同源结果与异步任务 API
+ * [OUTPUT]: 提供共享参数栏挂载、角色表单与双参考图、单图槽计数、真实生成状态、同ID恢复及新图揭示和画布内结果操作
  * [POS]: public 的人物宠物合成控制器；原渲染参数、配角参考及草稿保留在独立工作区
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import { prepareBrowserImageDownload } from "./generation-results.js";
 import { SCENE_CAST_IMPORT } from "./scene-cast-handoff.js";
 import { mountWorkspaceControls } from "./ai-render-studio-host.js?v=4";
 import { CAST_PRESETS, actionChoices, breedChoices } from "./scene-cast-presets.js";
+import { cancelGenerationReveal, revealGenerationImage } from "./generation-feedback.js?v=3";
 
 const nodes = new Map([...document.querySelectorAll("[id]")].map(node => [node.id, node]));
 const by = id => nodes.get(id);
@@ -49,7 +50,7 @@ const RESULT_LABELS = {
 };
 const state = {
   config: null, source: null, person: null, pet: null, sourceRender: null, result: null,
-  comparing: false, jobId: null, running: false, checking: false, waitingForCheck: false, configLoading: false,
+  comparing: false, jobId: null, revealJobId: null, running: false, checking: false, waitingForCheck: false, configLoading: false,
   pending: new Set(), sequence: { source: 0, person: 0, pet: 0 }, pollTimer: null, pendingImport: null,
 };
 const policy = () => ({ ...DEFAULT_POLICY, ...state.config?.imagePolicy });
@@ -84,6 +85,7 @@ function parameterRows(target, labels, values) {
 
 function remember(jobId) {
   state.jobId = jobId;
+  if (!jobId) state.revealJobId = null;
   try {
     if (jobId) sessionStorage.setItem(SESSION, jobId);
     else sessionStorage.removeItem(SESSION);
@@ -346,15 +348,19 @@ function imageUrl(value) {
   } catch { return null; }
 }
 
-function renderPreview() {
+function renderPreview(shouldReveal = false) {
   const result = state.result, output = imageUrl(result?.images?.[0]?.url), preview = by("castPreview");
   const showOutput = output && !state.comparing;
-  const url = showOutput ? output : state.source?.dataUrl;
-  preview.hidden = !url;
-  if (url && preview.getAttribute("src") !== url) preview.src = url;
-  if (!url) preview.removeAttribute("src");
+  const url = showOutput ? output : state.source?.dataUrl || null;
+  preview.hidden = !url || state.running;
+  if (preview.getAttribute("src") !== url) {
+    cancelGenerationReveal(preview);
+    if (url) preview.src = url;
+    else preview.removeAttribute("src");
+  }
+  if (showOutput && shouldReveal) revealGenerationImage(preview);
   preview.alt = showOutput ? "添加人物或宠物后的合成图" : "上传或选中的场景图";
-  by("castStageTitle").textContent = showOutput ? "合成结果" : output ? "原图" : "场景图";
+  by("castStageActions").hidden = !output;
   by("castEmpty").hidden = Boolean(url) || state.running;
   by("castCompare").hidden = !(output && state.source);
   by("castCompare").setAttribute("aria-pressed", String(state.comparing));
@@ -400,6 +406,11 @@ function render() {
   by("castResume").hidden = !state.waitingForCheck;
   by("castResume").disabled = state.checking;
   by("castProgress").hidden = !busy;
+  const showProgress = busy && !state.waitingForCheck;
+  by("castProgressText").classList.toggle("generation-feedback-text", showProgress);
+  by("castProgressPlaceholder").hidden = !showProgress;
+  const preview = by("castPreview");
+  preview.hidden = busy || !preview.getAttribute("src");
   by("castEmpty").hidden = Boolean(state.source || state.result || busy);
   updateVisibility();
 }
@@ -408,7 +419,11 @@ function acceptJob(job) {
   if (!job || job.jobId !== state.jobId || !["running", "success", "failed"].includes(job.status)) throw new Error("任务状态返回不完整。");
   clearTimeout(state.pollTimer);
   state.waitingForCheck = false; state.running = job.status === "running";
-  by("castProgress").textContent = job.message || "正在合成…";
+  const shouldReveal = job.jobId === state.revealJobId;
+  if (!state.running && shouldReveal) state.revealJobId = null;
+  const message = job.message || "正在合成…";
+  const progressText = by("castProgressText");
+  if (progressText.textContent !== message) progressText.textContent = message;
   alertAt("castJobError");
   if (state.running) state.pollTimer = setTimeout(checkJob, 1200);
   else if (job.status === "success") {
@@ -421,7 +436,7 @@ function acceptJob(job) {
         state.sourceRender = job.result.request?.sourceRender || null;
         updateUpload("source");
       }
-      renderPreview();
+      renderPreview(shouldReveal);
     }
   } else {
     alertAt("castJobError", job.error || "合成未完成。");
@@ -444,7 +459,9 @@ async function checkJob() {
       alertAt("castJobError", "任务不存在或已过期，请检查设置后重新发起。");
     } else {
       state.waitingForCheck = true;
-      alertAt("castJobError", `暂时无法确认任务状态。${error.message}`);
+      const message = `暂时无法确认任务状态。${error.message}`;
+      by("castProgressText").textContent = message;
+      alertAt("castJobError", message);
     }
   } finally { state.checking = false; render(); importScene(); }
 }
@@ -462,8 +479,8 @@ async function generate() {
     ...(Object.keys(referenceImages).length ? { referenceImages } : {}),
     ...(state.sourceRender ? { sourceRender: state.sourceRender } : {}),
   };
-  remember(jobId); state.running = true; state.result = null; state.comparing = false;
-  alertAt("castJobError"); renderPreview(); by("castProgress").textContent = "正在提交合成任务…"; render();
+  remember(jobId); state.revealJobId = jobId; state.running = true; state.result = null; state.comparing = false;
+  alertAt("castJobError"); renderPreview(); by("castProgressText").textContent = "正在提交合成任务…"; render();
   try {
     const { job } = await api(`${API}/jobs`, { method: "POST", body: JSON.stringify(body) });
     acceptJob(job);
@@ -472,7 +489,7 @@ async function generate() {
       state.running = false; state.waitingForCheck = false; remember(null);
       alertAt("castJobError", error.message); render();
     } else {
-      by("castProgress").textContent = "正在检查已提交的任务…";
+      by("castProgressText").textContent = "正在检查已提交的任务…";
       await checkJob();
     }
   } finally { importScene(); }
@@ -517,5 +534,5 @@ renderPreview();
 void loadConfig();
 try {
   const jobId = sessionStorage.getItem(SESSION);
-  if (jobId) { state.jobId = jobId; state.running = true; by("castProgress").textContent = "正在检查现有任务…"; void checkJob(); }
+  if (jobId) { state.jobId = jobId; state.running = true; by("castProgressText").textContent = "正在检查现有任务…"; void checkJob(); }
 } catch { /* 当前页面仍可生成与查询。 */ }

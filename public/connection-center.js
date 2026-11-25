@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖连接中心和顶栏额度 DOM、同源 Setup/Session/OneAPI 额度 API、飞书授权中文解释器、`?connect=api` 深链及工作台状态回调
- * [OUTPUT]: 提供合并在顶栏的连接状态与当前 Key 额度刷新、OneAPI 本机记忆、评测页直达 API 管理、飞书授权与同步状态及弹层焦点管理
+ * [INPUT]: 依赖连接中心和侧栏额度 DOM、同源 Setup/Session/OneAPI 额度 API、飞书授权中文解释器、`?connect=api` 深链及工作台状态回调
+ * [OUTPUT]: 提供侧栏与弹层共用的当前 Key 额度、侧栏手动刷新与焦点保留、OneAPI 本机记忆及飞书授权状态
  * [POS]: public 的运营首次运行控制器，统一连接状态与焦点秩序并与 app.js 生成状态分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -51,6 +51,8 @@ export function bindConnectionCenter({
     connectionButton: document.querySelector("#connectionButton"),
     connectionDialog: document.querySelector("#connectionDialog"),
     connectionError: document.querySelector("#connectionError"),
+    connectionQuotaRow: document.querySelector("#connectionQuotaRow"),
+    connectionQuotaValue: document.querySelector("#connectionQuotaValue"),
     disconnectButton: document.querySelector("#disconnectButton"),
     larkAuthPanel: document.querySelector("#larkAuthPanel"),
     larkBaseState: document.querySelector("#larkBaseState"),
@@ -97,6 +99,7 @@ export function bindConnectionCenter({
   // --- 仅显示当前 Key 查询的结果 ---
   function renderQuota(value, detail = "") {
     elements.apiQuotaValue.textContent = value;
+    elements.connectionQuotaValue.textContent = value;
     elements.apiQuotaDetail.textContent = session.connected
       ? [`OneAPI 额度 ${value}`, detail].filter(Boolean).join("，")
       : "";
@@ -106,8 +109,9 @@ export function bindConnectionCenter({
   async function refreshQuota() {
     quotaRequest?.abort();
     quotaRequest = null;
+    elements.connectionQuotaRow.hidden = !session.connected;
     elements.apiQuotaRefresh.hidden = !session.connected;
-    elements.apiQuotaRefresh.disabled = true;
+    elements.apiQuotaRefresh.setAttribute("aria-disabled", "true");
     if (updatingApiSession || !session.connected) {
       renderQuota(updatingApiSession ? "连接中…" : "连接中心");
       return;
@@ -134,7 +138,7 @@ export function bindConnectionCenter({
     } finally {
       if (quotaRequest === request) {
         quotaRequest = null;
-        elements.apiQuotaRefresh.disabled = false;
+        elements.apiQuotaRefresh.removeAttribute("aria-disabled");
       }
     }
   }
@@ -163,12 +167,13 @@ export function bindConnectionCenter({
     if (!isOpen()) return;
     elements.connectionDialog.classList.add("hidden");
     elements.connectionDialog.setAttribute("aria-hidden", "true");
-    const focusTarget =
-      lastFocusedElement?.isConnected
-        ? lastFocusedElement
-        : elements.connectionButton;
+    const previous = lastFocusedElement;
     lastFocusedElement = null;
-    window.requestAnimationFrame(() => focusTarget.focus());
+    window.requestAnimationFrame(() => {
+      const focusTarget = [previous, elements.connectionButton, document.getElementById("productSidebarOpen")]
+        .find((element) => element?.isConnected && element.getClientRects().length > 0);
+      focusTarget?.focus({ preventScroll: true });
+    });
   }
 
   function renderOverall() {
@@ -442,7 +447,10 @@ export function bindConnectionCenter({
   elements.closeButton.addEventListener("click", close);
   elements.saveConnectionButton.addEventListener("click", connectApi);
   elements.disconnectButton.addEventListener("click", disconnectApi);
-  elements.apiQuotaRefresh.addEventListener("click", refreshQuota);
+  elements.apiQuotaRefresh.addEventListener("click", () => {
+    if (elements.apiQuotaRefresh.getAttribute("aria-disabled") === "true") return;
+    void refreshQuota();
+  });
   elements.larkLoginButton.addEventListener("click", startLarkLogin);
   elements.larkCompleteButton.addEventListener("click", completeLarkLogin);
   elements.larkRefreshButton.addEventListener("click", refreshLark);
@@ -454,7 +462,7 @@ export function bindConnectionCenter({
     if (event.target === elements.connectionDialog) close();
   });
   document.addEventListener("keydown", (event) => {
-    if (!isOpen()) return;
+    if (event.defaultPrevented || !isOpen() || document.querySelector("dialog[open]")) return;
     if (event.key === "Escape") {
       event.preventDefault();
       close();

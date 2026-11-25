@@ -1,22 +1,20 @@
 /**
  * [INPUT]: 依赖共享theme/下拉令牌、布局模型选择、两步图片工作区和文字调整表单
- * [OUTPUT]: 提供银灰画布、上传/模型/可选需求输入、图片预览与窄屏纵向流
+ * [OUTPUT]: 提供银灰画布、紧凑图标切换和动作、生成等待布局、实底反色选中图片及首页对话可见的上传、需求和发送
  * [POS]: public 的平面布局独立样式，仅影响本功能页面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 .floor-plan-page { margin: 0; min-width: 0; height: 100dvh; overflow: hidden; background: var(--bg); }
 .floor-plan-shell { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
 .floor-plan-shell [hidden] { display: none !important; }
-.floor-plan-shell button { appearance: none; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); padding: 8px 12px; font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
-.floor-plan-shell button:hover:enabled { background: var(--panel-soft); border-color: var(--line-strong); }
-.floor-plan-shell button:disabled { opacity: .45; cursor: default; }
-.floor-plan-shell :is(button, textarea, select):focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.floor-plan-shell button:where(:not(.canvas-view-button)) { appearance: none; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); padding: 8px 12px; font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .floor-plan-shell button:hover:enabled:not(.canvas-view-button, [aria-pressed="true"], [aria-selected="true"]) { background: var(--panel-soft); border-color: var(--line-strong); }
+}
+.floor-plan-shell button:where(:not(.canvas-view-button)):disabled { opacity: .45; cursor: default; }
+.floor-plan-shell :is(button:where(:not(.canvas-view-button)), textarea, select):focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 .floor-plan-shell ::selection { background: #f37021; color: #202024; }
-.floor-plan-toolbar { display: flex; align-items: center; gap: 20px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
-.floor-plan-toolbar h1 { margin: 0 auto 0 0; font-size: 14px; font-weight: 600; }
-.floor-plan-tabs { display: flex; gap: 2px; border-radius: 7px; padding: 2px; background: var(--panel-soft); }
-.floor-plan-tabs button { border: 0; background: transparent; padding: 5px 12px; }
-.floor-plan-tabs button[aria-selected="true"] { background: #fff; box-shadow: 0 1px 3px #20202414; }
+.floor-plan-toolbar { align-self: flex-end; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 20px 0; }
 .floor-plan-content { display: grid; grid-template-columns: 260px minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
 .floor-plan-inputs { padding: 24px 20px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .floor-plan-inputs label, .floor-plan-camera-panel > p:first-child { color: var(--text); font-size: 12px; font-weight: 500; margin: 0; }
@@ -24,7 +22,9 @@
 .floor-plan-inputs textarea::placeholder { color: var(--muted); opacity: 1; }
 #floorPlanModelNote { margin: 0 0 12px; }
 .floor-plan-shell .floor-plan-primary { background: #f37021; border-color: #f37021; color: #202024; font-weight: 500; }
-.floor-plan-shell .floor-plan-primary:hover:enabled { background: #f37021; border-color: #f37021; box-shadow: var(--control-shadow); }
+@media (hover: hover) and (pointer: fine) {
+  .floor-plan-shell .floor-plan-primary:hover:enabled { background: #f37021; border-color: #f37021; box-shadow: var(--control-shadow); }
+}
 .floor-plan-shell .floor-plan-upload { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 146px; padding: 16px; margin-bottom: 20px; border-style: dashed; border-color: var(--line-strong); overflow: hidden; }
 .floor-plan-upload svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .floor-plan-upload img { display: block; width: 100%; max-height: 132px; object-fit: contain; }
@@ -40,6 +40,7 @@
 .floor-plan-shell .floor-plan-next { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
 .floor-plan-next svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .floor-plan-viewer { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 28px; }
+.floor-plan-viewer > .generation-feedback:not([hidden]) ~ * { display: none; }
 .floor-plan-result { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .floor-plan-empty { max-width: 340px; text-align: center; padding: 24px; }
 .floor-plan-empty h2 { margin: 0 0 12px; font-size: 20px; line-height: 1.4; font-weight: 500; }
@@ -50,16 +51,18 @@
 .floor-plan-shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .floor-plan-shell .floor-plan-shot { padding: 4px; min-width: 0; }
 .floor-plan-shot img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; border-radius: 3px; margin-bottom: 4px; }
-.floor-plan-shot[aria-pressed="true"] { border-color: var(--text); }
+.floor-plan-shell .floor-plan-shot[aria-pressed="true"] {
+  background: var(--brand-key-selected-bg, #000);
+  border-color: var(--brand-key-selected-bg, #000);
+  color: var(--brand-key-selected-ink, #fff);
+}
 .floor-plan-error { padding: 10px 20px; margin: 0; background: #fff0ee; color: #9f2016; font-size: 12px; line-height: 1.6; }
 .floor-plan-statusbar { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--line); padding: 8px 16px; background: var(--panel); color: var(--muted); font-size: 11px; line-height: 1.5; }
 #floorPlanStatus { flex: 1; }
 .floor-plan-statusbar button { padding: 3px 8px; font-size: 11px; }
 @media (max-width: 760px) {
-  .floor-plan-toolbar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
-  .floor-plan-toolbar h1 { font-size: 13px; }
+  .floor-plan-toolbar { padding-inline: 12px; }
   .floor-plan-toolbar > button { padding: 5px 8px; }
-  .floor-plan-tabs button { padding: 5px 9px; }
   .floor-plan-content { display: flex; flex-direction: column; overflow-y: auto; }
   .floor-plan-inputs { flex: 0 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); padding: 16px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
   .floor-plan-shell .floor-plan-upload { min-height: 90px; margin-bottom: 8px; }
@@ -72,13 +75,58 @@
   .floor-plan-shots { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+.floor-plan-embedded :is(.floor-plan-inputs, .floor-plan-error, .floor-plan-statusbar) {
+  padding-inline: 16px;
+}
+
+.floor-plan-conversation:has(.floor-plan-toolbar .workspace-quick-parameters .model-picker:not([hidden])) :is(
+  label[for="floorPlanModel"], #floorPlanModel + .model-picker
+) {
+  display: none;
+}
+
+.floor-plan-conversation #floorPlanModelNote { margin-block-end: 0; }
+.floor-plan-conversation :is(#floorPlanDownload:disabled, .floor-plan-empty h2) { display: none; }
+
+@media (max-width: 760px) {
+  .floor-plan-conversation .floor-plan-inputs { gap: 6px; padding: 10px 12px; }
+  .floor-plan-conversation .floor-plan-shell .floor-plan-upload {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 2px 8px;
+    margin-block-end: 0;
+    min-block-size: 50px;
+    padding: 6px 8px;
+    text-align: start;
+  }
+  .floor-plan-conversation .floor-plan-upload :is(svg, img) {
+    grid-row: span 2;
+    block-size: 24px;
+    inline-size: 24px;
+  }
+  .floor-plan-conversation .floor-plan-inputs textarea {
+    font-size: 16px;
+    min-block-size: 88px;
+  }
+  .floor-plan-conversation :is(.floor-plan-toolbar > button, .floor-plan-inputs .floor-plan-primary) {
+    min-block-size: 44px;
+  }
+  .floor-plan-conversation .floor-plan-viewer:has(.floor-plan-empty:not([hidden])):not(:has(.generation-feedback:not([hidden]))) {
+    flex-basis: 96px;
+  }
+}
+
 #geometryDialog { width: min(1440px, 96vw); height: 90dvh; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
 #geometryDialog[open] { display: flex; flex-direction: column; }
 #geometryDialog::backdrop { background: #20202466; }
 .geometry-toolbar, .geometry-source { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .geometry-toolbar h2 { margin: 0 auto 0 0; font-size: 14px; }
 #geometryDialog button { font: inherit; font-size: 12px; color: var(--text); background: var(--panel); border: 1px solid var(--line); padding: 6px 10px; border-radius: 5px; cursor: pointer; }
-#geometryDialog button[aria-pressed="true"] { background: var(--text); color: white; }
+#geometryDialog button[aria-pressed="true"] {
+  background: var(--brand-key-selected-bg, #000);
+  border-color: var(--brand-key-selected-bg, #000);
+  color: var(--brand-key-selected-ink, #fff);
+}
 #geometryDialog button:disabled { opacity: .5; }
 .geometry-source label, #geometryStatus { font-size: 12px; }
 #geometryStatus { margin: 4px 12px; }

@@ -1,0 +1,105 @@
+/**
+ * [INPUT]: 依赖生成页面提供的真实任务状态与工作台银灰文字、表面令牌
+ * [OUTPUT]: 提供缓慢起伏的等待占位、解码过渡和新图上的模糊揭示层
+ * [POS]: public 的共享生图反馈样式，由主工作台和独立生图画布使用
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.generation-feedback {
+  display: grid;
+  gap: 12px;
+  inline-size: min(100%, 360px);
+  justify-items: center;
+  margin-inline: auto;
+  max-inline-size: 100%;
+  text-align: center;
+}
+
+.generation-feedback[hidden],
+.generation-feedback-preview[hidden] {
+  display: none;
+}
+
+.generation-feedback-text {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.generation-feedback-preview {
+  aspect-ratio: 16 / 10;
+  background: var(--surface-hover);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  inline-size: min(100%, 320px);
+  overflow: hidden;
+  pointer-events: none;
+  position: relative;
+}
+
+.generation-feedback-preview::before {
+  background:
+    radial-gradient(ellipse at 26% 66%, color-mix(in srgb, var(--muted) 36%, transparent), transparent 57%),
+    radial-gradient(ellipse at 73% 86%, color-mix(in srgb, var(--muted) 27%, transparent), transparent 63%);
+  content: "";
+  inset: 14% -12% -34%;
+  opacity: 0.7;
+  position: absolute;
+}
+
+@media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  .generation-feedback-preview:not([hidden])::before {
+    animation: generation-feedback-breathe 3.2s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes generation-feedback-breathe {
+  from { opacity: 0.48; transform: translateY(7%) scale(0.96); }
+  to { opacity: 1; transform: translateY(-9%) scale(1.08); }
+}
+
+.generation-feedback-decoding {
+  opacity: 0;
+}
+
+/* ---- 第一张图解码前保留等待卡，画廊保持原有尺寸 ---- */
+#resultStage:has(> .result-gallery:not(.hidden) .generation-feedback-decoding):not(:has(> .result-gallery .result-output-image:not(.generation-feedback-decoding))) {
+  > .result-gallery {
+    visibility: hidden;
+  }
+
+  > .loading-state.hidden {
+    block-size: max-content;
+    display: grid !important;
+    inset: 0;
+    margin: auto;
+    position: absolute;
+  }
+}
+
+.generation-feedback-veil-host {
+  position: relative;
+}
+
+.generation-feedback-veil {
+  background: var(--surface-hover);
+  mask-image: linear-gradient(to bottom, transparent 47%, black 53%);
+  mask-position: 50% 90%;
+  mask-repeat: no-repeat;
+  mask-size: 100% 250%;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.generation-feedback-veil > canvas {
+  display: block;
+  filter: blur(14px);
+  height: 100%;
+  transform: scale(1.08);
+  width: 100%;
+}

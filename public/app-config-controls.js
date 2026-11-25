@@ -1,12 +1,38 @@
 /**
- * [INPUT]: 依赖旧房/空房模式判定、模型参考图合同、页面配置元素、含GPT打光的独立图片工具上传要求与白模/空房/旧房/风格转换各自的 Agent 状态
- * [OUTPUT]: 对外提供各设计场景独立Prompt配置/Agent标题与说明、单主图校验、参考风格锁定和二次编辑原图上传文案；旧房配置缺失时阻断且不回退其他场景
+ * [INPUT]: 依赖旧房/空房模式判定、模型上传和质量能力、共享下拉填充、页面配置元素及各设计场景的 Agent 状态
+ * [OUTPUT]: 提供启动目录与编辑工具配置读取、连接后的模型状态，以及设计Agent、上传、参考风格与质量字段投影
  * [POS]: public 的生图配置展示层，由 app.js 在状态变化后调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { referenceCapability } from "./model-capabilities.js";
+import { fillSelect } from "./workbench-utils.js";
+
+export function loadWorkbenchStartup({ api, loadConnection, configureRelight }) {
+  return Promise.all([
+    api("/api/catalog"),
+    loadConnection(),
+    api("/api/image-upscale/config"),
+    api("/api/image-outpaint/config"),
+    api("/api/image-multi-angle/config"),
+    api("/api/image-mask-fill/config").catch(() => ({ available: false, reason: "二次编辑配置读取失败，请重新启动本机工作台", modes: [] })),
+    api("/api/image-relight/config").catch(() => ({ available: false, reason: "打光配置读取失败，请重新启动本机工作台" }))
+      .then(config => { configureRelight(config); return config; }),
+  ]);
+}
+
+export function renderConnectionAvailability(elements, connected, models) {
+  const workflowCount = models.filter(model => model.provider === "comfyui").length;
+  elements.modelAvailability.textContent = connected
+    ? "检查模型中"
+    : workflowCount > 0
+      ? `${workflowCount} 个工作流已配置`
+      : "等待连接";
+  elements.promptAgentAvailability.textContent = connected ? "检查模型中" : "等待连接";
+  elements.modelAvailability.classList.toggle("ready", connected || workflowCount > 0);
+  elements.promptAgentAvailability.classList.toggle("ready", connected);
+}
 
 export function designPromptConfiguration(state) {
   if (state.featureMode === "roomRenovation") return state.roomRenovationConfig || {
@@ -90,4 +116,33 @@ export function updateReferenceRequirements(elements, { featureMode, model, poli
   elements.referenceDropLabel.textContent = capability.dropLabel;
   elements.referenceInput.multiple = capability.multiple;
   elements.referenceInput.ariaLabel = capability.ariaLabel;
+}
+
+export function renderQualityControl(elements, model) {
+  if (model.qualityOptions.length > 0) {
+    elements.qualityField.classList.remove("hidden");
+    elements.qualityLabel.textContent = "生成质量";
+    fillSelect(
+      elements.qualitySelect,
+      model.qualityOptions.map((quality) => ({
+        label:
+          quality === "auto"
+            ? "自动"
+            : quality === "low"
+              ? "低"
+              : quality === "medium"
+                ? "中"
+                : quality === "high"
+                  ? "高"
+                  : quality === "xhigh"
+                    ? "极高"
+                    : "最高",
+        value: quality,
+      })),
+      model.defaultQuality || "auto",
+    );
+  } else {
+    elements.qualityField.classList.add("hidden");
+    elements.qualitySelect.replaceChildren();
+  }
 }

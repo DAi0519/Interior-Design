@@ -1,22 +1,15 @@
 /**
- * [INPUT]: 依赖beta.html的样本集/整批多角度与平面图机位/独立扩图和超分工作流/双阶段监控语义、Raycast银灰令牌与共享动作/下拉控件
- * [OUTPUT]: 对外提供共享任务下拉的页面布局与逐样本房型、机位工具栏和视野框拖动光标、桌面配置/监控双栏、精模光影辅助文字层级、样本集选择/创建、顶部对齐的设计配置与提示词模型权限提示、标题行飞书同步回执、独立配置滚动区、全宽 START/RETRY、生成/飞书同步双进度及逐项异常预警
- * [POS]: public 的 Beta跑图配置与任务监控视觉层，以页面无空白滚动、配置栏独立滚动、生成/同步异常可见和窄屏自然单栏为边界
+ * [INPUT]: 依赖 product-navigation.css 的满视口共享外壳和 workbench-colors.css 的共享颜色，beta.html 的样本集、批量工作流、双阶段监控、共享动作及下拉控件
+ * [OUTPUT]: 对外提供随工作区余宽切换单双列的配置与监控、桌面独立滚动、窄屏自然页面滚动、同宽对齐的配置内容与 START/RETRY、逐样本房型和机位工具、样本集选择/创建、生成/飞书同步双进度及逐项异常预警
+ * [POS]: public 的批量跑图配置与任务监控视觉层，承接共享外壳分配的工作区并保持全部配置和监控动作可达
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+@import url("/workbench-colors.css?v=1");
+
 :root {
   color-scheme: light;
-  --bg: #f5f5f6;
-  --panel: #fcfcfd;
-  --panel-soft: #f0f0f2;
-  --line: #e2e2e5;
-  --line-strong: #d1d1d5;
-  --ink: #202024;
-  --text: var(--ink);
-  --muted: #67676d;
-  --quiet: #929299;
-  --danger: #b42318;
+  --ink: var(--text);
   --key-shadow: inset 0 1px 0 rgb(255 255 255 / 92%), inset 0 -1px 0 rgb(20 20 24 / 5%), 0 1px 2px rgb(20 20 24 / 4%), 0 14px 34px rgb(20 20 24 / 6%);
   --control-shadow: inset 0 1px 0 rgb(255 255 255 / 92%), 0 1px 2px rgb(20 20 24 / 5%);
   --choice-control-bg: rgb(240 240 242 / 88%);
@@ -35,21 +28,13 @@
 html, body { margin: 0; min-height: 100%; }
 html { overflow: clip; }
 body {
-  background: linear-gradient(180deg, #fbfbfc 0, var(--bg) 46%, #f2f2f4 100%);
+  background: var(--panel);
   color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
   overflow: clip;
   -webkit-font-smoothing: antialiased;
   caret-color: var(--ink);
-}
-body::before {
-  background: linear-gradient(120deg, transparent 22%, rgb(255 255 255 / 46%) 48%, transparent 74%);
-  content: "";
-  inset: 0;
-  pointer-events: none;
-  position: fixed;
-  z-index: -1;
 }
 button, input, select, textarea { color: inherit; font: inherit; }
 button { cursor: pointer; }
@@ -72,22 +57,6 @@ button { cursor: pointer; }
 ::selection { background: #dfe0e3; color: var(--ink); }
 * { scrollbar-color: #c8c8ce transparent; scrollbar-width: thin; }
 
-.app-shell {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100dvh;
-  margin: 0 auto;
-  max-width: 1440px;
-  padding: 16px;
-}
-.topbar {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  position: sticky;
-  top: 16px;
-  z-index: 20;
-}
 .brand {
   align-items: center;
   color: inherit;
@@ -107,7 +76,7 @@ button { cursor: pointer; }
   padding: 0 10px;
 }
 .status-pill::before {
-  background: #a69ca1;
+  background: var(--muted);
   border-radius: 50%;
   content: "";
   height: 6px;
@@ -115,26 +84,22 @@ button { cursor: pointer; }
 }
 .status-pill.ready::before { background: #000; }
 
+/* -------- 桌面配置与任务监控填满共享导航旁的工作区 -------- */
 .beta-shell {
-  margin: 14px 0 0;
-  max-width: none;
+  container: beta-workspace / inline-size;
   min-height: 0;
-  width: 100%;
+  min-width: 0;
+  overflow: auto;
 }
 
 .beta-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) minmax(288px, 336px);
+  grid-template-columns: minmax(0, 1fr) clamp(304px, 26%, 432px);
   height: 100%;
-  margin-top: 0;
   min-height: 0;
 }
 .beta-card {
-  background: rgb(252 252 253 / 90%);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--key-shadow);
+  background: var(--panel);
   min-width: 0;
 }
 .beta-config-card {
@@ -152,6 +117,13 @@ button { cursor: pointer; }
   scrollbar-color: var(--line-strong) transparent;
   scrollbar-width: thin;
 }
+
+/* -------- 配置内容与执行按钮共用可读宽度，面板分隔线仍铺满 -------- */
+.beta-section,
+.run-bar {
+  grid-template-columns: min(100%, 720px);
+}
+
 .beta-section {
   display: grid;
   gap: 16px;
@@ -171,7 +143,7 @@ button { cursor: pointer; }
   letter-spacing: -.006em;
   margin: 0;
 }
-.section-heading small { color: var(--quiet); font-size: 11px; }
+.section-heading small { color: var(--small-ink); font-size: 11px; }
 .section-heading-meta { align-items: center; display: flex; gap: 8px; }
 .section-heading-meta .sample-set-sync-status { color: var(--muted); font-weight: 500; }
 .section-heading-meta .sample-set-sync-status[data-state="success"] { color: var(--ink); }
@@ -308,7 +280,7 @@ button { cursor: pointer; }
   transition: background-color 160ms ease, border-color 160ms ease;
 }
 .reference-input { cursor: pointer; height: 100%; inset: 0; opacity: 0; position: absolute; width: 100%; z-index: 1; }
-.reference-drop-zone.dragging { background: #e7e5e0; border-color: var(--ink); }
+.reference-drop-zone.dragging { background: var(--surface-hover); border-color: var(--ink); }
 .reference-drop-zone svg {
   fill: none;
   grid-row: 1 / 3;
@@ -320,7 +292,7 @@ button { cursor: pointer; }
   width: 19px;
 }
 .reference-drop-zone span { color: var(--ink); font-size: 10px; font-weight: 600; }
-.reference-drop-zone small { color: var(--quiet); font-size: 8px; }
+.reference-drop-zone small { color: var(--small-ink); font-size: 8px; }
 .reference-list {
   display: grid;
   gap: 7px;
@@ -343,11 +315,11 @@ button { cursor: pointer; }
 .reference-item div { min-width: 0; }
 .reference-item strong, .reference-item span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reference-item strong { font-size: 9px; font-weight: 600; }
-.reference-item span { color: var(--quiet); font-size: 8px; margin-top: 2px; }
+.reference-item span { color: var(--small-ink); font-size: 8px; margin-top: 2px; }
 .reference-item .reference-replace-hint { color: var(--muted); }
 .reference-list.replace-enabled { grid-template-columns: 1fr; }
 .reference-list.replace-enabled .reference-item { cursor: copy; }
-.reference-list.dragging .reference-item { background: #e7e5e0; border-color: var(--ink); box-shadow: 0 0 0 3px rgb(25 26 28 / 6%); }
+.reference-list.dragging .reference-item { background: var(--surface-hover); border-color: var(--ink); box-shadow: 0 0 0 3px rgb(25 26 28 / 6%); }
 .reference-remove {
   align-items: center;
   background: transparent;
@@ -366,15 +338,14 @@ button { cursor: pointer; }
   gap: 6px;
 }
 .run-bar {
-  background: linear-gradient(180deg, rgb(252 252 253 / 90%), rgb(252 252 253 / 98%));
-  box-shadow: 0 -12px 28px rgb(25 26 28 / 7%);
+  background: var(--panel);
+  border-block-start: 1px solid var(--line);
   display: grid;
   gap: 8px;
-  padding: 10px 12px 12px;
+  padding: 12px 20px 16px;
   position: relative;
   z-index: 4;
 }
-.run-bar::before { background: linear-gradient(180deg, transparent, rgb(252 252 253 / 76%)); content: ""; height: 18px; left: 0; pointer-events: none; position: absolute; right: 0; top: -18px; }
 .run-meta { align-items: baseline; display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; }
 .run-meta-actions { justify-content: flex-end; margin-left: auto; }
 .quiet-button.new-batch-button { font-size: 10px; min-height: 24px; padding: 0 7px; }
@@ -386,12 +357,14 @@ button { cursor: pointer; }
 
 .beta-monitor-card {
   align-content: start;
+  border-inline-start: 1px solid var(--line);
   display: grid;
-  gap: 20px;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: 16px;
+  grid-template-rows: auto auto auto auto minmax(64px, 1fr) auto;
   min-height: 0;
-  overflow: hidden;
-  padding: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 20px clamp(16px, 2vw, 28px);
 }
 .monitor-heading {
   align-items: flex-start;
@@ -406,7 +379,7 @@ button { cursor: pointer; }
   margin: 0;
 }
 .monitor-heading p {
-  color: var(--quiet);
+  color: var(--muted);
   font-size: 11px;
   margin: 3px 0 0;
 }
@@ -428,11 +401,11 @@ button { cursor: pointer; }
 .job-status[data-state="error"] { background: #fff7f6; border-color: #ead3d0; color: var(--danger); }
 .monitor-batch { display: grid; gap: 5px; }
 .monitor-batch span, .monitor-message > span {
-  color: var(--quiet);
+  color: var(--small-ink);
   font-size: 10px;
   font-weight: 600;
 }
-.monitor-batch strong { font-size: 12px; font-weight: 600; }
+.monitor-batch strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .job-progress {
   border-bottom: 1px solid var(--line);
   border-top: 1px solid var(--line);
@@ -445,7 +418,7 @@ button { cursor: pointer; }
 .progress-copy span { color: var(--muted); font-size: 11px; }
 .progress-copy strong { font-size: 11px; font-variant-numeric: tabular-nums; }
 .progress-track {
-  background: #dedfe2;
+  background: var(--line);
   border-radius: 999px;
   height: 4px;
   overflow: hidden;
@@ -459,7 +432,7 @@ button { cursor: pointer; }
   transition: transform 240ms var(--ease-out);
   width: 100%;
 }
-.sync-progress-track span { background: #f37021; }
+.sync-progress-track span { background: var(--muted); }
 .monitor-message { align-content: start; display: grid; gap: 6px; }
 .monitor-message p {
   color: var(--muted);
@@ -501,23 +474,29 @@ button { cursor: pointer; }
   text-decoration: none;
   width: 100%;
 }
-@media (max-width: 960px) {
-  html, body { overflow: auto; }
-  .app-shell { display: block; height: auto; min-height: 100dvh; }
+/* -------- 紧凑工作区合为一列，预警和表单走同一个滚动流 -------- */
+@container beta-workspace (max-width: 900px) {
   .beta-grid { grid-template-columns: minmax(0, 1fr); height: auto; }
-  .beta-config-card { height: auto; max-height: none; }
+  .beta-config-card { height: auto; overflow: visible; }
   .beta-config-scroll { overflow: visible; }
-  .beta-monitor-card { min-height: 320px; }
-  .monitor-warnings-list { max-height: 420px; }
+  .beta-monitor-card {
+    border-block-start: 1px solid var(--line);
+    border-inline-start: 0;
+    grid-template-rows: auto;
+    overflow: visible;
+  }
+  .monitor-warnings-list { overflow: visible; padding-right: 0; }
+}
+@media (max-width: 900px) {
+  html { overflow: auto; }
+  body, .beta-shell { overflow: visible; }
 }
 @media (max-width: 700px) {
-  .app-shell { padding: 10px; }
-  .topbar { top: 10px; }
   .field-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
-  .beta-section { padding: 15px; }
-  .run-bar { padding: 10px 12px 12px; }
+  .beta-section, .beta-monitor-card { padding-inline: 16px; }
+  .run-bar { padding: 12px 16px; }
   .reference-list { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {

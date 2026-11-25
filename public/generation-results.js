@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖统一 API、含精模预设执行方式的结果摘要/安全图片 URL、任务原图、浏览器 Blob 与同源图片下载接口、二维大图/全景预览器
- * [OUTPUT]: 对外提供空态、加载态、错误态、含旧房/空房共用的单模型多张/多模型结果画廊、默认关闭且按需开启的原图/结果图 50% 轻量滑动对比、直接点击/键盘大图预览、全景图美化专属 360°预览、总耗时/ComfyUI 分段耗时、内嵌图片本地下载、远程图片代理下载和独立飞书同步轮询
+ * [INPUT]: 依赖统一 API、含精模预设执行方式的结果摘要/安全图片 URL、当前任务标识及原图、真实图片揭示反馈、浏览器 Blob 与同源图片下载接口、二维大图/全景预览器
+ * [OUTPUT]: 对外提供空态、真实等待态和错误态、按任务揭示首个解码结果、单模型多张/多模型结果画廊、按需原图对比、大图与全景预览、耗时摘要、下载和独立飞书同步轮询
  * [POS]: public 的生成结果呈现层，承接单模型最多四张或任意数量模型的成功与部分失败结果，隔离下载传输并按功能限定滑动对比与沉浸式预览
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { resultMetadata, secureImageUrl } from "./workbench-utils.js";
 import { bindResultImageViewer } from "./result-image-viewer.js";
+import { revealGenerationImage } from "./generation-feedback.js?v=3";
 import {
   bindPanoramaViewer,
   isPanoramaPreviewFeature,
@@ -137,6 +138,7 @@ export function bindGenerationResults({ api, showToast }) {
     showToast,
   });
   let renderId = 0;
+  let renderedResults;
 
   function comparisonMedia(resultImage, comparisonImage, modelLabel) {
     const media = document.createElement("div");
@@ -198,6 +200,7 @@ export function bindGenerationResults({ api, showToast }) {
   }
 
   function setStage(stage) {
+    if (stage !== "gallery") renderedResults = undefined;
     for (const [name, element] of Object.entries({
       empty: elements.empty,
       error: elements.error,
@@ -346,10 +349,13 @@ export function bindGenerationResults({ api, showToast }) {
     },
     showLoading(message) {
       renderId += 1;
-      elements.loadingLabel.textContent = message;
+      if (elements.loadingLabel.textContent !== message) elements.loadingLabel.textContent = message;
       setStage("loading");
     },
-    showResults(outcomes, { comparisonImage = null, featureMode } = {}) {
+    showResults(outcomes, { comparisonImage = null, featureMode, jobId, reveal = false } = {}) {
+      // -------- 同一回执保留画廊节点与正在进行的图片揭示 --------
+      if (jobId && renderedResults?.jobId === jobId && renderedResults.outcomes === outcomes
+        && renderedResults.comparisonImage === comparisonImage && renderedResults.featureMode === featureMode) return;
       renderId += 1;
       const currentRenderId = renderId;
       const cards = outcomes.map((outcome) => resultCard(outcome, {
@@ -358,9 +364,12 @@ export function bindGenerationResults({ api, showToast }) {
       }));
       elements.gallery.replaceChildren(...cards);
       elements.gallery.classList.toggle("multiple", outcomes.length > 1);
+      if (reveal) elements.loadingLabel.textContent = "正在加载结果图…";
       setStage("gallery");
+      renderedResults = { comparisonImage, featureMode, jobId, outcomes };
       outcomes.forEach((outcome, index) => {
         if (outcome.status === "fulfilled") {
+          if (reveal) revealGenerationImage(cards[index].querySelector(".result-output-image"));
           void followSync(cards[index], outcome.value, currentRenderId);
         }
       });

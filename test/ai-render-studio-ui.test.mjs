@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖AI渲染台完整页面脚本/HTML、真实图片准入规则、共享光影控件边界及内存DOM/HTTP/存储/时钟替身
- * [OUTPUT]: 验证九卡身份/风格下拉/按需控光与默认结果、单次START/只读恢复、同步pending到success不重生图/重载图片及仅归档重试
+ * [INPUT]: 依赖AI渲染台完整页面脚本/HTML、真实图片准入规则、共享光影和生图反馈边界及内存DOM/HTTP/存储/时钟替身
+ * [OUTPUT]: 验证九卡身份/风格下拉/按需控光与无标题结果、单次START/只读恢复、生成反馈与一次揭示、同步不重生图及仅归档重试
  * [POS]: test 的AI渲染台用户交互回归，运行实际页面脚本，不访问浏览器、网络、付费模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,6 +25,7 @@ const output = { images: [{ url: "data:image/png;base64,cmVzdWx0" }], request: {
 // --- DOM仅承接浏览器读写和事件；提交/恢复/轮询均执行整份生产脚本 ---
 async function fixture(respond) {
   const ids = new Map(), styles = [], timers = new Map(), calls = [], storage = new Map(), windowEvents = new Map();
+  const reveals = [];
   let sequence = 0, timerSequence = 0, uuidSequence = 0, selectLighting;
   let manualLights = [];
   class Node {
@@ -83,6 +84,7 @@ async function fixture(respond) {
     crypto: { randomUUID: () => `00000000-0000-4000-8000-${String(++uuidSequence).padStart(12, "0")}` },
     setTimeout(callback, delay) { const id = ++timerSequence; timers.set(id, { callback, delay }); return id; },
     clearTimeout(id) { timers.delete(id); },
+    revealGenerationImage: image => reveals.push(image.src), cancelGenerationReveal() {},
     formatBytes: size => `${(size / 1024 / 1024).toFixed(1)}MB`,
     readFileAsInput: async file => ({ ...file }), readImageDimensions: async () => ({ width: source.width, height: source.height }),
     api: async (path, options = {}) => {
@@ -115,7 +117,7 @@ async function fixture(respond) {
     const timer = [...timers].find(([, value]) => value.delay === 1800);
     assert.ok(timer, "应继续查询已有任务"); timers.delete(timer[0]); await timer[1].callback(); await settle();
   }
-  return { node, calls, storage, upload, nextPoll, settle, timers, windowEvents,
+  return { node, calls, storage, upload, nextPoll, settle, timers, windowEvents, reveals,
     selectLighting: value => selectLighting(value), setLights: value => { manualLights = value; },
     submit: () => node("studioGenerate").fire("click"),
     posts: () => calls.filter(call => call.method === "POST" && call.path === "/api/ai-render-studio/jobs"),
@@ -145,9 +147,13 @@ test("POST响应未知且首次GET断网时锁住原job，手动检查恢复后�
   await f.upload(); await f.submit();
   assert.equal(f.node("studioGenerate").disabled, true);
   assert.equal(f.node("studioResume").hidden, false);
+  assert.equal(f.node("studioJobPlaceholder").hidden, true);
+  assert.equal(f.node("studioJobMessage").classList.contains("generation-feedback-text"), false);
   assert.equal([...f.storage.values()][0], jobId);
   await f.node("studioResume").fire("click"); await f.settle();
   assert.equal(f.node("studioResume").hidden, true);
+  assert.equal(f.node("studioJobPlaceholder").hidden, false);
+  assert.equal(f.node("studioJobMessage").textContent, "正在校验渲染配置…");
   assert.equal(f.node("studioGenerate").disabled, true);
   assert.equal(f.posts().length, 1);
   assert.equal(f.reads().length, 2);
@@ -162,7 +168,12 @@ test("图已生成仍继续GET同步pending到success，不重新提交生成或
     reads += 1;
     return { job: { jobId, status: "success", result: { ...output, sync: { status: reads < 3 ? "pending" : "success", recordUrl: reads < 3 ? null : recordUrl } } } };
   });
-  await f.upload(); await f.submit(); await f.nextPoll();
+  await f.upload(); await f.submit();
+  assert.equal(f.node("studioJobPlaceholder").hidden, false);
+  assert.equal(f.node("studioJobMessage").classList.contains("generation-feedback-text"), true);
+  assert.deepEqual(f.reveals, []);
+  await f.nextPoll();
+  assert.equal(f.node("studioJobPlaceholder").hidden, true);
   assert.equal(f.node("studioGenerate").disabled, false, "归档期间应允许编辑下一次设置");
   assert.match(f.node("studioSyncStatus").textContent, /正在同步/);
   assert.equal(f.node("studioResultImage").src, output.images[0].url);
@@ -172,6 +183,7 @@ test("图已生成仍继续GET同步pending到success，不重新提交生成或
   assert.equal(f.posts().length, 1);
   assert.equal(f.reads().length, 3);
   assert.equal(f.node("studioResultImage").srcWrites, 1);
+  assert.deepEqual(f.reveals, [output.images[0].url]);
   assert.equal(f.node("studioCompareOriginal").srcWrites, 1);
   assert.equal(f.node("studioCompareOriginal").src, source.dataUrl);
   assert.equal(f.node("studioCompareEnabled").checked, true);
@@ -208,12 +220,15 @@ test("归档失败的重试只发送sync-retry，页面恢复仍GET同一任务�
 test("默认等待结果，精细控光按需展开；选库卡与风格保留手动光源且只提交三字段身份", async () => {
   const f = await fixture(async call => ({ job: { jobId: call.body.jobId, status: "running" } }));
   assert.equal(f.node("studioEmptyState").hidden, false);
+  assert.equal(f.node("studioStageHeading"), undefined);
+  assert.equal(f.node("studioPreviewActions").hidden, true);
   assert.equal(f.node("studioPreviewPanel").hidden, true);
   assert.equal(f.node("studioAdvancedPanel").hidden, true);
   await f.upload();
   assert.equal(f.node("studioPreviewPanel").hidden, true, "上传不强制进入控光编辑");
   await f.node("studioAdvancedToggle").fire("click");
   assert.equal(f.node("studioAdvancedPanel").hidden, false);
+  assert.equal(f.node("studioPreviewActions").hidden, false);
   assert.equal(f.node("studioPreviewPanel").hidden, false);
   const lights = [{ id: "light1", type: "point", action: "brighten", kelvin: 3000 }];
   f.setLights(lights);
@@ -221,6 +236,7 @@ test("默认等待结果，精细控光按需展开；选库卡与风格保留�
   f.selectLighting({ mode: "preset", presetId: card.id, version: card.version, sha256: card.sha256, execution: "prompt-only" });
   await f.node("studioReturnResult").fire("click");
   assert.equal(f.node("studioAdvancedPanel").hidden, true);
+  assert.equal(f.node("studioPreviewActions").hidden, true);
   assert.equal(f.node("studioResultPanel").hidden, false);
   f.node("studioRenderStyle").value = "cinematic"; await f.node("studioRenderStyle").fire("change");
   await f.submit();

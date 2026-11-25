@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖scene-cast.css提供工作台挂载后的合成控件局部样式；依赖reference-upload-icons.svg提供共享上传图标；依赖effect-beautification-controls.js的六氛围及新增共享光影卡片互斥选择；依赖white-model-lighting.js的白模自动/纯词光影；依赖lighting-transfer-controls.js的独立效果图光影转换，依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖config-refresh-button.css共享刷新样式、refined-model-controls.js与refined-lighting-controls.js/css光影库/参考图/版本配置；依赖image-relight.js/css的GPT光照模板/可选点线面光源编辑及逐灯两种模式；依赖image-mask-fill.js/css的提示词/参考图二次编辑与原图等尺寸画布；依赖workspace-panel.js/css和workspace-panel-responsive.css的固定144px功能栏/参数栏独立伸缩收起/参数容器重排与原生抽屉；依赖choice-select共享下拉组件及custom-select原生表单适配；依赖共享摄影机球与多角度单图控制器；依赖app.js、共享任务/上传/结果/连接中心、设计/渲染/创作控件及既有视觉资源
-  [OUTPUT]: 顶栏合并连接状态、当前 OneAPI Key 剩余额度与刷新图标；AI渲染包含添加人物/宠物保活入口；提供AI渲染分组的平面图机位渲染独立入口；含GPT2.6 Sunburst/Flare独立模型身份； 独立超分双噪声数字控件；对外提供AI渲染台正式目录与同源宿主样式，提供AI渲染分组的白模/精模及光影转换入口/独立光影选择容器，白模在设计风格后默认自动/可选单卡纯词光影；对外提供质感增强飞书固定Prompt版本/上架及刷新、AI渲染单图质感增强入口、不展示控件外说明/维护入口且真实错误可见的参数面板、AI编辑打光/五效果模板与可选点线面光源编辑/逐灯两种模式和二次编辑入口与两种模式共用大画布/START/飞书同步及记录入口；旧房改造独立入口与空房共用的单流程设计和结果展示、共享版本检查入口与更新下载弹层、纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、以 AI设计/AI渲染/AI编辑/AI创作分组且将图片超分、AI扩图与多角度归入AI编辑、不重复当前功能名的左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化原六氛围与新增共享光影模板互斥单选、效果图氛围转换当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立全景R5_4工作流、默认原光影独立首卡/光影模板与自定义要求的全景图美化入口及专属 360°结果预览、精模必选预设卡片/氛围参考光影选择与常显 Prompt 版本/刷新和补充要求、白模/空房设计/风格转换/图片超分/AI扩图/自由生图/风格反推入口、Flux/Qwen/Sunburst 扩图引擎、独立 Flux 模型、默认原比例及五预设画幅与固定 2K 输出、主区域棋盘格构图与贴近画布的输出尺寸/居中栏、默认攸行 3B 的图片超分六工作流、SeedVR2 7B 原图直入与KS预缩放/原图直入的2X/4K/6K对照选项、各工作流独立合法尺寸目录及说明、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同宽可搜索单选下拉承载的白模/空房智能默认和平台风格、风格转换明确平台或参考图风格及已选摘要/简洁搜索且不设数量上限的出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
+  [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖scene-cast.css提供工作台挂载后的合成控件局部样式；依赖reference-upload-icons.svg提供共享上传图标；依赖effect-beautification-controls.js的六氛围及新增共享光影卡片互斥选择；依赖white-model-lighting.js的白模自动/纯词光影；依赖lighting-transfer-controls.js的独立效果图光影转换，依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖config-refresh-button.css共享刷新样式、refined-model-controls.js与refined-lighting-controls.js/css光影库/参考图/版本配置；依赖image-relight.js/css的GPT光照模板/可选点线面光源编辑及逐灯两种模式；依赖image-mask-fill.js/css的提示词/参考图二次编辑与原图等尺寸画布；依赖product-navigation.js/css与icons/workbench.svg的共用导航侧栏，依赖workspace-panel.js/css和workspace-panel-responsive.css的满视口布局/参数栏收展和抽屉，依赖feature-catalog.js与feature-directory.css的分组和搜索；依赖choice-select共享下拉组件及custom-select原生表单适配；依赖共享摄影机球与多角度单图控制器；依赖home-image-chat.js/css的首页功能选择、原表单快捷下拉和低频弹层、对话内嵌原画布与工具操作区，以及app.js、共享任务/上传/结果/连接中心、设计/渲染/创作控件及既有视觉资源
+  [OUTPUT]: 未选择功能时提供右侧首页生图，功能页保留无标题带的画布、风格反推底部操作；侧栏底部额度、刷新和可点击的版本号；AI渲染包含添加人物/宠物保活入口；提供AI渲染分组的平面图机位渲染独立入口；含GPT2.6 Sunburst/Flare独立模型身份； 独立超分双噪声数字控件；对外提供AI渲染台正式目录与同源宿主样式，提供AI渲染分组的白模/精模及光影转换入口/独立光影选择容器，白模在设计风格后默认自动/可选单卡纯词光影；对外提供质感增强飞书固定Prompt版本/上架及刷新、AI渲染单图质感增强入口、不展示控件外说明/维护入口且真实错误可见的参数面板、AI编辑打光/五效果模板与可选点线面光源编辑/逐灯两种模式和二次编辑入口与两种模式共用大画布/START/飞书同步及记录入口；旧房改造独立入口与空房共用的单流程设计和结果展示、共享版本检查入口与更新下载弹层、满视口画布、可折叠工作台导航侧栏、独立参数栏、四组功能目录与跨组别名搜索、共享侧栏的三个横向工作台入口与中性当前态、中性焦点反馈、以 AI设计/AI渲染/AI编辑/AI创作分组且将图片超分、AI扩图与多角度归入AI编辑、左侧内嵌目录、与配置滚动区分离且不遮挡内容的标志性盒橙 START 动作栏、效果图美化原六氛围与新增共享光影模板互斥单选、效果图氛围转换当前上架 Prompt 版本及可独立/组合的天气与时段选项、独立全景R5_4工作流、默认原光影独立首卡/光影模板与自定义要求的全景图美化入口及专属 360°结果预览、精模必选预设卡片/氛围参考光影选择与常显 Prompt 版本/刷新和补充要求、白模/空房设计/风格转换/图片超分/AI扩图/自由生图/风格反推入口、Flux/Qwen/Sunburst 扩图引擎、独立 Flux 模型、默认原比例及五预设画幅与固定 2K 输出、主区域棋盘格构图与贴近画布的输出尺寸/居中栏、默认攸行 3B 的图片超分六工作流、SeedVR2 7B 原图直入与KS预缩放/原图直入的2X/4K/6K对照选项、各工作流独立合法尺寸目录及说明、按功能保留的生成中/结果区及当前任务原图/结果图滑动对比、空房房间类型必填与线上家具目录/“其他”条件输入、默认空白的正向提示词、提示词前置的主图与可选风格参考双上传、同宽可搜索单选下拉承载的白模/空房智能默认和平台风格、风格转换明确平台或参考图风格及已选摘要/简洁搜索且不设数量上限的出图模型选择、Flux 默认/自定义负向 Prompt 实验、替代格式控件且向上展开的单模型 1–4 张下拉、固定 PNG 输出、按功能切换且直接显示的独立 Agent 配置、Flux 双档位与多结果画廊
   [POS]: public 的单页入口，渲染台、平面机位及添加人物/宠物的参数和 START 使用共享栏位，结果或画布由保活宿主隔离；被 server.mjs 作为根页面提供
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -15,72 +15,133 @@
     <link rel="preload" href="/smiley-sans-v2.0.1.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · 图像模型工作台</title>
     <link rel="stylesheet" href="/styles.css?v=13" />
-    <link rel="stylesheet" href="/result.css?v=15" />
+    <link rel="stylesheet" href="/result.css?v=17" />
+    <link rel="stylesheet" href="/generation-feedback.css?v=3" />
+    <link rel="stylesheet" href="/canvas-view-controls.css?v=3" />
     <link rel="stylesheet" href="/vendor/pannellum.css" />
     <link rel="stylesheet" href="/panorama-viewer.css?v=2" />
-    <link rel="stylesheet" href="/theme.css?v=35" />
+    <link rel="stylesheet" href="/theme.css?v=38" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-    <link rel="stylesheet" href="/effect-beautification.css?v=2" />
+    <link rel="stylesheet" href="/effect-beautification.css?v=3" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
-    <link rel="stylesheet" href="/refined-lighting-controls.css?v=4" />
-    <link rel="stylesheet" href="/theme-interactions.css?v=2" />
-    <link rel="stylesheet" href="/generation-actions.css?v=16" />
-    <link rel="stylesheet" href="/custom-select.css?v=10" />
-    <link rel="stylesheet" href="/style-dna-chat.css?v=10" />
-    <link rel="stylesheet" href="/product-navigation.css?v=14" />
+    <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
+    <link rel="stylesheet" href="/theme-interactions.css?v=3" />
+    <link rel="stylesheet" href="/generation-actions.css?v=17" />
+    <link rel="stylesheet" href="/custom-select.css?v=13" />
+    <link rel="stylesheet" href="/style-dna-chat.css?v=11" />
+    <link rel="stylesheet" href="/product-navigation.css?v=25" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=5" />
-    <link rel="stylesheet" href="/empty-room-type.css?v=2" />
-    <link rel="stylesheet" href="/image-outpaint.css?v=12" />
-    <link rel="stylesheet" href="/image-multi-angle.css" />
-    <link rel="stylesheet" href="/image-mask-fill.css" />
-    <link rel="stylesheet" href="/image-relight.css" />
-    <link rel="stylesheet" href="/app-update.css?v=1" />
-    <link rel="stylesheet" href="/connection-center.css?v=8" />
-    <link rel="stylesheet" href="/workspace-panel.css?v=5" />
-    <link rel="stylesheet" href="/workspace-panel-responsive.css?v=2" />
-    <link rel="stylesheet" href="/ai-render-studio-host.css?v=2" />
-    <link rel="stylesheet" href="/ai-render-studio.css?v=4" />
-    <link rel="stylesheet" href="/floor-plan-camera.css?v=21" />
-    <link rel="stylesheet" href="/scene-cast.css?v=4" />
+    <link rel="stylesheet" href="/empty-room-type.css?v=3" />
+    <link rel="stylesheet" href="/image-outpaint.css?v=14" />
+    <link rel="stylesheet" href="/image-multi-angle.css?v=4" />
+    <link rel="stylesheet" href="/image-mask-fill.css?v=2" />
+    <link rel="stylesheet" href="/image-relight.css?v=2" />
+    <link rel="stylesheet" href="/app-update.css?v=4" />
+    <link rel="stylesheet" href="/connection-center.css?v=15" />
+    <link rel="stylesheet" href="/workspace-panel.css?v=14" />
+    <link rel="stylesheet" href="/workspace-panel-responsive.css?v=3" />
+    <link rel="stylesheet" href="/ai-render-studio-host.css?v=4" />
+    <link rel="stylesheet" href="/ai-render-studio.css?v=9" />
+    <link rel="stylesheet" href="/floor-plan-camera.css?v=31" />
+    <link rel="stylesheet" href="/scene-cast.css?v=7" />
     <link rel="stylesheet" href="/panel-copy.css?v=2" />
-    <link rel="stylesheet" href="/raycast-accent.css?v=42" />
+    <link rel="stylesheet" href="/feature-directory.css?v=10" />
+    <link rel="stylesheet" href="/home-image-chat.css?v=24" />
+    <link rel="stylesheet" href="/home-image-chat-responsive.css?v=9" />
+    <link rel="stylesheet" href="/parameter-popover.css?v=2" />
+    <link rel="stylesheet" href="/workspace-quick-parameters.css?v=1" />
+    <link rel="stylesheet" href="/home-image-chat-tools.css?v=12" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=44" />
+    <script src="/product-navigation.js?v=13"></script>
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar workspace-topbar">
-        <a class="brand" href="/" aria-label="Canvas Lab 首页"><span class="brand-title">Canvas Lab</span></a>
-        <nav id="productSwitcher" class="product-switcher" data-active-index="0" aria-label="工作台切换">
-          <span class="product-switch-active-viewport" aria-hidden="true">
-            <span class="product-switch-active-layer">
-              <span class="product-switch-active-option">生图工作台</span>
-              <span class="product-switch-active-option">批量跑图</span>
-              <span class="product-switch-active-option">模型评测</span>
-            </span>
-          </span>
-          <a class="product-switch-option" href="/" aria-current="page">生图工作台</a>
-          <a class="product-switch-option" href="/beta.html">批量跑图</a>
-          <a class="product-switch-option" href="/benchmark.html">模型评测</a>
+    <div class="app-shell workbench-shell">
+      <aside id="productSidebar" class="product-sidebar" aria-label="工作台导航">
+        <div class="product-sidebar-head">
+          <a class="brand" href="/" aria-label="Canvas Lab 首页"><span class="brand-title">Canvas Lab</span></a>
+          <button id="productSidebarToggle" class="product-sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏" aria-expanded="true" aria-controls="productSidebar"><svg aria-hidden="true"><use href="/icons/workbench.svg#sidebar"></use></svg></button>
+        </div>
+        <nav id="productSwitcher" class="product-switcher" aria-label="工作台切换">
+          <a class="product-switch-option" href="/" aria-label="生图工作台" title="生图工作台" aria-current="page"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">生图</span></a>
+          <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量</span></a>
+          <a class="product-switch-option" href="/benchmark.html" aria-label="模型评测" title="模型评测"><svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg><span class="product-switch-label">评测</span></a>
         </nav>
-        <div class="topbar-actions">
-          <button class="app-update-trigger" data-app-update type="button">检查更新</button>
+        <div class="product-sidebar-search">
+          <button class="feature-catalog-trigger" data-feature-catalog-open type="button" aria-label="查找功能" title="查找功能" aria-haspopup="dialog" aria-controls="featureCatalogDialog" aria-keyshortcuts="Meta+K Control+K">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5" /><path d="m12 12 4 4" /></svg>
+            <span class="feature-catalog-trigger-label">查找功能</span></button>
+        </div>
+        <nav id="featureModeList" class="feature-directory" aria-label="AI 功能">
+          <section class="feature-directory-group" aria-labelledby="aiDesignTitle">
+            <h2><button id="aiDesignTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="aiDesignFeatures">AI设计</button></h2>
+            <div id="aiDesignFeatures" class="feature-directory-items" role="radiogroup" aria-labelledby="aiDesignTitle" hidden>
+              <button class="feature-mode-option" data-feature-mode="housePlanLayout" data-feature-keywords="户型图 平面图 家具布局 平面方案" type="button" role="radio" aria-checked="false">户型平面布局</button>
+              <button class="feature-mode-option" data-feature-mode="floorPlan" data-feature-keywords="户型编辑 家具编辑 3D" type="button" role="radio" aria-checked="false">设计实验室 · Beta</button>
+              <button class="feature-mode-option" data-feature-mode="emptyRoom" data-feature-keywords="毛坯 空场 软装 布置" type="button" role="radio" aria-checked="false">空房设计</button>
+              <button class="feature-mode-option" data-feature-mode="roomRenovation" data-feature-keywords="翻新 老房 旧屋" type="button" role="radio" aria-checked="false">旧房改造</button>
+              <button class="feature-mode-option" data-feature-mode="styleTransfer" data-feature-keywords="风格迁移 换风格 参考图" type="button" role="radio" aria-checked="false">风格转换</button>
+            </div>
+          </section>
+          <section class="feature-directory-group" aria-labelledby="aiRenderTitle">
+            <h2><button id="aiRenderTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="aiRenderFeatures">AI渲染</button></h2>
+            <div id="aiRenderFeatures" class="feature-directory-items" role="radiogroup" aria-labelledby="aiRenderTitle" hidden>
+              <button class="feature-mode-option" data-feature-mode="aiRenderStudio" data-feature-keywords="材质模型 摄影渲染" type="button" role="radio" aria-checked="false">AI渲染台</button>
+              <button class="feature-mode-option" data-feature-mode="floorPlanCamera" data-feature-keywords="平面转效果图 户型图 相机 视野 取景 FOV" type="button" role="radio" aria-checked="false">平面图机位渲染</button>
+              <button class="feature-mode-option" data-feature-mode="whiteModel" data-feature-keywords="白模生图 白膜 灰模" type="button" role="radio" aria-checked="false">白模渲染</button>
+              <button class="feature-mode-option" data-feature-mode="refinedModel" data-feature-keywords="双图 精模出图" type="button" role="radio" aria-checked="false">精模渲染</button>
+              <button class="feature-mode-option" data-feature-mode="effectBeautification" data-feature-keywords="氛围 润色 增强" type="button" role="radio" aria-checked="false">效果图美化</button>
+              <button class="feature-mode-option" data-feature-mode="effectEnhancement" data-feature-keywords="时段 天气 环境效果" type="button" role="radio" aria-checked="false">效果图氛围转换</button>
+              <button class="feature-mode-option" data-feature-mode="panoramaEnhancement" data-feature-keywords="360度 VR 环视 全景增强" type="button" role="radio" aria-checked="false">全景图美化</button>
+              <button class="feature-mode-option" data-feature-mode="textureEnhancement" data-feature-keywords="材质 纹理 质感美化" type="button" role="radio" aria-checked="false">质感增强</button>
+              <button class="feature-mode-option" data-feature-mode="lightingTransfer" data-feature-keywords="参考光影 光照迁移 换光" type="button" role="radio" aria-checked="false">光影转换</button>
+              <button class="feature-mode-option" data-feature-mode="sceneCast" data-feature-keywords="人宠 合成 加人 加宠物" type="button" role="radio" aria-checked="false">添加人物/宠物</button>
+            </div>
+          </section>
+          <section class="feature-directory-group" aria-labelledby="aiEditTitle">
+            <h2><button id="aiEditTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="aiEditFeatures">AI编辑</button></h2>
+            <div id="aiEditFeatures" class="feature-directory-items" role="radiogroup" aria-labelledby="aiEditTitle" hidden>
+              <button class="feature-mode-option" data-feature-mode="imageUpscale" data-feature-keywords="高清 放大 清晰度 4K 6K 8K SeedVR" type="button" role="radio" aria-checked="false">图片超分</button>
+              <button class="feature-mode-option" data-feature-mode="imageOutpaint" data-feature-keywords="扩边 扩画布 画幅" type="button" role="radio" aria-checked="false">AI扩图</button>
+              <button class="feature-mode-option" data-feature-mode="imageMultiAngle" data-feature-keywords="换视角 俯视 镜头 机位" type="button" role="radio" aria-checked="false">多角度</button>
+              <button class="feature-mode-option" data-feature-mode="imageMaskFill" data-feature-keywords="局部编辑 蒙版 遮罩 涂抹 替换" type="button" role="radio" aria-checked="false">二次编辑</button>
+              <button class="feature-mode-option" data-feature-mode="imageRelight" data-feature-keywords="光照 加灯 关灯 光源" type="button" role="radio" aria-checked="false">打光</button>
+            </div>
+          </section>
+          <section class="feature-directory-group" aria-labelledby="aiCreationTitle">
+            <h2><button id="aiCreationTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="aiCreationFeatures">AI创作</button></h2>
+            <div id="aiCreationFeatures" class="feature-directory-items" role="radiogroup" aria-labelledby="aiCreationTitle" hidden>
+              <button class="feature-mode-option" data-feature-mode="styleDna" data-feature-keywords="提示词 反推描述 Prompt 风格分析" type="button" role="radio" aria-checked="false">风格反推</button>
+              <button class="feature-mode-option" data-feature-mode="free" data-feature-keywords="文生图 图生图 提示词" type="button" role="radio" aria-checked="false">自由生图</button>
+            </div>
+          </section>
+        </nav>
+        <footer class="product-sidebar-footer" aria-label="工作台状态">
+          <button class="app-update-trigger sidebar-version" data-app-update type="button" aria-label="检查 Canvas Lab 更新">
+            <span class="sidebar-version-label" data-app-update-label>检查更新</span>
+          </button>
           <div class="connection-control">
             <button id="connectionButton" class="connection-button product-status" type="button"
               aria-haspopup="dialog" aria-describedby="apiQuotaDetail" title="打开连接中心">
-              <span class="status-dot" aria-hidden="true"></span>
-              <span id="apiQuotaValue">连接中心</span>
+              <svg class="sidebar-utility-icon" aria-hidden="true"><use href="/icons/workbench.svg#connection"></use></svg>
+              <span id="apiQuotaValue" class="sidebar-utility-label">连接中心</span>
             </button>
             <button id="apiQuotaRefresh" class="config-refresh-button" type="button"
-              aria-label="刷新 OneAPI 额度" title="刷新 OneAPI 额度" disabled hidden>
+              aria-label="刷新 OneAPI 额度" title="刷新 OneAPI 额度" aria-disabled="true" hidden>
               <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
             </button>
             <span id="apiQuotaDetail" class="sr-only" role="status" aria-atomic="true"></span>
           </div>
+        </footer>
+      </aside>
+      <header class="topbar workspace-topbar">
+        <div class="workbench-topbar-start">
+          <button id="productSidebarOpen" class="product-sidebar-open" type="button" aria-label="打开侧栏" aria-haspopup="dialog" aria-expanded="false" aria-controls="productSidebarDialog"><svg aria-hidden="true"><use href="/icons/workbench.svg#menu"></use></svg></button>
+          <span class="workbench-topbar-title" id="workspaceCurrentFeature"></span>
         </div>
       </header>
       <main class="workspace">
         <aside id="configurationPanel" class="control-panel workspace-configuration-panel" aria-label="生成配置">
           <header class="workspace-panel-header">
-            <span class="workspace-navigation-title">功能</span>
             <span class="workspace-panel-title">参数配置</span>
             <label class="workspace-panel-feature-field">
               <select id="workspaceFeatureSelect" aria-label="选择AI功能" data-searchable="true" data-search-placeholder="搜索功能名称"></select>
@@ -89,42 +150,6 @@
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8" /></svg>
             </button>
           </header>
-          <nav id="featureModeList" class="feature-directory" aria-label="AI 功能" role="radiogroup">
-            <section class="feature-directory-group" aria-labelledby="aiDesignTitle">
-              <h2 id="aiDesignTitle">AI设计</h2>
-              <button class="feature-mode-option" data-feature-mode="housePlanLayout" type="button" role="radio" aria-checked="false">户型平面布局</button>
-              <button class="feature-mode-option" data-feature-mode="floorPlan" type="button" role="radio" aria-checked="false">设计实验室 · Beta</button>
-              <button class="feature-mode-option" data-feature-mode="emptyRoom" type="button" role="radio" aria-checked="false">空房设计</button>
-              <button class="feature-mode-option" data-feature-mode="roomRenovation" type="button" role="radio" aria-checked="false">旧房改造</button>
-              <button class="feature-mode-option" data-feature-mode="styleTransfer" type="button" role="radio" aria-checked="false">风格转换</button>
-            </section>
-            <section class="feature-directory-group" aria-labelledby="aiRenderTitle">
-              <h2 id="aiRenderTitle">AI渲染</h2>
-              <button class="feature-mode-option" data-feature-mode="aiRenderStudio" type="button" role="radio" aria-checked="false">AI渲染台</button>
-              <button class="feature-mode-option" data-feature-mode="floorPlanCamera" type="button" role="radio" aria-checked="false">平面图机位渲染</button>
-              <button class="feature-mode-option selected" data-feature-mode="whiteModel" type="button" role="radio" aria-checked="true">白模渲染</button>
-              <button class="feature-mode-option" data-feature-mode="refinedModel" type="button" role="radio" aria-checked="false">精模渲染</button>
-              <button class="feature-mode-option" data-feature-mode="effectBeautification" type="button" role="radio" aria-checked="false">效果图美化</button>
-              <button class="feature-mode-option" data-feature-mode="effectEnhancement" type="button" role="radio" aria-checked="false">效果图氛围转换</button>
-              <button class="feature-mode-option" data-feature-mode="panoramaEnhancement" type="button" role="radio" aria-checked="false">全景图美化</button>
-              <button class="feature-mode-option" data-feature-mode="textureEnhancement" type="button" role="radio" aria-checked="false">质感增强</button>
-              <button class="feature-mode-option" data-feature-mode="lightingTransfer" type="button" role="radio" aria-checked="false">光影转换</button>
-              <button class="feature-mode-option" data-feature-mode="sceneCast" type="button" role="radio" aria-checked="false">添加人物/宠物</button>
-            </section>
-            <section class="feature-directory-group" aria-labelledby="aiEditTitle">
-              <h2 id="aiEditTitle">AI编辑</h2>
-              <button class="feature-mode-option" data-feature-mode="imageUpscale" type="button" role="radio" aria-checked="false">图片超分</button>
-              <button class="feature-mode-option" data-feature-mode="imageOutpaint" type="button" role="radio" aria-checked="false">AI扩图</button>
-              <button class="feature-mode-option" data-feature-mode="imageMultiAngle" type="button" role="radio" aria-checked="false">多角度</button>
-              <button class="feature-mode-option" data-feature-mode="imageMaskFill" type="button" role="radio" aria-checked="false">二次编辑</button>
-              <button class="feature-mode-option" data-feature-mode="imageRelight" type="button" role="radio" aria-checked="false">打光</button>
-            </section>
-            <section class="feature-directory-group" aria-labelledby="aiCreationTitle">
-              <h2 id="aiCreationTitle">AI创作</h2>
-              <button class="feature-mode-option" data-feature-mode="styleDna" type="button" role="radio" aria-checked="false">风格反推</button>
-              <button class="feature-mode-option" data-feature-mode="free" type="button" role="radio" aria-checked="false">自由生图</button>
-            </section>
-          </nav>
           <div class="control-panel-scroll">
           <section id="lightingTransferSection" class="panel-section generation-control hidden" aria-label="效果图光影转换"></section>
           <section id="panoramaLightingSection" class="panel-section generation-control hidden" aria-label="全景光影氛围"></section>
@@ -495,18 +520,20 @@
             </div>
           </section>
         </aside>
-        <div id="workspacePanelResize" class="workspace-panel-resize" role="separator" tabindex="0" aria-label="调整参数配置宽度" aria-orientation="vertical" aria-controls="configurationPanel" title="拖动调整或收起参数配置；功能栏固定宽度；双击恢复默认"></div>
-        <button id="workspacePanelOpen" class="workspace-panel-launcher" type="button" aria-haspopup="dialog" aria-controls="workspacePanelDialog" aria-expanded="false">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M8 3v14m4-7h2m-2 4h2" /></svg>
-          <span>功能与配置</span><span data-active-feature>白模渲染</span>
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5" /></svg>
-        </button>
+        <div id="workspacePanelResize" class="workspace-panel-resize" role="separator" tabindex="0" aria-label="参数配置" aria-orientation="vertical" aria-controls="configurationPanel" aria-keyshortcuts="Enter" title="点击或按 Enter 收展，拖动调宽">
+          <span class="workspace-panel-grip" aria-hidden="true"></span>
+        </div>
+        <div class="workspace-mobile-actions">
+          <button class="feature-catalog-trigger" data-feature-catalog-open type="button" aria-haspopup="dialog" aria-controls="featureCatalogDialog" aria-keyshortcuts="Meta+K Control+K">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5" /><path d="m12 12 4 4" /></svg>
+            查找功能</button>
+          <button id="workspacePanelOpen" class="workspace-panel-launcher" type="button" aria-haspopup="dialog" aria-controls="workspacePanelDialog" aria-expanded="false">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M8 3v14m4-7h2m-2 4h2" /></svg>
+            <span class="workspace-panel-launcher-label">参数配置</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5" /></svg>
+          </button>
+        </div>
         <section class="result-panel" aria-label="生成结果">
-          <div class="result-toolbar generation-result">
-            <div class="result-heading">
-              <h2>生成结果</h2>
-            </div>
-          </div>
           <div id="resultStage" class="result-stage generation-result">
             <div id="emptyState" class="empty-state">
               <div class="empty-icon" aria-hidden="true">
@@ -523,14 +550,9 @@
                 <span id="emptySize">2400 × 1792</span>
               </div>
             </div>
-            <div id="loadingState" class="loading-state hidden" aria-live="polite">
-              <div class="loading-canvas">
-                <span class="scan-line"></span>
-              </div>
-              <div>
-                <h3>正在生成</h3>
-                <p id="loadingLabel">正在向 Seedream 5.0 Lite 提交请求…</p>
-              </div>
+            <div id="loadingState" class="loading-state generation-feedback hidden">
+              <p id="loadingLabel" class="generation-feedback-text" role="status">正在提交生图任务…</p>
+              <div class="generation-feedback-preview" aria-hidden="true"></div>
             </div>
             <div id="resultGallery" class="result-gallery hidden" aria-live="polite"></div>
             <div id="errorState" class="error-state hidden" role="alert">
@@ -543,13 +565,6 @@
             </div>
           </div>
           <section id="styleDnaChat" class="style-dna-chat hidden" aria-label="Style DNA 反推对话">
-            <header class="style-dna-chat-header">
-              <div>
-                <h2>Style DNA 反推</h2>
-                <p>上传同风格参考附件即可分析，也可以补充本次重点提取或排除的内容。</p>
-              </div>
-              <button id="styleDnaResetButton" class="ghost-button" type="button">新对话</button>
-            </header>
             <div id="styleDnaThread" class="style-dna-thread" aria-live="polite"></div>
             <div class="style-dna-composer">
               <div id="styleDnaReferenceDropZone" class="composer-input-shell">
@@ -585,16 +600,12 @@
                     </label>
                     <span id="styleDnaReferenceCount" class="sr-only" aria-live="polite">0 个附件</span>
                   </div>
-                  <button
-                    id="styleDnaSendButton"
-                    class="style-dna-send-button"
-                    type="button"
-                    aria-label="发送"
-                    title="发送"
-                  >
-                    <span class="sr-only">发送</span>
-                    <img src="/icons/arrow-up.svg" alt="" aria-hidden="true" />
-                  </button>
+                  <div class="composer-submit-tools">
+                    <button id="styleDnaResetButton" class="ghost-button" type="button">新对话</button>
+                    <button id="styleDnaSendButton" class="style-dna-send-button" type="button" aria-label="发送" title="发送">
+                      <img src="/icons/arrow-up.svg" alt="" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -602,7 +613,6 @@
         </section>
       </main>
     </div>
-
     <div id="connectionDialog" class="dialog-backdrop hidden" aria-hidden="true">
       <section class="dialog connection-dialog" role="dialog" aria-modal="true" tabindex="-1"
         aria-labelledby="connectionDialogTitle" aria-describedby="connectionDialogDescription">
@@ -620,7 +630,6 @@
             </svg>
           </button>
         </div>
-
         <div class="connection-grid">
           <section class="connection-section" aria-labelledby="apiConnectionTitle">
             <div class="connection-section-header">
@@ -630,6 +639,10 @@
               </div>
               <span id="apiConnectionStatus" class="connection-status" role="status"
                 aria-live="polite" aria-atomic="true">未连接</span>
+            </div>
+            <div id="connectionQuotaRow" class="connection-quota-row" hidden>
+              <span>剩余额度</span>
+              <strong id="connectionQuotaValue">—</strong>
             </div>
             <label class="field api-key-field">
               <span>OneAPI Key</span>
@@ -661,7 +674,6 @@
               </button>
             </div>
           </section>
-
           <section class="connection-section" aria-labelledby="larkConnectionTitle">
             <div class="connection-section-header">
               <div class="connection-section-title">
@@ -694,7 +706,6 @@
                 <strong id="larkBaseState">检测中</strong>
               </div>
             </div>
-
             <p id="larkConfigHint" class="connection-hint hidden">
               飞书 CLI 首次使用需要初始化。请在终端运行
               <code>npm run lark:init</code>。
@@ -703,7 +714,6 @@
               </button>
             </p>
             <p id="larkSetupError" class="inline-error hidden" role="alert"></p>
-
             <div id="larkAuthPanel" class="lark-auth-panel hidden">
               <img id="larkQrCode" alt="飞书授权二维码" />
               <div class="lark-auth-copy">
@@ -720,7 +730,6 @@
                 </button>
               </div>
             </div>
-
             <div class="connection-section-actions">
               <button
                 id="larkRefreshButton"
@@ -756,11 +765,26 @@
       </div>
     </dialog>
     <dialog id="workspacePanelDialog" class="workspace-panel-dialog" aria-label="功能与生成配置"></dialog>
+    <dialog id="featureCatalogDialog" class="feature-catalog-dialog" aria-labelledby="featureCatalogTitle">
+      <header class="feature-catalog-header">
+        <h2 id="featureCatalogTitle">查找功能</h2>
+        <button class="feature-catalog-close" type="button" data-feature-catalog-close aria-label="关闭查找功能"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8" /></svg></button>
+      </header>
+      <div class="feature-catalog-field">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5" /><path d="m12 12 4 4" /></svg>
+        <input id="featureCatalogQuery" type="search" aria-label="搜索功能名称或关键词" placeholder="搜索功能名称或关键词" autocomplete="off" autofocus />
+      </div>
+      <p id="featureCatalogStatus" role="status" class="sr-only"></p>
+      <ul id="featureCatalogResults" class="feature-catalog-results" aria-label="功能列表"></ul>
+      <p id="featureCatalogEmpty" class="feature-catalog-empty" hidden>没有匹配的功能</p>
+    </dialog>
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     <script src="/vendor/pannellum.js"></script>
-    <script type="module" src="/product-navigation.js?v=9"></script>
-    <script type="module" src="/app-update.js?v=1"></script>
-    <script type="module" src="/app.js?v=83"></script>
-    <script type="module" src="/workspace-panel.js?v=5"></script>
+    <script type="module" src="/app-update.js?v=5"></script>
+    <script type="module" src="/app.js?v=114"></script>
+    <script type="module" src="/workspace-panel.js?v=15"></script>
+    <script type="module" src="/feature-catalog.js?v=7"></script>
+    <script type="module" src="/workspace-quick-parameters.js?v=3"></script>
+    <dialog id="productSidebarDialog" class="product-sidebar-dialog" aria-label="工作台导航"></dialog>
   </body>
 </html>

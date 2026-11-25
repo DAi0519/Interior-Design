@@ -2,6 +2,10 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
+panorama-seam-batch.mjs: 三方整图全景优化、全图循环平移半幅、GPT 2.6中央透明遮罩修缝、原生回包直接逆移；支持修缝提示词文件、原件和回执复用、完整全景下载与罩外差异审计
+panorama-seam-mask.mjs: 原尺寸半幅循环平移、中央全高透明窄条及历史对照用罩内合成
+panorama-seam-detect.mjs: 只读接缝亮差、色度、邻域梯度及跳差统计；不参与调色或变形
+panorama-seam-batch.test.mjs: 整图平移与逆移、透明窄罩、原生回包透明度与罩外差异、批次恢复及更换修缝提示词复用首段
 export-ks-5k6k.mjs: 从KS直入27.1真源导出独立4096/4096及5120/6144两档MaaS画布/API，已有节点schema/控件端口与逐字段回投，后端唯一input_img，不提交GPU
 multi-angle-preview.mjs: 本机4175摄影机球试跑服务（静态复用主工作台camera-sphere交互与camera-sphere-scene绘制），复用ComfyUI客户端/异步任务/图片校验，20MB上传/30MB请求及大图压到长边2K直接推理、可固定种子的单张提交、请求幂等、原件/压缩输入/产物留存与原图对比
 

@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖AI渲染台编排、共享上传图标和表单控件、工作台参数/结果/START视觉及后台任务/归档接口
-  [OUTPUT]: 提供可挂接的参数/START、共享模型图上传入口、44px结果区、光影与渲染风格、精细控光
+  [INPUT]: 依赖AI渲染台编排、ai-render-studio.css 的嵌入结果面、共享上传图标和表单控件、工作台参数/结果/START和生图反馈样式及后台任务/归档接口
+  [OUTPUT]: 提供可挂接的参数/START、共享模型图上传入口、结果画布、光影与渲染风格、精细控光
   [POS]: public 的AI渲染台同源嵌入入口，不新增独立导航或替换现有功能目录
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,15 +12,16 @@
     <link rel="icon" href="data:," />
     <link rel="preload" href="/smiley-sans-v2.0.1.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/styles.css?v=13" />
-    <link rel="stylesheet" href="/result.css?v=14" />
-    <link rel="stylesheet" href="/theme.css?v=35" />
+    <link rel="stylesheet" href="/result.css?v=17" />
+    <link rel="stylesheet" href="/theme.css?v=38" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-    <link rel="stylesheet" href="/custom-select.css?v=10" />
-    <link rel="stylesheet" href="/refined-lighting-controls.css?v=3" />
-    <link rel="stylesheet" href="/image-relight.css" />
-    <link rel="stylesheet" href="/generation-actions.css?v=16" />
-    <link rel="stylesheet" href="/ai-render-studio.css?v=4" />
-    <link rel="stylesheet" href="/raycast-accent.css?v=42" />
+    <link rel="stylesheet" href="/custom-select.css?v=13" />
+    <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
+    <link rel="stylesheet" href="/image-relight.css?v=2" />
+    <link rel="stylesheet" href="/generation-actions.css?v=17" />
+    <link rel="stylesheet" href="/ai-render-studio.css?v=9" />
+    <link rel="stylesheet" href="/generation-feedback.css?v=3" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=44" />
     <title>Canvas Lab · AI渲染台</title>
   </head>
   <body class="studio-page">
@@ -69,6 +70,6 @@
       <div id="studioLighting" class="studio-lighting"></div>
     </main>
     <div id="studioToast" class="studio-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="/ai-render-studio.js?v=5"></script>
+    <script type="module" src="/ai-render-studio.js?v=10"></script>
   </body>
 </html>

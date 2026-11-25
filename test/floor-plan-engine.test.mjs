@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面编辑器桥接、共享容量合同、bootstrap 和同源 iframe/机位替身
- * [OUTPUT]: 验证空启动、危险数据拒绝、原生方案恢复、机位单位、统一保存与销毁
+ * [OUTPUT]: 验证空启动、危险数据拒绝、原生方案恢复、机位单位、统一保存、销毁与设计实验室选中态覆盖
  * [POS]: test 的固定第三方引擎宿主合同，不加载真实 WebGL、不调用网络或生图模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -146,4 +146,17 @@ test('变更回调去重，销毁解绑保存且阻断后续使用', async () =>
   doc.dispatchEvent(new Event('canvas-floor-plan-save'));
   assert.equal(saves, 0);
   assert.throws(() => f.api.ready(), /已关闭/);
+});
+
+test('设计实验室覆盖上游选中轮廓并独立保留键盘焦点', async () => {
+  const vendor = new URL('../public/vendor/house-plan-designer/', import.meta.url);
+  const [editor, integration] = await Promise.all([
+    readFile(new URL('editor.html', vendor), 'utf8'),
+    readFile(new URL('integration.css', vendor), 'utf8'),
+  ]);
+  assert.match(editor, /href="\.\/engine\.css[^"]*"[\s\S]+href="\.\/integration\.css[^"]*"/);
+  assert.match(integration, /\.mat\.on, \.sw\.on\s*\{[^}]*background: var\(--accent-soft\)[^}]*border-color: transparent/);
+  assert.match(integration, /\.tcols button\.on::after\s*\{[^}]*content: "✓"/);
+  assert.match(integration, /:is\(\.swatches, \.tcols\) button\.on:not\(:focus-visible\)\s*\{\s*outline: none;/);
+  assert.match(integration, /:is\(\.swatches, \.tcols\) button:focus-visible\s*\{\s*outline: 2px solid var\(--text\)/);
 });

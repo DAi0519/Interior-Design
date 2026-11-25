@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 styles.css 的设计令牌、index.html 的结果区状态节点与 generation-results.js 的原图/结果图叠层状态
- * [OUTPUT]: 对外提供结果工具栏、空态/加载态/错误态、单图与完整图片高度的可滚动多图画廊、轻量原图/结果图滑动分割线、逐图下载与直接点击大图预览视觉
+ * [INPUT]: 依赖 styles.css 的设计令牌、index.html 的结果区状态节点、共享生图反馈与原图/结果图叠层状态
+ * [OUTPUT]: 对外提供结果布局、空态和错误态、可滚动画廊、原图/结果图滑动分割线、逐图下载与大图预览视觉
  * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,25 +10,6 @@
   flex-direction: column;
   min-width: 0;
   padding: 22px 24px;
-}
-
-.result-toolbar {
-  align-items: flex-start;
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.result-toolbar h2 {
-  font-size: 15px;
-  letter-spacing: -0.025em;
-  margin: 0;
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 8px;
-  transform: translateY(-8px);
 }
 
 .ghost-button,
@@ -69,7 +50,6 @@
 }
 
 .empty-state,
-.loading-state,
 .error-state {
   align-items: center;
   display: flex;
@@ -101,7 +81,6 @@
 }
 
 .empty-state h3,
-.loading-state h3,
 .error-state h3 {
   font-size: 16px;
   letter-spacing: -0.02em;
@@ -109,7 +88,6 @@
 }
 
 .empty-state > p,
-.loading-state p,
 .error-state p {
   color: var(--muted);
   line-height: 1.6;
@@ -137,54 +115,6 @@
 
 .loading-state {
   width: min(360px, 100%);
-}
-
-.loading-canvas {
-  background: #ecefe8;
-  border: 1px solid #dfe3da;
-  border-radius: 12px;
-  height: 250px;
-  margin-bottom: 24px;
-  overflow: hidden;
-  position: relative;
-  width: min(320px, 90%);
-}
-
-.loading-canvas::before {
-  background: linear-gradient(
-    105deg,
-    transparent 15%,
-    rgb(255 255 255 / 85%) 45%,
-    transparent 70%
-  );
-  content: "";
-  inset: 0;
-  position: absolute;
-  transform: translateX(-100%);
-  animation: shimmer 1.1s linear infinite;
-}
-
-.scan-line {
-  background: var(--accent);
-  box-shadow: 0 0 18px rgb(184 244 13 / 50%);
-  height: 2px;
-  left: 8%;
-  position: absolute;
-  right: 8%;
-  top: 18%;
-  animation: scan 1.5s var(--ease-in-out) infinite alternate;
-}
-
-@keyframes shimmer {
-  to {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes scan {
-  to {
-    transform: translateY(150px);
-  }
 }
 
 .result-gallery {

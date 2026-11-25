@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、src/model-config.mjs 请求构造器，以及浏览器出图模型目录与 Provider 能力解释器
- * [OUTPUT]: 验证十一个 OneAPI 模型和 Flux 工作流的目录、Seedream 5.5 独立身份、Banana Pro preview 与尺寸准入、GPT 质量和思考强度、Seedream Pro 全景 4K 实验档、单图工作流及 KS 后置超分尺寸合同
+ * [OUTPUT]: 验证十一个 OneAPI 模型和 Flux 工作流的目录、Seedream 5.5 独立身份、Banana Pro preview 与尺寸准入、GPT 质量和思考强度、Seedream Pro 全景 4K 实验档、单图工作流与数量提示及 KS 后置超分尺寸合同
  * [POS]: test 的模型参数契约测试，不触发任何真实图片生成或公司额度消耗
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -20,6 +20,7 @@ import {
 } from "../public/final-model-availability.js";
 import {
   referenceCapability,
+  singleReferenceValidation,
   sizeControlState,
   sizeSummary,
 } from "../public/model-capabilities.js";
@@ -150,6 +151,12 @@ test("精模、效果图美化/氛围转换/全景美化、白模与空房设计
       title: "空房图",
     },
   );
+});
+
+test("空房设计的单图提示区分缺图、已满足和上传过多", () => {
+  assert.equal(singleReferenceValidation("emptyRoom", 0), "请添加 1 张空房图");
+  assert.equal(singleReferenceValidation("emptyRoom", 1), null);
+  assert.equal(singleReferenceValidation("emptyRoom", 2), "已添加 2 张图，请只保留 1 张空房图");
 });
 
 test("自由生图按首张参考图可信宽高选择最近合法比例", () => {

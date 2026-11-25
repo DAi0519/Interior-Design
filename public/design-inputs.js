@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖room-renovation 的旧房/空房模式判定、房型/家具输入控制器、生图页面区块与当前功能
- * [OUTPUT]: 对外提供所有生成功能的图片上传置顶顺序、风格转换补充要求与主图/风格图输入，以及旧房和空房共用的房型、家具、布局、必填校验和 Agent 配置
+ * [OUTPUT]: 对外提供各功能的上传顺序与场景提示词说明、主图/风格图输入，以及旧房和空房共用的房型、家具、布局、必填校验和 Agent 配置
  * [POS]: public 的生成输入布局与空房输入组合层，保持主 app 编排器精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -57,7 +57,8 @@ export function bindDesignInputs({ root, onChange }) {
       byId("promptTitle").textContent = empty || transfer ? "补充要求（可选）" : "提示词";
       label.textContent = renovation ? "旧房改造补充要求" : transfer ? "风格转换补充要求" : empty ? "空房补充要求" : "图像提示词";
       prompt.placeholder = transfer ? "例如：保留沙发与家具布局，使用深色木材和暖色灯光。"
-        : empty ? "例如：保留宽走道、需要双人办公、喜欢深色木材；家具增减请在上方选择。" : "";
+        : empty ? "例如：保留宽走道、需要双人办公、喜欢深色木材。"
+          : featureMode === "whiteModel" ? "例如：浅色木材、暖色灯光，保留原有空间布局。" : "";
     },
   };
 }

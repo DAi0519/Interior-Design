@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 workbench-utils.js 的同源 JSON API、更新检查 installMode 与安装 NDJSON 合同、三个工作台的更新入口及原生 dialog/页面可见性能力
- * [OUTPUT]: 对外提供受信安装地址验证、版本亮点/安装模式/待重启/恢复失败映射、可注入检查/安装请求的控制器，以及无外链的单一下载安装、完成/恢复指导与安装互斥弹层
+ * [INPUT]: 依赖 workbench-utils.js 的同源 JSON API、更新检查 installMode 与安装 NDJSON 合同、三个工作台侧栏入口及原生 dialog/页面可见性能力
+ * [OUTPUT]: 提供侧栏底部常驻版本入口、有新版时的圆点和无障碍提示、受信安装地址、版本亮点、安装与恢复指引、互斥弹层及可见入口焦点恢复
  * [POS]: public 的跨工作台更新交互层，用户确认后才请求安装，仅收到有效 complete 回执才呈现安装成功
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -100,11 +100,10 @@ export function getAppUpdateView(state = {}, { isChecking = false } = {}) {
     versionLine: currentVersion
       ? (status === "available" ? `${versionLabel} → ${latestVersionLabel}` : versionLabel)
       : "",
-    buttonLabel: recoveryRequired ? `${versionLabel} · 需恢复` : restartRequired ? `${versionLabel} · 待重启`
-      : (status === "available" ? `${versionLabel} · 有新版` : versionLabel),
-    buttonTitle: recoveryRequired ? "Canvas Lab 更新恢复失败，请按提示手动恢复程序"
-      : restartRequired ? `Canvas Lab 更新已安装，请重启${currentVersion ? `，当前运行版本 ${versionLabel}` : ""}`
-      : `检查 Canvas Lab 更新${currentVersion ? `，当前版本 ${versionLabel}` : ""}${status === "available" ? "，有新版可下载" : ""}`,
+    buttonLabel: versionLabel,
+    buttonTitle: `${versionLabel}，${recoveryRequired ? "Canvas Lab 更新恢复失败，请按提示手动恢复程序"
+      : restartRequired ? "Canvas Lab 更新已安装，请重启"
+      : status === "available" ? "Canvas Lab 有新版可下载" : "检查 Canvas Lab 更新"}`,
     statusLabel: isChecking && !restartRequired && !recoveryRequired ? "正在检查更新…" : statusLabels[status],
     message: recoveryRequired ? (plainText(state.recoveryMessage, 2000) || "请按备份目录指引手动恢复程序后再重新启动。")
       : status === "unavailable" && !isChecking
@@ -214,12 +213,22 @@ export function createAppUpdateController({
   let installationOutcome = null;
   let restartPending = false;
   let currentUpdateState = null;
+  const triggerLabel = trigger.querySelector?.("[data-app-update-label]") || trigger;
+  const focusVisibleTrigger = (preferred = trigger) => {
+    const target = [
+      preferred, trigger,
+      pageDocument.querySelector?.(".product-sidebar-head .brand"),
+      pageDocument.getElementById?.("productSidebarToggle"),
+      pageDocument.getElementById?.("productSidebarOpen"),
+    ].find((element) => element?.isConnected && element !== pageDocument.body && !element.hidden
+      && element.getClientRects().length > 0);
+    target?.focus({ preventScroll: true });
+  };
   const renderTrigger = (view) => {
-    trigger.textContent = view.buttonLabel;
+    triggerLabel.textContent = view.buttonLabel;
+    trigger.dataset.updateAvailable = String(view.status === "available");
     trigger.title = view.buttonTitle;
     trigger.setAttribute("aria-label", view.buttonTitle);
-    trigger.classList.toggle("has-update", view.status === "available" || view.restartRequired || view.recoveryRequired);
-    trigger.dataset.updateStatus = view.status;
   };
   const renderActions = (view) => {
     const needsRecovery = view.restartRequired || view.recoveryRequired;
@@ -411,7 +420,7 @@ export function createAppUpdateController({
   const close = () => { if (!isInstalling) dialog.close(); };
   const restore = () => {
     backdropPress = false;
-    if (restoreFocus?.isConnected) restoreFocus.focus({ preventScroll: true });
+    focusVisibleTrigger(restoreFocus);
   };
   const isBackdrop = (event) => {
     if (event.target !== dialog) return false;

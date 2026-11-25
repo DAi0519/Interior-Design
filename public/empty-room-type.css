@@ -1,14 +1,14 @@
 /**
  * [INPUT]: 依赖房型/家具控制器写入的 selected 状态与空房输入 DOM
- * [OUTPUT]: 对外提供空房类型/家具三列按钮、其他输入、必填标识与交互样式
+ * [OUTPUT]: 对外提供空房类型/家具三列按钮、其他输入、可读的银灰必填标识与交互样式
  * [POS]: public 的空房房间类型增量视觉层，遵循生图工作台中性按钮与深色选中规则
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 .required-badge {
-  background: #fff0e8;
+  background: var(--surface-badge);
   border-radius: 999px;
-  color: #d85a24;
+  color: var(--small-ink);
   font-size: 9px;
   font-weight: 600;
   padding: 4px 7px;
@@ -35,12 +35,10 @@
     transform 120ms var(--ease-out);
 }
 
-.room-type-option:hover {
-  border-color: var(--line-strong);
-}
-
-.room-type-option:active {
-  transform: scale(0.97);
+@media (hover: hover) and (pointer: fine) {
+  .room-type-option:hover:enabled:not(.selected) {
+    border-color: var(--line-strong);
+  }
 }
 
 .room-type-option:focus-visible {

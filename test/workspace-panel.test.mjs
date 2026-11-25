@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、工作台配置面板控制器与内存 DOM/存储/尺寸及媒体查询替身
- * [OUTPUT]: 验证功能栏固定144px且仅参数连续伸缩、可读中间宽度停留、参数展开基准保留、参数收空/正常宽度 START 可用、尾段吸附/持久化/旧偏好迁移/视口夹紧与移动抽屉原节点及焦点保留
+ * [OUTPUT]: 验证参数分隔线点击、触摸、键盘及拖动，桌面默认展开与宽度记忆、旧偏好兼容、取消保护和移动抽屉
  * [POS]: test 的主工作台配置布局行为测试，不启动浏览器、不读写真实存储或调用模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -156,7 +156,8 @@ function fixture(t, { width = 1440, viewport = width, remembered, brokenStorage 
   const node = (tag, id, className = "") => {
     const element = doc.createElement(tag);element.setAttribute("id", id);element.className = className;return element;
   };
-  const root = node("main", "workspace", "workspace");root.clientWidth = width;
+  const root = node("main", "workspace", "workspace");
+  root.clientWidth = viewport > 900 ? width - 144 : width;
   const panel = node("aside", "configurationPanel", "control-panel workspace-configuration-panel");
   const header = node("header", "panelHeader", "workspace-panel-header");
   const featureField = node("label", "featureField", "workspace-panel-feature-field");
@@ -173,12 +174,15 @@ function fixture(t, { width = 1440, viewport = width, remembered, brokenStorage 
   const input = node("input", "promptInput");input.value = "保留中的提示词";content.append(input);
   const actions = node("section", "actions", "action-section");
   const start = node("button", "generateButton");start.textContent = "START";actions.append(start);
-  panel.append(header, nav, content, actions);
+  panel.append(header, content, actions);
+  const sidebar = node("aside", "productSidebar", "product-sidebar");
+  sidebar.append(nav);doc.body.append(sidebar);
   const resizer = node("div", "workspacePanelResize", "workspace-panel-resize");
   const launcher = node("button", "workspacePanelOpen", "workspace-panel-launcher");
-  const activeFeature = doc.createElement("span");activeFeature.setAttribute("data-active-feature", "");launcher.append(activeFeature);
+  launcher.textContent = "参数配置";
   const result = node("section", "result", "result-panel");
   root.append(panel, resizer, launcher, result);doc.body.append(root);
+  const workspaceTitle = node("span", "workspaceCurrentFeature");doc.body.append(workspaceTitle);
   const dialog = node("dialog", "workspacePanelDialog", "workspace-panel-dialog");dialog.open = false;doc.body.append(dialog);
   const flush = () => {
     const mutations = [...doc.mutations];doc.mutations.clear();
@@ -191,10 +195,11 @@ function fixture(t, { width = 1440, viewport = width, remembered, brokenStorage 
   t.after(() => controller.destroy());
   flush();
   return { controller, root, panel, header, nav, select, buttons, content, input, actions, start, resizer, launcher, closeButton, featureField,
-    activeFeature, dialog, result, doc, win, storage, writes, flush,
+    workspaceTitle, sidebar, dialog, result, doc, win, storage, writes, flush,
     remembered: () => JSON.parse(values.get(STORAGE_KEY) || "null"),
     resize(nextWidth, nextViewport = nextWidth) {
-      root.clientWidth = nextWidth;win.innerWidth = nextViewport;
+      root.clientWidth = nextViewport > 900 ? nextWidth - 144 : nextWidth;
+      win.innerWidth = nextViewport;
       for (const query of media) {
         const matches = nextViewport <= 900;
         if (query.matches !== matches) { query.matches = matches;query.emit("change", { matches }); }
@@ -223,16 +228,19 @@ test("面板偏好校验范围，并将旧紧凑/折叠及不可读中间宽度�
   assert.deepEqual(normalizeWorkspacePanelState({ expandedWidth: 560, navigationCollapsed: true }), { width: 560, parameterWidth: 416 });
   assert.deepEqual(normalizeWorkspacePanelState({ expandedWidth: 560, navCollapsed: true }), { width: 560, parameterWidth: 416 });
   assert.deepEqual(normalizeWorkspacePanelState({ expandedWidth: 560, collapsed: true }), { width: 144, parameterWidth: 416 });
+  assert.deepEqual(normalizeWorkspacePanelState({ width: 144, parameterWidth: 360, lastExpandedWidth: 411 }), {
+    width: 144, parameterWidth: 360, lastExpandedWidth: 411,
+  });
 });
 
-test("整体宽度最小保留144px功能栏，展开上限仍为结果区保留360px与16px间隔", () => {
+test("旧宽度以144px为参数收空状态，展开上限为结果区留足空间", () => {
   assert.deepEqual(workspacePanelBounds(1600), { min: 144, max: 620, defaultWidth: 490 });
   assert.deepEqual(workspacePanelBounds(1100), { min: 144, max: 620, defaultWidth: 448 });
   assert.deepEqual(workspacePanelBounds(960, 1440), { min: 144, max: 584, defaultWidth: 475 });
   assert.deepEqual(workspacePanelBounds(600, 600), { min: 144, max: 448, defaultWidth: 448 });
 });
 
-test("功能栏始终144px，仅参数随余宽重排或收空，展开基准只在向右扩大时增长", () => {
+test("从旧宽度换算可见参数宽度，展开基准只在向右扩大时增长", () => {
   for (const [width, parameterWidth, expected] of [
     [504, 360, { navigationWidth: 144, parameterBasis: 360, parameterWidth: 360, parameterVisible: 360, parameterProgress: 1, stage: 0 }],
     [480, 360, { navigationWidth: 144, parameterBasis: 360, parameterWidth: 336, parameterVisible: 336, parameterProgress: 1, stage: 0 }],
@@ -260,13 +268,92 @@ test("368px及以上松手保留任意中间宽度，不可读参数尾段按256
 });
 
 function beginDrag(ui, x = ui.controller.state().width, pointerId = 1) {
-  ui.resizer.emit("pointerdown", { button: 0, isPrimary: true, pointerId, clientX: x });
+  ui.resizer.emit("pointerdown", { button: 0, isPrimary: true, pointerId, clientX: x, clientY: 250 });
 }
 function moveDrag(ui, x, { flush = true, pointerId = 1 } = {}) {
-  ui.resizer.emit("pointermove", { pointerId, clientX: x });
+  ui.resizer.emit("pointermove", { pointerId, clientX: x, clientY: 250 });
   if (flush) ui.flush();
 }
 function endDrag(ui, pointerId = 1) { ui.resizer.emit("pointerup", { pointerId }); }
+
+function tapSeparator(ui, pointerType, jitter) {
+  const pointer = { button: 0, isPrimary: true, pointerId: 1, pointerType, clientX: ui.controller.state().width, clientY: 250 };
+  ui.resizer.emit("pointerdown", pointer);
+  ui.resizer.emit("pointerup", { ...pointer, clientX: pointer.clientX + jitter, clientY: pointer.clientY + jitter });
+  ui.resizer.emit("click", { ...pointer, detail: 1 });
+}
+
+test("分隔线区分拖动和单击，点击及触摸都只收展一次并保留焦点", t => {
+  const ui = fixture(t, { remembered: { width: 504, parameterWidth: 360 } });
+  beginDrag(ui);
+  moveDrag(ui, 411);
+  endDrag(ui);
+  ui.resizer.emit("click", { pointerId: 1, pointerType: "mouse", detail: 1 });
+  assert.equal(ui.controller.state().width, 411);
+  assert.equal(ui.writes.length, 1);
+  assert.equal(ui.resizer.getAttribute("aria-valuenow"), "267");
+
+  tapSeparator(ui, "mouse", 1);
+  assert.equal(ui.controller.state().width, 144);
+  assert.equal(ui.resizer.getAttribute("aria-valuenow"), "0");
+  assert.equal(ui.doc.activeElement, ui.resizer);
+  assert.equal(ui.content.inert, true);
+  assert.equal(ui.writes.length, 2);
+
+  tapSeparator(ui, "touch", 7);
+  assert.equal(ui.controller.state().width, 411);
+  assert.equal(ui.resizer.getAttribute("aria-valuenow"), "267");
+  assert.equal(ui.doc.activeElement, ui.resizer);
+  assert.equal(ui.content.inert, false);
+  assert.equal(ui.writes.length, 3);
+
+  const swipe = { button: 0, isPrimary: true, pointerId: 1, pointerType: "touch", clientX: 411, clientY: 250 };
+  ui.resizer.emit("pointerdown", swipe);
+  ui.resizer.emit("pointermove", { ...swipe, clientY: 270 });
+  ui.resizer.emit("pointerup", { ...swipe, clientX: 426, clientY: 270 });
+  ui.resizer.emit("click", { ...swipe, detail: 1 });
+  assert.equal(ui.controller.state().width, 411);
+  assert.equal(ui.writes.length, 3);
+
+  beginDrag(ui);
+  moveDrag(ui, 413);
+  endDrag(ui);
+  assert.equal(ui.controller.state().width, 413);
+  assert.equal(ui.writes.length, 4);
+
+  ui.resize(900);
+  assert.equal(ui.doc.activeElement, ui.launcher);
+  assert.equal(ui.resizer.hidden, true);
+  assert.equal(ui.resizer.inert, true);
+  assert.equal(ui.resizer.emit("keydown", { key: "Enter" }).defaultPrevented, false);
+});
+
+test("Enter 收展参数配置，重新加载后默认展开并恢复最后一次可读的窄宽度", t => {
+  const ui = fixture(t, { remembered: { width: 411, parameterWidth: 360 } });
+  ui.resizer.focus();
+  ui.resizer.emit("keydown", { key: "Enter", isComposing: true });
+  ui.resizer.emit("keydown", { key: "Enter", keyCode: 229 });
+  assert.equal(ui.controller.state().width, 411);
+  assert.equal(ui.resizer.emit("keydown", { key: "Enter" }).defaultPrevented, true);
+  assert.equal(ui.controller.state().width, 144);
+  assert.equal(ui.doc.activeElement, ui.resizer);
+  ui.resizer.emit("keydown", { key: "Enter", repeat: true });
+  assert.equal(ui.controller.state().width, 144);
+  assert.deepEqual(ui.remembered(), { width: 411, parameterWidth: 360 });
+
+  const reloaded = fixture(t, { remembered: ui.remembered() });
+  assert.equal(reloaded.controller.state().width, 411);
+  assert.equal(reloaded.content.inert, false);
+  reloaded.resizer.focus();
+  assert.equal(reloaded.resizer.emit("keydown", { key: "Enter" }).defaultPrevented, true);
+  assert.equal(reloaded.controller.state().width, 144);
+  reloaded.resizer.emit("keydown", { key: "Enter" });
+  assert.equal(reloaded.controller.state().width, 411);
+  assert.equal(reloaded.resizer.getAttribute("aria-valuenow"), "267");
+  assert.equal(reloaded.doc.activeElement, reloaded.resizer);
+  reloaded.resizer.emit("click", { detail: 0 });
+  assert.equal(reloaded.controller.state().width, 144);
+});
 
 for (const options of [{}, { remembered: "not json" }, { remembered: "null" }, { brokenStorage: true }]) {
   test(`损坏或不可用配置安全使用默认布局：${JSON.stringify(options)}`, t => {
@@ -282,7 +369,7 @@ for (const options of [{}, { remembered: "not json" }, { remembered: "null" }, {
   });
 }
 
-test("单次拖动只伸缩参数并可反向恢复，可读中间宽度可交互而144px仅保留完整目录", t => {
+test("拖动只伸缩参数，可读宽度可交互，收空时独立目录可用", t => {
   const ui = fixture(t, { remembered: { width: 504, parameterWidth: 360 } });
   let starts = 0;ui.start.addEventListener("click", () => { starts += 1; });
   const names = ui.buttons.map(button => button.textContent);
@@ -331,12 +418,16 @@ test("连续拖动先合帧，松手应用最后位置并只保存一次吸附�
   assert.equal(ui.controller.state().width, 144);
   assert.equal(ui.controller.state().collapsed, true);
   assert.equal(ui.writes.length, 1);
-  assert.deepEqual(ui.remembered(), { width: 144, parameterWidth: 360 });
+  assert.deepEqual(ui.remembered(), { width: 504, parameterWidth: 360 });
 });
 
-test("旧80px偏好保留144px目录，继续同一分隔条拖回恢复最小可用参数区", t => {
+test("旧收起记录仍以原可读宽度展开，收起后可以从分隔线拖回最小可用宽度", t => {
+  const previous = fixture(t, { remembered: { width: 144, parameterWidth: 360, lastExpandedWidth: 411 } });
+  assert.equal(previous.controller.state().width, 411);
   const ui = fixture(t, { remembered: { width: 80, parameterWidth: 360 } });
+  assert.equal(ui.controller.state().width, 504);
   assert.equal(ui.resizer.hidden, false);assert.equal(ui.resizer.inert, false);
+  tapSeparator(ui);
   assert.equal(ui.controller.state().width, 144);assert.equal(ui.controller.state().navigationWidth, 144);
   beginDrag(ui);moveDrag(ui, 260);endDrag(ui);
   assert.equal(ui.controller.state().width, 368);
@@ -426,15 +517,13 @@ test("键盘小步只调整参数宽度，离开分隔条保存中间宽度，Es
   assert.equal(ui.writes.length, 3);
   ui.resizer.emit("keydown", { key: "End" });
   assert.equal(ui.controller.state().width, 620);
-  assert.equal(ui.resizer.getAttribute("aria-valuemin"), "144");
-  assert.equal(ui.resizer.getAttribute("aria-valuemax"), "620");
-  assert.equal(ui.resizer.getAttribute("aria-valuenow"), "620");
-  ui.resizer.emit("dblclick");
-  assert.deepEqual(ui.remembered(), { width: null, parameterWidth: null });
-  assert.equal(ui.controller.state().width, 475);
-  assert.equal(ui.writes.length, 5);
+  assert.equal(ui.resizer.getAttribute("aria-valuemin"), "0");
+  assert.equal(ui.resizer.getAttribute("aria-valuemax"), "476");
+  assert.equal(ui.resizer.getAttribute("aria-valuenow"), "476");
+  assert.deepEqual(ui.remembered(), { width: 620, parameterWidth: 476 });
+  assert.equal(ui.writes.length, 4);
   assert.equal(ui.resizer.emit("keydown", { key: "Tab" }).defaultPrevented, false);
-  ui.resizer.emit("blur");assert.equal(ui.writes.length, 5);
+  ui.resizer.emit("blur");assert.equal(ui.writes.length, 4);
 });
 
 test("窗口临时变窄夹紧整体和参数可用宽度，恢复空间后还原已保存偏好", t => {
@@ -450,10 +539,13 @@ test("窗口临时变窄夹紧整体和参数可用宽度，恢复空间后还�
   assert.equal(ui.writes.length, 0);
 });
 
-test("参数收空后功能目录仍有144px，并保留完整名称/标题/无障碍文本", t => {
+test("参数收空后目录留在独立侧栏，并保留功能名称与标签", t => {
   const ui = fixture(t, { remembered: { width: 80, parameterWidth: 360 } });
+  tapSeparator(ui);
   assert.equal(ui.controller.state().navigationWidth, 144);
   assert.equal(ui.controller.state().parameterVisible, 0);
+  assert.equal(ui.root.style.getPropertyValue("--workspace-parameter-visible-width"), "0px");
+  assert.equal(ui.nav.parentNode, ui.sidebar);
   for (const [index, button] of ui.buttons.entries()) {
     const label = ["白模渲染", "AI扩图", "多角度"][index];
     assert.equal(button.textContent, label);assert.equal(button.title, label);
@@ -469,12 +561,15 @@ test("移动抽屉保留同一配置节点，旧功能按钮事件与START可用
   });
   ui.launcher.click();ui.flush();
   assert.equal(ui.controller.state().mobile, true);assert.equal(ui.controller.state().drawerOpen, true);
-  assert.equal(ui.root.style.getPropertyValue("--workspace-parameter-progress"), "1");
+  assert.equal(ui.root.style.getPropertyValue("--workspace-parameter-visible-width"), "304px");
   assert.equal(ui.root.classList.contains("is-parameters-clipping"), false);assert.equal(ui.content.inert, false);
   assert.equal(ui.dialog.open, true);assert.equal(ui.panel.parentNode, ui.dialog);
   assert.equal(ui.panel.querySelector("#promptInput"), ui.input);
   ui.select.value = "imageOutpaint";ui.select.emit("change");ui.flush();
-  assert.equal(clicks, 1);assert.equal(ui.activeFeature.textContent, "AI扩图");
+  assert.equal(clicks, 1);
+  assert.equal(ui.launcher.textContent, "参数配置");
+  assert.equal(ui.launcher.getAttribute("aria-label"), "打开参数配置 · AI扩图");
+  assert.equal(ui.workspaceTitle.textContent, "AI扩图");
   ui.dialog.cancel();ui.flush();
   assert.equal(ui.controller.state().drawerOpen, false);assert.equal(ui.dialog.open, false);
   assert.equal(ui.doc.activeElement, ui.launcher);
@@ -484,12 +579,42 @@ test("移动抽屉保留同一配置节点，旧功能按钮事件与START可用
   assert.equal(ui.dialog.open, false);assert.equal(ui.doc.activeElement, ui.launcher);
 });
 
-test("900px抽屉回到901px桌面时保留原节点和144px功能栏，分隔条仍可拖回", t => {
+test("移动参数抽屉只响应遮罩上的完整点击，选中文字拖到边外时保持打开", t => {
+  const ui = fixture(t, { width: 390 });
+  ui.dialog.getBoundingClientRect = () => ({ left: 12, right: 348, top: 12, bottom: 888 });
+  const backdrop = { target: ui.dialog, button: 0, clientX: 4, clientY: 250 };
+  ui.launcher.click();
+  ui.dialog.emit("pointerdown", { target: ui.input, button: 0 });
+  ui.dialog.emit("click", backdrop);
+  assert.equal(ui.dialog.open, true);
+
+  ui.dialog.emit("pointerdown", backdrop);
+  ui.dialog.emit("pointercancel");
+  ui.dialog.emit("click", backdrop);
+  assert.equal(ui.dialog.open, true);
+
+  const select = ui.doc.createElement("button");
+  select.classList.add("model-picker-trigger");
+  select.setAttribute("aria-expanded", "true");
+  ui.content.append(select);
+  ui.dialog.emit("pointerdown", backdrop);
+  select.setAttribute("aria-expanded", "false");
+  ui.dialog.emit("click", backdrop);
+  assert.equal(ui.dialog.open, true);
+
+  ui.dialog.emit("pointerdown", backdrop);
+  ui.dialog.emit("click", backdrop);
+  assert.equal(ui.dialog.open, false);
+  assert.equal(ui.doc.activeElement, ui.launcher);
+});
+
+test("900px抽屉回到901px桌面时保留原节点与独立目录，分隔条仍可拖回", t => {
   const ui = fixture(t, { remembered: { width: 80, parameterWidth: 360 } });
+  tapSeparator(ui);
   ui.resize(900);ui.controller.open();ui.flush();
   assert.equal(ui.controller.state().mobile, true);
-  assert.equal(ui.root.style.getPropertyValue("--workspace-parameter-progress"), "1");
-  assert.equal(ui.root.style.getPropertyValue("--workspace-navigation-width"), "144px");
+  assert.equal(ui.root.style.getPropertyValue("--workspace-parameter-visible-width"), "304px");
+  assert.equal(ui.nav.parentNode, ui.sidebar);
   assert.equal(ui.panel.parentNode, ui.dialog);assert.equal(ui.content.inert, false);
   ui.resize(901);
   assert.equal(ui.controller.state().mobile, false);assert.equal(ui.controller.state().drawerOpen, false);
@@ -521,7 +646,7 @@ test("销毁取消监听与观察并归还原面板，后续事件不能重开�
   ui.controller.open();ui.flush();ui.controller.destroy();
   assert.equal(ui.panel.parentNode, ui.root);assert.equal(ui.dialog.open, false);
   ui.launcher.click();ui.resizer.emit("keydown", { key: "ArrowRight" });ui.resize(1440);
-  assert.equal(ui.root.style.getPropertyValue("--workspace-panel-width"), "");
+  assert.equal(ui.root.style.getPropertyValue("--workspace-parameter-visible-width"), "");
   assert.equal(ui.root.classList.contains("workspace-panel-layout"), false);
   assert.equal(ui.dialog.open, false);assert.equal(ui.writes.length, 0);
   assert.ok([...ui.win.listeners.values()].every(listeners => listeners.size === 0));

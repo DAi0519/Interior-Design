@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖工作台参数挂接、共享光影/下拉/打光控件及独立生成/飞书同步接口
- * [OUTPUT]: 提供可挂接的光影、风格、精细控光和START，更新共享上传容量/张数，支持生成恢复、对比下载与同步重试
+ * [INPUT]: 依赖工作台参数挂接、共享光影/下拉/打光控件、生图反馈及独立生成/飞书同步接口
+ * [OUTPUT]: 提供可挂接的光影、风格、精细控光和START，首页模型图预览、真实渲染状态、新图揭示、对比下载和同步重试
  * [POS]: public 的独立AI渲染台浏览器编排层，仅保存任务ID，不持有模型密钥或运营Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,6 +11,7 @@ import { RELIGHT_MODEL_KEY, RELIGHT_IMAGE_POLICY, relightImageIssue } from "./im
 import { api, formatBytes, readFileAsInput } from "./workbench-utils.js";
 import { readImageDimensions } from "./image-ratio.js";
 import { mountWorkspaceControls } from "./ai-render-studio-host.js?v=4";
+import { cancelGenerationReveal, revealGenerationImage } from "./generation-feedback.js?v=3";
 
 const nodes = new Map([...document.querySelectorAll("[id]")].map(node => [node.id, node]));
 const by = id => nodes.get(id) || document.getElementById(id);
@@ -24,11 +25,13 @@ const terminal = new Set(["success", "failed", "error"]);
 let source = null, config = null, relight, lighting, job = null, result = null, renderStyle = "photoreal";
 let generating = false, uploadPending = false, uploadSequence = 0, pollTimer = null, toastTimer = null;
 let comparisonSource = null, selectedTab = "result", savedJobId = null, queryingId = null, syncReadError = "", syncRetrying = false;
+let revealJobId = null;
 const studioImagePolicy = () => ({ ...RELIGHT_IMAGE_POLICY, maxBytesPerImage: 8 * 1024 * 1024, maxTotalBytes: 8 * 1024 * 1024, ...config?.imagePolicy });
 
 // --- 只保存任务身份，图片和补充正文停留在当前页面内存 ---
 function saveJobId(value) {
   savedJobId = value;
+  if (!value) revealJobId = null;
   try { if (value) sessionStorage.setItem(STORAGE_KEY, value); else sessionStorage.removeItem(STORAGE_KEY); } catch {}
 }
 function readJobId() {
@@ -49,14 +52,19 @@ relight = bindImageRelight({ root, getSourceImage: () => source, onChange: rende
 // --- 仅移动共享控件DOM，保留全部画布事件与几何状态 ---
 const stage = document.createElement("section");
 stage.className = "result-panel studio-stage";
-stage.setAttribute("aria-label", "生成结果");
+stage.setAttribute("aria-label", "AI渲染台工作区");
 stage.innerHTML = `
-  <header class="studio-stage-header"><h2 id="studioStageHeading">生成结果</h2><button id="studioReturnResult" class="studio-return-result" type="button" hidden>返回生成结果</button></header>
+  <div id="studioPreviewActions" class="studio-stage-actions" hidden><button id="studioReturnResult" class="studio-return-result" type="button">返回生成结果</button></div>
   <div class="studio-stage-content">
-    <div id="studioPreviewPanel" aria-label="精细控光画布" hidden></div>
-    <div id="studioResultPanel" class="studio-result-panel" aria-labelledby="studioStageHeading">
-      <div id="studioEmptyState" class="empty-state"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" /><path d="m6.5 16 3.8-4 2.7 2.6 2.3-2.1 2.2 3.5" /></svg></div><h3>等待生成</h3><p>配置完成后，结果会显示在这里。</p></div>
-      <div id="studioJobState" class="studio-job-state" role="status" aria-live="polite" hidden><div class="studio-job-indicator" aria-hidden="true"></div><h3 id="studioJobTitle">正在渲染</h3><p id="studioJobMessage"></p></div>
+    <div id="studioPreviewPanel" role="region" aria-label="精细控光画布" hidden></div>
+    <div id="studioResultPanel" class="studio-result-panel" role="region" aria-label="渲染预览">
+      <img id="studioSourcePreview" class="studio-source-preview" alt="待渲染模型图" hidden />
+      <div id="studioEmptyState" class="empty-state">
+        <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" /><path d="m6.5 16 3.8-4 2.7 2.6 2.3-2.1 2.2 3.5" /></svg></div>
+        <h3>等待生成</h3><p>配置完成后，结果会显示在这里。</p>
+        <p class="studio-conversation-empty">上传模型图开始渲染</p>
+      </div>
+      <div id="studioJobState" class="studio-job-state generation-feedback" role="status" aria-live="polite" hidden><h3 id="studioJobTitle"></h3><p id="studioJobMessage"></p><div id="studioJobPlaceholder" class="generation-feedback-preview" aria-hidden="true" hidden></div></div>
       <div id="studioResultFrame" class="studio-result-frame" hidden>
         <!-- impeccable-disable-next-line broken-image: 只有实际任务成功后才设置src并显示结果 -->
         <img id="studioResultImage" alt="AI渲染台实际生成结果" />
@@ -99,8 +107,7 @@ function setTab(next) {
   by("studioResultPanel").hidden = next !== "result";
   by("studioAdvancedPanel").hidden = next !== "preview";
   by("studioStageFooter").hidden = next !== "preview";
-  by("studioReturnResult").hidden = next !== "preview";
-  by("studioStageHeading").textContent = next === "preview" ? "精细控光" : "生成结果";
+  by("studioPreviewActions").hidden = next !== "preview";
   by("studioAdvancedToggle").setAttribute("aria-expanded", String(next === "preview"));
   if (next === "preview") relight.activate();
   render();
@@ -137,8 +144,16 @@ async function loadConfig(force = false) {
 }
 
 function render() {
-  if (!relight || !lighting || !by("studioStageHeading")) return;
+  if (!relight || !lighting || !by("studioResultPanel")) return;
+  const sourcePreview = by("studioSourcePreview");
+  sourcePreview.hidden = !source || Boolean(job);
+  if (sourcePreview.hidden && sourcePreview.src) sourcePreview.removeAttribute("src");
+  else if (!sourcePreview.hidden && sourcePreview.src !== source.dataUrl) sourcePreview.src = source.dataUrl;
   const busy = generating || uploadPending;
+  const showProgress = generating && resume.hidden;
+  by("studioJobTitle").hidden = generating;
+  by("studioJobMessage").classList.toggle("generation-feedback-text", showProgress);
+  by("studioJobPlaceholder").hidden = !showProgress;
   document.body.classList.toggle("is-busy", generating);
   upload.disabled = replaceSource.disabled = input.disabled = by("studioRemoveSource").disabled = busy;
   by("studioPrompt").disabled = busy;
@@ -230,7 +245,6 @@ async function queryJob() {
       if (job?.status === "success" && result) { syncReadError = "任务已过期，无法继续查询飞书同步状态"; renderSync(); render(); return; }
       by("studioJobTitle").textContent = "任务未找到或已过期";
       by("studioJobMessage").textContent = "未恢复到现有任务。请检查设置后手动发起新任务。";
-      by("studioJobState").classList.add("failed");
       showError("studioRequestError", "任务不存在或已过期，已解除等待；不会自动重新生成。"); render();
     } else pausePolling(error);
   } finally { if (queryingId === queriedId) queryingId = null; }
@@ -238,13 +252,17 @@ async function queryJob() {
 function applyJob(next) {
   if (!next?.jobId || next.jobId !== savedJobId) throw new Error("任务状态响应不完整，请按原任务继续查询");
   job = next; generating = !terminal.has(next.status); resume.hidden = true; showError("studioRequestError");
-  by("studioJobMessage").textContent = next.message || "正在生成，请稍候。";
+  const shouldReveal = next.jobId === revealJobId;
+  if (!generating && shouldReveal) revealJobId = null;
+  const message = next.message || "正在生成，请稍候。";
+  const jobMessage = by("studioJobMessage");
+  if (jobMessage.textContent !== message) jobMessage.textContent = message;
   if (next.status === "success") {
     const previousResultUrl = result?.images?.[0]?.url;
     result = next.result;
     if (!result?.images?.[0]?.url) {
       showResultError("任务已结束，但未取得可展示的图片。请保留任务页面检查服务日志。");
-    } else if (previousResultUrl !== result.images[0].url) { displayResult(result); setTab("result"); }
+    } else if (previousResultUrl !== result.images[0].url) { displayResult(result, shouldReveal); setTab("result"); }
     stopPoll();
     syncReadError = ""; renderSync();
     if (result?.sync?.status === "pending") pollTimer = setTimeout(queryJob, 1800);
@@ -252,7 +270,6 @@ function applyJob(next) {
     stopPoll(); by("studioJobTitle").textContent = "本次渲染未完成";
     by("studioJobMessage").textContent = next.error || next.message || "请检查设置后手动发起新任务。";
     showError("studioRequestError", next.error || "本次渲染失败；不会自动重新生成。");
-    by("studioJobState").classList.add("failed");
   } else { stopPoll(); pollTimer = setTimeout(queryJob, 1800); }
   render();
 }
@@ -267,9 +284,10 @@ generate.addEventListener("click", async () => {
     modelKey: relight.value().modelKey || RELIGHT_MODEL_KEY, materialMode: "faithful", renderStyle, prompt: by("studioPrompt").value.trim(), studioPromptVersion: identity.version, studioPromptSha256: identity.sha256 };
   comparisonSource = source.dataUrl; result = null;
   job = { jobId, status: "running", message: "正在准备光源方案与材质表现…" };
+  revealJobId = jobId;
   generating = true; saveJobId(jobId); clearResult(); showError("studioRequestError"); resume.hidden = true;
-  by("studioJobTitle").textContent = "正在渲染光线与质感"; by("studioJobMessage").textContent = job.message;
-  by("studioJobState").classList.remove("failed"); render(); setTab("result");
+  by("studioJobMessage").textContent = job.message;
+  render(); setTab("result");
   try {
     const response = await api(`${API_ROOT}/jobs`, { method: "POST", body: JSON.stringify({ jobId, input: submitted }) });
     applyJob(response.job || response);
@@ -281,7 +299,9 @@ resume.addEventListener("click", () => { if (!savedJobId) return; resume.hidden 
 function clearResult() {
   by("studioEmptyState").hidden = Boolean(job); by("studioJobState").hidden = !job;
   by("studioResultFrame").hidden = true; by("studioResultActions").hidden = true;
-  by("studioResultImage").removeAttribute("src"); by("studioCompareOriginal").removeAttribute("src");
+  const image = by("studioResultImage");
+  cancelGenerationReveal(image);
+  image.removeAttribute("src"); by("studioCompareOriginal").removeAttribute("src");
   syncReadError = ""; syncRetrying = false; by("studioSync").hidden = true;
   by("studioRecordLink").removeAttribute("href");
   by("studioCompareEnabled").checked = false; by("studioCompareRange").value = "50"; updateComparison();
@@ -293,15 +313,18 @@ function safeResultUrl(value) {
 }
 function showResultError(message) {
   generating = false; by("studioJobTitle").textContent = "未取得可展示的结果";
-  by("studioJobMessage").textContent = message; by("studioJobState").classList.add("failed");
+  by("studioJobMessage").textContent = message;
   by("studioEmptyState").hidden = true; by("studioJobState").hidden = false; by("studioResultFrame").hidden = true; by("studioResultActions").hidden = true;
   by("studioCompareRange").hidden = true;
   showError("studioRequestError", message);
 }
-function displayResult(value) {
+function displayResult(value, shouldReveal) {
   const url = safeResultUrl(value.images?.[0]?.url);
   if (!url) { showResultError("结果图片地址无效，已阻止展示与下载。"); return; }
-  by("studioResultImage").src = url; by("studioEmptyState").hidden = true; by("studioResultFrame").hidden = false; by("studioJobState").hidden = true; by("studioResultActions").hidden = false;
+  const image = by("studioResultImage");
+  cancelGenerationReveal(image);
+  image.src = url; by("studioEmptyState").hidden = true; by("studioResultFrame").hidden = false; by("studioJobState").hidden = true; by("studioResultActions").hidden = false;
+  if (shouldReveal) revealGenerationImage(image);
   const size = value.request?.size?.replace("x", " × ") || "原生PNG";
   const styleKey = value.request?.renderStyle || value.upstream?.metadata?.renderStyle;
   const style = config?.renderStyles?.find(item => item.key === styleKey)?.label || "写实摄影";
@@ -372,6 +395,7 @@ document.addEventListener("visibilitychange", resumeFollowingJob);
 await loadConfig();
 savedJobId = readJobId();
 if (savedJobId && /^[A-Za-z0-9_-]{8,128}$/.test(savedJobId)) {
-  generating = true; job = { jobId: savedJobId, status: "running", message: "正在恢复现有任务状态…" }; clearResult(); render(); setTab("result"); void queryJob();
+  generating = true; job = { jobId: savedJobId, status: "running", message: "正在恢复现有任务状态…" };
+  by("studioJobMessage").textContent = job.message; clearResult(); render(); setTab("result"); void queryJob();
 } else saveJobId(null);
 render();

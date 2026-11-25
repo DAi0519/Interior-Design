@@ -1,18 +1,17 @@
 /**
  * [INPUT]: 依赖 choice-select.js 唯一菜单结构、共享主题令牌及 selected/disabled/expanded 状态
- * [OUTPUT]: 全站下拉组件视觉真源：38px控件和选项、4px选项行距、不透明菜单、黑底白字选中/橙勾/浅灰悬停、焦点/搜索/滚动/窄屏
+ * [OUTPUT]: 全站下拉组件视觉真源：38px选项与44px触屏目标、4px行距、不透明菜单、纯黑选中、无框的底色或圆点焦点
  * [POS]: public 共享下拉组件库样式，由 custom-select.css 统一引入，业务不得另写选中配色
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 :root {
-  --select-menu-bg: #fcfcfd;
+  --select-menu-bg: var(--panel, #fcfcfd);
   --select-menu-shadow: 0 18px 44px rgb(20 20 24 / 18%), inset 0 1px 0 #fff;
   --select-option-height: 38px;
   --select-option-gap: 4px;
-  --select-selected-bg: #000;
-  --select-selected-ink: #fff;
-  --select-check: #f37021;
-  --select-focus: #888890;
+  --select-selected-bg: var(--brand-key-selected-bg, oklch(0 0 0));
+  --select-selected-ink: var(--brand-key-selected-ink, oklch(1 0 0));
+  --select-check: var(--functional-action-bg, #f37021);
 }
 
 
@@ -32,7 +31,7 @@
 
 .model-picker-trigger {
   align-items: center;
-  background: rgb(255 255 255 / 74%);
+  background: var(--model-picker-trigger-bg, rgb(255 255 255 / 74%));
   border: 1px solid var(--line-strong, #d1d1d5);
   border-radius: 6px;
   box-shadow: var(--control-shadow, inset 0 1px 0 rgb(255 255 255 / 95%));
@@ -41,7 +40,7 @@
   font-size: 11px;
   font-weight: 400;
   gap: 6px;
-  min-height: 38px;
+  min-height: var(--select-option-height);
   min-width: 0;
   padding: 0 10px 0 11px;
   text-align: left;
@@ -50,6 +49,7 @@
 
 .model-picker-primary {
   flex: 0 1 auto;
+  line-height: 1.5;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -78,12 +78,6 @@
 
 .model-picker-trigger[aria-expanded="true"] .model-picker-chevron {
   transform: rotate(180deg);
-}
-
-.model-picker-trigger:focus-visible {
-  border-color: var(--select-focus);
-  box-shadow: 0 0 0 3px rgb(32 32 36 / 8%);
-  outline: 0;
 }
 
 .model-picker-trigger:disabled {
@@ -157,9 +151,7 @@
 }
 
 .model-picker-search:focus-visible {
-  text-decoration: underline;
-  text-decoration-color: #9999a1;
-  text-underline-offset: 5px;
+  border-radius: 4px;
 }
 
 .model-picker-search::placeholder {
@@ -212,12 +204,14 @@
   min-height: var(--select-option-height);
   min-width: 0;
   padding: 7px 9px;
+  position: relative;
   text-align: left;
   width: 100%;
 }
 
 .model-picker-option-label {
   flex: 1 1 0;
+  line-height: 1.5;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,12 +246,6 @@
   cursor: not-allowed;
 }
 
-.model-picker-action:focus-visible,
-.model-picker-option:focus-visible {
-  outline: 2px solid var(--select-focus);
-  outline-offset: -3px;
-}
-
 .model-picker-empty {
   color: var(--muted, #67676d);
   font-size: 11px;
@@ -267,15 +255,26 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .model-picker-trigger:hover:not(:disabled) {
+  .model-picker-trigger:hover:not(:disabled, :focus-visible) {
     background: #fff;
     border-color: #a8a8ae;
   }
 
-  .model-picker-action:hover:not(:disabled),
-  .model-picker-option:hover:not(:disabled):not(.selected) {
+  .model-picker-action:hover:not(:disabled, :focus-visible),
+  .model-picker-option:hover:not(:disabled, :focus-visible, .selected) {
     background: var(--panel-soft, #f0f0f2);
   }
+}
+
+.model-picker-trigger:active:not(:disabled),
+.model-picker-action:active:not(:disabled),
+.model-picker-option:active:not(:disabled):not(.selected) {
+  background: var(--brand-key-active-bg, #dedfe3);
+}
+
+@media (pointer: coarse) {
+  :root { --select-option-height: 44px; }
+  .model-picker-action, .model-picker-search { min-height: 44px; }
 }
 
 @media (max-width: 640px) {
@@ -288,11 +287,47 @@
 .model-picker-option.selected {
   background: var(--select-selected-bg);
   color: var(--select-selected-ink);
-  box-shadow: var(--brand-selected-shadow, 0 3px 6px rgb(0 0 0 / 16%));
 }
 .model-picker-option.selected .model-picker-option-reason { color: #d6d6da; }
 .model-picker-option:disabled { opacity: 0.5; }
-.model-picker-trigger, .model-picker-chevron { transition: background-color 140ms ease, transform 140ms ease; }
-@media (prefers-reduced-motion: reduce) {
-  .model-picker-trigger, .model-picker-chevron { transition: none; }
+
+:is(.model-picker-trigger, .model-picker-action, .model-picker-option, .model-picker-search):focus-visible:where(:not(.selected)) {
+  background: var(--brand-key-active-bg, #dedfe3);
+  outline: none;
+}
+
+.model-picker-option.selected:focus-visible {
+  outline: none;
+}
+
+.model-picker-option.selected:focus-visible::before {
+  background: currentColor;
+  block-size: 4px;
+  border-radius: 50%;
+  content: "";
+  inline-size: 4px;
+  inset-block-start: calc(50% - 2px);
+  inset-inline-start: 3px;
+  pointer-events: none;
+  position: absolute;
+}
+
+@media (forced-colors: active) {
+  :is(.model-picker-trigger, .model-picker-action, .model-picker-option, .model-picker-search):focus-visible:where(:not(.selected)) {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .model-picker-option.selected {
+    background: CanvasText;
+    color: Canvas;
+    forced-color-adjust: none;
+  }
+
+  .model-picker-option:is(.selected, :focus-visible) :is(.model-picker-option-check, .model-picker-option-reason),
+  .model-picker-trigger:focus-visible .model-picker-chevron,
+  .model-picker-search:focus-visible::placeholder {
+    color: currentColor;
+  }
 }

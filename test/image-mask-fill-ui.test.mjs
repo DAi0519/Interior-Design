@@ -679,11 +679,12 @@ test("二次编辑任务独立恢复且保留ComfyUI进度和统一START语义",
 });
 
 test("AI编辑唯一入口、URL直达、局部配置失败隔离与飞书同步门槛已连接", async () => {
-  const [html, app, tools] = await Promise.all(["index.html", "app.js", "image-tools.js"].map(name => readFile(new URL(`../public/${name}`, import.meta.url), "utf8")));
+  const [html, app, tools, startup] = await Promise.all(["index.html", "app.js", "image-tools.js", "app-config-controls.js"].map(name => readFile(new URL(`../public/${name}`, import.meta.url), "utf8")));
   assert.equal((html.match(/data-feature-mode="imageMaskFill"/g) || []).length, 1);
   assert.match(html, /image-mask-fill\.css/);
   assert.match(app, /new URLSearchParams\(window\.location\.search\)\.get\("feature"\)/);
   assert.match(app, /!state\.larkReady && featureMode !== "imageUpscale"/);
-  assert.match(app, /api\("\/api\/image-mask-fill\/config"\)\.catch/);
+  assert.match(app, /await loadWorkbenchStartup\(/);
+  assert.match(startup, /api\("\/api\/image-mask-fill\/config"\)\.catch/);
   assert.match(tools, /prefix: "imageMaskFill"/);
 });

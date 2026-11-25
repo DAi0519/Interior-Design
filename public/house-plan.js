@@ -1,12 +1,13 @@
 /**
- * [INPUT]: 依赖house-plan-annotation共享标注绘制、共享API、文件与下拉、独立户型布局和归档状态接口、归一化标注画布
- * [OUTPUT]: 提供.2标注图工作流门禁、空间选择/标注、飞书版本选择、Agent到生图、原任务恢复、下载和飞书归档准入及状态
+ * [INPUT]: 依赖house-plan-annotation共享标注绘制、house-plan.css 的挂载参数样式、共享API、文件与下拉、生成动效、独立户型布局和归档状态接口、归一化标注画布
+ * [OUTPUT]: 提供.2标注图工作流门禁、空间选择/标注、画布视图切换、飞书版本选择、Agent到生图、真实生成状态、新图显现、原任务恢复、下载和飞书归档准入及状态
  * [POS]: public 的户型平面布局控制器，与实验室会话和收费任务隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { drawHousePlanAnnotation } from './house-plan-annotation.js?v=1';
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
 import { bindGenerationSync } from './generation-sync.js?v=1';
+import { cancelGenerationReveal, revealGenerationImage } from './generation-feedback.js?v=3';
 
 // --- 缓存节点引用，嵌入时将参数和START交给主工作台原容器管理 ---
 const nodes = new Map([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
@@ -20,7 +21,7 @@ if (window.parent !== window) {
     const settings = parentDoc.getElementById('housePlanSettingsMount');
     const actions = parentDoc.getElementById('housePlanActionsMount');
     if (settings && actions) {
-      for (const path of ['/house-plan.css?v=5']) {
+      for (const path of ['/house-plan.css?v=10']) {
         if (!parentDoc.querySelector(`link[href="${path}"]`)) { const link = parentDoc.createElement('link'); link.rel = 'stylesheet'; link.href = path; parentDoc.head.append(link); }
       }
       settings.replaceChildren(document.querySelector('.house-plan-settings-scroll'));
@@ -35,7 +36,13 @@ void import('./custom-select.js?v=9');
 const SESSION = 'canvas-lab:house-plan:v1';
 const state = { config: null, source: null, bitmap: null, annotations: [], history: [], mode: '主卧', drag: null,
   busy: false, pending: null, result: null, jobId: null, model: 'gptImage25Sunburst', agent: '', promptVersion: null, view: 'source' };
-const status = text => { $('status').textContent = text; };
+let freshGenerationJob = null;
+const generating = () => state.busy && Boolean(state.pending);
+function status(text) {
+  const feedback = $('generationFeedbackText');
+  $('status').textContent = text;
+  if (generating() && feedback.textContent !== text) feedback.textContent = text;
+}
 function error(value) { $('error').textContent = value.message || '操作未完成'; $('error').hidden = false; }
 function action(task) { return (...args) => { $('error').hidden = true; Promise.resolve().then(() => task(...args)).catch(error); }; }
 function remember() {
@@ -44,6 +51,8 @@ function remember() {
 }
 function update() {
   const locked = state.busy || Boolean(state.pending);
+  const loading = generating();
+  $('generationFeedback').hidden = !loading;
   const archiveReady = state.config?.archive?.required === true && state.config.archive.available === true;
   for (const id of ['upload','sourceInput','spaceType','spaceName','requirements','model','agentModel','promptVersion']) $(id).disabled = locked;
   $('generate').disabled = locked || !state.source || !state.annotations.some(item => item.label === '主卧') || !state.config?.available || !archiveReady || !selectedPrompt()
@@ -53,15 +62,14 @@ function update() {
   $('showResult').disabled = !state.result; $('download').disabled = !state.result;
   $('refresh').disabled = state.busy; $('refreshLabel').textContent = state.pending ? '检查任务' : '刷新';
   $('generateLabel').textContent = state.busy ? '生成中…' : 'START';
-  $('sourceView').hidden = state.view !== 'source' || !state.source;
-  $('empty').hidden = Boolean(state.source) || state.view === 'result';
-  $('resultView').hidden = state.view !== 'result' || !state.result;
+  $('sourceView').hidden = loading || state.view !== 'source' || !state.source;
+  $('empty').hidden = loading || Boolean(state.source) || state.view === 'result';
+  $('resultView').hidden = loading || state.view !== 'result' || !state.result;
   $('showSource').setAttribute('aria-pressed', String(state.view === 'source'));
   $('showResult').setAttribute('aria-pressed', String(state.view === 'result'));
-  $('showSource').setAttribute('aria-selected', String(state.view === 'source'));
-  $('showResult').setAttribute('aria-selected', String(state.view === 'result'));
+  $('viewActions').hidden = loading || !state.result;
   $('download').hidden = !state.result;
-  $('drawingTools').hidden = state.view !== 'source';
+  $('drawingTools').hidden = loading || state.view !== 'source';
   $('undo').disabled = locked || !state.history.length;
   $('clear').disabled = locked || !state.annotations.length;
   $('spaceType').disabled = locked || !state.source;
@@ -69,7 +77,7 @@ function update() {
   $('sourceCount').textContent = state.source ? '1 / 1' : '0 / 1';
   $('drawingHint').textContent = locked ? '正在处理当前户型，标注已锁定' : !state.source ? '上传原图后，拖动框选主卧' : state.mode ? `拖动框选${state.mode} · Esc 取消` : '先填写空间名称，再拖动框选';
   if (!locked && state.config?.available && !state.result) status(!state.source ? '上传户型图开始' : state.annotations.some(item => item.label === '主卧') ? `已标注 ${state.annotations.length} 个空间，可以开始生成` : '请先在画布上框选主卧');
-  $('status').hidden = !locked;
+  $('status').hidden = loading || !locked;
   renderAnnotations();
 }
 function renderAnnotations() {
@@ -114,7 +122,10 @@ $('canvas').addEventListener('pointerup', event => {
   update(); draw();
 });
 for (const name of ['pointercancel', 'lostpointercapture']) $('canvas').addEventListener(name, () => { state.drag = null; draw(); });
-$('canvas').addEventListener('keydown', event => { if (event.key === 'Escape') { state.drag = null; draw(); } });
+$('canvas').addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !state.drag) return;
+  event.preventDefault(); state.drag = null; draw();
+});
 window.addEventListener('resize', draw);
 function selectedPrompt() { return state.config?.promptVersions?.find(item => item.version === state.promptVersion); }
 async function loadConfig() {
@@ -143,15 +154,17 @@ async function loadConfig() {
 }
 function showResult(result, id) {
   if (result?.featureMode !== 'housePlanLayout' || !result.image?.url) throw new Error('任务结果不完整，请检查原任务');
+  cancelGenerationReveal($('result'));
   state.result = result; state.jobId = id; state.view = 'result'; $('result').src = result.image.url;
   resultArchive.show(result.sync);
   $('resultMeta').textContent = `${result.image.width} × ${result.image.height} · ${result.model.label} · 请核对结构、家具比例与通行`;
   const lines = [result.plan.summary, ...result.plan.spaces.map(item => `${item.name}：${item.layout}`), ...result.plan.warnings.map(item => `待核实：${item}`)];
   $('plan').replaceChildren(...lines.map(text => { const p = document.createElement('p'); p.textContent = text; return p; }));
+  if (freshGenerationJob === id) { freshGenerationJob = null; revealGenerationImage($('result')); }
 }
 async function poll() {
   if (!state.pending || state.busy) return;
-  state.busy = true; update();
+  state.busy = true; status('正在读取图片任务状态…'); update();
   try {
     for (;;) {
       const { job } = await api(`/api/house-plan/jobs/${encodeURIComponent(state.pending)}`);
@@ -167,15 +180,18 @@ async function poll() {
 }
 async function generate() {
   if ($('generate').disabled) return;
-  state.pending = crypto.randomUUID(); state.busy = true; remember(); update();
+  state.pending = freshGenerationJob = crypto.randomUUID(); state.busy = true;
+  remember(); status('正在提交图片任务…'); update();
   try {
     await api('/api/house-plan/jobs', { method: 'POST', body: JSON.stringify({ jobId: state.pending, action: 'layout', referenceImage: state.source,
       annotations: state.annotations, userRequirements: $('requirements').value,
       modelKey: state.model, agentModelKey: state.agent, promptVersion: selectedPrompt().version, promptSha256: selectedPrompt().sha256 }) });
   } catch (error) {
     if ([400,401,403,404,409,413,415,422,429].includes(error.statusCode)) { state.pending = null; remember(); }
-    status(state.pending ? '提交状态未知，请检查现有任务；不会重复提交' : '请求未接受，请检查输入或刷新配置'); throw error;
-  } finally { state.busy = false; update(); }
+    state.busy = false;
+    status(state.pending ? '提交状态未知，请检查现有任务；不会重复提交' : '请求未接受，请检查输入或刷新配置'); update(); throw error;
+  }
+  state.busy = false;
   await poll();
 }
 $('upload').addEventListener('click', () => $('sourceInput').click());
@@ -189,6 +205,7 @@ async function selectSource(file) {
   resultArchive.show(null);
   $('spaceType').value = '主卧'; $('spaceType').dispatchEvent(new Event('change'));
   $('sourceThumbnail').src = source.dataUrl; $('sourceThumbnail').hidden = false; $('uploadIcon').setAttribute('hidden', '');
+  cancelGenerationReveal($('result'));
   $('result').removeAttribute('src'); $('plan').replaceChildren(); $('sourceName').textContent = file.name;
   const ratio = Math.min(1, 1600 / Math.max(bitmap.width,bitmap.height)); $('canvas').width = Math.round(bitmap.width * ratio); $('canvas').height = Math.round(bitmap.height * ratio);
   remember(); update(); draw(); status('请在原图框选主卧');
@@ -211,7 +228,7 @@ $('clear').addEventListener('click', () => { if (state.busy || state.pending || 
 $('requirements').addEventListener('input', update);
 $('promptVersion').addEventListener('change', () => { state.promptVersion = Number($('promptVersion').value); $('promptAvailability').textContent = selectedPrompt() ? '已上架' : '不可用'; remember(); update(); });
 for (const [id, key] of [['model','model'],['agentModel','agent']]) $(id).addEventListener('change', () => { state[key] = $(id).value; remember(); update(); });
-$('showSource').addEventListener('click', () => { state.view = 'source'; update(); draw(); });
+$('showSource').addEventListener('click', () => { cancelGenerationReveal($('result')); state.view = 'source'; update(); draw(); });
 $('showResult').addEventListener('click', () => { state.view = 'result'; update(); });
 $('generate').addEventListener('click', action(generate));
 $('refresh').addEventListener('click', action(() => state.pending ? poll() : loadConfig()));

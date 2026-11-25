@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、共享顶栏 CSS/JS、Benchmark CSS、server.mjs、package.json 的字体与动效契约
- * [OUTPUT]: 对外提供三页「批量跑图」导航文案、同源 Inter Variable、Raycast 字形、三页 1440px 外壳、全局无布局属性补间护栏，以及静态首帧激活层、140ms 导航前双层 transform 与 reduced-motion 原生降级的回归保障
+ * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、共享侧栏 CSS/JS、server.mjs、package.json 的字体与动效契约
+ * [OUTPUT]: 验证三页满视口外壳、同源 Inter 字形、工作台横排链接、无框反色当前页与焦点点标、桌面收展、移动抽屉关闭及向底部工具弹窗交接
  * [POS]: test 的跨工作台品牌字体护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,65 +31,64 @@ test("三页使用项目内嵌的 Raycast Inter Variable 品牌字体", async ()
   assert.match(navigationCss, /font-feature-settings: "calt", "kern", "liga", "ss03"/);
   assert.match(navigationCss, /font-weight: 600/);
   assert.match(navigationCss, /transform: translateY\(0\.5px\)/);
-  assert.match(navigationCss, /font-size: 15px;\s+transform: none;/);
+  assert.match(navigationCss, /\.product-sidebar-head \.brand-title\s*{[^}]*font-size: 16px/s);
   assert.match(serverSource, /"\/vendor\/inter-variable-latin\.woff2"/);
   assert.equal(JSON.parse(packageSource).dependencies["@fontsource-variable/inter"], "5.3.0");
   assert.ok(fontStat.size > 40_000);
 });
 
-test("三工作台外壳同宽，并用静态首帧与导航前 transform 移动激活视窗", async () => {
-  const [indexHtml, betaHtml, benchmarkHtml, themeCss, betaCss, benchmarkCss, navigationCss, navigationSource, serverSource, packageSource] = await Promise.all([
-    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/benchmark.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/theme.css", import.meta.url), "utf8"),
-    readFile(new URL("../public/beta.css", import.meta.url), "utf8"),
-    readFile(new URL("../public/benchmark.css", import.meta.url), "utf8"),
-    readFile(new URL("../public/product-navigation.css", import.meta.url), "utf8"),
-    readFile(new URL("../public/product-navigation.js", import.meta.url), "utf8"),
-    readFile(new URL("../server.mjs", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-  ]);
-
-  const pages = [indexHtml, betaHtml, benchmarkHtml];
-  pages.forEach((html, activeIndex) => {
-    assert.match(html, new RegExp(`id="productSwitcher" class="product-switcher" data-active-index="${activeIndex}"`));
-    assert.equal((html.match(/product-switch-active-viewport/g) || []).length, 1);
-    assert.equal((html.match(/product-switch-active-option/g) || []).length, 3);
-    assert.match(html, /class="product-switch-active-option">批量跑图<\/span>/);
-    assert.match(html, /href="\/beta\.html"(?: aria-current="page")?>批量跑图<\/a>/);
-    assert.match(html, /product-navigation\.css\?v=14/);
-    assert.match(html, /product-navigation\.js\?v=9/);
-    assert.doesNotMatch(html, /vendor\/gsap\.min\.js/);
-  });
-
-  for (const pageCss of [themeCss, betaCss, benchmarkCss]) {
-    assert.match(pageCss, /\.app-shell\s*{[^}]*max-width: 1440px;[^}]*padding: 16px;/s);
+test("三页共享满视口导航侧栏，当前工作台首帧可辨且原生链接可达", async () => {
+  const routes = ["/", "/beta.html", "/benchmark.html"];
+  const labels = ["生图", "批量", "评测"];
+  const accessibleNames = ["生图工作台", "批量跑图", "模型评测"];
+  const names = ["index", "beta", "benchmark"];
+  const pages = await Promise.all(names.map((name) => readFile(new URL(`../public/${name}.html`, import.meta.url), "utf8")));
+  for (const [index, html] of pages.entries()) {
+    const sidebar = html.match(/<aside id="productSidebar"[^>]*>[\s\S]*?<\/aside>/)?.[0] || "";
+    const navigation = sidebar.match(/<nav id="productSwitcher"[^>]*>[\s\S]*?<\/nav>/)?.[0] || "";
+    const links = [...navigation.matchAll(/<a class="product-switch-option" href="([^"]+)"([^>]*)>([\s\S]*?)<\/a>/g)];
+    assert.match(html, /class="app-shell workbench-shell"/);
+    assert.deepEqual(links.map((link) => link[1]), routes);
+    assert.deepEqual(links.filter((link) => link[2].includes('aria-current="page"')).map((link) => link[1]), [routes[index]]);
+    assert.deepEqual(links.map((link) => link[2].match(/aria-label="([^"]+)"/)?.[1]), accessibleNames);
+    assert.deepEqual(links.map((link) => link[2].match(/title="([^"]+)"/)?.[1]), accessibleNames);
+    assert.deepEqual(links.map((link) => link[3].match(/class="product-switch-label">([^<]+)</)?.[1]), labels);
+    assert.match(html, /id="productSidebarOpen"[^>]*aria-controls="productSidebarDialog"/);
+    assert.match(html, /<dialog id="productSidebarDialog"/);
+    assert.match(html, /product-navigation\.css\?v=25/);
+    assert.match(html, /<script src="\/product-navigation\.js\?v=13"><\/script>\s*<\/head>/);
+    const footer = sidebar.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";
+    const brand = sidebar.match(/<div class="product-sidebar-head">[\s\S]*?<\/div>/)?.[0] || "";
+    assert.doesNotMatch(brand, /data-app-update|sidebar-update-notice/);
+    assert.match(footer, /class="app-update-trigger sidebar-version"[^>]*data-app-update[\s\S]*?sidebar-version-label" data-app-update-label/);
+    assert.match(footer, /product-status/);
+    const header = html.match(/<header class="topbar[^"]*">[\s\S]*?<\/header>/)?.[0] || "";
+    assert.doesNotMatch(header, /productSwitcher|data-app-update|product-status/);
   }
-  assert.match(navigationCss, /\.app-shell\s*{[^}]*left: calc\(\(100vw - 100%\) \/ 2\);[^}]*position: relative;/s);
 
-  assert.match(navigationCss, /\.product-switch-active-viewport\s*{[^}]*transition: transform 140ms cubic-bezier\(0\.77, 0, 0\.175, 1\)/s);
-  assert.match(navigationCss, /\.product-switch-active-layer\s*{[^}]*transition: transform 140ms cubic-bezier\(0\.77, 0, 0\.175, 1\)/s);
-  assert.match(navigationCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.product-switch-active-viewport,[\s\S]*\.product-switch-active-layer\s*{\s*transition-duration: 0\.01ms/s);
-  assert.match(navigationCss, /--product-count: 3/);
-  assert.match(navigationCss, /grid-template-columns: repeat\(var\(--product-count\), minmax\(0, 1fr\)\)/);
-  assert.match(navigationCss, /\.product-switch-active-viewport\s*{[^}]*overflow: hidden[^}]*width: calc\(\(100% - 6px\) \/ var\(--product-count\)\)[^}]*will-change: transform/s);
-  assert.match(navigationCss, /\.product-switch-active-layer\s*{[^}]*height: 100%[^}]*width: calc\(100% \* var\(--product-count\)\)[^}]*will-change: transform/s);
-  assert.match(navigationCss, /data-active-index="1"[^}]*\.product-switch-active-viewport\s*{[^}]*translate3d\(100%, 0, 0\)/s);
-  assert.match(navigationCss, /data-active-index="2"[^}]*\.product-switch-active-layer\s*{[^}]*translate3d\(calc\(-200% \/ 3\), 0, 0\)/s);
-  assert.match(navigationCss, /\.product-switch-active-option\s*{[^}]*color: #fff[^}]*font-weight: 600/s);
-  assert.doesNotMatch(navigationCss, /clip-path/);
-  assert.doesNotMatch(navigationCss, /transition:[^;]*(?:color|font-weight)/s);
-  assert.doesNotMatch(navigationCss, /\.product-switch-option:active\s*\{/);
-  assert.match(navigationSource, /const navigationDurationMs = 140/);
-  assert.match(navigationSource, /window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)/);
-  assert.match(navigationSource, /event\.preventDefault\(\)/);
-  assert.match(navigationSource, /switcher\.dataset\.activeIndex = String\(targetIndex\)/);
-  assert.match(navigationSource, /window\.clearTimeout\(navigationTimer\)/);
-  assert.match(navigationSource, /window\.location\.assign\(destination\.href\)/);
-  assert.doesNotMatch(navigationSource, /sessionStorage|requestAnimationFrame|gsap|opacity|color/);
-  assert.doesNotMatch(serverSource, /vendor\/gsap\.min\.js|GSAP_BROWSER_BUNDLE/);
-  assert.equal(JSON.parse(packageSource).dependencies.gsap, undefined);
+  const css = await readFile(new URL("../public/product-navigation.css", import.meta.url), "utf8");
+  const source = await readFile(new URL("../public/product-navigation.js", import.meta.url), "utf8");
+  assert.match(css, /\.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 144px;[^}]*height: 100dvh;[^}]*max-width: none;/s);
+  assert.match(css, /\.workbench-sidebar-collapsed \.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 52px;/s);
+  assert.match(css, /\.product-switcher\s*{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
+  assert.match(css, /\.workbench-sidebar-collapsed \.workbench-shell > \.product-sidebar \.product-switcher\s*{[^}]*grid-template-columns: minmax\(0, 1fr\)/s);
+  assert.match(css, /\.product-switch-option\[aria-current="page"\]\s*{[^}]*var\(--brand-key-selected-bg,[^}]*var\(--brand-key-selected-ink,/s);
+  const selectionRules = css.match(/\.product-switch-option\[aria-current="page"\]\s*{[^}]*}/)?.[0] || "";
+  assert.doesNotMatch(selectionRules, /border|box-shadow|outline/);
+  assert.match(css, /\.product-switch-option:focus-visible:where\(:not\(\[aria-current="page"\]\)\),\s*\.product-sidebar-footer > \.sidebar-version:focus-visible\s*\{[^}]*background:/s);
+  assert.match(css, /\.product-switch-option:focus-visible::before\s*\{[^}]*background: currentColor;[^}]*block-size: 4px;/s);
+  assert.match(css, /\.product-switch-option\[aria-current="page"\]:focus-visible::before\s*\{\s*content: "";/s);
+  assert.doesNotMatch(css, /:focus-visible::after/);
+  assert.match(css, /@media \(max-width: 900px\)\s*{[\s\S]*grid-template-areas: "topbar" "content";/);
+  assert.match(source, /window\.localStorage\.getItem\(storageKey\)[\s\S]*DOMContentLoaded/);
+  assert.match(source, /dialog\.append\(sidebar\)[\s\S]*shell\.prepend\(sidebar\)/);
+  assert.match(source, /dialog\.showModal\(\)/);
+  assert.match(source, /dialog\.addEventListener\("close",[\s\S]*opener\.focus\(/);
+  assert.match(source, /if \(mobile\.matches && !openingUtility\) opener\.focus\(/);
+  assert.match(source, /\[data-app-update\], #connectionButton[\s\S]*?openingUtility = true;\s*dialog\.close\(\);\s*opener\.focus\([\s\S]*?capture: true/);
+  assert.match(source, /event\.repeat && \(event\.key === "Enter" \|\| event\.key === " "\)\) event\.preventDefault\(\)/);
+  assert.match(source, /dialog\.addEventListener\("pointerdown",[\s\S]*backdropPress && onBackdrop\(event\)/);
+  assert.doesNotMatch(source, /location\.assign|location\.replace/);
 });
 
 test("全局动效不补间布局属性并响应减少动态偏好", async () => {

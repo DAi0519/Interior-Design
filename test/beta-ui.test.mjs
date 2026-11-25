@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供批量跑图标题与当前导航状态、机位直出原词、取景框开关及旧进程门禁、视野深度拖动、自由生图一条多行提示词与图片样本 ID 提交、多角度入口与旧进程门禁、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
+ * [OUTPUT]: 对外提供批量跑图标题与当前导航状态、工作区余宽单双列切换与滚动、配置和执行同宽、机位直出原词、取景框开关及旧进程门禁、视野深度拖动、自由生图一条多行提示词与图片样本 ID 提交、多角度入口与旧进程门禁、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
  * [POS]: test 的批量跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -245,7 +245,9 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   ]);
 
   assert.match(html, /<title>Canvas Lab · 批量跑图<\/title>/);
-  assert.match(html, /href="\/beta\.html" aria-current="page">批量跑图/);
+  const currentPageLink = html.match(/<a\b(?=[^>]*\bhref="\/beta\.html")(?=[^>]*\baria-current="page")[^>]*>[\s\S]*?<\/a>/)?.[0] || "";
+  assert.match(currentPageLink, /\baria-label="批量跑图"/);
+  assert.match(currentPageLink, /<span class="product-switch-label">批量<\/span>/);
   assert.match(html, /<h1 class="visually-hidden">批量跑图<\/h1>/);
   const featureSelect = html.match(/<select\b[^>]*id="betaFeatureSelect"[^>]*>/)?.[0] || "";
   assert.match(featureSelect, /data-searchable="true"/);
@@ -283,9 +285,9 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.doesNotMatch(html, /id="sampleSetStatus"|添加样本后保存|正在读取飞书样本集/);
   assert.doesNotMatch(html, /整批共用 · 仅智能默认|整批提示词共用/);
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
-  assert.match(html, /custom-select\.css\?v=10/);
-  assert.match(html, /generation-actions\.css\?v=15/);
-  assert.match(html, /beta-app\.js\?v=58/);
+  assert.match(html, /custom-select\.css\?v=13/);
+  assert.match(html, /generation-actions\.css\?v=17/);
+  assert.match(html, /beta-app\.js\?v=59/);
   assert.match(html, /<select id="betaCameraMode"[^>]*aria-label="机位生成模式"/);
   assert.match(html, /<textarea id="betaCameraDirectPrompt"[^>]*maxlength="4000"[^>]*aria-required="true"/);
   assert.match(source, /createBetaFloorPlanCameraConfiguration[^\n]+"\.\/beta-floor-plan-camera\.js\?v=12"/);
@@ -389,22 +391,23 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.doesNotMatch(source, /betaBaseLink/);
   assert.match(css, /\.quiet-button\.sample-set-save\s*\{[^}]*box-shadow:\s*var\(--brand-key-shadow, var\(--control-shadow\)\);/s);
   assert.doesNotMatch(css, /\.sample-set-save\s*\{[^}]*brand-primary-shadow/s);
+  assert.match(css, /\.beta-section,\s*\.run-bar\s*\{\s*grid-template-columns:\s*min\(100%, 720px\);/);
   assert.match(css, /\.beta-section\s*\{[^}]*display:\s*grid;[^}]*gap:\s*16px;[^}]*padding:\s*18px 20px;/s);
   assert.match(css, /\.beta-section:first-child\s*\{\s*padding-top:\s*20px;/);
   assert.match(css, /\.section-heading\s*\{[^}]*margin-bottom:\s*-4px;/s);
   assert.match(css, /\.section-heading h2\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;[^}]*letter-spacing:\s*-\.006em;/s);
   assert.doesNotMatch(css, /\.section-heading > div > span/);
-  assert.match(css, /\.beta-shell\s*\{[^}]*margin:\s*14px 0 0;[^}]*max-width:\s*none;[^}]*width:\s*100%;/s);
-  assert.doesNotMatch(css, /\.beta-shell\s*\{[^}]*760px/s);
+  assert.match(css, /\.beta-shell\s*\{[^}]*container:\s*beta-workspace \/ inline-size;[^}]*overflow:\s*auto;/s);
   assert.match(css, /\.beta-config-scroll\s*\{[^}]*position:\s*relative;/s);
   assert.match(css, /html\s*\{\s*overflow:\s*clip;/s);
   assert.match(css, /body\s*\{[^}]*overflow:\s*clip;/s);
-  assert.match(css, /\.app-shell\s*\{[^}]*height:\s*100dvh;/s);
   assert.match(css, /\.beta-config-card\s*\{[^}]*height:\s*100%;/s);
   assert.doesNotMatch(css, /\.beta-hero|\.beta-intro-copy|\.base-link/);
-  assert.match(css, /\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(288px, 336px\)/s);
-  assert.match(css, /@media \(max-width: 960px\)\s*\{[^}]*html, body\s*\{\s*overflow:\s*auto;/s);
-  assert.match(css, /\.sync-progress-track span\s*\{\s*background:\s*#f37021;/s);
+  assert.match(css, /\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) clamp\(304px, 26%, 432px\);[^}]*height:\s*100%;/s);
+  assert.match(css, /\.beta-monitor-card\s*\{[^}]*border-inline-start:[^;]*;[^}]*overflow:\s*auto;/s);
+  assert.match(css, /@container beta-workspace \(max-width: 900px\)\s*\{\s*\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*height:\s*auto;/s);
+  assert.match(css, /@media \(max-width: 900px\)\s*\{\s*html\s*\{\s*overflow:\s*auto;\s*\}\s*body, \.beta-shell\s*\{\s*overflow:\s*visible;/s);
+  assert.match(css, /\.sync-progress-track span\s*\{\s*background:\s*var\(--muted\);/s);
   assert.match(css, /\.monitor-warnings-list\s*\{[^}]*overflow:\s*auto;/s);
   assert.match(css, /\.monitor-warning\s*\{/);
   assert.match(css, /\.reference-drop-zone\s*\{/);
@@ -481,7 +484,7 @@ test("Beta效果图美化复用六氛围及新增模板控件，与氛围转换�
     readFile(new URL("../public/beta.css", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-model-rules.js", import.meta.url), "utf8"),
   ]);
-  assert.match(html, /effect-beautification\.css\?v=2/);
+  assert.match(html, /effect-beautification\.css\?v=3/);
   assert.match(html, /id="effectBeautificationFields"[^>]*aria-label="效果图光影氛围"/);
   assert.match(source, /bindEffectBeautificationControls\(\{\s*root: elements\.effectBeautificationFields/);
   assert.match(source, /effectBeautificationControls\.setCapabilities\(catalog\.generationFeatureCapabilities\)/);

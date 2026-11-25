@@ -216,6 +216,7 @@ function runCount() {
 }
 function showStatus(message, { error = false, ready = false } = {}) {
   elements.betaConnectionStatus.textContent = message;
+  elements.betaConnectionStatus.title = message;
   elements.betaConnectionStatus.classList.toggle("ready", ready);
   elements.betaConnectionStatus.classList.toggle("error", error);
 }

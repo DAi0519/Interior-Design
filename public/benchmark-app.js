@@ -276,7 +276,7 @@ async function loadOverview() {
   state.overview = body;
   state.apiConnected = Boolean(body.api?.connected);
   state.labelingError = body.labelingError || null;
-  byId("connectionStatus").textContent = body.configured ? "Benchmark 已连接" : "待配置";
+  byId("connectionStatus").textContent = body.configured ? "已连接" : "待配置";
   byId("connectionStatus").classList.toggle("ready", body.configured);
   byId("setupNotice").classList.toggle("hidden", body.configured);
   byId("setupNotice").textContent = body.configured ? "" : `${body.error}。请在当前 worktree 的 .env.local 配置 Benchmark 表 ID。`;

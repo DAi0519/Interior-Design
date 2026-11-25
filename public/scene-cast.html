@@ -1,6 +1,6 @@
 <!--
-[INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖工作台主题、共享单图上传与下拉、预设目录、人物宠物任务控制器及兼容的同源来源交接
-[OUTPUT]: 提供可挂入共享参数栏与动作区的场景图、角色特征、参考、互动和出图设置，结果保留于当前工作区
+[INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖工作台主题、嵌入结果面及共享生图反馈、单图上传与下拉、预设目录、人物宠物任务控制器及兼容的同源来源交接
+[OUTPUT]: 提供可挂入共享参数栏与动作区的场景图、角色特征、参考、互动和出图设置，在独立画布展示任务阶段、结果和有效操作
 [POS]: public 的AI渲染「添加人物/宠物」独立保活页面
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -9,11 +9,12 @@
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=35" />
-  <link rel="stylesheet" href="/custom-select.css?v=10" /><link rel="stylesheet" href="/generation-actions.css?v=16" />
-  <link rel="stylesheet" href="/raycast-accent.css?v=42" /><link rel="stylesheet" href="/ai-render-studio.css?v=4" />
+  <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=38" />
+  <link rel="stylesheet" href="/custom-select.css?v=13" /><link rel="stylesheet" href="/generation-actions.css?v=17" />
+  <link rel="stylesheet" href="/raycast-accent.css?v=44" /><link rel="stylesheet" href="/ai-render-studio.css?v=9" />
   <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-  <link rel="stylesheet" href="/scene-cast.css?v=4" />
+  <link rel="stylesheet" href="/generation-feedback.css?v=3" />
+  <link rel="stylesheet" href="/scene-cast.css?v=7" />
   <title>Canvas Lab · 添加人物/宠物</title>
 </head>
 <body class="studio-page scene-cast-page">
@@ -119,14 +120,17 @@
       <button id="castResume" class="studio-secondary" type="button" hidden>检查现有任务</button>
     </footer>
   </aside>
-  <section class="result-panel studio-stage" aria-labelledby="castStageTitle">
-    <header class="studio-stage-header">
-      <h2 id="castStageTitle">场景图</h2><div class="studio-result-actions"><button id="castCompare" type="button" aria-pressed="false" hidden>查看原图</button><button id="castDownload" type="button" hidden>下载 PNG</button></div>
-    </header>
+  <section class="result-panel studio-stage" aria-label="场景与合成结果">
+    <div id="castStageActions" class="studio-stage-actions studio-result-actions" hidden>
+      <button id="castCompare" type="button" aria-pressed="false" hidden>查看原图</button><button id="castDownload" type="button" hidden>下载 PNG</button>
+    </div>
     <div id="castStage" class="scene-cast-stage">
       <p id="castEmpty" class="scene-cast-empty">上传场景图，添加人物或宠物</p>
       <img id="castPreview" alt="当前场景图" hidden />
-      <p id="castProgress" class="scene-cast-progress" role="status" aria-live="polite" hidden></p>
+      <div id="castProgress" class="scene-cast-progress generation-feedback" role="status" aria-live="polite" hidden>
+        <p id="castProgressText"></p>
+        <div id="castProgressPlaceholder" class="generation-feedback-preview" aria-hidden="true" hidden></div>
+      </div>
     </div>
     <footer id="castResultMeta" class="studio-stage-footer scene-cast-result-meta" hidden>
       <div id="castResultSummary"></div>
@@ -189,6 +193,6 @@
     </div>
   </fieldset>
 </template>
-<script type="module" src="/scene-cast.js?v=5"></script>
+<script type="module" src="/scene-cast.js?v=9"></script>
 </body>
 </html>

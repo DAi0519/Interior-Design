@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 benchmark.html 的样本集工具栏/编辑器/空间类型来源控件、benchmark.css 的 Light Command Center 令牌与 benchmark-app.js 的 hidden/disabled 状态
- * [OUTPUT]: 对外提供左侧紧凑样本集管理与录入、右侧样本列表、同高同底色的管理/表头带、新建/重命名/归档、已有分类与 AI 分类双路径、空间与五维逐图标签审核及人工准入控制的紧凑视觉
+ * [OUTPUT]: 对外提供样本集管理与录入、右侧样本列表、按表单列实际宽度重排的管理按钮及逐图空间和五维标签审核样式
  * [POS]: public 的 Benchmark 样本集专用视觉层，与通用评测布局样式分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@
   gap: 12px;
   height: 90px;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 14px var(--benchmark-panel-padding);
 }
 
 #caseTableCard .table-title,
@@ -59,7 +59,7 @@
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 14px var(--benchmark-panel-padding);
 }
 
 .dataset-editor label {
@@ -79,6 +79,7 @@
 }
 
 .dataset-sidebar {
+  container: benchmark-samples / inline-size;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -115,7 +116,7 @@
 }
 
 .sample-draft {
-  background: #f8f7f4;
+  background: var(--panel-soft);
   border: 1px solid var(--line);
   border-radius: 6px;
   display: grid;
@@ -148,13 +149,13 @@
 }
 
 .sample-draft-copy small {
-  color: var(--muted);
+  color: var(--small-ink);
   font-size: 9px;
   line-height: 1.4;
 }
 
 .sample-draft-status {
-  color: var(--quiet);
+  color: var(--small-ink);
   font: 600 9px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
@@ -190,7 +191,7 @@
   font-size: 10px;
 }
 
-@media (max-width: 680px) {
+@container benchmark-samples (max-width: 440px) {
   .dataset-toolbar,
   .dataset-editor {
     align-items: stretch;
@@ -204,20 +205,25 @@
   .dataset-actions,
   .dataset-editor-actions {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .dataset-editor-actions {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dataset-picker,
   .dataset-editor label {
     max-width: none;
   }
+}
 
-  .sample-category-grid {
-    grid-template-columns: 1fr;
+@container benchmark-samples (max-width: 320px) {
+  .dataset-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .sample-category-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

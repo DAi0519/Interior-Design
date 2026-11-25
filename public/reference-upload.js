@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖图片文件读取、可信尺寸探测、浏览器上传 DOM、服务端图片策略、调用方数量/名称及可选启用状态
- * [OUTPUT]: 对外提供单/多图预览/替换/删除/拖放、最新有效单图读取优先、非法/取消保留、禁用及清空中断异步回写与通知
- * [POS]: public 的参考图上传交互层，被主白模/精模图与白模风格参考图两个独立输入位复用
+ * [OUTPUT]: 对外提供共享文件添加和移除、单/多图预览/替换/拖放、最新有效单图读取优先及异步回写隔离
+ * [POS]: public 的参考图上传交互层，供独立上传位与首页同一主参考图数据复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -68,14 +68,17 @@ export function bindReferenceUpload({
     list.classList.toggle("replace-enabled", replaceEnabled);
     if (!replaceEnabled) list.classList.remove("dragging");
     list.replaceChildren(
-      ...images.map((image) => createReferenceItem(image, () => {
-        epoch += 1;
-        const previousImages = images;
-        images = images.filter((entry) => entry.id !== image.id);
-        render();
-        onChange({ images: images.slice(), previousImages });
-      }, { replaceEnabled })),
+      ...images.map((image) => createReferenceItem(image, () => remove(image.id), { replaceEnabled })),
     );
+  }
+
+  function remove(id) {
+    if (!images.some(image => image.id === id)) return;
+    epoch += 1;
+    const previousImages = images;
+    images = images.filter(image => image.id !== id);
+    render();
+    onChange({ images: images.slice(), previousImages });
   }
 
   async function addFiles(fileList, { replace = false } = {}) {
@@ -197,5 +200,5 @@ export function bindReferenceUpload({
     if (notify) onChange({ images: [], previousImages });
   }
 
-  return { images: () => images.slice(), render, clear };
+  return { images: () => images.slice(), addFiles, remove, render, clear };
 }

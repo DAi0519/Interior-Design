@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖 index.html/beta.html/benchmark.html 的纯文字品牌、同源 Inter Variable 字体、静态 active-index/完整激活层、product-navigation.js 的目标索引与三页共享的 Raycast 向银灰令牌
- * [OUTPUT]: 对外提供三工作台共用的 Raycast 式银灰玻璃顶栏、消除页面滚动条半宽偏移的物理视口居中、首帧稳定的三段控件与导航前 140ms 双层 transform 激活视窗
- * [POS]: public 的跨工作台全局导航视觉真源，最后加载以阻止生图页与评测页再次发生顶栏漂移
+ * [INPUT]: 依赖三页工作台外壳、侧栏导航及状态入口、原生 dialog、共享颜色令牌与同源 Inter Variable
+ * [OUTPUT]: 桌面满视口布局、侧栏分组、工作台纯黑当前态与焦点反馈、底部额度与左对齐的版本入口及移动原生抽屉
+ * [POS]: public 的跨工作台布局与产品导航视觉真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -14,227 +14,460 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-.app-shell {
-  left: calc((100vw - 100%) / 2);
-  position: relative;
-}
-
-.topbar {
-  align-items: center;
-  -webkit-backdrop-filter: blur(30px) saturate(150%);
-  backdrop-filter: blur(30px) saturate(150%);
-  background: linear-gradient(180deg, rgb(255 255 255 / 88%), rgb(246 246 248 / 74%));
-  border: 1px solid rgb(209 209 213 / 74%);
-  border-radius: 12px;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 98%),
-    inset 0 -1px 0 rgb(20 20 24 / 4%),
-    0 2px 6px rgb(20 20 24 / 4%),
-    0 18px 48px rgb(20 20 24 / 9%);
-  column-gap: 16px;
+.app-shell.workbench-shell {
+  --workbench-sidebar-width: 144px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  height: 56px;
-  isolation: isolate;
-  overflow: hidden;
-  padding: 0 16px;
+  grid-template-areas: "sidebar content";
+  grid-template-columns: var(--workbench-sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100dvh;
+  left: 0;
+  max-width: none;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
 }
 
-.topbar::before {
-  background: linear-gradient(105deg, rgb(255 255 255 / 48%), transparent 28%, rgb(255 255 255 / 24%) 58%, transparent 82%);
-  content: "";
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: -1;
+.workbench-sidebar-collapsed .app-shell.workbench-shell {
+  --workbench-sidebar-width: 52px;
 }
 
-.topbar::after {
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 94%), transparent);
-  content: "";
-  height: 1px;
-  left: 8%;
-  pointer-events: none;
-  position: absolute;
-  right: 8%;
-  top: 0;
-}
-
-.topbar .brand {
-  gap: 0;
-  height: 28px;
-  justify-self: start;
-  line-height: normal;
+.workbench-shell > main {
+  grid-area: content;
   min-width: 0;
 }
 
-.topbar .brand-title {
+.workbench-shell > .topbar {
+  align-items: center;
+  backdrop-filter: none;
+  background: var(--panel, #fcfcfd);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: none;
+  grid-area: topbar;
+  height: 48px;
+  min-width: 0;
+  padding: 0 8px;
+  position: relative;
+  top: auto;
+}
+
+.workbench-shell > .topbar::before,
+.workbench-shell > .topbar::after {
+  content: none;
+}
+
+.workbench-topbar-start {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workbench-topbar-title {
+  color: var(--text, var(--ink));
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-sidebar {
+  --sidebar-inset: 8px;
+  --sidebar-utility-row-height: 40px;
+  --sidebar-utility-icon-size: 14px;
+  --sidebar-utility-padding: 4px;
+  background: var(--surface-sidebar, #f6f6f7);
+  color: var(--text, var(--ink));
+  display: flex;
+  flex-direction: column;
+  grid-area: sidebar;
+  min-height: 0;
+  min-width: 0;
+}
+
+.workbench-shell > .product-sidebar {
+  border-right: 1px solid var(--line);
+}
+
+.product-sidebar-head {
+  align-items: center;
+  display: flex;
+  flex: 0 0 56px;
+  gap: 4px;
+  justify-content: space-between;
+  padding-inline: var(--sidebar-inset);
+}
+
+.product-sidebar-head .brand {
+  min-width: 0;
+  text-decoration: none;
+}
+
+.product-sidebar-head .brand-title {
   color: var(--text, var(--ink));
   font-family: "Inter Raycast", Inter, ui-sans-serif, system-ui, sans-serif;
   font-feature-settings: "calt", "kern", "liga", "ss03";
-  font-size: 18px;
+  font-size: 16px;
   font-optical-sizing: auto;
   font-synthesis: none;
   font-weight: 600;
-  letter-spacing: 0;
   line-height: 28px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transform: translateY(0.5px);
   white-space: nowrap;
 }
 
-.product-switcher {
-  --product-count: 3;
+.product-sidebar-toggle,
+.product-sidebar-open,
+.product-switch-option {
   align-items: center;
-  background: var(--panel-soft);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  box-shadow: inset 0 1px 2px rgb(25 26 28 / 5%);
-  display: grid;
-  grid-template-columns: repeat(var(--product-count), minmax(0, 1fr));
-  justify-self: center;
-  padding: 3px;
-  position: relative;
-}
-
-.product-switch-active-viewport {
-  backface-visibility: hidden;
-  background: #fff;
+  background: transparent;
+  border: 0;
   border-radius: 6px;
-  box-shadow: var(--key-shadow);
-  bottom: 3px;
-  left: 3px;
-  overflow: hidden;
-  pointer-events: none;
-  position: absolute;
-  top: 3px;
-  transform: translate3d(0, 0, 0);
-  transition: transform 140ms cubic-bezier(0.77, 0, 0.175, 1);
-  width: calc((100% - 6px) / var(--product-count));
-  will-change: transform;
-  z-index: 2;
-}
-
-.product-switcher[data-active-index="1"] .product-switch-active-viewport {
-  transform: translate3d(100%, 0, 0);
-}
-
-.product-switcher[data-active-index="2"] .product-switch-active-viewport {
-  transform: translate3d(200%, 0, 0);
-}
-
-.product-switch-active-layer {
-  align-items: center;
-  display: grid;
-  grid-template-columns: repeat(var(--product-count), minmax(0, 1fr));
-  height: 100%;
-  transform: translate3d(0, 0, 0);
-  transition: transform 140ms cubic-bezier(0.77, 0, 0.175, 1);
-  width: calc(100% * var(--product-count));
-  will-change: transform;
-}
-
-.product-switcher[data-active-index="1"] .product-switch-active-layer {
-  transform: translate3d(calc(-100% / 3), 0, 0);
-}
-
-.product-switcher[data-active-index="2"] .product-switch-active-layer {
-  transform: translate3d(calc(-200% / 3), 0, 0);
-}
-
-.product-switch-active-option {
-  align-items: center;
-  color: #fff;
-  display: inline-flex;
+  box-shadow: none;
+  color: var(--muted);
+  display: flex;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.product-sidebar-toggle,
+.product-sidebar-open {
+  flex: 0 0 32px;
+  height: 32px;
   justify-content: center;
-  min-height: 30px;
-  min-width: 96px;
-  padding: 0 14px;
-  white-space: nowrap;
+  padding: 0;
+  width: 32px;
+}
+
+.product-sidebar-open {
+  display: none;
+}
+
+:is(.product-sidebar-toggle, .product-sidebar-open, .product-switch-option) svg {
+  fill: none;
+  flex: 0 0 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  width: 18px;
+}
+
+.product-switcher {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 2px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-inline: var(--sidebar-inset);
 }
 
 .product-switch-option {
+  flex-direction: column;
+  font-size: 11px;
+  gap: 4px;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 44px;
+  position: relative;
+  white-space: nowrap;
+}
+
+.product-switch-option svg {
+  flex-basis: 16px;
+  height: 16px;
+  width: 16px;
+}
+
+.product-switch-option[aria-current="page"] {
+  background: var(--brand-key-selected-bg, oklch(0 0 0));
+  color: var(--brand-key-selected-ink, oklch(1 0 0));
+}
+
+:is(.product-sidebar-toggle, .product-sidebar-open):focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75);
+  outline-offset: -2px;
+}
+
+.product-sidebar-footer {
   align-items: center;
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+  margin-block-start: auto;
+  margin-inline: var(--sidebar-inset);
+  padding-block: 8px max(10px, env(safe-area-inset-bottom));
+}
+
+.product-sidebar-footer :is(.status-pill, .sidebar-version) {
+  background: transparent;
   border: 0;
   border-radius: 6px;
+  box-shadow: none;
   color: var(--muted);
-  display: inline-flex;
-  font-size: 12px;
+  font-size: 11px;
+  min-height: var(--sidebar-utility-row-height);
+  min-width: 0;
+  padding-inline: var(--sidebar-utility-padding) 0;
+}
+
+.product-sidebar-footer .status-pill {
+  display: block;
+  line-height: var(--sidebar-utility-row-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-sidebar-footer > .sidebar-version {
   font-weight: 500;
-  justify-content: center;
-  min-height: 30px;
-  min-width: 96px;
-  padding: 0 14px;
+  font-variant-numeric: tabular-nums;
+  justify-content: flex-start;
   position: relative;
-  text-decoration: none;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.product-sidebar-footer .sidebar-utility-icon {
+  fill: none;
+  flex: 0 0 var(--sidebar-utility-icon-size);
+  height: var(--sidebar-utility-icon-size);
+  pointer-events: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  width: var(--sidebar-utility-icon-size);
+}
+
+.product-sidebar-footer :is(.sidebar-utility-label, .sidebar-version-label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  z-index: 1;
 }
 
-.product-switch-option:focus-visible {
-  outline: 2px solid var(--text, var(--ink));
-  outline-offset: 2px;
+.product-sidebar-footer .status-pill::before {
+  content: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .product-switch-active-viewport,
-  .product-switch-active-layer {
-    transition-duration: 0.01ms;
-  }
+.product-sidebar-footer > .sidebar-version:active {
+  background: var(--brand-key-active-bg, var(--surface-control));
+  box-shadow: none;
+  transform: none;
 }
 
-.topbar .topbar-actions {
-  justify-self: end;
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar {
+  --sidebar-inset: 3px;
 }
 
-.product-status {
-  font-size: 12px;
-  min-height: 32px;
-  white-space: nowrap;
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar :is(.brand, .product-switch-label) {
+  display: none;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-head {
+  justify-content: center;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-switcher {
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline: 3px;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-footer .sidebar-utility-label {
+  display: none;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-footer > .sidebar-version {
+  font-size: 10px;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-footer .status-pill {
+  font-size: 0;
+  padding-inline: 0;
+  text-align: center;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-footer .status-pill::before {
+  background: var(--muted);
+  box-shadow: none;
+  content: "";
+  display: inline-block;
+  margin-inline: 0;
+  vertical-align: middle;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-footer .status-pill.ready::before {
+  background: var(--brand-check-bg, var(--text, var(--ink)));
+}
+
+.product-sidebar-dialog {
+  background: var(--surface-sidebar, #f6f6f7);
+  border: 0;
+  color: var(--text, var(--ink));
+  height: 100dvh;
+  inset: 0 auto 0 0;
+  margin: 0;
+  max-height: 100dvh;
+  max-width: calc(100% - 48px);
+  overflow: hidden;
+  padding: 0;
+  width: 252px;
+}
+
+.product-sidebar-dialog[open] {
+  display: flex;
+}
+
+.product-sidebar-dialog > .product-sidebar {
+  flex: 1;
+}
+
+.product-sidebar-dialog::backdrop {
+  background: var(--brand-modal-backdrop, rgb(25 26 28 / 38%));
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .product-switch-option:hover:not([aria-current="page"]) {
-    background: rgb(255 255 255 / 58%);
+  :is(.product-sidebar-toggle, .product-sidebar-open):hover:not(:active) {
+    background: var(--surface-hover, var(--panel-soft));
+    color: var(--text, var(--ink));
+  }
+
+  .product-switch-option:not([aria-current="page"], :active, :focus-visible):hover {
+    background: var(--surface-control, var(--panel-soft));
+    color: var(--text, var(--ink));
+  }
+
+  .product-sidebar-footer > .sidebar-version:hover:not(:active, :focus-visible) {
+    background: var(--surface-hover, var(--panel-soft));
+    box-shadow: none;
     color: var(--text, var(--ink));
   }
 }
 
-@media (max-width: 700px) {
-  .topbar {
-    column-gap: 8px;
+:is(.product-sidebar-toggle, .product-sidebar-open, .product-switch-option:not([aria-current="page"], :focus-visible)):active {
+  background: var(--brand-key-active-bg, var(--surface-control, var(--panel-soft)));
+  color: var(--text, var(--ink));
+  transform: none;
+}
+
+.product-switch-option:focus-visible:where(:not([aria-current="page"])),
+.product-sidebar-footer > .sidebar-version:focus-visible {
+  background: var(--brand-key-active-bg, #dedfe3);
+  color: var(--text, var(--ink));
+  outline: none;
+}
+
+.product-switch-option[aria-current="page"]:focus-visible {
+  outline: none;
+}
+
+.product-switch-option:focus-visible::before {
+  background: currentColor;
+  block-size: 4px;
+  border-radius: 50%;
+  inline-size: 4px;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.product-switch-option[aria-current="page"]:focus-visible::before {
+  content: "";
+}
+
+@media (forced-colors: active) {
+  .product-switch-option:focus-visible:where(:not([aria-current="page"])),
+  .product-sidebar-footer > .sidebar-version:focus-visible {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
   }
 
-  .product-switch-option,
-  .product-switch-active-option {
-    min-width: 0;
-    padding: 0 11px;
+  .product-switch-option[aria-current="page"] {
+    background: CanvasText;
+    color: Canvas;
+    forced-color-adjust: none;
+  }
+
+  .product-switch-option:focus-visible::before {
+    content: "";
   }
 }
 
-@media (max-width: 560px) {
-  .product-switch-option,
-  .product-switch-active-option {
-    font-size: 11px;
-    padding: 0 9px;
+@media (prefers-reduced-motion: reduce) {
+  .product-sidebar-footer > .sidebar-version {
+    transition: none;
   }
 }
 
-@media (max-width: 480px) {
-  .product-status {
+@media (max-width: 900px) {
+  .app-shell.workbench-shell {
+    grid-template-areas: "topbar" "content";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .app-shell.workbench-shell:has(> .workspace) {
+    height: 100dvh;
+  }
+
+  .workbench-shell > .topbar {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .workbench-shell > .product-sidebar {
     display: none;
   }
 
-  .topbar .brand-title {
-    font-size: 15px;
-    transform: none;
+  .product-sidebar-open {
+    display: flex;
   }
 
-  .product-switch-option,
-  .product-switch-active-option {
-    padding-inline: 7px;
+  .workbench-topbar-start {
+    min-width: 44px;
+  }
+}
+
+@media (max-width: 900px), (any-pointer: coarse) {
+  :is(.product-sidebar-toggle, .product-sidebar-open) {
+    flex-basis: 44px;
+    height: 44px;
+    width: 44px;
+  }
+
+  .product-sidebar {
+    --sidebar-utility-row-height: 44px;
+  }
+}
+
+@media (min-width: 901px) and (any-pointer: coarse) {
+  .workbench-shell > .product-sidebar .product-switcher {
+    gap: 1px;
+    padding-inline: 4px;
+  }
+}
+
+@media (max-width: 420px) {
+  .workbench-topbar-start {
+    gap: 6px;
+  }
+}
+
+@media (max-height: 420px) {
+  .product-sidebar {
+    overflow: auto;
   }
 }

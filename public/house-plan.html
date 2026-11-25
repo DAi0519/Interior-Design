@@ -1,6 +1,6 @@
 <!--
-[INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖共享工作台主题、二次编辑表单/画布工具栏及支持.2标注图工作流的独立户型布局控制器
-[OUTPUT]: 提供左侧上传/生成设置/常显Agent版本与基模/START、右侧画布/底部空间框选、结果下载及飞书归档
+[INPUT]: 依赖共享刷新和画布图标、工作台主题与画布切换及生成动效样式、house-plan.css 的嵌入画布、二次编辑表单/画布工具栏及独立户型布局控制器
+[OUTPUT]: 提供左侧上传/生成设置/常显Agent版本与基模/START、右侧紧凑图标切换/底部空间框选、生成状态、结果下载及飞书归档
 [POS]: public 的户型平面布局独立入口，沿用二次编辑操作分区
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -9,10 +9,11 @@
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="/styles.css?v=12" /><link rel="stylesheet" href="/theme.css?v=35" />
-  <link rel="stylesheet" href="/custom-select.css?v=10" /><link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-  <link rel="stylesheet" href="/image-outpaint.css?v=1" /><link rel="stylesheet" href="/image-mask-fill.css?v=1" />
-  <link rel="stylesheet" href="/generation-actions.css?v=1" /><link rel="stylesheet" href="/house-plan.css?v=5" /><link rel="stylesheet" href="/raycast-accent.css?v=42" /><title>Canvas Lab · 户型平面布局</title>
+  <link rel="stylesheet" href="/styles.css?v=12" /><link rel="stylesheet" href="/theme.css?v=38" />
+  <link rel="stylesheet" href="/custom-select.css?v=13" /><link rel="stylesheet" href="/config-refresh-button.css?v=2" />
+  <link rel="stylesheet" href="/canvas-view-controls.css?v=3" /><link rel="stylesheet" href="/image-mask-fill.css?v=2" />
+  <link rel="stylesheet" href="/generation-feedback.css?v=3" />
+  <link rel="stylesheet" href="/generation-actions.css?v=17" /><link rel="stylesheet" href="/house-plan.css?v=10" /><link rel="stylesheet" href="/raycast-accent.css?v=44" /><title>Canvas Lab · 户型平面布局</title>
 </head>
 <body class="house-plan-page">
 <main class="house-plan-shell" aria-label="户型平面布局">
@@ -59,12 +60,16 @@
     </footer>
   </aside>
   <section class="house-plan-workspace" aria-label="户型布局工作区">
-    <header class="outpaint-workspace-tabs house-plan-tabs">
-      <button id="showSource" type="button" aria-pressed="true" aria-selected="true">标注户型</button>
-      <button id="showResult" type="button" aria-pressed="false" aria-selected="false" disabled>布局结果</button>
-      <button id="download" class="house-plan-download" type="button" hidden disabled>下载图片</button>
-    </header>
+    <div id="viewActions" class="canvas-view-controls house-plan-views" role="group" aria-label="画布视图" hidden>
+      <button id="showSource" class="canvas-view-button" type="button" aria-pressed="true" aria-controls="sourceView" aria-label="标注户型" title="标注户型"><svg aria-hidden="true"><use href="/icons/workbench.svg#layout"></use></svg></button>
+      <button id="showResult" class="canvas-view-button" type="button" aria-pressed="false" aria-controls="resultView" aria-label="布局结果" title="布局结果" disabled><svg aria-hidden="true"><use href="/icons/workbench.svg#result"></use></svg></button>
+      <button id="download" class="canvas-view-button" type="button" aria-label="下载图片" title="下载图片" hidden disabled><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 13v3h12v-3" /></svg></button>
+    </div>
     <div class="house-plan-viewer">
+      <div id="generationFeedback" class="generation-feedback" hidden>
+        <p id="generationFeedbackText" class="generation-feedback-text" role="status" aria-live="polite"></p>
+        <div class="generation-feedback-preview" aria-hidden="true"></div>
+      </div>
       <div id="empty" class="house-plan-empty"><p>上传户型原图，在画布上框选主卧</p></div>
       <section id="sourceView" aria-label="户型标注" hidden><canvas id="canvas" aria-label="户型标注画布：拖动框选区域" tabindex="0"></canvas></section>
       <section id="resultView" aria-label="布局结果" hidden>
@@ -87,5 +92,5 @@
   </section>
 </main>
 <input id="sourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-<script type="module" src="/house-plan.js?v=7"></script>
+<script type="module" src="/house-plan.js?v=15"></script>
 </body></html>

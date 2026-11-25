@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Benchmark 实验配置的 HTML/CSS/ID 生成契约
- * [OUTPUT]: 对外提供实验 ID、智能分辨率、八类因子、因子上置、选择器与计数同组、隐藏重复候选标题、收窄固定参数及紧凑候选项的回归保障
+ * [OUTPUT]: 对外提供实验 ID、智能分辨率、八类因子、因子上置、选择器与计数同组、隐藏重复候选标题及按工作区宽度重排参数和候选项的回归保障
  * [POS]: test 的 Benchmark 实验前端标识与排版护栏，不访问 DOM、Base 或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -47,10 +47,11 @@ test("没有 Flux2 Klein 时继续使用共同固定分辨率", () => {
   );
 });
 
-test("实验因子上置且固定参数使用收窄栅格", async () => {
-  const [html, css] = await Promise.all([
+test("实验因子上置且固定参数栅格按工作区宽度重排", async () => {
+  const [html, css, workspaceCss] = await Promise.all([
     readFile(new URL("../public/benchmark.html", import.meta.url), "utf8"),
     readFile(new URL("../public/benchmark-experiment.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/benchmark.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /class="experiment-meta-grid"/);
@@ -68,8 +69,9 @@ test("实验因子上置且固定参数使用收窄栅格", async () => {
   assert.match(css, /\.experiment-variable-picker \.custom-select-trigger,[\s\S]*font-size:\s*12px/);
   assert.match(css, /\.experiment-variable-toolbar\s*\{[\s\S]*align-items:\s*flex-end[\s\S]*gap:\s*12px/);
   assert.match(css, /\.experiment-variable-legend\s*\{[\s\S]*clip-path:\s*inset\(50%\)/);
-  assert.match(css, /@media \(max-width: 1000px\)[\s\S]*\.experiment-card \.config-options[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.experiment-card \.config-options[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(workspaceCss, /\.shell\s*\{\s*container:\s*benchmark-workspace \/ inline-size/);
+  assert.match(css, /@container benchmark-workspace \(max-width: 1000px\)[\s\S]*\.experiment-card \.config-options[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@container benchmark-workspace \(max-width: 680px\)[\s\S]*\.experiment-card \.config-options[\s\S]*grid-template-columns:\s*1fr/);
 });
 
 test("八类质量配置都能成为实验因子且固定项按注册表互斥", async () => {

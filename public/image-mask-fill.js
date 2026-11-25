@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公开二次编辑目录、主图上传、共享参考图上传、画笔/矩形/自由圈选交互、纯请求规则与主工作台任务/摘要和飞书同步回调
- * [OUTPUT]: 局部消除保留已选GPT模型和失权门禁，不强制回退2.5； 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供三模型两模式与局部消除独立Prompt操作（默认GPT框选/精简消除指令/必选区域/独立草稿/旧后端阻断）、GPT参考模式换物品/换材质与可空补充指令、三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
+ * [OUTPUT]: 局部消除保留已选GPT模型和失权门禁，不强制回退2.5； 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供三模型两模式与局部消除独立Prompt操作（默认GPT框选/精简消除指令/必选区域/独立草稿/旧后端阻断）、GPT参考模式换物品/换材质与可空补充指令、原指令和参考图可挂载到对话、三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
  * [POS]: public 的区域编辑控制器，不持有上游地址或工作流正文；换模型保留三类独立历史，当前工具决定请求，权限失效及旧服务缺少对应选区能力时阻断原选择
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -80,6 +80,7 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
   const modeButtons = [...root.querySelectorAll("[data-mask-mode]")];
   const purposeButtons = [...root.querySelectorAll("[data-mask-reference-purpose]")];
   const prompt = by("[data-mask-prompt]");
+  const promptLabel = by("[data-mask-prompt-label]");
   const expand = by("[data-mask-expand]");
   const inference = by("[data-mask-inference]");
   const modelSelect = by("[data-mask-model]");
@@ -155,7 +156,6 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     selectedMode = next === "remove" ? "remove" : maskFillMode(next);
     mode = maskFillMode(next);
     prompt.value = values[selectedMode].prompt;
-    prompt.placeholder = recommendedPrompt();
     expand.value = values[selectedMode].expand;
     referenceSection.hidden = mode !== "reference";
     renderRadioButtons(modeButtons, "maskMode", selectedMode);
@@ -206,8 +206,13 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     by("[data-mask-parameters]").hidden = selection;
     expand.disabled = optional && !drawing.hasMask();
     by("[data-mask-reference-purpose-section]").hidden = !maskFillPromptOptional(selectedModel().key, mode);
-    by("[data-mask-prompt-label]").textContent = maskFillPromptOptional(selectedModel().key, mode) ? "补充指令（可选）" : "编辑指令";
-    prompt.placeholder = recommendedPrompt();
+    promptLabel.textContent = maskFillPromptOptional(selectedModel().key, mode) ? "补充指令（可选）" : "编辑指令";
+    prompt.dataset.workspacePlaceholder = recommendedPrompt();
+    prompt.dataset.homePlaceholder = selectedMode === "remove" ? "可补充消除要求…"
+      : maskFillPromptOptional(selectedModel().key, mode) ? "可补充物品或材质要求…"
+        : mode === "reference" ? "描述如何使用参考图…" : "描述要编辑的内容…";
+    prompt.placeholder = prompt.classList.contains("home-image-chat-input")
+      ? prompt.dataset.homePlaceholder : prompt.dataset.workspacePlaceholder;
     if (selectedMode === "remove" && Object.values(REMOVAL_PROMPTS).includes(prompt.value)) {
       prompt.value = selection ? REMOVAL_PROMPTS.selection : REMOVAL_PROMPTS.mask;
     }

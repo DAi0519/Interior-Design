@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖工作台银灰令牌、共享上传外观、下拉与生成按钮
- * [OUTPUT]: 提供可挂载的机位参数、44px画布页签、机位交互、送模预览、取景图例、批次结果及同步状态样式
+ * [OUTPUT]: 提供可挂载的机位参数、无外框画布与底栏键盘焦点、对话内分阶段操作与等弧对齐工具栏、触屏微调、取景图例、生成等待、批次结果及同步状态样式
  * [POS]: public 的平面图相机局部样式，保持现有工作台操作视觉
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,18 +30,17 @@
 .plan-camera-batch { line-height: 1.55; }
 .plan-camera-batch:empty { display: none; }
 .plan-camera-text-button { padding: 4px 0; border: 0; color: var(--muted); font: inherit; font-size: 11px; background: transparent; cursor: pointer; white-space: nowrap; }
-.plan-camera-text-button:hover:not(:disabled) { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.plan-camera-text-button:hover:not(:disabled) { color: var(--text); }
 .plan-camera-actions { padding: 12px; border-top: 1px solid var(--line); flex: none; }
 .plan-camera-status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .plan-camera-status-row > span { min-width: 0; font-size: 11px; line-height: 1.6; color: var(--muted); }
 .plan-camera-status-row > .config-refresh-button { margin-inline-start: auto; flex: none; }
 .plan-camera-error { margin: 0 0 10px; font-size: 12px; line-height: 1.7; color: var(--danger, #b02c25); overflow-wrap: anywhere; }
 .plan-camera-workspace { display: flex; flex-direction: column; }
-.plan-camera-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; height: 44px; padding: 0 20px; flex: 0 0 44px; border-bottom: 1px solid var(--line); }
-.plan-camera-toolbar [role="tablist"] { display: flex; align-self: stretch; gap: 24px; }
-.plan-camera-toolbar [role="tab"] { padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: 12px; line-height: 1.3; letter-spacing: 0; cursor: pointer; white-space: nowrap; }
-.plan-camera-toolbar [aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
-.plan-camera-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 20px; border-bottom: 1px solid var(--line); }
+.plan-camera-toolbar { align-self: flex-end; display: flex; align-items: center; flex: none; gap: 8px; margin: 8px 20px 0; }
+.plan-camera-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 20px; }
+.plan-camera-lens-tools, .plan-camera-fov-tools, .plan-camera-composition-tools, .plan-camera-display-tools { display: contents; }
+.plan-camera-placement-cue, .plan-camera-place-label, .plan-camera-compact-hint { display: none; }
 .plan-camera-tools label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .plan-camera-frame-toggle { min-height: 30px; }
 .plan-camera-frame-toggle input { margin: 0; accent-color: var(--text); }
@@ -64,6 +63,7 @@
 .plan-camera-angle input::-webkit-inner-spin-button { appearance: none; margin: 0; }
 .plan-camera-angle > span { position: absolute; inset-inline-end: 7px; top: 50%; transform: translateY(-50%); pointer-events: none; }
 .plan-camera-viewer { flex: 1; min-height: 0; min-width: 0; display: grid; padding: 24px; overflow: auto; background: var(--panel-soft); }
+.plan-camera-viewer > .generation-feedback { place-self: center; }
 .plan-camera-source { display: grid; place-items: center; min-width: 0; min-height: 0; container-type: size; }
 .plan-camera-source canvas { display: block; max-width: 100%; max-height: 100cqh; width: auto; height: auto; background: white; }
 .plan-camera-source canvas { touch-action: none; cursor: crosshair; }
@@ -109,8 +109,9 @@ button.plan-camera-result-slot { cursor: pointer; }
 .plan-camera-angle-key { width: 16px; border-top: 2px dashed #2563eb; }
 .plan-camera-frame-key { width: 14px; height: 8px; border: 1px solid rgb(37 99 235 / 56%); }
 .plan-camera-visible-key { width: 14px; height: 8px; background: rgb(37 99 235 / 14%); border: 1px solid rgb(37 99 235 / 38%); border-radius: 2px; }
-.plan-camera-workspace:has(canvas:focus-visible) #drawingHint { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-.plan-camera-shell :is(button,input,textarea,select,summary):focus-visible:not(.model-picker-trigger) { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 3px; }
+.plan-camera-workspace:has(canvas:focus-visible) .plan-camera-canvas-footer { background: var(--surface-hover); }
+.plan-camera-workspace:has(canvas:focus-visible) #drawingHint { color: var(--text); font-weight: 600; }
+.plan-camera-shell :is(button,input,textarea,select,summary):focus-visible:not(.model-picker-trigger, .canvas-view-button) { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 3px; }
 .plan-camera-workspace :is(button,input,textarea,select):disabled { cursor: default; opacity: .5; }
 .plan-camera-shell ::selection { background: var(--line-strong, #d2d2da); color: var(--text); }
 @media (max-width: 760px) {
@@ -122,17 +123,202 @@ button.plan-camera-result-slot { cursor: pointer; }
   .plan-camera-workspace { order: 0; flex: none; height: 65dvh; min-height: 390px; }
   .plan-camera-actions { order: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
   .plan-camera-viewer { padding: 16px; }
-  .plan-camera-toolbar, .plan-camera-tools, .plan-camera-canvas-footer { padding-inline: 16px; }
-  .plan-camera-toolbar [role="tablist"] { gap: 16px; }
+  .plan-camera-toolbar { margin-inline: 16px; }
+  .plan-camera-tools, .plan-camera-canvas-footer { padding-inline: 16px; }
   .plan-camera-empty h1 { font-size: 18px; }
 }
 
 /* --- 嵌入只保留画布，参数滚动及底部动作沿用工作台容器 --- */
 .plan-camera-integrated { height: 100dvh; min-height: 0; overflow: hidden; }
 .plan-camera-integrated .plan-camera-shell { display: block; height: 100%; }
-.plan-camera-integrated .plan-camera-workspace { height: 100%; min-height: 0; }
+.plan-camera-integrated .plan-camera-workspace { border: 0; border-radius: 0; height: 100%; min-height: 0; }
+.plan-camera-conversation .plan-camera-workspace, .plan-camera-conversation .plan-camera-viewer { background: transparent; }
+.plan-camera-conversation .plan-camera-workspace {
+  --camera-tool-hit: 44px;
+  --camera-tool-bleed: 5px;
+  --camera-control-radius: var(--brand-control-radius, 6px);
+  /* --- 对齐外层 16px 圆角与 1px 边线，键面距外沿 10px --- */
+  --camera-tool-inset: 9px;
+  --camera-tool-edge: calc(var(--camera-tool-inset) - var(--camera-tool-bleed));
+  display: grid;
+  grid-template:
+    "lens composition views" auto
+    "image image image" minmax(0, 1fr)
+    "hint hint hint" auto /
+    max-content minmax(0, 1fr) max-content;
+  padding-block-start: var(--camera-tool-edge);
+}
+.plan-camera-conversation .plan-camera-workspace:has(.plan-camera-tools:not([hidden])) {
+  grid-template-rows: var(--camera-tool-hit) minmax(0, 1fr) 28px;
+}
+.plan-camera-conversation .plan-camera-tools { display: contents; }
+.plan-camera-conversation .plan-camera-tools :is(label, input) { -webkit-tap-highlight-color: transparent; }
+.plan-camera-conversation .plan-camera-lens-tools,
+.plan-camera-conversation .plan-camera-fov-tools,
+.plan-camera-conversation .plan-camera-composition-tools,
+.plan-camera-conversation .plan-camera-display-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.plan-camera-conversation .plan-camera-lens-tools { gap: 8px; }
+.plan-camera-conversation .plan-camera-lens-tools,
+.plan-camera-conversation .plan-camera-placement-cue { grid-area: lens; margin-inline-start: var(--camera-tool-inset); }
+.plan-camera-conversation .plan-camera-composition-tools { grid-area: composition; margin-inline-start: 12px; }
+.plan-camera-conversation .plan-camera-display-tools { gap: 12px; padding-inline-start: 12px; }
+.plan-camera-conversation .plan-camera-tools[data-camera-placed="false"] :is(.plan-camera-lens-tools, .plan-camera-display-tools, .plan-camera-centered-label),
+.plan-camera-conversation .plan-camera-frame-prefix,
+.plan-camera-conversation #showResult:disabled { display: none; }
+.plan-camera-conversation .plan-camera-tools[data-camera-placed="false"] .plan-camera-placement-cue {
+  align-self: center;
+  display: block;
+  margin-block: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.plan-camera-conversation .plan-camera-tools[data-camera-placed="false"] .plan-camera-place-label { display: inline; }
+.plan-camera-conversation .plan-camera-lens-tools label {
+  gap: 5px;
+  min-block-size: var(--camera-tool-hit);
+  padding-inline: 7px;
+  position: relative;
+  border-block: var(--camera-tool-bleed) solid transparent;
+  border-radius: var(--camera-control-radius) / calc(var(--camera-control-radius) + var(--camera-tool-bleed));
+  background: var(--surface-control);
+  background-clip: padding-box;
+  cursor: text;
+}
+.plan-camera-conversation .plan-camera-lens-tools label:has(input:focus-visible) {
+  background-color: var(--surface-hover);
+  color: var(--text);
+}
+.plan-camera-conversation .plan-camera-lens-tools label:has(input:disabled) { cursor: default; }
+.plan-camera-conversation .plan-camera-angle {
+  position: static;
+  inline-size: calc(3ch + 7px);
+  font-size: 13px;
+}
+.plan-camera-conversation .plan-camera-angle input {
+  position: absolute;
+  inset-block-start: calc(-1 * var(--camera-tool-bleed));
+  inset-inline: 0;
+  inline-size: 100%;
+  block-size: var(--camera-tool-hit);
+  padding-inline: 0 14px;
+  border: 0;
+  background: transparent;
+  font-size: inherit;
+}
+.plan-camera-conversation .plan-camera-lens-tools .plan-camera-angle input:focus-visible {
+  outline: none;
+}
+.plan-camera-conversation .plan-camera-angle > span { font-size: 11px; }
+.plan-camera-conversation .plan-camera-focal-length { min-inline-size: 0; }
+.plan-camera-conversation .plan-camera-tools :is(.plan-camera-frame-toggle, .plan-camera-text-button) {
+  min-block-size: var(--camera-tool-hit);
+  min-inline-size: var(--camera-tool-hit);
+  font-size: 12px;
+}
+.plan-camera-conversation .plan-camera-frame-toggle { cursor: pointer; }
+.plan-camera-conversation .plan-camera-frame-toggle:has(input:disabled) { cursor: default; }
+.plan-camera-conversation .plan-camera-frame-toggle input { inline-size: 13px; block-size: 13px; }
+.plan-camera-conversation .plan-camera-toolbar {
+  grid-area: views;
+  align-self: center;
+  justify-self: end;
+  min-block-size: var(--camera-tool-hit);
+  margin: 0;
+  margin-inline-end: var(--camera-tool-edge);
+}
+.plan-camera-conversation .canvas-view-controls { gap: 0; }
+.plan-camera-conversation .canvas-view-button {
+  inline-size: var(--camera-tool-hit);
+  block-size: var(--camera-tool-hit);
+  border: var(--camera-tool-bleed) solid transparent;
+  border-radius: calc(var(--camera-control-radius) + var(--camera-tool-bleed));
+  background-clip: padding-box;
+}
+.plan-camera-conversation .canvas-view-button svg { inline-size: 14px; block-size: 14px; }
+.plan-camera-conversation .plan-camera-viewer {
+  grid-area: image;
+  container-type: size;
+  padding: 8px var(--camera-tool-inset);
+}
+.plan-camera-conversation .plan-camera-input-preview img { max-height: max(96px, calc(100cqh - 42px)); }
+.plan-camera-conversation .plan-camera-result #result { max-height: 100cqh; }
+.plan-camera-conversation .plan-camera-canvas-footer {
+  grid-area: hint;
+  align-items: center;
+  border: 0;
+  padding: 4px var(--camera-tool-inset);
+}
+.plan-camera-conversation .plan-camera-compact-hint { display: block; }
+.plan-camera-conversation .plan-camera-workspace:has(canvas:focus-visible) .plan-camera-canvas-footer { background: transparent; }
+.plan-camera-conversation .plan-camera-workspace:has(canvas:focus-visible) .plan-camera-compact-hint {
+  color: var(--text);
+}
+.plan-camera-conversation .plan-camera-workspace:has(canvas:focus-visible) .plan-camera-compact-hint::after {
+  content: "";
+  display: inline-block;
+  inline-size: 5px;
+  block-size: 5px;
+  margin-inline-start: 6px;
+  border-radius: 50%;
+  vertical-align: .15em;
+  background: currentColor;
+  forced-color-adjust: none;
+}
+.plan-camera-conversation :is(#drawingHint, .plan-camera-legend) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.plan-camera-conversation .plan-camera-empty,
+.plan-camera-conversation .plan-camera-workspace:has(.plan-camera-empty:not([hidden])) .plan-camera-canvas-footer { display: none; }
+@media (max-width: 620px) {
+  .plan-camera-conversation .plan-camera-workspace {
+    grid-template:
+      "lens views" auto
+      "composition composition" auto
+      "image image" minmax(0, 1fr)
+      "hint hint" auto /
+      minmax(0, 1fr) max-content;
+  }
+  .plan-camera-conversation .plan-camera-workspace:has(.plan-camera-tools:not([hidden])) {
+    grid-template-rows: repeat(2, var(--camera-tool-hit)) minmax(0, 1fr) 28px;
+  }
+  .plan-camera-conversation .plan-camera-composition-tools { margin-inline-start: var(--camera-tool-inset); }
+  .plan-camera-conversation .plan-camera-tools[data-camera-placed="false"] .plan-camera-composition-tools {
+    grid-area: lens;
+    justify-self: end;
+    margin-inline-end: var(--camera-tool-inset);
+  }
+  .plan-camera-conversation .plan-camera-focal-length { display: none; }
+}
+@media (max-width: 620px), (any-pointer: coarse) {
+  .plan-camera-conversation .plan-camera-angle { font-size: 16px; }
+}
+@media (forced-colors: active) {
+  .plan-camera-conversation .plan-camera-lens-tools .plan-camera-angle input:focus-visible {
+    outline: 1px solid Highlight;
+    outline-offset: -2px;
+  }
+}
 #floorPlanCameraSettingsMount > .plan-camera-settings-scroll { overflow: visible; border: 0; border-radius: 0; background: transparent; }
 #floorPlanCameraActionsMount > .plan-camera-actions { padding: 0; border: 0; border-radius: 0; background: transparent; }
+@media (max-width: 760px), (any-pointer: coarse) {
+  .plan-camera-angle input { width: 64px; height: 44px; font-size: 16px; }
+  :is(.plan-camera-frame-toggle, .plan-camera-text-button, .plan-camera-empty button, #camera-refresh) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .plan-camera-field :is(textarea, select:not(.custom-select-native)) { font-size: 16px; }
+  .plan-camera-field select:not(.custom-select-native) { min-height: 44px; }
+}
 @container workspace-parameters (max-width: 250px) {
   .plan-camera-section { padding-inline: 12px; }
   .plan-camera-field-pair { grid-template-columns: minmax(0, 1fr); }

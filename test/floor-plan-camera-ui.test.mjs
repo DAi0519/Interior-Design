@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享相机几何和平面图机位 UI 夹具运行页面控制器与归档状态
- * [OUTPUT]: 验证参数挂载与START、墙线及取景冻结、推理/直出选模、失败恢复和逐图归档
+ * [OUTPUT]: 验证参数挂载与START、墙线及取景冻结、真实任务反馈与新图显现、推理/直出选模、失败恢复和逐图归档
  * [POS]: test 的平面图机位前端回归，不访问模型、飞书或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,21 +30,39 @@ test('嵌入时参数及START挂入原容器，生成状态与画布任务共用
   assert.equal(f.node('sidebar').removed, true);
   assert.equal(f.node('status').hidden, true);
   assert.equal(f.node('sourceCount').textContent, '0 / 1');
-  await f.upload(source('户型')); await f.click('placeCenter');
+  const settings = f.node('settings');
+  assert.equal(settings.getAttribute('data-camera-source'), 'empty');
+  assert.equal(settings.getAttribute('data-camera-canvas'), 'empty');
+  assert.equal(settings.getAttribute('data-camera-blocked'), '请上传平面图');
+  await f.upload(source('户型'));
+  assert.equal(settings.getAttribute('data-camera-source'), 'ready');
+  assert.equal(settings.getAttribute('data-camera-canvas'), 'ready');
+  assert.equal(settings.getAttribute('data-camera-blocked'), '请在平面图上放置相机');
+  await f.click('placeCenter');
+  assert.equal(settings.getAttribute('data-camera-blocked'), '');
   assert.equal(f.node('sourceCount').textContent, '1 / 1');
   assert.equal(f.node('sourceInput').attributes.get('aria-label'), '替换平面图');
   assert.equal(f.node('sourceHint').textContent, '点击或拖入新图替换');
   assert.equal(f.node('generateLabel').textContent, 'START');
   await f.click('generate');
   assert.equal(f.posts().length, 1);
+  assert.equal(settings.getAttribute('data-camera-busy'), 'true');
+  assert.equal(settings.getAttribute('data-camera-pending'), 'true');
   assert.equal(f.node('generateLabel').textContent, 'RUNNING…');
   assert.equal(f.node('generate').attributes.get('aria-busy'), 'true');
   assert.equal(f.node('generationActions').classList.contains('is-busy'), true);
+  assert.equal(f.node('generationFeedback').hidden, false);
+  assert.equal(f.node('generationFeedbackText').textContent, '正在提交图片任务…');
+  assert.equal(f.node('status').hidden, true);
   submission.resolve({ job: { status: 'running' } });
   await f.click('showSource');
+  assert.equal(settings.getAttribute('data-camera-busy'), 'false');
+  assert.equal(settings.getAttribute('data-camera-pending'), 'false');
   assert.equal(f.node('generateLabel').textContent, 'START');
   assert.equal(f.node('generate').attributes.get('aria-busy'), 'false');
   assert.equal(f.node('generationActions').classList.contains('is-busy'), false);
+  assert.equal(f.node('generationFeedback').hidden, true);
+  assert.equal(f.node('sourceView').hidden, false);
 });
 
 test('长宽图朝向使用图像像素比例，正交视角与归一化指针正确', () => {
@@ -300,6 +318,9 @@ test('提交响应未知保留原任务，检查及会话恢复只GET不再POST'
   } });
   await f.upload(source('原户型')); await f.click('placeCenter'); await f.click('generate');
   assert.equal(f.posts().length, 1); assert.equal(f.node('generate').disabled, true); assert.equal(f.node('sourceInput').disabled, true);
+  assert.equal(f.node('settings').getAttribute('data-camera-pending'), 'true');
+  assert.equal(f.node('settings').getAttribute('data-camera-busy'), 'false');
+  assert.equal(f.node('settings').getAttribute('data-camera-blocked'), '任务状态待确认');
   const saved = JSON.parse(f.storage.get(SESSION)); assert.ok(saved.pending);
   await f.click('generate'); assert.equal(f.posts().length, 1);
   await f.click('refresh'); assert.equal(f.posts().length, 1); assert.equal(f.reads().length, 1);
@@ -307,6 +328,8 @@ test('提交响应未知保留原任务，检查及会话恢复只GET不再POST'
   assert.equal(restored.posts().length, 0); assert.equal(restored.reads().length, 1);
   assert.equal(restored.node('result').src, rendered(camera).image.url);
   assert.equal(restored.node('generate').disabled, true, '恢复结果不伪造原平面图或新机位');
+  assert.equal(restored.node('settings').getAttribute('data-camera-source'), 'empty');
+  assert.equal(restored.node('settings').getAttribute('data-camera-canvas'), 'ready');
   await restored.click('download'); assert.equal(restored.downloads[0].href, rendered(camera).image.url);
 });
 
@@ -319,6 +342,7 @@ test('取景格式失败结束进度提示，保留原设置并允许手动重�
   await f.input('heading', 90); await f.input('imageCount', 2, 'change');
   await f.input('agentModel', 'gpt', 'change'); await f.click('generate');
   assert.match(f.node('status').textContent, /正在分析/);
+  assert.match(f.node('generationFeedbackText').textContent, /正在分析/);
   failed = true; await f.nextPoll();
   assert.equal(f.node('status').textContent, '取景说明不完整');
   assert.match(f.node('error').textContent, /未开始生图.*重试.*更换推理模型/);
@@ -470,6 +494,7 @@ test('混合结果按模型和张次展示，可切换下载，刷新只读取�
   assert.equal(restored.node('generate').disabled, true, '只恢复批次结果，原图仍需重新上传');
   assert.equal(restored.node('imageCount').value, '2');
   assert.deepEqual(restored.models(), [gpt.key, banana.key]);
+  assert.deepEqual(restored.reveals, []);
   completed = true; await f.nextPoll();
   assert.match(f.node('status').textContent, /成功 3\/4 张，失败 1 张/);
   assert.equal(f.node('resultGroups').hidden, false);
@@ -479,11 +504,14 @@ test('混合结果按模型和张次展示，可切换下载，刷新只读取�
   assert.equal(failed.tagName, 'div'); assert.equal(failed.children[1].textContent, failure.error);
   assert.equal(gptSecond.attributes.get('aria-pressed'), 'true');
   assert.equal(f.node('result').src, source('GPT 第二张').dataUrl);
+  assert.equal(f.node('generationFeedback').hidden, true);
+  assert.deepEqual(f.reveals, [f.node('result').src]);
   const bananaSecond = bananaGroup.children[1].children[1];
   await bananaSecond.fire('click');
   assert.equal(gptSecond.attributes.get('aria-pressed'), 'false');
   assert.equal(bananaSecond.attributes.get('aria-pressed'), 'true');
   assert.equal(f.node('result').src, source('Banana 第二张').dataUrl);
+  assert.deepEqual(f.reveals, [source('GPT 第二张').dataUrl]);
   assert.match(f.node('resultMeta').textContent, /Banana 2\.1.*朝向 90°/);
   assert.equal(f.node('viewSummary').textContent, result.viewSummary);
   assert.equal(f.node('scenePrompt').textContent, result.scenePrompt);
@@ -691,9 +719,11 @@ test('提示词直出脱离推理配置，保留提示词原文、机位、批�
   assert.equal(f.node('directPromptField').hidden, false);
   assert.equal(f.node('requirementsField').hidden, true);
   assert.equal(f.node('generate').disabled, true);
+  assert.equal(f.node('settings').getAttribute('data-camera-blocked'), '请填写直出提示词');
   await f.input('directPrompt', '   \n');
   await f.click('generate'); assert.equal(f.posts().length, 0);
   await f.input('directPrompt', prompt);
+  assert.equal(f.node('settings').getAttribute('data-camera-blocked'), '');
   await f.input('generationMode', 'agent', 'change');
   assert.equal(f.node('requirements').value, '空间推理专用的原木风格要求');
   await f.input('generationMode', 'direct', 'change');

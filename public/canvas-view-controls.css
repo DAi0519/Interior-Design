@@ -1,0 +1,112 @@
+/**
+ * [INPUT]: 依赖工作台共享颜色和画布切换按钮的选中语义
+ * [OUTPUT]: 提供画布内无标题带的紧凑图标操作、纯黑选中态、独立键盘焦点和触屏命中区
+ * [POS]: public 的共享画布操作样式，具体位置由各画布决定
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.canvas-view-controls {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.canvas-view-button {
+  background: transparent;
+  block-size: 32px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  display: inline-grid;
+  flex: none;
+  inline-size: 32px;
+  padding: 0;
+  place-items: center;
+  position: relative;
+}
+
+.canvas-view-button svg {
+  block-size: 16px;
+  fill: none;
+  inline-size: 16px;
+  pointer-events: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.canvas-view-controls[hidden],
+.canvas-view-button[hidden] {
+  display: none;
+}
+
+.canvas-view-button:is([aria-selected="true"], [aria-pressed="true"]) {
+  background: var(--brand-key-selected-bg, oklch(0 0 0));
+  color: var(--brand-key-selected-ink, oklch(1 0 0));
+}
+
+.canvas-view-button:disabled {
+  opacity: 0.45;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .canvas-view-button:hover:enabled:not([aria-selected="true"], [aria-pressed="true"], :focus-visible) {
+    background: var(--panel-soft);
+    color: var(--text);
+  }
+}
+
+.canvas-view-button:active:enabled:not([aria-selected="true"], [aria-pressed="true"], :focus-visible) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.canvas-view-button:focus-visible {
+  outline: none;
+}
+
+.canvas-view-button:focus-visible:where(:not([aria-selected="true"], [aria-pressed="true"])) {
+  background: var(--brand-key-active-bg, #dedfe3);
+  color: var(--text);
+}
+
+.canvas-view-button:focus-visible::before {
+  background: currentColor;
+  block-size: 4px;
+  border-radius: 50%;
+  inline-size: 4px;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.canvas-view-button:is([aria-selected="true"], [aria-pressed="true"]):focus-visible::before {
+  content: "";
+}
+
+@media (max-width: 900px), (any-pointer: coarse) {
+  .canvas-view-button {
+    block-size: 44px;
+    inline-size: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .canvas-view-button:focus-visible:where(:not([aria-selected="true"], [aria-pressed="true"])) {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .canvas-view-button:is([aria-selected="true"], [aria-pressed="true"]) {
+    background: CanvasText;
+    color: Canvas;
+    forced-color-adjust: none;
+  }
+
+  .canvas-view-button:focus-visible::before {
+    content: "";
+  }
+}

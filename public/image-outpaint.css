@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖扩图控制器的浮点视觉几何和固定基准图片、transform 四角/倍率控件、workspace 主画布/结果切换、index.html 与共享令牌
- * [OUTPUT]: 对外提供固定 2K 构图的引擎/模型控件、含原比例的两行三列画幅控件、无选中框的文字页签/棋盘格画布、直接跟手的图片变换与四角缩放、原图大小浮层及单行尺寸/居中栏
+ * [OUTPUT]: 对外提供固定 2K 构图的引擎/模型控件、含原比例的两行三列画幅控件、贴边图标页签/棋盘格画布、直接跟手的图片变换与四角缩放、原图大小浮层及单行尺寸/居中栏
  * [POS]: public 的 AI扩图视觉层，沿用工作台银灰表面与纯黑选中按钮，独立适配桌面和窄屏
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -151,7 +151,7 @@
 .image-outpaint-engine.selected {
   background: var(--brand-key-selected-bg, #000);
   border-color: var(--brand-key-selected-border, #000);
-  box-shadow: var(--brand-selected-shadow, var(--choice-control-selected-shadow));
+  box-shadow: none;
   color: var(--brand-key-selected-ink, #fff);
   font-weight: 600;
 }
@@ -235,39 +235,19 @@
 }
 
 /* ---- 主构图工作区 ---- */
-.outpaint-workspace-tabs {
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-shrink: 0;
-  gap: 24px;
-  margin-bottom: 16px;
-}
-
-.outpaint-workspace-tabs button {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--muted);
-  font-size: 12px;
-  min-height: 36px;
-  padding: 0 0 12px;
+.result-panel.outpaint-workspace-active {
   position: relative;
 }
 
-.outpaint-workspace-tabs button[aria-selected="true"] {
-  color: var(--text);
-  font-weight: 600;
+.image-tool-view-switch {
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
+  position: absolute;
+  z-index: 1;
 }
 
-.outpaint-workspace-tabs button:disabled {
-  display: none;
-}
-
-.outpaint-workspace-tabs button:focus-visible {
-  outline: 2px solid var(--brand-key-focus, #6d6e75);
-  outline-offset: 2px;
+:where(.image-tool-view-switch) .canvas-view-button {
+  background: var(--panel);
 }
 
 .outpaint-workspace {
@@ -521,10 +501,6 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .outpaint-workspace-tabs button:not(:disabled):not([aria-selected="true"]):hover {
-    color: var(--text);
-  }
-
   .image-outpaint-ratio:not(:disabled):not(.selected):hover,
   .image-outpaint-position-reset:not(:disabled):hover,
   .image-outpaint-settings:not(:disabled):hover,

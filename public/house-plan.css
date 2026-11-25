@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖保活宿主的参数挂接槽；依赖工作台令牌、二次编辑表单/工具栏和共享START按钮
- * [OUTPUT]: 嵌入样式仅保留户型布局局部覆盖；提供参数栏与大画布、底部框选工具、固定START及窄屏分区
+ * [OUTPUT]: 提供无外框嵌入画布、首页上传前的单一引导、紧凑视图与框选工具、生成等待及独立页窄屏分区
  * [POS]: public 的户型平面布局局部样式，与二次编辑保持相同操作层级
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@
 .house-plan-settings-scroll { flex: 1; min-height: 0; overflow: auto; }
 .house-plan-upload-section, .house-plan-generation { padding: 20px; border-bottom: 1px solid var(--line); }
 .house-plan-shell .section-heading h2 { font-size: 12px; margin: 0; }
-.house-plan-shell .optional { margin-left: 5px; font-size: 10px; font-weight: 400; color: var(--muted); }
+.house-plan-shell .optional { margin-left: 5px; font-size: 10px; font-weight: 400; color: var(--small-ink); }
 .house-plan-upload { display: flex; align-items: center; gap: 12px; padding: 12px; width: 100%; border: 1px dashed var(--line-strong, #c4c4c9); border-radius: 6px; background: var(--panel-soft); text-align: left; color: var(--text); cursor: pointer; }
 .house-plan-upload svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
 .house-plan-upload img { width: 48px; height: 56px; object-fit: contain; background: white; flex: none; }
@@ -26,12 +26,11 @@
 .house-plan-actions #status { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 0 0 8px; }
 .house-plan-actions .generate-button { justify-content: center; }
 .house-plan-actions .button-label { font-size: 21px; }
-.house-plan-error { margin: 0; color: #b02c25; font-size: 12px; line-height: 1.7; }
+.house-plan-error { margin: 0; color: var(--danger); font-size: 12px; line-height: 1.7; }
 .house-plan-workspace { display: flex; flex-direction: column; padding: 0 20px 16px; }
-.house-plan-tabs { height: 44px; margin: 0; gap: 24px; }
-.house-plan-tabs button { height: 44px; padding: 0; }
-.house-plan-tabs .house-plan-download { margin-left: auto; font-weight: 400; }
+.house-plan-views { align-self: flex-end; flex: none; margin-top: 8px; }
 .house-plan-viewer { flex: 1; min-height: 0; min-width: 0; overflow: auto; display: grid; padding: 24px 0; }
+.house-plan-viewer > .generation-feedback { place-self: center; max-width: calc(100% - 32px); }
 .house-plan-empty { display: grid; place-content: center; text-align: center; color: var(--muted); font-size: 13px; }
 #sourceView { display: grid; place-items: center; min-height: 0; container-type: size; }
 .house-plan-viewer canvas { display: block; max-width: 100%; max-height: 100cqh; width: auto; height: auto; touch-action: none; cursor: crosshair; background: white; }
@@ -48,7 +47,7 @@
 .house-plan-annotations:empty { display: none; }
 .house-plan-annotations li { display: flex; align-items: center; gap: 6px; background: var(--panel-soft); border-radius: 4px; padding: 3px 6px 3px 8px; font-size: 11px; }
 .house-plan-annotations button { border: 0; background: transparent; color: var(--muted); cursor: pointer; min-width: 24px; min-height: 24px; font-size: 16px; }
-.house-plan-shell :is(button, input, canvas, summary):focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
+.house-plan-shell :is(button:not(.canvas-view-button), input, canvas, summary):focus-visible { outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px; }
 .house-plan-shell button:disabled { cursor: default; }
 @media (max-width: 760px) {
   .house-plan-page { overflow: auto; }
@@ -64,15 +63,47 @@
   .house-plan-viewer { padding: 16px 0; }
 }
 
-/* --- 嵌入画布与参数局部样式，布局由保活宿主管理 --- */
+/* --- 嵌入工作区沿用宿主分隔线，画布与挂载参数贴合边缘 --- */
 .house-plan-integrated .house-plan-shell { display: block; height: 100%; }
-.house-plan-integrated .house-plan-workspace { height: 100%; margin: 0; box-sizing: border-box; }
+.house-plan-integrated .house-plan-workspace { border: 0; border-radius: 0; height: 100%; margin: 0; box-sizing: border-box; }
 
-.house-plan-parent-settings .house-plan-error { color: #b02c25; }
+.house-plan-conversation .house-plan-workspace:has(#empty:not([hidden])) .house-plan-tools { display: none; }
+.house-plan-conversation .house-plan-workspace canvas:focus-visible { outline: none; }
+.house-plan-conversation .house-plan-workspace:has(canvas:focus-visible) #drawingHint { color: var(--text); }
+.house-plan-conversation .house-plan-workspace:has(canvas:focus-visible) #drawingHint::after {
+  background: currentColor;
+  block-size: 5px;
+  border-radius: 50%;
+  content: "";
+  display: inline-block;
+  inline-size: 5px;
+  margin-inline-start: 6px;
+  vertical-align: .15em;
+  forced-color-adjust: none;
+}
+
+@media (max-width: 760px) {
+  .house-plan-conversation .house-plan-viewer { padding-block: 8px; }
+  .house-plan-conversation .house-plan-tools { gap: 6px; padding-block-start: 6px; }
+  .house-plan-conversation .house-plan-tool-label { display: none; }
+  .house-plan-conversation .house-plan-tool-row { gap: 4px; }
+  .house-plan-conversation .house-plan-tool-row > :is(select, .model-picker) { inline-size: 116px; }
+  .house-plan-conversation .house-plan-tool-row :is(select, input, button) { min-block-size: 44px; }
+  .house-plan-conversation .house-plan-tool-row .mask-fill-drawing-actions {
+    inline-size: auto;
+    margin-inline-start: auto;
+    gap: 4px;
+  }
+  .house-plan-conversation .house-plan-tool-row .mask-fill-drawing-actions > button {
+    min-inline-size: 44px;
+    padding-inline: 6px;
+  }
+}
+
 .house-plan-parent-settings .mask-fill-instruction textarea { box-sizing: border-box; width: 100%; font-size: 12px; line-height: 1.8; }
 .house-plan-parent-settings .section-heading h2 { font-size: 12px; }
-.house-plan-parent-settings .house-plan-settings-scroll { overflow: visible; }
-.house-plan-parent-actions .house-plan-actions { margin: 0; padding: 12px; }
+.house-plan-parent-settings .house-plan-settings-scroll { background: transparent; border: 0; border-radius: 0; overflow: visible; }
+.house-plan-parent-actions .house-plan-actions { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 12px; }
 @media (max-width: 900px) {
   .house-plan-integrated { overflow: hidden; }
   .house-plan-integrated .house-plan-workspace { min-height: 0; }

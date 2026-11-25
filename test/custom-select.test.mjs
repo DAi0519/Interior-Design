@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 原生适配器、choice-select 指针稳定器及共享视觉入口
- * [OUTPUT]: 验证主指针焦点、辅助按键、共享视觉真源和无独立菜单实现，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
+ * [OUTPUT]: 验证主鼠标焦点、触摸与辅助点击、纯黑选中与独立焦点，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
  * [POS]: test 的跨浏览器自定义下拉竞态与搜索单选原生适配回归测试，不启动浏览器或真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -121,6 +121,7 @@ test("主指针按下时在 click 前固定目标选项焦点", () => {
     {
       button: 0,
       isPrimary: true,
+      pointerType: "mouse",
       preventDefault() {
         prevented += 1;
       },
@@ -137,24 +138,24 @@ test("主指针按下时在 click 前固定目标选项焦点", () => {
   assert.deepEqual(focusOptions, { preventScroll: true });
 });
 
-test("辅助按键不会抢占下拉选项焦点", () => {
+test("触笔、触摸、右键和 macOS Ctrl 点击不会抢占下拉选项焦点", () => {
   let touched = false;
-  const stabilized = stabilizePointerFocus(
-    {
-      button: 2,
+  for (const input of [{ pointerType: "mouse", button: 2 }, { pointerType: "mouse", ctrlKey: true },
+    { pointerType: "touch" }, { pointerType: "pen" }]) {
+    const stabilized = stabilizePointerFocus({
+      button: 0,
       isPrimary: true,
+      ...input,
       preventDefault() {
         touched = true;
       },
-    },
-    {
+    }, {
       focus() {
         touched = true;
       },
-    },
-  );
-
-  assert.equal(stabilized, false);
+    });
+    assert.equal(stabilized, false);
+  }
   assert.equal(touched, false);
 });
 
@@ -167,7 +168,17 @@ test("下拉统一加载组件视觉真源并保持完整标签与单行省略",
   assert.doesNotMatch(css, /max-width:\s*55%/);
   assert.match(css, /text-overflow: ellipsis/);
   assert.match(css, /\.model-picker-option.selected\s*\{[^}]*background: var\(--select-selected-bg\)[^}]*color: var\(--select-selected-ink\)/s);
-  assert.match(css, /--select-menu-bg: #fcfcfd/);
+  assert.match(css, /--select-menu-bg: var\(--panel, #fcfcfd\)/);
+  const selected = css.match(/\.model-picker-option\.selected\s*\{([^}]+)\}/)?.[1] || "";
+  assert.doesNotMatch(selected, /(?:box-shadow|outline|border)\s*:/);
+  assert.match(css, /--select-selected-bg: var\(--brand-key-selected-bg, oklch\(0 0 0\)\)/);
+  assert.match(css, /--select-selected-ink: var\(--brand-key-selected-ink, oklch\(1 0 0\)\)/);
+  assert.match(css, /:is\(\.model-picker-trigger,[^)]*\.model-picker-option[^)]*\):focus-visible:where\(:not\(\.selected\)\)\s*\{[^}]*background:/s);
+  const selectedFocus = css.match(/\.model-picker-option\.selected:focus-visible\s*\{([^}]+)\}/)?.[1] || "";
+  assert.match(selectedFocus, /outline: none/);
+  assert.doesNotMatch(selectedFocus, /background/);
+  assert.match(css, /\.model-picker-option\.selected:focus-visible::before\s*\{[^}]*background: currentColor/s);
+  assert.doesNotMatch(css, /text-decoration(?:-line)?:[^;]*underline/);
 });
 
 test("普通单选也委托共享组件，不再持有独立菜单渲染", async () => {
