@@ -642,6 +642,7 @@ function bindEvents() {
     if (featureMode === "housePlanLayout") { state.selectedModelKeys = ["gptImage25Sunburst"]; void housePlanConfiguration.refresh(); }
     if (featureMode === "floorPlanCamera") void floorPlanCameraConfiguration.refresh();
     renderFeature();
+    elements.betaFeatureSelect.closest("#productSidebarDialog[open]")?.close();
     sampleLibrary.setFeatureMode(
       state.featureMode,
       state.sampleSetIds[state.featureMode],

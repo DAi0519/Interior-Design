@@ -247,7 +247,7 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(html, /<title>Canvas Lab · 批量跑图<\/title>/);
   const currentPageLink = html.match(/<a\b(?=[^>]*\bhref="\/beta\.html")(?=[^>]*\baria-current="page")[^>]*>[\s\S]*?<\/a>/)?.[0] || "";
   assert.match(currentPageLink, /\baria-label="批量跑图"/);
-  assert.match(currentPageLink, /<span class="product-switch-label">批量<\/span>/);
+  assert.match(currentPageLink, /<span class="product-switch-label">批量跑图<\/span>/);
   assert.match(html, /<h1 class="visually-hidden">批量跑图<\/h1>/);
   const featureSelect = html.match(/<select\b[^>]*id="betaFeatureSelect"[^>]*>/)?.[0] || "";
   assert.match(featureSelect, /data-searchable="true"/);

@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、三工作台共享侧栏 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 提供评测满视口工作区、内容宽度驱动的流程与表单排布、可键盘滚动的表格容器；对外提供侧栏底部版本号及更新下载弹层、含「批量跑图」入口的纯文字 Canvas Lab 品牌顶栏、共享侧栏的三个横向工作台入口与中性当前态、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
+  [OUTPUT]: 提供评测满视口工作区、内容宽度驱动的流程与表单排布、可键盘滚动的表格容器；对外提供侧栏底部版本号及更新下载弹层、纯文字 Canvas Lab 品牌、共享侧栏返回功能搭建和批量跑图的横排入口、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="./benchmark-run.css?v=5" />
     <link rel="stylesheet" href="./benchmark-review.css?v=5" />
     <link rel="stylesheet" href="./benchmark-responsive.css?v=5" />
-    <link rel="stylesheet" href="./product-navigation.css?v=25" />
+    <link rel="stylesheet" href="./product-navigation.css?v=26" />
     <link rel="stylesheet" href="./app-update.css?v=4" />
     <link rel="stylesheet" href="./raycast-accent.css?v=44" />
     <script src="/product-navigation.js?v=13"></script>
@@ -33,9 +33,8 @@
           <button id="productSidebarToggle" class="product-sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏" aria-expanded="true" aria-controls="productSidebar"><svg aria-hidden="true"><use href="/icons/workbench.svg#sidebar"></use></svg></button>
         </div>
         <nav id="productSwitcher" class="product-switcher" aria-label="工作台切换">
-          <a class="product-switch-option" href="/" aria-label="生图工作台" title="生图工作台"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">生图</span></a>
-          <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量</span></a>
-          <a class="product-switch-option" href="/benchmark.html" aria-label="模型评测" title="模型评测" aria-current="page"><svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg><span class="product-switch-label">评测</span></a>
+          <a class="product-switch-option" href="/" aria-label="功能搭建" title="功能搭建"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">功能搭建</span></a>
+          <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量跑图</span></a>
         </nav>
         <footer class="product-sidebar-footer" aria-label="工作台状态">
           <span id="connectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>

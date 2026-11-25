@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖共享工作台侧栏/满视口网格、Beta内容容器布局和共享效果图美化六氛围/新增光影模板互斥控件；依赖panel-copy.css统一辅助说明/维护入口展示策略，依赖Beta编排/精模光影库与参考图控制器、config-refresh-button共享刷新样式、独立扩图和超分、结果/持久化/样本库、共享单多选及脱敏目录
-  [OUTPUT]: 提供共享侧栏的三个横向工作台入口及底部状态与版本号、宽屏配置/任务监控双栏与窄屏纵向布局，以及自由生图整批提示词与跨功能图片样本复用、多角度整批机位与模型、户型布局与机位推理/直出、视野外框帮助、可搜索任务、逐图房型、光影多选、START/冻结失败项RETRY及生成/同步双进度
+  [INPUT]: 依赖共享工作台侧栏/满视口网格、beta-layout.js 的监控面板挂载，以及批量配置、共享单多选及脱敏目录
+  [OUTPUT]: 提供侧栏可搜索任务入口、从样本集开始的配置和 START/RETRY、独立任务监控及生成/同步双进度；承载自由生图整批提示词、多角度整批机位、户型标注和机位推理/直出等批量参数
   [POS]: public 的独立批量跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,7 +12,7 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · 批量跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=32" />
+    <link rel="stylesheet" href="/beta.css?v=33" />
     <link rel="stylesheet" href="/beta-house-plan.css?v=3" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
     <link rel="stylesheet" href="/effect-beautification.css?v=3" />
@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
     <link rel="stylesheet" href="/generation-actions.css?v=17" />
     <link rel="stylesheet" href="/custom-select.css?v=13" />
-    <link rel="stylesheet" href="/product-navigation.css?v=25" />
+    <link rel="stylesheet" href="/product-navigation.css?v=26" />
     <link rel="stylesheet" href="/app-update.css?v=4" />
     <link rel="stylesheet" href="/panel-copy.css?v=2" />
     <link rel="stylesheet" href="/raycast-accent.css?v=44" />
@@ -34,10 +34,16 @@
           <button id="productSidebarToggle" class="product-sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏" aria-expanded="true" aria-controls="productSidebar"><svg aria-hidden="true"><use href="/icons/workbench.svg#sidebar"></use></svg></button>
         </div>
         <nav id="productSwitcher" class="product-switcher" aria-label="工作台切换">
-          <a class="product-switch-option" href="/" aria-label="生图工作台" title="生图工作台"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">生图</span></a>
-          <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图" aria-current="page"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量</span></a>
-          <a class="product-switch-option" href="/benchmark.html" aria-label="模型评测" title="模型评测"><svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg><span class="product-switch-label">评测</span></a>
+          <a class="product-switch-option" href="/" aria-label="功能搭建" title="功能搭建"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">功能搭建</span></a>
+          <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图" aria-current="page"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量跑图</span></a>
         </nav>
+        <div class="beta-sidebar-task">
+          <span class="beta-sidebar-task-label" aria-hidden="true">选择任务</span>
+          <div class="beta-sidebar-task-picker">
+            <select id="betaFeatureSelect" aria-label="选择任务" data-searchable="true" data-search-placeholder="搜索任务名称"></select>
+            <svg class="beta-sidebar-task-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5h8M8 10h8M8 15h8M4 5h.01M4 10h.01M4 15h.01"/></svg>
+          </div>
+        </div>
         <footer class="product-sidebar-footer" aria-label="工作台状态">
           <span id="betaConnectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>
           <button class="app-update-trigger sidebar-version" data-app-update type="button" aria-label="检查 Canvas Lab 更新">
@@ -55,15 +61,13 @@
       <main class="beta-shell">
         <h1 class="visually-hidden">批量跑图</h1>
         <div class="beta-grid">
+          <div class="beta-monitor-launch">
+            <button id="betaMonitorOpen" class="quiet-button beta-monitor-open" type="button" aria-haspopup="dialog" aria-controls="betaMonitorDialog" aria-describedby="jobStatus">
+              <svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg>任务监控
+            </button>
+          </div>
           <form id="betaForm" class="beta-card beta-config-card">
             <div class="beta-config-scroll">
-            <section class="beta-section">
-              <div class="section-heading">
-                <h2>选择任务</h2>
-              </div>
-              <select id="betaFeatureSelect" aria-label="选择任务" data-searchable="true" data-search-placeholder="搜索任务名称"></select>
-            </section>
-
             <section class="beta-section">
               <div class="section-heading">
                 <h2>选择样本集</h2>
@@ -253,7 +257,12 @@
                 <h2 id="jobMonitorTitle">任务监控</h2>
                 <p>生成与飞书同步</p>
               </div>
-              <span id="jobStatus" class="job-status" data-state="idle" role="status" aria-live="polite">待运行</span>
+              <div class="monitor-heading-actions">
+                <span id="jobStatus" class="job-status" data-state="idle" role="status" aria-live="polite">待运行</span>
+                <button id="betaMonitorClose" class="quiet-button beta-monitor-close" type="button" aria-label="关闭任务监控" autofocus>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg>
+                </button>
+              </div>
             </div>
 
             <div class="monitor-batch">
@@ -304,7 +313,9 @@
     </div>
 
     <script type="module" src="/app-update.js?v=5"></script>
-    <script type="module" src="/beta-app.js?v=59"></script>
+    <script type="module" src="/beta-app.js?v=60"></script>
+    <script type="module" src="/beta-layout.js"></script>
+    <dialog id="betaMonitorDialog" class="beta-monitor-dialog" aria-labelledby="jobMonitorTitle"></dialog>
     <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
       <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>
       <p id="housePlanAnnotationHint">先拖动框选主卧</p>

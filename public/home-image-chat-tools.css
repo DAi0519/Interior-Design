@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖首页对话、原画布、参数下拉及既有 Style DNA 界面
- * [OUTPUT]: 提供上展画布、同内距收展入口、与对话对齐的工具输入和窄屏规格布局
+ * [OUTPUT]: 提供上展画布、同内距收展入口、与对话对齐的工具附件和输入提示及窄屏规格布局
  * [POS]: public 的首页内嵌工具适配层，仅在对话选择工具时生效
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -315,7 +315,7 @@
   min-block-size: var(--home-chat-prompt-min);
   max-block-size: min(160px, 31dvh);
   outline: none;
-  padding: 10px var(--home-chat-text-inset);
+  padding: 10px 0;
   resize: none;
 }
 
@@ -324,39 +324,6 @@
     block-size: auto;
     field-sizing: content;
   }
-}
-
-.home-image-chat-composer:has(:is(.home-image-chat-camera-inputs, .home-image-chat-workspace-inputs) textarea:focus-visible) {
-  border-color: var(--quiet);
-}
-
-.home-image-chat-validation {
-  margin: 4px var(--home-chat-text-inset) 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.home-image-chat-camera-status {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-  margin-inline-start: auto;
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
-}
-
-.home-image-chat-camera-status:empty {
-  display: none;
-}
-
-.home-image-chat-camera-status[role="alert"] {
-  color: var(--danger);
-}
-
-.home-image-chat-camera-status:not([hidden], .sr-only) + .home-image-chat-send {
-  margin-inline-start: 0;
 }
 
 .home-image-chat-camera-thumbnail {
@@ -416,7 +383,7 @@
   min-inline-size: 100px;
 }
 
-.home-image-chat-tool-actions :is(.studio-error, .plan-camera-error, .studio-submit-note) {
+:is(.home-image-chat-tool-actions, .home-image-chat-workspace-inputs) :is(.studio-error, .plan-camera-error, .studio-submit-note) {
   margin-block: 0 4px;
   overflow-wrap: anywhere;
 }
@@ -481,9 +448,13 @@
   background: var(--surface-control);
 }
 
+#homeImageChat .home-image-chat-tool-actions .composer-attachment-list {
+  padding-inline: 0;
+}
+
 #homeImageChat .home-image-chat-tool-actions .composer-input-shell textarea {
   min-block-size: var(--home-chat-prompt-min);
-  padding: 10px 9px;
+  padding: 10px 0;
 }
 
 #homeImageChat .home-image-chat-tool-canvas .style-dna-thread {
@@ -552,22 +523,6 @@
   #homeImageChat[data-composer-feature="floorPlanCamera"] .home-image-chat-send {
     background-clip: padding-box;
     border: 4px solid transparent;
-  }
-
-  .home-image-chat-camera-status {
-    flex: 1 0 100%;
-    margin-inline-start: 0;
-    order: -1;
-    padding-inline: 2px;
-  }
-
-  .home-image-chat-camera-status[data-camera-placement] {
-    flex: 0 0 auto;
-    order: 0;
-  }
-
-  .home-image-chat-camera-status:not([hidden], .sr-only) + .home-image-chat-send {
-    margin-inline-start: auto;
   }
 }
 
@@ -718,7 +673,7 @@
 }
 
 #homeImageChat[data-tool="style"] .style-dna-send-status {
-  margin: 0 9px 4px;
+  margin: 4px 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;

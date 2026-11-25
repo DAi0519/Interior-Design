@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Style DNA 反推 DOM、共享本地 API、服务端图片/PDF 附件能力策略、Agent 模型目录与浏览器文件能力
- * [OUTPUT]: 对外提供Prompt版本/模型选择、对话发送门槛与忙碌状态、参考附件/多模态分析/修正、草稿展示及复制重置
+ * [OUTPUT]: 对外提供Prompt版本/模型选择、输入区上方的发送校验与忙碌状态、参考附件/多模态分析/修正、草稿展示及复制重置
  * [POS]: public 的 Style DNA 反推浏览器控制器，以服务端附件能力为上传单一真源并与生成控制器隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -220,7 +220,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
   sendStatus.className = "style-dna-send-status";
   sendStatus.setAttribute("role", "status");
   sendStatus.hidden = true;
-  elements.dropZone.querySelector(".composer-toolbar").before(sendStatus);
+  elements.input.before(sendStatus);
 
   function setPromptVersion(version) {
     state.promptVersion = Number.isInteger(version) && version > 0

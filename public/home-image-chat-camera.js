@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖对话挂载槽、机位原输入/动作和 floor-plan-camera-presentation 的状态属性
- * [OUTPUT]: 发布机位画布就绪信号，复用原上传、提示词、发送及恢复，底栏提示跟随收展
+ * [OUTPUT]: 发布机位画布就绪信号，复用原上传、提示词、发送及恢复，输入区上方的提示跟随收展
  * [POS]: public 的首页机位对话适配层，生成和校验继续由原机位控制器处理
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,7 +10,7 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
   const view = doc.defaultView;
   const prompts = root.querySelector(".home-image-chat-camera-inputs");
   const thumbnail = root.querySelector(".home-image-chat-camera-thumbnail");
-  const status = root.querySelector(".home-image-chat-camera-status");
+  const status = root.querySelector("#homeImageChatCameraStatus");
   const attachLabel = root.querySelector(".home-image-chat-attach-label");
   let active = false;
   let expanded = false;

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖三页工作台外壳、侧栏导航及状态入口、原生 dialog、共享颜色令牌与同源 Inter Variable
- * [OUTPUT]: 桌面满视口布局、侧栏分组、工作台纯黑当前态与焦点反馈、底部额度与左对齐的版本入口及移动原生抽屉
+ * [OUTPUT]: 桌面满视口布局、侧栏分组、双工作台横排全名与当前态、底部额度及版本入口、移动原生抽屉
  * [POS]: public 的跨工作台布局与产品导航视觉真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -161,8 +161,8 @@
 .product-switcher {
   display: grid;
   flex: 0 0 auto;
-  gap: 2px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   padding-inline: var(--sidebar-inset);
 }
 
@@ -450,13 +450,6 @@
 
   .product-sidebar {
     --sidebar-utility-row-height: 44px;
-  }
-}
-
-@media (min-width: 901px) and (any-pointer: coarse) {
-  .workbench-shell > .product-sidebar .product-switcher {
-    gap: 1px;
-    padding-inline: 4px;
   }
 }
 

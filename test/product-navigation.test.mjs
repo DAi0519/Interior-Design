@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、共享侧栏 CSS/JS、server.mjs、package.json 的字体与动效契约
- * [OUTPUT]: 验证三页满视口外壳、同源 Inter 字形、工作台横排链接、无框反色当前页与焦点点标、桌面收展、移动抽屉关闭及向底部工具弹窗交接
+ * [OUTPUT]: 验证三页满视口外壳、同源 Inter 字形、横排双入口全名、原生当前态与焦点点标、桌面收展、移动抽屉关闭及向底部工具弹窗交接
  * [POS]: test 的跨工作台品牌字体护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,25 +37,27 @@ test("三页使用项目内嵌的 Raycast Inter Variable 品牌字体", async ()
   assert.ok(fontStat.size > 40_000);
 });
 
-test("三页共享满视口导航侧栏，当前工作台首帧可辨且原生链接可达", async () => {
-  const routes = ["/", "/beta.html", "/benchmark.html"];
-  const labels = ["生图", "批量", "评测"];
-  const accessibleNames = ["生图工作台", "批量跑图", "模型评测"];
-  const names = ["index", "beta", "benchmark"];
-  const pages = await Promise.all(names.map((name) => readFile(new URL(`../public/${name}.html`, import.meta.url), "utf8")));
-  for (const [index, html] of pages.entries()) {
+test("三页侧栏只提供功能搭建和批量跑图，两页首帧标出当前入口", async () => {
+  const routes = ["/", "/beta.html"];
+  const labels = ["功能搭建", "批量跑图"];
+  const currentRoutes = { index: ["/"], beta: ["/beta.html"], benchmark: [] };
+  const pages = await Promise.all(Object.entries(currentRoutes).map(async ([name, current]) => ({
+    html: await readFile(new URL(`../public/${name}.html`, import.meta.url), "utf8"),
+    current,
+  })));
+  for (const { html, current } of pages) {
     const sidebar = html.match(/<aside id="productSidebar"[^>]*>[\s\S]*?<\/aside>/)?.[0] || "";
     const navigation = sidebar.match(/<nav id="productSwitcher"[^>]*>[\s\S]*?<\/nav>/)?.[0] || "";
     const links = [...navigation.matchAll(/<a class="product-switch-option" href="([^"]+)"([^>]*)>([\s\S]*?)<\/a>/g)];
     assert.match(html, /class="app-shell workbench-shell"/);
     assert.deepEqual(links.map((link) => link[1]), routes);
-    assert.deepEqual(links.filter((link) => link[2].includes('aria-current="page"')).map((link) => link[1]), [routes[index]]);
-    assert.deepEqual(links.map((link) => link[2].match(/aria-label="([^"]+)"/)?.[1]), accessibleNames);
-    assert.deepEqual(links.map((link) => link[2].match(/title="([^"]+)"/)?.[1]), accessibleNames);
+    assert.deepEqual(links.filter((link) => link[2].includes('aria-current="page"')).map((link) => link[1]), current);
+    assert.deepEqual(links.map((link) => link[2].match(/aria-label="([^"]+)"/)?.[1]), labels);
+    assert.deepEqual(links.map((link) => link[2].match(/title="([^"]+)"/)?.[1]), labels);
     assert.deepEqual(links.map((link) => link[3].match(/class="product-switch-label">([^<]+)</)?.[1]), labels);
     assert.match(html, /id="productSidebarOpen"[^>]*aria-controls="productSidebarDialog"/);
     assert.match(html, /<dialog id="productSidebarDialog"/);
-    assert.match(html, /product-navigation\.css\?v=25/);
+    assert.match(html, /product-navigation\.css\?v=26/);
     assert.match(html, /<script src="\/product-navigation\.js\?v=13"><\/script>\s*<\/head>/);
     const footer = sidebar.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";
     const brand = sidebar.match(/<div class="product-sidebar-head">[\s\S]*?<\/div>/)?.[0] || "";
@@ -70,7 +72,7 @@ test("三页共享满视口导航侧栏，当前工作台首帧可辨且原生�
   const source = await readFile(new URL("../public/product-navigation.js", import.meta.url), "utf8");
   assert.match(css, /\.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 144px;[^}]*height: 100dvh;[^}]*max-width: none;/s);
   assert.match(css, /\.workbench-sidebar-collapsed \.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 52px;/s);
-  assert.match(css, /\.product-switcher\s*{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
+  assert.match(css, /\.product-switcher\s*{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(css, /\.workbench-sidebar-collapsed \.workbench-shell > \.product-sidebar \.product-switcher\s*{[^}]*grid-template-columns: minmax\(0, 1fr\)/s);
   assert.match(css, /\.product-switch-option\[aria-current="page"\]\s*{[^}]*var\(--brand-key-selected-bg,[^}]*var\(--brand-key-selected-ink,/s);
   const selectionRules = css.match(/\.product-switch-option\[aria-current="page"\]\s*{[^}]*}/)?.[0] || "";

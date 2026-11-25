@@ -1,15 +1,15 @@
 /**
  * [INPUT]: 依赖共享功能目录、原表单准入、原生及同源工作区输入挂载、首页参数和任务
- * [OUTPUT]: 提供首页原地选功能、右上角完整参数入口、上展画布、参考图校验和会话记录
+ * [OUTPUT]: 提供首页原地选功能、参数入口、上展画布、输入区上方的校验提示、输入动效装饰和会话记录
  * [POS]: public 的首页生图视图，由 app.js 注入同一套自由生图能力
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { fillSelect, secureImageUrl } from "./workbench-utils.js";
 import { bindHomeChatParameters } from "./home-image-chat-parameters.js?v=3";
 import { bindHomeNativeTools } from "./home-image-chat-native-tools.js?v=4";
-import { bindHomeImageCamera } from "./home-image-chat-camera.js?v=5";
+import { bindHomeImageCamera } from "./home-image-chat-camera.js?v=6";
 import { bindHomeCanvasPanel } from "./home-image-chat-canvas-panel.js";
-import { bindHomeWorkspaceInputs } from "./home-image-chat-workspace-inputs.js?v=2";
+import { bindHomeWorkspaceInputs } from "./home-image-chat-workspace-inputs.js?v=3";
 import { bindEmbeddedWorkspaceQuickParameters } from "./workspace-quick-parameters.js?v=3";
 import { bindParameterPopover } from "./parameter-popover.js";
 
@@ -45,6 +45,10 @@ const markup = `
         <div class="home-image-chat-canvas-window"><div class="home-image-chat-tool-canvas"></div></div>
       </section>
       <form class="home-image-chat-composer">
+        <span class="home-image-chat-focus-flow" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </span>
         <div class="home-image-chat-feature-row">
           <button class="home-image-chat-feature-picker" type="button" data-feature-catalog-open data-feature-catalog-composer
             aria-haspopup="dialog" aria-controls="featureCatalogDialog">
@@ -53,6 +57,7 @@ const markup = `
           <button class="home-image-chat-feature-clear" type="button" aria-label="清除功能，使用自由生图" hidden>
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 7 6 6m0-6-6 6"/></svg>
           </button>
+          <p id="homeImageChatCameraStatus" class="home-image-chat-validation" role="status" hidden></p>
           <button class="home-image-chat-parameter-trigger home-image-chat-advanced-trigger" type="button" aria-label="全部参数" title="全部参数"
             aria-haspopup="dialog" aria-controls="homeImageChatParameterDialog" hidden>${advancedParametersIcon}</button>
           <button class="home-image-chat-tool-parameter-trigger home-image-chat-advanced-trigger" type="button" aria-label="全部参数" title="全部参数" hidden>
@@ -61,7 +66,7 @@ const markup = `
         </div>
         <div class="home-image-chat-attachment-row">
           <div class="home-image-chat-references" role="group" aria-label="参考图" hidden></div>
-          <p id="homeImageChatReferenceValidation" class="home-image-chat-validation" role="status" hidden></p>
+          <p id="homeImageChatValidation" class="home-image-chat-validation" role="status" hidden></p>
         </div>
         <label class="sr-only" for="homeImageChatInput">图像提示词</label>
         <textarea id="homeImageChatInput" class="home-image-chat-input" rows="2" maxlength="8000"
@@ -88,12 +93,10 @@ const markup = `
             <div class="home-image-chat-inline-parameters"></div>
             <div class="home-image-chat-tool-quick"></div>
           </div>
-          <span id="homeImageChatCameraStatus" class="home-image-chat-camera-status" role="status" hidden></span>
           <button id="homeImageChatSend" class="home-image-chat-send" type="submit" aria-label="发送并生成图片" title="发送并生成图片" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
           </button>
         </div>
-        <p id="homeImageChatValidation" class="home-image-chat-validation" role="status" hidden></p>
         <div class="home-image-chat-tool-actions" hidden></div>
       </form>
     </div>
@@ -202,7 +205,6 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
   const attach = root.querySelector("#homeImageChatAttach");
   const submit = root.querySelector("#homeImageChatSend");
   const validation = root.querySelector("#homeImageChatValidation");
-  const referenceValidation = root.querySelector("#homeImageChatReferenceValidation");
   const canvasPanel = bindHomeCanvasPanel(root, {
     onExpandedChange: expanded => camera.setPanelExpanded(expanded),
   });
@@ -308,21 +310,17 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
     const text = activeInput()?.value.trim() || "";
     const issue = active && ready && !busy && !uploading && !hasStandaloneActions && !camera.active()
       ? getBlockReason(text) : null;
-    const noteTarget = issue?.field === "reference" ? referenceValidation : validation;
-    const note = (noteTarget === referenceValidation || composerMode !== "free" || text) &&
+    const note = (issue?.field === "reference" || composerMode !== "free" || text) &&
       (root.dataset.tool !== "image" || lastReferences.length) ? issue?.message || "" : "";
-    for (const status of [referenceValidation, validation]) {
-      const message = status === noteTarget ? note : "";
-      if (status.textContent !== message) status.textContent = message;
-      status.hidden = !message;
-    }
+    if (validation.textContent !== note) validation.textContent = note;
+    validation.hidden = !note;
     if (camera.active()) camera.syncControls(attach, submit);
     else {
       submit.disabled = !ready || busy || uploading || hasStandaloneActions || Boolean(issue?.message)
         || (composerMode === "free" && !text);
       submit.setAttribute("aria-label", busy ? "正在生成图片" : "发送并生成图片");
       submit.removeAttribute("aria-busy");
-      if (note) submit.setAttribute("aria-describedby", noteTarget.id);
+      if (note) submit.setAttribute("aria-describedby", validation.id);
       else submit.removeAttribute("aria-describedby");
       if (workspaceInputs.active()) workspaceInputs.syncControls(attach);
       else {

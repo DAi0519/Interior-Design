@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖首页对话的底栏上传与提示词槽、同源工作区原上传和原表单
- * [OUTPUT]: 提供底栏原上传、提示词及错误，发布画布原图和任务恢复的就绪信号
+ * [OUTPUT]: 提供底栏原上传、提示词及其上方的原工作区输入提示，发布画布原图和任务恢复的就绪信号
  * [POS]: public 的首页同源工作区输入适配层，原工作区继续负责校验和任务执行
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -15,7 +15,7 @@ const workspaces = {
   aiRenderStudio: {
     dock: "#aiRenderStudioSettingsMount", input: "#studioSourceInput", upload: "#studioUpload",
     replace: "#studioReplaceSource", image: "#studioSourceThumbnail", name: "#studioSourceName",
-    error: "#studioUploadError", views: "#studioResultFrame, #studioJobState",
+    error: "#studioUploadError", note: "#studioSubmitNote", views: "#studioResultFrame, #studioJobState",
     prompt: "#studioPrompt", promptOrigin: ".studio-prompt-section",
     imageLabel: "模型图",
   },
@@ -59,7 +59,7 @@ export function bindHomeWorkspaceInputs(root, slots, { onChange, onCanvasChange 
     controlsObserver.disconnect();
     if (!controls) return;
     const { sourceSection, upload, prompt, promptMarker, promptOrigin, promptAria,
-      promptHeight, error, errorMarker } = controls;
+      promptHeight, notices } = controls;
     sourceSection?.classList.remove("home-image-chat-workspace-origin-upload");
     upload.classList.remove("home-image-chat-workspace-original-upload");
     promptOrigin?.classList.remove("home-image-chat-workspace-origin-prompt");
@@ -69,7 +69,7 @@ export function bindHomeWorkspaceInputs(root, slots, { onChange, onCanvasChange 
       else prompt.setAttribute("aria-label", promptAria);
       promptMarker.replaceWith(prompt);
     }
-    if (errorMarker) errorMarker.replaceWith(error);
+    for (const { node, marker } of notices) marker.replaceWith(node);
     controls = null;
   }
 
@@ -82,15 +82,15 @@ export function bindHomeWorkspaceInputs(root, slots, { onChange, onCanvasChange 
     const promptOrigin = prompt?.closest(config.promptOrigin);
     const promptAria = prompt?.getAttribute("aria-label");
     const promptHeight = prompt?.style.height;
-    const error = settings.querySelector(config.error);
+    const notices = [settings.querySelector(config.error), config.note && slots.actions.querySelector(config.note)]
+      .filter(Boolean).map(node => ({ node, marker: move(node) }));
     sourceSection?.classList.add("home-image-chat-workspace-origin-upload");
     upload.classList.add("home-image-chat-workspace-original-upload");
     promptOrigin?.classList.add("home-image-chat-workspace-origin-prompt");
     if (prompt && !promptAria) prompt.setAttribute("aria-label", config.promptLabel);
     const promptMarker = move(prompt);
-    const errorMarker = move(error);
     controls = { settings, input, upload, replace, image, name, sourceSection,
-      prompt, promptOrigin, promptAria, promptHeight, promptMarker, error, errorMarker };
+      prompt, promptOrigin, promptAria, promptHeight, promptMarker, notices };
     const options = { subtree: true, childList: true, characterData: true, attributes: true,
       attributeFilter: ["hidden", "disabled", "src", "inert", "aria-busy"] };
     for (const node of [sourceSection, input, prompts]) {
