@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 src/agent-model-config.mjs 的 Prompt Agent 候选目录与能力过滤
- * [OUTPUT]: 验证十一个通用模型的真实 ID、机位专用 GPT 6.1 Sol 与 GPT 6.2 Sol/Astra、图片输入门槛及接口可用性组合
+ * [OUTPUT]: 验证通用候选真实 ID、户型及机位共用 GPT 模型、图片输入门槛和逐模型 Key 权限
  * [POS]: test 的 Prompt Agent 模型回归测试，不发送真实 API 请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,7 +14,7 @@ import {
   publicAgentModelCatalog,
 } from "../src/agent-model-config.mjs";
 
-test("Prompt Agent 目录只暴露十一个已决策模型", () => {
+test("Prompt Agent 目录保持已验证模型的稳定 key 和 OneAPI ID", () => {
   const catalog = publicAgentModelCatalog();
   assert.deepEqual(
     catalog.map(({ id, key }) => ({ id, key })),
@@ -30,6 +30,19 @@ test("Prompt Agent 目录只暴露十一个已决策模型", () => {
       { id: "doubao-seed-1.8", key: "doubaoVision" },
       { id: "doubao-seed-2.0-lite", key: "doubaoSeed20Lite" },
       { id: "kimi-k2.5", key: "kimi25" },
+      { id: "gpt-6.1-sol", key: "gpt61Sol" },
+      { id: "gpt-6.2-sol", key: "gpt62Sol" },
+      { id: "gpt-6.2-astra", key: "gpt62Astra" },
+      { id: "gpt-6.1-terra", key: "gpt61Terra" },
+      { id: "gemini-4-hydrogen", key: "gemini4Hydrogen" },
+      { id: "claude-sonnet-5-5", key: "claudeSonnet55" },
+      { id: "claude-opus-5-5", key: "claudeOpus55" },
+      { id: "claude-haiku-5-5", key: "claudeHaiku55" },
+      { id: "deepseek-v4-flash-vision-exp", key: "deepseekFlashVisionExp" },
+      { id: "doubao-seed-2.0-mini", key: "doubaoSeed20Mini" },
+      { id: "kimi-k3.1-pro", key: "kimi31Pro" },
+      { id: "qwen3.6-plus", key: "qwen36plus" },
+      { id: "qwen3.8-flash", key: "qwen38flash" },
     ],
   );
   assert.deepEqual(
@@ -59,6 +72,19 @@ test("接口存在但不支持图片输入的模型不可选择", () => {
     { id: "doubao-seed-1.8" },
     { id: "doubao-seed-2.0-lite" },
     { id: "kimi-k2.5" },
+    { id: "gpt-6.1-sol" },
+    { id: "gpt-6.2-sol" },
+    { id: "gpt-6.2-astra" },
+    { id: "gpt-6.1-terra" },
+    { id: "gemini-4-hydrogen" },
+    { id: "claude-sonnet-5-5" },
+    { id: "claude-opus-5-5" },
+    { id: "claude-haiku-5-5" },
+    { id: "deepseek-v4-flash-vision-exp" },
+    { id: "doubao-seed-2.0-mini" },
+    { id: "kimi-k3.1-pro" },
+    { id: "qwen3.6-plus" },
+    { id: "qwen3.8-flash" },
   ]);
 
   assert.equal(availability[0].available, true);
@@ -78,31 +104,20 @@ test("API Key 未开放的候选模型不可选择", () => {
   assert.equal(gemini.reason, "当前 API Key 未开放");
 });
 
-test("GPT 6.1 Sol 与 GPT 6.2 Sol/Astra 仅在平面图机位目录按当前 Key 开放", () => {
-  const featureMode = "floorPlanCamera";
-  const cameraModels = [
-    { key: "gpt61Sol", id: "gpt-6.1-sol", label: "GPT 6.1 Sol", imageInput: true },
-    { key: "gpt62Sol", id: "gpt-6.2-sol", label: "GPT 6.2 Sol", imageInput: true },
-    { key: "gpt62Astra", id: "gpt-6.2-astra", label: "GPT 6.2 Astra", imageInput: true },
+test("GPT 6.1 与 GPT 6.2 候选出现在户型、机位和其他 Agent，并逐项检查 Key 权限", () => {
+  const candidates = [
+    ["gpt61Sol", "gpt-6.1-sol"],
+    ["gpt61Terra", "gpt-6.1-terra"],
+    ["gpt62Sol", "gpt-6.2-sol"],
+    ["gpt62Astra", "gpt-6.2-astra"],
   ];
-  const sharedKeys = new Set(publicAgentModelCatalog().map(({ key }) => key));
-  assert.deepEqual(publicAgentModelCatalog(featureMode)
-    .filter(({ key }) => !sharedKeys.has(key))
-    .map(({ key, id, label, imageInput }) => ({ key, id, label, imageInput })), cameraModels);
-
-  for (const { key, id } of cameraModels) {
-    const listed = [{ id }];
-    assert.equal(agentModelOrThrow(key, featureMode).id, id);
-    assert.throws(() => agentModelOrThrow(key), /允许列表/);
-    assert.equal(checkAgentModelAvailability(listed).some((model) => model.id === id), false);
-    assert.equal(checkAgentModelAvailability(listed, "housePlanLayout").some((model) => model.id === id), false);
-
-    const cameraAccess = checkAgentModelAvailability(listed, featureMode);
-    assert.equal(cameraAccess.find((model) => model.key === key).selectable, true);
-    for (const other of cameraModels.filter((model) => model.key !== key)) {
-      const disabled = cameraAccess.find((model) => model.key === other.key);
-      assert.equal(disabled.selectable, false);
-      assert.equal(disabled.reason, "当前 API Key 未开放");
+  for (const featureMode of [undefined, "housePlanLayout", "floorPlanCamera", "emptyRoom", "whiteModel", "styleDna"]) {
+    for (const [key, id] of candidates) {
+      assert.equal(agentModelOrThrow(key, featureMode).id, id);
+      const access = checkAgentModelAvailability([{ id }], featureMode);
+      for (const [candidate] of candidates) {
+        assert.equal(access.find((model) => model.key === candidate).selectable, candidate === key);
+      }
     }
   }
 });

@@ -13,6 +13,10 @@
 
 调用关系固定为 `release:publish → release:pack → release:check`；任一内层步骤失败，外层立即停止。
 
+## v0.1.34 发布范围
+
+户型平面布局、平面图机位及通用视觉 Agent 共用 GPT 6.2 Sol、GPT 6.2 Astra、GPT 6.1 Sol、GPT 6.1 Terra 和已通过图片输入实测的新候选。继续按当前 OneAPI Key 授权控制可选项。同步生成记录和批量跑图明细的「Prompt融合」选项。对外版本亮点由 `package.json` 的 `releaseNotes` 生成。
+
 ## v0.1.33 发布范围
 
 本版从 `main` 发布。生图测试纳入对话框内的功能参数、可展开画布和历史记录操作，批量跑图统一任务侧栏、草稿恢复和常驻监控。平面图机位的空间推理新增 GPT 6.2 Sol 和 GPT 6.2 Astra，设计实验室 Beta 退役。保留 v0.1.32 的 Windows 安装更新与启动修复。对外版本亮点由 `package.json` 的 `releaseNotes` 生成。

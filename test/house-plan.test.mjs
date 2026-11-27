@@ -33,6 +33,19 @@ test('默认GPT2.5、配置不泄露正文，默认失权不静默换模', async
   assert.equal(prepared.source.submittedWidth,96); assert.equal(prepared.source.submittedHeight,64);
   await assert.rejects(prepareHousePlanInput(value,{getModels:async()=>[{id:'gemini-3.1-pro-preview'},{id:'gpt-image-2.6-flare'}],getPrompt}),/不可用/);
 });
+test('布局规划基模可用时显示 GPT 6.2，提交仍实时检查当前 Key', async () => {
+  const candidates = [['gpt62Sol', 'gpt-6.2-sol'], ['gpt62Astra', 'gpt-6.2-astra']];
+  const available = async () => [...await getModels(), ...candidates.map(([, id]) => ({ id }))];
+  const config = await readHousePlanConfig({ getModels: available, getPrompt });
+  assert.equal(config.defaultAgentModel, 'gemini3pro');
+  const value = await input();
+  for (const [key, id] of candidates) {
+    assert.equal(config.agentModels.find(model => model.key === key)?.id, id);
+    const request = { ...value, agentModelKey: key };
+    assert.equal((await prepareHousePlanInput(request, { getModels: available, getPrompt })).agent.id, id);
+    await assert.rejects(prepareHousePlanInput(request, { getModels, getPrompt }), /不可用/);
+  }
+});
 test('同一带标注图实际送入Agent、生图及主工作台归档，原图独立保留', async () => {
   const calls=[]; const original=await input(); const prepared=await prepare(original); let compiledPrompt;
   assert.notEqual(prepared.imageUrl, original.referenceImage.dataUrl);

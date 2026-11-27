@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta Store/runner、独立扩图/超分模型目录与三表字段响应内存替身
- * [OUTPUT]: 验证稳定归档单选标签、机位 GPT 6.1 Sol 与 GPT 6.2 Sol/Astra 及多角度按功能准入、Schema 漂移前置阻断、实时分页和合同错误不重生成
+ * [OUTPUT]: 验证稳定归档单选标签、共用 Agent 目录的融合标签及多角度按功能准入、Schema 漂移前置阻断、实时分页和合同错误不重生成
  * [POS]: test 的 Beta 归档 Schema 合同集成测试，不读写真实 Base 或调用模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -17,9 +17,7 @@ import { IMAGE_UPSCALE_WORKFLOWS, publicImageUpscaleConfig } from "../src/image-
 import { IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS } from "../src/image-outpaint-archive.mjs";
 import { MULTI_ANGLE_ARCHIVE_MODEL_LABELS } from "../src/image-multi-angle-archive.mjs";
 
-const CAMERA_AGENT_LABELS = ["GPT 6.1 Sol", "GPT 6.2 Sol", "GPT 6.2 Astra"];
-
-function schemaFixture({ cameraAgent = false } = {}) {
+function schemaFixture() {
   const textFields = (names) => names.map((name) => ({ id: `field-${name}`, name, type: "text" }));
   const select = (name, values, multiple = false) => ({ name, type: "select", multiple, options: values.map((value) => ({ name: value })) });
   const features = BETA_FEATURE_MODES.map(betaFeatureLabel);
@@ -31,8 +29,7 @@ function schemaFixture({ cameraAgent = false } = {}) {
       select("功能", features), select("状态", ["运行中", "成功", "失败"]), select("场景标签", EMPTY_ROOM_TYPES, true),
       select("出图模型", [...publicModelCatalog().map((model) => model.label), ...IMAGE_OUTPAINT_ARCHIVE_MODEL_LABELS,
         ...MULTI_ANGLE_ARCHIVE_MODEL_LABELS, ...Object.values(IMAGE_UPSCALE_WORKFLOWS).map(({ label }) => label)]),
-      select("Prompt融合", [...publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label),
-        ...(cameraAgent ? CAMERA_AGENT_LABELS : [])]),
+      select("Prompt融合", publicAgentModelCatalog().filter((model) => model.imageInput).map((model) => model.label)),
       ...[["输入图", config.inputFieldId], ["风格参考图", config.styleReferenceFieldId], ["结果图", config.resultFieldId]].map(([name, id]) => ({ name, id, type: "attachment" })),
     ],
     [config.sampleSetTableId]: [
@@ -82,7 +79,7 @@ test("live Store 的实时 verifier 每次读取三表，后一次字段漂移�
 
 test("平面图机位需要明细和样本集功能选项，旧功能仍可使用尚未迁移的表", async () => {
   const label = betaFeatureLabel("floorPlanCamera");
-  const schemas = schemaFixture({ cameraAgent: true });
+  const schemas = schemaFixture();
   for (const tableId of [config.tableId, config.sampleSetTableId]) {
     const field = schemas[tableId].find(entry => entry.name === "功能");
     field.options = field.options.filter(option => option.name !== label);
@@ -92,20 +89,21 @@ test("平面图机位需要明细和样本集功能选项，旧功能仍可使�
   await assert.rejects(store.verifySchema({ featureMode: "floorPlanCamera" }), error =>
     error.statusCode === 409 && error.message.includes(`跑图明细“功能”缺少选项：${label}`)
     && error.message.includes(`样本集“功能”缺少选项：${label}`));
-  await storeForSchema(schemaFixture({ cameraAgent: true }), []).verifySchema({ featureMode: "floorPlanCamera" });
+  await storeForSchema(schemaFixture(), []).verifySchema({ featureMode: "floorPlanCamera" });
 });
 
-test("跑图明细的 GPT 6.1 Sol 与 GPT 6.2 Sol/Astra 融合标签仅在机位功能准入时要求", async () => {
-  for (const label of CAMERA_AGENT_LABELS) {
-    const schemas = schemaFixture({ cameraAgent: true });
+test("跑图明细对户型与机位均要求通用 GPT 6.2 和新视觉 Agent 标签", async () => {
+  for (const label of ["GPT 6.2 Sol", "GPT 6.2 Astra", "Gemini 4 Hydrogen"]) {
+    const schemas = schemaFixture();
     const field = schemas[config.tableId].find((entry) => entry.name === "Prompt融合");
     field.options = field.options.filter((option) => option.name !== label);
     const store = storeForSchema(schemas, []);
-    await store.verifySchema({ featureMode: "housePlanLayout" });
-    await assert.rejects(store.verifySchema({ featureMode: "floorPlanCamera" }), error =>
-      error.statusCode === 409 && error.message.includes(`跑图明细“Prompt融合”缺少选项：${label}`));
+    for (const featureMode of ["housePlanLayout", "floorPlanCamera"]) {
+      await assert.rejects(store.verifySchema({ featureMode }), error =>
+        error.statusCode === 409 && error.message.includes(`跑图明细“Prompt融合”缺少选项：${label}`));
+    }
   }
-  await storeForSchema(schemaFixture({ cameraAgent: true }), []).verifySchema({ featureMode: "floorPlanCamera" });
+  await storeForSchema(schemaFixture(), []).verifySchema({ featureMode: "floorPlanCamera" });
 });
 
 test("风格转换复用现有归档字段，并要求跑图明细和样本集均有功能选项", async () => {

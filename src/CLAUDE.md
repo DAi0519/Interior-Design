@@ -100,7 +100,7 @@ effect-render-enhancement-workflow.mjs: 含Beta质感增强固定Prompt批跑；
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
-agent-model-config.mjs: Prompt Agent 模型真源，维护十一个通用候选及平面图机位专用 GPT 6.1 Sol、GPT 6.2 Sol、GPT 6.2 Astra，按功能过滤并结合当前 Key 目录核验图片输入与选择权限
+agent-model-config.mjs: Prompt Agent 共享候选和模型白名单，户型、机位及通用 Agent 共用实测 GPT 6.1/6.2 和其他视觉候选，按当前 Key 核验图片输入与选择权限
 oneapi-image-async.mjs: 复用模型真源校验可选complexity并仅放image_generation工具；无mask原始PNG及图序的Responses background提交/1.5秒轮询、单次收费POST、同ID/终态校验、提交到正文与等待共享600秒总预算、取消及即时ID回调；透明mask明确拒绝
 oneapi-client.mjs: 读取当前 Key 的 /balance，返回剩余额度、币种、不限额标记与查询时间；Prompt Agent可选输出预算和截断准入，空回复及截断保留已知requestId/费用且不附正文；同步Responses按模型真源校验并透传可选complexity工具字段；按阶段独立限时/外部及单请求 AbortSignal 的 OneAPI HTTP 客户端与 ONEAPI_REQUEST_TIMEOUTS 真源：额度 8 秒、目录 30 秒、提示词/Style DNA 300 秒、出图/编辑 600 秒、分析/评审 180 秒，每次 HTTP 请求至完整响应体独立计时，专用 undici Agent 避免底层默认 300 秒提前截断且不改全局连接；Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImageAsync使用Responses后台任务并归一化结果/费用，editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留阶段/模型/限时脱敏诊断及请求身份/费用
 ai-texture-workflow-config.mjs: Flux默认参数和工作流身份、后置超分输入/版本/目标校验与aiTexturePostUpscaleRequest；独立postUpscale实际模型/源尺寸/推理/交付/SHA元数据，不覆盖Flux或美化1920核心信息

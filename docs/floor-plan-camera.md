@@ -77,6 +77,8 @@ v11 要求 Agent 先写机位和拍摄目标，再核对成片方位、首墙、
 
 2026-11-26，主工作台和批量跑图的空间推理新增 **GPT 6.2 Sol**（`gpt62Sol` / `gpt-6.2-sol`）和 **GPT 6.2 Astra**（`gpt62Astra` / `gpt-6.2-astra`）。两款复用现有 `/responses` 图片请求并采用网关默认推理强度，各用一次合成色块图正确读出图内顺序，网关回执分别为 0.000244 和 0.000976 USD。飞书生成记录和批量跑图明细均已新增并回读两个「Prompt融合」选项，完整归档字段校验通过。当时主支完整回归 2121 项通过，4193 重载后两个配置接口均显示双模型可选。开发分支完整回归 2171 项通过，4192 的配置接口与浏览器菜单也已验证。实测覆盖图片输入和文本输出，实际户型出图质量待样本验证。 [OpenAI GPT 6.2 接入指南](https://developers.openai.com/api/docs/guides/latest-model)
 
+2026-11-27，GPT 6.1 Sol、GPT 6.2 Sol 与 GPT 6.2 Astra 纳入通用视觉 Agent，机位继续使用同一模型 ID 和空间推理流程。扩展候选与调用验收见[户型平面布局](house-plan.md)。
+
 生图目录提供十一款OneAPI候选：Banana 2/2.1/Pro、GPT Image 2、GPT Image 2.5 Sunburst/Flare、GPT Image 2.6 Sunburst/Flare、Seedream 5.0 Lite/Pro及5.5；是否可用由当前Key权限决定。默认GPT Image 2.5 Sunburst、2K、16:9、medium。尺寸按模型显示1K/2K/4K与16:9/4:3/1:1；Lite仅2K/4K，Pro和5.5仅1K/2K；5.5使用独立官方尺寸。同一批使用所有所选模型共同支持的分辨率与画幅。用户更改模型后可采用共同档并提示变化，配置刷新保留原选择。
 
 GPT2.6保留独立“生图思考强度：模型默认/低/中/高”，指图像模型的`complexity`，与前置空间推理模型及`quality`不同。默认省略参数，显式值由共享图生图适配器传到Responses图像生成工具的`complexity`；结果只记`requestedComplexity`，公司网关的实际执行尚未实图验证。[官方指南](https://developers.openai.com/api/docs/guides/image-generation)、[Responses参数](https://developers.openai.com/api/reference/resources/responses/methods/create)。

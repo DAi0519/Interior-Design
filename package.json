@@ -1,15 +1,12 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.33",
+  "version": "0.1.34",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "生图测试可在对话框选择功能、上传原图、调整出图参数。机位、多角度等画布可向上展开，切换功能时保留各自的图片和草稿。",
-    "历史成图支持对比和下载，失败记录可删除。户型、机位和人物宠物场景的原图也可通过缩略图角标删除。",
-    "批量跑图从侧栏选择任务，选回任务时恢复草稿。右侧常驻监控生成与飞书同步进度，额度入口可在当前页打开连接中心。",
-    "平面图机位渲染的空间推理新增 GPT 6.2 Sol 和 GPT 6.2 Astra，生图测试和批量跑图均按当前密钥权限显示。",
-    "设计实验室 Beta 下架，户型平面布局和平面图机位渲染保留。"
+    "户型平面布局的规划基模与其他视觉 Agent 共用 GPT 6.2 Sol、GPT 6.2 Astra，以及 GPT 6.1 Sol 和 GPT 6.1 Terra。按当前 OneAPI Key 权限开放。",
+    "新增已验证图片输入的 Gemini 4 Hydrogen、Claude 5.5 系列、DeepSeek V4 Flash Vision Exp、Doubao Seed 2.0 Mini、Kimi K3.1 Pro 和 Qwen 新候选。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",

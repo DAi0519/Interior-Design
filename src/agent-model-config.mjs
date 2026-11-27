@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公司 Model Link 当前模型目录、OneAPI 图片输入探针和调用方传入的功能标识
- * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器，包含平面图机位专用 GPT 6.1 Sol、GPT 6.2 Sol 和 GPT 6.2 Astra
+ * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器，户型、机位及通用 Agent 共用实测图片输入候选
  * [POS]: src 的 Prompt Agent 模型白名单，区分“接口存在”与“可读取白模图片”
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -96,16 +96,14 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
   },
   gpt61Sol: {
     accent: "lime",
-    featureMode: "floorPlanCamera",
     id: "gpt-6.1-sol",
     imageInput: true,
     label: "GPT 6.1 Sol",
-    note: "支持平面图机位标注输入",
+    note: "已通过 OneAPI Responses 图片输入探针",
     shortLabel: "GPT 6.1 Sol",
   },
   gpt62Sol: {
     accent: "lime",
-    featureMode: "floorPlanCamera",
     id: "gpt-6.2-sol",
     imageInput: true,
     label: "GPT 6.2 Sol",
@@ -114,12 +112,91 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
   },
   gpt62Astra: {
     accent: "lime",
-    featureMode: "floorPlanCamera",
     id: "gpt-6.2-astra",
     imageInput: true,
     label: "GPT 6.2 Astra",
     note: "已通过 OneAPI Responses 图片输入探针",
     shortLabel: "GPT 6.2 Astra",
+  },
+  gpt61Terra: {
+    accent: "lime",
+    id: "gpt-6.1-terra",
+    imageInput: true,
+    label: "GPT 6.1 Terra",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "GPT 6.1 Terra",
+  },
+  gemini4Hydrogen: {
+    accent: "blue",
+    id: "gemini-4-hydrogen",
+    imageInput: true,
+    label: "Gemini 4 Hydrogen",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Gemini 4 Hydrogen",
+  },
+  claudeSonnet55: {
+    accent: "orange",
+    id: "claude-sonnet-5-5",
+    imageInput: true,
+    label: "Claude Sonnet 5.5",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Claude Sonnet 5.5",
+  },
+  claudeOpus55: {
+    accent: "orange",
+    id: "claude-opus-5-5",
+    imageInput: true,
+    label: "Claude Opus 5.5",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Claude Opus 5.5",
+  },
+  claudeHaiku55: {
+    accent: "orange",
+    id: "claude-haiku-5-5",
+    imageInput: true,
+    label: "Claude Haiku 5.5",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Claude Haiku 5.5",
+  },
+  deepseekFlashVisionExp: {
+    accent: "purple",
+    id: "deepseek-v4-flash-vision-exp",
+    imageInput: true,
+    label: "DeepSeek V4 Flash Vision Exp",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "DeepSeek V4 Flash Vision Exp",
+  },
+  doubaoSeed20Mini: {
+    accent: "orange",
+    id: "doubao-seed-2.0-mini",
+    imageInput: true,
+    label: "Doubao Seed 2.0 Mini",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Doubao Seed 2.0 Mini",
+  },
+  kimi31Pro: {
+    accent: "lime",
+    id: "kimi-k3.1-pro",
+    imageInput: true,
+    label: "Kimi K3.1 Pro",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Kimi K3.1 Pro",
+  },
+  qwen36plus: {
+    accent: "purple",
+    id: "qwen3.6-plus",
+    imageInput: true,
+    label: "Qwen 3.6 Plus",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Qwen 3.6 Plus",
+  },
+  qwen38flash: {
+    accent: "purple",
+    id: "qwen3.8-flash",
+    imageInput: true,
+    label: "Qwen 3.8 Flash",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "Qwen 3.8 Flash",
   },
 });
 

@@ -402,6 +402,7 @@ test("Beta 完成归档使用字符串模型标签，无 Agent 时清空并核�
     { prompt: "  ", returned: null },
     { prompt: "Gemini 3.1 Pro", returned: "Gemini 3.1 Pro" },
     { prompt: "Gemini 3.1 Pro", returned: ["Gemini 3.1 Pro"] },
+    { prompt: "GPT 6.2 Astra", returned: ["GPT 6.2 Astra"] },
     { prompt: undefined, returned: ["Gemini 3.1 Pro"], rejected: /生成信息回读不一致：Prompt融合/ },
     { prompt: "Gemini 3.1 Pro", returned: ["GPT 5.5"], rejected: /生成信息回读不一致：Prompt融合/ },
     { prompt: "Gemini 3.1 Pro", returned: ["Gemini 3.1 Pro", "GPT 5.5"], rejected: /不是单选：Prompt融合/ },
@@ -433,8 +434,8 @@ test("Beta 完成归档使用字符串模型标签，无 Agent 时清空并核�
   }
 });
 
-test("Beta 禁止向 Prompt融合 单选提交未知模型、纯文本 Agent、非机位任务的机位专用标签或多值数组", async () => {
-  for (const value of ["未知模型", "DeepSeek 4 Pro", "GPT 6.1 Sol", ["Gemini 3.1 Pro"]]) {
+test("Beta 禁止向 Prompt融合 单选提交未知模型、纯文本 Agent或多值数组", async () => {
+  for (const value of ["未知模型", "DeepSeek 4 Pro", ["Gemini 3.1 Pro"]]) {
     const commands = [];
     const store = createBetaBaseStore({ run: async (_config, args) => { commands.push(args); return { ok: true, data: {} }; } });
     await assert.rejects(store.completeRun("rec-invalid-tag", {

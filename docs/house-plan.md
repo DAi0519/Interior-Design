@@ -12,6 +12,8 @@ AI设计新增「户型平面布局」，feature=housePlanLayout，同源工作�
 
 默认生图模型为GPT Image 2.5 Sunburst（gptImage25Sunburst），不因不可用自动替换。沿用现有图像模型目录与参数；Agent默认当前Key可用Gemini 3.1 Pro，否则目录首个视觉模型，用户可手动选择。上传上限8MiB/4096px/16MP，服务器真实解码。2026-11-09取消转PNG膨胀后直接失败：转换后Base64超过20MiB时复用共享请求压缩，优先保持分辨率，仍超预算才等比缩小；原图及标注坐标保留，记录实际送模格式、尺寸和SHA。原图上传和像素上限保持。框选针对完整原图，不裁掉其他空间，工作流2026-11-09.house-plan.2把空间框、填色和名称烧入实际送模图，复用前端同一绘制逻辑。分析模型与生图模型收到同一张压缩后的带标注图，同时保留归一化坐标作为结构化说明；提示词明确这些辅助标记不是墙体或家具，成图不保留标记。
 
+2026-11-27，规划基模与机位空间推理、空房/旧房、白模、风格转换及风格反推共享视觉 Agent 目录。迁入 GPT 6.1 Sol、GPT 6.2 Sol 和 GPT 6.2 Astra，新增 GPT 6.1 Terra、Gemini 4 Hydrogen、Claude Sonnet/Opus/Haiku 5.5、DeepSeek V4 Flash Vision Exp、Doubao Seed 2.0 Mini、Kimi K3.1 Pro、Qwen 3.6 Plus 和 Qwen 3.8 Flash。按当前 OneAPI Key 显示可用性，显式选择后在提交与执行阶段复核。原默认继续使用可用的 Gemini 3.1 Pro。新增候选经过 OneAPI 合成色块图输入与文本输出实测。此验证覆盖调用能力，实际户型成图质量另行评估。
+
 独立API：GET /api/house-plan/config、POST /api/house-plan/jobs、GET /api/house-plan/jobs/:id。复用floor-plan-api的参数化幂等边界，但独立任务注册表、featureMode、浏览器会话；禁用旧geometry路由。prepare阶段不收费，冻结源图/标注/用户要求/模型/资产；执行复核资产与权限，再一次Agent、一次图片调用。布局Agent输出预算从4096提高到16384 tokens，要求上游返回完整输出；截断时明确报错、保留回执费用且不调用生图，不自动重试。主工作台与Beta复用同一服务。Agent输出接受纯文本提示词及有布局正文的JSON，summary/spaces/warnings仅作可选展示，不因缺项、类型不同或旧展示长度上限阻断有效正文。空回复、损坏JSON、仅状态/摘要、明确错误及UNRESOLVABLE_LAYOUT仍阻断图片调用；异常不自动重试。提交未知时只GET恢复，不重新POST。输入改变清除新功能旧结果，不影响实验室。
 
 飞书独立表「户型平面布局 Prompt」tblzPGZ7rKzKVqjE（view vew5ZWM6Wx），编码house-plan-layout，v1记录reczz28WIrDj5k0w。System Prompt逐字保存用户2776字完整原文，SHA为ed01f55b8cca37de00e60d89737067d8e96a5402cad2751f1e1121bb9c592d70。最初实现将该原文同时送Agent与生图并要求四字段JSON；2026-11-09按线上v4输出正文合同修正：系统词仅用于Agent，生图只用Agent产出的完整正文及用户要求/标注说明，不再将“只输出提示词”等工作指令追加到生图请求，不修改飞书正文。最初误放旧表的临时记录reczz28WIhJ1g5PQ已在专表逐字回读后移除，旧实验室原有记录保持。
