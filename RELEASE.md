@@ -13,6 +13,10 @@
 
 调用关系固定为 `release:publish → release:pack → release:check`；任一内层步骤失败，外层立即停止。
 
+## v1.0.00 发布范围
+
+沿用 v0.1.34 的视觉 Agent 模型和飞书归档配置。工作台和 GitHub 发布标题显示 v1.0.00。包版本、更新接口、Git Tag 和制品路径使用 SemVer 1.0.0。
+
 ## v0.1.34 发布范围
 
 户型平面布局、平面图机位及通用视觉 Agent 共用 GPT 6.2 Sol、GPT 6.2 Astra、GPT 6.1 Sol、GPT 6.1 Terra 和已通过图片输入实测的新候选。继续按当前 OneAPI Key 授权控制可选项。同步生成记录和批量跑图明细的「Prompt融合」选项。对外版本亮点由 `package.json` 的 `releaseNotes` 生成。

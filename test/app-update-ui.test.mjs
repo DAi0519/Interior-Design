@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、app-update.js 的视图/链接/检查与安装控制器、正式发布说明模板，以及 DOM/JSON/进度流请求替身
- * [OUTPUT]: 验证侧栏常驻版号、新版圆点与无障碍更新提示、焦点恢复、版本亮点、检查去重、安装与失败恢复
+ * [OUTPUT]: 验证侧栏常驻版号、v1.0.00 展示与规范下载版本、新版圆点与无障碍更新提示、焦点恢复、版本亮点、检查去重、安装与失败恢复
  * [POS]: test 的共享版本更新交互测试，仅在内存消费安装进度，不访问 GitHub、下载或安装文件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,6 +37,28 @@ test("新版映射保留当前版本、提示和标准运行包下载", () => {
   assert.equal(view.downloadUrl, available.downloadUrl);
   assert.equal(view.releaseNotes, available.releaseNotes);
   assert.equal(getAppUpdateView(available, { isChecking: true }).statusLabel, "正在检查更新…");
+});
+
+test("v1.0.00 只用于显示，安装保留规范 SemVer 和正式下载地址", () => {
+  const downloadUrl = `${releasesUrl}/download/v1.0.0/canvas-lab-v1.0.0.zip`;
+  const highlights = ["视觉 Agent 候选更新。"];
+  const releaseNotes = buildReleaseNotes({
+    highlights, tag: "v1.0.0",
+    names: {
+      archive: "canvas-lab-v1.0.0.zip",
+      checksum: "canvas-lab-v1.0.0.sha256",
+      manifest: "canvas-lab-v1.0.0.manifest.json",
+    },
+  });
+  assert.match(releaseNotes, /^Canvas Lab v1\.0\.00 运行包。/);
+  const update = getAppUpdateView({ ...available, latestVersion: "1.0.0", releaseNotes, downloadUrl });
+  assert.equal(update.versionLine, "v0.1.10 → v1.0.00");
+  assert.equal(update.latestVersion, "1.0.0");
+  assert.equal(update.downloadUrl, downloadUrl);
+  assert.equal(update.releaseNotes, "- 视觉 Agent 候选更新。");
+  const installed = getAppUpdateView({ status: "current", currentVersion: "1.0.0", latestVersion: "1.0.0" });
+  assert.equal(installed.buttonLabel, "v1.0.00");
+  assert.equal(installed.versionLine, "v1.0.00");
 });
 
 test("正式运行包说明只展示版本亮点，非模板发布说明保留原文", () => {

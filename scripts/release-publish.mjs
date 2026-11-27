@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 release-pack、release-files、Git/GitHub CLI、package.json 与 dist 发布物
+ * [INPUT]: 依赖 release-pack、release-files、app-version 展示标签、Git/GitHub CLI、package.json 与 dist 发布物
  * [OUTPUT]: 对外提供版本占用检查、带版本亮点的 Release 文案、制品校验及打包/上传/转正式/本地清理编排
  * [POS]: scripts 的对外发布边界，在本地发布准入之上增加显式且可验证的 GitHub 写操作
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -11,6 +11,7 @@ import { readFile, rm, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { formatAppVersion } from "../public/app-version.js";
 import { projectRoot } from "./release-check.mjs";
 import { releaseArtifactNames } from "./release-files.mjs";
 
@@ -63,7 +64,7 @@ export function buildReleaseNotes({ highlights, names, tag }) {
     ? ["", "本次更新：", ...highlights.map((item) => `- ${item}`)]
     : [];
   return [
-    `Canvas Lab ${tag} 运行包。`,
+    `Canvas Lab ${formatAppVersion(tag)} 运行包。`,
     ...changes,
     "",
     `使用者只需下载 ${names.archive}；${names.checksum} 和 ${names.manifest} 用于完整性与版本校验。`,
@@ -194,7 +195,7 @@ async function publishRelease() {
     "--target",
     commit,
     "--title",
-    `Canvas Lab ${tag}`,
+    `Canvas Lab ${formatAppVersion(tag)}`,
     "--notes",
     buildReleaseNotes({ highlights: packageInfo.releaseNotes, names, tag }),
   ], { inherit: true });

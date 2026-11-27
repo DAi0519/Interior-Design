@@ -1,10 +1,11 @@
 /**
- * [INPUT]: 依赖 workbench-utils.js 的同源 JSON API、更新检查 installMode 与安装 NDJSON 合同、三个工作台侧栏入口及原生 dialog/页面可见性能力
+ * [INPUT]: 依赖 app-version.js 的展示标签、workbench-utils.js 的同源 JSON API、更新检查 installMode 与安装 NDJSON 合同、三个工作台侧栏入口及原生 dialog/页面可见性能力
  * [OUTPUT]: 提供侧栏底部常驻版本入口、有新版时的圆点和无障碍提示、受信安装地址、版本亮点、安装与恢复指引、互斥弹层及可见入口焦点恢复
  * [POS]: public 的跨工作台更新交互层，用户确认后才请求安装，仅收到有效 complete 回执才呈现安装成功
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import { formatAppVersion } from "./app-version.js";
 import { api } from "./workbench-utils.js";
 
 const RELEASES_URL = "https://github.com/DAi0519/Interior-Design/releases";
@@ -85,8 +86,8 @@ export function getAppUpdateView(state = {}, { isChecking = false } = {}) {
     "recovery-required": "更新恢复失败",
   };
   const releaseUrl = getTrustedUpdateUrl(state.releaseUrl) || RELEASES_URL;
-  const versionLabel = currentVersion ? `v${currentVersion.replace(/^v/, "")}` : "检查更新";
-  const latestVersionLabel = latestVersion ? `v${latestVersion.replace(/^v/, "")}` : "";
+  const versionLabel = currentVersion ? formatAppVersion(currentVersion) : "检查更新";
+  const latestVersionLabel = latestVersion ? formatAppVersion(latestVersion) : "";
   const releaseNotes = getReleaseHighlights(state.releaseNotes);
   return {
     status,
@@ -249,7 +250,7 @@ export function createAppUpdateController({
     const installMode = getInstallMode(update.installMode);
     const installationCopy = getInstallationCopy(installMode);
     const confirmed = pageWindow.confirm(
-      `即将自动下载并安装 Canvas Lab v${update.latestVersion}。\n\n` +
+      `即将自动下载并安装 Canvas Lab ${formatAppVersion(update.latestVersion)}。\n\n` +
       `${installationCopy.confirmation}\n\n` +
       "是否继续？"
     );

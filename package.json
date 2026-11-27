@@ -1,10 +1,11 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.34",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
+    "工作台与发布标题的版本号显示为 v1.0.00。",
     "户型平面布局的规划基模与其他视觉 Agent 共用 GPT 6.2 Sol、GPT 6.2 Astra，以及 GPT 6.1 Sol 和 GPT 6.1 Terra。按当前 OneAPI Key 权限开放。",
     "新增已验证图片输入的 Gemini 4 Hydrogen、Claude 5.5 系列、DeepSeek V4 Flash Vision Exp、Doubao Seed 2.0 Mini、Kimi K3.1 Pro 和 Qwen 新候选。"
   ],
