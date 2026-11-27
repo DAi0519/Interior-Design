@@ -57,7 +57,7 @@ test("三页侧栏只提供生图测试和批量跑图，两页首帧标出当�
     assert.deepEqual(links.map((link) => link[3].match(/class="product-switch-label">([^<]+)</)?.[1]), labels);
     assert.match(html, /id="productSidebarOpen"[^>]*aria-controls="productSidebarDialog"/);
     assert.match(html, /<dialog id="productSidebarDialog"/);
-    assert.match(html, /product-navigation\.css\?v=30/);
+    assert.match(html, /product-navigation\.css\?v=31/);
     assert.match(html, /<script src="\/product-navigation\.js\?v=14"(?: data-home-image-chat)?><\/script>\s*<\/head>/);
     assert.equal(html.includes('data-home-image-chat></script>'), current.includes("/"));
     const footer = sidebar.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";
@@ -71,7 +71,7 @@ test("三页侧栏只提供生图测试和批量跑图，两页首帧标出当�
 
   const css = await readFile(new URL("../public/product-navigation.css", import.meta.url), "utf8");
   const source = await readFile(new URL("../public/product-navigation.js", import.meta.url), "utf8");
-  assert.match(css, /\.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 144px;[^}]*height: 100dvh;[^}]*max-width: none;/s);
+  assert.match(css, /\.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 168px;[^}]*height: 100dvh;[^}]*max-width: none;/s);
   assert.match(css, /\.workbench-sidebar-collapsed \.app-shell\.workbench-shell\s*{[^}]*--workbench-sidebar-width: 52px;/s);
   assert.match(css, /\.product-switcher\s*{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(css, /\.workbench-sidebar-collapsed \.workbench-shell > \.product-sidebar \.product-switcher\s*{[^}]*grid-template-columns: minmax\(0, 1fr\)/s);

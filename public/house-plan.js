@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖house-plan-annotation共享标注绘制、house-plan.css 的挂载参数样式、共享API、文件与下拉、生成动效、独立户型布局和归档状态接口、归一化标注画布
- * [OUTPUT]: 提供原图上传与清除、空间标注、画布视图、Agent 生图、任务恢复、下载与飞书归档
+ * [OUTPUT]: 提供原图上传与清除、按工作区尺寸重绘归一化空间标注、画布视图、Agent 生图、任务恢复、下载与飞书归档
  * [POS]: public 的户型平面布局控制器，与实验室会话和收费任务隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,7 +21,7 @@ if (window.parent !== window) {
     const settings = parentDoc.getElementById('housePlanSettingsMount');
     const actions = parentDoc.getElementById('housePlanActionsMount');
     if (settings && actions) {
-      for (const path of ['/house-plan.css?v=10']) {
+      for (const path of ['/house-plan.css?v=12']) {
         if (!parentDoc.querySelector(`link[href="${path}"]`)) { const link = parentDoc.createElement('link'); link.rel = 'stylesheet'; link.href = path; parentDoc.head.append(link); }
       }
       settings.replaceChildren(document.querySelector('.house-plan-settings-scroll'));
@@ -98,10 +98,18 @@ function saveAnnotations() { state.history.push(structuredClone(state.annotation
 function rect(from, to) { return { x: Math.min(from.x, to.x), y: Math.min(from.y, to.y), width: Math.abs(to.x-from.x), height: Math.abs(to.y-from.y) }; }
 function draw() {
   if (!state.bitmap) return;
-  const canvas = $('canvas'), ctx = canvas.getContext('2d');
+  const canvas = $('canvas');
+  const { width, height } = canvas.getBoundingClientRect();
+  if (!width || !height) return;
+  const pixelRatio = Math.min(window.devicePixelRatio, 1600 / Math.max(width, height));
+  const rasterWidth = Math.max(1, Math.round(width * pixelRatio));
+  const rasterHeight = Math.max(1, Math.round(height * pixelRatio));
+  if (canvas.width !== rasterWidth) canvas.width = rasterWidth;
+  if (canvas.height !== rasterHeight) canvas.height = rasterHeight;
+  const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(state.bitmap, 0, 0, canvas.width, canvas.height);
   const boxes = [...state.annotations, ...(state.drag ? [{ label: state.mode, ...rect(state.drag.start, state.drag.end) }] : [])];
-  const scale = canvas.width / Math.max(canvas.getBoundingClientRect().width, 1);
+  const scale = canvas.width / width;
   for (const item of boxes) {
     drawHousePlanAnnotation(ctx, item, canvas, scale);
   }
@@ -130,7 +138,7 @@ $('canvas').addEventListener('keydown', event => {
   if (event.key !== 'Escape' || !state.drag) return;
   event.preventDefault(); state.drag = null; draw();
 });
-window.addEventListener('resize', draw);
+new ResizeObserver(draw).observe($('canvas'));
 function selectedPrompt() { return state.config?.promptVersions?.find(item => item.version === state.promptVersion); }
 async function loadConfig() {
   state.config = await api('/api/house-plan/config?refresh=1');
@@ -213,9 +221,9 @@ function setSource(source, bitmap) {
   const canvas = $('canvas');
   if (source) {
     preview.src = source.dataUrl;
-    const ratio = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    canvas.width = Math.round(bitmap.width * ratio); canvas.height = Math.round(bitmap.height * ratio);
+    canvas.style.setProperty('--house-plan-aspect', bitmap.width / bitmap.height);
   } else {
+    canvas.style.removeProperty('--house-plan-aspect');
     preview.removeAttribute('src'); canvas.width = canvas.height = 0;
   }
   remember();

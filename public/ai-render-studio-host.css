@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖主工作台独立参数列、共享参数边距、移动抽屉规则和保活iframe宿主
- * [OUTPUT]: 提供独立画布填充工作区、可停靠模式的参数与START对齐，以及移动抽屉布局
+ * [OUTPUT]: 提供独立画布填充工作区，挂载参数与START共用主栏边缘及移动抽屉布局
  * [POS]: public 的主工作台宿主布局覆盖层，不改变独立AI渲染台页面内部样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,7 +13,7 @@ body.is-ai-render-studio #configurationPanel > :is(.control-panel-scroll, .actio
 body.is-ai-render-studio .workspace > .result-panel,
 body.is-ai-render-studio:not(.is-docked-workspace) #workspacePanelResize { display: none !important; }
 
-.isolated-workspace-settings { grid-column: 1; grid-row: 2; min-height: 0; min-width: 0; overflow: auto; scrollbar-gutter: stable; }
+.isolated-workspace-settings { grid-column: 1; grid-row: 2; min-height: 0; min-width: 0; overflow: auto; }
 .isolated-workspace-actions { grid-column: 1; grid-row: 3; min-width: 0; }
 :is(.isolated-workspace-settings, .isolated-workspace-actions)[hidden],
 :is(.isolated-workspace-settings, .isolated-workspace-actions) [hidden] { display: none !important; }
@@ -29,11 +29,6 @@ body.is-ai-render-studio:not(.is-docked-workspace) #workspacePanelResize { displ
 #configurationPanel > .isolated-workspace-actions.action-section > footer {
   border: 0;
   padding: 0;
-}
-
-#configurationPanel > .house-plan-parent-actions {
-  overflow: hidden;
-  scrollbar-gutter: stable;
 }
 
 @media (min-width: 901px) {

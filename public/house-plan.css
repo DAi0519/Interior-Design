@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖保活宿主的参数挂接槽；依赖工作台令牌、二次编辑表单/工具栏和共享START按钮
- * [OUTPUT]: 提供无外框嵌入画布、首页上传前的单一引导、紧凑视图与框选工具、页脚文字焦点、生成等待及独立页窄屏分区
+ * [OUTPUT]: 提供随可用工作区等比缩放的无外框画布、上传引导、框选工具、页脚文字焦点、生成等待及独立页窄屏分区
  * [POS]: public 的户型平面布局局部样式，与二次编辑保持相同操作层级
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -33,7 +33,15 @@
 .house-plan-viewer > .generation-feedback { place-self: center; max-width: calc(100% - 32px); }
 .house-plan-empty { display: grid; place-content: center; text-align: center; color: var(--muted); font-size: 13px; }
 #sourceView { display: grid; place-items: center; min-height: 0; container-type: size; }
-.house-plan-viewer canvas { display: block; max-width: 100%; max-height: 100cqh; width: auto; height: auto; touch-action: none; cursor: crosshair; background: white; }
+#sourceView canvas {
+  display: block;
+  width: min(100cqw, 100cqh * var(--house-plan-aspect, 1));
+  height: auto;
+  aspect-ratio: var(--house-plan-aspect, 1);
+  touch-action: none;
+  cursor: crosshair;
+  background: white;
+}
 #resultView { min-width: 0; }
 .house-plan-viewer img { display: block; width: 100%; max-height: calc(100dvh - 220px); object-fit: contain; }
 .house-plan-note, #plan p { color: var(--muted); font-size: 12px; line-height: 1.7; }

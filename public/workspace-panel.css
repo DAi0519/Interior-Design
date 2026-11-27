@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享工作台外壳、导航的表头行高、参数栏和移动抽屉、真实参数宽度与视觉令牌
- * [OUTPUT]: 提供标题、参数字段及底部动作的统一边距、内嵌短线收展及调宽、无标题带画布和窄屏配置抽屉
+ * [OUTPUT]: 提供统一参数边距、贴边分隔线与独立滚动、短线收展及调宽、无标题带画布和窄屏配置抽屉
  * [POS]: public 主工作台主题后的布局覆盖层，仅约束workspace-panel结构，不修改Beta或动态业务控件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -146,17 +146,20 @@ body:has(.workspace-panel-layout) {
   overscroll-behavior: contain;
   position: relative;
   scroll-padding-block: 18px;
-  scrollbar-gutter: stable;
   width: 100%;
+}
+
+/* -------- 保留参数区原生滚动，分区线铺到同一列边缘 -------- */
+#configurationPanel > :is(.control-panel-scroll, .isolated-workspace-settings) {
+  scrollbar-width: none;
 }
 
 #configurationPanel .control-panel-scroll .panel-section:not(#refinedRenderSection) {
   padding-inline: var(--workspace-parameter-inset);
 }
 
-#configurationPanel > :is(.workspace-panel-header, .action-section) {
+#configurationPanel > :is(.workspace-panel-header, .action-section, .house-plan-parent-actions) {
   overflow: hidden;
-  scrollbar-gutter: stable;
 }
 
 /* -------- 参数可用时START跨整栏，参数收起与过渡尾段隐藏执行区 -------- */

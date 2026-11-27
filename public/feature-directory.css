@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享侧栏的折叠状态、生图测试和批量任务目录、搜索弹窗及共享视觉令牌
- * [OUTPUT]: 提供与工作台切换对齐的功能目录和查找间距、当前功能反色、侧栏滚动、折叠图标、触屏命中区及已选文字焦点
+ * [OUTPUT]: 提供与工作台切换对齐的功能目录、视口居中的查找弹窗与可滚动结果、当前功能反色、触屏命中区及已选文字焦点
  * [POS]: public 的共享分组目录与搜索样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -145,14 +145,19 @@
   border-radius: 12px;
   box-shadow: var(--brand-modal-shadow, 0 24px 64px rgb(25 26 28 / 26%));
   color: var(--text);
-  inset: min(12dvh, 112px) 0 auto;
-  margin: 0 auto;
-  max-height: calc(100dvh - min(12dvh, 112px) - 16px);
+  inset: 0;
+  margin: auto;
+  max-height: calc(100dvh - 24px);
   max-width: calc(100% - 24px);
-  overflow: auto;
+  overflow: hidden;
   padding: 16px;
   position: fixed;
   width: 480px;
+}
+
+.feature-catalog-dialog[open] {
+  display: flex;
+  flex-direction: column;
 }
 
 .feature-catalog-dialog::backdrop {
@@ -162,6 +167,7 @@
 .feature-catalog-header {
   align-items: center;
   display: flex;
+  flex: none;
   justify-content: space-between;
   margin-bottom: 8px;
 }
@@ -184,6 +190,7 @@
   border-radius: 8px;
   color: var(--muted);
   display: flex;
+  flex: none;
   gap: 8px;
   margin-bottom: 8px;
   padding-inline: 12px;
@@ -215,6 +222,7 @@
   list-style: none;
   margin: 0;
   max-height: min(48dvh, 416px);
+  min-height: 0;
   overflow: auto;
   padding: 2px;
   scroll-padding-block: 4px;

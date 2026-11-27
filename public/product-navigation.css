@@ -1,12 +1,12 @@
 /**
  * [INPUT]: 依赖三页工作台外壳、侧栏导航及状态入口、原生 dialog、共享颜色令牌与同源 Inter Variable
- * [OUTPUT]: 桌面满视口布局、和参数表头同高的侧栏品牌行、文字切换条、底部额度及版本入口、移动原生抽屉与键盘焦点
+ * [OUTPUT]: 桌面满视口布局、和参数表头同高且与导航共享内距的品牌行、文字切换条、底部额度及版本入口、移动原生抽屉与键盘焦点
  * [POS]: public 的跨工作台布局与产品导航视觉真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 :root {
-  --workbench-header-height: 44px;
+  --workbench-header-height: 52px;
 }
 
 @font-face {
@@ -19,7 +19,7 @@
 }
 
 .app-shell.workbench-shell {
-  --workbench-sidebar-width: 144px;
+  --workbench-sidebar-width: 168px;
   display: grid;
   grid-template-areas: "sidebar content";
   grid-template-columns: var(--workbench-sidebar-width) minmax(0, 1fr);
@@ -79,7 +79,7 @@
 }
 
 .product-sidebar {
-  --sidebar-inset: 8px;
+  --sidebar-inset: 12px;
   --sidebar-utility-row-height: 40px;
   --sidebar-utility-icon-size: 14px;
   --sidebar-utility-padding: 4px;
@@ -102,9 +102,9 @@
   box-sizing: border-box;
   display: flex;
   flex: 0 0 var(--workbench-header-height);
-  gap: 4px;
+  gap: 8px;
   justify-content: space-between;
-  margin-block-end: 12px;
+  margin-block-end: 16px;
   padding-inline: var(--sidebar-inset);
 }
 
