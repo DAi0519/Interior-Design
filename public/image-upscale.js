@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖服务端默认项/双噪声能力、SeedVR2/KS工作流尺寸目录、单张上传图、分辨率/数字控件和sessionStorage
+ * [INPUT]: 依赖工作流目录和双噪声能力、原图、当前工具状态、共享分辨率与数字控件及 sessionStorage
  * [OUTPUT]: 提供档位和双噪声草稿恢复、0..1/0.001校验与旧进程阻断、冻结版本/噪声单图请求及运行时控件锁定
  * [POS]: public 的图片超分交互边界，让主编排器无需理解 SeedVR2 工作流细节
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -41,6 +41,7 @@ export function bindImageUpscale({
   emptySize,
   exactSize,
   getSourceImage,
+  isActive = () => true,
   inputNoiseInput = null,
   latentNoiseInput = null,
   note,
@@ -138,27 +139,32 @@ export function bindImageUpscale({
   function activate() {
     const options = resolutions();
     if (!options.some((entry) => entry.key === resolutionKey)) resolutionKey = options[0]?.key || "";
-    resolutionSelect.replaceChildren(...options.map((resolution) => {
-      const option = document.createElement("option");
-      option.value = resolution.key;
-      option.textContent = resolution.longEdge
-        ? `${resolution.label} · 长边 ${resolution.longEdge}px` : resolution.label;
-      if (resolution.key === resolutionKey) option.setAttribute("selected", "");
-      return option;
-    }));
-    resolutionSelect.value = resolutionKey;
-    resolutionSelect.disabled = options.length === 0;
+    if (isActive()) {
+      resolutionSelect.replaceChildren(...options.map((resolution) => {
+        const option = document.createElement("option");
+        option.value = resolution.key;
+        option.textContent = resolution.longEdge
+          ? `${resolution.label} · 长边 ${resolution.longEdge}px` : resolution.label;
+        if (resolution.key === resolutionKey) option.setAttribute("selected", "");
+        return option;
+      }));
+      resolutionSelect.value = resolutionKey;
+      resolutionSelect.disabled = options.length === 0;
+    }
     renderSummary();
   }
 
   function renderSummary() {
     updateNoiseControls();
-    if (resolutions().some((entry) => entry.key === resolutionSelect.value)) resolutionKey = resolutionSelect.value;
-    const resolution = selectedResolution();
-    const target = sourceIssue() ? null : targetDimensions(getSourceImage(), resolution);
-    exactSize.textContent = target ? `${target.width} × ${target.height}` : `${resolution?.label || "待选择"} · 保持原图比例`;
-    emptyModel.textContent = selectedWorkflow()?.label || "SeedVR2";
-    emptySize.textContent = target ? `${target.width} × ${target.height}` : sourceIssue() ? "请调整输入图片尺寸" : "上传图片后计算";
+    if (isActive()) {
+      if (resolutions().some((entry) => entry.key === resolutionSelect.value)) resolutionKey = resolutionSelect.value;
+      const resolution = selectedResolution();
+      const sourceError = sourceIssue();
+      const target = sourceError ? null : targetDimensions(getSourceImage(), resolution);
+      exactSize.textContent = target ? `${target.width} × ${target.height}` : `${resolution?.label || "待选择"} · 保持原图比例`;
+      emptyModel.textContent = selectedWorkflow()?.label || "SeedVR2";
+      emptySize.textContent = target ? `${target.width} × ${target.height}` : sourceError ? "请调整输入图片尺寸" : "上传图片后计算";
+    }
     if (note) {
       const issue = availabilityReason();
       note.textContent = issue;

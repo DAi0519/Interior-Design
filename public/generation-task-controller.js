@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成任务存储/阶段推导、服务端任务查询、可消费功能及原图上下文的结果呈现器、当前功能与忙碌状态回调
- * [OUTPUT]: 对外提供按功能的任务启动、跟随、恢复、查询，以及仅在页面内存中保存的任务原图
+ * [OUTPUT]: 提供按功能的任务恢复、忙碌状态、按页面准入的结果展示和首次可见揭示，并向会话记录提供该任务的对比原图
  * [POS]: public 的生成任务交互层，连接纯状态契约与页面 DOM，不组装生图业务请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,11 +19,14 @@ export function bindGenerationTaskController({
   generationResults,
   getFeatureMode,
   onBusy,
+  canPresent = () => true,
+  canShowTask = () => true,
   storage = window.sessionStorage,
 }) {
   const followers = new Map();
   const jobs = new Map();
   const comparisonImages = new Map();
+  const pendingReveals = new Map();
   const tasks = new Map(Object.entries(readGenerationTasks(storage)));
 
   function task(featureMode = getFeatureMode()) {
@@ -32,25 +35,37 @@ export function bindGenerationTaskController({
 
   function view(featureMode = getFeatureMode()) {
     const currentTask = task(featureMode);
-    return generationTaskView(
+    const current = generationTaskView(
       currentTask,
       currentTask ? jobs.get(currentTask.jobId) : null,
     );
+    return current.stage === "results"
+      ? { ...current, featureMode, comparisonImage: comparisonImages.get(featureMode) || null }
+      : current;
   }
 
   function render() {
-    if (getFeatureMode() === "styleDna") return;
-    const current = view();
-    onBusy(current.stage === "loading");
+    const featureMode = getFeatureMode();
+    if (featureMode === "styleDna" || !canPresent()) return;
+    const currentTask = task(featureMode);
+    const current = view(featureMode);
+    const jobId = currentTask?.jobId;
+    onBusy(current.stage === "loading", { view: current, task: currentTask, running: jobs.get(jobId)?.status === "running" });
+    if (!canShowTask(currentTask)) return;
     if (current.stage === "empty") generationResults.showEmpty();
     if (current.stage === "loading") generationResults.showLoading(current.message);
-    if (current.stage === "error") generationResults.showError(current.message);
+    if (current.stage === "error") {
+      pendingReveals.delete(featureMode);
+      generationResults.showError(current.message);
+    }
     if (current.stage === "results") {
-      const featureMode = getFeatureMode();
       generationResults.showResults(current.outcomes, {
-        comparisonImage: comparisonImages.get(featureMode) || null,
+        comparisonImage: current.comparisonImage,
         featureMode,
+        jobId,
+        reveal: pendingReveals.get(featureMode) === jobId,
       });
+      pendingReveals.delete(featureMode);
     }
   }
 
@@ -74,6 +89,9 @@ export function bindGenerationTaskController({
           continue;
         }
         jobs.set(currentTask.jobId, job);
+        if (job.status === "running" && task(currentTask.featureMode)?.jobId === currentTask.jobId) {
+          pendingReveals.set(currentTask.featureMode, currentTask.jobId);
+        }
         if (getFeatureMode() === currentTask.featureMode) render();
         if (job.status !== "running") return job;
         await wait(750);
@@ -105,6 +123,7 @@ export function bindGenerationTaskController({
     },
     start(currentTask, { comparisonImage = null } = {}) {
       tasks.set(currentTask.featureMode, currentTask);
+      pendingReveals.set(currentTask.featureMode, currentTask.jobId);
       if (comparisonImage?.dataUrl) {
         comparisonImages.set(currentTask.featureMode, comparisonImage);
       } else {

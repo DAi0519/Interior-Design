@@ -1,17 +1,18 @@
 /**
- * [INPUT]: 依赖同源参数挂载、共享上传DOM/文件/下拉、墙线分析与机位几何、批次合同及生成记录同步
- * [OUTPUT]: 提供共享参数栏与START、机位标注、开角和取景深度、保留两侧上下文的射线交集矩形裁剪及送模预览、直出/推理、结果恢复及飞书同步
+ * [INPUT]: 依赖同源参数挂载、共享上传DOM/文件/下拉、墙线分析与机位几何、批次合同、生成动效及记录同步
+ * [OUTPUT]: 提供共享参数栏与START、原图上传与清除、首页状态桥接、机位标注和送模预览、直出/推理及结果恢复与同步
  * [POS]: public 的平面图相机工作区控制器；编辑草稿与已生成机位独立，不自动重新收费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
-import { clamp, normalizeHeading, imagePoint, headingToPoint, cameraGuide, cameraGuideDepthAt, cameraToolAt,
-  CAMERA_DEFAULT_FOV, CAMERA_FOV_LIMITS, equivalentFocalLengthMm } from './floor-plan-camera-geometry.js?v=12';
+import { clamp, normalizeHeading, imagePoint, headingToPoint, cameraGuide, cameraGuideDepthAt, cameraToolAt, CAMERA_FOV_LIMITS } from './floor-plan-camera-geometry.js?v=12';
 import { cameraVisibility } from './floor-plan-camera-visibility.js?v=3';
 import { drawCameraAnnotation, drawCameraDepthHandle } from './floor-plan-camera-annotation.js?v=14';
 import { bindModelMultiSelect } from './model-multi-select.js';
 import { bindGenerationSync } from './generation-sync.js?v=1';
+import { cancelGenerationReveal, revealGenerationImage } from './generation-feedback.js?v=3';
 import { mountWorkspaceControls } from './ai-render-studio-host.js?v=4';
+import { bindCameraInputs, presentCameraSource, showCameraVisibility, updateCameraPresentation } from './floor-plan-camera-presentation.js?v=2';
 
 // --- 挂载后参数在父文档，机位画布继续保活在本页 ---
 const nodes = new Map([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
@@ -33,8 +34,14 @@ const complexityControls = new Map();
 const state = { config: null, source: null, bitmap: null, walls: null, camera: null, drag: null, uploading: false,
   busy: false, restoring: false, cameraError: '', operationError: '', pending: null, result: null, resultIndex: null, resultStatus: '', jobId: null,
   models: null, imageCount: 1, generationMode: 'agent', agentModel: '', resolution: '2K', aspectRatio: '16:9', complexities: {}, showFrame: true, cropToView: false, previewBusy: false, view: 'source' };
-let previewRequest = 0;
-const status = text => { $('status').textContent = text; $('status').hidden = !text; };
+let previewRequest = 0, freshGenerationJob = null;
+const { cameraAt, cameraInputs, updateFocalLength } = bindCameraInputs($, state);
+const generating = () => state.busy && Boolean(state.pending);
+function status(text) {
+  const feedback = $('generationFeedbackText');
+  $('status').textContent = text; $('status').hidden = generating() || !text;
+  if (generating() && feedback.textContent !== text) feedback.textContent = text;
+}
 const locked = () => state.busy || state.uploading || state.restoring || Boolean(state.pending);
 const directMode = () => state.generationMode === 'direct';
 const supportsDirect = () => Array.isArray(state.config?.generationModes) && state.config.generationModes.includes('direct');
@@ -159,14 +166,14 @@ async function previewInput() {
     }
   }
 }
-function showVisibility(visible) {
-  $('visibilityKey').hidden = !visible;
-  const note = visible ? '三角内按墙线估算，请核对门窗' : '暂无法估算墙体遮挡';
-  if ($('visibilityNote').textContent !== note) $('visibilityNote').textContent = note;
-}
 function update() {
   validateCameraInputs();
-  for (const id of ['emptyUpload','sourceInput','resolution','aspectRatio','imageCount']) $(id).disabled = locked();
+  const loading = generating();
+  $('generationFeedback').hidden = !loading;
+  $('status').hidden = loading || !$('status').textContent;
+  $('canvasFooter').hidden = loading;
+  if (loading || state.view !== 'result') cancelGenerationReveal($('result'));
+  for (const id of ['emptyUpload','sourceInput','removeSource','resolution','aspectRatio','imageCount']) $(id).disabled = locked();
   const sourceCount = `${state.source ? 1 : 0} / 1`;
   if ($('sourceCount').textContent !== sourceCount) $('sourceCount').textContent = sourceCount;
   const direct = directMode();
@@ -179,7 +186,8 @@ function update() {
   $('requirements').disabled = locked() || direct;
   const editing = Boolean(state.drag);
   $('canvas').setAttribute('data-dragging', String(editing));
-  $('cameraTools').hidden = !state.source || state.view !== 'source';
+  $('cameraTools').hidden = loading || !state.source || state.view !== 'source';
+  $('cameraTools').setAttribute('data-camera-placed', String(Boolean(state.camera)));
   $('placeCenter').disabled = locked() || editing || !state.source;
   for (const id of ['heading','fov']) $(id).disabled = locked() || editing || !state.camera;
   $('showFrame').checked = state.showFrame;
@@ -191,9 +199,12 @@ function update() {
   $('imageCount').disabled ||= Boolean(modeIssue);
   const total = batchTotal();
   const limit = state.config?.batch?.maxImages;
-  $('batchTotal').textContent = total ? `${state.models.length} 个模型 × ${state.imageCount} 张，共 ${total} 张${total > limit ? `（每批最多 ${limit} 张）` : ''}` : '';
-  $('generate').disabled = locked() || editing || !state.source || !validCamera() || Boolean(state.cameraError)
-    || Boolean(modeIssue || selectionIssue()) || (direct && !$('directPrompt').value.trim());
+  $('batchTotal').textContent = state.models?.length > 1 || total > limit
+    ? `${state.models.length} 个模型 × ${state.imageCount} 张，共 ${total} 张${total > limit ? `（每批最多 ${limit} 张）` : ''}`
+    : '';
+  $('generate').disabled = Boolean(updateCameraPresentation($('settings'), state, {
+    cameraValid: validCamera(), modeIssue, selectionIssue, directPromptMissing: direct && !$('directPrompt').value.trim(),
+  }));
   $('generationActions').classList.toggle('is-busy', state.busy);
   $('generateLabel').textContent = state.busy ? 'RUNNING…' : 'START';
   $('generate').setAttribute('aria-busy', String(state.busy));
@@ -201,18 +212,20 @@ function update() {
     : state.pending ? '等待任务确认' : total > 1 ? `生成 ${total} 张室内效果图` : '生成室内效果图');
   for (const control of complexityControls.values()) control.disabled = locked();
   $('refresh').disabled = state.busy || state.uploading || state.restoring;
-  $('refreshLabel').textContent = state.pending ? '检查现有任务' : '刷新';
+  $('refreshLabel').textContent = state.pending ? '检查现有任务' : '刷新配置';
   $('refresh').setAttribute('aria-label', state.pending ? '检查现有任务' : '刷新机位渲染配置');
   $('showResult').disabled = !state.resultStatus; $('download').hidden = !state.result || state.view !== 'result';
   $('showInputPreview').disabled = locked() || editing || !state.source || !validCamera() || Boolean(state.cameraError)
     || !supportsViewCrop() || (state.previewBusy && state.view === 'preview');
-  $('sourceView').hidden = !state.source || state.view !== 'source';
-  $('inputPreviewView').hidden = state.view !== 'preview';
+  if (!editing) $('viewActions').hidden = loading || ($('showResult').disabled && $('showInputPreview').disabled
+    && $('download').hidden && state.view !== 'preview');
+  $('sourceView').hidden = loading || !state.source || state.view !== 'source';
+  $('inputPreviewView').hidden = loading || state.view !== 'preview';
   $('inputPreviewView').setAttribute('aria-busy', String(state.previewBusy));
-  $('empty').hidden = Boolean(state.source) || state.view === 'result';
-  $('resultView').hidden = !state.resultStatus || state.view !== 'result';
+  $('empty').hidden = loading || Boolean(state.source) || state.view === 'result';
+  $('resultView').hidden = loading || !state.resultStatus || state.view !== 'result';
   resultSync.show(state.view === 'result' ? state.result?.sync : null);
-  const showVisibilityLegend = state.view === 'source' && validCamera();
+  const showVisibilityLegend = !loading && state.view === 'source' && validCamera();
   $('visibilityLegend').hidden = !showVisibilityLegend;
   $('frameKey').hidden = !state.showFrame;
   $('canvas').setAttribute('aria-describedby', showVisibilityLegend ? 'drawingHint visibilityLegend' : 'drawingHint');
@@ -225,18 +238,9 @@ function update() {
     : locked() ? '正在处理当前任务，机位已锁定'
     : !state.source ? '上传后，点击房间内放置相机' : !state.camera ? '点一下放置相机，按住拖动可同时定朝向'
     : `拖蓝点移动 · 白圆柄调朝向和开角 · 菱形调开角${supportsGuideDepth() ? depthHint : ''}`;
-}
-function updateFocalLength() {
-  const fov = Number($('fov').value);
-  $('focalLength').textContent = fov >= FOV_MIN && fov <= FOV_MAX ? `≈${equivalentFocalLengthMm(fov).toFixed(1)} mm` : '— mm';
-}
-function cameraInputs() {
-  $('heading').value = state.camera?.heading ?? state.config?.cameraDefaults?.heading ?? 0;
-  $('fov').value = state.camera?.fov ?? state.config?.cameraDefaults?.fov ?? CAMERA_DEFAULT_FOV;
-  updateFocalLength();
-}
-function cameraAt(point) {
-  return { ...point, heading: state.config?.cameraDefaults?.heading ?? 0, fov: state.config?.cameraDefaults?.fov ?? CAMERA_DEFAULT_FOV };
+  $('compactHint').textContent = state.view === 'source' && state.source && !locked()
+    ? state.camera ? '拖蓝点移动，拖手柄调整取景' : '拖动可同时设置朝向'
+    : $('drawingHint').textContent;
 }
 async function readWalls(referenceImage, bitmap) {
   const { width, height, walls } = await api(`${API}/annotation`, { method: 'POST', body: JSON.stringify({ referenceImage }) });
@@ -249,7 +253,7 @@ async function readWalls(referenceImage, bitmap) {
 }
 // --- 以实际图像比例计算朝向，保持宽图/长图相同角度语义 ---
 function draw() {
-  if (!state.bitmap || state.view !== 'source') return;
+  if (!state.bitmap || state.view !== 'source' || generating()) return;
   const canvas = $('canvas'), context = canvas.getContext('2d');
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.drawImage(state.bitmap, 0, 0, canvas.width, canvas.height);
@@ -263,7 +267,7 @@ function draw() {
   context.save(); context.scale(canvas.width / width, canvas.height / height);
   drawCameraAnnotation(context, camera, width, height, visiblePolygon);
   context.restore();
-  showVisibility(Boolean(visiblePolygon));
+  showCameraVisibility($, Boolean(visiblePolygon));
   // --- 编辑手柄与送模标注分层 ---
   if (supportsGuideDepth()) drawCameraDepthHandle(context, guide, scale);
   context.save(); context.strokeStyle = '#475569'; context.fillStyle = '#fff'; context.lineWidth = 1.5 * scale;
@@ -284,18 +288,22 @@ async function selectSource(file) {
     const source = await readFileAsInput(file);
     const walls = await readWalls(source, bitmap);
     // --- 两项读取都成功后才切换来源，失败保留原图及原机位 ---
-    state.bitmap?.close(); state.bitmap = bitmap; bitmap = null; state.source = source; state.walls = walls;
-    state.camera = null; state.drag = null; state.view = 'source';
-    $('sourceThumbnail').src = source.dataUrl;
-    $('sourceThumbnail').hidden = false;
-    $('uploadIcon').setAttribute('hidden', '');
-    $('sourceName').textContent = file.name;
-    $('sourceHint').textContent = '点击或拖入新图替换';
-    $('sourceInput').setAttribute('aria-label', '替换平面图');
-    const ratio = Math.min(1, 1800 / Math.max(state.bitmap.width, state.bitmap.height));
-    $('canvas').width = Math.round(state.bitmap.width * ratio); $('canvas').height = Math.round(state.bitmap.height * ratio);
-    cameraInputs(); status('');
+    setSource({ source, bitmap, walls }); bitmap = null;
   } finally { bitmap?.close(); state.uploading = false; update(); draw(); }
+}
+function setSource({ source = null, bitmap = null, walls = null } = {}) {
+  const pointerId = state.drag?.pointerId;
+  state.bitmap?.close();
+  Object.assign(state, { source, bitmap, walls, camera: null, drag: null, previewBusy: false });
+  if (pointerId != null && canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
+  if (source || state.view === 'preview') state.view = 'source';
+  ++previewRequest;
+  $('inputPreview').hidden = true; $('inputPreview').removeAttribute('src'); $('previewMeta').textContent = '';
+  const ratio = bitmap ? Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height)) : 0;
+  canvas.width = Math.round((bitmap?.width ?? 0) * ratio);
+  canvas.height = Math.round((bitmap?.height ?? 0) * ratio);
+  presentCameraSource($, source);
+  cameraInputs(); status('');
 }
 function renderModels({ resetUnsupported = false } = {}) {
   const models = [...(state.config?.models || [])];
@@ -424,6 +432,7 @@ function hasResultImage(result) {
 function showResultImage(result, index = null, batch = result) {
   state.result = result; state.resultIndex = index;
   $('resultImageDetails').hidden = !result;
+  cancelGenerationReveal($('result'));
   if (result) $('result').src = result.image.url;
   else $('result').removeAttribute('src');
   const direct = batch?.generationMode === 'direct';
@@ -499,6 +508,10 @@ function acceptResult(result, jobId) {
   const failures = items ? items.length - successful.length : 0;
   renderResultGroups(items && (items.length > 1 || failures) ? items : [], first, result);
   showResultImage(items ? first?.result || null : result, first?.index, result);
+  if (freshGenerationJob === jobId) {
+    freshGenerationJob = null;
+    if (state.result) revealGenerationImage($('result'));
+  }
   state.jobId = jobId; state.view = 'result';
   state.resultStatus = items
     ? `批次完成，成功 ${successful.length}/${items.length} 张${failures ? `，失败 ${failures} 张` : ''}`
@@ -507,7 +520,7 @@ function acceptResult(result, jobId) {
 }
 async function poll() {
   if (!state.pending || state.busy) return;
-  state.busy = true; update();
+  state.busy = true; status('正在读取图片任务状态…'); update();
   try {
     for (;;) {
       const { job } = await api(`${API}/jobs/${encodeURIComponent(state.pending)}`);
@@ -542,7 +555,8 @@ async function generate() {
   const mode = directMode() ? { generationMode: 'direct' } : {
     agentModelKey: state.agentModel, promptVersion: state.config.prompt.version, promptSha256: state.config.prompt.sha256,
   };
-  state.pending = crypto.randomUUID(); state.busy = true; remember(); update(); status('正在提交图片任务…');
+  state.pending = freshGenerationJob = crypto.randomUUID(); state.busy = true;
+  remember(); status('正在提交图片任务…'); update();
   try {
     await api(`${API}/jobs`, { method: 'POST', body: JSON.stringify({ jobId: state.pending, action: 'render', workflowVersion: state.config.workflowVersion, ...cameraGuideRequest(), ...mode,
       resolution: state.resolution, aspectRatio: state.aspectRatio,
@@ -554,8 +568,10 @@ async function generate() {
       userRequirements: $(directMode() ? 'directPrompt' : 'requirements').value }) });
   } catch (error) {
     if ([400,401,403,404,409,413,415,422,429].includes(error.statusCode)) { state.pending = null; remember(); }
-    status(state.pending ? '提交状态未知，请检查现有任务；不会重复提交' : '请求未接受，请检查输入或刷新配置'); throw error;
-  } finally { state.busy = false; update(); }
+    state.busy = false;
+    status(state.pending ? '提交状态未知，请检查现有任务；不会重复提交' : '请求未接受，请检查输入或刷新配置'); update(); throw error;
+  }
+  state.busy = false;
   await poll();
 }
 // --- 图像交互只改本地草稿，不触发模型请求 ---
@@ -723,6 +739,13 @@ $('directPrompt').addEventListener('input', () => {
 });
 $('emptyUpload').addEventListener('click', () => $('sourceInput').click());
 $('sourceInput').addEventListener('change', action(async () => { const file = $('sourceInput').files[0]; $('sourceInput').value = ''; await selectSource(file); }));
+$('removeSource').addEventListener('click', () => {
+  if (!state.source || locked()) return;
+  state.operationError = '';
+  $('sourceInput').value = '';
+  setSource(); update();
+  $('sourceInput').focus({ preventScroll: true });
+});
 for (const target of [$('upload'), $('empty'), $('sourceView')]) {
   for (const type of ['dragenter','dragover']) target.addEventListener(type, event => { event.preventDefault(); if (!locked()) $('upload').classList.add('dragging'); });
   target.addEventListener('dragleave', () => $('upload').classList.remove('dragging'));

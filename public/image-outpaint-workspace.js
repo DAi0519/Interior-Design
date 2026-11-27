@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖已绑定的扩图预览/定位/尺寸节点、共享结果面板、上传原图、生成任务阶段/身份及可选的隐藏回调
- * [OUTPUT]: 对外提供可配置的bindImageToolWorkspace及兼容bindImageOutpaintWorkspace，以 setActive/setSource/setStage 组合大画布/结果页签；新图保持构图直至新任务开始，离开预览时关闭设置并保留结果
+ * [INPUT]: 依赖已绑定的扩图预览/定位/尺寸节点、共享结果面板和画布视图控件、上传原图、生成任务阶段/身份及可选的隐藏回调
+ * [OUTPUT]: 对外提供可配置的bindImageToolWorkspace及兼容bindImageOutpaintWorkspace，使用可键盘操作的图标页签切换大画布与任务结果；新图保持构图直至新任务开始，离开预览时关闭设置并保留结果
  * [POS]: public 的扩图/多角度/二次编辑/打光共享工作区呈现层，由 image-tools 在功能控制器初始化后绑定，不接触几何或生成请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,7 +11,6 @@ export function bindImageToolWorkspace({ root, onHide = () => {}, now = Date.now
   const document = root.ownerDocument;
   const panel = document.querySelector(".result-panel");
   const resultStage = document.querySelector("#resultStage");
-  const toolbar = panel.querySelector(".result-toolbar");
   const originalRole = resultStage.getAttribute("role");
   const originalLabel = resultStage.getAttribute("aria-labelledby");
   const create = (tag, className) => {
@@ -19,7 +18,7 @@ export function bindImageToolWorkspace({ root, onHide = () => {}, now = Date.now
     element.className = className;
     return element;
   };
-  const tabs = create("div", "outpaint-workspace-tabs hidden");
+  const tabs = create("div", "canvas-view-controls image-tool-view-switch hidden");
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", label);
   const workspace = create("section", "outpaint-workspace hidden");
@@ -33,20 +32,24 @@ export function bindImageToolWorkspace({ root, onHide = () => {}, now = Date.now
   workspace.append(canvas, footer);
 
   const choices = [
-    { key: "preview", id: `${prefix}PreviewTab`, label: previewLabel, controls: workspace.id },
-    { key: "result", id: `${prefix}ResultTab`, label: "生成结果", controls: resultStage.id },
+    { key: "preview", id: `${prefix}PreviewTab`, icon: "frame", label: previewLabel, controls: workspace.id },
+    { key: "result", id: `${prefix}ResultTab`, icon: "result", label: "生成结果", controls: resultStage.id },
   ].map((choice) => {
-    const button = create("button", "outpaint-workspace-tab");
+    const button = create("button", "canvas-view-button");
     button.type = "button";
     button.id = choice.id;
-    button.textContent = choice.label;
     button.setAttribute("role", "tab");
     button.setAttribute("aria-controls", choice.controls);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const symbol = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    svg.setAttribute("aria-hidden", "true");
+    symbol.setAttribute("href", `/icons/workbench.svg#${choice.icon}`);
+    svg.append(symbol);
+    button.append(svg);
     tabs.append(button);
     return { ...choice, button };
   });
-  toolbar.before(tabs);
-  resultStage.before(workspace);
+  resultStage.before(tabs, workspace);
   let active = false;
   let stage = "empty";
   let selection = "preview";
@@ -56,19 +59,21 @@ export function bindImageToolWorkspace({ root, onHide = () => {}, now = Date.now
 
   function render() {
     const previewVisible = active && selection === "preview";
+    const canSwitch = active && stage !== "empty";
     if (!previewVisible) onHide();
     panel.classList.toggle("outpaint-workspace-active", active);
-    tabs.classList.toggle("hidden", !active);
-    toolbar.classList.toggle("hidden", active);
+    tabs.classList.toggle("hidden", !canSwitch);
     workspace.classList.toggle("hidden", !previewVisible);
+    workspace.setAttribute("role", canSwitch ? "tabpanel" : "region");
     resultStage.classList.toggle("hidden", active && selection !== "result");
-    choices.forEach(({ key, button }) => {
+    choices.forEach(({ key, label, button }) => {
       const selected = selection === key;
-      button.classList.toggle("selected", selected);
+      const name = key === "result" && ["loading", "error"].includes(stage) ? "任务状态" : label;
+      button.title = name;
+      button.setAttribute("aria-label", name);
       button.setAttribute("aria-selected", String(selected));
       button.setAttribute("tabindex", selected ? "0" : "-1");
       button.disabled = key === "result" && stage === "empty";
-      if (key === "result") button.textContent = ["loading", "error"].includes(stage) ? "任务状态" : "生成结果";
     });
     if (active) {
       resultStage.setAttribute("role", "tabpanel");
@@ -90,7 +95,7 @@ export function bindImageToolWorkspace({ root, onHide = () => {}, now = Date.now
   choices.forEach((choice) => {
     choice.button.addEventListener("click", () => select(choice));
     choice.button.addEventListener("keydown", (event) => {
-      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      if (!active || stage === "empty" || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       const enabled = choices.filter(({ button }) => !button.disabled);
       const index = enabled.indexOf(choice);
       const next = event.key === "Home" ? 0 : event.key === "End" ? enabled.length - 1

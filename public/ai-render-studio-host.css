@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖主工作台功能目录、宽度和移动抽屉规则，以及独立工作区保活iframe宿主
- * [OUTPUT]: 提供独立画布模式的固定目录、参数挂接槽及原抽屉/可变宽布局，隔离旧结果和非当前操作
+ * [INPUT]: 依赖主工作台独立参数列、共享参数边距、移动抽屉规则和保活iframe宿主
+ * [OUTPUT]: 提供独立画布填充工作区、可停靠模式的参数与START对齐，以及移动抽屉布局
  * [POS]: public 的主工作台宿主布局覆盖层，不改变独立AI渲染台页面内部样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,16 +13,33 @@ body.is-ai-render-studio #configurationPanel > :is(.control-panel-scroll, .actio
 body.is-ai-render-studio .workspace > .result-panel,
 body.is-ai-render-studio:not(.is-docked-workspace) #workspacePanelResize { display: none !important; }
 
-.isolated-workspace-settings { grid-column: 2; grid-row: 2; min-height: 0; min-width: 0; overflow: auto; }
-.isolated-workspace-actions { grid-column: 1 / -1; grid-row: 3; min-width: 0; }
+.isolated-workspace-settings { grid-column: 1; grid-row: 2; min-height: 0; min-width: 0; overflow: auto; scrollbar-gutter: stable; }
+.isolated-workspace-actions { grid-column: 1; grid-row: 3; min-width: 0; }
 :is(.isolated-workspace-settings, .isolated-workspace-actions)[hidden],
 :is(.isolated-workspace-settings, .isolated-workspace-actions) [hidden] { display: none !important; }
 
+/* -------- 子工具的专属分区复用主栏边距，已停靠动作只由外层留白 -------- */
+#aiRenderStudioSettingsMount > .studio-render-form > .panel-section:not(.reference-source-section),
+#floorPlanCameraSettingsMount .plan-camera-section,
+#housePlanSettingsMount > .house-plan-settings-scroll > section,
+#housePlanActionsMount > .house-plan-actions {
+  padding-inline: var(--workspace-parameter-inset, 16px);
+}
+
+#configurationPanel > .isolated-workspace-actions.action-section > footer {
+  border: 0;
+  padding: 0;
+}
+
+#configurationPanel > .house-plan-parent-actions {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
 @media (min-width: 901px) {
-  .workspace.workspace-panel-layout.is-ai-render-studio:not(.is-docked-workspace) { grid-template-columns: 144px minmax(0, 1fr); }
-  body.is-ai-render-studio:not(.is-docked-workspace) #configurationPanel.workspace-configuration-panel { grid-template-columns: 144px; grid-template-rows: 44px minmax(0, 1fr); }
-  body.is-ai-render-studio:not(.is-docked-workspace) #configurationPanel > .workspace-panel-header { grid-template-columns: 144px; }
-  body.is-ai-render-studio:not(.is-docked-workspace) #configurationPanel .workspace-panel-title { display: none; }
+  .workspace.workspace-panel-layout.is-ai-render-studio:not(.is-docked-workspace) { grid-template-columns: minmax(0, 1fr); }
+  .workspace.is-ai-render-studio:not(.is-docked-workspace) > #configurationPanel { display: none; }
+  .workspace.is-ai-render-studio:not(.is-docked-workspace) > .ai-render-studio-host { grid-column: 1; }
   #configurationPanel:is(.is-parameters-clipping, .is-panel-collapsed) > :is(.isolated-workspace-settings, .isolated-workspace-actions) { display: none !important; }
 }
 
@@ -30,6 +47,5 @@ body.is-ai-render-studio:not(.is-docked-workspace) #workspacePanelResize { displ
   .workspace.is-ai-render-studio > .ai-render-studio-host { grid-column: 1; grid-row: 2; }
   body.is-ai-render-studio:not(.is-docked-workspace) #workspacePanelDialog { height: auto; max-height: min(70dvh, 440px); }
   body.is-ai-render-studio:not(.is-docked-workspace) #workspacePanelDialog > #configurationPanel.workspace-configuration-panel { grid-template-rows: 52px; height: auto; }
-  .isolated-workspace-settings { grid-column: 1 / -1; }
   body.is-house-plan #workspacePanelDialog { height: min(90dvh, 900px); max-height: 90dvh; }
 }

@@ -1,19 +1,23 @@
 /**
  * [INPUT]: 依赖持久化函数、Beta表单、精模光影/美化六档与新增模板混合多选控制器、独立扩图/超分/多角度和风格转换快照及重渲染回调
- * [OUTPUT]: 独立保存恢复自由生图整批提示词、多角度机位与模型、精模光影/手动模型及提示词版本，支持美化混选/显式空选及旧草稿迁移、普通表单和切页落盘
+ * [OUTPUT]: 读取及保存当前任务草稿，按任务恢复共享表单、光影与提示词版本，恢复过程中不写入半完成草稿
  * [POS]: public 的 Beta跑图配置生命周期控制器，连接纯状态存储与 beta-app 页面编排，不持有图片或任务结果
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { saveBetaPageState } from "./beta-page-state.js?v=12";
+import { readBetaPageState, readBetaTaskDraft, saveBetaPageState } from "./beta-page-state.js?v=13";
 
 function restoreTextValue(input, value) {
   if (typeof value === "string") input.value = value;
 }
 
-function restoreSelectValue(select, value) {
-  if (!value || ![...select.options].some((option) => option.value === value && !option.disabled)) return;
-  select.value = value;
+function restoreSelectValue(select, value, { reset = false, allowDisabled = false } = {}) {
+  if (!value && !reset) return;
+  const options = [...select.options];
+  const option = options.find(option => option.value === value && (allowDisabled || !option.disabled))
+    ?? (reset ? options.find(option => !option.disabled) : null);
+  if (!option) return;
+  select.value = option.value;
   select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
@@ -29,10 +33,15 @@ export function createBetaConfigurationPersistence({
   storage,
 }) {
   let ready = false;
+  let restoring = false;
+  let activeDraft = restoredPageState;
 
-  function controls() {
-    const restoredControls = restoredPageState.controls;
-    const stylesReady = currentState().stylesReady;
+  function draftFor(featureMode) {
+    return readBetaTaskDraft(readBetaPageState(storage), featureMode);
+  }
+
+  function controls({ featureMode, stylesReady, designControls }) {
+    const restoredControls = (activeDraft?.featureMode === featureMode ? activeDraft : draftFor(featureMode)).controls;
     const beautification = effectBeautificationControls.value();
     return {
       commonPrompt: elements.commonPromptInput.value,
@@ -60,18 +69,20 @@ export function createBetaConfigurationPersistence({
       roomType: elements.roomTypeSelect.value,
       roomTypeDetail: elements.roomTypeDetailInput.value,
       styleCode: stylesReady ? elements.styleSelect.value : restoredControls.styleCode,
-      ...currentState().designControls,
+      ...designControls,
     };
   }
 
   function save() {
+    if (restoring) return;
     if (!ready) {
       elements.betaForm.dataset.configurationState = "loading";
       return;
     }
     const pageState = currentState();
-    saveBetaPageState(storage, {
-      controls: controls(),
+    if (!pageState.featureMode) return;
+    const saved = saveBetaPageState(storage, {
+      controls: controls(pageState),
       featureMode: pageState.featureMode,
       multiAngle: pageState.multiAngle,
       outpaint: pageState.outpaint,
@@ -80,40 +91,54 @@ export function createBetaConfigurationPersistence({
       selectedModelKeys: pageState.selectedModelKeys,
       refinedModelSelection: pageState.refinedModelSelection,
     });
+    activeDraft = readBetaTaskDraft(saved, pageState.featureMode);
     elements.betaForm.dataset.configurationState = "saved";
   }
 
-  function restore() {
-    const controlsToRestore = restoredPageState.controls;
-    effectBeautificationControls.restore({
-      intensity: controlsToRestore.effectBeautificationIntensity,
-      tone: controlsToRestore.effectBeautificationTone,
-    });
-    effectBeautificationControls.setLightingValue?.(controlsToRestore.effectBeautificationLighting);
-    if (Array.isArray(controlsToRestore.effectBeautificationSelections)) {
-      effectBeautificationControls.restoreSelections?.(controlsToRestore.effectBeautificationSelections);
+  function restoreAppearance(controlsToRestore, featureMode) {
+    if (!featureMode || featureMode === "effectBeautification") {
+      effectBeautificationControls.restore({
+        intensity: controlsToRestore.effectBeautificationIntensity,
+        tone: controlsToRestore.effectBeautificationTone,
+      });
+      effectBeautificationControls.setLightingValue?.(controlsToRestore.effectBeautificationLighting);
+      if (Array.isArray(controlsToRestore.effectBeautificationSelections)) {
+        effectBeautificationControls.restoreSelections?.(controlsToRestore.effectBeautificationSelections);
+      }
     }
-    const legacyLighting = controlsToRestore.refinedRender;
-    refinedRenderConfiguration?.restorePromptVersion?.(controlsToRestore.refinedPromptVersion);
-    const hasLegacyLighting = legacyLighting && ["time", "weather", "tone"]
-      .some(key => legacyLighting[key] && legacyLighting[key] !== "preserve");
-    refinedRenderConfiguration?.restore(controlsToRestore.refinedLighting
-      || (hasLegacyLighting ? legacyLighting : { mode: "unselected" }));
+    if (!featureMode || featureMode === "refinedModel") {
+      const legacyLighting = controlsToRestore.refinedRender;
+      refinedRenderConfiguration?.restorePromptVersion?.(controlsToRestore.refinedPromptVersion);
+      const hasLegacyLighting = legacyLighting && ["time", "weather", "tone"]
+        .some(key => legacyLighting[key] && legacyLighting[key] !== "preserve");
+      refinedRenderConfiguration?.restore(controlsToRestore.refinedLighting
+        || (hasLegacyLighting ? legacyLighting : { mode: "unselected" }));
+    }
+  }
+
+  function restoreForm(controlsToRestore, featureMode) {
+    const switchingTask = Boolean(featureMode);
+    const separateDesign = featureMode === "roomRenovation" || featureMode === "styleTransfer";
+    const renderMode = controlsToRestore.renderMode || (separateDesign ? controlsToRestore[`${featureMode}RenderMode`] : "");
+    const styleCode = controlsToRestore.styleCode || (separateDesign ? controlsToRestore[`${featureMode}StyleCode`] : "");
+    const agentVersion = controlsToRestore.promptAgentVersion
+      || (separateDesign ? controlsToRestore[`${featureMode}PromptAgentVersion`] : "");
     restoreTextValue(elements.commonPromptInput, controlsToRestore.commonPrompt);
-    if (!ready) restoreTextValue(elements.freeSharedPromptInput, controlsToRestore.freeSharedPrompt);
+    if (switchingTask || !ready) restoreTextValue(elements.freeSharedPromptInput, controlsToRestore.freeSharedPrompt);
     restoreTextValue(elements.negativePromptInput, controlsToRestore.negativePrompt);
     restoreTextValue(elements.roomTypeDetailInput, controlsToRestore.roomTypeDetail);
     for (const [select, value] of [
-      [elements.renderModeSelect, controlsToRestore.renderMode],
-      [elements.promptAgentModelSelect, controlsToRestore.promptAgentModelKey],
+      [elements.renderModeSelect, renderMode],
       [elements.roomTypeSelect, controlsToRestore.roomType],
       [elements.effectTimeSelect, controlsToRestore.effectTime],
       [elements.effectWeatherSelect, controlsToRestore.effectWeather],
-    ]) restoreSelectValue(select, value);
+    ]) restoreSelectValue(select, value, { reset: switchingTask });
+    restoreSelectValue(elements.promptAgentModelSelect, controlsToRestore.promptAgentModelKey,
+      { reset: switchingTask, allowDisabled: switchingTask });
     renderFeature();
     for (const [select, value] of [
-      [elements.styleSelect, controlsToRestore.styleCode],
-      [elements.promptAgentVersionSelect, controlsToRestore.promptAgentVersion],
+      [elements.styleSelect, styleCode],
+      [elements.promptAgentVersionSelect, agentVersion],
       [elements.ratioSelect, controlsToRestore.ratio],
     ]) restoreSelectValue(select, value);
     if (!refinedRenderConfiguration?.restorePromptVersion) restoreSelectValue(elements.refinedPromptSelect, controlsToRestore.refinedPromptVersion);
@@ -127,6 +152,25 @@ export function createBetaConfigurationPersistence({
     renderRunSummary();
   }
 
+  function restore(draft) {
+    const source = draft || restoredPageState;
+    restoring = true;
+    try {
+      if (draft) {
+        activeDraft = draft;
+        // -------- 切换控制器内部的任务作用域，再将新草稿写入共享输入 --------
+        renderFeature();
+        for (const select of [elements.ratioSelect, elements.resolutionSelect, elements.qualitySelect,
+          elements.styleSelect, elements.promptAgentVersionSelect]) select.value = "";
+      }
+      const controlsToRestore = source.controls;
+      restoreAppearance(controlsToRestore, draft?.featureMode);
+      restoreForm(controlsToRestore, draft?.featureMode);
+    } finally {
+      restoring = false;
+    }
+  }
+
   function bindLifecycle() {
     window.addEventListener("pagehide", save);
     document.addEventListener("visibilitychange", () => {
@@ -136,6 +180,7 @@ export function createBetaConfigurationPersistence({
 
   return {
     bindLifecycle,
+    draftFor,
     markReady() {
       ready = true;
       save();

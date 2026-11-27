@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta功能目录与平面图适配器、旧房设计配置/空房判定、Flux负向草稿、扩图/超分/多角度、持久配置、样本库/预警/Run ID和API工具
- * [OUTPUT]: 自由生图共用整批提示词、多角度共用整批机位、户型布局逐图标注、机位推理或整批原词直出、旧房独立Agent和房型、光影多选、尺寸与Prompt准入、可恢复配置、冻结RETRY与双阶段监控
+ * [OUTPUT]: 批量跑图初始无任务，显式选择后加载配置和样本草稿；原页连接中心刷新额度与权限；任务监控按阶段显示，失败时就近恢复
  * [POS]: public 的批量跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,9 +10,11 @@ import { isLightingReference } from "./refined-flux-reference.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection, generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
 import "./custom-select.js?v=9";
-import { DEFAULT_BETA_MODEL_KEY, readBetaPageState } from "./beta-page-state.js?v=12";
-import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=12";
+import { DEFAULT_BETA_MODEL_KEY, readBetaPageState, readBetaTaskDraft } from "./beta-page-state.js?v=13";
+import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=13";
 import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaImageSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=9";
+import { mountBetaTaskDirectory } from "./beta-task-directory.js";
+import { bindBetaConnection, renderBetaPromptAgentModels } from "./beta-connection.js?v=2";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { isEmptyRoomDesign } from "./room-renovation.js";
 import { createBetaOutpaintConfiguration } from "./beta-outpaint.js?v=1";
@@ -26,26 +28,27 @@ import { bindEffectBeautificationControls } from "./effect-beautification-contro
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, readBetaImage as readImage, renderImagePreviews } from "./beta-upload.js";
-import { createBetaSampleLibrary } from "./beta-sample-library.js?v=9";
-import { fillBetaSelect as fillSelect, renderBetaProgress as renderProgress, renderBetaWarnings } from "./beta-results.js?v=2";
+import { createBetaSampleLibrary } from "./beta-sample-library.js?v=10";
+import { fillBetaSelect as fillSelect, renderBetaMonitor } from "./beta-results.js?v=3";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=3";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 import { api } from "./workbench-utils.js";
 const JOB_STORAGE_KEY = "canvas-lab:beta-run-job";
 const restoredPageState = readBetaPageState(localStorage);
-const refinedModelSelection = createRefinedModelSelection({ saved: restoredPageState.refinedModelSelection });
+const refinedModelSelection = createRefinedModelSelection({ saved: readBetaTaskDraft(restoredPageState, "refinedModel").refinedModelSelection });
+const referenceDrafts = new Map();
 const elements = Object.fromEntries([
-  "betaConnectionStatus", "betaFeatureSelect", "betaForm",
-  "betaGenerationActions",
+  "betaConnectionStatus", "featureModeList", "betaForm", "betaEmpty",
+  "betaGenerationActions", "betaRunBar", "betaRunMetaActions",
   "commonPromptField", "commonPromptInput", "commonPromptLabel",
   "configStatus", "designFields", "effectFields", "effectTimeSelect", "effectBeautificationFields",
   "effectWeatherSelect", "emptyRoomFields", "freeSharedPromptField", "freeSharedPromptInput",
   "freeReferenceDropZone", "freeReferenceField",
   "freeReferenceInput", "freeReferenceList", "generationProgressBar",
   "generationProgressCount", "generationProgressTrack", "jobProgress",
-  "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
+  "jobMonitorTitle", "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
   "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
-  "monitorWarnings", "monitorWarningsCount",
+  "monitorWarnings", "monitorWarningsCount", "monitorWarningsSection", "monitorRetryActions", "monitorRefresh",
   "multiAngleFields", "multiAngleModelField", "multiAngleModelOptions", "multiAngleAzimuth", "multiAngleElevation",
   "multiAngleAzimuthValue", "multiAngleElevationValue", "multiAngleTopDownButton", "multiAngleDistance",
   "negativePromptField", "negativePromptInput", "negativePromptCount", "negativePromptNote", "promptAgentAvailability", "promptAgentModelSelect",
@@ -65,11 +68,14 @@ const elements = Object.fromEntries([
   "styleField", "styleReferenceDropZone", "styleReferenceField",
   "styleReferenceInput", "styleReferenceList", "styleSelect",
 ].map((id) => [id, document.querySelector(`#${id}`)]));
+const renderTaskDirectory = mountBetaTaskDirectory(elements.featureModeList, FEATURE_COPY);
 const state = {
   betaConfig: null,
   catalog: { agentModels: [], emptyRoomTypes: [], models: [] },
   connected: false,
-  featureMode: restoredPageState.featureMode,
+  featureMode: null,
+  taskDirectoryReady: false,
+  switchingTask: false,
   freeReference: null,
   job: null,
   submitting: false,
@@ -78,7 +84,7 @@ const state = {
   agentAccess: new Map(),
   agentAccessChecked: false,
   sampleSetIds: { ...restoredPageState.sampleSetIds },
-  selectedModelKeys: [...restoredPageState.selectedModelKeys],
+  selectedModelKeys: [],
   styleReference: null,
   stylesConfig: null,
 };
@@ -95,8 +101,10 @@ const modelSelection = bindModelMultiSelect({
     elements.runHint.textContent = message;
   },
   presentOption(model) {
-    const selectable = betaModelSelectable(model, state.featureMode);
-    return { label: model.label, selectable, reason: selectable ? "" : "不支持 2:1" };
+    const supported = betaModelSelectable(model, state.featureMode);
+    const available = modelAvailable(model);
+    return { label: model.label, selectable: supported && (available || state.selectedModelKeys.includes(model.key)),
+      reason: !supported ? "不支持 2:1" : available ? "" : "当前 Key 不可用" };
   },
 });
 const effectBeautificationControls = bindEffectBeautificationControls({
@@ -108,17 +116,17 @@ const effectBeautificationControls = bindEffectBeautificationControls({
 });
 const outpaintConfiguration = createBetaOutpaintConfiguration({
   elements,
-  initialState: restoredPageState.outpaint,
+  initialState: readBetaTaskDraft(restoredPageState, "imageOutpaint").outpaint,
   onChange() { renderRunSummary(); saveConfiguration(); },
   onMessage(message) { elements.runHint.textContent = message; },
 });
 const upscaleConfiguration = createBetaUpscaleConfiguration({
-  elements, initialState: restoredPageState.upscale,
+  elements, initialState: readBetaTaskDraft(restoredPageState, "imageUpscale").upscale,
   onChange() { renderRunSummary(); saveConfiguration(); },
   onMessage(message) { elements.runHint.textContent = message; },
 });
 const multiAngleConfiguration = createBetaMultiAngleConfiguration({
-  elements, initialState: restoredPageState.multiAngle,
+  elements, initialState: readBetaTaskDraft(restoredPageState, "imageMultiAngle").multiAngle,
   onChange() { renderRunSummary(); saveConfiguration(); },
   onMessage(message) { elements.runHint.textContent = message; },
 });
@@ -167,33 +175,17 @@ const configuration = createBetaConfigurationPersistence({
   storage: localStorage,
 });
 const saveConfiguration = configuration.save;
-function renderPromptAgentModels() {
-  const models = state.catalog.agentModels.filter((model) => model.imageInput);
-  const previousKey = elements.promptAgentModelSelect.value;
-  const previous = models.find((model) => model.key === previousKey);
-  fillSelect(elements.promptAgentModelSelect, models.map((model) => {
-    const access = state.agentAccess.get(model.key);
-    const disabled = state.agentAccessChecked && !access?.selectable;
-    return {
-      disabled,
-      label: disabled ? `${model.label} · ${access?.reason || "当前不可用"}` : model.label,
-      value: model.key,
-    };
-  }), previousKey || "gemini3pro");
-  const selected = models.find((model) => model.key === elements.promptAgentModelSelect.value);
-  const changed = Boolean(previous && previous.key !== selected?.key);
-  elements.promptAgentAvailability.textContent = !state.connected
-    ? "请先连接 OneAPI"
-    : !state.agentAccessChecked
-      ? "正在检测模型权限"
-      : changed && selected
-        ? `${previous.label} 当前不可用，已切换为 ${selected?.label || "可用模型"}`
-        : selected
-          ? "当前 API Key 已开放此模型"
-          : "当前 API Key 没有可用的提示词模型";
-  elements.promptAgentAvailability.hidden = Boolean(state.connected && state.agentAccessChecked && selected && !changed);
-  elements.promptAgentAvailability.classList.toggle("error", !state.connected || state.agentAccessChecked && (!selected || changed));
-  renderRunSummary();
+const renderPromptAgentModels = () => renderBetaPromptAgentModels({ state, elements, fillSelect, renderRunSummary });
+const connection = bindBetaConnection({
+  api, state, showStatus, renderSummary: renderRunSummary, updateWorkflows,
+  renderAccess(options) { renderModels(options); renderPromptAgentModels(); },
+});
+function updateWorkflows(betaConfig) {
+  state.betaConfig = betaConfig;
+  outpaintConfiguration.configure(betaConfig.outpaint);
+  upscaleConfiguration.configure(betaConfig.upscale);
+  multiAngleConfiguration.configure(betaConfig.multiAngle);
+  elements.monitorBaseLink.href = betaConfig.baseUrl;
 }
 function selectedModels() {
   return state.selectedModelKeys
@@ -204,6 +196,12 @@ function selectedCandidates() {
   if (state.featureMode === "imageMultiAngle") return multiAngleConfiguration.selectedModels();
   if (state.featureMode === "imageUpscale") return upscaleConfiguration.selectedWorkflows();
   return state.featureMode === "imageOutpaint" ? outpaintConfiguration.selectedWorkflows() : selectedModels();
+}
+function generationAccessIssue() {
+  const online = selectedCandidates().filter(model => model.provider === "oneapi");
+  if (!online.length) return "";
+  const denied = online.find(model => state.catalog.models.some(entry => entry.key === model.key) && !modelAvailable(model));
+  return state.modelAccessProblem || (denied ? `${denied.label} 当前 Key 不可用，请调整出图模型` : "");
 }
 function sampleCount() { return sampleLibrary.sampleCount(); }
 function postUpscaleIssue() { if (["housePlanLayout", "floorPlanCamera", "imageMultiAngle"].includes(state.featureMode)) return null; return betaPostUpscaleUnavailableReason({ featureMode: state.featureMode, models: selectedModels(), resolution: elements.resolutionSelect.value, sources: sampleLibrary.sourceDimensions(state.freeReference), refinedLighting: refinedRenderConfiguration.snapshot() }); }
@@ -216,7 +214,7 @@ function runCount() {
 }
 function showStatus(message, { error = false, ready = false } = {}) {
   elements.betaConnectionStatus.textContent = message;
-  elements.betaConnectionStatus.classList.toggle("ready", ready);
+  elements.betaConnectionStatus.hidden = ready;
   elements.betaConnectionStatus.classList.toggle("error", error);
 }
 function renderSingleReference(key, list, dropZone) {
@@ -238,11 +236,28 @@ function renderReferenceInputs() {
   renderSingleReference("freeReference", elements.freeReferenceList, elements.freeReferenceDropZone);
 }
 function renderRunSummary() {
+  renderTaskDirectory(state.featureMode, !state.taskDirectoryReady || state.switchingTask || sampleLibrary.isMutating());
+  const total = state.featureMode ? runCount() : 0;
+  const failed = state.job?.status === "failed";
+  const running = state.job?.status === "running" || state.submitting;
+  const retryHost = failed ? elements.monitorRetryActions : elements.betaRunBar;
+  const newBatchHost = failed ? elements.monitorRetryActions : elements.betaRunMetaActions;
+  if (elements.newBatchButton.parentElement !== newBatchHost) newBatchHost.prepend(elements.newBatchButton);
+  if (elements.betaGenerationActions.parentElement !== retryHost) retryHost.append(elements.betaGenerationActions);
+  elements.monitorRetryActions.hidden = !failed;
+  elements.newBatchButton.classList.toggle("hidden", !failed || state.submitting);
+  elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
+  elements.runButton.setAttribute("aria-busy", String(running));
+  elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "仅重试当前批次的失败项" : "开始批量运行");
+  elements.betaGenerationActions.classList.toggle("is-busy", running);
+  if (failed || !state.featureMode) {
+    elements.runButton.disabled = running || state.switchingTask || !state.job?.jobId || !state.taskDirectoryReady;
+  }
+  if (!state.featureMode) return;
+
   housePlanConfiguration.decorateSamples();
   floorPlanCameraConfiguration.decorateSamples();
-  elements.betaFeatureSelect.disabled = sampleLibrary.isBusy();
   elements.freeReferenceField.classList.toggle("hidden", state.featureMode !== "free" || !sampleLibrary.usesTextSamples());
-  const total = runCount();
   const samples = sampleCount();
   const outpaint = state.featureMode === "imageOutpaint";
   const upscale = state.featureMode === "imageUpscale";
@@ -257,18 +272,8 @@ function renderRunSummary() {
         ? `${samples} 个样本 × ${models} 个模型 × ${panoramaLighting.getSelections().length} 种光影 = ${total} 张结果`
       : `${samples} 个样本 × ${models} 个${candidateLabel}${state.featureMode === "floorPlanCamera" ? ` × ${floorPlanCameraConfiguration.imageCount()} 张` : ""} = ${total} 张结果`
     : samples ? `请选择${upscale ? "超分工作流" : outpaint ? "扩图工作流" : "出图模型"}` : "请选择样本集";
-  const failed = state.job?.status === "failed";
-  elements.newBatchButton.classList.toggle("hidden", !failed || state.submitting);
   elements.runHint.textContent = failed ? "仅重试失败项，已成功结果保留" : "结果自动同步飞书";
-  const monitoredTotal = Number(state.job?.total) || total;
-  elements.monitorBatchSummary.textContent = state.job
-    ? `${monitoredTotal} 张结果`
-    : total ? `预计 ${total} 张结果` : "尚未开始";
-  if (!state.job) {
-    renderProgress(elements.generationProgressTrack, elements.generationProgressBar, elements.generationProgressCount, 0, total);
-    renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, 0, total);
-  }
-  const running = state.job?.status === "running" || state.submitting;
+  const accessIssue = generationAccessIssue();
   const needsPromptAgent = ["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode);
   const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
   const agentReady = !needsPromptAgent || (state.agentAccessChecked && selectedAgent?.selectable);
@@ -297,42 +302,42 @@ function renderRunSummary() {
   if (!failed && !workflowsReady && !running) elements.runHint.textContent = workflowConfiguration.unavailableReason() || `请选择${upscale ? "超分" : "扩图"}工作流`;
   if (!failed && lightingIssue && !running) elements.runHint.textContent = lightingIssue;
   if (!failed && !running && targetReady && !sharedPromptReady && samples) elements.runHint.textContent = "请填写整批提示词（至少 3 个字符）";
-  elements.runButton.disabled = running || state.submitting || (!failed && ((!outpaint && !upscale && !multiAngle && !state.connected)
+  if (!failed && !running && accessIssue) elements.runHint.textContent = accessIssue;
+  if (!failed) elements.runButton.disabled = running || state.switchingTask || (!outpaint && !upscale && !multiAngle && !state.connected)
     || !sampleLibrary.isReady()
     || total < 1
-    || !agentReady
+    || !agentReady || Boolean(accessIssue)
     || !effectReady || !sharedPromptReady
     || !targetReady
     || Boolean(lightingIssue)
-    || !workflowsReady));
-  elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
-  elements.runButton.setAttribute("aria-busy", String(running));
-  elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "仅重试当前批次的失败项" : "开始批量运行");
-  elements.betaGenerationActions.classList.toggle("is-busy", running);
+    || !workflowsReady;
 }
 function modelAvailable(model) {
   if (!state.modelAccessChecked) return true;
   const access = state.modelAccess.get(model.key);
   return access ? access.available : model.provider === "comfyui";
 }
-function renderModels() {
+function renderModels({ permissionsOnly = false } = {}) {
+  if (!state.featureMode) return;
   if (state.featureMode === "housePlanLayout" && !housePlanConfiguration.configured()) { renderOutputControls(); return; }
   if (state.featureMode === "floorPlanCamera" && !floorPlanCameraConfiguration.configured()) { renderOutputControls(); return; }
-  state.selectedModelKeys = refinedModelSelection.forFeature(state.featureMode, state.selectedModelKeys, state.catalog.models, state.modelAccessChecked ? [...state.modelAccess.values()] : undefined);
+  const keepDraft = state.keepModelDraft && state.selectedModelKeys.length > 0;
+  if (!keepDraft && state.featureMode === "refinedModel") state.selectedModelKeys = refinedModelSelection.forFeature(state.featureMode, state.selectedModelKeys, state.catalog.models, state.modelAccessChecked ? [...state.modelAccess.values()] : undefined);
   if (["imageOutpaint", "imageUpscale", "imageMultiAngle"].includes(state.featureMode)) { renderOutputControls(); return; }
-  const runnable = state.catalog.models.filter((model) => modelAvailable(model) && housePlanConfiguration.selectable(model) && floorPlanCameraConfiguration.selectable(model));
+  const runnable = state.catalog.models.filter((model) => (modelAvailable(model) || keepDraft && state.selectedModelKeys.includes(model.key)) && housePlanConfiguration.selectable(model) && floorPlanCameraConfiguration.selectable(model));
   const selectable = runnable.filter((model) => betaModelSelectable(model, state.featureMode));
-  state.selectedModelKeys = state.selectedModelKeys.filter((key) =>
-    selectable.some((model) => model.key === key));
+  if (!keepDraft) state.selectedModelKeys = state.selectedModelKeys.filter((key) => selectable.some((model) => model.key === key));
   if (!state.selectedModelKeys.length && selectable[0] && state.featureMode !== "refinedModel") {
     const defaultModel = selectable.find((model) => model.key === (state.featureMode === "housePlanLayout" ? "gptImage25Sunburst" : state.featureMode === "floorPlanCamera" ? "banana21" : DEFAULT_BETA_MODEL_KEY))
       || selectable[0];
     state.selectedModelKeys = [defaultModel.key];
   }
   modelSelection.render(runnable, state.selectedModelKeys);
-  renderOutputControls();
+  if (permissionsOnly && keepDraft) renderRunSummary();
+  else renderOutputControls();
 }
 function renderOutputControls() {
+  if (!state.featureMode) return;
   if (state.featureMode === "imageMultiAngle") { renderRunSummary(); return; }
   if (state.featureMode === "imageUpscale") { upscaleConfiguration.render(); renderRunSummary(); return; }
   if (state.featureMode === "imageOutpaint") {
@@ -367,7 +372,6 @@ function renderOutputControls() {
 function renderFeature() {
   housePlanConfiguration.render();
   const copy = FEATURE_COPY[state.featureMode];
-  elements.betaFeatureSelect.value = state.featureMode;
   const free = state.featureMode === "free";
   const outpaint = state.featureMode === "imageOutpaint";
   const upscale = state.featureMode === "imageUpscale";
@@ -419,7 +423,7 @@ function currentCases() {
 }
 function designSettings() { return designConfiguration.settings(); }
 function assertFeatureConfig() {
-  const unavailableReason = betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || floorPlanCameraConfiguration.reason() || postUpscaleIssue()
+  const unavailableReason = generationAccessIssue() || betaFeatureUnavailableReason(state.featureMode, state.betaConfig) || housePlanConfiguration.reason() || floorPlanCameraConfiguration.reason() || postUpscaleIssue()
     || (["housePlanLayout", "floorPlanCamera", "imageMultiAngle"].includes(state.featureMode) ? null : generationFeatureUnavailableReason(state.featureMode, state.catalog.generationFeatureModes, selectedModels()));
   if (unavailableReason) throw new Error(unavailableReason);
   sampleLibrary.assertRoomTypes();
@@ -512,35 +516,7 @@ function buildItems(startedAt = new Date()) {
 
 function renderJob(job) {
   state.job = job;
-  renderBetaWarnings({ container: elements.monitorWarnings, count: elements.monitorWarningsCount, job });
-  const running = job?.status === "running";
-  elements.jobStatus.textContent = running
-    ? "运行中"
-    : job?.status === "success"
-      ? "已完成"
-      : job?.status === "failed"
-        ? "失败"
-        : "待运行";
-  elements.jobStatus.dataset.state = running
-    ? "running"
-    : job?.status === "success" ? "success" : job?.status === "failed" ? "error" : "idle";
-  if (job) {
-    const completed = Number(job.completed) || 0;
-    const total = Number(job.total) || 0;
-    const generated = Number(job.stages?.generated) || (job.status === "success" ? total : 0);
-    const synced = Number(job.stages?.synced) || completed;
-    elements.jobProgressLabel.textContent = job.status === "failed"
-      ? `${Math.max(total - synced, 0)} 项未完成，详见下方预警。`
-      : job.status === "success"
-        ? "全部结果已生成并同步飞书。"
-        : job.message || "处理中";
-    renderProgress(elements.generationProgressTrack, elements.generationProgressBar, elements.generationProgressCount, generated, total);
-    renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, synced, total);
-  } else {
-    elements.jobProgressLabel.textContent = "运行后，这里会持续显示生成与同步进度。";
-    renderProgress(elements.generationProgressTrack, elements.generationProgressBar, elements.generationProgressCount, 0, 0);
-    renderProgress(elements.jobProgressTrack, elements.jobProgressBar, elements.jobProgressCount, 0, 0);
-  }
+  renderBetaMonitor(elements, job);
   renderRunSummary();
 }
 
@@ -552,7 +528,12 @@ async function followJob(jobId) {
   let job;
   do {
     await delay(800);
-    ({ job } = await api(`/api/beta/jobs/${encodeURIComponent(jobId)}`));
+    try {
+      ({ job } = await api(`/api/beta/jobs/${encodeURIComponent(jobId)}`));
+    } catch (error) {
+      reportUploadError(error, { canRefresh: true });
+      return;
+    }
     renderJob(job);
   } while (job.status === "running");
   return job;
@@ -602,17 +583,13 @@ async function restoreJob() {
     renderJob(job);
     if (job.status === "running") await followJob(jobId);
   } catch (error) {
-    reportUploadError(error);
+    reportUploadError(error, { canRefresh: true });
   }
 }
 
-function reportUploadError(error) {
+function reportUploadError(error, { canRefresh = false } = {}) {
   if (!state.job?.jobId) state.job = null;
-  renderBetaWarnings({ container: elements.monitorWarnings, count: elements.monitorWarningsCount, job: state.job, error: error.message });
-  elements.jobStatus.textContent = error.message;
-  elements.jobStatus.dataset.state = "error";
-  elements.jobProgressLabel.textContent = state.job?.jobId
-    ? `请求失败：${error.message}。可刷新页面继续查看任务状态。` : `配置未就绪：${error.message}`;
+  renderBetaMonitor(elements, state.job, { error: error.message, canRefresh });
   renderRunSummary();
 }
 
@@ -620,7 +597,9 @@ async function setSingleReference(fileList, key) {
   try {
     const file = Array.from(fileList)[0];
     if (!file) return;
+    const featureMode = state.featureMode;
     const next = await readImage(file);
+    if (featureMode !== state.featureMode) { referenceDrafts.get(featureMode)[key] = next; return; }
     state[key] = next;
     renderReferenceInputs();
     if (key === "styleReference") designConfiguration.referenceChanged();
@@ -631,20 +610,42 @@ async function setSingleReference(fileList, key) {
   }
 }
 
+async function selectTask(featureMode) {
+  state.switchingTask = true;
+  renderRunSummary();
+  try {
+    if (featureMode === "housePlanLayout") await housePlanConfiguration.refresh();
+    if (featureMode === "floorPlanCamera") await floorPlanCameraConfiguration.refresh();
+    if (state.featureMode) {
+      saveConfiguration();
+      referenceDrafts.set(state.featureMode, { styleReference: state.styleReference, freeReference: state.freeReference });
+    }
+    const draft = configuration.draftFor(featureMode);
+    const references = referenceDrafts.get(featureMode);
+    state.featureMode = featureMode;
+    state.selectedModelKeys = [...draft.selectedModelKeys];
+    state.keepModelDraft = draft.hasSavedModelSelection;
+    state.styleReference = references?.styleReference ?? null;
+    state.freeReference = references?.freeReference ?? null;
+    configuration.restore(draft);
+    elements.betaEmpty.hidden = true;
+    elements.betaForm.hidden = false;
+    void sampleLibrary.setFeatureMode(featureMode, state.sampleSetIds[featureMode]).catch(reportUploadError);
+    saveConfiguration();
+  } finally {
+    state.switchingTask = false;
+    renderRunSummary();
+  }
+}
+
 function bindEvents() {
   sampleLibrary.bind();
   configuration.bindLifecycle();
-  elements.betaFeatureSelect.addEventListener("change", () => {
-    const featureMode = elements.betaFeatureSelect.value;
-    if (sampleLibrary.isBusy() || !Object.hasOwn(FEATURE_COPY, featureMode) || featureMode === state.featureMode) return;
-    state.featureMode = featureMode;
-    if (featureMode === "housePlanLayout") { state.selectedModelKeys = ["gptImage25Sunburst"]; void housePlanConfiguration.refresh(); }
-    if (featureMode === "floorPlanCamera") void floorPlanCameraConfiguration.refresh();
-    renderFeature();
-    sampleLibrary.setFeatureMode(
-      state.featureMode,
-      state.sampleSetIds[state.featureMode],
-    ).then(saveConfiguration).catch(reportUploadError);
+  elements.featureModeList.addEventListener("click", (event) => {
+    const featureMode = event.target.closest("[data-feature-mode]")?.dataset.featureMode;
+    if (!state.taskDirectoryReady || state.switchingTask || sampleLibrary.isMutating()
+      || !Object.hasOwn(FEATURE_COPY, featureMode) || featureMode === state.featureMode) return;
+    selectTask(featureMode).catch(reportUploadError);
   });
   for (const [input, key, list, dropZone] of [
     [elements.styleReferenceInput, "styleReference", elements.styleReferenceList, elements.styleReferenceDropZone],
@@ -694,6 +695,13 @@ function bindEvents() {
     if (state.job?.status === "running" || state.submitting) return;
     sessionStorage.removeItem(JOB_STORAGE_KEY);
     renderJob(null);
+    (state.featureMode && !elements.runButton.disabled ? elements.runButton : elements.jobMonitorTitle).focus({ preventScroll: true });
+  });
+  elements.monitorRefresh.addEventListener("click", async () => {
+    elements.jobMonitorTitle.focus({ preventScroll: true });
+    elements.monitorRefresh.disabled = true;
+    await restoreJob();
+    elements.monitorRefresh.disabled = false;
   });
   elements.betaForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -720,27 +728,19 @@ function bindEvents() {
 }
 
 async function load() {
-  fillSelect(elements.betaFeatureSelect, Object.entries(FEATURE_COPY).map(([value, copy]) => ({
-    label: copy.label, value,
-  })), state.featureMode);
   bindEvents();
+  renderRunSummary();
+  void restoreJob();
   try {
-    const [catalog, session, betaConfig] = await Promise.all([
+    const [catalog, betaConfig] = await Promise.all([
       api("/api/catalog"),
-      api("/api/session"),
       api("/api/beta/config"),
+      connection.load(),
     ]);
     state.catalog = catalog;
     panoramaLighting.setCapabilities(catalog.generationFeatureCapabilities);
     effectBeautificationControls.setCapabilities(catalog.generationFeatureCapabilities);
-    state.connected = session.connected === true;
-    state.betaConfig = betaConfig;
-    if (state.featureMode === "housePlanLayout") await housePlanConfiguration.refresh();
-    if (state.featureMode === "floorPlanCamera") await floorPlanCameraConfiguration.refresh();
-    outpaintConfiguration.configure(betaConfig.outpaint);
-    upscaleConfiguration.configure(betaConfig.upscale);
-    multiAngleConfiguration.configure(betaConfig.multiAngle);
-    elements.monitorBaseLink.href = betaConfig.baseUrl;
+    updateWorkflows(betaConfig);
     fillSelect(elements.roomTypeSelect, [
       { label: "请选择", value: "" },
       ...catalog.emptyRoomTypes.map((value) => ({ label: value, value })),
@@ -749,49 +749,22 @@ async function load() {
     showStatus(state.connected ? "检测模型中" : "请先连接 API", {
       error: !state.connected,
     });
-    renderModels();
-    renderFeature();
-    configuration.restore();
-    configuration.markReady();
-    await sampleLibrary.load(
-      state.featureMode,
-      state.sampleSetIds[state.featureMode],
-    );
-    saveConfiguration();
-
-    const stylesRequest = api("/api/styles");
-    const [stylesResult, accessResult] = await Promise.allSettled([
-      stylesRequest,
-      state.connected
-        ? api("/api/check-models", { method: "POST" })
-        : Promise.resolve(null),
+    void sampleLibrary.load("").catch(reportUploadError);
+    const [stylesResult] = await Promise.allSettled([
+      api("/api/styles"),
+      connection.refreshAccess(),
     ]);
     if (stylesResult.status === "fulfilled") {
       state.stylesConfig = stylesResult.value;
       panoramaLighting.configure(state.stylesConfig.refinedLighting);
       effectBeautificationControls.setLightingConfig(state.stylesConfig.refinedLighting);
-      renderFeature();
-    } else {
-      elements.configStatus.textContent = "配置读取失败";
     }
-    if (accessResult.status === "fulfilled" && accessResult.value) {
-      const access = accessResult.value;
-      state.modelAccess = new Map(access.models.map((model) => [model.key, model]));
-      state.modelAccessChecked = true;
-      state.agentAccess = new Map(access.agentModels.map((model) => [model.key, model]));
-      state.agentAccessChecked = true;
-      showStatus("服务已连接", { ready: true });
-      renderModels();
-      renderPromptAgentModels();
-    } else if (state.connected) {
-      showStatus("模型检测失败，可稍后刷新", { error: true });
-    }
-    configuration.restore();
-    saveConfiguration();
-    await restoreJob();
+    state.taskDirectoryReady = true;
+    configuration.markReady();
+    renderRunSummary();
   } catch (error) {
     showStatus(error.message, { error: true });
-    elements.configStatus.textContent = "配置读取失败";
+    elements.betaEmpty.textContent = "任务配置读取失败，请刷新重试";
     renderRunSummary();
   }
 }

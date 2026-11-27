@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖room-renovation 的旧房/空房模式判定、 image-ratio.js，接收公开模型能力、功能模式、参考图、Seedream 5.0 Pro 全景 4K 实验档、Flux 1K/2K 原生档与 2K→4K/6K 后置超分档及当前尺寸选择
- * [OUTPUT]: 对外提供功能/模型尺寸规则、Flux后置KS目录文案/身份冻结及真实2K输入限制预检、参考图主题与数量、全景原尺寸与精模/光影转换双图1K/2K隔离和最终尺寸摘要
+ * [OUTPUT]: 对外提供功能/模型尺寸规则、Flux后置KS目录文案/身份冻结及真实2K输入限制预检、参考图主题与数量及单图校验、全景原尺寸与精模/光影转换双图1K/2K隔离和最终尺寸摘要
  * [POS]: public 的模型能力解释层，隔离 app.js DOM 控制器与 OneAPI/ComfyUI 差异
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -75,6 +75,13 @@ export function referenceSubject(featureMode) {
     imageMultiAngle: "多角度原图", imageMaskFill: "待编辑原图", imageRelight: "打光原图", imageUpscale: "待超分图片" })[featureMode] || "参考图";
 }
 
+export function singleReferenceValidation(featureMode, count) {
+  const subject = referenceSubject(featureMode);
+  if (count === 0) return `请添加 1 张${subject}`;
+  if (count > 1) return `已添加 ${count} 张图，请只保留 1 张${subject}`;
+  return null;
+}
+
 export function referenceCapability({ featureMode, model, policy }) {
   const isWhiteModel = featureMode === "whiteModel";
   const isEmptyRoom = isEmptyRoomDesign(featureMode);
@@ -119,19 +126,15 @@ export function sizeControlState({
   sourceImage,
 }) {
   if (featureMode === "panoramaEnhancement" && model.panoramaWorkflow?.sourceSize) return {
-    ratio: "source", ratioDisabled: true, ratioOptions: [{ label: "2:1 · 全景原图", value: "source" }],
-    resolution: "original", resolutionDisabled: true, resolutionOptions: [{ label: "原图尺寸 · R5_4 全景", value: "original" }],
+    ratio: "source", ratioDisabled: true, ratioOptions: [{ label: "2:1", value: "source" }],
+    resolution: "original", resolutionDisabled: true, resolutionOptions: [{ label: "原图尺寸", value: "original" }],
   };
   model = refinedReferenceModel(model, featureMode, refinedLighting);
   model = { ...model, sizes: sizesForFeature(model, featureMode) };
   const sourceAspect = model.sizingMode === "source";
-  const automaticRatio = sourceAspect
-    ? model.defaultRatio
+  const ratio = sourceAspect ? model.defaultRatio
+    : ratioMode === "manual" ? (Object.hasOwn(model.sizes, currentRatio) ? currentRatio : model.defaultRatio)
     : nearestSupportedRatio(model, sourceImage);
-  const ratio =
-    ratioMode === "manual" && Object.hasOwn(model.sizes, currentRatio)
-      ? currentRatio
-      : automaticRatio;
   const resolutions = modelResolutionKeys(model, ratio);
   const preservedResolution =
     preserveResolution && resolutions.includes(currentResolution)

@@ -1,28 +1,109 @@
 /**
- * [INPUT]: 依赖 index.html 的合并连接控件与弹层、共享顶栏布局和刷新按钮、Raycast 中性键帽令牌及 connection-center.js 状态类
- * [OUTPUT]: 提供主工作台顶栏状态点、额度与刷新图标的合并布局、连接弹层的 OneAPI/飞书分区、就绪标签及授权二维码
- * [POS]: public 的模型连接视觉层，在顶栏显示额度，在弹层组织凭据和同步设置
+ * [INPUT]: 依赖生图测试和批量跑图的连接页脚、connection-center-markup.js 的弹层结构、共享侧栏尺寸和中性弹层令牌
+ * [OUTPUT]: 提供侧栏额度与版本对齐、币种与完整精度提示、直接刷新、共享连接弹层及授权样式
+ * [POS]: public 的模型连接视觉层，在侧栏底部显示额度，在弹层组织凭据和同步设置
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+:where(#connectionDialog).dialog-backdrop {
+  align-items: center;
+  background: var(--brand-modal-backdrop);
+  -webkit-backdrop-filter: var(--brand-modal-blur);
+  backdrop-filter: var(--brand-modal-blur);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 50;
+}
+
 .connection-dialog {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--brand-modal-shadow);
+  color: var(--text);
+  line-height: normal;
   max-height: calc(100vh - 40px);
   max-width: 688px;
   overflow-y: auto;
   padding: 28px;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .connection-dialog {
+    animation: connection-dialog-in 180ms var(--ease-out);
+  }
+
+  .connection-dialog :is(.icon-button, .primary-button):active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+@keyframes connection-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
 }
 
 .connection-dialog-header {
+  align-items: flex-start;
+  display: flex;
   gap: 24px;
+  justify-content: space-between;
 }
 
 .connection-heading {
   min-width: 0;
 }
 
+.connection-heading h2 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: 0;
+}
+
 .connection-dialog .dialog-copy {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
   margin: 8px 0 0;
   max-width: 560px;
+}
+
+.connection-dialog .dialog-copy code {
+  background: var(--surface-badge);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 10px;
+  padding: 2px 5px;
+}
+
+.connection-dialog :where(.icon-button) {
+  align-items: center;
+  background: var(--brand-key-bg);
+  border: 1px solid var(--brand-key-border);
+  border-radius: var(--brand-control-radius);
+  box-shadow: var(--brand-key-shadow);
+  color: var(--brand-key-ink);
+  display: flex;
+  flex: 0 0 32px;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.connection-dialog .icon-button svg {
+  fill: none;
+  height: 17px;
+  stroke: var(--muted);
+  stroke-linecap: round;
+  stroke-width: 1.8;
+  width: 17px;
 }
 
 .connection-grid {
@@ -88,105 +169,228 @@
   color: var(--text);
 }
 
+.api-key-field {
+  display: block;
+}
+
+.api-key-field > span {
+  color: var(--muted);
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  margin: 0 0 6px 2px;
+}
+
 .api-key-field input {
+  background: rgb(244 244 246 / 94%);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
   height: 40px;
+  outline: none;
+  padding: 0 13px;
+  width: 100%;
 }
 
-.connection-control {
+.api-key-field input::placeholder {
+  color: var(--muted);
+}
+
+.api-key-field input:focus {
+  background: var(--surface-control);
+  border-color: var(--line);
+  box-shadow: none;
+  outline: none;
+}
+
+.connection-dialog .inline-error {
+  background: #fff1ef;
+  border: 1px solid #f1c8c2;
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  padding: 9px 10px;
+}
+
+.product-sidebar-footer .connection-control {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  position: relative;
+}
+
+.product-sidebar-footer .connection-control > .connection-button {
   align-items: center;
-  background: var(--brand-key-bg);
-  border: 1px solid var(--brand-key-border);
-  border-radius: var(--brand-control-radius);
-  box-shadow: var(--brand-key-shadow);
-  display: inline-flex;
-  min-height: 30px;
-}
-
-.topbar .connection-control > .connection-button {
   background: transparent;
   border: 0;
-  border-radius: calc(var(--brand-control-radius) - 1px);
+  border-radius: 6px;
   box-shadow: none;
+  color: var(--text);
+  display: inline-flex;
+  flex: 1 1 auto;
+  font-size: 11px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  gap: 6px;
-  min-height: 28px;
-  padding-inline: 8px;
+  inline-size: 100%;
+  justify-content: flex-start;
+  line-height: normal;
+  min-height: var(--sidebar-utility-row-height, 40px);
+  min-width: 0;
+  padding-inline: var(--sidebar-utility-padding, 4px) 0;
+  position: relative;
+  text-decoration: none;
 }
 
-.connection-control .config-refresh-button {
-  justify-content: center;
-  min-height: 28px;
-  padding: 0;
-  width: 26px;
-}
-
-.connection-control .config-refresh-button[hidden] {
+.product-sidebar-footer .connection-control .sidebar-utility-icon {
   display: none;
 }
 
+.product-sidebar-footer #apiQuotaRefresh {
+  flex: 0 0 var(--sidebar-utility-row-height, 40px);
+  inline-size: var(--sidebar-utility-row-height, 40px);
+  justify-content: center;
+  min-block-size: var(--sidebar-utility-row-height, 40px);
+  padding: 0;
+  position: relative;
+}
+
+.product-sidebar-footer #apiQuotaRefresh[hidden] {
+  display: none;
+}
+
+.product-sidebar-footer #apiQuotaRefresh[aria-disabled="true"] {
+  background: transparent;
+  color: var(--muted);
+  cursor: wait;
+  opacity: 0.56;
+  transform: none;
+}
+
+#apiQuotaValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-quota-label {
+  align-items: baseline;
+  display: flex;
+  gap: 0.35em;
+}
+
+#apiQuotaCurrency {
+  flex: none;
+}
+
+.sidebar-quota-detail {
+  background: var(--surface-panel, #fff);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  inline-size: max-content;
+  inset-block-end: 100%;
+  inset-inline-start: var(--sidebar-utility-padding, 4px);
+  max-inline-size: min(260px, calc(100vw - 24px));
+  opacity: 0;
+  overflow-wrap: anywhere;
+  padding: 6px 8px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.product-sidebar-dialog .sidebar-quota-detail {
+  max-inline-size: calc(100% - var(--sidebar-utility-padding, 4px));
+}
+
+.connection-button:focus-visible ~ .sidebar-quota-detail:not(:empty, [data-dismissed]) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .topbar .connection-control > .connection-button:hover {
-    background: var(--brand-key-hover-bg);
-    box-shadow: none;
+  .api-key-field input:hover:not(:focus) {
+    border-color: var(--line-strong);
+  }
+
+  .product-sidebar-footer .connection-control > .connection-button:hover:not(:active) {
+    background: var(--surface-hover);
+  }
+
+  .connection-button:hover ~ .sidebar-quota-detail:not(:empty, [data-dismissed]),
+  .sidebar-quota-detail:not(:empty, [data-dismissed]):hover {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 
-.topbar.workspace-topbar {
-  height: auto;
-  min-height: 56px;
-  padding-block: 8px;
+.product-sidebar-footer .connection-control > .connection-button:active {
+  background: var(--surface-hover);
+  transform: none;
 }
 
-.topbar.workspace-topbar .topbar-actions {
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-  max-width: 100%;
+.product-sidebar-footer .connection-control > :is(.connection-button, #apiQuotaRefresh):focus-visible {
+  background: var(--brand-key-active-bg, #dedfe3);
+  color: var(--text);
+  outline: none;
 }
 
-.workspace-topbar .topbar-actions .app-update-trigger {
-  margin-right: 0;
-}
-
-@media (max-width: 850px) {
-  .topbar.workspace-topbar {
-    row-gap: 8px;
+@media (forced-colors: active) {
+  .api-key-field input:focus,
+  .product-sidebar-footer .connection-control > :is(.connection-button, #apiQuotaRefresh):focus-visible {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
   }
 
-  .topbar.workspace-topbar .topbar-actions {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: center;
-    justify-self: stretch;
+  .api-key-field input:focus::placeholder {
+    color: HighlightText;
   }
 }
 
-@media (max-width: 480px) {
-  .topbar.workspace-topbar .product-switcher {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .topbar.workspace-topbar .topbar-actions > .connection-control,
-  .topbar .connection-control > .connection-button {
-    display: inline-flex;
-  }
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .connection-control {
+  flex-direction: column;
 }
 
-@media (max-width: 380px) {
-  .topbar.workspace-topbar .brand,
-  .topbar.workspace-topbar .product-switcher {
-    grid-column: 1 / -1;
-    justify-self: center;
-  }
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .connection-control > .connection-button {
+  justify-content: center;
+  padding-inline: 0;
+}
 
-  .topbar.workspace-topbar .product-switcher {
-    grid-row: 2;
-  }
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .connection-control > #apiQuotaRefresh {
+  inline-size: 100%;
+}
 
-  .topbar.workspace-topbar .topbar-actions {
-    grid-row: 3;
-  }
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .connection-control .sidebar-utility-icon {
+  display: block;
+}
+
+.connection-quota-row {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 11px;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-block-end: 12px;
+  min-block-size: 28px;
+}
+
+.connection-quota-row[hidden] {
+  display: none;
+}
+
+#connectionQuotaValue {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: end;
+  white-space: nowrap;
 }
 
 .connection-note {
@@ -347,8 +551,16 @@
 }
 
 .lark-auth-copy .primary-button {
+  border-style: solid;
+  border-width: 1px;
   height: 36px;
   margin-top: 10px;
+  padding: 0 15px;
+}
+
+.lark-auth-copy .primary-button:disabled {
+  cursor: wait;
+  opacity: 0.38;
 }
 
 .connection-dialog button:focus-visible,
@@ -364,10 +576,6 @@
 
 .remember-control input:focus-visible {
   outline: 0;
-}
-
-.connection-button.partial .status-dot {
-  background: #c58b22;
 }
 
 @media (max-width: 700px) {

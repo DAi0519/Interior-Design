@@ -1,36 +1,36 @@
 /**
  * [INPUT]: 依赖 node:test/assert、参考图安全边界与浏览器上传控制器，以及轻量 DOM/FileReader/Image 替身
- * [OUTPUT]: 对外提供图片策略/字节尺寸、最新有效单图并发优先/非法取消不打断、替换失败保留、多图追加及禁用/clear异步取消与通知回归
+ * [OUTPUT]: 对外提供生图大图与按实际格式上传、合计容量、文件字节尺寸、功能草稿、替换并发和异步取消回归
  * [POS]: test 的参考图能力与上传交互契约测试，不上传文件或调用公司 API
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import sharp from "sharp";
 import { bindReferenceUpload } from "../public/reference-upload.js";
 
 import {
+  GENERATION_REFERENCE_IMAGE_POLICY,
   REFERENCE_IMAGE_POLICY,
   normalizeReferenceImage,
   normalizeReferenceImages,
 } from "../src/reference-image.mjs";
+import { updateReferenceRequirements } from "../public/app-config-controls.js";
 
 const PNG_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z7JkAAAAASUVORK5CYII=";
 const PNG_BYTES = Buffer.from(PNG_DATA_URL.split(",")[1], "base64").length;
 
-test("参考图策略限制为最多四张、单张 8MB、合计 20MB", () => {
-  assert.deepEqual(REFERENCE_IMAGE_POLICY.accept, [
+test("生图参考图最多四张、合计 20MB，单图无额外字节上限", () => {
+  assert.deepEqual(GENERATION_REFERENCE_IMAGE_POLICY.accept, [
     "image/png",
     "image/jpeg",
     "image/webp",
   ]);
-  assert.equal(
-    REFERENCE_IMAGE_POLICY.maxBytesPerImage,
-    8 * 1024 * 1024,
-  );
-  assert.equal(REFERENCE_IMAGE_POLICY.maxCount, 4);
-  assert.equal(REFERENCE_IMAGE_POLICY.maxTotalBytes, 20 * 1024 * 1024);
+  assert.equal(GENERATION_REFERENCE_IMAGE_POLICY.maxBytesPerImage, null);
+  assert.equal(GENERATION_REFERENCE_IMAGE_POLICY.maxCount, 4);
+  assert.equal(GENERATION_REFERENCE_IMAGE_POLICY.maxTotalBytes, 20 * 1024 * 1024);
 });
 
 test("多张图片保留顺序并拒绝超过四张", () => {
@@ -51,6 +51,15 @@ test("多张图片保留顺序并拒绝超过四张", () => {
     () => normalizeReferenceImages([image, image, image, image, image]),
     /最多上传 4 张/,
   );
+});
+
+test("多图生成按真实 JPEG 读取误标为 PNG 的原文件", async () => {
+  const bytes = await sharp({ create: { width: 80, height: 45, channels: 3, background: "#e8e3db" } }).jpeg().toBuffer();
+  const content = bytes.toString("base64");
+  const source = { name: "reference.png", type: "image/png", dataUrl: `data:image/png;base64,${content}`, size: bytes.length };
+  const [image] = normalizeReferenceImages([source]);
+  assert.deepEqual([image.mimeType, image.width, image.height], ["image/jpeg", 80, 45]);
+  assert.equal(image.imageUrl, `data:image/jpeg;base64,${content}`);
 });
 
 test("调用方可以开放接口支持的格式并取消人为数量上限", () => {
@@ -116,17 +125,18 @@ test("拒绝 SVG、伪造 MIME 和错误字节数", () => {
 });
 
 // -------- 用可等待的文件选择事件覆盖真实控制器，不读取本地文件 --------
-function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true } = {}) {
+function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true, getScope } = {}) {
   const original = Object.fromEntries(["document", "FileReader", "Image"].map((key) => [key, globalThis[key]]));
   const sources = new Map();
   const reads = [], pendingReads = [];
   const element = () => {
     const listeners = new Map(), classes = new Set();
     return {
-      children: [], value: "", textContent: "",
+      attributes: new Map(), children: [], value: "", textContent: "",
       classList: { add: (name) => classes.add(name), remove: (name) => classes.delete(name),
         toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); } },
       addEventListener(name, callback) { listeners.set(name, [...(listeners.get(name) || []), callback]); },
+      setAttribute(name, value) { this.attributes.set(name, value); },
       async emit(name, properties = {}) {
         for (const callback of listeners.get(name) || []) await callback({ target: this, preventDefault() {}, ...properties });
       },
@@ -135,13 +145,19 @@ function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true } = {
       contains(child) { return child === this || this.children.some((node) => node.contains(child)); },
     };
   };
-  globalThis.document = { createElement: element };
+  globalThis.document = { createElement(tag) {
+    if (tag !== "canvas") return element();
+    return { getContext: () => ({ drawImage() {} }),
+      toBlob: resolve => resolve({ name: "converted.webp", type: "image/webp", size: 100 }) };
+  } };
   globalThis.FileReader = class {
     addEventListener(name, callback) { this[name] = callback; }
     readAsDataURL(file) {
       reads.push(file.name);
-      this.result = `data:${file.type};base64,${Buffer.from(file.name).toString("base64")}`;
-      sources.set(this.result, file);
+      const signature = file.signature ?? Buffer.from(PNG_DATA_URL.split(",")[1], "base64").subarray(0, 8);
+      const content = Buffer.concat([signature, Buffer.from(file.name)]).toString("base64");
+      this.result = `data:${file.type};base64,${content}`;
+      sources.set(content, file);
       const finish = () => this[file.readError ? "error" : "load"]();
       if (file.deferRead) pendingReads.push(finish); else queueMicrotask(finish);
     }
@@ -149,7 +165,7 @@ function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true } = {
   globalThis.Image = class {
     addEventListener(name, callback) { this[name] = callback; }
     set src(value) {
-      const file = sources.get(value);
+      const file = sources.get(value.split(",")[1]);
       this.naturalWidth = file.width || 1600; this.naturalHeight = file.height || 900;
       queueMicrotask(() => this[file.decodeError ? "error" : "load"]());
     }
@@ -163,7 +179,7 @@ function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true } = {
   const changes = [], messages = [];
   const controller = bindReferenceUpload({ ...ui, getLimit: () => limit,
     getPolicy: () => ({ ...REFERENCE_IMAGE_POLICY, ...policy }), getSubject: () => "原图",
-    isEnabled,
+    isEnabled, getScope,
     onChange: (change) => changes.push(change), showToast: (message) => messages.push(message) });
   return { ...ui, controller, changes, messages, reads,
     finishRead(index = 0) { assert.ok(pendingReads[index], "应有尚未完成的文件读取"); pendingReads.splice(index, 1)[0](); },
@@ -174,6 +190,55 @@ function uploadFixture(t, { limit = 1, policy = {}, isEnabled = () => true } = {
 }
 
 const uploadFile = (name, options = {}) => ({ name, type: "image/png", size: 6 * 1024 * 1024, ...options });
+
+test("参考图按当前功能显示，在途上传完成后归到原功能", async (t) => {
+  let scope = "imageRelight";
+  const ui = uploadFixture(t, { getScope: () => scope });
+  await ui.select([uploadFile("打光旧图.png")]);
+  const replacement = ui.select([uploadFile("打光新图.png", { deferRead: true })]);
+  scope = "emptyRoom";
+  ui.controller.render();
+  assert.deepEqual(ui.controller.images(), []);
+  await ui.select([uploadFile("空房.png")]);
+  const emptyRoomImage = ui.controller.images()[0];
+  ui.finishRead();
+  await replacement;
+  assert.equal(ui.controller.images()[0], emptyRoomImage);
+  assert.equal(ui.changes.length, 2);
+  assert.equal(ui.controller.imagesForScope("imageRelight")[0].name, "打光新图.png");
+  scope = "imageRelight";
+  ui.controller.render();
+  assert.equal(ui.controller.images()[0].name, "打光新图.png");
+  ui.controller.clear();
+  assert.equal(ui.controller.imagesForScope("emptyRoom")[0], emptyRoomImage);
+});
+
+test("生图上传接受大图并按实际文件内容识别，无格式提示", async (t) => {
+  const ui = uploadFixture(t, { policy: GENERATION_REFERENCE_IMAGE_POLICY });
+  await ui.select([uploadFile("large.png", { size: 9 * 1024 * 1024, signature: Buffer.from([0xff, 0xd8, 0xff]) })]);
+  assert.equal(ui.controller.images()[0]?.name, "large.png");
+  assert.equal(ui.controller.images()[0]?.type, "image/jpeg");
+  assert.match(ui.controller.images()[0].dataUrl, /^data:image\/jpeg;/);
+  assert.equal(ui.input.accept, "");
+  assert.deepEqual(ui.messages, []);
+
+  const hint = {};
+  updateReferenceRequirements({
+    referenceDropZone: { querySelector: () => hint },
+    referenceTitleCopy: {}, referenceOptional: {}, referenceDropLabel: {}, referenceInput: {},
+  }, { featureMode: "free", policy: GENERATION_REFERENCE_IMAGE_POLICY });
+  assert.equal(hint.textContent, "");
+});
+
+test("生图上传将浏览器能解码的 GIF 转为模型参考图", async (t) => {
+  const ui = uploadFixture(t, { policy: GENERATION_REFERENCE_IMAGE_POLICY });
+  await ui.select([uploadFile("reference.gif", { type: "image/gif", signature: Buffer.from("GIF89a") })]);
+  const [image] = ui.controller.images();
+  assert.equal(image.name, "reference.gif");
+  assert.equal(image.type, "image/webp");
+  assert.equal(image.size, 100);
+  assert.deepEqual(ui.messages, []);
+});
 
 test("单图先选择A再选择B原位替换，同文件重选、取消和拖入共用替换语义", async (t) => {
   const ui = uploadFixture(t, { policy: { maxTotalBytes: 8 * 1024 * 1024 } });

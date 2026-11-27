@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面图机位 UI 夹具与可控的送模预览响应
- * [OUTPUT]: 验证射线外接矩形裁剪开关的能力门禁、持久化和提交，以及只读预览、模式冻结和过时响应隔离、旧前景裁切及历史结果只读恢复
+ * [OUTPUT]: 验证矩形裁剪和送模预览、过时响应隔离、原图删除及现有结果保留
  * [POS]: test 的机位裁剪界面专项回归，不访问模型、飞书或网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -55,7 +55,9 @@ test('送模预览仅按点击读取，共用生成机位并携带旧版标记�
     return preview('裁剪图');
   } });
   assert.equal(f.node('showInputPreview').disabled, true);
+  assert.equal(f.node('viewActions').hidden, true);
   await place(f); await crop(f, true); await f.input('heading', 90);
+  assert.equal(f.node('viewActions').hidden, false);
   assert.equal(f.posts().length, 0);
   await f.click('showInputPreview');
   const [request] = callsAt(f, '/preview');
@@ -96,6 +98,8 @@ test('返回改机位再预览时，较晚完成的旧请求不能覆盖新图�
   const f = await fixture({ configuration: cropConfig, respond: () => attempts++ ? second.promise : first.promise });
   await place(f); await f.click('showInputPreview');
   assert.equal(f.node('inputPreviewView').attributes.get('aria-busy'), 'true');
+  assert.equal(f.node('generationFeedback').hidden, true);
+  assert.equal(f.node('viewActions').hidden, false);
   await f.click('showSource'); await f.input('heading', 90); await f.click('showInputPreview');
   second.resolve(preview('新机位'));
   await f.click('showInputPreview');
@@ -105,6 +109,59 @@ test('返回改机位再预览时，较晚完成的旧请求不能覆盖新图�
   assert.equal(f.node('inputPreview').src, preview('新机位').imageUrl);
   assert.equal(callsAt(f, '/preview').length, 2);
   assert.equal(callsAt(f, '/jobs').length, 0);
+});
+
+test('删除原图失效正在处理的送模预览，清空机位，保留参数并允许同名图重新上传', async () => {
+  const pending = Promise.withResolvers();
+  const f = await fixture({ configuration: cropConfig, embedded: true, respond: () => pending.promise });
+  assert.equal(f.node('removeSource').hidden, true);
+  await place(f);
+  await f.input('requirements', '保留用户补充说明');
+  await crop(f, true);
+  await f.input('heading', 90);
+  await f.click('showInputPreview');
+  assert.equal(f.node('removeSource').disabled, false);
+  await f.click('removeSource');
+  assert.equal(f.node('settings').getAttribute('data-camera-source'), 'empty');
+  assert.equal(f.node('settings').getAttribute('data-camera-canvas'), 'empty');
+  assert.equal(f.node('sourceCount').textContent, '0 / 1');
+  assert.equal(f.node('sourceThumbnail').src, undefined);
+  assert.equal(f.node('removeSource').hidden, true);
+  assert.equal(f.node('sourceInput').value, '');
+  assert.equal(f.node('empty').hidden, false);
+  assert.equal(f.node('generate').disabled, true);
+  assert.equal(f.node('inputPreviewView').hidden, true);
+  pending.resolve(preview('过期图'));
+  await f.input('requirements', '保留用户补充说明');
+  assert.equal(f.node('inputPreview').src, undefined);
+  assert.equal(f.node('previewMeta').textContent, '');
+  assert.equal(f.node('cropToView').checked, true);
+  assert.equal(f.node('requirements').value, '保留用户补充说明');
+  await f.upload(source('原始户型'));
+  assert.equal(f.node('heading').value, '0');
+  assert.equal(f.node('sourceThumbnail').hidden, false);
+  assert.equal(f.node('generate').disabled, true, '重新上传后需重新放置机位');
+  assert.equal(callsAt(f, '/jobs').length, 0);
+});
+
+test('生成有待确认任务时锁住删除，完成后清除草稿原图保留已有结果', async () => {
+  let complete = false;
+  const f = await fixture({ configuration: cropConfig, respond: async call => call.method === 'POST' || !complete
+    ? { job: { status: 'running' } } : { job: { status: 'success', result: rendered({ x: .5, y: .5, heading: 0, fov: 60 }) } } });
+  await place(f);
+  await f.click('generate');
+  assert.equal(f.node('removeSource').disabled, true);
+  await f.click('removeSource');
+  assert.equal(f.node('settings').getAttribute('data-camera-source'), 'ready');
+  complete = true; await f.nextPoll();
+  const resultUrl = f.node('result').src;
+  const { jobId } = JSON.parse(f.storage.get(SESSION));
+  await f.click('removeSource');
+  assert.equal(f.node('settings').getAttribute('data-camera-source'), 'empty');
+  assert.equal(f.node('resultView').hidden, false);
+  assert.equal(f.node('result').src, resultUrl);
+  assert.equal(JSON.parse(f.storage.get(SESSION)).jobId, jobId);
+  assert.equal(callsAt(f, '/jobs').length, 1);
 });
 
 test('新任务忽略旧裁切配置，空间推理选择冻结，旧结果仍只读恢复', async () => {

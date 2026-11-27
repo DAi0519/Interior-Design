@@ -195,13 +195,14 @@ test("入队拒绝不存在或其他样本集的样本ID，保持零取图零模
   }
 });
 
-test("取消 Beta 整批限制不改变普通生成的单图 8MB 与合计 20MB 保护", () => {
+test("Beta 单图保留 8MB 上限，生图参考图以合计 20MB 校验", () => {
   assert.equal(REFERENCE_IMAGE_POLICY.maxBytesPerImage, 8 * MIB);
   assert.equal(REFERENCE_IMAGE_POLICY.maxTotalBytes, 20 * MIB);
   const source = imageOfSize(7 * MIB);
   assert.throws(() => normalizeReferenceImages([source, source, source]), /合计不能超过 20MB/);
   const oversized = imageOfSize(8 * MIB + 1);
-  assert.throws(() => normalizeReferenceImages([oversized]), /不能超过 8MB/);
+  assert.equal(normalizeReferenceImages([oversized])[0].size, oversized.size);
+  assert.throws(() => normalizeReferenceImages([oversized], REFERENCE_IMAGE_POLICY), /不能超过 8MB/);
 });
 
 test("执行取到超限原图时不创建 Run 或调用模型，永久错误只读取一次", async () => {

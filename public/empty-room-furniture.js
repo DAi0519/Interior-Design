@@ -1,19 +1,22 @@
 /**
  * [INPUT]: 依赖服务端家具目录、房型选择、家具容器与输入变更回调
- * [OUTPUT]: 对外提供线上同名同序选项、房型默认多选与记忆、“其他”条件输入、目录更新清理、已选需求及配饰搭配说明与请求字段
+ * [OUTPUT]: 对外提供线上同名同序选项、按功能与房型记忆家具、“其他”条件输入、目录更新清理、搭配说明及请求字段
  * [POS]: public 的空房家具选择控制器，复用房型按钮视觉，不自行维护推荐目录
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 export function bindEmptyRoomFurniture({ root, onChange }) {
   let catalog = {};
+  let featureMode;
   let roomType = "";
-  const selections = new Map();
+  const drafts = new Map();
   const list = root.querySelector("[data-furniture-list]");
   const other = root.querySelector("[data-furniture-other]");
   const otherField = other.closest("label");
   const note = root.querySelector("[data-furniture-note]");
   function current() {
+    if (!drafts.has(featureMode)) drafts.set(featureMode, new Map());
+    const selections = drafts.get(featureMode);
     if (!selections.has(roomType)) selections.set(roomType, {
       items: [...(catalog[roomType]?.defaults || [])], other: "", custom: false,
     });
@@ -66,13 +69,15 @@ export function bindEmptyRoomFurniture({ root, onChange }) {
   return {
     configure(nextCatalog, maxLength) {
       catalog = nextCatalog || {};
-      for (const [room, value] of selections) {
-        value.items = value.items.filter((item) => catalog[room]?.options.includes(item) && item !== catalog[room].customOption);
+      for (const selections of drafts.values()) {
+        for (const [room, value] of selections) {
+          value.items = value.items.filter((item) => catalog[room]?.options.includes(item) && item !== catalog[room].customOption);
+        }
       }
       other.maxLength = maxLength || 200;
       render();
     },
-    setRoomType(value) { roomType = value; render(); },
+    setContext(mode, room) { featureMode = mode; roomType = room; render(); },
     requestFields() {
       const value = current();
       return { furnitureSelection: { items: [...value.items], other: value.custom ? value.other.trim() : "" } };

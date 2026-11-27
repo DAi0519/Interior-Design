@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、共享搜索单选下拉的内存 DOM 替身及设计配置/图片能力/生成输入/任务恢复纯函数
- * [OUTPUT]: 对外提供风格转换单主图/单选/独立Agent、真实配置错误与正常无说明、参考互斥/删除恢复、图片共享和任务隔离回归
+ * [OUTPUT]: 验证风格转换主图/单选/独立 Agent、设计功能各自恢复风格、配置错误与参考互斥、图片和任务隔离
  * [POS]: test 的风格转换浏览器合同测试，不调用付费模型或真实飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -214,6 +214,13 @@ test("搜索单选下拉保留风格隔离、明确目标、参考图互斥与�
   assert.equal(controller.current().mode, null);
   assert.equal(changes.length, 2);
   assert.ok(changes.every((choice) => choice.mode === "style-dna" && choice.styleCode === style.code));
+  controller.setDesignContext({ featureMode: "emptyRoom" });
+  assert.equal(controller.current().mode, "smart-default");
+  selectStyle();
+  controller.setDesignContext({ featureMode: "roomRenovation" });
+  assert.equal(controller.current().mode, "smart-default");
+  controller.setDesignContext({ featureMode: "emptyRoom" });
+  assert.equal(controller.current().styleCode, style.code);
 });
 
 function inputFor(renderMode) {

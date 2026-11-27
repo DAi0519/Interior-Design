@@ -1,16 +1,52 @@
 /**
- * [INPUT]: 依赖图片文件读取、可信尺寸探测、浏览器上传 DOM、服务端图片策略、调用方数量/名称及可选启用状态
- * [OUTPUT]: 对外提供单/多图预览/替换/删除/拖放、最新有效单图读取优先、非法/取消保留、禁用及清空中断异步回写与通知
- * [POS]: public 的参考图上传交互层，被主白模/精模图与白模风格参考图两个独立输入位复用
+ * [INPUT]: 依赖文件读取、图片像素解码、共享格式识别、浏览器上传 DOM 和调用方图片策略
+ * [OUTPUT]: 提供按功能保留的上传、预览与替换、对话附件角标挂接点，以及上传格式处理
+ * [POS]: public 的参考图上传交互层，供独立上传位与首页同一主参考图数据复用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { readImageDimensions } from "./image-ratio.js";
+import { loadImage } from "./image-ratio.js";
+import { referenceImageMime } from "./reference-image-format.js";
 import { formatBytes, readFileAsDataUrl } from "./workbench-utils.js";
+
+async function readReferenceFile(file, normalizeFormats) {
+  let dataUrl = await readFileAsDataUrl(file);
+  let type = file.type;
+  let size = file.size;
+  let requiresConversion = false;
+  if (normalizeFormats) {
+    const comma = dataUrl.indexOf(",");
+    const signature = atob(dataUrl.slice(comma + 1, comma + 17));
+    const actualType = referenceImageMime(Uint8Array.from(signature, char => char.charCodeAt(0)));
+    requiresConversion = !actualType;
+    if (actualType) {
+      type = actualType;
+      dataUrl = `data:${type};base64,${dataUrl.slice(comma + 1)}`;
+    }
+  }
+
+  const image = await loadImage(dataUrl, file.name);
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (requiresConversion) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error(`无法转换 ${file.name}`);
+    context.drawImage(image, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/webp", 0.95));
+    if (!blob) throw new Error(`无法转换 ${file.name}`);
+    dataUrl = await readFileAsDataUrl(blob);
+    type = blob.type;
+    size = blob.size;
+  }
+  return { dataUrl, width, height, id: crypto.randomUUID(), name: file.name, size, type };
+}
 
 function createReferenceItem(image, onRemove, { replaceEnabled = false } = {}) {
   const item = document.createElement("article");
   item.className = "reference-item";
+  item.setAttribute("data-chat-attachment", "");
   const preview = document.createElement("img");
   preview.src = image.dataUrl;
   preview.alt = "";
@@ -32,6 +68,7 @@ function createReferenceItem(image, onRemove, { replaceEnabled = false } = {}) {
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "reference-remove";
+  remove.setAttribute("data-chat-attachment-remove", "");
   remove.ariaLabel = `移除 ${image.name}`;
   remove.textContent = "×";
   remove.addEventListener("click", onRemove);
@@ -47,18 +84,27 @@ export function bindReferenceUpload({
   getSubject,
   input,
   list,
+  getScope = () => null,
   isEnabled = () => true,
   onChange = () => {},
   showToast,
 }) {
-  let images = [];
-  let epoch = 0;
+  list.setAttribute("data-chat-attachment-list", "");
+  const drafts = new Map();
+  function draftFor(scope) {
+    if (!drafts.has(scope)) drafts.set(scope, { images: [], epoch: 0 });
+    return drafts.get(scope);
+  }
 
   function render() {
+    const draft = draftFor(getScope());
+    const { images } = draft;
     const enabled = isEnabled();
     input.disabled = !enabled;
+    const policy = getPolicy();
+    if (policy) input.accept = policy.normalizeFormats ? "" : policy.accept.join(",");
     if (!enabled) {
-      epoch += 1;
+      draft.epoch += 1;
       dropZone.classList.remove("dragging");
     }
     const limit = getLimit();
@@ -68,14 +114,22 @@ export function bindReferenceUpload({
     list.classList.toggle("replace-enabled", replaceEnabled);
     if (!replaceEnabled) list.classList.remove("dragging");
     list.replaceChildren(
-      ...images.map((image) => createReferenceItem(image, () => {
-        epoch += 1;
-        const previousImages = images;
-        images = images.filter((entry) => entry.id !== image.id);
-        render();
-        onChange({ images: images.slice(), previousImages });
+      ...images.map((image, index) => createReferenceItem(image, () => {
+        remove(image.id);
+        const neighbor = list.children[index] ?? list.lastElementChild;
+        (neighbor?.querySelector(".reference-remove") ?? input).focus({ preventScroll: true });
       }, { replaceEnabled })),
     );
+  }
+
+  function remove(id) {
+    const draft = draftFor(getScope());
+    if (!draft.images.some(image => image.id === id)) return;
+    draft.epoch += 1;
+    const previousImages = draft.images;
+    draft.images = previousImages.filter(image => image.id !== id);
+    render();
+    onChange({ images: draft.images.slice(), previousImages });
   }
 
   async function addFiles(fileList, { replace = false } = {}) {
@@ -84,9 +138,11 @@ export function bindReferenceUpload({
     if (!policy) return;
     const limit = getLimit();
     const subject = getSubject();
+    const scope = getScope();
+    const draft = draftFor(scope);
     const incoming = Array.from(fileList);
     if (incoming.length === 0) return;
-    const baseImages = replace ? [] : images;
+    const baseImages = replace ? [] : draft.images;
     const remaining = limit - baseImages.length;
     if (remaining <= 0) {
       showToast(`最多添加 ${limit} 张${subject}`);
@@ -99,11 +155,11 @@ export function bindReferenceUpload({
         : `本次只添加前 ${remaining} 张，最多支持 ${limit} 张${subject}`);
     }
     for (const file of accepted) {
-      if (!policy.accept.includes(file.type)) {
+      if (!policy.normalizeFormats && !policy.accept.includes(file.type)) {
         showToast(`${file.name} 不是 PNG、JPEG 或 WebP`);
         return;
       }
-      if (file.size > policy.maxBytesPerImage) {
+      if (policy.maxBytesPerImage != null && file.size > policy.maxBytesPerImage) {
         showToast(`${file.name} 超过单张 ${Math.floor(policy.maxBytesPerImage / 1024 / 1024)}MB 限制`);
         return;
       }
@@ -116,36 +172,37 @@ export function bindReferenceUpload({
     }
 
     // --- 单图仅在同步校验通过后取消旧读取，非法文件与取消不影响在途有效图片 ---
-    const readEpoch = limit === 1 ? ++epoch : epoch;
+    const readEpoch = limit === 1 ? ++draft.epoch : draft.epoch;
     let nextImages;
     try {
-      nextImages = await Promise.all(accepted.map(async (file) => {
-        const dataUrl = await readFileAsDataUrl(file);
-        const dimensions = await readImageDimensions(dataUrl, file.name);
-        return {
-          dataUrl,
-          ...dimensions,
-          id: crypto.randomUUID(),
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        };
-      }));
+      nextImages = await Promise.all(accepted.map(file => readReferenceFile(file, policy.normalizeFormats)));
     } catch (error) {
-      if (readEpoch === epoch && isEnabled()) showToast(error.message);
+      if (scope === getScope() && readEpoch === draft.epoch && isEnabled()) showToast(error.message);
       return;
     }
     // --- 来源已清除或切为互斥选项时，丢弃尚未完成的文件读取 ---
-    if (readEpoch !== epoch || !isEnabled()) return;
-    const previousImages = images;
-    images = replace ? nextImages : [...images, ...nextImages];
+    const current = scope === getScope();
+    if (readEpoch !== draft.epoch || (current && !isEnabled())) return;
+    const next = replace ? nextImages : [...draft.images, ...nextImages];
+    if (next.length > limit) {
+      if (current) showToast(`最多添加 ${limit} 张${subject}`);
+      return;
+    }
+    if (next.reduce((total, image) => total + image.size, 0) > policy.maxTotalBytes) {
+      if (current) showToast(`${subject}合计不能超过 ${Math.floor(policy.maxTotalBytes / 1024 / 1024)}MB`);
+      return;
+    }
+    const previousImages = draft.images;
+    draft.images = next;
+    if (!current) return;
     render();
-    onChange({ images: images.slice(), previousImages });
+    onChange({ images: next.slice(), previousImages });
   }
 
-  input.addEventListener("change", async (event) => {
-    await addFiles(event.target.files, { replace: canReplaceImage() });
+  input.addEventListener("change", (event) => {
+    const files = Array.from(event.target.files);
     event.target.value = "";
+    return addFiles(files, { replace: canReplaceImage() });
   });
   for (const eventName of ["dragenter", "dragover"]) {
     dropZone.addEventListener(eventName, (event) => {
@@ -165,7 +222,7 @@ export function bindReferenceUpload({
   });
 
   function canReplaceImage() {
-    return isEnabled() && getLimit() === 1 && images.length === 1;
+    return isEnabled() && getLimit() === 1 && draftFor(getScope()).images.length === 1;
   }
 
   for (const eventName of ["dragenter", "dragover"]) {
@@ -189,13 +246,15 @@ export function bindReferenceUpload({
   });
 
   function clear({ notify = true } = {}) {
-    epoch += 1;
-    const previousImages = images;
-    images = [];
+    const draft = draftFor(getScope());
+    draft.epoch += 1;
+    const previousImages = draft.images;
+    draft.images = [];
     input.value = "";
     render();
     if (notify) onChange({ images: [], previousImages });
   }
 
-  return { images: () => images.slice(), render, clear };
+  const imagesForScope = scope => drafts.get(scope)?.images.slice() || [];
+  return { images: () => imagesForScope(getScope()), imagesForScope, addFiles, remove, render, clear };
 }

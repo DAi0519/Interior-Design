@@ -1,0 +1,103 @@
+/**
+ * [INPUT]: 依赖原参数区、按钮锚定下拉及共享银灰令牌
+ * [OUTPUT]: 提供紧贴触发按钮的非模态浮层、紧凑下拉和视口内滚动，已选项键盘焦点复用原文字
+ * [POS]: public 的首页及工作区参数选择样式
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.home-image-chat-parameter-source {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.parameter-popover:not(:popover-open) {
+  display: none;
+}
+
+.parameter-popover:popover-open {
+  --workspace-parameter-inset: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: var(--select-menu-shadow);
+  box-sizing: border-box;
+  color: var(--text);
+  inset: var(--parameter-popover-top, 8px) auto auto var(--parameter-popover-left, 8px);
+  inline-size: var(--parameter-popover-width, 312px);
+  margin: 0;
+  max-block-size: var(--parameter-popover-height, calc(100dvh - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  position: fixed;
+  visibility: visible;
+}
+
+.parameter-popover [hidden],
+.parameter-popover :is([data-home-chat-moved], .compact-config-note:not(.error)) {
+  display: none;
+}
+
+.parameter-popover .refined-lighting-section {
+  padding: 10px 0;
+}
+
+.parameter-popover :is(.room-type-option, .model-option-toggle):focus-visible {
+  background: var(--brand-key-active-bg);
+  outline: none;
+}
+
+.parameter-popover :is(.room-type-option, .model-option-toggle)[aria-checked="true"]:focus-visible {
+  background: var(--brand-key-selected-bg);
+  color: var(--brand-key-selected-ink);
+  -webkit-text-stroke: .5px currentColor;
+}
+
+.home-image-chat-inline-parameters .home-image-chat-quick-field {
+  flex: 0 1 auto;
+  inline-size: auto;
+  min-inline-size: 0;
+}
+
+.home-image-chat-inline-parameters .home-image-chat-quick-field > span {
+  position: absolute;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+}
+
+.home-image-chat-inline-parameters .home-image-chat-quick-field .model-picker-trigger {
+  --model-picker-menu-min-width: 168px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  min-block-size: 32px;
+  font-size: 12px;
+}
+
+.home-image-chat-inline-parameters .home-image-chat-quick-field .model-picker-trigger:is(:focus-visible, [aria-expanded="true"]) {
+  background: var(--brand-key-active-bg);
+}
+
+.home-image-chat-settings .home-image-chat-quick-field #modelOptions.model-picker {
+  width: 100%;
+}
+
+@media (max-width: 900px), (any-pointer: coarse) {
+  .home-image-chat-inline-parameters .home-image-chat-quick-field .model-picker-trigger,
+  .parameter-popover :is(.room-type-option, .model-option-toggle) {
+    min-block-size: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .parameter-popover :is(.room-type-option, .model-option-toggle):focus-visible {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}

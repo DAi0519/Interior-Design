@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 benchmark.html 的实验草稿字段与 benchmark.css 的 Light Command Center 令牌
- * [OUTPUT]: 对外提供上置实验因子、选择器与计数同组、无重复候选标题、紧凑候选值、收窄固定参数栅格和不可用状态的响应式视觉
+ * [INPUT]: 依赖 benchmark.html 的实验草稿字段、benchmark.css 的设计令牌与 benchmark-workspace 宽度容器
+ * [OUTPUT]: 对外提供实验因子、选择器与计数同组、紧凑候选值、按剩余工作区宽度重排的固定参数栅格与不可用状态
  * [POS]: public 的 Benchmark 实验配置增量视觉层，与样本集增量样式分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -173,7 +173,7 @@
   opacity: 0.64;
 }
 
-@media (max-width: 1300px) {
+@container benchmark-workspace (max-width: 1300px) {
   .experiment-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -183,7 +183,7 @@
   }
 }
 
-@media (max-width: 1000px) {
+@container benchmark-workspace (max-width: 1000px) {
   .parameter-grid,
   .parameter-grid.volume {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -195,7 +195,7 @@
   }
 }
 
-@media (max-width: 680px) {
+@container benchmark-workspace (max-width: 680px) {
   .experiment-variable-toolbar {
     align-items: stretch;
     flex-direction: column;

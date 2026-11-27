@@ -1,16 +1,13 @@
 /**
- * [INPUT]: 依赖连接中心和顶栏额度 DOM、同源 Setup/Session/OneAPI 额度 API、飞书授权中文解释器、`?connect=api` 深链及工作台状态回调
- * [OUTPUT]: 提供合并在顶栏的连接状态与当前 Key 额度刷新、OneAPI 本机记忆、评测页直达 API 管理、飞书授权与同步状态及弹层焦点管理
+ * [INPUT]: 依赖 connection-center-markup.js 的共享弹层、sidebar-quota.js 的共用读数、同源 Setup/Session API、飞书授权解释器、连接深链和工作台状态回调
+ * [OUTPUT]: 提供侧栏与弹层共用的当前 Key 额度、侧栏手动刷新与焦点保留、OneAPI 本机记忆及飞书授权状态
  * [POS]: public 的运营首次运行控制器，统一连接状态与焦点秩序并与 app.js 生成状态分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { describeMissingLarkScopes } from "./lark-permission-labels.js";
-
-const quotaNumber = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 6 });
-const quotaTime = new Intl.DateTimeFormat("zh-CN", {
-  month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-});
+import { mountConnectionCenterMarkup } from "./connection-center-markup.js";
+import { bindSidebarQuota } from "./sidebar-quota.js?v=2";
 
 function emptySetup(error = null) {
   return {
@@ -36,21 +33,21 @@ export function bindConnectionCenter({
   onApiConnected,
   onApiDisconnected,
   onApiStateChange,
-  onLarkReady,
+  onLarkReady = () => {},
   onLarkStateChange = () => {},
   showToast,
 }) {
+  const connectionDialog = mountConnectionCenterMarkup(document);
   const elements = {
     apiKeyInput: document.querySelector("#apiKeyInput"),
     apiNote: document.querySelector("#apiConnectionNote"),
-    apiQuotaDetail: document.querySelector("#apiQuotaDetail"),
-    apiQuotaRefresh: document.querySelector("#apiQuotaRefresh"),
-    apiQuotaValue: document.querySelector("#apiQuotaValue"),
     apiStatus: document.querySelector("#apiConnectionStatus"),
     closeButton: document.querySelector("#closeDialogButton"),
     connectionButton: document.querySelector("#connectionButton"),
-    connectionDialog: document.querySelector("#connectionDialog"),
+    connectionDialog,
     connectionError: document.querySelector("#connectionError"),
+    connectionQuotaRow: document.querySelector("#connectionQuotaRow"),
+    connectionQuotaValue: document.querySelector("#connectionQuotaValue"),
     disconnectButton: document.querySelector("#disconnectButton"),
     larkAuthPanel: document.querySelector("#larkAuthPanel"),
     larkBaseState: document.querySelector("#larkBaseState"),
@@ -74,8 +71,12 @@ export function bindConnectionCenter({
   let lastFocusedElement = null;
   let session = { connected: false, persisted: false, source: "none" };
   let setup = emptySetup();
-  let quotaRequest = null;
   let updatingApiSession = false;
+  const updateSidebarQuota = bindSidebarQuota({ api, onDisplay(value, connected) {
+    elements.connectionQuotaValue.textContent = value;
+    elements.connectionQuotaRow.hidden = !connected;
+    renderOverall();
+  } });
 
   function isOpen() {
     return !elements.connectionDialog.classList.contains("hidden");
@@ -92,51 +93,6 @@ export function bindConnectionCenter({
     return [...elements.connectionDialog.querySelectorAll(selector)].filter(
       (element) => element.getClientRects().length > 0,
     );
-  }
-
-  // --- 仅显示当前 Key 查询的结果 ---
-  function renderQuota(value, detail = "") {
-    elements.apiQuotaValue.textContent = value;
-    elements.apiQuotaDetail.textContent = session.connected
-      ? [`OneAPI 额度 ${value}`, detail].filter(Boolean).join("，")
-      : "";
-    renderOverall();
-  }
-
-  async function refreshQuota() {
-    quotaRequest?.abort();
-    quotaRequest = null;
-    elements.apiQuotaRefresh.hidden = !session.connected;
-    elements.apiQuotaRefresh.disabled = true;
-    if (updatingApiSession || !session.connected) {
-      renderQuota(updatingApiSession ? "连接中…" : "连接中心");
-      return;
-    }
-
-    const request = new AbortController();
-    quotaRequest = request;
-    renderQuota("读取额度…");
-    try {
-      const { remaining, currency, unlimited, checkedAt } = await api("/api/oneapi/quota", {
-        cache: "no-store", signal: request.signal,
-      });
-      if (quotaRequest !== request) return;
-      const time = typeof checkedAt === "string" ? Date.parse(checkedAt) : NaN;
-      const detail = Number.isFinite(time) ? `查询时间 ${quotaTime.format(time)}` : "";
-      const amount = Number.isFinite(remaining)
-        ? [quotaNumber.format(remaining), currency].filter(Boolean).join(" ")
-        : "暂不可用";
-      renderQuota(unlimited ? "不限额" : amount, detail);
-    } catch (error) {
-      if (quotaRequest === request) {
-        renderQuota("额度查询失败", error.statusCode === 404 ? "额度接口暂不可用" : error.message);
-      }
-    } finally {
-      if (quotaRequest === request) {
-        quotaRequest = null;
-        elements.apiQuotaRefresh.disabled = false;
-      }
-    }
   }
 
   function open({ focusApi = false } = {}) {
@@ -163,12 +119,13 @@ export function bindConnectionCenter({
     if (!isOpen()) return;
     elements.connectionDialog.classList.add("hidden");
     elements.connectionDialog.setAttribute("aria-hidden", "true");
-    const focusTarget =
-      lastFocusedElement?.isConnected
-        ? lastFocusedElement
-        : elements.connectionButton;
+    const previous = lastFocusedElement;
     lastFocusedElement = null;
-    window.requestAnimationFrame(() => focusTarget.focus());
+    window.requestAnimationFrame(() => {
+      const focusTarget = [previous, elements.connectionButton, document.getElementById("productSidebarOpen")]
+        .find((element) => element?.isConnected && element.getClientRects().length > 0);
+      focusTarget?.focus({ preventScroll: true });
+    });
   }
 
   function renderOverall() {
@@ -183,7 +140,6 @@ export function bindConnectionCenter({
         : "尚未连接";
     const label = `打开连接中心，${status}`;
     elements.connectionButton.setAttribute("aria-label", label);
-    elements.connectionButton.title = [label, elements.apiQuotaDetail.textContent].filter(Boolean).join(" · ");
   }
 
   function renderApi(nextSession) {
@@ -273,7 +229,7 @@ export function bindConnectionCenter({
       api("/api/session").then((body) => {
         if (session === previousSession) {
           renderApi(body);
-          void refreshQuota();
+          void updateSidebarQuota(session);
         }
       }),
       loadSetup(),
@@ -293,14 +249,14 @@ export function bindConnectionCenter({
 
   async function updateApiSession(options) {
     updatingApiSession = true;
-    void refreshQuota();
+    void updateSidebarQuota(session, { updating: true });
     try {
       const body = await api("/api/session", options);
       renderApi(body);
       return body;
     } finally {
       updatingApiSession = false;
-      void refreshQuota();
+      void updateSidebarQuota(session);
     }
   }
 
@@ -442,7 +398,6 @@ export function bindConnectionCenter({
   elements.closeButton.addEventListener("click", close);
   elements.saveConnectionButton.addEventListener("click", connectApi);
   elements.disconnectButton.addEventListener("click", disconnectApi);
-  elements.apiQuotaRefresh.addEventListener("click", refreshQuota);
   elements.larkLoginButton.addEventListener("click", startLarkLogin);
   elements.larkCompleteButton.addEventListener("click", completeLarkLogin);
   elements.larkRefreshButton.addEventListener("click", refreshLark);
@@ -454,7 +409,7 @@ export function bindConnectionCenter({
     if (event.target === elements.connectionDialog) close();
   });
   document.addEventListener("keydown", (event) => {
-    if (!isOpen()) return;
+    if (event.defaultPrevented || !isOpen() || document.querySelector("dialog[open]")) return;
     if (event.key === "Escape") {
       event.preventDefault();
       close();

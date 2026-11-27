@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 index.html 的 Style DNA 模型/对话结构、styles.css 设计令牌与 style-dna-chat.js 状态类
- * [OUTPUT]: 对外提供反推模型、图片/PDF 附件卡、兼容内嵌功能目录的等高对话面板与独立滚动消息流视觉
+ * [OUTPUT]: 对外提供反推模型、图片/PDF 附件卡、无标题带的对话面板与独立滚动消息流、底部对话操作视觉
  * [POS]: public 的 Style DNA 反推预览样式，与生成结果样式并列且仅在风格反推模式展示
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -25,10 +25,6 @@
   flex: 0 0 auto;
 }
 
-.style-dna-chat-header {
-  min-height: 112px;
-}
-
 .style-dna-chat {
   display: flex;
   flex: 1;
@@ -41,27 +37,6 @@
   height: auto;
   min-height: 0;
   padding: 0;
-}
-
-.style-dna-chat-header {
-  align-items: flex-start;
-  display: flex;
-  justify-content: space-between;
-  padding: 20px;
-}
-
-.style-dna-chat-header h2 {
-  font-size: 16px;
-  letter-spacing: -0.02em;
-  margin: 0 0 5px;
-}
-
-.style-dna-chat-header p {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.55;
-  margin: 0;
-  max-width: 660px;
 }
 
 .style-dna-thread {
@@ -377,7 +352,7 @@
   pointer-events: none;
 }
 
-.composer-attachment-tools {
+:is(.composer-attachment-tools, .composer-submit-tools) {
   align-items: center;
   display: flex;
   gap: 7px;
@@ -459,9 +434,6 @@
     height: clamp(600px, calc(100dvh - 120px), 760px);
   }
 
-  .style-dna-chat-header {
-    min-height: 0;
-  }
 }
 
 @media (max-width: 700px) {

@@ -21,7 +21,7 @@
 | 文生图 | 复用 `generateImage` → `/images/generations` |
 | 图生图 | 复用同一客户端 → `/responses` 的 `image_generation` 工具 |
 
-每次只提交一张，不自动重试收费请求。PNG/JPEG 沿用现有客户端格式投影；不带 GPT 专属 quality 或 complexity。上游最多支持 10 张参考图，工作台继续沿用既有最多 4 张、单张 8 MB、合计 20 MB 的上传合同。
+每次只提交一张，不自动重试收费请求。PNG/JPEG 沿用现有客户端格式投影；不带 GPT 专属 quality 或 complexity。上游最多支持 10 张参考图，生图工作台上传参考图最多 4 张，合计不超过 20 MB。
 
 ## 尺寸
 

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 generation-results、任务控制器、带版本入口的生成编排器与结果视觉源码
- * [OUTPUT]: 对外提供原图/结果图滑动对比、键盘语义、页面内存边界、扩图异画幅对比隔离及无原图降级的回归保障
+ * [OUTPUT]: 对外提供原图/结果对比、键盘语义、原图内存边界、页面等待态、新图揭示及历史成功卡复用的回归保障
  * [POS]: test 的生成结果对比专项测试，不提交真实生图任务或持久化图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -13,6 +13,8 @@ import {
   comparisonValueText,
   normalizeComparisonSplit,
 } from "../public/generation-results.js";
+import { bindGenerationTaskController } from "../public/generation-task-controller.js";
+import { createGenerationTask } from "../public/generation-task-state.js";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -66,6 +68,103 @@ test("任务原图只保存在当前页面内存并由生成入口显式传入",
   assert.match(controller, /comparisonImages\.set\(currentTask\.featureMode, comparisonImage\)/);
   assert.match(controller, /saveGenerationTask\(storage, currentTask\)/);
   assert.doesNotMatch(controller, /saveGenerationTask\(storage, currentTask, comparisonImage\)/);
-  assert.match(html, /result\.css\?v=15/);
+  assert.match(html, /result\.css\?v=19/);
   assert.match(html, /app\.js\?v=\d+/);
+});
+
+test("新任务切出后保留首次可见的揭示，历史回执与重复渲染直接显示", () => {
+  const store = new Map();
+  const calls = [];
+  let visible = true;
+  const options = {
+    generationResults: {
+      showLoading: (message) => calls.push(message),
+      showResults: (outcomes, { jobId, reveal }) => calls.push([outcomes, jobId, reveal]),
+    },
+    getFeatureMode: () => "free",
+    canPresent: () => visible,
+    onBusy() {},
+    storage: { getItem: (key) => store.get(key), setItem: (key, value) => store.set(key, value) },
+  };
+  const controller = bindGenerationTaskController(options);
+  const task = createGenerationTask({
+    featureMode: "free", loadingLabel: "正在提交…",
+    models: [{ key: "example", label: "模型" }], createId: () => "feedback",
+  });
+  const outcomes = [{ status: "fulfilled" }, { status: "rejected" }];
+  controller.start(task);
+  controller.setJob(task.jobId, { status: "running", completed: 1, total: 2 });
+  controller.render();
+  const job = { status: "success", result: { outcomes } };
+  visible = false;
+  controller.setJob(task.jobId, job);
+  controller.render();
+  assert.deepEqual(calls, ["正在提交…", "已完成 1 / 2 张图…"]);
+  visible = true;
+  controller.render();
+  controller.render();
+  const restored = bindGenerationTaskController(options);
+  restored.setJob(task.jobId, job);
+  restored.render();
+  assert.deepEqual(calls, [
+    "正在提交…", "已完成 1 / 2 张图…",
+    [outcomes, task.jobId, true],
+    [outcomes, task.jobId, false],
+    [outcomes, task.jobId, false],
+  ]);
+});
+
+test("首页隐藏背景自由生图任务时继续同步忙碌状态和保留首次揭示", () => {
+  const store = new Map();
+  const states = [];
+  const reveals = [];
+  let ownsTask = false;
+  const controller = bindGenerationTaskController({
+    getFeatureMode: () => "free",
+    canShowTask: () => ownsTask,
+    onBusy: (busy, { running }) => states.push([busy, running]),
+    generationResults: {
+      showLoading: () => assert.fail("背景任务不进入首页画廊"),
+      showResults: (outcomes, { reveal }) => reveals.push([outcomes, reveal]),
+    },
+    storage: { getItem: key => store.get(key), setItem: (key, value) => store.set(key, value) },
+  });
+  const task = createGenerationTask({ featureMode: "free", loadingLabel: "生成中",
+    models: [{ key: "example", label: "模型" }], createId: () => "background" });
+  controller.start(task);
+  controller.setJob(task.jobId, { status: "running" });
+  controller.render();
+  const outcomes = [{ status: "fulfilled" }];
+  controller.setJob(task.jobId, { status: "success", result: { outcomes } });
+  controller.render();
+  assert.deepEqual(states, [[true, false], [true, true], [false, false]]);
+  assert.deepEqual(reveals, []);
+  ownsTask = true;
+  controller.render();
+  assert.deepEqual(reveals, [[outcomes, true]]);
+});
+
+test("等待状态位于占位上方，画廊只揭示新任务的成功图片", async () => {
+  const [results, html] = await Promise.all([read("../public/generation-results.js"), read("../public/index.html")]);
+  assert.match(html, /id="loadingLabel" class="generation-feedback-text" role="status"[^>]*>[^<]+<\/p>\s*<div class="generation-feedback-preview" aria-hidden="true">/);
+  assert.doesNotMatch(html, /class="scan-line"/);
+  assert.match(results, /renderedResults\.outcomes === outcomes/);
+  assert.match(results, /showResults\(outcomes, \{[^}]*reveal = false/);
+  assert.match(results, /if \(outcome\.status === "fulfilled"\) \{\s*if \(reveal\) revealGenerationImage/);
+});
+
+test("首页历史用对应任务的成功卡和原图，不把失败写入图片网格", async () => {
+  const [chat, results] = await Promise.all([
+    read("../public/home-image-chat.js"), read("../public/generation-results.js"),
+  ]);
+  const archive = chat.slice(chat.indexOf("function archive(view)"), chat.indexOf("async function upload"));
+  const gallery = results.slice(results.indexOf("showArchive("), results.indexOf("showEmpty()"));
+  assert.match(archive, /if \(view\.stage !== "results"\) return/);
+  assert.match(archive, /renderHistory\(outputs, view, homeJobId\)/);
+  assert.match(archive, /if \(!outputs\.childElementCount\) return/);
+  assert.match(gallery, /outcome\.status === "fulfilled" && outcome\.value\?\.images\?\.\[0\]\?\.url/);
+  assert.match(gallery, /renderedResults\?\.jobId === jobId && renderedResults\.outcomes === outcomes/);
+  assert.match(gallery, /resultCard\(outcome, \{ comparisonImage, featureMode \}\)/);
+  assert.match(gallery, /gallery\.replaceChildren\(\.\.\.cards\)/);
+  assert.match(results, /archivedCards\.has\(card\) \? card\.isConnected : renderId === currentRenderId/);
 });

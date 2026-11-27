@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Style DNA 反推 DOM、共享本地 API、服务端图片/PDF 附件能力策略、Agent 模型目录与浏览器文件能力
- * [OUTPUT]: 对外提供Prompt版本/模型选择与真实配置错误、参考附件/多模态分析/修正、草稿展示及复制重置；正常版本不显示说明
+ * [OUTPUT]: 提供 Prompt 版本和模型选择、发送校验、图片角标及 PDF 附件、多模态分析与草稿展示
  * [POS]: public 的 Style DNA 反推浏览器控制器，以服务端附件能力为上传单一真源并与生成控制器隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -213,7 +213,14 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     promptVersions: [],
     attachmentPolicy: normalizedAttachmentPolicy(),
     sending: false,
+    home: false,
   };
+  const sendStatus = elements.chat.ownerDocument.createElement("p");
+  sendStatus.id = "styleDnaSendStatus";
+  sendStatus.className = "style-dna-send-status";
+  sendStatus.setAttribute("role", "status");
+  sendStatus.hidden = true;
+  elements.input.before(sendStatus);
 
   function setPromptVersion(version) {
     state.promptVersion = Number.isInteger(version) && version > 0
@@ -256,6 +263,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         : "飞书中没有可测试的已上架 Prompt 版本。";
     elements.promptVersionNote.classList.toggle("error", versions.length === 0);
     elements.promptVersionNote.hidden = versions.length > 0;
+    syncSendState();
   }
 
   function setPromptRefreshPending(pending) {
@@ -312,6 +320,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
       return option;
     });
     elements.modelSelect.replaceChildren(...options);
+    syncSendState();
   }
 
   function renderAttachments() {
@@ -327,7 +336,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     elements.referenceInput.disabled =
       maxCount !== null && state.attachments.length >= maxCount;
     elements.referenceList.replaceChildren(
-      ...state.attachments.map((attachment) => {
+      ...state.attachments.map((attachment, index) => {
         const item = document.createElement("article");
         const preview = attachment.type.startsWith("image/")
           ? document.createElement("img")
@@ -338,6 +347,8 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         const remove = document.createElement("button");
         item.className = "reference-item";
         if (preview instanceof HTMLImageElement) {
+          item.dataset.chatAttachment = "";
+          remove.dataset.chatAttachmentRemove = "";
           preview.src = attachment.dataUrl;
           preview.alt = "";
         } else {
@@ -359,11 +370,14 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
             (entry) => entry.id !== attachment.id,
           );
           renderAttachments();
+          const neighbor = elements.referenceList.children[index] ?? elements.referenceList.lastElementChild;
+          (neighbor?.querySelector(".reference-remove") ?? elements.referenceInput).focus({ preventScroll: true });
         });
         item.append(preview, copy, remove);
         return item;
       }),
     );
+    syncSendState();
   }
 
   async function addFiles(fileList) {
@@ -456,35 +470,45 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     }, 1600);
   }
 
+  function sendIssue() {
+    if (!state.connected) return "请先连接公司 API";
+    if (!Number.isInteger(state.promptVersion)) return "请先选择已上架的 Prompt 版本";
+    const hasDraftContext = state.messages.some(
+      (message) => message.role === "assistant",
+    );
+    if (!state.attachments.length && !hasDraftContext) return "请先添加风格参考附件";
+    if (!state.attachments.length && !elements.input.value.trim()) return "请输入要继续调整的内容";
+    const model = selectedModel();
+    const live = model && state.availability.get(model.id);
+    if (!model || (live && !live.selectable)) return "请选择可用的多模态模型";
+    return "";
+  }
+
+  function syncSendState() {
+    const issue = state.sending ? "" : sendIssue();
+    elements.sendButton.disabled = state.sending || (state.home && Boolean(issue));
+    elements.resetButton.disabled = state.sending;
+    elements.sendButton.setAttribute("aria-label", state.sending ? "分析中" : "发送");
+    elements.sendButton.setAttribute("aria-busy", String(state.sending));
+    sendStatus.hidden = !state.home || !issue;
+    if (sendStatus.textContent !== issue) sendStatus.textContent = issue;
+    if (sendStatus.hidden) elements.sendButton.removeAttribute("aria-describedby");
+    else elements.sendButton.setAttribute("aria-describedby", sendStatus.id);
+  }
+
   async function send() {
     if (state.sending) return;
     if (!state.connected) {
       onConnectionRequired();
       return;
     }
-    if (!Number.isInteger(state.promptVersion)) {
-      showToast("请先读取并选择一个已上架 Prompt 版本");
-      return;
-    }
-    const content = elements.input.value.trim();
-    const hasDraftContext = state.messages.some(
-      (message) => message.role === "assistant",
-    );
-    if (state.attachments.length === 0 && !hasDraftContext) {
-      showToast("首轮请先添加至少 1 个风格参考附件");
-      return;
-    }
-    if (state.attachments.length === 0 && !content) {
-      showToast("请输入要继续调整的内容");
-      return;
-    }
-    const model = selectedModel();
-    const live = model && state.availability.get(model.id);
-    if (!model || (live && !live.selectable)) {
-      showToast("请选择当前 API Key 可用的多模态模型");
+    const issue = sendIssue();
+    if (issue) {
+      showToast(issue);
       return;
     }
 
+    const content = elements.input.value.trim();
     const messageContent =
       content || `已上传 ${state.attachments.length} 个风格参考附件`;
     const userMessage = { content: messageContent, role: "user" };
@@ -492,8 +516,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     const requestMessages = [...state.messages, userMessage].slice(-19);
     const pending = thinkingElement();
     state.sending = true;
-    elements.sendButton.disabled = true;
-    elements.sendButton.querySelector("span").textContent = "分析中";
+    syncSendState();
     elements.input.value = "";
     resizeComposerInput();
     elements.thread.append(messageElement(visibleUserMessage), pending);
@@ -530,8 +553,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
       resizeComposerInput();
     } finally {
       state.sending = false;
-      elements.sendButton.disabled = false;
-      elements.sendButton.querySelector("span").textContent = "发送";
+      syncSendState();
     }
   }
 
@@ -542,6 +564,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     elements.thread.replaceChildren();
     elements.input.value = "";
     resizeComposerInput();
+    syncSendState();
     elements.input.focus();
   }
 
@@ -551,6 +574,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
   });
   elements.promptVersionSelect.addEventListener("change", (event) => {
     setPromptVersion(Number(event.target.value));
+    syncSendState();
   });
   elements.promptRefreshButton.addEventListener("click", () => {
     void loadRuntimeConfig({ forceRefresh: true });
@@ -577,9 +601,12 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
   });
   elements.resetButton.addEventListener("click", reset);
   elements.sendButton.addEventListener("click", send);
-  elements.input.addEventListener("input", resizeComposerInput);
+  elements.input.addEventListener("input", () => {
+    resizeComposerInput();
+    syncSendState();
+  });
   elements.input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();
       void send();
     }
@@ -617,10 +644,13 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         ? "检查模型中"
         : "等待连接";
       elements.modelAvailability.classList.toggle("ready", connected);
+      syncSendState();
     },
-    setVisible(visible) {
+    setVisible(visible, { home = false } = {}) {
+      state.home = home && visible;
       elements.controls.classList.toggle("hidden", !visible);
       elements.chat.classList.toggle("hidden", !visible);
+      syncSendState();
       if (visible) {
         resizeComposerInput();
         scrollToLatest();

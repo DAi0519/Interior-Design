@@ -4,7 +4,7 @@
  * [POS]: public 共享组件库样式入口，Main/Beta/Benchmark 同时加载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-@import url("./choice-select.css?v=1");
+@import url("./choice-select.css?v=5");
 select.custom-select-native {
   height: 1px;
   opacity: 0;

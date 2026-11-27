@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖平面图机位 HTML、浏览器控制器、共享归档状态和模型目录
- * [OUTPUT]: 提供运行机位控制器的独立及参数挂载 DOM、同源 API 替身、机位和模型数据
+ * [OUTPUT]: 提供运行机位控制器的独立及参数挂载 DOM、同源 API 替身、机位和模型数据及新图显现记录
  * [POS]: test 的平面图机位 UI 试验夹具，所有请求留在内存
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import * as geometry from '../public/floor-plan-camera-geometry.js';
+import { bindCameraInputs, presentCameraSource, showCameraVisibility, updateCameraPresentation } from '../public/floor-plan-camera-presentation.js';
 import { toggleModelSelection } from '../public/model-multi-select.js';
 import { publicModelCatalog } from '../src/model-config.mjs';
 const [page, script] = await Promise.all(['html', 'js'].map(extension => readFile(new URL(`../public/floor-plan-camera.${extension}`, import.meta.url), 'utf8')));
@@ -36,7 +37,7 @@ const source = name => ({ name: `${name}.png`, type: 'image/png', width: 1200, h
 const rendered = camera => ({ action: 'render', source: { fileName: '原户型.png' }, camera, model: { label: 'GPT 2.5' }, image: { url: source('效果图').dataUrl, width: 2048, height: 1152 } });
 async function fixture({ saved, respond = async () => ({ job: { status: 'failed', error: '模拟失败' } }), configuration = config,
   wallAnalysis = {}, bounds = canvasBounds, embedded = false } = {}) {
-  const ids = new Map(), calls = [], timers = [], storage = new Map(), downloads = [], drawing = [];
+  const ids = new Map(), calls = [], timers = [], storage = new Map(), downloads = [], drawing = [], reveals = [];
   if (saved) storage.set(SESSION, JSON.stringify(saved));
   class Element {
     constructor(tag) {
@@ -53,6 +54,7 @@ async function fixture({ saved, respond = async () => ({ job: { status: 'failed'
     get options() { return this.children; }
     set innerHTML(value) { throw new Error('结果不得作为HTML插入'); }
     setAttribute(key, value) { this.attributes.set(key, String(value)); }
+    getAttribute(key) { return this.attributes.get(key) ?? null; }
     removeAttribute(key) { this.attributes.delete(key); delete this[key]; }
     addEventListener(name, callback) { this.listeners.set(name, [...(this.listeners.get(name) || []), callback]); }
     async fire(name, values = {}) { for (const callback of this.listeners.get(name) || []) await callback({ preventDefault() {}, target: this, ...values }); }
@@ -74,7 +76,8 @@ async function fixture({ saved, respond = async () => ({ job: { status: 'failed'
   const body = new Element('body');
   const mounting = [];
   const parent = { createElement: tag => new Element(tag) };
-  const context = vm.createContext({ ...geometry, atob, cameraVisibility: wallAnalysis.visible ?? (() => null),
+  const context = vm.createContext({ ...geometry, bindCameraInputs, presentCameraSource, showCameraVisibility, updateCameraPresentation,
+    atob, cameraVisibility: wallAnalysis.visible ?? (() => null),
     drawCameraAnnotation: (_context, camera, width, height, visiblePolygon) => {
       drawing.push({ name: 'annotation', args: structuredClone([camera, width, height, visiblePolygon]) });
     },
@@ -85,6 +88,8 @@ async function fixture({ saved, respond = async () => ({ job: { status: 'failed'
     sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     crypto: globalThis.crypto,
     ResizeObserver: class { observe() {} }, URL,
+    cancelGenerationReveal() {},
+    revealGenerationImage(image) { reveals.push(image.src); },
     setTimeout: callback => { timers.push(callback); return callback; },
     clearTimeout: callback => { const index = timers.indexOf(callback); if (index !== -1) timers.splice(index, 1); },
     createImageBitmap: async file => ({ width: file.width, height: file.height, close() {} }),
@@ -131,7 +136,7 @@ async function fixture({ saved, respond = async () => ({ job: { status: 'failed'
   async function settle() { for (let i = 0; i < 3; i++) await new Promise(resolve => setImmediate(resolve)); }
   const fire = async (id, event = 'click', values = {}) => { await node(id).fire(event, values); await settle(); };
   await settle();
-  return { node, calls, storage, downloads, drawing, mounting, body, models: () => picker.keys,
+  return { node, calls, storage, downloads, drawing, mounting, body, reveals, models: () => picker.keys,
     annotations: () => calls.filter(call => call.path.endsWith('/annotation')),
     posts: () => calls.filter(call => call.method === 'POST' && !call.path.endsWith('/annotation')), reads: () => calls.filter(call => call.path.includes('/jobs/')),
     click: id => fire(id),

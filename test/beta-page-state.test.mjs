@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、公开模型目录、内存 localStorage/DOM 替身与 beta-page-state/beta-configuration 的配置归一化/持久化/恢复能力
- * [OUTPUT]: 对外提供自由生图整批多行提示词和多角度机位与模型保存恢复、Beta美化混合多选/显式空选/旧单选迁移与卡片身份保存恢复、默认模型、精模纯词旧规则身份清理/双图草稿恢复、上传迁移与纯词版本独立保存、损坏迁移未选、无图片持久化和多功能配置往返回归
+ * [OUTPUT]: 验证按任务保存与恢复模型、表单、工具配置和旧单份草稿，涵盖独立提示词、光影版本、显式空选、兼容迁移及无图片持久化
  * [POS]: test 的 Beta页面配置恢复纯状态测试，不访问浏览器、飞书或图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,8 +10,10 @@ import test from "node:test";
 
 import {
   BETA_PAGE_STATE_STORAGE_KEY,
+  BETA_TASK_DRAFTS_STORAGE_KEY,
   DEFAULT_BETA_MODEL_KEY,
   readBetaPageState,
+  readBetaTaskDraft,
   saveBetaPageState,
 } from "../public/beta-page-state.js";
 import { createBetaConfigurationPersistence } from "../public/beta-configuration.js";
@@ -33,6 +35,119 @@ test("Beta跑图首次进入默认选择 Flux2 Klein", () => {
   assert.deepEqual(state.selectedModelKeys, [DEFAULT_BETA_MODEL_KEY]);
   assert.equal(state.controls.effectBeautificationIntensity, "low");
   assert.equal(state.controls.effectBeautificationTone, "natural");
+});
+
+test("旧批量快照迁入原任务，共用参数不串到其他任务，独立任务字段继续恢复", () => {
+  const oldData = JSON.stringify({
+    featureMode: "emptyRoom",
+    controls: {
+      commonPrompt: "留出客厅过道",
+      freeSharedPrompt: "整批统一自然光",
+      resolution: "4K",
+      roomRenovationRenderMode: "style-dna",
+      roomRenovationStyleCode: "warm",
+    },
+    imageFiles: [{ dataUrl: "data:image/png;base64,AA==" }],
+    outpaint: { workflowKeys: ["outpaint-qwen-2511"], ratio: "3:4", multiple: 3 },
+    sampleSetIds: { emptyRoom: "SET-ROOM", free: "SET-FREE" },
+    selectedModelKeys: ["banana21", "banana21"],
+  });
+  const storage = memoryStorage(oldData);
+  const previous = readBetaPageState(storage);
+  const room = readBetaTaskDraft(previous, "emptyRoom");
+  const free = readBetaTaskDraft(previous, "free");
+  assert.equal(room.hasSavedModelSelection, true);
+  assert.deepEqual(room.selectedModelKeys, ["banana21"]);
+  assert.equal(room.controls.commonPrompt, "留出客厅过道");
+  assert.equal(room.controls.resolution, "4K");
+  assert.equal(free.controls.freeSharedPrompt, "整批统一自然光");
+  assert.equal(free.controls.commonPrompt, "");
+  assert.equal(free.controls.resolution, "");
+  assert.equal(free.hasSavedModelSelection, false);
+  assert.equal(readBetaTaskDraft(previous, "roomRenovation").controls.roomRenovationStyleCode, "warm");
+  assert.equal(readBetaTaskDraft(previous, "imageOutpaint").outpaint.multiple, 3);
+  assert.deepEqual(readBetaTaskDraft(previous, "housePlanLayout").selectedModelKeys, ["gptImage25Sunburst"]);
+  assert.deepEqual(readBetaTaskDraft(previous, "floorPlanCamera").selectedModelKeys, ["banana21"]);
+
+  saveBetaPageState(storage, { featureMode: "free", controls: { freeSharedPrompt: "新的整批提示词" },
+    selectedModelKeys: ["banana2"], sampleSetIds: { free: "" } });
+  const next = readBetaPageState(storage);
+  assert.equal(next.controls.freeSharedPrompt, "新的整批提示词");
+  assert.deepEqual(next.sampleSetIds, { emptyRoom: "SET-ROOM" });
+  assert.deepEqual(readBetaTaskDraft(next, "emptyRoom"), room);
+  assert.equal(readBetaTaskDraft(next, "imageOutpaint").outpaint.ratio, "3:4");
+  assert.equal(JSON.parse(storage.getItem(BETA_TASK_DRAFTS_STORAGE_KEY)).version, 2);
+  assert.doesNotMatch(storage.getItem(BETA_TASK_DRAFTS_STORAGE_KEY), /data:image/);
+  assert.equal(storage.getItem(BETA_PAGE_STATE_STORAGE_KEY), oldData);
+});
+
+test("按任务恢复草稿期间不写入中间值，未保存任务使用自己的默认值", () => {
+  const storage = memoryStorage();
+  saveBetaPageState(storage, { featureMode: "emptyRoom", controls: {
+    commonPrompt: "保留过道",
+    negativePrompt: "去除噪点",
+    ratio: "16:9",
+    resolution: "4K",
+    promptAgentModelKey: "temporarilyDenied",
+  } });
+  saveBetaPageState(storage, { featureMode: "free", controls: { freeSharedPrompt: "春天的阴影", ratio: "1:1" } });
+  const target = value => ({ value, options: [], dispatchEvent() { persistence.save(); } });
+  const elements = Object.fromEntries([
+    "commonPromptInput", "freeSharedPromptInput", "effectTimeSelect", "effectWeatherSelect", "negativePromptInput",
+    "promptAgentModelSelect", "promptAgentVersionSelect", "qualitySelect", "ratioSelect", "refinedPromptSelect",
+    "renderModeSelect", "resolutionSelect", "roomTypeSelect", "roomTypeDetailInput", "styleSelect",
+  ].map(key => [key, target("")]));
+  elements.betaForm = { dataset: {} };
+  elements.roomTypeDetailField = { classList: { toggle() {} } };
+  elements.effectTimeSelect.options = [{ value: "preserve" }, { value: "night" }];
+  elements.promptAgentModelSelect.options = [{ value: "ready" }, { value: "temporarilyDenied", disabled: true }];
+  elements.resolutionSelect.options = [{ value: "2K" }, { value: "4K" }];
+  elements.ratioSelect.options = [{ value: "4:3" }, { value: "16:9" }, { value: "1:1" }];
+  let featureMode = null;
+  const persistence = createBetaConfigurationPersistence({
+    currentState: () => ({ featureMode, stylesReady: true }),
+    effectBeautificationControls: { restore() {}, value: () => ({ intensity: "low", tone: "natural" }) },
+    elements,
+    renderFeature() {},
+    renderOutputControls() {
+      elements.ratioSelect.value ||= "4:3";
+      elements.resolutionSelect.value ||= "2K";
+    },
+    renderRunSummary() {},
+    restoredPageState: readBetaPageState(storage),
+    storage,
+  });
+  const before = storage.getItem(BETA_TASK_DRAFTS_STORAGE_KEY);
+  persistence.markReady();
+  assert.equal(storage.getItem(BETA_TASK_DRAFTS_STORAGE_KEY), before, "未选任务不自动创建草稿");
+
+  featureMode = "emptyRoom";
+  persistence.restore(persistence.draftFor(featureMode));
+  assert.equal(elements.commonPromptInput.value, "保留过道");
+  assert.equal(elements.negativePromptInput.value, "去除噪点");
+  assert.equal(elements.resolutionSelect.value, "4K");
+  assert.equal(elements.promptAgentModelSelect.value, "temporarilyDenied");
+  assert.equal(storage.getItem(BETA_TASK_DRAFTS_STORAGE_KEY), before, "恢复控件的 change 不能覆盖原快照");
+  elements.commonPromptInput.value += "，补充玄关";
+  persistence.save();
+
+  featureMode = "free";
+  persistence.restore(persistence.draftFor(featureMode));
+  assert.equal(elements.commonPromptInput.value, "");
+  assert.equal(elements.freeSharedPromptInput.value, "春天的阴影");
+  assert.equal(elements.negativePromptInput.value, "");
+  assert.equal(elements.ratioSelect.value, "1:1");
+  assert.equal(elements.resolutionSelect.value, "2K");
+  assert.equal(elements.promptAgentModelSelect.value, "ready");
+  elements.freeSharedPromptInput.value = "春天的自然光";
+  persistence.save();
+
+  featureMode = "emptyRoom";
+  persistence.restore(persistence.draftFor(featureMode));
+  assert.equal(elements.commonPromptInput.value, "保留过道，补充玄关");
+  assert.equal(elements.freeSharedPromptInput.value, "");
+  assert.equal(elements.ratioSelect.value, "16:9");
+  assert.equal(elements.resolutionSelect.value, "4K");
 });
 
 test("Beta多角度首次为90°正俯视，独立记忆模型、批次机位和样本集", () => {

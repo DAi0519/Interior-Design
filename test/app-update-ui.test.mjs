@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、app-update.js 的视图/链接/检查与安装控制器、正式发布说明模板，以及 DOM/JSON/进度流请求替身
- * [OUTPUT]: 对外提供无外链的单一下载安装、版本亮点摘要/空说明隐藏、检查降级/去重/重试、两种安装模式指导、失败恢复、待重启/恢复失败与完整终态/安装互斥的行为回归保障
+ * [OUTPUT]: 验证侧栏常驻版号、新版圆点与无障碍更新提示、焦点恢复、版本亮点、检查去重、安装与失败恢复
  * [POS]: test 的共享版本更新交互测试，仅在内存消费安装进度，不访问 GitHub、下载或安装文件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,7 +31,8 @@ const available = {
 
 test("新版映射保留当前版本、提示和标准运行包下载", () => {
   const view = getAppUpdateView(available);
-  assert.equal(view.buttonLabel, "v0.1.10 · 有新版");
+  assert.equal(view.buttonLabel, "v0.1.10");
+  assert.match(view.buttonTitle, /^v0\.1\.10.*有新版可下载/);
   assert.equal(view.statusLabel, "发现新版本");
   assert.equal(view.downloadUrl, available.downloadUrl);
   assert.equal(view.releaseNotes, available.releaseNotes);
@@ -64,6 +65,7 @@ test("未完成检查和检查失败均不能显示已是最新", () => {
   }]) {
     const view = getAppUpdateView(state);
     assert.equal(view.status, "unavailable");
+    assert.equal(view.buttonLabel, state.currentVersion ? "v0.1.10" : "检查更新");
     assert.equal(view.statusLabel, "暂时无法检查");
     assert.equal(view.downloadUrl, null);
     assert.equal(view.releaseUrl, releasesUrl);
@@ -75,7 +77,8 @@ test("明确待重启回执优先于检查和新版状态，隐藏重复安装�
     const view = getAppUpdateView({ ...available, status, restartRequired: true, installMode: "in-place" }, { isChecking: true });
     assert.equal(view.restartRequired, true);
     assert.equal(view.status, "restart-required");
-    assert.equal(view.buttonLabel, "v0.1.10 · 待重启");
+    assert.equal(view.buttonLabel, "v0.1.10");
+    assert.match(view.buttonTitle, /^v0\.1\.10.*请重启/);
     assert.equal(view.statusLabel, "更新已安装，请重启");
     assert.equal(view.downloadUrl, null);
     assert.match(view.instructions, /配置和本地数据已保留/);
@@ -94,7 +97,8 @@ test("恢复失败回执优先于待重启，显示备份恢复指引并阻止�
   assert.equal(view.recoveryRequired, true);
   assert.equal(view.status, "recovery-required");
   assert.equal(view.statusLabel, "更新恢复失败");
-  assert.equal(view.buttonLabel, "v0.1.10 · 需恢复");
+  assert.equal(view.buttonLabel, "v0.1.10");
+  assert.match(view.buttonTitle, /^v0\.1\.10.*手动恢复程序/);
   assert.equal(view.message, recoveryMessage);
   assert.equal(view.instructions, "");
   assert.equal(view.downloadUrl, null);
@@ -191,8 +195,8 @@ test("三个工作台接入同一更新模块，运行包包含其全部运行�
   for (const page of ["index", "beta", "benchmark"]) {
     const html = await readFile(new URL(`../public/${page}.html`, import.meta.url), "utf8");
     assert.match(html, /data-app-update/);
-    assert.match(html, /app-update\.js\?v=1/);
-    assert.match(html, /app-update\.css\?v=1/);
+    assert.match(html, /app-update\.js\?v=5/);
+    assert.match(html, /app-update\.css\?v=4/);
   }
   for (const file of ["src/app-update.mjs", "public/app-update.js", "public/app-update.css"]) {
     assert.equal(isReleaseFile(file), true);
@@ -211,7 +215,7 @@ class Element {
     this.dataset = {};
     this.style = {};
     this.isConnected = true;
-    this.classList = { toggle() {} };
+    this.hidden = false;
   }
   append(...children) { this.children.push(...children); }
   setAttribute(name, value) { this.attributes.set(name, value); }
@@ -227,19 +231,19 @@ class Element {
   async dispatch(name, event = {}) {
     await Promise.all((this.handlers.get(name) || []).map((handler) => handler({ target: this, ...event })));
   }
-  focus() {}
+  focus() { this.focusCount = (this.focusCount || 0) + 1; }
   showModal() { this.open = true; }
   close() { this.open = false; void this.dispatch("close"); }
   remove() { this.isConnected = false; }
+  getClientRects() { return this.visible === false ? [] : [this.getBoundingClientRect()]; }
   getBoundingClientRect() { return { left: 10, right: 100, top: 10, bottom: 100 }; }
 }
 
-async function updateHarness({ installFetch, request = async () => available } = {}) {
+async function updateHarness({ installFetch, request = async () => available, trigger = new Element() } = {}) {
   const document = new Element();
   document.body = new Element();
   document.visibilityState = "visible";
   document.createElement = () => new Element();
-  const trigger = new Element();
   const alerts = [];
   const confirmations = [];
   const window = {
@@ -256,6 +260,92 @@ async function updateHarness({ installFetch, request = async () => available } =
   const find = (className) => elements.find((element) => element.className.split(" ").includes(className));
   return { controller, dialog, document, window, alerts, confirmations, find };
 }
+
+test("侧栏版号更新保留图标，弹层关闭后聚焦可见的侧栏入口", async () => {
+  const trigger = new Element();
+  const icon = new Element();
+  const label = new Element();
+  trigger.append(icon, label);
+  trigger.querySelector = (selector) => selector === "[data-app-update-label]" ? label : null;
+
+  const { controller, document } = await updateHarness({ trigger });
+  assert.equal(label.textContent, "v0.1.10");
+  assert.equal(trigger.textContent, undefined);
+  assert.equal(trigger.children[0], icon);
+  controller.close();
+  assert.equal(trigger.focusCount, 1);
+
+  const opener = new Element();
+  document.getElementById = (id) => id === "productSidebarOpen" ? opener : null;
+  document.activeElement = trigger;
+  controller.open();
+  trigger.visible = false;
+  controller.close();
+  assert.equal(opener.focusCount, 1);
+  assert.equal(trigger.focusCount, 1);
+  controller.destroy();
+});
+
+function sidebarVersionFixture() {
+  const trigger = new Element();
+  const label = new Element();
+  trigger.append(label);
+  trigger.querySelector = (selector) => selector === "[data-app-update-label]" ? label : null;
+  return { trigger, label };
+}
+
+test("侧栏版号保持可见，只有确认新版时显示圆点，可打开弹层重试并恢复焦点", async () => {
+  const { trigger, label } = sidebarVersionFixture();
+  let state = { ...available, status: "current" };
+  const ui = await updateHarness({ trigger, request: async () => {
+    if (!state) throw new Error("connection failed");
+    return state;
+  } });
+
+  assert.equal(trigger.hidden, false);
+  assert.equal(label.textContent, "v0.1.10");
+  assert.equal(trigger.dataset.updateAvailable, "false");
+  ui.controller.close();
+  state = available;
+  const check = ui.controller.check();
+  assert.equal(trigger.hidden, false);
+  assert.equal(label.textContent, "v0.1.10");
+  assert.equal(trigger.dataset.updateAvailable, "false");
+  await check;
+  assert.equal(trigger.hidden, false);
+  assert.equal(label.textContent, "v0.1.10");
+  assert.equal(trigger.dataset.updateAvailable, "true");
+  assert.match(trigger.attributes.get("aria-label"), /v0\.1\.10.*有新版/);
+  ui.document.activeElement = trigger;
+  await trigger.dispatch("click");
+  assert.equal(ui.dialog.open, true);
+  state = null;
+  await ui.controller.check(true);
+  assert.equal(trigger.hidden, false);
+  assert.equal(label.textContent, "v0.1.10");
+  assert.equal(trigger.dataset.updateAvailable, "false");
+  assert.equal(ui.find("app-update-check").hidden, false);
+  ui.controller.close();
+  assert.equal(trigger.focusCount, 2);
+  ui.controller.destroy();
+});
+
+test("待重启与恢复失败显示在版号提示和对应的更新弹层中", async () => {
+  for (const [flags, title, status] of [
+    [{ restartRequired: true }, /请重启/, "更新已安装，请重启"],
+    [{ restartRequired: true, recoveryRequired: true }, /手动恢复/, "更新恢复失败"],
+  ]) {
+    const { trigger, label } = sidebarVersionFixture();
+    const ui = await updateHarness({ trigger, request: async () => ({ ...available, ...flags }) });
+    assert.equal(trigger.hidden, false);
+    assert.equal(label.textContent, "v0.1.10");
+    assert.equal(trigger.dataset.updateAvailable, "false");
+    assert.match(trigger.title, title);
+    assert.equal(trigger.attributes.get("aria-label"), trigger.title);
+    assert.equal(ui.find("app-update-status").textContent, status);
+    ui.controller.destroy();
+  }
+});
 
 function progressResponse(chunks) {
   const reader = {

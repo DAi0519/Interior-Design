@@ -1,6 +1,6 @@
 <!--
-[INPUT]: 依赖共享工作台主题/下拉、平面布局模型目录、图片编排和独立图片任务API
-[OUTPUT]: 提供上传户型/选择模型/生成平面结果、文字调整、室内多角度预览及当前图片的飞书归档
+[INPUT]: 依赖共享工作台主题/下拉/参数快捷条/视图图标/生成动效、平面布局模型目录、图片编排和独立图片任务API
+[OUTPUT]: 提供支持工作台内嵌对齐的上传户型/选择模型/生成平面结果、紧凑图标切换方案和预览、文字调整、室内多角度、生成状态及当前图片的飞书归档
 [POS]: public 的AI设计设计实验室 Beta 入口，图片流程与按需打开的家具/3D工作区
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -11,22 +11,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/styles.css?v=12" />
-  <link rel="stylesheet" href="/theme.css?v=35" />
-  <link rel="stylesheet" href="/custom-select.css?v=10" />
-  <link rel="stylesheet" href="/floor-plan.css?v=4" />
+  <link rel="stylesheet" href="/theme.css?v=38" />
+  <link rel="stylesheet" href="/custom-select.css?v=14" />
+  <link rel="stylesheet" href="/canvas-view-controls.css?v=4" />
+  <link rel="stylesheet" href="/generation-feedback.css?v=3" />
+  <link rel="stylesheet" href="/floor-plan.css?v=9" />
+  <link rel="stylesheet" href="/workspace-quick-parameters.css?v=2" />
   <title>Canvas Lab · 设计实验室 Beta</title>
 </head>
 <body class="floor-plan-page">
   <main class="floor-plan-shell" aria-label="设计实验室 Beta">
-    <header class="floor-plan-toolbar">
-      <h1>设计实验室 · Beta</h1>
-      <div class="floor-plan-tabs" role="tablist" aria-label="方案视图">
-        <button id="floorPlanTabLayout" type="button" role="tab" aria-selected="true" aria-controls="floorPlanLayout">平面方案</button>
-        <button id="floorPlanTabInterior" type="button" role="tab" aria-selected="false" aria-controls="floorPlanInterior" disabled>室内预览</button>
+    <div class="floor-plan-toolbar">
+      <div class="canvas-view-controls" role="tablist" aria-label="方案视图">
+        <button id="floorPlanTabLayout" class="canvas-view-button" type="button" role="tab" aria-selected="true" aria-controls="floorPlanLayout" aria-label="平面方案" title="平面方案"><svg aria-hidden="true"><use href="/icons/workbench.svg#layout"></use></svg></button>
+        <button id="floorPlanTabInterior" class="canvas-view-button" type="button" role="tab" aria-selected="false" aria-controls="floorPlanInterior" aria-label="室内预览" title="室内预览" disabled><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg></button>
       </div>
       <button id="floorPlanEditFurniture" type="button">家具编辑 / 3D</button>
       <button id="floorPlanDownload" type="button" disabled>下载图片</button>
-    </header>
+    </div>
     <p id="floorPlanError" class="floor-plan-error" role="alert" hidden></p>
     <section id="floorPlanLayout" class="floor-plan-content" role="tabpanel" aria-label="平面方案">
       <aside class="floor-plan-inputs" aria-label="布局要求">
@@ -50,6 +52,10 @@
         <button id="floorPlanGoInterior" class="floor-plan-next" type="button" hidden>查看室内效果 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" /></svg></button>
       </aside>
       <div class="floor-plan-viewer">
+        <div id="floorPlanLayoutFeedback" class="generation-feedback" hidden>
+          <p id="floorPlanLayoutFeedbackText" class="generation-feedback-text" role="status" aria-live="polite"></p>
+          <div class="generation-feedback-preview" aria-hidden="true"></div>
+        </div>
         <div id="floorPlanEmpty" class="floor-plan-empty"><h2>从户型，开始设计</h2><p>上传户型图，选择模型，生成平面布局。</p></div>
         <img id="floorPlanLayoutImage" class="floor-plan-result" alt="AI生成的平面家具布局方案" hidden />
         <div id="floorPlanLayoutMeta" class="floor-plan-image-meta" hidden></div>
@@ -73,6 +79,10 @@
         </div>
       </aside>
       <div class="floor-plan-viewer">
+        <div id="floorPlanInteriorFeedback" class="generation-feedback" hidden>
+          <p id="floorPlanInteriorFeedbackText" class="generation-feedback-text" role="status" aria-live="polite"></p>
+          <div class="generation-feedback-preview" aria-hidden="true"></div>
+        </div>
         <div id="floorPlanInteriorEmpty" class="floor-plan-empty"><h2>把布局变成室内效果</h2><p>选择想看的空间和风格，生成第一张预览。</p></div>
         <img id="floorPlanInteriorImage" class="floor-plan-result" alt="基于平面方案生成的AI室内预览" hidden />
         <div id="floorPlanInteriorMeta" class="floor-plan-image-meta" hidden></div>
@@ -103,6 +113,7 @@
     <input id="geometryFile" type="file" accept=".json,application/json" hidden />
   </dialog>
   <input id="floorPlanSourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-  <script type="module" src="/floor-plan.js?v=5"></script>
+  <script type="module" src="/floor-plan.js?v=9"></script>
+  <script type="module" src="/workspace-quick-parameters.js?v=6"></script>
 </body>
 </html>

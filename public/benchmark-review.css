@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 benchmark.html 的紧凑评分配置/结果区与 benchmark.css 的颜色、边框、控件、排版和表格令牌
- * [OUTPUT]: 对外提供单栏横向评分配置、轻量三维提示、评分摘要、逐图三维/加权分、可用结论、结构化问题、本地校准原因与响应式表格视觉
+ * [INPUT]: 依赖 benchmark.html 的评分配置/结果区与 benchmark.css 的宽度容器、设计令牌及滚动表格
+ * [OUTPUT]: 对外提供按可用宽度重排的评分配置与摘要、逐图评分数据及窄屏可横向滚动的完整结果表
  * [POS]: public 的 Benchmark AI 评分视觉层，删除独立协议说明卡并与运行任务、样本集和实验配置样式模块并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -21,6 +21,9 @@
 
 .review-form-main label {
   margin-top: 0;
+}
+.review-experiment-field {
+  min-width: 0;
 }
 
 .review-form-main > .primary-button {
@@ -43,7 +46,7 @@
   border-top: 1px solid var(--line);
   grid-column: 1 / -1;
   min-width: 0;
-  padding: 20px;
+  padding: var(--benchmark-panel-padding);
 }
 
 .review-results-head {
@@ -65,13 +68,14 @@
 .review-results-head > span {
   color: var(--muted);
   font-size: 10px;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
 .review-result-summary {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin-top: 14px;
 }
 
@@ -140,6 +144,7 @@
   line-height: 1.5;
   max-width: 300px;
   min-width: 220px;
+  overflow-wrap: anywhere;
   white-space: normal;
 }
 
@@ -156,7 +161,7 @@
   text-align: center;
 }
 
-@media (max-width: 1000px) {
+@container benchmark-workspace (max-width: 1040px) {
   .review-form-main {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -168,16 +173,9 @@
   .review-form-main > .primary-button {
     align-self: end;
   }
-
-  .review-result-table table {
-    min-width: 760px;
-  }
-  .review-result-table .review-run {
-    display: none;
-  }
 }
 
-@media (max-width: 680px) {
+@container benchmark-workspace (max-width: 680px) {
   .review-form-main {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -199,6 +197,6 @@
     text-align: left;
   }
   .review-result-summary {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

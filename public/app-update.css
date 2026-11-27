@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖三个工作台的更新入口、app-update.js 单一下载安装动作与状态类，以及 raycast-accent.css 共享弹层配色和中性键帽令牌
- * [OUTPUT]: 对外提供小型版本入口、被动新版圆点、紧凑银灰弹层、按需版本亮点、统一对齐的关闭/按需检查/下载安装动作
+ * [INPUT]: 依赖三个工作台的更新入口、app-update.js 新版状态与单一下载安装动作，以及 raycast-accent.css 共享弹层配色和中性键帽令牌
+ * [OUTPUT]: 对外提供侧栏版本入口基样式与新版圆点、紧凑银灰弹层和关闭/检查/下载安装动作
  * [POS]: public 的跨工作台更新视觉层，在最终颜色层前加载，复用 Light Command Center 令牌
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -27,20 +27,28 @@
   white-space: nowrap;
 }
 
-.topbar .app-update-trigger {
-  flex: 0 0 auto;
-  margin-right: 8px;
-  max-width: 165px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-update-trigger.has-update::before {
+.sidebar-version[data-update-available="true"]::before {
   background: var(--functional-action-bg, #f37021);
+  block-size: 5px;
   border-radius: 50%;
   content: "";
-  flex: 0 0 5px;
-  height: 5px;
+  flex: none;
+  inline-size: 5px;
+  order: 1;
+  pointer-events: none;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .sidebar-version[data-update-available="true"]::before {
+  inset-block-start: 8px;
+  inset-inline-end: 2px;
+  position: absolute;
+}
+
+@media (forced-colors: active) {
+  .sidebar-version[data-update-available="true"]::before {
+    background: Highlight;
+    forced-color-adjust: none;
+  }
 }
 
 .app-update-dialog {
@@ -197,45 +205,6 @@
     box-shadow: var(--brand-key-hover-shadow, 0 3px 8px rgb(25 26 28 / 11%));
     color: var(--brand-key-strong-ink, #202024);
   }
-}
-
-@media (max-width: 640px) {
-  .topbar .app-update-trigger {
-    font-size: 10px;
-    max-width: 106px;
-    padding-inline: 7px;
-  }
-}
-
-@media (max-width: 480px) {
-  .topbar:has(.app-update-trigger) {
-    grid-template-columns: minmax(0, 1fr) auto;
-    height: auto;
-    min-height: 56px;
-    padding: 10px 12px;
-    row-gap: 10px;
-  }
-
-  .topbar:has(.app-update-trigger) .product-switcher {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .topbar .topbar-actions:has(.app-update-trigger) {
-    display: flex;
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .topbar-actions:has(.app-update-trigger) > :not(.app-update-trigger) {
-    display: none;
-  }
-
-  .topbar .app-update-trigger {
-    margin-right: 0;
-    max-width: 165px;
-  }
-
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,333 @@
+/**
+ * [INPUT]: 依赖共享侧栏的折叠状态、生图测试和批量任务目录、搜索弹窗及共享视觉令牌
+ * [OUTPUT]: 提供与工作台切换对齐的功能目录和查找间距、当前功能反色、侧栏滚动、折叠图标、触屏命中区及已选文字焦点
+ * [POS]: public 的共享分组目录与搜索样式
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.product-sidebar-search {
+  flex: 0 0 auto;
+  padding: 12px var(--sidebar-inset, 8px) 2px;
+}
+
+#featureModeList.feature-directory {
+  background: transparent;
+  border: 0;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px var(--sidebar-inset, 8px) 14px;
+  scrollbar-gutter: auto;
+}
+
+@media (max-height: 420px) {
+  #featureModeList.feature-directory {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+}
+
+#featureModeList .feature-mode-option {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  min-height: 38px;
+  padding: 0 8px;
+  text-align: start;
+  transition: none;
+  width: 100%;
+}
+
+#featureModeList .feature-mode-option + .feature-mode-option { margin-top: 2px; }
+#featureModeList .feature-mode-option:disabled { opacity: .55; }
+
+#featureModeList .feature-mode-option[aria-checked="true"] {
+  background: var(--brand-key-selected-bg, #000);
+  color: var(--brand-key-selected-ink, #fff);
+  font-weight: 600;
+}
+
+#featureModeList .feature-mode-option:focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75);
+  outline-offset: -2px;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar #featureModeList,
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .feature-catalog-trigger-label {
+  display: none;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .feature-catalog-trigger {
+  justify-content: center;
+  padding: 0;
+}
+
+.feature-catalog-trigger,
+.feature-catalog-close,
+#featureModeList [data-feature-group-toggle] {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.feature-catalog-trigger {
+  background: var(--surface-control, var(--panel-soft));
+  min-height: 34px;
+  padding: 0 8px;
+  width: 100%;
+}
+
+.feature-catalog-trigger svg,
+.feature-catalog-dialog svg {
+  fill: none;
+  flex: 0 0 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  width: 16px;
+}
+
+#featureModeList .feature-directory-group + .feature-directory-group {
+  margin-top: 8px;
+}
+
+#featureModeList .feature-directory-group h2 {
+  margin: 0;
+}
+
+#featureModeList [data-feature-group-toggle] {
+  color: var(--text);
+  font-weight: 650;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 0 10px 0 8px;
+  text-align: start;
+  width: 100%;
+}
+
+#featureModeList [data-feature-group-toggle]::after {
+  border-bottom: 1.5px solid var(--muted);
+  border-right: 1.5px solid var(--muted);
+  content: "";
+  height: 5px;
+  transform: rotate(-45deg);
+  width: 5px;
+}
+
+#featureModeList [data-feature-group-toggle][aria-expanded="true"]::after {
+  transform: translateY(-1px) rotate(45deg);
+}
+
+#featureModeList .feature-directory-items[hidden] {
+  display: none;
+}
+
+/* -------- 桌面与移动使用同一搜索弹窗 -------- */
+.feature-catalog-dialog {
+  background: var(--panel);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: var(--brand-modal-shadow, 0 24px 64px rgb(25 26 28 / 26%));
+  color: var(--text);
+  inset: min(12dvh, 112px) 0 auto;
+  margin: 0 auto;
+  max-height: calc(100dvh - min(12dvh, 112px) - 16px);
+  max-width: calc(100% - 24px);
+  overflow: auto;
+  padding: 16px;
+  position: fixed;
+  width: 480px;
+}
+
+.feature-catalog-dialog::backdrop {
+  background: var(--brand-modal-backdrop, rgb(25 26 28 / 38%));
+}
+
+.feature-catalog-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.feature-catalog-header h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.feature-catalog-close {
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  width: 36px;
+}
+
+.feature-catalog-field {
+  align-items: center;
+  background: var(--surface-control, var(--panel-soft));
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-inline: 12px;
+}
+
+#featureCatalogQuery {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text);
+  flex: 1 1 auto;
+  font-size: 16px;
+  min-height: 44px;
+  min-width: 0;
+  outline: none;
+  padding: 0;
+}
+
+#featureCatalogQuery::placeholder {
+  color: var(--muted);
+}
+
+.feature-catalog-field:focus-within {
+  outline: 1px solid var(--line-strong);
+}
+
+.feature-catalog-results {
+  list-style: none;
+  margin: 0;
+  max-height: min(48dvh, 416px);
+  overflow: auto;
+  padding: 2px;
+  scroll-padding-block: 4px;
+}
+
+.feature-catalog-row button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--text);
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 10px;
+  text-align: start;
+  width: 100%;
+}
+
+.feature-catalog-row button[aria-current="true"] {
+  background: var(--brand-key-selected-bg, oklch(0 0 0));
+  color: var(--brand-key-selected-ink, oklch(1 0 0));
+  font-weight: 650;
+}
+
+.feature-catalog-row button[aria-current="true"] .feature-catalog-category {
+  color: inherit;
+}
+
+.feature-catalog-category,
+.feature-catalog-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.feature-catalog-category {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.feature-catalog-empty {
+  margin: 12px 2px 4px;
+}
+
+:is(.feature-catalog-trigger, .feature-catalog-close, :where(#featureModeList) [data-feature-group-toggle], .feature-catalog-row button):focus-visible {
+  outline: 2px solid var(--brand-key-focus, #6d6e75);
+  outline-offset: -2px;
+}
+
+:is(#featureModeList .feature-mode-option[aria-checked="true"], .feature-catalog-row button[aria-current="true"]):focus-visible {
+  -webkit-text-stroke: 0.5px currentColor;
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  :is(#featureModeList .feature-mode-option[aria-checked="true"], .feature-catalog-row button[aria-current="true"]) {
+    background: CanvasText;
+    color: Canvas;
+    forced-color-adjust: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(.feature-catalog-trigger, .feature-catalog-close, .feature-catalog-row button):hover:not(:disabled, [aria-current="true"]),
+  #featureModeList :is([data-feature-group-toggle], .feature-mode-option:not([aria-checked="true"])):hover:not(:disabled) {
+    background: var(--surface-hover, var(--graphite));
+    box-shadow: none;
+    color: var(--text);
+    transform: none;
+  }
+}
+
+:is(.feature-catalog-trigger, .feature-catalog-close, .feature-catalog-row button):active:not(:disabled, [aria-current="true"]),
+#featureModeList :is([data-feature-group-toggle], .feature-mode-option:not([aria-checked="true"])):active:not(:disabled) {
+  background: var(--brand-key-active-bg, var(--surface-hover, var(--graphite)));
+  color: var(--text);
+}
+
+#featureModeList .feature-mode-option:active:not(:disabled) {
+  box-shadow: none;
+  transform: none;
+}
+
+#featureModeList .feature-mode-option[aria-checked="true"]:active:not(:disabled) {
+  color: var(--line-strong);
+}
+
+@media (max-width: 900px), (any-pointer: coarse) {
+  #featureModeList :is(.feature-mode-option, [data-feature-group-toggle]),
+  .feature-catalog-trigger {
+    min-height: 44px;
+  }
+
+  .feature-catalog-close {
+    height: 44px;
+    width: 44px;
+  }
+}
+
+@media (max-height: 420px) {
+  #featureModeList.feature-directory {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-mobile-actions .feature-catalog-trigger {
+    flex: 0 0 auto;
+    justify-content: center;
+    padding-inline: 12px;
+    width: auto;
+  }
+}

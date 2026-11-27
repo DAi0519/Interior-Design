@@ -1,6 +1,6 @@
 <!--
-[INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖工作台共享上传外观/图标、模型多选和原生下拉适配、独立平面相机控制器
-[OUTPUT]: 提供可挂载的机位参数和START、实时机位标注、保留两侧上下文的射线交集矩形裁剪与送模预览、空间推理/直出、效果图、逐图归档及图片下载
+[INPUT]: 依赖共享刷新和画布图标、视图切换与生成动效样式、floor-plan-camera.css 的嵌入画布、工作台共享上传、模型多选与下拉适配、独立平面相机控制器
+[OUTPUT]: 提供可挂载的机位参数和START、首页可复用的原图上传与删除、相机与取景控件、送模预览、空间推理/直出及逐图归档下载
 [POS]: public 的AI渲染平面图相机独立页面，可嵌入同源工作台并保活
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -9,10 +9,11 @@
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=35" />
-  <link rel="stylesheet" href="/custom-select.css?v=10" /><link rel="stylesheet" href="/generation-actions.css?v=16" />
+  <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=38" />
+  <link rel="stylesheet" href="/custom-select.css?v=14" /><link rel="stylesheet" href="/generation-actions.css?v=17" />
   <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-  <link rel="stylesheet" href="/floor-plan-camera.css?v=22" /><link rel="stylesheet" href="/raycast-accent.css?v=42" />
+  <link rel="stylesheet" href="/generation-feedback.css?v=3" />
+  <link rel="stylesheet" href="/canvas-view-controls.css?v=4" /><link rel="stylesheet" href="/floor-plan-camera.css?v=33" /><link rel="stylesheet" href="/raycast-accent.css?v=44" />
   <title>Canvas Lab · 平面图机位渲染</title>
 </head>
 <body class="plan-camera-page">
@@ -32,9 +33,10 @@
           <span id="camera-sourceName" class="reference-upload-label">添加或拖入平面图</span>
           <small id="camera-sourceHint">PNG / JPEG / WebP · 单张 8MB</small>
         </div>
+        <button id="camera-removeSource" class="plan-camera-text-button" type="button" aria-label="删除平面原图" hidden>删除原图</button>
       </section>
       <section class="plan-camera-section">
-        <div class="plan-camera-heading"><h2>生成设置</h2></div>
+        <div class="plan-camera-heading" id="camera-generationHeading"><h2>生成设置</h2></div>
         <label class="plan-camera-field" for="camera-generationMode"><span>生成模式</span><select id="camera-generationMode" aria-label="生成模式" disabled><option value="agent" selected>空间推理</option><option value="direct" disabled>提示词直出</option></select></label>
         <label id="camera-directPromptField" class="plan-camera-field" for="camera-directPrompt" hidden><span>直出提示词 <small>必填</small></span><textarea id="camera-directPrompt" maxlength="4000" rows="5" placeholder="填写直接发送给生图模型的提示词。" required disabled></textarea></label>
         <label id="camera-agentModelField" class="plan-camera-field" for="camera-agentModel"><span>空间推理模型</span><select id="camera-agentModel" aria-label="空间推理模型" disabled><option value="">读取中…</option></select></label>
@@ -47,7 +49,13 @@
           <label class="plan-camera-field" for="camera-resolution"><span>分辨率</span><select id="camera-resolution"><option>1K</option><option selected>2K</option><option>4K</option></select></label>
           <label class="plan-camera-field" for="camera-aspectRatio"><span>画幅</span><select id="camera-aspectRatio"><option>16:9</option><option>4:3</option><option>1:1</option></select></label>
         </div>
-        <label class="plan-camera-field" for="camera-imageCount"><span>出图张数 <small>每个模型</small></span><select id="camera-imageCount" aria-describedby="camera-batchTotal" disabled><option value="1">1 张</option></select><small id="camera-batchTotal" class="plan-camera-batch"></small></label>
+        <label class="plan-camera-field" for="camera-imageCount">
+          <span class="plan-camera-count-label">
+            <span>出图张数 <small>每个模型</small></span>
+            <small id="camera-batchTotal" class="plan-camera-batch"></small>
+          </span>
+          <select id="camera-imageCount" aria-label="每个模型的出图张数" aria-describedby="camera-batchTotal" disabled><option value="1">1 张</option></select>
+        </label>
         <label id="camera-requirementsField" class="plan-camera-field" for="camera-requirements"><span>空间与风格 <small>可选</small></span><textarea id="camera-requirements" maxlength="4000" rows="4" placeholder="例如：客餐厅，温润原木与浅色石材，自然日光，建筑杂志摄影质感。"></textarea></label>
       </section>
     </div>
@@ -56,7 +64,7 @@
         <span id="camera-status" role="status" aria-live="polite" hidden></span>
         <button id="camera-refresh" class="config-refresh-button" type="button" aria-label="刷新机位渲染配置">
           <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
-          <span id="camera-refreshLabel">刷新</span>
+          <span id="camera-refreshLabel">刷新配置</span>
         </button>
       </div>
       <p id="camera-error" class="plan-camera-error" role="alert" hidden></p>
@@ -64,23 +72,36 @@
     </footer>
   </aside>
   <section class="plan-camera-workspace" aria-label="机位与效果图">
-    <header class="plan-camera-toolbar">
-      <div role="tablist" aria-label="画布视图">
-        <button id="showSource" type="button" role="tab" aria-selected="true" aria-controls="sourceView">摆放相机</button>
-        <button id="showInputPreview" type="button" role="tab" aria-selected="false" aria-controls="inputPreviewView" disabled>送模预览</button>
-        <button id="showResult" type="button" role="tab" aria-selected="false" aria-controls="resultView" disabled>室内效果</button>
+    <div id="camera-viewActions" class="plan-camera-toolbar" hidden>
+      <div class="canvas-view-controls" role="tablist" aria-label="画布视图">
+        <button id="showSource" class="canvas-view-button" type="button" role="tab" aria-selected="true" aria-controls="sourceView" aria-label="摆放相机" title="摆放相机"><svg aria-hidden="true"><use href="/icons/workbench.svg#camera"></use></svg></button>
+        <button id="showInputPreview" class="canvas-view-button" type="button" role="tab" aria-selected="false" aria-controls="inputPreviewView" aria-label="送模预览" title="送模预览" disabled><svg aria-hidden="true"><use href="/icons/workbench.svg#frame"></use></svg></button>
+        <button id="showResult" class="canvas-view-button" type="button" role="tab" aria-selected="false" aria-controls="resultView" aria-label="室内效果" title="室内效果" disabled><svg aria-hidden="true"><use href="/icons/workbench.svg#result"></use></svg></button>
       </div>
       <button id="download" class="plan-camera-text-button" type="button" hidden>下载图片</button>
-    </header>
+    </div>
     <div id="cameraTools" class="plan-camera-tools" role="group" aria-label="相机微调" hidden>
+      <p class="plan-camera-placement-cue">点击图中放置相机</p>
+      <div class="plan-camera-lens-tools">
         <label for="heading">朝向 <span class="plan-camera-angle"><input id="heading" type="number" min="0" max="359" step="1" value="0" inputmode="numeric" aria-label="朝向（度）" title="0° 朝上，90° 朝右" disabled /><span aria-hidden="true">°</span></span></label>
-        <label for="fov">视野 <span class="plan-camera-angle"><input id="fov" type="number" min="35" max="100" step="1" inputmode="numeric" aria-label="水平视野（度）" disabled /><span aria-hidden="true">°</span></span></label>
-        <output id="focalLength" class="plan-camera-focal-length" for="fov" aria-label="全画幅等效焦距" aria-live="off" title="全画幅等效焦距">— mm</output>
-        <button id="placeCenter" class="plan-camera-text-button" type="button" disabled>居中</button>
-        <label class="plan-camera-frame-toggle" title="同时控制送模图上的矩形框"><input id="showFrame" type="checkbox" checked disabled />显示取景框</label>
-        <label class="plan-camera-frame-toggle" title="按射线与原图交集的外接矩形裁剪，保留矩形内全部图纸"><input id="cropToView" type="checkbox" disabled />裁剪视野</label>
+        <div class="plan-camera-fov-tools">
+          <label for="fov">视野 <span class="plan-camera-angle"><input id="fov" type="number" min="35" max="100" step="1" inputmode="numeric" aria-label="水平视野（度）" aria-describedby="focalLength" disabled /><span aria-hidden="true">°</span></span></label>
+          <output id="focalLength" class="plan-camera-focal-length" for="fov" aria-label="全画幅等效焦距" aria-live="off" title="全画幅等效焦距">— mm</output>
+        </div>
+      </div>
+      <div class="plan-camera-composition-tools">
+        <button id="placeCenter" class="plan-camera-text-button" type="button" disabled><span class="plan-camera-centered-label">居中</span><span class="plan-camera-place-label">放到中心</span></button>
+        <div class="plan-camera-display-tools">
+          <label class="plan-camera-frame-toggle" title="同时控制送模图上的矩形框"><input id="showFrame" type="checkbox" checked disabled /><span><span class="plan-camera-frame-prefix">显示</span>取景框</span></label>
+          <label class="plan-camera-frame-toggle" title="按射线与原图交集的外接矩形裁剪，保留矩形内全部图纸"><input id="cropToView" type="checkbox" disabled />裁剪视野</label>
+        </div>
+      </div>
     </div>
     <div class="plan-camera-viewer">
+      <div id="camera-generationFeedback" class="generation-feedback" hidden>
+        <p id="camera-generationFeedbackText" class="generation-feedback-text" role="status" aria-live="polite"></p>
+        <div class="generation-feedback-preview" aria-hidden="true"></div>
+      </div>
       <div id="empty" class="plan-camera-empty"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M10 8h44v48H10zM10 30h18V8m0 22h26M32 30v26"/><path d="m20 43 6-6 6 6m-6-6v12"/></svg><h1>从平面图，走进室内</h1><p>上传平面图，在房间内放置相机<br />在图上调整朝向和视野，生成室内效果图</p><button id="emptyUpload" type="button">上传平面图</button></div>
       <section id="sourceView" class="plan-camera-source" role="tabpanel" aria-labelledby="showSource" hidden>
         <canvas id="canvas" tabindex="0" aria-label="平面图相机画布。点击放置相机，拖动蓝点移动，拖外框远边或短柄调整取景远近。方向键移动，Shift 加方向键转向，加减键调整开角，Page Up 和 Page Down 调整取景远近。" aria-describedby="drawingHint"></canvas>
@@ -103,8 +124,9 @@
         <details id="scenePromptDetails" hidden><summary id="scenePromptTitle">画面提示词</summary><pre id="scenePrompt"></pre></details>
       </section>
     </div>
-    <footer class="plan-camera-canvas-footer">
+    <footer id="camera-canvasFooter" class="plan-camera-canvas-footer">
       <p id="drawingHint">上传后，点击房间内放置相机</p>
+      <p id="camera-compactHint" class="plan-camera-compact-hint" aria-hidden="true"></p>
       <div id="visibilityLegend" class="plan-camera-legend" hidden>
         <span><i class="plan-camera-position-key" aria-hidden="true"></i>机位</span>
         <span><svg class="plan-camera-direction-key" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1 6h13m-4-4 4 4-4 4"/></svg>朝向</span>
@@ -116,5 +138,5 @@
     </footer>
   </section>
 </main>
-<script type="module" src="/floor-plan-camera.js?v=35"></script>
+<script type="module" src="/floor-plan-camera.js?v=43"></script>
 </body></html>

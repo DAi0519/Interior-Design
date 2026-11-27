@@ -1,44 +1,46 @@
 /**
- * [INPUT]: 依赖生成尺寸控制器的后置KS输入/旧进程门禁、效果图美化六氛围/新增纯词光影控制器、ai-render-studio-host保活宿主、白模光影、质感Prompt、精模光影、图片工具、任务/飞书状态与设计/模型/上传/结果及连接中心
- * [OUTPUT]: 提供AI渲染人物宠物独立功能导航；异步普通模型刷新不覆盖图片工具尺寸与参数；提供效果图美化六档/九卡混合多选×模型×每模板张数、逐项标签与旧进程门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
+ * [INPUT]: 依赖生成尺寸控制器的后置KS输入/旧进程门禁、效果图美化六氛围/新增纯词光影控制器、ai-render-studio-host保活宿主、白模光影、质感Prompt、精模光影、图片工具、任务/飞书状态、首页对话及设计/模型/上传/结果与连接中心
+ * [OUTPUT]: 提供首页自由生图、同对话完整历史卡片、已选功能原表单、内嵌画布与独立原图/模型/尺寸/张数草稿、共享任务；提供AI渲染人物宠物独立功能导航；异步普通模型刷新不覆盖图片工具尺寸与参数；提供效果图美化六档/九卡混合多选×模型×每模板张数、逐项标签与旧进程门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { isEmptyRoomDesign } from "./room-renovation.js";
-import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=4";
+import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=15";
 import { SCENE_CAST_MODE } from "./scene-cast-handoff.js";
 import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
-import { bindConnectionCenter } from "./connection-center.js?v=3";
+import { bindConnectionCenter } from "./connection-center.js?v=10";
 import { createAppElements } from "./app-elements.js?v=2";
-import { designPromptConfiguration, designSourceValidation, platformStyleAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=2";
-import { bindDesignInputs } from "./design-inputs.js?v=2";
+import { bindFeatureDrafts, designPromptConfiguration, designSourceValidation, loadWorkbenchStartup, platformStyleAvailability, renderConnectionAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, renderQualityControl, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=5";
+import { bindDesignInputs } from "./design-inputs.js?v=5";
 import { bindPanoramaLightingControls } from "./panorama-lighting-controls.js";
 import { bindLightingTransferControls } from "./lighting-transfer-controls.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
-import { bindGenerationSizeControls } from "./generation-size-controls.js";
+import { bindGenerationSizeControls, SOURCE_ASPECT_OPTION } from "./generation-size-controls.js";
 import { buildGenerationInput } from "./generation-input.js";
-import { bindGenerationActions } from "./generation-actions.js";
-import { bindGenerationResults } from "./generation-results.js";
-import { bindGenerationTaskController } from "./generation-task-controller.js";
-import { bindImageTools } from "./image-tools.js?v=4";
+import { bindGenerationActions } from "./generation-actions.js?v=2";
+import { bindGenerationResults } from "./generation-results.js?v=5";
+import { bindGenerationTaskController } from "./generation-task-controller.js?v=5";
+import { bindHomeComposerFeatures, bindHomeImageChat } from "./home-image-chat.js?v=45";
+import { bindImageTools } from "./image-tools.js?v=7";
 import { beautificationItemsForSelection, buildGenerationJobRequest, generationItemsForSelection, generationLoadingCopy, panoramaItemsForSelection } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
-import { bindReferenceUpload } from "./reference-upload.js?v=2";
+import { bindReferenceUpload } from "./reference-upload.js?v=5";
 import { bindRefinedModelControls, createRefinedModelSelection } from "./refined-model-controls.js";
-import { bindStyleDnaChat } from "./style-dna-chat.js";
+import { bindStyleDnaChat } from "./style-dna-chat.js?v=4";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { bindWhiteModelLighting } from "./white-model-lighting.js";
-import { generationFeatureUnavailableReason, referenceCapability, referenceSubject } from "./model-capabilities.js";
-import { api, fillSelect } from "./workbench-utils.js";
+import { generationFeatureUnavailableReason, referenceCapability, referenceSubject, singleReferenceValidation } from "./model-capabilities.js?v=2";
+import { api } from "./workbench-utils.js";
 import "./custom-select.js?v=9";
 const state = {
   availablePromptAgents: new Map(),
   catalog: [],
+  checkedModels: null,
   connected: false,
   generationFeatureModes: null,
   generationFeatureCapabilities: null,
@@ -61,7 +63,29 @@ const refinedModelSelection = createRefinedModelSelection();
 let referenceUpload;
 let styleReferenceUpload;
 const elements = createAppElements();
+const featureDrafts = bindFeatureDrafts({ elements, state });
 const aiRenderStudioHost = bindAiRenderStudioHost();
+const homeChat = bindHomeImageChat({
+  send: prompt => void generate({ homePrompt: prompt }),
+  deactivateNativeCanvas: () => imageTools.setFeatureMode(null),
+  renderHistory: (...args) => generationResults.showArchive(...args),
+  getBlockReason(prompt) {
+    const mode = state.featureMode;
+    const tool = imageTools.forMode(mode);
+    const { multiple } = referenceCapability({ featureMode: mode, model: selectedModel(), policy: state.referencePolicy });
+    const referenceError = tool || !multiple ? singleReferenceValidation(mode, referenceImages().length) : null;
+    if (referenceError) return { message: referenceError, field: "reference" };
+    if (!tool && !selectedModel()) return { message: "请选择出图模型" };
+    if (mode === "free" && prompt.length < 3 && selectedModels().some(model => model.provider !== "comfyui")) return { message: "提示词至少填写 3 个字符" };
+    return { message: tool?.availabilityReason?.() || tool?.validate?.()?.message
+      || (isEmptyRoomDesign(mode) && emptyRoomType.validation()?.message) || generationUnavailableReason() };
+  },
+  selectModel: key => selectModels([key]),
+  addImages: files => referenceUpload.addFiles(files, { replace: referenceLimit() === 1 }),
+  removeImage: id => referenceUpload.remove(id),
+  openHome: () => selectComposerFeature({ featureMode: "free", label: "" }),
+  openFeature: detail => selectComposerFeature(detail),
+});
 const panoramaLighting = bindPanoramaLightingControls({ root: elements.panoramaLightingSection, storage: sessionStorage, storageKey: "canvas-lab:panorama-lighting:main", reload: () => api("/api/config/refresh", { method: "POST" }), onChange: () => generationActions.refresh(), showToast });
 const effectBeautification = bindEffectBeautificationControls({
   root: elements.effectBeautificationSection,
@@ -76,18 +100,18 @@ const generationCount = bindGenerationCount({
 const fluxNegativePrompt = bindFluxNegativePrompt({
   count: document.querySelector("#negativePromptCount"),
   note: document.querySelector("#negativePromptNote"),
-  root: document.querySelector("#negativePromptSection"),
+  root: document.querySelector("#negativePromptSection"), scopeByFeature: true,
   textarea: document.querySelector("#negativePromptInput"),
 });
 const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
 });
-const refinedModel = bindRefinedModelControls({ elements, onChange: () => { if (state.catalog?.length && selectedModel() && state.featureMode === "refinedModel") { configureSizeControls({ preserveResolution: true }); updateComputedSize(); fluxNegativePrompt.render(refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode); } generationActions.refresh(); },
+const refinedModel = bindRefinedModelControls({ elements, onChange: () => { if (state.catalog?.length && selectedModel() && state.featureMode === "refinedModel") { generationSize.configure({ preserveResolution: true }); generationSize.renderSummary(); fluxNegativePrompt.render(refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode); } generationActions.refresh(); },
   getPolicy: () => state.referencePolicy, showToast });
 const lightingTransfer = bindLightingTransferControls({ root: elements.lightingTransferSection,
   getPolicy: () => state.referencePolicy, showToast, onChange: () => {
-    if (state.featureMode === "lightingTransfer" && selectedModel()) { configureSizeControls({ preserveResolution: true }); updateComputedSize(); }
+    if (state.featureMode === "lightingTransfer" && selectedModel()) { generationSize.configure({ preserveResolution: true }); generationSize.renderSummary(); }
     generationActions.refresh();
   } });
 function activeLighting() { return state.featureMode === "lightingTransfer" ? lightingTransfer : refinedModel; }
@@ -97,7 +121,7 @@ const generationSize = bindGenerationSizeControls({ elements, getContext: () => 
   featureMode: state.featureMode, refinedLighting: activeLighting().requestFields().refinedLighting,
   model: selectedModel(), sourceImage: selectedSourceImage(), ratioMode: state.ratioMode,
 }) });
-const imageTools = bindImageTools({ api, elements, getSourceImage: () => selectedSourceImage(),
+const imageTools = bindImageTools({ api, elements, getSourceImage: mode => referenceUpload?.imagesForScope(mode)[0],
   onChange: () => generationActions.refresh(), showToast });
 const { upscale: imageUpscale, outpaint: imageOutpaint } = imageTools;
 function selectedModels() { return state.modelKeys.map((key) =>
@@ -105,11 +129,11 @@ function selectedModels() { return state.modelKeys.map((key) =>
 function selectedModel() { return selectedModels()[0]; }
 function referenceImages() { return referenceUpload?.images() || []; }
 function styleReferenceImages() { return styleReferenceUpload?.images() || []; }
-function selectedSourceImage() { return state.featureMode === "styleDna" ? null : referenceImages()[0]; }
+function selectedSourceImage() { return referenceImages()[0]; }
 function isDesignPromptFlow() { return (isEmptyRoomDesign(state.featureMode) || ["styleTransfer", "whiteModel"].includes(state.featureMode)); }
 function activeDesignPromptConfig() { return designPromptConfiguration(state).smartDefault; }
 function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
-  designPromptConfiguration(state).promptAgent, { scope: state.featureMode === "roomRenovation" ? "room-renovation" : "" }); }
+  designPromptConfiguration(state).promptAgent, { scope: { roomRenovation: "room-renovation", emptyRoom: "empty-room", styleTransfer: "style-transfer" }[state.featureMode] || "" }); }
 function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
   (model) => model.key === state.promptAgentModelKey); }
 function renderPromptAgentModels() {
@@ -139,8 +163,10 @@ function updateReferenceRequirements() {
     model: selectedModel(),
     policy: state.referencePolicy,
   });
+  homeChat.setReferenceLabel(`添加${elements.referenceTitleCopy.textContent}`);
 }
-function selectFeatureMode(featureMode, { navigation = false } = {}) {
+function selectFeatureMode(featureMode, { navigation = false, home = homeChat.active() && !navigation } = {}) {
+  if (navigation && !home) homeChat.leave();
   if (featureMode === "aiRenderStudio") { aiRenderStudioHost.show(); return; }
   if (featureMode === SCENE_CAST_MODE) { aiRenderStudioHost.show(SCENE_CAST_MODE); return; }
   if (aiRenderStudioHost.isActive() && !navigation) return;
@@ -149,9 +175,13 @@ function selectFeatureMode(featureMode, { navigation = false } = {}) {
     "imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight", "panoramaEnhancement", "refinedModel", "styleDna", "styleTransfer", "whiteModel",
   ];
   if (!supported.includes(featureMode)) return;
-  aiRenderStudioHost.hide(featureMode);
-  state.modelKeys = refinedModelSelection.forFeature(featureMode, state.modelKeys, state.catalog);
-  state.featureMode = featureMode;
+  aiRenderStudioHost.hide(home ? null : featureMode);
+  const draft = featureDrafts(featureMode);
+  const keys = refinedModelSelection.forFeature(featureMode, featureMode === "refinedModel" && draft ? draft.modelKeys : state.modelKeys, state.catalog);
+  state.modelKeys = draft && featureMode !== "refinedModel" ? [...draft.modelKeys] : keys;
+  if (home) homeChat.enter();
+  if (navigation) homeChat.route(home ? null : featureMode);
+  if (draft) { homeChat.refs(referenceImages()); styleReferenceUpload.render(); }
   if (featureMode === "panoramaEnhancement" && state.catalog.length) {
     state.modelKeys = state.modelKeys.filter((key) =>
       state.catalog.some((model) => model.key === key
@@ -169,9 +199,8 @@ function selectFeatureMode(featureMode, { navigation = false } = {}) {
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
   const imageTool = imageTools.setFeatureMode(featureMode);
-  const isImageUpscale = featureMode === "imageUpscale";
   for (const button of elements.featureModeButtons) {
-    const selected = button.dataset.featureMode === featureMode;
+    const selected = !home && button.dataset.featureMode === featureMode;
     button.classList.toggle("selected", selected);
     button.ariaChecked = String(selected);
   }
@@ -181,7 +210,7 @@ function selectFeatureMode(featureMode, { navigation = false } = {}) {
   for (const result of elements.generationResults) {
     result.classList.toggle("hidden", isStyleDna);
   }
-  styleDnaChat.setVisible(isStyleDna);
+  styleDnaChat.setVisible(isStyleDna, { home });
   generationActions.setFeatureMode(featureMode);
   if (isStyleDna) {
     generationActions.setBusy(false);
@@ -197,7 +226,7 @@ function selectFeatureMode(featureMode, { navigation = false } = {}) {
     renderPromptAgentContext(whiteModelRenderMode.current().mode);
   }
   elements.styleSection.classList.toggle("hidden", !isDesignModel);
-  elements.imageUpscaleSection.classList.toggle("hidden", !isImageUpscale);
+  elements.imageUpscaleSection.classList.toggle("hidden", featureMode !== "imageUpscale");
   elements.imageMultiAngleSection.classList.toggle("hidden", featureMode !== "imageMultiAngle");
   elements.imageMaskFillSection.classList.toggle("hidden", featureMode !== "imageMaskFill");
   elements.imageRelightSection.classList.toggle("hidden", featureMode !== "imageRelight");
@@ -227,10 +256,10 @@ function selectFeatureMode(featureMode, { navigation = false } = {}) {
   if (imageTool) {
     fluxNegativePrompt.render([], featureMode);
     imageTool.activate();
-  } else configurePrimaryModel();
+  } else configurePrimaryModel(draft, navigation || home);
   updateReferenceRequirements();
   referenceUpload.render();
-  renderActiveGenerationTask();
+  generationTasks.render();
 }
 function renderModelSelect() {
   refinedModel.setModels(selectedModels());
@@ -241,52 +270,25 @@ function renderModelSelect() {
     ? "已选 1 个模型，生成张数可在参数中设置。"
     : `${count} 个模型，各 1 张，共 ${count} 张；参数以 ${selectedModel()?.label} 为准。`;
 }
-function configurePrimaryModel() {
+function configurePrimaryModel(draft = null, preserveResolution = homeChat.active()) {
   if (imageTools.forMode(state.featureMode)) { fluxNegativePrompt.render([], state.featureMode); imageTools.forMode(state.featureMode).activate(); return; }
-  if (!selectedModel()) { renderModelSelect(); return; }
-  if (selectedSourceImage()) state.ratioMode = "auto";
+  if (homeChat.active() && state.featureMode === "free") state.modelKeys = homeChat.models(state.catalog, state.checkedModels);
+  if (!selectedModel()) { fluxNegativePrompt.render([], state.featureMode); renderModelSelect(); return; }
   const model = selectedModel();
   renderModelSelect();
   fluxNegativePrompt.render(state.featureMode === "lightingTransfer" || state.featureMode === "refinedModel" && refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode);
-  generationCount.setSingleModel(state.modelKeys.length === 1);
+  generationCount.setSingleModel(state.modelKeys.length === 1, draft?.count);
   updateReferenceRequirements();
-  configureSizeControls();
-  if (model.qualityOptions.length > 0) {
-    elements.qualityField.classList.remove("hidden");
-    elements.qualityLabel.textContent = "生成质量";
-    fillSelect(
-      elements.qualitySelect,
-      model.qualityOptions.map((quality) => ({
-        label:
-          quality === "auto"
-            ? "自动"
-            : quality === "low"
-              ? "低"
-              : quality === "medium"
-                ? "中"
-                : quality === "high"
-                  ? "高"
-                  : quality === "xhigh"
-                    ? "极高"
-                    : "最高",
-        value: quality,
-      })),
-      model.defaultQuality || "auto",
-    );
-  } else {
-    elements.qualityField.classList.add("hidden");
-    elements.qualitySelect.replaceChildren();
-  }
-  updateComputedSize();
+  generationSize.configure({ preserveResolution, draft });
+  renderQualityControl(elements, model, draft?.quality);
+  generationSize.renderSummary();
   referenceUpload.render();
 }
 function selectModels(modelKeys) {
   state.modelKeys = refinedModelSelection.chooseByUser(state.featureMode, modelKeys);
   configurePrimaryModel();
 }
-function configureSizeControls(options) { generationSize.configure(options); }
-function updateComputedSize() { generationSize.renderSummary(); }
-function generationInput() {
+function generationInput(freePrompt) {
   const renderMode = whiteModelRenderMode.current();
   return buildGenerationInput({
     effectBeautification: effectBeautification.value(),
@@ -300,7 +302,7 @@ function generationInput() {
     model: selectedModel(),
     negativePrompt: fluxNegativePrompt.value(),
     prompt: {
-      free: elements.promptInput.value.trim(),
+      free: freePrompt,
       refined: elements.refinedPromptInput.value.trim(),
       panorama: panoramaLighting.requestFields().prompt,
       lightingTransfer: lightingTransfer.promptValue(),
@@ -312,7 +314,7 @@ function generationInput() {
     ...whiteModelLighting.requestFields(state.featureMode),
     panoramaLighting: panoramaLighting.requestFields().panoramaLighting,
     quality: elements.qualitySelect.value,
-    ratio: elements.ratioSelect.value,
+    ratio: generationSize.selectedRatio(),
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
     referenceImages: referenceImages(),
     renderMode,
@@ -325,20 +327,8 @@ function setApiConnectionState(connected) {
   if (state.connected !== connected) generationActions.clearReusable();
   state.connected = connected;
   styleDnaChat.setConnected(connected);
-  const workflowCount = state.catalog.filter(
-    (model) => model.provider === "comfyui",
-  ).length;
-  elements.modelAvailability.textContent = connected
-    ? "检查模型中"
-    : workflowCount > 0
-      ? `${workflowCount} 个工作流已配置`
-      : "等待连接";
-  elements.promptAgentAvailability.textContent = connected
-    ? "检查模型中"
-    : "等待连接";
-  elements.modelAvailability.classList.toggle("ready", connected || workflowCount > 0);
-  elements.promptAgentAvailability.classList.toggle("ready", connected);
-  renderActiveGenerationTask();
+  renderConnectionAvailability(elements, connected, state.catalog);
+  generationTasks.render();
 }
 function showToast(message) {
   elements.toast.textContent = message;
@@ -348,13 +338,21 @@ function showToast(message) {
     elements.toast.classList.add("hidden");
   }, 2400);
 }
-const generationResults = bindGenerationResults({ api, showToast });
+const generationResults = bindGenerationResults({ api, showToast, omitFailedCards: homeChat.active });
 const generationTasks = bindGenerationTaskController({
   generationResults,
   getFeatureMode: () => state.featureMode,
-  onBusy: (busy) => { generationActions.setBusy(busy); imageTools.setStage(generationTasks.view().stage, generationTasks.task()); },
+  canPresent: () => !aiRenderStudioHost.isActive(),
+  canShowTask: task => !homeChat.active() || homeChat.nativeActive() || homeChat.owns(task),
+  onBusy(busy, { view, task, running }) {
+    generationActions.setBusy(busy);
+    imageTools.setStage(view.stage, task);
+    if (homeChat.active()) homeChat.task(view, task, running);
+  },
 });
-function renderActiveGenerationTask() { generationTasks.render(); }
+const selectComposerFeature = bindHomeComposerFeatures({
+  homeChat, host: aiRenderStudioHost, state, view: generationTasks.view, render: generationTasks.render, selectFeatureMode,
+});
 const modelMultiSelect = bindModelMultiSelect({
   container: elements.modelSelect,
   onChange: selectModels,
@@ -385,6 +383,7 @@ async function checkAvailableModels() {
     elements.modelAvailability.classList.add("ready");
     elements.promptAgentAvailability.classList.add("ready");
     renderPromptAgentModels();
+    state.checkedModels = body.models;
     state.modelKeys = refinedModelSelection.forFeature(state.featureMode, state.modelKeys, state.catalog, body.models);
     configurePrimaryModel();
   } catch (error) {
@@ -397,13 +396,16 @@ async function checkAvailableModels() {
 }
 function resetModelAvailability() {
   state.availablePromptAgents.clear();
+  state.checkedModels = null;
   styleDnaChat.setAvailability([]);
   renderPromptAgentModels();
-  renderModelSelect();
+  if (homeChat.active()) configurePrimaryModel();
+  else renderModelSelect();
 }
-async function generate({ forcePromptRegeneration = false } = {}) {
+async function generate({ forcePromptRegeneration = false, homePrompt } = {}) {
   if (aiRenderStudioHost.isActive()) return;
   const featureMode = state.featureMode;
+  const freePrompt = homePrompt ?? (homeChat.active() && featureMode === "free" ? homeChat.lastPrompt() : elements.promptInput.value.trim());
   const unavailableReason = generationUnavailableReason();
   if (unavailableReason) { showToast(unavailableReason); return; }
   const imageTool = imageTools.forMode(featureMode);
@@ -427,6 +429,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const panoramaEnhancementRequest = featureMode === "panoramaEnhancement";
   const roomTypeValidation = emptyRoomRequest ? emptyRoomType.validation() : null;
   if (roomTypeValidation?.message) {
+    if (homeChat.active()) homeChat.revealParameters("emptyRoomTypeSection");
     emptyRoomType.focusInvalid();
     showToast(roomTypeValidation.message);
     return;
@@ -509,9 +512,9 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   if (
     featureMode === "free" &&
     models.some((model) => model.provider !== "comfyui") &&
-    elements.promptInput.value.trim().length < 3
+    freePrompt.length < 3
   ) {
-    elements.promptInput.focus();
+    if (!homeChat.active()) elements.promptInput.focus();
     showToast("请先输入至少 3 个字符的提示词");
     return;
   }
@@ -546,7 +549,11 @@ async function generate({ forcePromptRegeneration = false } = {}) {
   const sourceImage = selectedSourceImage();
   const task = createGenerationTask({ featureMode, loadingLabel: loadingCopy, models: generationItems });
   try {
-    const baseInput = localImageRequest ? null : generationInput();
+    const baseInput = localImageRequest ? null : generationInput(freePrompt);
+    if (homeChat.active()) {
+      homeChat.start(task.jobId, homePrompt ?? (featureMode === "free" ? freePrompt : homeChat.promptText()),
+        generationTasks.view(featureMode), homePrompt !== undefined);
+    }
     generationTasks.start(task, { comparisonImage: featureMode === "imageOutpaint" ? null : sourceImage });
     const batchId = generationItems.length > 1
       ? crypto.randomUUID().replaceAll("-", "")
@@ -575,7 +582,8 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       ? localImageRequest
         ? `${completed} 张图片${featureMode === "imageRelight" ? "打光" : featureMode === "imageMaskFill" ? "二次编辑" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${["imageMaskFill", "imageRelight"].includes(featureMode) ? "，正在同步飞书" : ""}`
         : `${completed} 张图已完成，正在分别同步飞书`
-      : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
+      : homeChat.active() ? `已生成 ${completed} / ${generationItems.length} 张`
+        : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
     generationTasks.setJob(task.jobId, {
       error: error.message,
@@ -583,7 +591,7 @@ async function generate({ forcePromptRegeneration = false } = {}) {
       status: "failed",
     });
   } finally {
-    if (state.featureMode === featureMode) renderActiveGenerationTask();
+    if (state.featureMode === featureMode) generationTasks.render();
   }
 }
 function generationUnavailableReason() {
@@ -600,6 +608,7 @@ function generationUnavailableReason() {
       : state.featureMode === "panoramaEnhancement" ? panoramaLighting.validation() : null);
 }
 const generationActions = bindGenerationActions({ getUnavailableReason: generationUnavailableReason,
+  onStateChange: homeChat.refreshAction,
   getPromptIdentity: () => JSON.stringify([
     state.featureMode,
     isEmptyRoomDesign(state.featureMode) ? emptyRoomType.requestFields() : null,
@@ -636,9 +645,7 @@ const connectionCenter = bindConnectionCenter({
   api,
   onApiConnected: async () => { await Promise.all([checkAvailableModels(), imageTools.refreshOutpaint(), imageTools.refreshMultiAngle(), imageTools.refreshMaskFill(), imageTools.refreshRelight()]); },
   onApiDisconnected: () => { resetModelAvailability(); void imageTools.refreshOutpaint(); void imageTools.refreshMultiAngle(); void imageTools.refreshMaskFill(); void imageTools.refreshRelight(); },
-  onApiStateChange(session) {
-    setApiConnectionState(session.connected);
-  },
+  onApiStateChange: session => setApiConnectionState(session.connected),
   onLarkReady: async () => {
     await loadConfiguration();
   },
@@ -649,18 +656,13 @@ const connectionCenter = bindConnectionCenter({
 });
 async function initialize() {
   const initialFeature = new URLSearchParams(window.location.search).get("feature");
-  if (initialFeature === "aiRenderStudio" || imageTools.forMode(initialFeature) || initialFeature === SCENE_CAST_MODE) selectFeatureMode(initialFeature);
+  if (!initialFeature) selectFeatureMode("free", { home: true });
+  else if (initialFeature === "aiRenderStudio" || imageTools.forMode(initialFeature) || initialFeature === SCENE_CAST_MODE) selectFeatureMode(initialFeature);
   generationTasks.resume();
-  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig, relightConfig] = await Promise.all([
-    api("/api/catalog"),
-    connectionCenter.load(),
-    api("/api/image-upscale/config"),
-    api("/api/image-outpaint/config"),
-    api("/api/image-multi-angle/config"),
-    api("/api/image-mask-fill/config").catch(() => ({ available: false, reason: "二次编辑配置读取失败，请重新启动本机工作台", modes: [] })),
-    api("/api/image-relight/config").catch(() => ({ available: false, reason: "打光配置读取失败，请重新启动本机工作台" })).then(config => { imageTools.relight.configure(config); return config; }),
-  ]);
+  const [catalogBody, sessionBody, imageUpscaleConfig, imageOutpaintConfig, multiAngleConfig, maskFillConfig, relightConfig] =
+    await loadWorkbenchStartup({ api, loadConnection: () => connectionCenter.load({ autoOpen: Boolean(initialFeature) }), configureRelight: imageTools.relight.configure });
   state.catalog = catalogBody.models;
+  homeChat.setReady(true);
   state.generationFeatureModes = catalogBody.generationFeatureModes;
   state.generationFeatureCapabilities = catalogBody.generationFeatureCapabilities;
   panoramaLighting.setCapabilities(catalogBody.generationFeatureCapabilities);
@@ -745,16 +747,16 @@ referenceUpload = bindReferenceUpload({
   dropZone: elements.referenceDropZone,
   getLimit: referenceLimit,
   getPolicy: () => imageTools.forMode(state.featureMode)?.inputPolicy?.(state.referencePolicy) || state.referencePolicy,
-  getSubject: () => referenceSubject(state.featureMode),
+  getSubject: () => referenceSubject(state.featureMode), getScope: () => state.featureMode,
   input: elements.referenceInput,
   list: elements.referenceList,
-  onChange({ images, previousImages }) {
-    if (images[0]?.id !== previousImages[0]?.id) state.ratioMode = "auto";
+  onChange({ images }) {
+    homeChat.refs(images);
     generationActions.refresh();
     if (imageTools.forMode(state.featureMode)) imageTools.forMode(state.featureMode).renderSummary();
     else {
-      configureSizeControls({ preserveResolution: true });
-      updateComputedSize();
+      generationSize.configure({ preserveResolution: true });
+      generationSize.renderSummary();
     }
   },
   showToast,
@@ -764,7 +766,7 @@ styleReferenceUpload = bindReferenceUpload({
   dropZone: elements.styleReferenceDropZone,
   getLimit: () => 1,
   getPolicy: () => state.referencePolicy,
-  getSubject: () => "风格参考图",
+  getSubject: () => "风格参考图", getScope: () => state.featureMode,
   input: elements.styleReferenceInput,
   list: elements.styleReferenceList,
   onChange() {
@@ -782,15 +784,16 @@ elements.promptAgentVersionSelect.addEventListener("change", generationActions.r
 elements.effectTimeSelect.addEventListener("change", generationActions.refresh);
 elements.effectWeatherSelect.addEventListener("change", generationActions.refresh);
 elements.ratioSelect.addEventListener("change", () => {
-  if (selectedSourceImage()) state.ratioMode = "manual";
-  configureSizeControls({ preserveResolution: true, ratioMode: "manual" });
-  updateComputedSize();
+  state.ratioMode = elements.ratioSelect.value === SOURCE_ASPECT_OPTION ? "auto" : "manual";
+  generationSize.configure({ preserveResolution: true });
+  generationSize.renderSummary();
 });
 elements.resolutionSelect.addEventListener("change", () => {
   if (imageTools.forMode(state.featureMode)) imageTools.forMode(state.featureMode).renderSummary();
-  else updateComputedSize();
+  else generationSize.renderSummary();
   generationActions.refresh();
 });
 initialize().catch((error) => {
+  if (homeChat.active()) homeChat.showStartupError();
   generationResults.showError(`工作台初始化失败：${error.message}`);
 });

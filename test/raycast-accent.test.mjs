@@ -1,6 +1,6 @@
 /**
- * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮实现
- * [OUTPUT]: 对外提供主工作台顶栏连接与额度合并结构和冷白银灰顶栏、由导航前 transform 位移的纯黑白字激活视窗、中性浅色普通按钮、同源近距阴影的弹层动作、含 Beta 全宽 START 的单一 #f37021 标志性盒橙关键动作及系统偏好、三页最终加载顺序和中性焦点回归保障
+ * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮和密钥输入焦点实现
+ * [OUTPUT]: 验证侧栏额度与刷新、连接弹层读数、共享中性色和 START 关键动作
  * [POS]: test 的跨工作台 Raycast 重点色护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const accentHref = "raycast-accent.css?v=42";
+const accentHref = "raycast-accent.css?v=44";
 
 test("三页最后加载同一份 Raycast 统一按钮层", async () => {
   const [indexHtml, betaHtml, benchmarkHtml] = await Promise.all([
@@ -38,12 +38,6 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /--brand-nav-bg-top: rgb\(255 255 255 \/ 94%\)/);
   assert.match(css, /--brand-nav-bg-bottom: rgb\(245 245 247 \/ 90%\)/);
   assert.match(css, /--brand-nav-border: #d9dadd/);
-  assert.match(css, /--brand-nav-track-bg: #f2f2f4/);
-  assert.match(css, /--brand-nav-track-border: #dedfe2/);
-  assert.match(css, /--brand-nav-selected-bg: #000/);
-  assert.match(css, /--brand-nav-selected-border: #000/);
-  assert.match(css, /--brand-nav-selected-ink: #fff/);
-  assert.match(css, /--brand-nav-muted-ink: #6f7077/);
   assert.match(css, /--functional-action-bg: #f37021/);
   assert.match(css, /--functional-action-border: #f37021/);
   assert.match(css, /--functional-action-hover-bg: #f37021/);
@@ -67,6 +61,7 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /--brand-key-hover-border: #d7d8dc/);
   assert.match(css, /--brand-key-selected-border: #000/);
   assert.match(css, /--brand-key-selected-active-border: #000/);
+  assert.match(css, /--brand-selected-shadow: none;/);
   assert.match(css, /--brand-key-primary-border: #c5c6cb/);
   assert.match(css, /--brand-key-active-border: #bbbcc2/);
   assert.match(css, /--brand-key-disabled-border: #e6e6e8/);
@@ -85,15 +80,10 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /\.topbar::before\s*\{[^}]*rgb\(255 255 255 \/ 46%\)/s);
   assert.match(css, /\.topbar::after\s*\{[^}]*rgb\(255 255 255 \/ 96%\)/s);
   assert.match(css, /\.topbar \.brand-title\s*\{[^}]*color: var\(--brand-key-strong-ink\)/s);
-  assert.match(css, /\.topbar \.product-switcher\s*\{[^}]*var\(--brand-nav-track-bg\)[^}]*var\(--brand-nav-track-border\)[^}]*border-radius: 9px/s);
   assert.match(css, /\.topbar \.topbar-actions\s*\{[^}]*background: transparent[^}]*border: 0[^}]*box-shadow: none[^}]*padding: 0/s);
-  assert.match(css, /--brand-nav-selected-shadow:\s*inset 0 0 0 1px var\(--brand-nav-selected-border\),\s*inset 0 1px 0 rgb\(255 255 255 \/ 14%\),\s*0 2px 5px rgb\(25 26 28 \/ 20%\)/s);
-  assert.match(css, /\.topbar \.product-switch-active-viewport\s*\{[^}]*var\(--brand-nav-selected-bg\)[^}]*border-color: var\(--brand-nav-selected-border\)[^}]*var\(--brand-control-radius\)[^}]*var\(--brand-nav-selected-shadow\)/s);
-  assert.match(css, /\.topbar \.product-switch-option\s*\{[^}]*var\(--brand-nav-muted-ink\)/s);
-  assert.match(css, /\.topbar \.product-switch-active-option\s*\{[^}]*var\(--brand-nav-selected-ink\)/s);
   assert.match(css, /\.topbar \.product-status\s*\{[^}]*font-weight: 500[^}]*min-height: 30px/s);
   assert.match(css, /\.topbar \.connection-button,[^{]*\.topbar \.status-pill\s*\{[^}]*background: #fff[^}]*border-color: var\(--brand-key-border\)[^}]*border-radius: var\(--brand-control-radius\)[^}]*var\(--brand-key-shadow\)[^}]*font-weight: 600[^}]*min-height: 30px/s);
-  assert.match(css, /\.topbar \.connection-button:not\(\.connected\) \.status-dot,[^{]*\.topbar \.status-pill:not\(\.ready\)::before\s*\{[^}]*background: #a69ca1[^}]*box-shadow: none[^}]*height: 6px[^}]*width: 6px/s);
+  assert.match(css, /\.topbar \.connection-button:not\(\.connected\) \.status-dot,[^{]*\.topbar \.status-pill:not\(\.ready\)::before\s*\{[^}]*background: var\(--muted\)[^}]*box-shadow: none[^}]*height: 6px[^}]*width: 6px/s);
   assert.match(css, /\.topbar \.connection-button\.connected \.status-dot,[^{]*\.topbar \.status-pill\.ready::before\s*\{[^}]*background: var\(--brand-check-bg\)[^}]*box-shadow: none[^}]*height: 6px[^}]*width: 6px/s);
   assert.match(css, /\.topbar \.connection-button:hover\s*{[^}]*background: var\(--brand-key-hover-bg\)[^}]*border-color: var\(--brand-key-hover-border\)[^}]*color: var\(--brand-key-strong-ink\)/s);
   assert.match(css, /\.feature-mode-option,[^{]*\.secondary-button,[^{]*\.result-download-button\s*\{[^}]*var\(--brand-key-bg\)[^}]*var\(--brand-key-border\)[^}]*var\(--brand-key-shadow\)[^}]*var\(--brand-key-ink\)/s);
@@ -157,7 +147,7 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   const keySection = css.match(/SHARED BRAND KEYS[\s\S]*?FOCUS \+ INPUT/)?.[0] || "";
   assert.doesNotMatch(keySection, /radial-gradient|brand-accent|brand-surface|255 99 99|201 54 77|64 38 49/);
   assert.doesNotMatch(css, /\.scan-line\s*\{/);
-  assert.match(themeCss, /\.scan-line\s*\{[^}]*background: var\(--accent\)[^}]*0 0 20px rgb\(25 26 28 \/ 22%\)/s);
+  assert.doesNotMatch(themeCss, /\.scan-line\s*\{/);
   assert.match(css, /:where\(button, a, input, textarea, select\):focus-visible\s*\{[^}]*outline-color: var\(--brand-key-focus\)/s);
   assert.match(css, /:where\(button, \.product-switch-option, \.custom-select-trigger, \.custom-select-option\)\s*\{[^}]*touch-action: manipulation/s);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition-duration: 0\.01ms !important[\s\S]*transform: none !important/s);
@@ -176,28 +166,38 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
 });
 
 test("连接中心矩形动作由最终颜色层统一为中性浅色", async () => {
-  const [html, baseCss, accentCss] = await Promise.all([
+  const [html, dialog, baseCss, accentCss] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/connection-center-markup.js", import.meta.url), "utf8"),
     readFile(new URL("../public/connection-center.css", import.meta.url), "utf8"),
     readFile(new URL("../public/raycast-accent.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(html, /\/connection-center\.css\?v=8/);
+  assert.match(html, /\/connection-center\.css\?v=19/);
   const topbar = html.match(/<header class="topbar workspace-topbar">[\s\S]*?<\/header>/)?.[0] || "";
-  const dialog = html.match(/<div id="connectionDialog"[\s\S]*?<\/section>\s*<\/div>/)?.[0] || "";
-  const connectionControl = topbar.match(/<div class="connection-control">[\s\S]*?<\/div>/)?.[0] || "";
+  const footer = html.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";
+  assert.match(dialog, /id="connectionDialog"/);
+  const connectionControl = footer.match(/<div class="connection-control">[\s\S]*?<\/div>/)?.[0] || "";
   assert.match(connectionControl, /<button id="connectionButton"[^>]*>[\s\S]*?id="apiQuotaValue"[\s\S]*?<\/button>/);
-  assert.match(connectionControl, /<\/button>\s*<button id="apiQuotaRefresh"[^>]*>[\s\S]*?<svg/);
-  assert.equal((topbar.match(/id="connectionButton"/g) || []).length, 1);
+  assert.match(connectionControl, /<\/button>\s*<button id="apiQuotaRefresh"[^>]*aria-disabled="true" hidden>[\s\S]*?id="apiQuotaDetail"/);
+  assert.doesNotMatch(footer, /class="status-dot"/);
+  assert.equal((footer.match(/id="connectionButton"/g) || []).length, 1);
+  assert.doesNotMatch(topbar, /connectionButton|apiQuota|data-app-update/);
   assert.match(dialog, /id="apiKeyInput"/);
-  assert.doesNotMatch(dialog, /id="apiQuota(?:Value|Refresh)"/);
+  assert.match(dialog, /id="connectionQuotaRow"[^>]*hidden>[\s\S]*?id="connectionQuotaValue"/);
+  assert.doesNotMatch(dialog, /id="apiQuota(?:Value|Refresh|Detail)"/);
+  const keyFocusBlock = baseCss.match(/\.api-key-field input:focus\s*\{([^}]*)\}/)?.[1] || "";
+  assert.match(keyFocusBlock, /background: var\(--surface-control\);\s*border-color: var\(--line\);/);
+  assert.doesNotMatch(keyFocusBlock, /border-bottom/);
+  assert.match(keyFocusBlock, /box-shadow: none;/);
+  assert.match(keyFocusBlock, /outline: none;/);
   for (const id of [
     "disconnectButton",
     "saveConnectionButton",
     "larkRefreshButton",
     "larkLoginButton",
   ]) {
-    assert.match(html, new RegExp(`id="${id}"[\\s\\S]*?class="connection-action-button"`));
+    assert.match(dialog, new RegExp(`id="${id}"[\\s\\S]*?class="connection-action-button"`));
   }
 
   const baseButtonBlock = baseCss.match(/\.connection-action-button\s*\{([^}]*)\}/)?.[1] || "";

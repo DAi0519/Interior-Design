@@ -334,7 +334,11 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
     by("[data-lighting-error]").hidden = !error || selection.mode === "unselected";
     by("[data-lighting-error]").textContent = error || "";
     const activePolicy = policy || getPolicy();
-    by("[data-lighting-upload-hint]").textContent = `PNG / JPEG / WebP${activePolicy?.maxBytesPerImage ? ` · 单张${Math.floor(activePolicy.maxBytesPerImage / 1024 / 1024)}MB` : ""}`;
+    const limit = activePolicy?.maxBytesPerImage;
+    by("[data-lighting-upload-hint]").textContent = [
+      activePolicy?.normalizeFormats ? "" : "PNG / JPEG / WebP",
+      limit ? `单张${Math.floor(limit / 1024 / 1024)}MB` : "",
+    ].filter(Boolean).join(" · ");
     renderCards();
   }
   function update(value, notify = true) {

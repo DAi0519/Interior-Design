@@ -19,7 +19,8 @@ house-plan-prompt.mjs: 复用自由设计正文，纯文本/旧JSON兼容、可�
 house-plan-service.mjs: 最终正文直接送模、Agent工作指令分离及同文归档； .2共享SVG烧入空间标注、Agent/生图同字节输入及SHA； 16384-token完整输出预算与截断零生图； 服务端编译Prompt回调供Beta归档； 主卧标注准入、视觉Agent到单次图片生成、默认GPT2.5与两阶段费用回执
 floor-plan-geometry.mjs: 当前Key视觉模型目录、几何Prompt与权限双校验、单次识图建模
 floor-plan-spec.mjs: 严格HouseSpec与洞口/家具范围校验
-floor-plan-api.mjs: 三个平面出图入口独立config/jobs、机位专用无模型调用的annotation/preview、归档能力准入、成功槽位异步归档与失败恢复、连接隔离及更新忙碌守卫
+floor-plan-api.mjs: 户型布局及机位独立 config/jobs，机位专用无模型调用的annotation/preview、归档能力准入、成功槽位异步归档与失败恢复、连接隔离及更新忙碌守卫
+floor-plan-retired-route.mjs: 设计实验室旧页面、资源与 API 返回 410，旧功能书签回到工作台并保留其他查询参数
 floor-plan-archive-input.mjs: 户型布局标注图优先并保留原件； 逐图稳定归档ID、原图/实际送模图及Prompt SHA校验、结果/机位/直出模式/历史裁切元数据/逐图回执投影和串行同步
 floor-plan-archive.mjs: 三个平面图出图功能标签和飞书Schema、按归档ID查重与附件续传、字段和下载字节校验
 floor-plan-service.mjs: Seedream 5.5 布局白名单/独立尺寸与权限准入；共享参考图Base64预算常量； 超预算PNG自动请求压缩及实际送模格式/尺寸/SHA； 导出显式文生图/默认图生图、可选complexity/多参考图/指定画幅及按请求像素限制解码的图片执行原语；GPT2.6双模型身份/权限与历史兼容；布局四模型可选/默认参数与真实路由、后续Sunburst三动作保留（机位预览限-30°至60°），单图/Prompt/所选权限复核、PNG交付与原生格式/实际尺寸/费用回执
@@ -99,7 +100,7 @@ effect-render-enhancement-workflow.mjs: 含Beta质感增强固定Prompt批跑；
 empty-room-furniture.mjs: 空房家具领域真源，提供线上同名同序目录及独立房型多选推荐、“其他”输入标记及 200 字上限、选择来源归档、仅非空已选需求 Prompt 投影；空条件省略，不推断未选品类为排除项
 empty-room-type.mjs: 空房房间类型领域真源，维护十个客户可选值、“其他”详情 40 字上限，并向公开目录、工作流校验与飞书同步提供同一归一化合同
 image-dimensions.mjs: 无解码图片尺寸探测器，从 PNG IHDR、JPEG SOF 与 WebP VP8X/VP8L/VP8 图片头读取参考图与生成结果的可信宽高
-agent-model-config.mjs: Prompt Agent 模型真源，维护十一个通用候选及平面图机位专用 GPT 6.1 Sol，按功能过滤并结合当前 Key 目录核验图片输入与选择权限
+agent-model-config.mjs: Prompt Agent 模型真源，维护十一个通用候选及平面图机位专用 GPT 6.1 Sol、GPT 6.2 Sol、GPT 6.2 Astra，按功能过滤并结合当前 Key 目录核验图片输入与选择权限
 oneapi-image-async.mjs: 复用模型真源校验可选complexity并仅放image_generation工具；无mask原始PNG及图序的Responses background提交/1.5秒轮询、单次收费POST、同ID/终态校验、提交到正文与等待共享600秒总预算、取消及即时ID回调；透明mask明确拒绝
 oneapi-client.mjs: 读取当前 Key 的 /balance，返回剩余额度、币种、不限额标记与查询时间；Prompt Agent可选输出预算和截断准入，空回复及截断保留已知requestId/费用且不附正文；同步Responses按模型真源校验并透传可选complexity工具字段；按阶段独立限时/外部及单请求 AbortSignal 的 OneAPI HTTP 客户端与 ONEAPI_REQUEST_TIMEOUTS 真源：额度 8 秒、目录 30 秒、提示词/Style DNA 300 秒、出图/编辑 600 秒、分析/评审 180 秒，每次 HTTP 请求至完整响应体独立计时，专用 undici Agent 避免底层默认 300 秒提前截断且不改全局连接；Prompt Agent/分析/Style DNA/图生图走 Responses、Claude 双图评审走 Chat Completions；editImageAsync使用Responses后台任务并归一化结果/费用，editImage 使用 JSON POST `/images/edits` 原样传透明 PNG/mask、不经 JPEG 压缩且不重试收费 POST，保留阶段/模型/限时脱敏诊断及请求身份/费用
 ai-texture-workflow-config.mjs: Flux默认参数和工作流身份、后置超分输入/版本/目标校验与aiTexturePostUpscaleRequest；独立postUpscale实际模型/源尺寸/推理/交付/SHA元数据，不覆盖Flux或美化1920核心信息
@@ -132,7 +133,7 @@ refined-model-workflow.mjs: 用户补充统一前置的完整纯词Prompt+卡片
 white-model-workflow.mjs: 复用design-prompt-output自由正文/用户前置； 用户原文前置Agent输入/最终正文；空房/旧房接受任意JSON或纯文本并阻断空/损坏回复，独立输出缓存版本和32000字符额度；白模/风格转换保留字段校验，各独立Agent/版本、房型家具/参考图/光影准入及最终单图/双Provider同文归档
 style-dna-reverse.mjs: Style DNA 草稿应用服务，向浏览器公开脱敏已上架 Prompt 版本目录与附件策略，仅在服务端精确读取所选正文，首轮接收无业务数量上限的 PNG/JPEG/WebP/GIF/PDF 并支持仅附件触发，后续允许基于草稿纯文字修正，同时校验多轮消息、模型可用性与固定 JSON Schema，不执行发布写入
 reference-attachment.mjs: Style DNA 多模态附件安全边界，在通用图片校验之上增加 PDF 文件签名、MIME、真实字节、单文件/合计容量与可选数量校验，并输出 Responses 图片/文件附件
-reference-image.mjs: 参考图安全边界，保留生成链路默认最多 4 张并允许调用方配置格式、容量及可选数量上限，统一校验 MIME/真实字节并附加可信图片宽高
+reference-image.mjs: 生成参考图默认按实际内容纠正 MIME、最多4张/合计20MB；单图入库默认8MB及声明格式校验；按策略校验字节、数量及可信宽高
 runtime-cache.mjs: 运行时缓存基础设施，提供异步加载并发去重、五分钟 TTL 与主动失效
 sync-jobs.mjs: 后台同步调度基础设施，按 generationId 幂等入队并提供 pending/success/failed 状态查询；只读 hasActiveJobs 在 pending 同步结束前阻断原地更新；仅开放已启用的失败归档同ID重试
 

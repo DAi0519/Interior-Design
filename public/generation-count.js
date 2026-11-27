@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成张数原生 select、单模型/多模型状态与 change 事件
- * [OUTPUT]: 对外提供 1–4 张归一化、下拉取值及多模型隐藏复位控制器
+ * [OUTPUT]: 对外提供 1–4 张归一化、功能草稿恢复、下拉取值及多模型隐藏复位
  * [POS]: public 的生成张数交互层，配合自定义下拉的向上展开变体避开 sticky 动作区
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -24,10 +24,11 @@ export function bindGenerationCount({ root }) {
   set(select.value);
 
   return {
-    setSingleModel(singleModel) {
+    setSingleModel(singleModel, preferred = select.value) {
       root.classList.toggle("hidden", !singleModel);
       select.disabled = !singleModel;
       if (!singleModel) set(1, { notify: true });
+      else set(preferred, { notify: select.value !== String(normalizeGenerationCount(preferred)) });
     },
     value: () => normalizeGenerationCount(select.value),
   };

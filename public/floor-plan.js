@@ -1,12 +1,15 @@
 /**
- * [INPUT]: 依赖共享API、文件读取与下拉、独立平面布局和归档状态接口、浏览器会话任务身份
- * [OUTPUT]: 提供布局生成/文字修改/室内多角度、原任务恢复、出图归档准入与当前归档状态
+ * [INPUT]: 依赖共享API、文件读取与下拉、生成动效、独立平面布局和归档状态接口、浏览器会话任务身份和嵌入工作台的URL标记
+ * [OUTPUT]: 提供嵌入工作台标记、布局生成/文字修改/室内多角度、真实生成状态、新图显现、原任务恢复、出图归档准入与当前归档状态
  * [POS]: public 的平面布局图片工作区，按需挂载独立家具编辑与几何3D；轮询只读，收费任务逐次明确点击
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
 import { bindGenerationSync } from './generation-sync.js?v=1';
+import { cancelGenerationReveal, revealGenerationImage } from './generation-feedback.js?v=3';
 import './custom-select.js?v=9';
+
+if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('floor-plan-embedded');
 
 const $ = id => document.getElementById(`floorPlan${id}`);
 const resultArchive = bindGenerationSync({ api, container: $('Archive'), status: $('ArchiveStatus'),
@@ -15,7 +18,14 @@ const SESSION_KEY = 'canvas-lab:floor-plan:images:v2';
 const CAMERA_NAMES = { 270: '左侧', 180: '反向', 90: '右侧' };
 const state = { config: null, source: null, layout: null, interior: null, shots: [], selected: 0,
   view: 'layout', pending: null, busy: false, restoring: false, sourceChanged: false, modelKey: '', modelLabel: '' };
-const status = text => { $('Status').textContent = text; };
+let freshGenerationJob = null;
+const isLayoutAction = action => action === 'layout' || action === 'adjust';
+function status(text) {
+  $('Status').textContent = text;
+  if (!state.busy || !state.pending) return;
+  const feedback = $(isLayoutAction(state.pending.action) ? 'LayoutFeedbackText' : 'InteriorFeedbackText');
+  if (feedback.textContent !== text) feedback.textContent = text;
+}
 function showError(error) { $('Error').textContent = error.message || '操作未完成，请重试'; $('Error').hidden = false; }
 function clearError() { $('Error').hidden = true; $('Error').textContent = ''; }
 function action(task) { return (...args) => { clearError(); Promise.resolve().then(() => task(...args)).catch(showError); }; }
@@ -56,6 +66,12 @@ function renderModels() {
 }
 function updateActions() {
   const locked = state.busy || Boolean(state.pending) || state.restoring;
+  const generating = state.busy && Boolean(state.pending);
+  const layoutBusy = generating && isLayoutAction(state.pending.action);
+  const interiorBusy = generating && !layoutBusy;
+  $('LayoutFeedback').hidden = !layoutBusy;
+  $('InteriorFeedback').hidden = !interiorBusy;
+  $('Status').hidden = state.view === 'layout' ? layoutBusy : interiorBusy;
   $('Generate').disabled = locked || !state.source || !state.config?.available || selectedLayoutModel()?.available !== true;
   $('Adjust').disabled = locked || state.sourceChanged || !state.layout || !$('Adjustment').value.trim() || !continuationReady();
   $('RenderInterior').disabled = locked || state.sourceChanged || !state.layout || !$('InteriorRequirements').value.trim() || !continuationReady();
@@ -74,6 +90,7 @@ function updateActions() {
 }
 function setView(view) {
   if (view === 'interior' && !(state.layout || state.shots.length)) return;
+  if (state.view !== view) cancelGenerationReveal($(state.view === 'layout' ? 'LayoutImage' : 'InteriorImage'));
   state.view = view;
   $('Layout').hidden = view !== 'layout'; $('Interior').hidden = view !== 'interior';
   $('TabLayout').setAttribute('aria-selected', String(view === 'layout'));
@@ -83,6 +100,7 @@ function setView(view) {
 function imageMeta(result) { return `${result.image.width} × ${result.image.height} · ${result.model?.label || 'AI生成'} · 下载保存图片`; }
 function renderLayout() {
   const result = state.layout;
+  cancelGenerationReveal($('LayoutImage'));
   $('LayoutImage').hidden = !result; $('Empty').hidden = Boolean(result);
   $('AdjustPanel').hidden = !result; $('GoInterior').hidden = !result; $('LayoutMeta').hidden = !result;
   if (result) { $('LayoutImage').src = result.image.url; $('LayoutMeta').textContent = imageMeta(result); }
@@ -97,6 +115,7 @@ function renderShots() {
     button.append(img, label); button.addEventListener('click', () => { state.selected = index; renderShots(); updateActions(); }); return button;
   }));
   const selected = state.shots[state.selected];
+  cancelGenerationReveal($('InteriorImage'));
   $('InteriorImage').hidden = !selected; $('InteriorEmpty').hidden = Boolean(selected); $('InteriorMeta').hidden = !selected;
   if (selected) { $('InteriorImage').src = selected.image.url; $('InteriorMeta').textContent = `${selected.name} · ${imageMeta(selected)}`; }
   else $('InteriorImage').removeAttribute('src');
@@ -109,7 +128,7 @@ function inputImage(result) {
 function acceptResult(result, pending) {
   if (!result?.image?.url || !result.image.width || !result.image.height || result.action !== pending.action) throw new Error('任务未返回完整图片，请保留任务编号检查结果');
   const entry = { ...result, jobId: pending.jobId };
-  if (['layout', 'adjust'].includes(pending.action)) {
+  if (isLayoutAction(pending.action)) {
     state.layout = entry; state.interior = null; state.shots = []; state.selected = 0; state.sourceChanged = false;
     $('Adjustment').value = ''; renderLayout(); renderShots(); setView('layout');
     status(pending.action === 'adjust' ? '方案已修改，请对照原图核对结构与通行空间' : '平面方案已生成，可继续用文字调整');
@@ -123,9 +142,14 @@ function acceptResult(result, pending) {
     else { state.shots.push({ ...entry, name: pending.name }); state.selected = state.shots.length - 1; }
     renderShots(); setView('interior'); status(`${pending.name}预览已生成，空间细节请与平面方案对照`);
   }
+  if (freshGenerationJob === pending.jobId) {
+    freshGenerationJob = null;
+    revealGenerationImage($(isLayoutAction(pending.action) ? 'LayoutImage' : 'InteriorImage'));
+  }
 }
 async function pollTask(pending) {
-  state.busy = true; updateActions();
+  state.busy = true;
+  status('正在读取图片任务状态…'); updateActions();
   try {
     for (;;) {
       const { job } = await api(`/api/floor-plan/jobs/${encodeURIComponent(pending.jobId)}`);
@@ -161,8 +185,8 @@ async function generate(kind, cameraAzimuth) {
   const modelKey = kind === 'layout' || state.config.models?.some(model => model.key === state.modelKey)
     ? state.modelKey : state.config.defaultModel || state.config.defaultModelKey;
   const pending = { jobId: crypto.randomUUID(), action: kind, modelKey, ...(kind === 'camera' ? { name: CAMERA_NAMES[cameraAzimuth] } : {}) };
-  state.pending = pending; state.busy = true; remember(); updateActions();
-  status('正在提交图片任务…');
+  state.pending = pending; freshGenerationJob = pending.jobId; state.busy = true;
+  remember(); status('正在提交图片任务…'); updateActions();
   try {
     await api('/api/floor-plan/jobs', { method: 'POST', body: JSON.stringify({ jobId: pending.jobId, action: kind,
       referenceImage: source, userRequirements: requirements, modelKey,

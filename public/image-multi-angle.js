@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖模型能力目录、共享摄影机球及俯仰范围、尺寸策略、主图上传、工作流配置与统一任务接口
+ * [INPUT]: 依赖模型目录、共享摄影机球、尺寸策略、原图、工作流配置、当前工具状态与统一任务接口
  * [OUTPUT]: bindImageMultiAngle 单图工具控制器，公开能力/尺寸与Sunburst质量档位记忆、机位预览/结果切换、冻结模型/档位/机位请求和飞书同步结果任务
  * [POS]: public 的多角度主工作台适配层，不持有模型路径或提示词
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -56,7 +56,8 @@ const CONTROLS = `
   <p data-angle-status class="compact-config-note" role="status">读取工作流中…</p>
 `;
 
-export function bindImageMultiAngle({ root, getSourceImage, onChange, emptyModel, emptySize, exactSize, uploadInput, onSourceChange = () => {} }) {
+export function bindImageMultiAngle({ root, getSourceImage, onChange, emptyModel, emptySize, exactSize, uploadInput,
+  isActive = () => true, onSourceChange = () => {} }) {
   root.innerHTML = CONTROLS;
   let config = { available: false, reason: "多角度工作流读取中" };
   let modelKey = "qwenMultiAngle";
@@ -132,9 +133,13 @@ export function bindImageMultiAngle({ root, getSourceImage, onChange, emptyModel
     photo.classList.toggle("has-image", Boolean(source));
     const issue = sourceIssue();
     const plan = issue ? null : planMultiAngleImage(source.width, source.height);
-    emptyModel.textContent = selectedModel()?.label || "多角度";
-    emptySize.textContent = exactSize.textContent = selectedModel()?.provider === "oneapi" ? "最高 2K · 按模型画幅" : plan ? `${plan.outputWidth} × ${plan.outputHeight}` : "长边最高 2K";
-    output.textContent = selectedModel()?.provider === "oneapi" ? "最高 2K · 按模型画幅" : plan ? `${plan.outputWidth} × ${plan.outputHeight}` : "长边最高 2K";
+    const summary = selectedModel()?.provider === "oneapi" ? "最高 2K · 按模型画幅"
+      : plan ? `${plan.outputWidth} × ${plan.outputHeight}` : "长边最高 2K";
+    output.textContent = summary;
+    if (isActive()) {
+      emptyModel.textContent = selectedModel()?.label || "多角度";
+      emptySize.textContent = exactSize.textContent = summary;
+    }
     status.textContent = !available() ? unavailableReason() : issue || '';
     status.hidden = available() && !issue;
     status.classList.toggle("error", !available() || Boolean(source && issue));

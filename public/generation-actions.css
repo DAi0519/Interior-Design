@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 index.html 的无图标 START 生成动作结构、smiley-sans-v2.0.1.woff2 的展示字形、generation-actions.js 的 has-reusable-prompt/is-busy/hidden/disabled 状态与全局主题令牌
- * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的横向标志性盒橙 START 精密键帽、保留功能色并以中性扫光表达进行中的 RUNNING 状态、提示词可复用后的 65/35 主次双按钮、761px 起与配置滚动区分离且不遮挡控件的底部动作栏、窄屏自然流布局，以及焦点、悬停和按压反馈
+ * [OUTPUT]: 对外提供内嵌 Smiley Sans 字体的盒橙 START 键帽和静态 RUNNING 文案样式、提示词可复用后的 65/35 主次双按钮、761px 起与配置滚动区分离的底部动作栏、窄屏自然流布局，以及焦点、悬停和按压反馈
  * [POS]: public 的生成动作视觉层，与 styles.css/theme.css 的通用主按钮规则分责
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -67,34 +67,6 @@
   transform: translateY(-0.5px);
   white-space: nowrap;
   z-index: 1;
-}
-
-.generation-actions.is-busy .generate-button::after {
-  animation: generation-action-scan 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  background: linear-gradient(
-    105deg,
-    transparent 18%,
-    rgb(255 255 255 / 20%) 43%,
-    rgb(32 32 36 / 8%) 51%,
-    transparent 74%
-  );
-  content: "";
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  transform: translateX(-120%);
-  will-change: transform;
-}
-
-@keyframes generation-action-scan {
-  0% {
-    transform: translateX(-120%);
-  }
-
-  64%,
-  100% {
-    transform: translateX(120%);
-  }
 }
 
 .generation-actions.has-reusable-prompt .generate-button,
@@ -202,12 +174,5 @@
   .action-section.generation-control {
     margin: 12px 10px 10px;
     width: calc(100% - 20px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .generation-actions.is-busy .generate-button::after {
-    animation: none;
-    opacity: 0;
   }
 }

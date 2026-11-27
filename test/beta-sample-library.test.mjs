@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta 样本库控制器及最小 DOM/图片读取/飞书 API 替身
- * [OUTPUT]: 验证跨图像功能复用原样本ID、自由生图的图片与旧文字样本共用完整提示词、选集恢复与异步隔离、目标元数据与缺图守卫、按功能创建样本集、逐张上传/稳定ID续传/回读及零原图读取
+ * [OUTPUT]: 验证未选择时仅预读目录、切换任务恢复页内草稿与房型、选集恢复与异步隔离、跨功能复用原样本ID、目标元数据与缺图守卫、逐张上传和稳定ID续传及回读
  * [POS]: test 的 Beta 浏览器样本生命周期行为测试，不读写真实飞书或调用生成服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,13 +22,14 @@ class Element {
       toggle(name, force = !classes.has(name)) { if (force) classes.add(name); else classes.delete(name); },
     };
     this.value = "";
+    this.focusCount = 0;
     this.replaceCount = 0;
   }
   get options() { return this.children; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; this.replaceCount += 1; }
   setAttribute() {}
-  focus() {}
+  focus() { this.focusCount += 1; }
   cloneNode() { return Object.assign(new Element(), { value: this.value, textContent: this.textContent }); }
   addEventListener(name, callback) {
     this.listeners.set(name, [...this.listeners.get(name) || [], callback]);
@@ -203,6 +204,12 @@ test("24MB 样本草稿逐张上传且第二张失败后只续传剩余项", asy
   assert.equal(library.sampleCount(), 3);
   assert.deepEqual(previews, ["1.png", "2.png", "3.png"]);
   assert.deepEqual(library.sourceImages().map((image) => image.sampleId), draftIds);
+  await library.setFeatureMode("imageOutpaint");
+  assert.equal(library.sampleCount(), 0);
+  await library.setFeatureMode("whiteModel");
+  assert.deepEqual(library.sourceImages().map((image) => image.sampleId), draftIds);
+  assert.equal(elements.sampleSetSyncStatus.textContent, "同步失败 · 1 / 3");
+  assert.equal(elements.saveSampleSetButton.textContent, "继续保存");
   await save();
 
   assert.equal(apiPeak, 1);
@@ -446,7 +453,7 @@ test("空房可复用其他图像集并只在本次补房型，不修改来源�
   assert.ok(calls.every((call) => call.options === undefined));
 });
 
-test("重复选择同一目标与选集保留本次空房补选，显式目录刷新重新读取元数据", async (context) => {
+test("重复选择或切换回任务保留本次空房补选，显式目录刷新重新读取元数据", async (context) => {
   const source = imageSet("shared", "whiteModel");
   const { library, elements, calls } = existingFixture(context, [source]);
   await library.load("emptyRoom");
@@ -457,10 +464,107 @@ test("重复选择同一目标与选集保留本次空房补选，显式目录�
   await library.setFeatureMode("emptyRoom", "shared");
   assert.equal(calls.length, callsBefore);
   assert.equal(library.currentCases()[0].roomType, "卧室");
+  await library.setFeatureMode("roomRenovation", "shared");
+  assert.equal(library.currentCases()[0].roomType, undefined);
+  await library.setFeatureMode("emptyRoom", "shared");
+  assert.equal(library.currentCases()[0].roomType, "卧室");
   await library.load("emptyRoom", "shared");
-  assert.equal(calls.length, callsBefore + 2);
+  assert.equal(calls.length, callsBefore + 4);
   assert.equal(library.currentCases()[0].roomType, undefined);
   assert.throws(() => library.assertRoomTypes(), /房间类型/);
+});
+
+test("新建样本草稿按任务恢复名称、原图和房型，切换与目录刷新只读", async (context) => {
+  const source = imageSet("shared", "whiteModel");
+  const revoked = [];
+  context.mock.method(URL, "revokeObjectURL", (url) => revoked.push(url));
+  const { library, elements, calls } = existingFixture(context, [source], {
+    readImage(file, { previewOnly }) {
+      assert.equal(previewOnly, true);
+      return { ...file, file, previewUrl: `blob:${file.name}` };
+    },
+  });
+  await library.load("emptyRoom");
+  await elements.newSampleSetButton.dispatch("click");
+  elements.sampleSetNameInput.value = " 空房草稿 ";
+  elements.sourceFilesInput.files = [{ name: "room.png", type: "image/png", size: 100 }];
+  await elements.sourceFilesInput.dispatch("change");
+  const draft = library.sourceImages()[0];
+  const field = elements.sampleList.children[0].children.at(-1);
+  field.children[1].value = "其他";
+  await field.children[1].dispatch("change");
+  field.children[2].value = "衣帽间";
+  await field.children[2].dispatch("input");
+
+  await library.setFeatureMode("whiteModel");
+  assert.equal(library.activeSampleSetId(), "shared");
+  assert.equal(elements.sampleSetNameInput.value, "");
+  await elements.newSampleSetButton.dispatch("click");
+  elements.sampleSetNameInput.value = "白模草稿";
+
+  const focusBeforeRestore = elements.sampleSetNameInput.focusCount;
+  await library.setFeatureMode("emptyRoom", "shared");
+  assert.equal(library.isReady(), false);
+  assert.equal(library.activeSampleSetId(), "");
+  assert.equal(elements.sampleSetCreatePanel.classList.contains("hidden"), false);
+  assert.equal(elements.sampleSetNameInput.focusCount, focusBeforeRestore);
+  assert.equal(elements.sampleSetNameInput.value, " 空房草稿 ");
+  assert.equal(library.sourceImages()[0], draft);
+  assert.equal(library.currentCases()[0].roomType, "其他");
+  assert.equal(library.currentCases()[0].roomTypeDetail, "衣帽间");
+  assert.deepEqual(revoked, []);
+
+  await library.load("emptyRoom", "shared");
+  assert.equal(library.sourceImages()[0], draft);
+  await library.setFeatureMode("whiteModel");
+  assert.equal(elements.sampleSetNameInput.value, "白模草稿");
+  assert.equal(library.sampleCount(), 0);
+  await library.setFeatureMode("emptyRoom");
+  await elements.cancelSampleSetButton.dispatch("click");
+  await until(() => library.isReady());
+  assert.equal(library.activeSampleSetId(), "shared");
+  assert.deepEqual(revoked, ["blob:room.png"]);
+  assert.ok(calls.every((call) => call.options === undefined));
+});
+
+test("样本目录读取完成后仍保持未选任务", async (context) => {
+  const white = imageSet("white", "whiteModel");
+  const { library, calls, elements, selections } = existingFixture(context, [white]);
+  await library.load("");
+  assert.deepEqual(calls.map((call) => call.path), ["/api/beta/sample-sets"]);
+  assert.deepEqual(selections, []);
+  assert.equal(library.activeSampleSetId(), "");
+  assert.equal(library.isReady(), false);
+  assert.equal(elements.sampleSetCreatePanel.classList.contains("hidden"), true);
+  assert.equal(elements.sampleSetNameInput.focusCount, 0);
+
+  await library.setFeatureMode("whiteModel");
+  assert.equal(library.activeSampleSetId(), "white");
+});
+
+test("未选任务时可在目录读取期间选任务，返回后只加载该任务且不会抢焦点", async (context) => {
+  const white = imageSet("white", "whiteModel");
+  let releaseCatalog;
+  const { library, calls, elements, selections } = existingFixture(context, [white], {
+    async api(path) {
+      if (path === "/api/beta/sample-sets") return new Promise((resolve) => { releaseCatalog = resolve; });
+      return { sampleSet: white };
+    },
+  });
+  const boot = library.load("");
+  await until(() => Boolean(releaseCatalog));
+  assert.equal(library.isBusy(), false);
+  assert.equal(library.isMutating(), false);
+  assert.equal(library.activeSampleSetId(), "");
+  assert.equal(elements.sampleSetCreatePanel.classList.contains("hidden"), true);
+  assert.deepEqual(selections, []);
+  assert.deepEqual(calls.map((call) => call.path), ["/api/beta/sample-sets"]);
+  await library.setFeatureMode("whiteModel", "white");
+  releaseCatalog({ sampleSets: [white] });
+  await boot;
+  assert.equal(library.activeSampleSetId(), "white");
+  assert.deepEqual(selections, [["whiteModel", "white"]]);
+  assert.equal(elements.sampleSetNameInput.focusCount, 0);
 });
 
 test("功能切换后旧详情响应不会覆盖新目标和选集", async (context) => {

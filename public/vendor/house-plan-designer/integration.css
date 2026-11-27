@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖固定版编辑器 DOM 与 Canvas Lab 外层平面/预览及方案保存入口
- * [OUTPUT]: 平面保留墙门窗/家具/属性，空间预览隐藏编辑侧栏，保存由宿主统一承接
+ * [OUTPUT]: 平面保留墙门窗/家具/属性，空间预览隐藏编辑侧栏，保存由宿主统一承接；页签用深色粗字表示选中，工具和色卡用实底或勾号，保留键盘焦点
  * [POS]: 第三方 CSS 后置覆盖层，不修改 vendor 原样式或扩大主页面 CSP
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,8 +35,32 @@ header > .sep { display: none; }
 header .btn, header .iconbtn, .seg button { font-size: 12px; }
 aside { width: 218px; }
 aside.right { width: 236px; }
-.tabs button.on { border-bottom-color: #242424; }
+.tabs button.on { border-bottom-color: transparent; font-weight: 700; }
 .lib-subs button.on { background: #242424; border-color: #242424; }
+.seg button.on, .cp-dims .seg button.on { box-shadow: none; }
+.tbtn.on, .ibtn.on { border-color: var(--line); font-weight: 600; }
+.mat.on, .sw.on { background: var(--accent-soft); border-color: transparent; font-weight: 600; }
+.swatches button.on { background: var(--accent-soft); border-color: var(--line); }
+.cm.sel { background: var(--accent-soft); box-shadow: none; }
+.tcols button.on { position: relative; }
+.tcols button.on::after {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 50%;
+  color: var(--panel);
+  content: "✓";
+  display: flex;
+  font-size: 10px;
+  height: 12px;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  justify-content: center;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 12px;
+}
+:is(.swatches, .tcols) button.on:not(:focus-visible) { outline: none; }
+:is(.swatches, .tcols) button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .lib-strip button, .btn, .tbtn, .ibtn, .seg button { border-radius: 5px; }
 input[type="file"] { display: none !important; }
 .lib-cats [data-lc="我的模型"], .lib-style, .lib-row:has(#glbBtn):not(:has(#libSearch)) { display: none !important; }

@@ -1,13 +1,13 @@
 /**
- * [INPUT]: 依赖http-response的统一响应写入；依赖floor-plan-camera-service的机位墙线分析、裁剪送模预览、渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、ai-render-studio-api的生成/同步、scene-cast-api的模特任务与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
- * [OUTPUT]: 提供三个平面图出图入口、机位墙线分析/实际送模预览与逐图飞书归档，归档状态查询和续传；组合AI渲染台、AI模特、主工作台、Beta机位与多角度跑图、模型评测、更新忙碌守卫及配置、连接、OneAPI Key 额度、生成和下载接口。
+ * [INPUT]: 依赖http-response的统一响应写入；依赖floor-plan-camera-service的机位墙线分析、裁剪送模预览、渲染与任务张数计算；依赖beta-house-plan的主服务适配；依赖floor-plan-api的独立识图/任务、floor-plan-retired-route的旧入口拦截、ai-render-studio-api的生成/同步、scene-cast-api的模特任务与http-security的同源嵌入策略，以及独立精模光影基础目录、光影库同源预览/精模Flux双图与R5_4全景专用客户端、GPT打光Prompt/强制刷新与Flux/Qwen/Sunburst遮罩服务、ComfyUI/OneAPI目录、HTTP/静态文件、更新/安装、本机设置、飞书Schema及日常/Beta/Benchmark工作流
+ * [OUTPUT]: 提供户型平面布局与平面图机位出图、送模预览与逐图飞书归档；拦截已下架的设计实验室旧页面与API；组合主工作台、AI渲染台、AI模特、Beta跑图、模型评测、更新、连接、额度与下载接口。
  * [POS]: 项目根 HTTP 组合入口，隔离浏览器、本机凭据、OneAPI、ComfyUI 超分与生图、新旧飞书 Base 及三套工作台边界；仅向主工作台机位任务注入 Qwen 生图
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { createReadStream, existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { sendJson, sendDownload, sendImage } from "./src/http-response.mjs";
-import { SECURITY_HEADERS, staticSecurityHeaders } from "./src/http-security.mjs";
+import { staticSecurityHeaders } from "./src/http-security.mjs";
 import { randomUUID } from "node:crypto";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,7 @@ import { createGenerationJobRegistry } from "./src/generation-jobs.mjs";
 import { createAiRenderStudioApiHandler } from "./src/ai-render-studio-api.mjs";
 import { createSceneCastApiHandler } from "./src/scene-cast-api.mjs";
 import { createFloorPlanApiHandler } from "./src/floor-plan-api.mjs";
+import { handleRetiredFloorPlanRoute } from "./src/floor-plan-retired-route.mjs";
 import { readHousePlanConfig, prepareHousePlanInput, executeHousePlan } from "./src/house-plan-service.mjs";
 import { readFloorPlanCameraConfig, analyzeFloorPlanCameraAnnotation, previewFloorPlanCameraInput, prepareFloorPlanCameraInput, executeFloorPlanCamera, floorPlanCameraTaskTotal } from "./src/floor-plan-camera-service.mjs";
 import { createFloorPlanCameraQwenClient } from "./src/floor-plan-camera-qwen.mjs";
@@ -86,7 +87,7 @@ const handleAppUpdateApi = createAppUpdateApiHandler({
   appUpdates, appInstaller, readJson, sendJson,
   hasActiveJobs: () => activeApiMutations > 0 || generationJobs.hasActiveJobs()
     || syncJobs.hasActiveJobs() || benchmarkJobs.hasActiveJobs() || betaRunner.hasActiveJobs()
-    || handleAiRenderStudioApi.hasActiveJobs() || handleFloorPlanApi.hasActiveJobs() || handleHousePlanApi.hasActiveJobs()
+    || handleAiRenderStudioApi.hasActiveJobs() || handleHousePlanApi.hasActiveJobs()
     || handleFloorPlanCameraApi.hasActiveJobs() || handleSceneCastApi.hasActiveJobs(),
 });
 const PUBLIC_DIR = join(ROOT_DIR, "public");
@@ -328,7 +329,6 @@ const handleSceneCastApi = createSceneCastApiHandler({
 const floorPlanRuntime = { getClient: () => createOneApiClient(requireApiKey()), requireKey: requireApiKey, readJson, sendJson,
   getModels: ({ forceRefresh } = {}) => getSessionModelCatalog(createOneApiClient(requireApiKey()), { force: forceRefresh }) };
 const floorPlanArchiveRuntime = { ...floorPlanRuntime, verifyArchive: verifyFloorPlanArchiveSchema, scheduleArchive: createFloorPlanArchiveScheduler(syncJobs) };
-const handleFloorPlanApi = createFloorPlanApiHandler(floorPlanArchiveRuntime);
 const handleHousePlanApi = createFloorPlanApiHandler({ ...floorPlanArchiveRuntime, prefix: "/api/house-plan", featureMode: "housePlanLayout",
   geometryEnabled: false, readConfig: readHousePlanConfig, prepareInput: prepareHousePlanInput, execute: executeHousePlan });
 const handleFloorPlanCameraApi = createFloorPlanApiHandler({ ...floorPlanArchiveRuntime, prefix: "/api/floor-plan-camera", featureMode: "floorPlanCamera",
@@ -397,7 +397,6 @@ async function handleApi(request, response, pathname) {
 
   if (await handleAiRenderStudioApi(request, response, pathname)) return;
   if (await handleSceneCastApi(request, response, pathname)) return;
-  if (await handleFloorPlanApi(request, response, pathname)) return;
   if (await handleHousePlanApi(request, response, pathname)) return;
   if (await handleFloorPlanCameraApi(request, response, pathname)) return;
 
@@ -548,7 +547,7 @@ async function handleApi(request, response, pathname) {
   }
 
   if (request.method === "GET" && pathname === "/api/catalog") {
-    const { REFERENCE_IMAGE_POLICY } = await import("./src/reference-image.mjs");
+    const { GENERATION_REFERENCE_IMAGE_POLICY } = await import("./src/reference-image.mjs");
     return sendJson(response, 200, {
       agentModels: publicAgentModelCatalog(),
       generationFeatureModes: supportedGenerationFeatureModes(),
@@ -558,7 +557,7 @@ async function handleApi(request, response, pathname) {
       emptyRoomFurniture: EMPTY_ROOM_FURNITURE,
       otherFurnitureMaxLength: OTHER_FURNITURE_MAX_LENGTH,
       models: publicModelCatalog(),
-      referenceImage: REFERENCE_IMAGE_POLICY,
+      referenceImage: GENERATION_REFERENCE_IMAGE_POLICY,
     });
   }
 
@@ -759,6 +758,7 @@ async function handleApi(request, response, pathname) {
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${HOST}:${PORT}`);
   try {
+    if (handleRetiredFloorPlanRoute(url, response)) return;
     if (url.pathname.startsWith("/api/")) {
       const mutation = url.pathname === "/api/benchmark/overview"
         || (!["GET", "HEAD"].includes(request.method) && url.pathname !== "/api/app-install");

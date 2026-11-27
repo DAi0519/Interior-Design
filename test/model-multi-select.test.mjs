@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、共享搜索单选/模型多选与全选/取消纯规则及内存 DOM/Popover 替身
- * [OUTPUT]: 对外提供模型至少一项、筛选全选/取消与首选保护、普通单选/键盘导航、同文档浮层ID唯一及模态抽屉内迁移/定位回归
+ * [OUTPUT]: 对外提供模型选择、键盘导航、鼠标拖选、触屏、输入法及共享浮层固定向上、视口裁剪和可选最小宽度回归
  * [POS]: test 的 Main/Beta 模型与设计风格共享选择测试，不调用网络、真实浏览器或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -140,7 +140,8 @@ class FixtureElement {
     this.parentNode = null;
   }
   emit(name, properties = {}) {
-    const event = { target: this, preventDefault() { this.prevented = true; }, ...properties };
+    const event = { type: name, target: this, preventDefault() { this.prevented = true; },
+      stopPropagation() { this.stopped = true; }, stopImmediatePropagation() { this.stopped = true; }, ...properties };
     for (const callback of this.listeners.get(name) || []) callback(event);
     return event;
   }
@@ -161,8 +162,10 @@ class FixtureElement {
     for (let node = this; node; node = node.parentNode) {
       if (selector.split(",").some((part) => {
         const tag = part.trim().match(/^[a-z][\w-]*/i)?.[0];
+        const className = part.trim().match(/^\.([\w-]+)$/)?.[1];
         const attributes = [...part.matchAll(/\[([\w-]+)(?:="([^"]*)")?\]/g)];
         return (!tag || tag === node.tagName)
+          && (!className || node.classList.contains(className))
           && attributes.every(([, key, value]) => node.attributes.has(key)
             && (value === undefined || node.attributes.get(key) === value));
       })) return node;
@@ -196,6 +199,7 @@ function fixture({ nativePopover = true, presentOption, onChange, single = false
     emit: FixtureElement.prototype.emit,
     requestAnimationFrame(callback) { frames.push(callback); return frames.length; },
     cancelAnimationFrame() { frames.length = 0; },
+    setTimeout,
   };
   doc.body = doc.createElement("body");
   const container = doc.createElement("div");
@@ -286,7 +290,7 @@ for (const { tag, attributes, nativePopover } of [
     assert.equal(ui.panel, originalPanel);
     assert.equal(ui.panel.parentNode, ui.doc.body);
     assert.deepEqual(ui.controller.values(), ["banana21"]);
-    ui.doc.emit("keydown", { key: "Escape" });
+    ui.panel.emit("keydown", { key: "Escape" });
     assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
     assert.equal(ui.doc.activeElement, ui.trigger);
   });
@@ -375,7 +379,7 @@ test("外部 render 和点击回调重复 render 都保留浮层、搜索和原�
 test("Escape 归还触发器且禁止焦点滚动，Tab 焦点离开关闭而不抢焦点", () => {
   const ui = fixture();
   ui.trigger.click();
-  ui.doc.emit("keydown", { key: "Escape" });
+  ui.panel.emit("keydown", { key: "Escape" });
   assert.equal(ui.panel.popoverOpen, false);
   assert.equal(ui.doc.activeElement, ui.trigger);
   assert.deepEqual(ui.trigger.focusOptions, { preventScroll: true });
@@ -393,7 +397,7 @@ test("鼠标打开不抢搜索焦点，键盘打开才聚焦搜索且不滚动",
   ui.trigger.emit("click", { detail: 1 });
   assert.equal(ui.doc.activeElement, ui.trigger);
   assert.equal(ui.panel.popoverOpen, true);
-  ui.doc.emit("keydown", { key: "Escape" });
+  ui.trigger.emit("keydown", { key: "Escape" });
   ui.trigger.click();
   assert.equal(ui.doc.activeElement, ui.search);
   assert.deepEqual(ui.search.focusOptions, { preventScroll: true });
@@ -414,7 +418,7 @@ test("无原生 Popover 时浮层仍在 body、支持 outside/Escape 并保持�
   ui.doc.emit("pointerdown", { target: ui.doc.body });
   assert.equal(ui.panel.hidden, true);
   ui.trigger.click();
-  ui.doc.emit("keydown", { key: "Escape" });
+  ui.panel.emit("keydown", { key: "Escape" });
   assert.equal(ui.panel.hidden, true);
   assert.equal(ui.doc.activeElement, ui.trigger);
 });
@@ -453,6 +457,48 @@ test("浮层与触发器等宽且优先下方，空间不足向上，视口窄�
   ui.flushFrames();
   assert.equal(ui.panel.style.width, "216px");
   assert.equal(ui.panel.style.left, "12px");
+});
+
+test("紧凑触发器可设置菜单最小宽度，宽度仍受视口限制", () => {
+  const ui = fixture();
+  const view = ui.doc.defaultView;
+  let minimum = "156px";
+  view.innerWidth = 360;
+  view.getComputedStyle = (node) => ({ getPropertyValue(property) {
+    assert.equal(node, ui.trigger);
+    return property === "--model-picker-menu-min-width" ? minimum : "";
+  } });
+  ui.trigger.rect = { left: 290, top: 100, bottom: 138, width: 70, height: 38 };
+  ui.trigger.click();
+  assert.equal(ui.panel.style.width, "156px");
+  assert.equal(ui.panel.style.left, "192px");
+  minimum = "800px";
+  view.emit("resize");
+  ui.flushFrames();
+  assert.equal(ui.panel.style.width, "336px");
+  assert.equal(ui.panel.style.left, "12px");
+  minimum = "";
+  view.emit("resize");
+  ui.flushFrames();
+  assert.equal(ui.panel.style.width, "70px");
+});
+
+test("对话底栏下拉固定向上并限制高度，归还到普通表单后恢复原定位", () => {
+  const ui = fixture();
+  let placement = " top ";
+  ui.doc.defaultView.getComputedStyle = () => ({ getPropertyValue(property) {
+    return property === "--model-picker-placement" ? placement : "";
+  } });
+  ui.panel.rect.height = 250;
+  ui.trigger.rect = { left: 100, top: 100, bottom: 138, width: 260, height: 38 };
+  ui.trigger.click();
+  assert.equal(ui.panel.style.top, "12px");
+  assert.equal(ui.panel.style.maxHeight, "84px");
+  placement = "";
+  ui.doc.emit("scroll");
+  ui.flushFrames();
+  assert.equal(ui.panel.style.top, "142px");
+  assert.equal(ui.panel.style.maxHeight, "330px");
 });
 
 test("共享单选保持空选择占位，不创建全选或数量，使用 radio 语义和自定义文案", () => {
@@ -500,6 +546,20 @@ test("单选合法点击仅提交一个键并关闭归焦，再打开恢复完�
   assert.equal(ui.search.value, "");
   assert.equal(catalog.filter((model) => !ui.row(model.key).hidden).length, catalog.length);
   assert.deepEqual(ui.controller.values(), ["banana21"]);
+});
+
+test("已选控件仅在没有可选替代项时标记固定，搜索不影响判断", () => {
+  const ui = fixture({ single: true, presentOption: model => ({ selectable: model.key !== "flare" }) });
+  const choices = catalog.filter(model => ["flux", "flare", "banana2"].includes(model.key));
+  const fixedChoices = choices.filter(model => model.key !== "banana2");
+  ui.controller.render(fixedChoices, ["flux"]);
+  assert.equal(ui.container.dataset.choiceFixed, "");
+  ui.controller.render(fixedChoices, []);
+  assert.equal(ui.container.dataset.choiceFixed, undefined);
+  ui.controller.render(choices, ["flux"]);
+  ui.search.value = "Flux";
+  ui.search.emit("input");
+  assert.equal(ui.container.dataset.choiceFixed, undefined);
 });
 
 test("单选保留已选禁选项，不自动替换；恢复多个键时只保留首个有效项", () => {
@@ -576,7 +636,7 @@ test("搜索后键盘只遍历匹配项，Escape不改变选择", () => {
   assert.equal(ui.doc.activeElement, ui.row("gptImage2"));
   ui.panel.emit("keydown", { key: "End" });
   assert.equal(ui.doc.activeElement, ui.row("flare"));
-  ui.doc.emit("keydown", { key: "Escape" });
+  ui.panel.emit("keydown", { key: "Escape" });
   assert.deepEqual(ui.controller.values(), ["flux"]);
   assert.equal(ui.doc.activeElement, ui.trigger);
 });
@@ -593,4 +653,91 @@ test("动态控件销毁清除顶层菜单和全局事件，后续滚动不再�
   assert.ok([...ui.doc.defaultView.listeners.values()].every(listeners => !listeners.length));
   ui.doc.emit("scroll");
   ui.flushFrames();
+});
+
+test("鼠标按下展开，10px 内松手不选择，明确横移或纵移后可拖选一次", () => {
+  const ui = fixture({ single: true });
+  const mouse = { pointerType: "mouse", pointerId: 1, button: 0, clientX: 120, clientY: 360 };
+  ui.trigger.emit("pointerdown", mouse);
+  assert.equal(ui.trigger.attributes.get("aria-expanded"), "true");
+  assert.equal(ui.doc.activeElement, ui.trigger);
+  ui.doc.emit("pointerup", { ...mouse, target: ui.row("banana21"), clientY: 370 });
+  ui.trigger.emit("click", { detail: 1 });
+  assert.deepEqual(ui.changes, []);
+  assert.equal(ui.trigger.attributes.get("aria-expanded"), "true");
+
+  ui.trigger.emit("pointerdown", mouse);
+  ui.trigger.emit("click", { detail: 1 });
+  assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
+  ui.trigger.emit("pointerdown", mouse);
+  ui.doc.emit("pointerup", { ...mouse, target: ui.row("banana21"), clientY: 400 });
+  assert.deepEqual(ui.changes, [["banana21"]]);
+  assert.equal(ui.trigger.attributes.get("aria-expanded"), "false");
+  assert.equal(ui.doc.emit("click", { detail: 1 }).stopped, true, "拖选后的共同祖先不可再次响应此点击");
+});
+
+test("触摸按下未打开，外面开始滚动未点击时继续保留已开的备用浮层", () => {
+  const ui = fixture({ nativePopover: false, single: true });
+  const touch = { pointerType: "touch", pointerId: 7, button: 0, clientX: 120, clientY: 360 };
+  ui.trigger.emit("pointerdown", touch);
+  assert.equal(ui.panel.hidden, true);
+  ui.trigger.emit("click", { detail: 1 });
+  assert.equal(ui.panel.hidden, false);
+  ui.doc.emit("pointerdown", { ...touch, target: ui.doc.body });
+  assert.equal(ui.panel.hidden, false);
+  ui.doc.emit("pointerdown", { ...touch, target: ui.row("banana21") });
+  ui.doc.emit("click", { detail: 1, target: ui.doc.body });
+  assert.equal(ui.panel.hidden, false);
+  ui.doc.emit("pointerdown", { ...touch, target: ui.doc.body });
+  ui.doc.emit("click", { detail: 1, target: ui.doc.body });
+  assert.equal(ui.panel.hidden, true);
+});
+
+test("中文组合输入期间及结束后5ms内，Escape 保持仅关闭最内层的语义", () => {
+  const ui = fixture();
+  ui.trigger.click();
+  ui.search.emit("compositionstart");
+  assert.equal(ui.panel.emit("keydown", { key: "Escape", isComposing: true, timeStamp: 10 }).stopped, true);
+  assert.equal(ui.panel.popoverOpen, true);
+  ui.search.emit("compositionend", { timeStamp: 20 });
+  ui.panel.emit("keydown", { key: "Escape", timeStamp: 24 });
+  assert.equal(ui.panel.popoverOpen, true);
+  const escape = ui.panel.emit("keydown", { key: "Escape", timeStamp: 25 });
+  assert.equal(escape.stopped, true);
+  assert.equal(escape.prevented, true);
+  assert.equal(ui.panel.popoverOpen, false);
+  assert.equal(ui.doc.activeElement, ui.trigger);
+  assert.equal(ui.trigger.emit("keydown", { key: "Escape", repeat: true }).stopped, true);
+  assert.equal(ui.trigger.emit("keydown", { key: "Escape" }).stopped, undefined);
+});
+
+test("长按 Enter 不重复勾选，方向键仍接受系统连发", () => {
+  const ui = fixture();
+  ui.trigger.click();
+  ui.panel.emit("keydown", { key: "ArrowDown", repeat: true });
+  assert.equal(ui.doc.activeElement, ui.row("flux"));
+  ui.panel.emit("keydown", { key: "ArrowUp", repeat: true });
+  assert.equal(ui.doc.activeElement, ui.row("flare"));
+  const repeated = ui.panel.emit("keydown", { key: "Enter", repeat: true });
+  assert.equal(repeated.prevented, true);
+  assert.deepEqual(ui.changes, []);
+  ui.panel.emit("keydown", { key: "Enter" });
+  assert.deepEqual(ui.changes, [["flux", "flare"]]);
+});
+
+test("普通下拉连续按同一字母会循环，两次按键间隔1000ms会重置匹配", () => {
+  const ui = fixture({ single: true, choiceOptions: { searchable: false } });
+  ui.trigger.click();
+  assert.equal(ui.doc.activeElement, ui.row("flux"));
+  ui.panel.emit("keydown", { key: "b", timeStamp: 10 });
+  assert.equal(ui.doc.activeElement, ui.row("banana2"));
+  ui.panel.emit("keydown", { key: "b", timeStamp: 20 });
+  assert.equal(ui.doc.activeElement, ui.row("banana21"));
+  ui.panel.emit("keydown", { key: "a", timeStamp: 1020 });
+  assert.equal(ui.doc.activeElement, ui.row("banana21"), "缓冲重置后只匹配新按下的 a");
+  ui.panel.emit("keydown", { key: "b", timeStamp: 2020 });
+  assert.equal(ui.doc.activeElement, ui.row("banana2"));
+  ui.panel.emit("keydown", { key: "a", timeStamp: 2100 });
+  assert.equal(ui.doc.activeElement, ui.row("banana2"), "连续前缀从当前项开始匹配");
+  assert.deepEqual(ui.changes, []);
 });

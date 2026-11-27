@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、三工作台共享 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
-  [OUTPUT]: 对外提供共享版本检查入口与更新下载弹层、含「批量跑图」入口的纯文字 Canvas Lab 品牌顶栏、纯黑白字当前产品态、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
+  [INPUT]: 依赖 benchmark.css/benchmark-responsive.css、三工作台共享侧栏 product-navigation.css/js/raycast-accent.css、app-update.css/js 被动更新检查、dataset/experiment/run/review/custom-select 增量视觉层、benchmark-app.js 与服务端 /api/benchmark 系列接口
+  [OUTPUT]: 提供评测满视口工作区、内容宽度驱动的流程与表单排布、可键盘滚动的表格容器；对外提供侧栏底部版本号及更新下载弹层、纯文字 Canvas Lab 品牌、共享侧栏返回生图测试和批量跑图的横排入口、中性焦点反馈、横向五步流程、左侧紧凑样本管理与右侧样本列表、可分次累加且缩略图稳定的人工已有分类/AI 分类双路径样本治理、因子与计数同组且固定参数紧凑的八类单变量实验、停止/继续出图与失败重试、seven_evaluate_v3.1 单次调用/断点继续 AI 评分、分析与飞书跳转
   [POS]: public 的独立 Benchmark 页面，与日常 Canvas Lab 生图页路由隔离但共享工作台语义与视觉规范
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -13,38 +13,40 @@
     <link rel="icon" href="data:," />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · Benchmark</title>
-    <link rel="stylesheet" href="./benchmark.css?v=18" />
-    <link rel="stylesheet" href="./custom-select.css?v=10" />
-    <link rel="stylesheet" href="./benchmark-dataset.css?v=9" />
-    <link rel="stylesheet" href="./benchmark-experiment.css?v=7" />
-    <link rel="stylesheet" href="./benchmark-run.css?v=4" />
-    <link rel="stylesheet" href="./benchmark-review.css?v=4" />
-    <link rel="stylesheet" href="./benchmark-responsive.css?v=3" />
-    <link rel="stylesheet" href="./product-navigation.css?v=14" />
-    <link rel="stylesheet" href="./app-update.css?v=1" />
-    <link rel="stylesheet" href="./raycast-accent.css?v=42" />
+    <link rel="stylesheet" href="./benchmark.css?v=20" />
+    <link rel="stylesheet" href="./custom-select.css?v=14" />
+    <link rel="stylesheet" href="./benchmark-dataset.css?v=11" />
+    <link rel="stylesheet" href="./benchmark-experiment.css?v=8" />
+    <link rel="stylesheet" href="./benchmark-run.css?v=5" />
+    <link rel="stylesheet" href="./benchmark-review.css?v=5" />
+    <link rel="stylesheet" href="./benchmark-responsive.css?v=5" />
+    <link rel="stylesheet" href="./product-navigation.css?v=30" />
+    <link rel="stylesheet" href="./app-update.css?v=4" />
+    <link rel="stylesheet" href="./raycast-accent.css?v=44" />
+    <script src="/product-navigation.js?v=14"></script>
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Canvas Lab 首页">
-          <span class="brand-title">Canvas Lab</span>
-        </a>
-        <nav id="productSwitcher" class="product-switcher" data-active-index="2" aria-label="工作台切换">
-          <span class="product-switch-active-viewport" aria-hidden="true">
-            <span class="product-switch-active-layer">
-              <span class="product-switch-active-option">生图工作台</span>
-              <span class="product-switch-active-option">批量跑图</span>
-              <span class="product-switch-active-option">模型评测</span>
-            </span>
-          </span>
-          <a class="product-switch-option" href="/">生图工作台</a>
-          <a class="product-switch-option" href="/beta.html">批量跑图</a>
-          <a class="product-switch-option" href="/benchmark.html" aria-current="page">模型评测</a>
+    <div class="app-shell workbench-shell">
+      <aside id="productSidebar" class="product-sidebar" aria-label="工作台导航">
+        <div class="product-sidebar-head">
+          <a class="brand" href="/" aria-label="Canvas Lab 首页"><span class="brand-title">Canvas Lab</span></a>
+          <button id="productSidebarToggle" class="product-sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏" aria-expanded="true" aria-controls="productSidebar"><svg aria-hidden="true"><use href="/icons/workbench.svg#sidebar"></use></svg></button>
+        </div>
+        <nav id="productSwitcher" class="product-switcher" aria-label="工作台切换">
+          <a class="product-switch-option" href="/" aria-label="生图测试" title="生图测试"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">生图测试</span></a>
+          <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量跑图</span></a>
         </nav>
-        <div class="topbar-actions">
-          <button class="app-update-trigger" data-app-update type="button">检查更新</button>
+        <footer class="product-sidebar-footer" aria-label="工作台状态">
           <span id="connectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>
+          <button class="app-update-trigger sidebar-version" data-app-update type="button" aria-label="检查 Canvas Lab 更新">
+            <span class="sidebar-version-label" data-app-update-label>检查更新</span>
+          </button>
+        </footer>
+      </aside>
+      <header class="topbar">
+        <div class="workbench-topbar-start">
+          <button id="productSidebarOpen" class="product-sidebar-open" type="button" aria-label="打开侧栏" aria-haspopup="dialog" aria-expanded="false" aria-controls="productSidebarDialog"><svg aria-hidden="true"><use href="/icons/workbench.svg#menu"></use></svg></button>
+          <span class="workbench-topbar-title">模型评测</span>
         </div>
       </header>
 
@@ -120,7 +122,7 @@
             </div>
             <div id="caseTableCard" class="table-card">
               <div class="table-title"><h3 id="caseTableTitle">样本</h3><span id="validCaseCount">0 个进入评测</span></div>
-              <div class="table-scroll"><table><thead><tr><th>编号</th><th>空间类型</th><th>五维标签</th><th>准入</th><th>状态</th></tr></thead><tbody id="caseRows"></tbody></table></div>
+              <div class="table-scroll" role="region" aria-label="样本列表" tabindex="0"><table><thead><tr><th>编号</th><th>空间类型</th><th>五维标签</th><th>准入</th><th>状态</th></tr></thead><tbody id="caseRows"></tbody></table></div>
             </div>
           </div>
         </section>
@@ -264,7 +266,7 @@
               </div>
               <div id="reviewResultSummary" class="review-result-summary"></div>
               <div id="reviewResultTable" class="review-result-table hidden">
-                <div class="table-scroll"><table><thead><tr><th>模型</th><th class="review-run">Run</th><th>保持一致性</th><th>风格与材质</th><th>渲染质量</th><th>加权分</th><th>结论</th><th>问题</th><th>评分原因</th></tr></thead><tbody id="reviewResultRows"></tbody></table></div>
+                <div class="table-scroll" role="region" aria-label="评分结果" tabindex="0"><table><thead><tr><th>模型</th><th class="review-run">Run</th><th>保持一致性</th><th>风格与材质</th><th>渲染质量</th><th>加权分</th><th>结论</th><th>问题</th><th>评分原因</th></tr></thead><tbody id="reviewResultRows"></tbody></table></div>
               </div>
               <p id="reviewResultEmpty" class="review-result-empty">当前实验还没有正式三维评分结果。</p>
             </section>
@@ -290,14 +292,14 @@
             <div><span>可用图</span><strong id="usableResults">0</strong></div>
             <div><span>P95 耗时</span><strong id="p95Results">—</strong></div>
           </div>
-          <div class="table-card analysis-table"><div class="table-title"><h3>模型 × 类别</h3><span id="analysisScopeMeta">全部实验</span></div><div class="table-scroll"><table><thead><tr><th>模型</th><th>类别</th><th>成功率</th><th>可用图率</th><th>平均原始分</th><th>P95</th><th>样本</th></tr></thead><tbody id="analysisRows"></tbody></table></div></div>
+          <div class="table-card analysis-table"><div class="table-title"><h3>模型 × 类别</h3><span id="analysisScopeMeta">全部实验</span></div><div class="table-scroll" role="region" aria-label="模型与类别分析" tabindex="0"><table><thead><tr><th>模型</th><th>类别</th><th>成功率</th><th>可用图率</th><th>平均原始分</th><th>P95</th><th>样本</th></tr></thead><tbody id="analysisRows"></tbody></table></div></div>
         </section>
       </div>
       </main>
     </div>
-    <script type="module" src="./product-navigation.js?v=9"></script>
-    <script type="module" src="./app-update.js?v=1"></script>
+    <script type="module" src="./app-update.js?v=5"></script>
     <script type="module" src="./custom-select.js?v=9"></script>
-    <script type="module" src="./benchmark-app.js?v=34"></script>
+    <script type="module" src="./benchmark-app.js?v=35"></script>
+    <dialog id="productSidebarDialog" class="product-sidebar-dialog" aria-label="工作台导航"></dialog>
   </body>
 </html>

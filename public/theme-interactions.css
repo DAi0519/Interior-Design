@@ -10,7 +10,7 @@
   .ghost-button:hover,
   .icon-button:hover {
     background: #fff;
-    border-color: #aaa69e;
+    border-color: var(--line-strong);
     color: var(--text);
   }
 

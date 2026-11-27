@@ -1,0 +1,358 @@
+/**
+ * [INPUT]: 依赖共享弹窗、各功能原参数节点、选择器与工作台中性色令牌
+ * [OUTPUT]: 提供全部参数的固定表头、可滚动正文、直接列出的规格行、嵌入上传缩略图、空规格收起及标题操作命中区
+ * [POS]: public 的对话参数组件样式，普通生图、原生编辑工具与同源工作区共用
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.home-image-chat-parameter-dialog {
+  --parameter-inset: 16px;
+  --parameter-group-space: 12px;
+  --parameter-field-gap: 6px;
+  --parameter-control-height: 40px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--brand-modal-shadow);
+  color: var(--text);
+  inline-size: min(480px, calc(var(--home-chat-parameter-pane-width, 100vw) - 24px));
+  inset: var(--home-chat-parameter-inset, 0);
+  margin: auto;
+  max-block-size: min(620px, calc(var(--home-chat-parameter-pane-height, 100dvh) - 24px));
+  overflow: hidden;
+  padding: 0;
+  position: fixed;
+}
+
+.home-image-chat-parameter-dialog[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.home-image-chat-parameter-dialog::backdrop {
+  background: var(--brand-modal-backdrop);
+  inset: var(--home-chat-parameter-inset, 0);
+}
+
+.home-image-chat-parameter-dialog > header {
+  align-items: center;
+  border-block-end: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 4px 8px 4px var(--parameter-inset);
+}
+
+.home-image-chat-parameter-dialog > header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.home-image-chat-parameter-dialog .home-image-chat-parameter-close {
+  flex: none;
+  inline-size: var(--parameter-control-height);
+  justify-content: center;
+  min-block-size: var(--parameter-control-height);
+  padding: 0;
+}
+
+.home-image-chat-feature-parameters {
+  --workspace-parameter-inset: var(--parameter-inset);
+  container: home-image-chat-parameters / inline-size;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  position: relative;
+  scrollbar-gutter: stable;
+}
+
+.home-image-chat-feature-parameters > .home-image-chat-tool-settings {
+  --workspace-parameter-inset: var(--parameter-inset);
+}
+
+#homeImageChatParameterDialog :is(#studioSourceSummary, .scene-cast-reference) > [data-chat-attachment-preview]:has(> img:not([hidden])) {
+  background: transparent;
+  border: 0;
+  display: block;
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+#homeImageChatParameterDialog [data-chat-attachment-preview]:has(> img:not([hidden])) > :not(img) {
+  display: none;
+}
+
+.home-image-chat-feature-parameters :is(.control-panel-scroll, .isolated-workspace-settings),
+.home-image-chat-feature-parameters .isolated-workspace-settings > * {
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+
+#homeImageChatParameterDialog :is(
+  .control-panel-scroll, .plan-camera-settings-scroll, .studio-settings-scroll,
+  .studio-render-form, .house-plan-settings-scroll, .home-image-chat-tool-settings
+) > section {
+  border-block-end: 0;
+  padding: var(--parameter-group-space) var(--parameter-inset);
+}
+
+.home-image-chat-feature-parameters :is(
+  .control-panel-scroll, .plan-camera-settings-scroll, .studio-settings-scroll, .studio-render-form, .house-plan-settings-scroll
+) > section:not(
+  [hidden], .hidden, [data-home-chat-primary-only], .home-image-chat-camera-origin-upload,
+  .home-image-chat-workspace-origin-upload:not(:has(#studioSourceSummary:not([hidden]), #castSourceDetails:not([hidden])))
+) ~ section {
+  border-block-start: 1px solid var(--line);
+}
+
+.home-image-chat-feature-parameters :is(.section-heading, .plan-camera-heading) {
+  gap: 8px;
+  margin-block: 0 8px;
+}
+
+.home-image-chat-feature-parameters :is(.section-heading, .plan-camera-heading) h2 {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.home-image-chat-feature-parameters :is(.mask-fill-settings, .relight-settings, .scene-cast-fields) {
+  gap: 12px;
+}
+
+.home-image-chat-feature-parameters :is(.mask-fill-settings, .relight-settings, .scene-cast-fields) > .section-heading {
+  margin-block-end: 0;
+}
+
+#homeImageChatParameterDialog .scene-cast-settings > .scene-cast-extra-settings {
+  padding-block: 6px;
+}
+
+.home-image-chat-feature-parameters .plan-camera-section:has(> #camera-generationHeading) {
+  display: grid;
+  gap: 10px;
+}
+
+.home-image-chat-feature-parameters .plan-camera-section > :is(
+  .plan-camera-heading, .plan-camera-field, .plan-camera-complexities, .plan-camera-field-pair
+) {
+  gap: var(--parameter-field-gap);
+  margin-block: 0;
+}
+
+.home-image-chat-feature-parameters .plan-camera-field-pair:not(:has(> .plan-camera-field:not([hidden]))) {
+  display: none;
+}
+
+.home-image-chat-feature-parameters :is(.field, .plan-camera-field) > span,
+.home-image-chat-feature-parameters .compact-config-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin-inline: 0;
+}
+
+.home-image-chat-feature-parameters .plan-camera-count-label > span {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+
+.home-image-chat-feature-parameters .plan-camera-field > span:not(.plan-camera-count-label) {
+  justify-content: flex-start;
+}
+
+.home-image-chat-feature-parameters :is(.model-picker-trigger, .config-refresh-button),
+.home-image-chat-feature-parameters .field > input:not([type="checkbox"], [type="radio"]) {
+  box-shadow: none;
+  min-block-size: var(--parameter-control-height);
+}
+
+.home-image-chat-feature-parameters .model-picker-trigger {
+  font-size: 12px;
+}
+
+.home-image-chat-feature-parameters .config-refresh-button {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 11px;
+  min-inline-size: var(--parameter-control-height);
+}
+
+#homeImageChatParameterDialog #refinedRenderSection {
+  padding: 0;
+}
+
+.home-image-chat-feature-parameters #modelOptions.model-picker {
+  inline-size: 100%;
+}
+
+.home-image-chat-feature-parameters :is(
+  [data-home-chat-moved], [data-home-chat-primary-only],
+  .compact-config-note:not(.error, [data-relight-context], [data-relight-history-parameters], [data-relight-legacy-template]),
+  .refined-prompt-source-link,
+  [data-relight-prompt-link]
+) {
+  display: none;
+}
+
+.home-image-chat-feature-parameters .compact-config-note.error:not([hidden]) {
+  color: var(--danger);
+  display: block;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.home-image-chat-feature-parameters > .home-image-chat-size-options {
+  border-block-end: 1px solid var(--line);
+  padding: var(--parameter-group-space) var(--parameter-inset) 6px;
+
+  > label:not([hidden], .hidden, [data-parameter-fixed], :has(> .model-picker[data-choice-fixed])) {
+    align-items: center;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    margin: 0;
+    min-inline-size: 0;
+    min-block-size: var(--parameter-control-height);
+  }
+
+  > label > span:first-child {
+    color: var(--text);
+    margin: 0;
+  }
+
+  .model-picker-trigger {
+    --model-picker-trigger-bg: transparent;
+    border-color: transparent;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-inline: 4px 6px;
+  }
+
+  .model-picker-chevron {
+    margin-inline-start: 0;
+  }
+}
+
+.home-image-chat-feature-parameters > .home-image-chat-size-options:not(:has(
+  > label:not([hidden], .hidden, [data-parameter-fixed]) > .model-picker:not([hidden], .hidden, [data-choice-fixed]) > .model-picker-trigger:enabled,
+  > label:not([hidden], .hidden, [data-parameter-fixed]) > select:enabled:not([hidden], .hidden, .custom-select-native)
+)) {
+  display: none;
+}
+
+@media (min-width: 901px) and (pointer: fine) {
+  .home-image-chat-parameter-dialog {
+    --parameter-heading-height: 24px;
+    --parameter-content-gap: 8px;
+  }
+
+  #homeImageChatParameterDialog :is(
+    #refinedRenderSection > .refined-lighting-section,
+    #styleDnaControls > section,
+    .scene-cast-settings > .scene-cast-extra-settings
+  ) {
+    padding: var(--parameter-group-space) var(--parameter-inset);
+  }
+
+  .home-image-chat-feature-parameters #styleDnaControls > section:last-child {
+    border-block-end: 0;
+  }
+
+  .home-image-chat-feature-parameters :is(.section-heading, .plan-camera-heading) {
+    align-items: center;
+    display: flex;
+    min-block-size: var(--parameter-heading-height);
+  }
+
+  #homeImageChatParameterDialog .section-heading {
+    margin-block-end: var(--parameter-content-gap);
+  }
+
+  #homeImageChatParameterDialog :is(.mask-fill-settings, .relight-settings, .scene-cast-fields) > .section-heading {
+    margin-block-end: 0;
+  }
+
+  .home-image-chat-feature-parameters :is(
+    .mask-fill-settings, .relight-settings, .scene-cast-fields,
+    .plan-camera-section:has(> #camera-generationHeading)
+  ) {
+    row-gap: var(--parameter-content-gap);
+  }
+
+  .home-image-chat-feature-parameters :is(.section-heading, .plan-camera-heading) :is(.config-refresh-button, .cs-reset) {
+    min-block-size: var(--parameter-heading-height);
+    min-inline-size: var(--parameter-control-height);
+    position: relative;
+  }
+
+  .home-image-chat-feature-parameters :is(.section-heading, .plan-camera-heading) :is(.config-refresh-button, .cs-reset)::before {
+    content: "";
+    inset-block: calc((var(--parameter-heading-height) - var(--parameter-control-height)) / 2);
+    inset-inline: 0;
+    position: absolute;
+  }
+
+  #homeImageChatParameterDialog .cs-reset {
+    padding-block: 0;
+  }
+
+  #homeImageChatParameterDialog .image-upscale-noise-fields {
+    margin-block-start: var(--parameter-content-gap);
+  }
+
+  .home-image-chat-feature-parameters :is(.compact-config-stack, .field:not([hidden], .hidden), .plan-camera-field) {
+    display: grid;
+    row-gap: var(--parameter-field-gap);
+  }
+
+  .home-image-chat-feature-parameters :is(.compact-config-label, .field > span) {
+    margin-block: 0;
+  }
+
+  #homeImageChatParameterDialog :is(
+    .refined-lighting-picker-trigger, .studio-advanced-toggle,
+    :is(.mask-fill-modes, .relight-template-grid, .relight-modes, .relight-presets, .image-outpaint-ratios) > button,
+    #imageMultiAngleSection :is(.cs-presets, .cs-framing, .cs-models) > button
+  ) {
+    min-block-size: var(--parameter-control-height);
+  }
+
+  .home-image-chat-feature-parameters :is(.micro-status, .reference-count, .size-badge, .character-count) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .home-image-chat-feature-parameters > .home-image-chat-size-options {
+    padding-block: var(--parameter-group-space);
+  }
+
+  .home-image-chat-feature-parameters #parameterSection:not(:has(
+    .field:not([hidden], .hidden, [data-parameter-fixed]) > .model-picker:not([hidden], .hidden, [data-choice-fixed]) > .model-picker-trigger:enabled,
+    .field:not([hidden], .hidden, [data-parameter-fixed]) > select:enabled:not([hidden], .hidden, .custom-select-native)
+  )) {
+    display: none;
+  }
+}
+
+@container home-image-chat-parameters (max-width: 300px) {
+  .home-image-chat-feature-parameters :is(.field-grid, .model-option-list, .reference-list) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-image-chat-feature-parameters :is(.section-heading, .section-heading-actions) {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 560px), (any-pointer: coarse) {
+  .home-image-chat-parameter-dialog { --parameter-control-height: 44px; }
+}

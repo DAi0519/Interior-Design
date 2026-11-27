@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖二次编辑语义控件、共享workspace主画布组合层与工作台银灰令牌
- * [OUTPUT]: 对外提供分组20px/组内8px节奏、模型/方式/输出质量表单、物品/材质参考用途、参考图、大画布及触屏画笔/蓝色定位轮廓样式
+ * [OUTPUT]: 对外提供分组20px/组内8px节奏、模型/方式/输出质量表单、物品/材质参考用途、参考图、选择与按压反馈、大画布及触屏画笔/蓝色定位轮廓样式
  * [POS]: public 的二次编辑视觉层，复用共享控件和黑白选中态
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -29,7 +29,14 @@
   outline: 2px solid var(--brand-key-focus, #6d6e75); outline-offset: 2px;
 }
 .mask-fill-drawing-actions button:disabled { cursor: default; opacity: .4; }
-.mask-fill-modes button:hover:not(.selected), .mask-fill-drawing-actions button:hover:not(:disabled):not(.selected) { background: #e9e9ed; }
+@media (prefers-reduced-motion: no-preference) {
+  :is(.mask-fill-modes, .mask-fill-drawing-actions) button:active:enabled { transform: scale(.985); }
+}
+@media (hover: hover) and (pointer: fine) {
+  :is(.mask-fill-modes, .mask-fill-drawing-actions) button:hover:enabled:not(.selected) {
+    background: var(--graphite);
+  }
+}
 .mask-fill-instruction { display: grid; gap: 8px; font-size: 12px; font-weight: 600; }
 .mask-fill-instruction textarea { font-weight: 400; min-height: 128px; }
 .mask-fill-parameters input { width: 100%; min-height: 38px; }

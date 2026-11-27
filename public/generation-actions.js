@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成动作DOM、可选当前功能不可用原因、调用方的设计Prompt输入指纹与生成/强制重新生成回调
- * [OUTPUT]: 对外提供设计Prompt复用动作、固定START/RUNNING…文案及二次编辑等中文动作语义、运行态语义与可恢复配置门禁，导出generationActionState/bindGenerationActions
+ * [OUTPUT]: 对外提供设计Prompt复用动作、运行态与配置门禁，并通知首页输入区重新校验
  * [POS]: public 的生成动作状态层，负责首次单按钮与提示词可复用后的双按钮切换
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -37,6 +37,7 @@ export function bindGenerationActions({
   getUnavailableReason = () => null,
   onGenerate,
   onRegenerate,
+  onStateChange = () => {},
 }) {
   const root = document.querySelector("#generationActions");
   const generateButton = document.querySelector("#generateButton");
@@ -67,6 +68,7 @@ export function bindGenerationActions({
     generateButton.disabled = busy || Boolean(unavailableReason);
     regenerateButton.disabled = busy || Boolean(unavailableReason);
     generateButton.title = unavailableReason || "";
+    onStateChange();
   }
 
   generateButton.addEventListener("click", onGenerate);

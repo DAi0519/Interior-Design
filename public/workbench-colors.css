@@ -1,0 +1,23 @@
+/**
+ * [INPUT]: 依赖 DESIGN.md 的银灰配色、文字对比度和状态色规则
+ * [OUTPUT]: 三个工作台及嵌入工具共用的画布、表面、分隔线和文字颜色
+ * [POS]: public 的共享 CSS 颜色变量，由生图、批量跑图和模型评测的基础样式加载
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+:root {
+  --bg: oklch(0.97 0.001 286);
+  --panel: oklch(0.991 0.001 286);
+  --surface-sidebar: oklch(0.973 0.001 286);
+  --surface-control: oklch(0.956 0.003 286);
+  --panel-soft: var(--surface-control);
+  --surface-hover: oklch(0.929 0.004 286);
+  --surface-badge: oklch(0.935 0.004 286);
+  --line: oklch(0.914 0.004 286);
+  --line-strong: oklch(0.862 0.005 286);
+  --text: oklch(0.245 0.008 286);
+  --small-ink: oklch(0.428 0.01 286);
+  --muted: oklch(0.516 0.009 286);
+  --quiet: oklch(0.662 0.01 286);
+  --danger: oklch(0.5 0.182 29.5);
+}

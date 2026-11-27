@@ -1,0 +1,141 @@
+/**
+ * [INPUT]: 依赖首页对话框的定位与圆角、装饰层标记和文本输入焦点
+ * [OUTPUT]: 提供沿边定长流动、圆角平滑转向、首尾渐尖和厚度周期收放的光晕及静态降级
+ * [POS]: public 首页生图对话的输入动效层，独立于表单和画布交互
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+.home-image-chat-focus-flow {
+  --home-chat-beam-depth: 14px;
+  --home-chat-beam-mask-stops:
+    #000,
+    #000b calc(var(--home-chat-beam-depth) * 0.38),
+    #0003 calc(var(--home-chat-beam-depth) * 0.72),
+    transparent var(--home-chat-beam-depth) calc(100% - var(--home-chat-beam-depth)),
+    #0003 calc(100% - var(--home-chat-beam-depth) * 0.72),
+    #000b calc(100% - var(--home-chat-beam-depth) * 0.38),
+    #000;
+  border-radius: 15px;
+  inset: 0;
+  mask-image:
+    linear-gradient(var(--home-chat-beam-mask-stops)),
+    linear-gradient(90deg, var(--home-chat-beam-mask-stops));
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 140ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+#homeImageChat[data-canvas-ready] .home-image-chat-focus-flow {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+
+.home-image-chat-composer:has(textarea:focus) > .home-image-chat-focus-flow {
+  opacity: 1;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+.home-image-chat-focus-flow::before {
+  background:
+    radial-gradient(ellipse 42% 50% at 28% 50%, oklch(0.78 0.106 187 / 0.24), transparent),
+    radial-gradient(ellipse 48% 52% at 48% 50%, oklch(0.76 0.115 248 / 0.25), transparent),
+    radial-gradient(ellipse 42% 50% at 65% 50%, oklch(0.78 0.116 296 / 0.23), transparent),
+    radial-gradient(ellipse 33% 46% at 79% 50%, oklch(0.81 0.105 342 / 0.19), transparent);
+  block-size: 72px;
+  content: "";
+  inline-size: clamp(154px, 50%, 375px);
+  inset: auto auto -36px 50%;
+  mask-image: linear-gradient(90deg, transparent, #000 30% 70%, transparent);
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.home-image-chat-focus-flow > span { display: none; }
+
+@supports (offset-path: border-box) and (width: 1cqw) and (mask-image: linear-gradient(#000, transparent)) {
+  @media (prefers-reduced-motion: no-preference) {
+    .home-image-chat-focus-flow {
+      container-type: inline-size;
+      mask-image: none;
+    }
+    .home-image-chat-focus-flow::before { display: none; }
+
+    /* 缩短单个光点并加密间距，使相邻光点在圆角处连续交叠。 */
+    .home-image-chat-focus-flow > span {
+      --home-chat-beam-step: clamp(5.4px, 1.5cqw, 11.2px);
+      --home-chat-beam-lag: calc(var(--home-chat-beam-index) * var(--home-chat-beam-step));
+      --home-chat-beam-color: oklch(0.78 0.106 187 / 0.225);
+      --home-chat-beam-taper: min(1, 0.24 + 0.09 * var(--home-chat-beam-edge-distance));
+      --home-chat-beam-edge-gain: calc(0.86 * (0.55 + 0.45 * var(--home-chat-beam-taper)));
+      animation:
+        home-image-chat-border-beam 8.8s linear infinite paused,
+        home-image-chat-beam-breath 5.6s ease-in-out infinite paused;
+      background: radial-gradient(closest-side, var(--home-chat-beam-color), transparent);
+      block-size: calc(clamp(24px, 4.2cqw, 32px) * var(--home-chat-beam-taper));
+      display: block;
+      inline-size: calc(3.6 * var(--home-chat-beam-step));
+      inset: 0 auto auto 0;
+      offset-anchor: center;
+      offset-path: border-box;
+      offset-rotate: auto;
+      position: absolute;
+    }
+
+    .home-image-chat-focus-flow > span:nth-child(n + 7):nth-child(-n + 12) {
+      --home-chat-beam-color: oklch(0.76 0.115 248 / 0.2375);
+    }
+
+    .home-image-chat-focus-flow > span:nth-child(n + 13):nth-child(-n + 18) {
+      --home-chat-beam-color: oklch(0.78 0.116 296 / 0.2125);
+    }
+
+    .home-image-chat-focus-flow > span:nth-child(n + 19):nth-child(-n + 24) {
+      --home-chat-beam-color: oklch(0.81 0.105 342 / 0.1875);
+    }
+
+    .home-image-chat-focus-flow > span:nth-child(n + 25) {
+      --home-chat-beam-color: oklch(0.84 0.105 64 / 0.1375);
+    }
+
+    .home-image-chat-composer:has(textarea:focus) > .home-image-chat-focus-flow > span {
+      animation-play-state: running;
+    }
+  }
+}
+
+@keyframes home-image-chat-border-beam {
+  from { offset-distance: calc(64% - var(--home-chat-beam-lag)); }
+  to { offset-distance: calc(164% - var(--home-chat-beam-lag)); }
+}
+
+@keyframes home-image-chat-beam-breath {
+  0%, 100% {
+    opacity: calc(0.8 * var(--home-chat-beam-edge-gain));
+    transform: scaleY(1);
+  }
+
+  50% {
+    /* 中段收得更薄，首尾留出渐隐所需的厚度。 */
+    opacity: var(--home-chat-beam-edge-gain);
+    transform: scaleY(calc(0.42 + (1 - var(--home-chat-beam-taper)) * 0.44));
+  }
+}
+
+@media (forced-colors: active) {
+  .home-image-chat-focus-flow { mask-image: none; }
+  .home-image-chat-focus-flow > span { display: none; }
+
+  .home-image-chat-focus-flow::before {
+    background: CanvasText;
+    block-size: 1px;
+    display: block;
+    inline-size: 24px;
+    inset: auto 0 1px;
+    margin-inline: auto;
+    mask-image: none;
+    transform: none;
+  }
+}

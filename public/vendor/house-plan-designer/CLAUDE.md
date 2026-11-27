@@ -6,7 +6,7 @@ editor.html: CSP 兼容入口，只引用同源外部脚本和样式；干净预
 bootstrap.js: 启动前消费单次单层方案、空方案回退、禁用上传/网络，Ctrl/Cmd+S 阻断原保存并交给宿主
 engine.js: 固定 commit 的第三方内联模块逐字提取，含 Three.js/参数家具/2D编辑/3D，不承担 AI 生图
 engine.css: 固定 commit 的第三方内联样式逐字提取
-integration.css: 平面保留墙门窗/家具/属性，3D 隐藏编辑侧栏和工具栏，隐藏工程/导入/中控及重复保存导航
+integration.css: 平面保留墙门窗/家具/属性，3D 隐藏编辑侧栏和工具栏，隐藏工程/导入/中控及重复保存导航，页签以文字明暗和字重显示选中，独立保留键盘焦点
 LICENSE: 上游 MIT 版权和再分发条款原件
 provenance.json: 上游 commit、模板字节/SHA、提取后源码 SHA 与验证边界
 CLAUDE.md: 本目录地图与第三方更新约束
