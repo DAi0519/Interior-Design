@@ -1,13 +1,15 @@
 {
   "name": "canvas-lab",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "private": true,
   "type": "module",
   "description": "公司图像模型的本地运营与测试工作台",
   "releaseNotes": [
-    "修复 Windows 网页更新的 EXTRACT_ERROR。安装器使用 Node 内置解压，并校验官方摘要和文件内容。",
-    "修复 Windows 双击启动时的 npm 调用，工作台使用原生飞书 CLI 执行连接和归档操作。",
-    "旧版已遇到 EXTRACT_ERROR 的用户请手动解压本运行包到新目录，从旧目录复制 .env.local 和所需本地数据，再双击 start-windows.cmd。"
+    "生图测试可在对话框选择功能、上传原图、调整出图参数。机位、多角度等画布可向上展开，切换功能时保留各自的图片和草稿。",
+    "历史成图支持对比和下载，失败记录可删除。户型、机位和人物宠物场景的原图也可通过缩略图角标删除。",
+    "批量跑图从侧栏选择任务，选回任务时恢复草稿。右侧常驻监控生成与飞书同步进度，额度入口可在当前页打开连接中心。",
+    "平面图机位渲染的空间推理新增 GPT 6.2 Sol 和 GPT 6.2 Astra，生图测试和批量跑图均按当前密钥权限显示。",
+    "设计实验室 Beta 下架，户型平面布局和平面图机位渲染保留。"
   ],
   "scripts": {
     "benchmark": "node --env-file-if-exists=.env.local benchmark-runner.mjs",
