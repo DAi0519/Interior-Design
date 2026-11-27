@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖共享侧栏的折叠状态、主工作台功能目录、搜索弹窗和共享视觉令牌
- * [OUTPUT]: 提供与工作台切换对齐的功能目录和查找间距、当前功能反色、侧栏滚动、折叠图标及触屏与键盘反馈
- * [POS]: public 的生图工作台专用功能导航样式
+ * [INPUT]: 依赖共享侧栏的折叠状态、生图测试和批量任务目录、搜索弹窗及共享视觉令牌
+ * [OUTPUT]: 提供与工作台切换对齐的功能目录和查找间距、当前功能反色、侧栏滚动、折叠图标、触屏命中区及已选文字焦点
+ * [POS]: public 的共享分组目录与搜索样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -31,13 +31,23 @@
 }
 
 #featureModeList .feature-mode-option {
+  background: transparent;
   border: 0;
+  border-radius: 5px;
   box-shadow: none;
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
   min-height: 38px;
-  padding-inline: 8px;
+  padding: 0 8px;
   text-align: start;
   transition: none;
+  width: 100%;
 }
+
+#featureModeList .feature-mode-option + .feature-mode-option { margin-top: 2px; }
+#featureModeList .feature-mode-option:disabled { opacity: .55; }
 
 #featureModeList .feature-mode-option[aria-checked="true"] {
   background: var(--brand-key-selected-bg, #000);
@@ -48,10 +58,6 @@
 #featureModeList .feature-mode-option:focus-visible {
   outline: 2px solid var(--brand-key-focus, #6d6e75);
   outline-offset: -2px;
-}
-
-#featureModeList .feature-mode-option[aria-checked="true"]:focus-visible {
-  outline-color: var(--brand-key-selected-ink, #fff);
 }
 
 .workbench-sidebar-collapsed .workbench-shell > .product-sidebar #featureModeList,
@@ -235,7 +241,6 @@
   background: var(--brand-key-selected-bg, oklch(0 0 0));
   color: var(--brand-key-selected-ink, oklch(1 0 0));
   font-weight: 650;
-  position: relative;
 }
 
 .feature-catalog-row button[aria-current="true"] .feature-catalog-category {
@@ -262,24 +267,13 @@
   outline-offset: -2px;
 }
 
-.feature-catalog-row button[aria-current="true"]:focus-visible {
+:is(#featureModeList .feature-mode-option[aria-checked="true"], .feature-catalog-row button[aria-current="true"]):focus-visible {
+  -webkit-text-stroke: 0.5px currentColor;
   outline: none;
 }
 
-.feature-catalog-row button[aria-current="true"]:focus-visible::before {
-  background: currentColor;
-  block-size: 4px;
-  border-radius: 50%;
-  content: "";
-  inline-size: 4px;
-  inset-block-start: calc(50% - 2px);
-  inset-inline-start: 3px;
-  pointer-events: none;
-  position: absolute;
-}
-
 @media (forced-colors: active) {
-  .feature-catalog-row button[aria-current="true"] {
+  :is(#featureModeList .feature-mode-option[aria-checked="true"], .feature-catalog-row button[aria-current="true"]) {
     background: CanvasText;
     color: Canvas;
     forced-color-adjust: none;

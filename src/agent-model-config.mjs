@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖公司 Model Link 当前模型目录、OneAPI 图片输入探针和调用方传入的功能标识
- * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器，支持限定平面图机位专用候选
+ * [OUTPUT]: 对外提供模型目录、可用性检查与 Prompt Agent 模型解析器，包含平面图机位专用 GPT 6.1 Sol、GPT 6.2 Sol 和 GPT 6.2 Astra
  * [POS]: src 的 Prompt Agent 模型白名单，区分“接口存在”与“可读取白模图片”
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -102,6 +102,24 @@ export const AGENT_MODEL_CONFIGS = Object.freeze({
     label: "GPT 6.1 Sol",
     note: "支持平面图机位标注输入",
     shortLabel: "GPT 6.1 Sol",
+  },
+  gpt62Sol: {
+    accent: "lime",
+    featureMode: "floorPlanCamera",
+    id: "gpt-6.2-sol",
+    imageInput: true,
+    label: "GPT 6.2 Sol",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "GPT 6.2 Sol",
+  },
+  gpt62Astra: {
+    accent: "lime",
+    featureMode: "floorPlanCamera",
+    id: "gpt-6.2-astra",
+    imageInput: true,
+    label: "GPT 6.2 Astra",
+    note: "已通过 OneAPI Responses 图片输入探针",
+    shortLabel: "GPT 6.2 Astra",
   },
 });
 

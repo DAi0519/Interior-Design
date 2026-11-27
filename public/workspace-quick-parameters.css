@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖专用工作区参数快捷条、共享下拉样式和表面令牌
- * [OUTPUT]: 提供画布与反推对话中的紧凑无分割线参数条、就地下拉和触屏尺寸
- * [POS]: public 的原生及嵌入工作区参数快捷条布局层
+ * [OUTPUT]: 提供对话中的紧凑参数条、就地下拉和触屏尺寸
+ * [POS]: public 的对话参数快捷条布局层
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 .workspace-quick-parameters {
@@ -46,15 +46,6 @@
 .workspace-quick-trigger:is(:focus-visible, [aria-expanded="true"]) { background: var(--surface-hover); outline: none; }
 .workspace-quick-parameters .model-picker-chevron { flex-basis: 12px; inline-size: 12px; }
 .workspace-quick-multiple .model-picker-trigger { --model-picker-menu-min-width: 215px; }
-.style-dna-composer > .workspace-quick-parameters { padding-block-start: 0; }
-
-.ai-render-studio-host:has(> .workspace-quick-parameters):not([hidden]) {
-  display: flex;
-  flex-direction: column;
-}
-
-.ai-render-studio-host > .workspace-quick-parameters { padding-inline: clamp(12px, 2vw, 28px); }
-.ai-render-studio-host:has(> .workspace-quick-parameters) > .ai-render-studio-frame { flex: 1; height: auto; }
 .floor-plan-toolbar > .workspace-quick-parameters { padding-block: 0; }
 
 @media (max-width: 900px), (pointer: coarse) {

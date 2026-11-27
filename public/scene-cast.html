@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖工作台主题、嵌入结果面及共享生图反馈、单图上传与下拉、预设目录、人物宠物任务控制器及兼容的同源来源交接
-[OUTPUT]: 提供可挂入共享参数栏与动作区的场景图、角色特征、参考、互动和出图设置，在独立画布展示任务阶段、结果和有效操作
+[OUTPUT]: 提供场景原图上传与移除、并排的数量、角色特征与出图参数、共享附件删除角标挂接点、任务状态和结果
 [POS]: public 的AI渲染「添加人物/宠物」独立保活页面
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -10,11 +10,11 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=38" />
-  <link rel="stylesheet" href="/custom-select.css?v=13" /><link rel="stylesheet" href="/generation-actions.css?v=17" />
+  <link rel="stylesheet" href="/custom-select.css?v=14" /><link rel="stylesheet" href="/generation-actions.css?v=17" />
   <link rel="stylesheet" href="/raycast-accent.css?v=44" /><link rel="stylesheet" href="/ai-render-studio.css?v=9" />
   <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
   <link rel="stylesheet" href="/generation-feedback.css?v=3" />
-  <link rel="stylesheet" href="/scene-cast.css?v=7" />
+  <link rel="stylesheet" href="/scene-cast.css?v=10" />
   <title>Canvas Lab · 添加人物/宠物</title>
 </head>
 <body class="studio-page scene-cast-page">
@@ -22,94 +22,121 @@
   <aside class="control-panel studio-render-settings" aria-labelledby="castSettingsTitle">
     <header class="studio-panel-heading"><h2 id="castSettingsTitle">参数配置</h2></header>
     <div class="studio-settings-scroll scene-cast-settings">
-      <section class="panel-section reference-source-section" aria-labelledby="castSourceTitle">
-        <div class="section-heading">
-          <h2 id="castSourceTitle">场景图 <span class="optional">必填 · 1张</span></h2>
-          <span id="castSourceCount" class="micro-status">0 / 1</span>
-        </div>
+      <section class="panel-section reference-source-section scene-cast-source" aria-label="场景图">
         <input id="castSourceFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-        <button id="castSourceUpload" class="reference-drop-zone" type="button" aria-controls="castSourceFile">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
-          <img id="castSourceThumb" class="reference-upload-preview" alt="" hidden />
-          <span class="reference-upload-label">添加或拖入场景图</span>
-          <small>PNG / JPEG / WebP · 单张 8MB</small>
-        </button>
+        <div class="scene-cast-reference" data-chat-attachment>
+          <button id="castSourceUpload" class="reference-drop-zone" type="button" aria-controls="castSourceFile"
+            aria-label="添加场景图，必填" aria-describedby="castSourceHint" data-chat-attachment-preview>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
+            <img id="castSourceThumb" class="reference-upload-preview" alt="" hidden />
+            <span class="reference-upload-label">添加场景图</span>
+            <small id="castSourceHint">PNG / JPEG / WebP · 单张 8MB</small>
+          </button>
+          <button id="castSourceRemove" class="studio-icon-button" type="button" aria-label="移除场景图" data-chat-attachment-remove hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
         <p id="castSourceError" class="studio-error" role="alert" hidden></p>
         <details id="castSourceDetails" class="scene-cast-details" hidden><summary>原渲染参数</summary><dl id="castSourceParams"></dl></details>
       </section>
-      <section class="panel-section scene-cast-fields">
-        <div class="section-heading"><h2>模特设置</h2></div>
-        <div class="scene-cast-pair">
-          <label class="field"><span>人物数量</span><select id="castPeopleCount"><option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option></select></label>
-          <label class="field"><span>宠物数量</span><select id="castPetCount"><option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+      <section class="panel-section scene-cast-fields" aria-label="人物与宠物">
+        <div class="scene-cast-quick-choices scene-cast-counts" data-choice-group>
+          <select id="castPeopleCount" aria-label="人数" data-dropdown-placement="right">
+            <option>0</option><option selected>1</option><option>2</option><option>3</option><option>4</option>
+          </select>
+          <select id="castPetCount" aria-label="宠物数" data-dropdown-placement="right">
+            <option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option>
+          </select>
         </div>
-        <div id="castPeople" class="scene-cast-fields"></div>
-        <section id="castPersonRefSlot" class="reference-source-section" aria-labelledby="castPersonRefTitle" hidden>
-          <div class="section-heading">
-            <h2 id="castPersonRefTitle">人物参考图 <span class="optional">可选 · 最多1张</span></h2>
-            <span id="castPersonRefCount" class="micro-status">0 / 1</span>
-          </div>
-          <input id="castPersonRefFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-          <div class="scene-cast-reference">
-            <button id="castPersonRefUpload" class="reference-drop-zone" type="button" aria-controls="castPersonRefFile" aria-label="上传或替换人物参考图">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
-              <img id="castPersonRefThumb" class="reference-upload-preview" alt="" hidden />
-              <span class="reference-upload-label">添加或拖入人物参考图</span>
-              <small>PNG / JPEG / WebP · 单张 8MB</small>
-            </button>
-            <button id="castPersonRefRemove" class="studio-icon-button" type="button" aria-label="移除人物参考图" hidden>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
-            </button>
-          </div>
-          <p id="castPersonRefError" class="studio-error" role="alert" hidden></p>
-        </section>
-        <div id="castPets" class="scene-cast-fields"></div>
-        <section id="castPetRefSlot" class="reference-source-section" aria-labelledby="castPetRefTitle" hidden>
-          <div class="section-heading">
-            <h2 id="castPetRefTitle">宠物参考图 <span class="optional">可选 · 最多1张</span></h2>
-            <span id="castPetRefCount" class="micro-status">0 / 1</span>
-          </div>
-          <input id="castPetRefFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-          <div class="scene-cast-reference">
-            <button id="castPetRefUpload" class="reference-drop-zone" type="button" aria-controls="castPetRefFile" aria-label="上传或替换宠物参考图">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
-              <img id="castPetRefThumb" class="reference-upload-preview" alt="" hidden />
-              <span class="reference-upload-label">添加或拖入宠物参考图</span>
-              <small>PNG / JPEG / WebP · 单张 8MB</small>
-            </button>
-            <button id="castPetRefRemove" class="studio-icon-button" type="button" aria-label="移除宠物参考图" hidden>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
-            </button>
-          </div>
-          <p id="castPetRefError" class="studio-error" role="alert" hidden></p>
-        </section>
+        <div class="scene-cast-role-list">
+          <div id="castPeople" class="scene-cast-character-list"></div>
+          <section id="castPersonRefSlot" class="reference-source-section" aria-labelledby="castPersonRefTitle" hidden>
+            <div class="section-heading">
+              <h3 id="castPersonRefTitle">人物参考图 <span class="optional">可选</span></h3>
+              <span id="castPersonRefCount" class="micro-status">0 / 1</span>
+            </div>
+            <input id="castPersonRefFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            <div class="scene-cast-reference" data-chat-attachment>
+              <button id="castPersonRefUpload" class="reference-drop-zone" type="button" aria-controls="castPersonRefFile" aria-label="上传或替换人物参考图" data-chat-attachment-preview>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
+                <img id="castPersonRefThumb" class="reference-upload-preview" alt="" hidden />
+                <span class="reference-upload-label">添加或拖入人物参考图</span>
+                <small>PNG / JPEG / WebP · 单张 8MB</small>
+              </button>
+              <button id="castPersonRefRemove" class="studio-icon-button" type="button" aria-label="移除人物参考图" data-chat-attachment-remove hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+              </button>
+            </div>
+            <p id="castPersonRefError" class="studio-error" role="alert" hidden></p>
+          </section>
+          <div id="castPets" class="scene-cast-character-list"></div>
+          <section id="castPetRefSlot" class="reference-source-section" aria-labelledby="castPetRefTitle" hidden>
+            <div class="section-heading">
+              <h3 id="castPetRefTitle">宠物参考图 <span class="optional">可选</span></h3>
+              <span id="castPetRefCount" class="micro-status">0 / 1</span>
+            </div>
+            <input id="castPetRefFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            <div class="scene-cast-reference" data-chat-attachment>
+              <button id="castPetRefUpload" class="reference-drop-zone" type="button" aria-controls="castPetRefFile" aria-label="上传或替换宠物参考图" data-chat-attachment-preview>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="/reference-upload-icons.svg#upload"></use></svg>
+                <img id="castPetRefThumb" class="reference-upload-preview" alt="" hidden />
+                <span class="reference-upload-label">添加或拖入宠物参考图</span>
+                <small>PNG / JPEG / WebP · 单张 8MB</small>
+              </button>
+              <button id="castPetRefRemove" class="studio-icon-button" type="button" aria-label="移除宠物参考图" data-chat-attachment-remove hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+              </button>
+            </div>
+            <p id="castPetRefError" class="studio-error" role="alert" hidden></p>
+          </section>
+        </div>
+        <p id="castEmptyRoles" class="scene-cast-role-hint" hidden>选择至少一位人物或一只宠物。</p>
       </section>
-      <section class="panel-section scene-cast-fields">
-        <div class="section-heading"><h2>互动设置</h2></div>
-        <label id="castInteractionField" class="field" hidden><span>是否互动</span><select id="castInteraction"><option value="auto">自动</option><option value="yes">自然互动</option><option value="no">各自活动</option></select></label>
-        <div class="scene-cast-choice">
-          <label class="field"><span>位置</span><select id="castPosition" data-preset="position"></select></label>
-          <textarea id="castPositionCustom" data-custom rows="2" maxlength="1000" aria-label="自定义位置" placeholder="例如：人物站在左侧沙发旁" hidden></textarea>
-        </div>
-        <div class="scene-cast-choice">
-          <label class="field"><span>动作与补充要求</span><select id="castAction" data-preset="action"></select></label>
-          <textarea id="castActionCustom" data-custom rows="2" maxlength="1000" aria-label="自定义动作与补充要求" placeholder="例如：人物坐在沙发上看书，宠物趴在地毯边" hidden></textarea>
-        </div>
-      </section>
-      <section class="panel-section scene-cast-fields">
-        <div class="section-heading">
-          <h2>图像设置</h2>
-          <button id="castRefresh" type="button" class="config-refresh-button" aria-label="刷新合成模型配置">
-            <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
-            <span>刷新</span>
-          </button>
-        </div>
-        <label class="field"><span>合成模型</span><select id="castModel" disabled><option value="">读取中…</option></select></label>
-        <div class="scene-cast-pair">
-          <label class="field"><span>画幅</span><select id="castRatio" disabled><option value="auto">自动</option></select></label>
-          <label class="field"><span>分辨率</span><select id="castResolution" disabled><option value="">读取中…</option></select></label>
-        </div>
-        <label class="field"><span>质量</span><select id="castQuality" disabled><option value="">读取中…</option></select></label>
+      <section class="panel-section scene-cast-extra-settings" aria-label="合成设置">
+        <details class="scene-cast-settings-group">
+          <summary class="scene-cast-disclosure">
+            <span class="scene-cast-entry-title">位置与互动</span>
+            <span id="castPlacementSummary" class="scene-cast-entry-value"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div class="scene-cast-entry-body">
+            <div class="scene-cast-quick-choices" data-choice-group>
+              <div id="castInteractionField" class="scene-cast-choice" data-choice-auto hidden>
+                <select id="castInteraction" aria-label="互动" data-dropdown-placement="right">
+                  <option value="auto">自动</option><option value="yes">自然互动</option><option value="no">各自活动</option>
+                </select>
+              </div>
+              <div class="scene-cast-choice">
+                <select id="castPosition" aria-label="位置" data-preset="position" data-dropdown-placement="right"></select>
+                <textarea id="castPositionCustom" data-custom rows="2" maxlength="1000" aria-label="自定义位置" placeholder="例如：人物站在左侧沙发旁" hidden></textarea>
+              </div>
+              <div class="scene-cast-choice">
+                <select id="castAction" aria-label="动作与要求" data-preset="action" data-dropdown-placement="right"></select>
+                <textarea id="castActionCustom" data-custom rows="2" maxlength="1000" aria-label="自定义动作与补充要求" placeholder="例如：人物坐在沙发上看书，宠物趴在地毯边" hidden></textarea>
+              </div>
+            </div>
+          </div>
+        </details>
+        <details class="scene-cast-settings-group">
+          <summary class="scene-cast-disclosure">
+            <span class="scene-cast-entry-title">出图设置</span>
+            <span id="castOutputSummary" class="scene-cast-entry-value">读取中…</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div class="scene-cast-entry-body">
+            <div class="scene-cast-quick-choices" data-choice-group>
+              <div class="scene-cast-model-row">
+                <select id="castModel" aria-label="模型" data-dropdown-placement="right" disabled><option value="">读取中…</option></select>
+                <button id="castRefresh" type="button" class="config-refresh-button" aria-label="刷新合成模型配置" title="刷新配置">
+                  <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+                </button>
+              </div>
+              <select id="castRatio" aria-label="画幅" data-dropdown-placement="right" disabled><option value="auto">原图</option></select>
+              <select id="castResolution" aria-label="分辨率" data-dropdown-placement="right" disabled><option value="">读取中…</option></select>
+              <select id="castQuality" aria-label="质量" data-dropdown-placement="right" disabled><option value="">读取中…</option></select>
+            </div>
+          </div>
+        </details>
       </section>
     </div>
     <footer class="studio-submit-area scene-cast-actions">
@@ -139,60 +166,73 @@
   </section>
 </main>
 <template id="castPersonTemplate">
-  <fieldset class="scene-cast-character">
-    <legend></legend>
-    <div class="scene-cast-trio">
-      <div class="scene-cast-choice">
-        <label class="field"><span>年龄</span><select data-trait="age" data-preset="age"></select></label>
-        <input data-custom type="text" maxlength="120" aria-label="自定义年龄" placeholder="例如：32 岁" hidden />
-      </div>
-      <div class="scene-cast-choice">
-        <label class="field"><span>性别</span><select data-trait="gender" data-preset="gender"></select></label>
-      </div>
-      <div class="scene-cast-choice">
-        <label class="field"><span>地区</span><select data-trait="region" data-preset="region"></select></label>
-        <input data-custom type="text" maxlength="120" aria-label="自定义地区" placeholder="例如：地中海地区" hidden />
-      </div>
-    </div>
-    <details class="scene-cast-details"><summary class="scene-cast-disclosure">
-      <span>更多人物特征</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+  <details class="scene-cast-character" name="scene-cast-characters">
+    <summary class="scene-cast-disclosure">
+      <span class="scene-cast-entry-title"></span>
+      <span class="scene-cast-entry-value"></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
     </summary>
-      <div class="scene-cast-pair">
+    <fieldset class="scene-cast-entry-body">
+      <div class="scene-cast-quick-choices" data-choice-group>
         <div class="scene-cast-choice">
-          <label class="field"><span>身形</span><select data-trait="build" data-preset="build"></select></label>
-          <input data-custom type="text" maxlength="120" aria-label="自定义身形" placeholder="例如：高挑匀称" hidden />
+          <select aria-label="年龄" data-trait="age" data-preset="age" data-dropdown-placement="right"></select>
+          <input data-custom type="text" maxlength="120" aria-label="自定义年龄" placeholder="例如：32 岁" hidden />
         </div>
         <div class="scene-cast-choice">
-          <label class="field"><span>发色</span><select data-trait="hairColor" data-preset="hairColor"></select></label>
-          <input data-custom type="text" maxlength="120" aria-label="自定义发色" placeholder="例如：深棕发尾挑染" hidden />
+          <select aria-label="性别" data-trait="gender" data-preset="gender" data-dropdown-placement="right"></select>
+        </div>
+        <div class="scene-cast-choice">
+          <select aria-label="地区" data-trait="region" data-preset="region" data-dropdown-placement="right"></select>
+          <input data-custom type="text" maxlength="120" aria-label="自定义地区" placeholder="例如：地中海地区" hidden />
         </div>
       </div>
-      <div class="scene-cast-choice">
-        <label class="field"><span>穿搭与描述</span><select data-trait="description" data-preset="outfit"></select></label>
-        <textarea data-custom rows="2" maxlength="1000" aria-label="自定义穿搭与描述" placeholder="例如：米色针织衫、黑色长裤" hidden></textarea>
-      </div>
-    </details>
-  </fieldset>
+      <details class="scene-cast-details">
+        <summary class="scene-cast-disclosure">
+          <span>更多特征</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div class="scene-cast-quick-choices" data-choice-group>
+          <div class="scene-cast-choice">
+            <select aria-label="身形" data-trait="build" data-preset="build" data-dropdown-placement="right"></select>
+            <input data-custom type="text" maxlength="120" aria-label="自定义身形" placeholder="例如：高挑匀称" hidden />
+          </div>
+          <div class="scene-cast-choice">
+            <select aria-label="发色" data-trait="hairColor" data-preset="hairColor" data-dropdown-placement="right"></select>
+            <input data-custom type="text" maxlength="120" aria-label="自定义发色" placeholder="例如：深棕发尾挑染" hidden />
+          </div>
+          <div class="scene-cast-choice">
+            <select aria-label="穿搭与描述" data-trait="description" data-preset="outfit" data-dropdown-placement="right"></select>
+            <textarea data-custom rows="2" maxlength="1000" aria-label="自定义穿搭与描述" placeholder="例如：米色针织衫、黑色长裤" hidden></textarea>
+          </div>
+        </div>
+      </details>
+    </fieldset>
+  </details>
 </template>
 <template id="castPetTemplate">
-  <fieldset class="scene-cast-character">
-    <legend></legend>
-    <div class="scene-cast-pair">
-      <div class="scene-cast-choice">
-        <label class="field"><span>种类</span><select data-trait="species" data-preset="species"></select></label>
-        <input data-custom type="text" maxlength="120" aria-label="自定义宠物种类" placeholder="例如：金鱼" hidden />
+  <details class="scene-cast-character" name="scene-cast-characters">
+    <summary class="scene-cast-disclosure">
+      <span class="scene-cast-entry-title"></span>
+      <span class="scene-cast-entry-value"></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+    </summary>
+    <fieldset class="scene-cast-entry-body">
+      <div class="scene-cast-quick-choices" data-choice-group>
+        <div class="scene-cast-choice">
+          <select aria-label="种类" data-trait="species" data-preset="species" data-dropdown-placement="right"></select>
+          <input data-custom type="text" maxlength="120" aria-label="自定义宠物种类" placeholder="例如：金鱼" hidden />
+        </div>
+        <div class="scene-cast-choice">
+          <select aria-label="品种" data-trait="breed" data-preset="breed" data-dropdown-placement="right"></select>
+          <input data-custom type="text" maxlength="120" aria-label="自定义宠物品种" placeholder="例如：彭布罗克威尔士柯基" hidden />
+        </div>
+        <div class="scene-cast-choice">
+          <select aria-label="外观" data-trait="description" data-preset="petAppearance" data-dropdown-placement="right"></select>
+          <textarea data-custom rows="2" maxlength="1000" aria-label="自定义宠物描述" placeholder="例如：棕白毛色，戴蓝色项圈" hidden></textarea>
+        </div>
       </div>
-      <div class="scene-cast-choice">
-        <label class="field"><span>品种</span><select data-trait="breed" data-preset="breed"></select></label>
-        <input data-custom type="text" maxlength="120" aria-label="自定义宠物品种" placeholder="例如：彭布罗克威尔士柯基" hidden />
-      </div>
-    </div>
-    <div class="scene-cast-choice">
-      <label class="field"><span>更多描述</span><select data-trait="description" data-preset="petAppearance"></select></label>
-      <textarea data-custom rows="2" maxlength="1000" aria-label="自定义宠物描述" placeholder="例如：棕白毛色，戴蓝色项圈" hidden></textarea>
-    </div>
-  </fieldset>
+    </fieldset>
+  </details>
 </template>
-<script type="module" src="/scene-cast.js?v=9"></script>
+<script type="module" src="/scene-cast.js?v=12"></script>
 </body>
 </html>

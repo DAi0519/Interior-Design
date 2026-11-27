@@ -1,39 +1,172 @@
 /**
  * [INPUT]: 依赖 ai-render-studio.css 的无外框嵌入结果面、工作台参数、共享上传、下拉、START及生图反馈样式
- * [OUTPUT]: 提供挂载前后一致的参数节奏、无套框角色组、参考图移除、生成状态与完整的嵌入图片画布
+ * [OUTPUT]: 提供单入口场景图上传、并排参数组、通栏分隔线、全宽自定义输入、角色摘要与生成反馈
  * [POS]: public 的人物宠物合成局部样式，主工作台负责参数伸缩、抽屉和START停靠
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 .scene-cast-settings [hidden], .scene-cast-actions [hidden] { display: none !important; }
-.scene-cast-settings .panel-section:not(.reference-source-section) { padding-block: 16px; }
-.scene-cast-settings .panel-section:not(.reference-source-section) > .section-heading h2 { font-size: 12px; }
-.scene-cast-settings .field { display: grid; gap: 8px; margin: 0; }
-.scene-cast-settings .field > span { font-size: 12px; }
-.scene-cast-fields { display: grid; gap: 16px; min-width: 0; }
-.scene-cast-fields:empty { display: none; }
-.scene-cast-fields > .section-heading { margin-bottom: 0; }
-.scene-cast-pair, .scene-cast-trio { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.scene-cast-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.scene-cast-choice { align-content: start; display: grid; gap: 8px; min-width: 0; }
-.scene-cast-fields :is(input[type="text"], textarea) { box-sizing: border-box; min-width: 0; width: 100%; }
-.scene-cast-fields input[type="text"] { min-height: 38px; padding: 6px 8px; }
-.scene-cast-fields textarea { min-height: 58px; padding: 8px; resize: vertical; }
-.scene-cast-character { border: 0; display: grid; gap: 8px; margin: 0; min-width: 0; padding: 0; }
-.scene-cast-character legend { color: var(--text); font-size: 12px; font-weight: 600; margin-bottom: 8px; padding: 0; }
+.scene-cast-settings {
+  --scene-cast-hit: 40px;
+}
+#sceneCastSettingsMount > .scene-cast-settings {
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+.scene-cast-settings > .panel-section { padding-block: 12px; }
+.scene-cast-settings > .scene-cast-extra-settings {
+  border-block-end: 0;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr);
+  padding-block: 6px;
+}
+.scene-cast-settings-group + .scene-cast-settings-group {
+  border-block-start: 1px solid var(--line);
+  margin-inline: calc(0px - var(--workspace-parameter-inset, 20px));
+  padding: 4px var(--workspace-parameter-inset, 20px) 0;
+}
+.scene-cast-source .reference-drop-zone small { font-size: 9px; }
+.scene-cast-fields { display: grid; gap: 8px; min-width: 0; }
+.scene-cast-settings .scene-cast-choice :is(input[type="text"], textarea) { box-sizing: border-box; min-width: 0; width: 100%; }
+.scene-cast-settings .scene-cast-choice input[type="text"] { min-height: var(--scene-cast-hit); padding: 6px 8px; }
+.scene-cast-settings .scene-cast-choice textarea { min-height: 58px; padding: 8px; resize: vertical; }
+.scene-cast-role-list:not(:has(.scene-cast-character)),
+.scene-cast-character-list:empty { display: none; }
+.scene-cast-character + .scene-cast-character,
+.scene-cast-character-list:not(:empty) ~ .scene-cast-character-list:not(:empty) { border-block-start: 1px solid var(--line); }
+.scene-cast-entry-body {
+  border: 0;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 8px 0 12px;
+}
+.scene-cast-character > .scene-cast-entry-body {
+  gap: 8px;
+  padding-block-start: 2px;
+}
+.scene-cast-quick-choices .model-picker-trigger {
+  --model-picker-trigger-bg: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  justify-content: flex-end;
+  min-block-size: var(--scene-cast-hit);
+  padding-inline: 6px;
+}
+.scene-cast-quick-choices .model-picker-chevron {
+  margin-inline-start: 0;
+}
+.scene-cast-quick-choices {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.scene-cast-quick-choices > .scene-cast-choice {
+  display: contents;
+}
+.scene-cast-quick-choices .model-picker {
+  max-inline-size: 100%;
+  inline-size: auto;
+}
+.scene-cast-counts .model-picker-trigger {
+  --model-picker-trigger-bg: var(--panel-soft);
+  padding-inline: 8px;
+}
+.scene-cast-quick-choices > [data-choice-inline] {
+  flex-basis: 100%;
+  order: 1;
+}
+.scene-cast-quick-choices .scene-cast-choice > [data-custom] {
+  flex-basis: 100%;
+  order: 2;
+}
+.scene-cast-quick-choices .model-picker-trigger[aria-expanded="true"] {
+  background: var(--surface-hover);
+}
+.scene-cast-quick-choices [data-choice-auto] .model-picker-primary {
+  display: none;
+}
+.scene-cast-character .scene-cast-details {
+  border-block-start: 1px solid var(--line);
+}
+.scene-cast-entry-body > .reference-source-section {
+  border-block-start: 1px solid var(--line);
+  min-inline-size: 0;
+  padding-block-start: 12px;
+}
+.scene-cast-entry-body > .reference-source-section .section-heading { margin-block-end: 8px; }
+.scene-cast-entry-body .reference-source-section h3 { font-size: 12px; font-weight: 500; margin: 0; }
+.scene-cast-role-hint { color: var(--muted); font-size: 12px; margin: 0; }
+.scene-cast-model-row {
+  --model-picker-menu-min-width: 220px;
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+.scene-cast-model-row > .config-refresh-button {
+  flex: 0 0 var(--scene-cast-hit);
+  justify-content: center;
+  min-block-size: var(--scene-cast-hit);
+  min-inline-size: var(--scene-cast-hit);
+  padding: 0;
+}
 .scene-cast-details summary { color: var(--text); cursor: pointer; font-size: 12px; min-height: 32px; padding: 8px 0; }
-.scene-cast-details .scene-cast-disclosure { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.scene-cast-disclosure {
+  align-items: center;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  font-size: 12px;
+  gap: 8px;
+  grid-template-columns: max-content minmax(0, 1fr) 16px;
+  list-style: none;
+  min-block-size: var(--scene-cast-hit);
+  padding: 0 6px 0 0;
+}
+.scene-cast-details .scene-cast-disclosure {
+  grid-template-columns: minmax(0, 1fr) 16px;
+  min-block-size: var(--scene-cast-hit);
+  padding-block: 0;
+}
+.scene-cast-entry-title { font-weight: 500; }
+.scene-cast-entry-value {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .scene-cast-disclosure::-webkit-details-marker { display: none; }
 .scene-cast-disclosure svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; width: 16px; }
-.scene-cast-details[open] > .scene-cast-disclosure svg { transform: rotate(180deg); }
-.scene-cast-disclosure:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.scene-cast-details .scene-cast-pair { margin: 0 0 8px; }
+.scene-cast-settings details[open] > .scene-cast-disclosure svg { transform: rotate(180deg); }
+.scene-cast-disclosure:focus-visible { background: var(--surface-hover); outline: none; }
+@media (hover: hover) and (pointer: fine) {
+  .scene-cast-disclosure:hover { background: var(--surface-hover); }
+  .scene-cast-quick-choices .model-picker-trigger:hover:not(:disabled, :focus-visible) {
+    background: var(--surface-hover);
+    border-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scene-cast-disclosure { transition: background-color 150ms ease-out; }
+  .scene-cast-disclosure svg { transition: transform 150ms ease-out; }
+}
+@media (forced-colors: active) {
+  .scene-cast-disclosure:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
+}
 .scene-cast-details dl { display: grid; gap: 8px; margin: 4px 0 8px; }
 .scene-cast-details dl > div { display: grid; gap: 4px; }
 .scene-cast-details dt { color: var(--muted); font-size: 11px; }
 .scene-cast-details dd { color: var(--text); font-size: 12px; margin: 0; max-height: 180px; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; }
 .scene-cast-reference { align-items: center; display: flex; gap: 4px; }
-.scene-cast-fields > .reference-source-section { min-width: 0; }
-.scene-cast-reference .studio-icon-button { align-items: center; background: transparent; border: 0; color: var(--muted); display: grid; flex: 0 0 32px; height: 32px; place-items: center; }
+.scene-cast-reference .studio-icon-button { align-items: center; background: transparent; border: 0; color: var(--muted); display: grid; flex: 0 0 var(--scene-cast-hit); height: var(--scene-cast-hit); place-items: center; }
 .scene-cast-reference .studio-icon-button svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; }
 .scene-cast-stage { align-items: center; display: grid; flex: 1 1 0; justify-items: center; min-height: 0; overflow: hidden; padding: 16px; position: relative; }
 .scene-cast-integrated .scene-cast-stage { grid-template-rows: minmax(0, 1fr); }
@@ -51,6 +184,6 @@
   .scene-cast-page:not(.scene-cast-integrated) .scene-cast-stage img { height: auto; max-height: 58vh; }
   .scene-cast-page:not(.scene-cast-integrated) .scene-cast-result-meta { max-height: none; }
 }
-@media (pointer: coarse) {
-  .scene-cast-reference .studio-icon-button { flex-basis: 44px; height: 44px; }
+@media (max-width: 900px), (pointer: coarse) {
+  .scene-cast-settings { --scene-cast-hit: 44px; }
 }

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖工作台共享颜色和画布切换按钮的选中语义
- * [OUTPUT]: 提供画布内无标题带的紧凑图标操作、纯黑选中态、独立键盘焦点和触屏命中区
+ * [OUTPUT]: 提供画布内无标题带的紧凑图标操作、纯黑选中态、图标加粗的键盘焦点和触屏命中区
  * [POS]: public 的共享画布操作样式，具体位置由各画布决定
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -22,7 +22,6 @@
   inline-size: 32px;
   padding: 0;
   place-items: center;
-  position: relative;
 }
 
 .canvas-view-button svg {
@@ -71,19 +70,8 @@
   color: var(--text);
 }
 
-.canvas-view-button:focus-visible::before {
-  background: currentColor;
-  block-size: 4px;
-  border-radius: 50%;
-  inline-size: 4px;
-  inset-block-start: 4px;
-  inset-inline-end: 4px;
-  pointer-events: none;
-  position: absolute;
-}
-
-.canvas-view-button:is([aria-selected="true"], [aria-pressed="true"]):focus-visible::before {
-  content: "";
+.canvas-view-button:focus-visible svg {
+  stroke-width: 2.25;
 }
 
 @media (max-width: 900px), (any-pointer: coarse) {
@@ -104,9 +92,5 @@
     background: CanvasText;
     color: Canvas;
     forced-color-adjust: none;
-  }
-
-  .canvas-view-button:focus-visible::before {
-    content: "";
   }
 }

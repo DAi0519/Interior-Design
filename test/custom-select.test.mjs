@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs/promises、custom-select.js 原生适配器、choice-select 指针稳定器及共享视觉入口
- * [OUTPUT]: 验证主鼠标焦点、触摸与辅助点击、纯黑选中与独立焦点，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
+ * [OUTPUT]: 验证主鼠标焦点、触摸与辅助点击、纯黑选中与已有勾线焦点反馈，以及搜索单选的原生值/change/动态选项/禁用和空占位合同
  * [POS]: test 的跨浏览器自定义下拉竞态与搜索单选原生适配回归测试，不启动浏览器或真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -164,7 +164,7 @@ test("下拉统一加载组件视觉真源并保持完整标签与单行省略",
     readFile(new URL("../public/custom-select.css", import.meta.url), "utf8"),
     readFile(new URL("../public/choice-select.css", import.meta.url), "utf8"),
   ]);
-  assert.match(entry, /@import url\(".\/choice-select.css/);
+  assert.match(entry, /@import url\("\.\/choice-select\.css\?v=5"\)/);
   assert.doesNotMatch(css, /max-width:\s*55%/);
   assert.match(css, /text-overflow: ellipsis/);
   assert.match(css, /\.model-picker-option.selected\s*\{[^}]*background: var\(--select-selected-bg\)[^}]*color: var\(--select-selected-ink\)/s);
@@ -177,7 +177,9 @@ test("下拉统一加载组件视觉真源并保持完整标签与单行省略",
   const selectedFocus = css.match(/\.model-picker-option\.selected:focus-visible\s*\{([^}]+)\}/)?.[1] || "";
   assert.match(selectedFocus, /outline: none/);
   assert.doesNotMatch(selectedFocus, /background/);
-  assert.match(css, /\.model-picker-option\.selected:focus-visible::before\s*\{[^}]*background: currentColor/s);
+  assert.doesNotMatch(css, /\.model-picker-option\.selected[^\s,{]*::(?:before|after)/);
+  assert.match(css, /\.model-picker-option\.selected:focus-visible \.model-picker-option-check\s*\{[^}]*color: currentColor/s);
+  assert.match(css, /\.model-picker-option\.selected:focus-visible \.model-picker-option-check svg\s*\{[^}]*stroke-width: 2\.6/s);
   assert.doesNotMatch(css, /text-decoration(?:-line)?:[^;]*underline/);
 });
 

@@ -241,24 +241,6 @@ a.connection-button {
   margin: 0 8px 7px;
 }
 
-.feature-directory .feature-mode-option {
-  background: transparent;
-  border: 0;
-  border-radius: 5px;
-  box-shadow: none;
-  color: var(--muted);
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  min-height: 34px;
-  padding: 0 8px;
-  width: 100%;
-}
-
-.feature-directory .feature-mode-option + .feature-mode-option {
-  margin-top: 2px;
-}
-
 .feature-directory .feature-mode-option.selected {
   background: var(--brand-key-selected-bg, #000);
   border-color: transparent;

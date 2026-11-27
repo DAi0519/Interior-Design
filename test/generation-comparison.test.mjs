@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 generation-results、任务控制器、带版本入口的生成编排器与结果视觉源码
- * [OUTPUT]: 对外提供原图/结果对比、键盘语义、原图内存边界、页面等待态及同一真实任务结果揭示的回归保障
+ * [OUTPUT]: 对外提供原图/结果对比、键盘语义、原图内存边界、页面等待态、新图揭示及历史成功卡复用的回归保障
  * [POS]: test 的生成结果对比专项测试，不提交真实生图任务或持久化图片数据
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -68,7 +68,7 @@ test("任务原图只保存在当前页面内存并由生成入口显式传入",
   assert.match(controller, /comparisonImages\.set\(currentTask\.featureMode, comparisonImage\)/);
   assert.match(controller, /saveGenerationTask\(storage, currentTask\)/);
   assert.doesNotMatch(controller, /saveGenerationTask\(storage, currentTask, comparisonImage\)/);
-  assert.match(html, /result\.css\?v=17/);
+  assert.match(html, /result\.css\?v=19/);
   assert.match(html, /app\.js\?v=\d+/);
 });
 
@@ -151,4 +151,20 @@ test("等待状态位于占位上方，画廊只揭示新任务的成功图片",
   assert.match(results, /renderedResults\.outcomes === outcomes/);
   assert.match(results, /showResults\(outcomes, \{[^}]*reveal = false/);
   assert.match(results, /if \(outcome\.status === "fulfilled"\) \{\s*if \(reveal\) revealGenerationImage/);
+});
+
+test("首页历史用对应任务的成功卡和原图，不把失败写入图片网格", async () => {
+  const [chat, results] = await Promise.all([
+    read("../public/home-image-chat.js"), read("../public/generation-results.js"),
+  ]);
+  const archive = chat.slice(chat.indexOf("function archive(view)"), chat.indexOf("async function upload"));
+  const gallery = results.slice(results.indexOf("showArchive("), results.indexOf("showEmpty()"));
+  assert.match(archive, /if \(view\.stage !== "results"\) return/);
+  assert.match(archive, /renderHistory\(outputs, view, homeJobId\)/);
+  assert.match(archive, /if \(!outputs\.childElementCount\) return/);
+  assert.match(gallery, /outcome\.status === "fulfilled" && outcome\.value\?\.images\?\.\[0\]\?\.url/);
+  assert.match(gallery, /renderedResults\?\.jobId === jobId && renderedResults\.outcomes === outcomes/);
+  assert.match(gallery, /resultCard\(outcome, \{ comparisonImage, featureMode \}\)/);
+  assert.match(gallery, /gallery\.replaceChildren\(\.\.\.cards\)/);
+  assert.match(results, /archivedCards\.has\(card\) \? card\.isConnected : renderId === currentRenderId/);
 });

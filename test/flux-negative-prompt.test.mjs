@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert/fs、Flux 负向 Prompt 前端控制器/输入映射、模型请求构造器、ComfyUI 工作流工厂与结果摘要
- * [OUTPUT]: 对外提供普通默认不变、旧房/全景空默认及内存草稿独立和场景准入、自定义整段覆盖、实际节点/归档一致、仅 Flux 显示/消费、长度边界、同图攸行超分与结果标记回归保障
+ * [OUTPUT]: 验证普通默认、各功能内存草稿、旧房/全景专属准入、自定义覆盖、节点/归档一致、Flux 限定、长度与结果标记
  * [POS]: test 的 Flux 负向 Prompt 端到端静态/纯函数合同测试，不提交真实生图任务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -67,12 +67,12 @@ test("Flux 负向输入仅随 Flux 选中显示并明确覆盖状态", () => {
   assert.match(note.textContent, /整段覆盖/);
 });
 
-test("旧房负向内存草稿与普通功能隔离，切换恢复内容/计数且普通说明原文不变", () => {
+test("各功能的负向草稿独立，切换恢复内容、计数与对应说明", () => {
   const listeners = {};
   const root = { hidden: null, classList: { toggle(_name, value) { root.hidden = value; } } };
   const textarea = { value: "", addEventListener(name, listener) { listeners[name] = listener; } };
   const count = { textContent: "" }, note = { textContent: "" };
-  const control = bindFluxNegativePrompt({ count, note, root, textarea });
+  const control = bindFluxNegativePrompt({ count, note, root, textarea, scopeByFeature: true });
   const ordinaryNote = "当前使用系统默认；填写后整段覆盖，仅影响 Flux2 Klein。";
   const renovationNote = "当前使用旧房专属默认；允许重设计材质、配色、家具和装饰，仅保留真实结构与原视角。";
   control.render(["aiTextureEnhancement"], "emptyRoom");
@@ -94,12 +94,18 @@ test("旧房负向内存草稿与普通功能隔离，切换恢复内容/计数�
   assert.equal(root.hidden, true);
   assert.equal(textarea.value, renovationDraft);
 
-  for (const featureMode of ["emptyRoom", "whiteModel", "free"]) {
+  control.render(["aiTextureEnhancement"], "emptyRoom");
+  assert.equal(textarea.value, ordinaryDraft);
+  assert.equal(count.textContent, `${ordinaryDraft.length} / 8000`);
+  assert.equal(note.textContent, ordinaryCustomNote);
+  for (const featureMode of ["whiteModel", "free"]) {
     control.render(["aiTextureEnhancement"], featureMode);
     assert.equal(root.hidden, false);
-    assert.equal(textarea.value, ordinaryDraft);
-    assert.equal(count.textContent, `${ordinaryDraft.length} / 8000`);
-    assert.equal(note.textContent, ordinaryCustomNote);
+    assert.equal(textarea.value, "");
+    assert.equal(count.textContent, "0 / 8000");
+    assert.equal(note.textContent, ordinaryNote);
+    textarea.value = `${featureMode} negative`;
+    listeners.input();
   }
   control.render(["aiTextureEnhancement"], "panoramaEnhancement");
   assert.equal(root.hidden, true);
@@ -108,7 +114,9 @@ test("旧房负向内存草稿与普通功能隔离，切换恢复内容/计数�
   assert.match(note.textContent, /默认不使用负向提示词/);
   textarea.value = "panorama-only negative"; listeners.input();
   control.render(["aiTextureEnhancement"], "free");
-  assert.equal(textarea.value, ordinaryDraft);
+  assert.equal(textarea.value, "free negative");
+  control.render(["aiTextureEnhancement"], "whiteModel");
+  assert.equal(textarea.value, "whiteModel negative");
   control.render(["aiTextureEnhancement"], "panoramaEnhancement");
   assert.equal(control.value(), "panorama-only negative");
   control.render(["aiTextureEnhancement"], "roomRenovation");
@@ -119,9 +127,7 @@ test("旧房负向内存草稿与普通功能隔离，切换恢复内容/计数�
   listeners.input();
   assert.equal(note.textContent, renovationNote);
   control.render([], "imageUpscale");
-  assert.equal(textarea.value, ordinaryDraft);
-  textarea.value = "";
-  listeners.input();
+  assert.equal(textarea.value, "");
   assert.equal(note.textContent, ordinaryNote);
   control.render(["aiTextureEnhancement"], "roomRenovation");
   assert.equal(textarea.value, "");

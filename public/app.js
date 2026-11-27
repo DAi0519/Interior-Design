@@ -1,37 +1,37 @@
 /**
  * [INPUT]: 依赖生成尺寸控制器的后置KS输入/旧进程门禁、效果图美化六氛围/新增纯词光影控制器、ai-render-studio-host保活宿主、白模光影、质感Prompt、精模光影、图片工具、任务/飞书状态、首页对话及设计/模型/上传/结果与连接中心
- * [OUTPUT]: 提供首页自由生图、已选功能原表单和对话内嵌画布接线、共享模型尺寸/张数与任务；提供AI渲染人物宠物独立功能导航；异步普通模型刷新不覆盖图片工具尺寸与参数；提供效果图美化六档/九卡混合多选×模型×每模板张数、逐项标签与旧进程门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
+ * [OUTPUT]: 提供首页自由生图、同对话完整历史卡片、已选功能原表单、内嵌画布与独立原图/模型/尺寸/张数草稿、共享任务；提供AI渲染人物宠物独立功能导航；异步普通模型刷新不覆盖图片工具尺寸与参数；提供效果图美化六档/九卡混合多选×模型×每模板张数、逐项标签与旧进程门禁；提供AI渲染台正式目录分流与保活宿主，隔离旧START且保留输入任务；白模默认自动/单卡纯词光影、能力门禁及Prompt复用指纹隔离；AI渲染光影转换卡片双图迁移/独立补充要求与规则冻结；运行进程不支持新功能时阻止START/重试；全景R5_4多光影×模型独立对比/逐卡标签与旧进程多选门禁、自定义要求； 对外提供质感增强飞书固定Prompt版本冻结/可用性门禁及单图入口、GPT点线面打光/逐灯两模式、二次编辑与URL功能直达、按功能任务恢复与飞书记录、生图/二次编辑与三引擎扩图的飞书同步合同阻断、超分保留本机路径；旧房独立Prompt配置/版本记忆与共享单流程、精模默认Banana2.1/其余默认Flux2 Klein、多角度生成与飞书同步、连接/换Key后的权限刷新、任务恢复与图片工具画布/进度/准入、效果图/全景美化、房型家具、精模预设/上传参考及Flux双图尺寸切换、白模/空房/旧房/风格转换设计配置、双参考图、旧房独立Flux负向草稿、模型×精模模式展开/单模型每模式多张与独立飞书反馈
  * [POS]: public 的生成状态编排器，不接触 OneAPI Key、ComfyUI 地址、Prompt 正文或 SeedVR2 工作流正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { isEmptyRoomDesign } from "./room-renovation.js";
-import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=10";
+import { bindAiRenderStudioHost } from "./ai-render-studio-host.js?v=15";
 import { SCENE_CAST_MODE } from "./scene-cast-handoff.js";
 import { bindConfigRefresh, effectEnhancementPromptStatus } from "./config-refresh.js";
-import { bindConnectionCenter } from "./connection-center.js?v=7";
+import { bindConnectionCenter } from "./connection-center.js?v=10";
 import { createAppElements } from "./app-elements.js?v=2";
-import { designPromptConfiguration, designSourceValidation, loadWorkbenchStartup, platformStyleAvailability, renderConnectionAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, renderQualityControl, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=4";
-import { bindDesignInputs } from "./design-inputs.js?v=4";
+import { bindFeatureDrafts, designPromptConfiguration, designSourceValidation, loadWorkbenchStartup, platformStyleAvailability, renderConnectionAvailability, renderPromptAgentContext as renderAgentContext, renderPromptAgentModels as renderAgentControls, renderQualityControl, updateReferenceRequirements as renderReferenceControls } from "./app-config-controls.js?v=5";
+import { bindDesignInputs } from "./design-inputs.js?v=5";
 import { bindPanoramaLightingControls } from "./panorama-lighting-controls.js";
 import { bindLightingTransferControls } from "./lighting-transfer-controls.js";
 import { bindEffectBeautificationControls } from "./effect-beautification-controls.js";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { bindGenerationCount } from "./generation-count.js";
-import { bindGenerationSizeControls } from "./generation-size-controls.js";
+import { bindGenerationSizeControls, SOURCE_ASPECT_OPTION } from "./generation-size-controls.js";
 import { buildGenerationInput } from "./generation-input.js";
 import { bindGenerationActions } from "./generation-actions.js?v=2";
-import { bindGenerationResults } from "./generation-results.js?v=4";
-import { bindGenerationTaskController } from "./generation-task-controller.js?v=4";
-import { bindHomeComposerFeatures, bindHomeImageChat } from "./home-image-chat.js?v=27";
-import { bindImageTools } from "./image-tools.js?v=6";
+import { bindGenerationResults } from "./generation-results.js?v=5";
+import { bindGenerationTaskController } from "./generation-task-controller.js?v=5";
+import { bindHomeComposerFeatures, bindHomeImageChat } from "./home-image-chat.js?v=45";
+import { bindImageTools } from "./image-tools.js?v=7";
 import { beautificationItemsForSelection, buildGenerationJobRequest, generationItemsForSelection, generationLoadingCopy, panoramaItemsForSelection } from "./generation-task-request.js";
 import { createGenerationTask } from "./generation-task-state.js";
 import { describeFinalModelOption, finalModelCatalogStatus } from "./final-model-availability.js";
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { bindPromptAgentVersionSelect } from "./prompt-agent-version-select.js?v=2";
-import { bindReferenceUpload } from "./reference-upload.js?v=3";
+import { bindReferenceUpload } from "./reference-upload.js?v=5";
 import { bindRefinedModelControls, createRefinedModelSelection } from "./refined-model-controls.js";
-import { bindStyleDnaChat } from "./style-dna-chat.js?v=3";
+import { bindStyleDnaChat } from "./style-dna-chat.js?v=4";
 import { bindWhiteModelRenderMode } from "./white-model-render-mode.js";
 import { bindWhiteModelLighting } from "./white-model-lighting.js";
 import { generationFeatureUnavailableReason, referenceCapability, referenceSubject, singleReferenceValidation } from "./model-capabilities.js?v=2";
@@ -63,9 +63,12 @@ const refinedModelSelection = createRefinedModelSelection();
 let referenceUpload;
 let styleReferenceUpload;
 const elements = createAppElements();
+const featureDrafts = bindFeatureDrafts({ elements, state });
 const aiRenderStudioHost = bindAiRenderStudioHost();
 const homeChat = bindHomeImageChat({
   send: prompt => void generate({ homePrompt: prompt }),
+  deactivateNativeCanvas: () => imageTools.setFeatureMode(null),
+  renderHistory: (...args) => generationResults.showArchive(...args),
   getBlockReason(prompt) {
     const mode = state.featureMode;
     const tool = imageTools.forMode(mode);
@@ -97,18 +100,18 @@ const generationCount = bindGenerationCount({
 const fluxNegativePrompt = bindFluxNegativePrompt({
   count: document.querySelector("#negativePromptCount"),
   note: document.querySelector("#negativePromptNote"),
-  root: document.querySelector("#negativePromptSection"),
+  root: document.querySelector("#negativePromptSection"), scopeByFeature: true,
   textarea: document.querySelector("#negativePromptInput"),
 });
 const promptAgentVersionSelect = bindPromptAgentVersionSelect({
   availability: elements.promptAgentVersionAvailability,
   select: elements.promptAgentVersionSelect,
 });
-const refinedModel = bindRefinedModelControls({ elements, onChange: () => { if (state.catalog?.length && selectedModel() && state.featureMode === "refinedModel") { configureSizeControls({ preserveResolution: true }); updateComputedSize(); fluxNegativePrompt.render(refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode); } generationActions.refresh(); },
+const refinedModel = bindRefinedModelControls({ elements, onChange: () => { if (state.catalog?.length && selectedModel() && state.featureMode === "refinedModel") { generationSize.configure({ preserveResolution: true }); generationSize.renderSummary(); fluxNegativePrompt.render(refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode); } generationActions.refresh(); },
   getPolicy: () => state.referencePolicy, showToast });
 const lightingTransfer = bindLightingTransferControls({ root: elements.lightingTransferSection,
   getPolicy: () => state.referencePolicy, showToast, onChange: () => {
-    if (state.featureMode === "lightingTransfer" && selectedModel()) { configureSizeControls({ preserveResolution: true }); updateComputedSize(); }
+    if (state.featureMode === "lightingTransfer" && selectedModel()) { generationSize.configure({ preserveResolution: true }); generationSize.renderSummary(); }
     generationActions.refresh();
   } });
 function activeLighting() { return state.featureMode === "lightingTransfer" ? lightingTransfer : refinedModel; }
@@ -118,7 +121,7 @@ const generationSize = bindGenerationSizeControls({ elements, getContext: () => 
   featureMode: state.featureMode, refinedLighting: activeLighting().requestFields().refinedLighting,
   model: selectedModel(), sourceImage: selectedSourceImage(), ratioMode: state.ratioMode,
 }) });
-const imageTools = bindImageTools({ api, elements, getSourceImage: () => selectedSourceImage(),
+const imageTools = bindImageTools({ api, elements, getSourceImage: mode => referenceUpload?.imagesForScope(mode)[0],
   onChange: () => generationActions.refresh(), showToast });
 const { upscale: imageUpscale, outpaint: imageOutpaint } = imageTools;
 function selectedModels() { return state.modelKeys.map((key) =>
@@ -126,11 +129,11 @@ function selectedModels() { return state.modelKeys.map((key) =>
 function selectedModel() { return selectedModels()[0]; }
 function referenceImages() { return referenceUpload?.images() || []; }
 function styleReferenceImages() { return styleReferenceUpload?.images() || []; }
-function selectedSourceImage() { return state.featureMode === "styleDna" ? null : referenceImages()[0]; }
+function selectedSourceImage() { return referenceImages()[0]; }
 function isDesignPromptFlow() { return (isEmptyRoomDesign(state.featureMode) || ["styleTransfer", "whiteModel"].includes(state.featureMode)); }
 function activeDesignPromptConfig() { return designPromptConfiguration(state).smartDefault; }
 function renderActivePromptAgentVersions() { promptAgentVersionSelect.render(
-  designPromptConfiguration(state).promptAgent, { scope: state.featureMode === "roomRenovation" ? "room-renovation" : "" }); }
+  designPromptConfiguration(state).promptAgent, { scope: { roomRenovation: "room-renovation", emptyRoom: "empty-room", styleTransfer: "style-transfer" }[state.featureMode] || "" }); }
 function selectedPromptAgentModel() { return state.promptAgentCatalog.find(
   (model) => model.key === state.promptAgentModelKey); }
 function renderPromptAgentModels() {
@@ -163,7 +166,7 @@ function updateReferenceRequirements() {
   homeChat.setReferenceLabel(`添加${elements.referenceTitleCopy.textContent}`);
 }
 function selectFeatureMode(featureMode, { navigation = false, home = homeChat.active() && !navigation } = {}) {
-  if (navigation && !home) state.modelKeys = homeChat.leave(state.modelKeys);
+  if (navigation && !home) homeChat.leave();
   if (featureMode === "aiRenderStudio") { aiRenderStudioHost.show(); return; }
   if (featureMode === SCENE_CAST_MODE) { aiRenderStudioHost.show(SCENE_CAST_MODE); return; }
   if (aiRenderStudioHost.isActive() && !navigation) return;
@@ -173,10 +176,12 @@ function selectFeatureMode(featureMode, { navigation = false, home = homeChat.ac
   ];
   if (!supported.includes(featureMode)) return;
   aiRenderStudioHost.hide(home ? null : featureMode);
-  state.modelKeys = refinedModelSelection.forFeature(featureMode, state.modelKeys, state.catalog);
-  if (home) state.modelKeys = homeChat.enter(state.modelKeys);
+  const draft = featureDrafts(featureMode);
+  const keys = refinedModelSelection.forFeature(featureMode, featureMode === "refinedModel" && draft ? draft.modelKeys : state.modelKeys, state.catalog);
+  state.modelKeys = draft && featureMode !== "refinedModel" ? [...draft.modelKeys] : keys;
+  if (home) homeChat.enter();
   if (navigation) homeChat.route(home ? null : featureMode);
-  state.featureMode = featureMode;
+  if (draft) { homeChat.refs(referenceImages()); styleReferenceUpload.render(); }
   if (featureMode === "panoramaEnhancement" && state.catalog.length) {
     state.modelKeys = state.modelKeys.filter((key) =>
       state.catalog.some((model) => model.key === key
@@ -194,7 +199,6 @@ function selectFeatureMode(featureMode, { navigation = false, home = homeChat.ac
   const isRefinedModel = featureMode === "refinedModel";
   const isStyleDna = featureMode === "styleDna";
   const imageTool = imageTools.setFeatureMode(featureMode);
-  const isImageUpscale = featureMode === "imageUpscale";
   for (const button of elements.featureModeButtons) {
     const selected = !home && button.dataset.featureMode === featureMode;
     button.classList.toggle("selected", selected);
@@ -222,7 +226,7 @@ function selectFeatureMode(featureMode, { navigation = false, home = homeChat.ac
     renderPromptAgentContext(whiteModelRenderMode.current().mode);
   }
   elements.styleSection.classList.toggle("hidden", !isDesignModel);
-  elements.imageUpscaleSection.classList.toggle("hidden", !isImageUpscale);
+  elements.imageUpscaleSection.classList.toggle("hidden", featureMode !== "imageUpscale");
   elements.imageMultiAngleSection.classList.toggle("hidden", featureMode !== "imageMultiAngle");
   elements.imageMaskFillSection.classList.toggle("hidden", featureMode !== "imageMaskFill");
   elements.imageRelightSection.classList.toggle("hidden", featureMode !== "imageRelight");
@@ -252,10 +256,10 @@ function selectFeatureMode(featureMode, { navigation = false, home = homeChat.ac
   if (imageTool) {
     fluxNegativePrompt.render([], featureMode);
     imageTool.activate();
-  } else configurePrimaryModel();
+  } else configurePrimaryModel(draft, navigation || home);
   updateReferenceRequirements();
   referenceUpload.render();
-  renderActiveGenerationTask();
+  generationTasks.render();
 }
 function renderModelSelect() {
   refinedModel.setModels(selectedModels());
@@ -266,27 +270,24 @@ function renderModelSelect() {
     ? "已选 1 个模型，生成张数可在参数中设置。"
     : `${count} 个模型，各 1 张，共 ${count} 张；参数以 ${selectedModel()?.label} 为准。`;
 }
-function configurePrimaryModel() {
+function configurePrimaryModel(draft = null, preserveResolution = homeChat.active()) {
   if (imageTools.forMode(state.featureMode)) { fluxNegativePrompt.render([], state.featureMode); imageTools.forMode(state.featureMode).activate(); return; }
   if (homeChat.active() && state.featureMode === "free") state.modelKeys = homeChat.models(state.catalog, state.checkedModels);
-  if (!selectedModel()) { renderModelSelect(); return; }
-  if (selectedSourceImage() && !homeChat.active()) state.ratioMode = "auto";
+  if (!selectedModel()) { fluxNegativePrompt.render([], state.featureMode); renderModelSelect(); return; }
   const model = selectedModel();
   renderModelSelect();
   fluxNegativePrompt.render(state.featureMode === "lightingTransfer" || state.featureMode === "refinedModel" && refinedModel.usesReference() ? [] : state.modelKeys, state.featureMode);
-  generationCount.setSingleModel(state.modelKeys.length === 1);
+  generationCount.setSingleModel(state.modelKeys.length === 1, draft?.count);
   updateReferenceRequirements();
-  configureSizeControls({ preserveResolution: homeChat.active() });
-  renderQualityControl(elements, model);
-  updateComputedSize();
+  generationSize.configure({ preserveResolution, draft });
+  renderQualityControl(elements, model, draft?.quality);
+  generationSize.renderSummary();
   referenceUpload.render();
 }
 function selectModels(modelKeys) {
   state.modelKeys = refinedModelSelection.chooseByUser(state.featureMode, modelKeys);
   configurePrimaryModel();
 }
-function configureSizeControls(options) { generationSize.configure(options); }
-function updateComputedSize() { generationSize.renderSummary(); }
 function generationInput(freePrompt) {
   const renderMode = whiteModelRenderMode.current();
   return buildGenerationInput({
@@ -313,7 +314,7 @@ function generationInput(freePrompt) {
     ...whiteModelLighting.requestFields(state.featureMode),
     panoramaLighting: panoramaLighting.requestFields().panoramaLighting,
     quality: elements.qualitySelect.value,
-    ratio: elements.ratioSelect.value,
+    ratio: generationSize.selectedRatio(),
     ratioMode: selectedSourceImage() ? state.ratioMode : "manual",
     referenceImages: referenceImages(),
     renderMode,
@@ -327,7 +328,7 @@ function setApiConnectionState(connected) {
   state.connected = connected;
   styleDnaChat.setConnected(connected);
   renderConnectionAvailability(elements, connected, state.catalog);
-  renderActiveGenerationTask();
+  generationTasks.render();
 }
 function showToast(message) {
   elements.toast.textContent = message;
@@ -337,7 +338,7 @@ function showToast(message) {
     elements.toast.classList.add("hidden");
   }, 2400);
 }
-const generationResults = bindGenerationResults({ api, showToast });
+const generationResults = bindGenerationResults({ api, showToast, omitFailedCards: homeChat.active });
 const generationTasks = bindGenerationTaskController({
   generationResults,
   getFeatureMode: () => state.featureMode,
@@ -352,7 +353,6 @@ const generationTasks = bindGenerationTaskController({
 const selectComposerFeature = bindHomeComposerFeatures({
   homeChat, host: aiRenderStudioHost, state, view: generationTasks.view, render: generationTasks.render, selectFeatureMode,
 });
-function renderActiveGenerationTask() { generationTasks.render(); }
 const modelMultiSelect = bindModelMultiSelect({
   container: elements.modelSelect,
   onChange: selectModels,
@@ -582,7 +582,8 @@ async function generate({ forcePromptRegeneration = false, homePrompt } = {}) {
       ? localImageRequest
         ? `${completed} 张图片${featureMode === "imageRelight" ? "打光" : featureMode === "imageMaskFill" ? "二次编辑" : featureMode === "imageMultiAngle" ? "多角度编辑" : featureMode === "imageOutpaint" ? "扩图" : "超分"}已完成${["imageMaskFill", "imageRelight"].includes(featureMode) ? "，正在同步飞书" : ""}`
         : `${completed} 张图已完成，正在分别同步飞书`
-      : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
+      : homeChat.active() ? `已生成 ${completed} / ${generationItems.length} 张`
+        : `完成 ${completed} / ${generationItems.length} 张；失败项可查看原因`);
   } catch (error) {
     generationTasks.setJob(task.jobId, {
       error: error.message,
@@ -590,7 +591,7 @@ async function generate({ forcePromptRegeneration = false, homePrompt } = {}) {
       status: "failed",
     });
   } finally {
-    if (state.featureMode === featureMode) renderActiveGenerationTask();
+    if (state.featureMode === featureMode) generationTasks.render();
   }
 }
 function generationUnavailableReason() {
@@ -746,17 +747,16 @@ referenceUpload = bindReferenceUpload({
   dropZone: elements.referenceDropZone,
   getLimit: referenceLimit,
   getPolicy: () => imageTools.forMode(state.featureMode)?.inputPolicy?.(state.referencePolicy) || state.referencePolicy,
-  getSubject: () => referenceSubject(state.featureMode),
+  getSubject: () => referenceSubject(state.featureMode), getScope: () => state.featureMode,
   input: elements.referenceInput,
   list: elements.referenceList,
-  onChange({ images, previousImages }) {
+  onChange({ images }) {
     homeChat.refs(images);
-    if (images[0]?.id !== previousImages[0]?.id) state.ratioMode = "auto";
     generationActions.refresh();
     if (imageTools.forMode(state.featureMode)) imageTools.forMode(state.featureMode).renderSummary();
     else {
-      configureSizeControls({ preserveResolution: true });
-      updateComputedSize();
+      generationSize.configure({ preserveResolution: true });
+      generationSize.renderSummary();
     }
   },
   showToast,
@@ -766,7 +766,7 @@ styleReferenceUpload = bindReferenceUpload({
   dropZone: elements.styleReferenceDropZone,
   getLimit: () => 1,
   getPolicy: () => state.referencePolicy,
-  getSubject: () => "风格参考图",
+  getSubject: () => "风格参考图", getScope: () => state.featureMode,
   input: elements.styleReferenceInput,
   list: elements.styleReferenceList,
   onChange() {
@@ -784,13 +784,13 @@ elements.promptAgentVersionSelect.addEventListener("change", generationActions.r
 elements.effectTimeSelect.addEventListener("change", generationActions.refresh);
 elements.effectWeatherSelect.addEventListener("change", generationActions.refresh);
 elements.ratioSelect.addEventListener("change", () => {
-  if (selectedSourceImage() || homeChat.active()) state.ratioMode = "manual";
-  configureSizeControls({ preserveResolution: true, ratioMode: "manual" });
-  updateComputedSize();
+  state.ratioMode = elements.ratioSelect.value === SOURCE_ASPECT_OPTION ? "auto" : "manual";
+  generationSize.configure({ preserveResolution: true });
+  generationSize.renderSummary();
 });
 elements.resolutionSelect.addEventListener("change", () => {
   if (imageTools.forMode(state.featureMode)) imageTools.forMode(state.featureMode).renderSummary();
-  else updateComputedSize();
+  else generationSize.renderSummary();
   generationActions.refresh();
 });
 initialize().catch((error) => {

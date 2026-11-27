@@ -1,13 +1,33 @@
 /**
  * [INPUT]: 依赖旧房/空房模式判定、模型上传和质量能力、共享下拉填充、页面配置元素及各设计场景的 Agent 状态
- * [OUTPUT]: 提供启动目录与编辑工具配置读取、连接后的模型状态，以及设计Agent、上传、参考风格与质量字段投影
+ * [OUTPUT]: 提供启动目录、模型能力、独立功能的出图规格草稿，以及设计Agent、上传、参考风格与质量字段投影
  * [POS]: public 的生图配置展示层，由 app.js 在状态变化后调用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { isEmptyRoomDesign } from "./room-renovation.js";
+import { MULTI_ANGLE_IMAGE_POLICY } from "./image-multi-angle-geometry.js";
 import { referenceCapability } from "./model-capabilities.js";
 import { fillSelect } from "./workbench-utils.js";
+
+export function bindFeatureDrafts({ elements, state }) {
+  const count = elements.generationCountField.querySelector("select");
+  const defaults = { modelKeys: [...state.modelKeys], ratioMode: state.ratioMode,
+    promptAgentModelKey: state.promptAgentModelKey, ratio: "", resolution: "", quality: "", count: "1" };
+  const drafts = new Map();
+
+  return function switchDraft(mode) {
+    if (mode === state.featureMode) return null;
+    drafts.set(state.featureMode, { modelKeys: [...state.modelKeys], ratioMode: state.ratioMode,
+      promptAgentModelKey: state.promptAgentModelKey, ratio: elements.ratioSelect.value,
+      resolution: elements.resolutionSelect.value, quality: elements.qualitySelect.value, count: count.value });
+    const draft = drafts.get(mode) ?? defaults;
+    state.featureMode = mode;
+    state.ratioMode = draft.ratioMode;
+    state.promptAgentModelKey = draft.promptAgentModelKey;
+    return draft;
+  };
+}
 
 export function loadWorkbenchStartup({ api, loadConnection, configureRelight }) {
   return Promise.all([
@@ -99,8 +119,10 @@ export function renderPromptAgentModels(elements, state) {
 
 export function updateReferenceRequirements(elements, { featureMode, model, policy }) {
   const hint = elements.referenceDropZone?.querySelector?.("#referenceFileHint");
+  const sizeLimit = featureMode === "imageMultiAngle" ? MULTI_ANGLE_IMAGE_POLICY.maxInputBytes : policy?.maxBytesPerImage;
+  const sizeHint = sizeLimit ? `单张 ${Math.floor(sizeLimit / 1024 / 1024)}MB` : "";
   if (hint) hint.textContent = ["imageMaskFill", "imageRelight"].includes(featureMode) ? "PNG / JPEG / WebP · 单张6MB · 单边4096px"
-    : `PNG / JPEG / WebP · 单张 ${featureMode === "imageMultiAngle" ? 20 : Math.floor((policy?.maxBytesPerImage || 8 * 1024 * 1024) / 1024 / 1024)}MB`;
+    : [policy?.normalizeFormats ? "" : "PNG / JPEG / WebP", sizeHint].filter(Boolean).join(" · ");
   if (["imageUpscale", "imageOutpaint", "imageMultiAngle", "imageMaskFill", "imageRelight"].includes(featureMode)) {
     const subject = featureMode === "imageRelight" ? "打光原图" : featureMode === "imageMaskFill" ? "待编辑原图" : featureMode === "imageMultiAngle" ? "多角度原图" : featureMode === "imageOutpaint" ? "待扩图图片" : "待超分图片";
     elements.referenceTitleCopy.textContent = subject;
@@ -118,7 +140,7 @@ export function updateReferenceRequirements(elements, { featureMode, model, poli
   elements.referenceInput.ariaLabel = capability.ariaLabel;
 }
 
-export function renderQualityControl(elements, model) {
+export function renderQualityControl(elements, model, preferred = elements.qualitySelect.value) {
   if (model.qualityOptions.length > 0) {
     elements.qualityField.classList.remove("hidden");
     elements.qualityLabel.textContent = "生成质量";
@@ -139,7 +161,7 @@ export function renderQualityControl(elements, model) {
                     : "最高",
         value: quality,
       })),
-      model.defaultQuality || "auto",
+      model.qualityOptions.includes(preferred) ? preferred : model.defaultQuality || "auto",
     );
   } else {
     elements.qualityField.classList.add("hidden");

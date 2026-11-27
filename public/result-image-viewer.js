@@ -1,18 +1,19 @@
 /**
  * [INPUT]: 依赖结果图片与媒体容器、浏览器原生 dialog 和 result.css 的共享预览样式
- * [OUTPUT]: 对外提供结果图点击/键盘放大、滑动手势隔离、原始图片预览及关闭后的焦点归还
+ * [OUTPUT]: 对外提供结果或来源图放大、可选的原图操作、手势隔离及关闭归焦
  * [POS]: public 的二维结果大图交互层，由 generation-results 挂接，不新增卡片按钮
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 const DRAG_THRESHOLD = 6;
 
-export function bindResultImageViewer() {
+export function bindResultImageViewer({ action } = {}) {
   let dialog;
   let preview;
   let status;
   let caption;
   let trigger;
+  let actionButton;
 
   function createDialog() {
     dialog = document.createElement("dialog");
@@ -27,8 +28,21 @@ export function bindResultImageViewer() {
     caption.className = "result-image-viewer-caption";
     const hint = document.createElement("span");
     hint.className = "result-image-viewer-hint";
-    hint.textContent = "点击任意位置或按 Esc 关闭";
-    dialog.append(preview, status, caption, hint);
+    hint.textContent = action ? "点击图片或按 Esc 关闭" : "点击任意位置或按 Esc 关闭";
+    dialog.append(preview, status, caption);
+    if (action) {
+      actionButton = document.createElement("button");
+      actionButton.type = "button";
+      actionButton.className = "ghost-button result-image-viewer-action";
+      actionButton.textContent = action.label;
+      actionButton.addEventListener("click", event => {
+        event.stopPropagation();
+        dialog.close();
+        action.run();
+      });
+      dialog.append(actionButton);
+    }
+    dialog.append(hint);
     document.body.append(dialog);
     preview.addEventListener("load", () => { status.hidden = true; });
     preview.addEventListener("error", () => {
@@ -43,12 +57,13 @@ export function bindResultImageViewer() {
     });
   }
 
-  function open(image) {
+  function open(image, opener = image) {
     if (!dialog) createDialog();
-    trigger = image;
+    trigger = opener;
     status.textContent = "正在加载图片…";
     status.hidden = false;
     caption.textContent = image.alt;
+    if (actionButton) actionButton.disabled = Boolean(action.disabled?.());
     dialog.setAttribute("aria-label", `${image.alt} · 大图预览`);
     preview.alt = image.alt;
     preview.src = image.src;
@@ -57,6 +72,7 @@ export function bindResultImageViewer() {
   }
 
   return {
+    open,
     bind(media, image) {
       let gesture = null;
       image.tabIndex = 0;

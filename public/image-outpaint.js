@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖共享固定 2K 输出合同及提交画布/缩放边界规划、image-outpaint-transform.js 的连续浮点预览与合帧交互、三引擎能力与 Flux 目录、上传图及构图 DOM
+ * [INPUT]: 依赖共享固定 2K 输出合同及提交画布/缩放边界规划、构图预览、三引擎与 Flux 目录、原图及当前工具状态
  * [OUTPUT]: 对外提供三引擎/模型、固定2K连续构图与尺寸校验、仅异常可见的配置原因、可取消手势及冲刷后scale/位置请求；保留旧几何导出
  * [POS]: public 的 AI扩图交互边界，与 image-upscale.js 并列并由主编排器配置和激活
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -134,7 +134,8 @@ export function outpaintExpansionValidation({ source, expansion, limits = {} }) 
   return { field: null, message: null };
 }
 
-export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize, exactSize, onChange, onSourceChange = () => {} }) {
+export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize, exactSize, onChange,
+  isActive = () => true, onSourceChange = () => {} }) {
   const byId = (id) => root.querySelector(`#imageOutpaint${id}`);
   const availability = byId("Availability");
   const note = byId("Note");
@@ -270,10 +271,12 @@ export function bindImageOutpaint({ root, getSourceImage, emptyModel, emptySize,
     const { plan, validation: result } = plannedCanvas(source);
     const text = plan ? `${plan.target.width} × ${plan.target.height}` : source ? "无法使用当前画布" : "上传图片后计算";
     outputSize.textContent = text;
-    exactSize.textContent = text;
-    emptySize.textContent = text;
-    emptyModel.textContent = selectedModel()?.label || currentItem().label;
-    emptyModel.title = currentItem().label;
+    if (isActive()) {
+      exactSize.textContent = text;
+      emptySize.textContent = text;
+      emptyModel.textContent = selectedModel()?.label || currentItem().label;
+      emptyModel.title = currentItem().label;
+    }
     error.textContent = source ? result.message || "" : "";
     error.classList.toggle("hidden", !error.textContent);
     const canPreview = Boolean(plan && source?.dataUrl);

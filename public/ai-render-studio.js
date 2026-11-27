@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖工作台参数挂接、共享光影/下拉/打光控件、生图反馈及独立生成/飞书同步接口
- * [OUTPUT]: 提供可挂接的光影、风格、精细控光和START，首页模型图预览、真实渲染状态、新图揭示、对比下载和同步重试
+ * [OUTPUT]: 提供可挂接的光影、风格、精细控光和发送，支持对话内结果保留原状态、新图揭示、对比下载和同步重试
  * [POS]: public 的独立AI渲染台浏览器编排层，仅保存任务ID，不持有模型密钥或运营Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -84,6 +84,7 @@ byInStage("studioCanvasTools").append(toolbar);
 root.prepend(by("studioRenderSettings"));
 by("studioAdvancedPanel").append(settings);
 root.append(stage);
+for (const node of stage.querySelectorAll("[id]")) nodes.set(node.id, node);
 if (mountWorkspaceControls("aiRenderStudio", by("studioSettingsForm"), by("studioRenderActions"))) {
   by("studioRenderSettings").remove();
   document.body.classList.add("studio-integrated");

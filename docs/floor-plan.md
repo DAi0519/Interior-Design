@@ -1,17 +1,17 @@
 <!--
 [INPUT]: 依赖独立平面布局四动作API、飞书v2图片Prompt、共享OneAPI图片与多角度能力
-[OUTPUT]: 提供最简平面方案/文字修改/室内预览流程、资产合同和实际验收边界
-[POS]: docs 的设计实验室 Beta 产品与维护合同，不提供运行Prompt本地回退
+[OUTPUT]: 记录设计实验室下架范围及历史工作流、资产和验收
+[POS]: docs 的设计实验室 Beta 历史档案
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
 # 设计实验室 · Beta
 
-原「平面布局」更名为「设计实验室」，标记为 Beta 实验功能。保留原 floorPlan 路由、任务接口及全部现有能力；此标记不表示接入 Beta 批量跑图。
+2026-11-26 下架。工作台侧栏、功能查找与对话选择器移除实验室。原 `?feature=floorPlan` 返回首页。独立页 `/floor-plan.html`、验收演示 `/floor-plan-report/`、家具和 3D 编辑器 `/vendor/house-plan-designer/` 及 `/api/floor-plan/*` 返回 HTTP 410。飞书「设计实验室 Prompt（已下架）」三条记录均为「下架」。共享「生成记录」内的实验室历史原样保留，户型平面布局及平面图机位渲染继续使用各自原有的入口和 Prompt 表。
+
+## 历史工作流
 
 2026-11-06模型扩展：新增GPT Image 2.6 Sunburst/Flare，保留原2.5默认与历史任务；下文原有固定模型描述以本条为准。实际范围、4K文生图证据和图生图预算拦截见[gpt26-integration.md](gpt26-integration.md)。
-
-主工作台 → AI设计 → 设计实验室 · Beta，入口 `http://127.0.0.1:4192/?feature=floorPlan`。
 
 用户要求一个个步骤按预期完善，本轮仅聚焦：**上传户型图 → 选择生成模型 → AI平面结果**。布局要求可选；已有文字修改、室内预览和常用角度仍保留，本轮不移除或扩展后续功能。它是图片工作流；家具编辑 / 3D 按需加载固定版引擎。旧JSON和同浏览器草稿可继续编辑。
 
@@ -38,9 +38,9 @@
 
 POST `/api/floor-plan/jobs`接收 `jobId/action/referenceImage/userRequirements/modelKey/promptVersion/promptSha256`。action为 `layout/adjust/interior/camera`。camera额外接收 `sourceAction:'interior'` 与既有 `cameraPose:{azimuth,elevation,distance}`；不接文字修改。来源声明由UI限制为首张室内结果，服务无法仅凭像素证明上传图类别，结果明确 `exactCameraGeometry:false`。GET原jobId只读恢复，输入指纹/连接身份隔离，终态不重复执行。
 
-[独立平面布局Prompt表](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblsJnSq7Qg9f4Nb&view=vewCOfNdQF)：编码 `floor-plan-layout`，当前唯一上架v2（记录 `reczz28VYHGIZXgr`）。正文是严格JSON `{version:2,layout,adjust,interior}`，三个动作正文由资产维护，实际执行先放用户非空原文；camera复用既有镜头Prompt，未自造第二套规则。准备/执行均复核上架版本、完整SHA和模型权限，缺失/漂移阻断收费，无本地正文回退。
+[设计实验室 Prompt（已下架）](https://lq9n5lvfn2i.feishu.cn/base/SALobKnnra17iSsGT2ccC52PnHd?table=tblsJnSq7Qg9f4Nb&view=vewCOfNdQF)：历史资产编码 `floor-plan-layout`，下架前使用 v2（记录 `reczz28VYHGIZXgr`）。正文为 JSON `{version:2,layout,adjust,interior}`，实际执行先放用户非空原文，camera 复用既有镜头 Prompt。准备和执行均复核版本、完整 SHA 和模型权限。
 
-v2 trim SHA-256：`a583dca3fdc43aa0c0849b4726bc94e6a10e3a35c40ce81ef5897a370996945a`。v1已下架，原文保留；v2真实字段、唯一上架和运行读取器回验见 `outputs/floor-plan/image-prompt-asset-receipt.json`。
+v2 trim SHA-256：`a583dca3fdc43aa0c0849b4726bc94e6a10e3a35c40ce81ef5897a370996945a`。两个出图版本和几何识别 v1 均已下架，保留正文。下架前的 v2 验证记录见 `outputs/floor-plan/image-prompt-asset-receipt.json`。
 
 ## 验收状态
 

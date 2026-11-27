@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 product-navigation.css 的满视口共享外壳和 workbench-colors.css 的共享颜色，beta.html 的样本集、批量工作流、双阶段监控、共享动作及下拉控件
- * [OUTPUT]: 对外提供随工作区余宽切换单双列的配置与监控、桌面独立滚动、窄屏自然页面滚动、同宽对齐的配置内容与 START/RETRY、逐样本房型和机位工具、样本集选择/创建、生成/飞书同步双进度及逐项异常预警
+ * [OUTPUT]: 提供未选任务空态、桌面常驻监控右栏与手机监控抽屉、同宽对齐的配置与 START，以及分阶段进度、预警和恢复动作
  * [POS]: public 的批量跑图配置与任务监控视觉层，承接共享外壳分配的工作区并保持全部配置和监控动作可达
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -64,29 +64,9 @@ button { cursor: pointer; }
   text-decoration: none;
 }
 .topbar-actions { align-items: center; display: flex; }
-.status-pill {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  display: inline-flex;
-  font-size: 12px;
-  gap: 7px;
-  min-height: 30px;
-  padding: 0 10px;
-}
-.status-pill::before {
-  background: var(--muted);
-  border-radius: 50%;
-  content: "";
-  height: 6px;
-  width: 6px;
-}
-.status-pill.ready::before { background: #000; }
 
 /* -------- 桌面配置与任务监控填满共享导航旁的工作区 -------- */
 .beta-shell {
-  container: beta-workspace / inline-size;
   min-height: 0;
   min-width: 0;
   overflow: auto;
@@ -94,10 +74,19 @@ button { cursor: pointer; }
 
 .beta-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(304px, 26%, 432px);
+  grid-template-columns: minmax(0, 1fr) clamp(248px, 26%, 432px);
   height: 100%;
   min-height: 0;
 }
+.beta-empty {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.beta-grid > [hidden] { display: none; }
 .beta-card {
   background: var(--panel);
   min-width: 0;
@@ -352,36 +341,37 @@ button { cursor: pointer; }
 .run-meta > div { align-items: baseline; display: flex; gap: 8px; min-width: 0; }
 .run-meta strong { font-size: 12px; }
 .run-meta span { color: var(--muted); font-size: 10px; }
+.beta-connection-note { color: var(--muted); font-size: 11px; margin: 0; overflow-wrap: anywhere; }
+.beta-connection-note.error { color: var(--danger); }
 .beta-generation-actions, .run-bar .generation-actions { position: relative; z-index: 1; }
 .run-bar .generation-actions .generate-button { min-height: 54px; width: 100%; }
 
 .beta-monitor-card {
-  align-content: start;
+  background: var(--surface-sidebar, var(--panel));
   border-inline-start: 1px solid var(--line);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  grid-template-rows: auto auto auto auto minmax(64px, 1fr) auto;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 20px clamp(16px, 2vw, 28px);
+  padding: 20px clamp(14px, 1.6vw, 28px);
 }
+.beta-monitor-details { display: contents; }
+.beta-monitor-details [hidden] { display: none; }
 .monitor-heading {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
+  flex: none;
   gap: 16px;
   justify-content: space-between;
 }
+.monitor-heading-actions { align-items: center; display: flex; gap: 8px; min-width: 0; }
 .monitor-heading h2 {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -.006em;
   margin: 0;
-}
-.monitor-heading p {
-  color: var(--muted);
-  font-size: 11px;
-  margin: 3px 0 0;
 }
 .job-status {
   align-items: center;
@@ -399,19 +389,19 @@ button { cursor: pointer; }
 .job-status[data-state="running"] { background: #fff; color: var(--ink); }
 .job-status[data-state="success"] { background: #ededee; color: var(--ink); }
 .job-status[data-state="error"] { background: #fff7f6; border-color: #ead3d0; color: var(--danger); }
-.monitor-batch { display: grid; gap: 5px; }
-.monitor-batch span, .monitor-message > span {
+.monitor-batch { align-items: baseline; display: flex; gap: 8px; justify-content: space-between; }
+.monitor-batch span {
   color: var(--small-ink);
   font-size: 10px;
   font-weight: 600;
 }
 .monitor-batch strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .job-progress {
-  border-bottom: 1px solid var(--line);
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 18px;
-  padding: 20px 0;
+  flex: none;
+  gap: 14px;
+  padding-top: 14px;
 }
 .job-progress-row { display: grid; gap: 9px; }
 .progress-copy { align-items: baseline; display: flex; gap: 12px; justify-content: space-between; }
@@ -433,8 +423,7 @@ button { cursor: pointer; }
   width: 100%;
 }
 .sync-progress-track span { background: var(--muted); }
-.monitor-message { align-content: start; display: grid; gap: 6px; }
-.monitor-message p {
+.monitor-message {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.65;
@@ -442,13 +431,15 @@ button { cursor: pointer; }
   overflow-wrap: anywhere;
 }
 .monitor-warnings {
-  display: grid;
-  gap: 9px;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 80px;
+  padding-top: 14px;
 }
 .monitor-warnings-heading { align-items: baseline; display: flex; gap: 12px; justify-content: space-between; }
-.monitor-warnings-heading span { color: var(--muted); font-size: 11px; font-weight: 600; }
+.monitor-warnings-heading h3 { color: var(--small-ink); font-size: 11px; font-weight: 600; margin: 0; }
 .monitor-warnings-heading small { color: var(--muted); font-size: 11px; }
 .monitor-warnings-list {
   align-content: start;
@@ -458,7 +449,6 @@ button { cursor: pointer; }
   overscroll-behavior: contain;
   padding-right: 4px;
 }
-.monitor-warnings-empty { color: var(--muted); font-size: 11px; line-height: 1.65; margin: 0; }
 .monitor-warning { border-bottom: 1px solid var(--line); display: grid; gap: 5px; min-width: 0; padding: 12px 0; }
 .monitor-warning:first-child { padding-top: 0; }
 .monitor-warning:last-child { border-bottom: 0; }
@@ -468,28 +458,70 @@ button { cursor: pointer; }
 .monitor-warning a { color: var(--ink); font-size: 11px; justify-self: start; text-underline-offset: 3px; }
 .monitor-warning a:hover { color: var(--danger); }
 .monitor-warning a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.monitor-retry-actions { align-items: center; display: flex; gap: 8px; justify-content: flex-end; }
+.monitor-retry-actions .generation-actions { margin: 0; }
+.monitor-retry-actions .generate-button { min-height: 38px; padding-inline: 12px; }
+.monitor-retry-actions .new-batch-button, .monitor-refresh { min-height: 38px; }
+@media (min-width: 901px) {
+  .monitor-retry-actions > .generation-actions { flex: none; width: auto; }
+  .monitor-retry-actions > .generation-actions > .generate-button { min-height: 38px; }
+  .monitor-retry-actions .generate-button .button-label { font-size: 16px; }
+  .monitor-retry-actions .new-batch-button { padding-inline: 12px; white-space: nowrap; }
+}
+.monitor-refresh { align-self: flex-end; }
 .monitor-base-button {
   min-height: 38px;
+  flex-shrink: 0;
   font-weight: 600;
+  margin-block-start: auto;
   text-decoration: none;
   width: 100%;
 }
-/* -------- 紧凑工作区合为一列，预警和表单走同一个滚动流 -------- */
-@container beta-workspace (max-width: 900px) {
-  .beta-grid { grid-template-columns: minmax(0, 1fr); height: auto; }
-  .beta-config-card { height: auto; overflow: visible; }
-  .beta-config-scroll { overflow: visible; }
-  .beta-monitor-card {
-    border-block-start: 1px solid var(--line);
-    border-inline-start: 0;
-    grid-template-rows: auto;
-    overflow: visible;
-  }
-  .monitor-warnings-list { overflow: visible; padding-right: 0; }
+.quiet-button.beta-monitor-open, .quiet-button.beta-monitor-close { display: none; }
+.quiet-button.beta-monitor-open { gap: 6px; min-height: 44px; }
+.quiet-button.beta-monitor-close { background: transparent; border: 0; box-shadow: none; color: var(--muted); }
+@media (hover: hover) and (pointer: fine) {
+  .quiet-button.beta-monitor-close:hover { background: var(--surface-hover); }
 }
+:is(.beta-monitor-open, .beta-monitor-close) svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; }
+.topbar > .beta-monitor-open { margin-inline-start: auto; }
+.beta-monitor-alert { display: none; }
+body:has(#jobStatus[data-state="running"]) .beta-monitor-open::after {
+  background: var(--ink);
+  border-radius: 50%;
+  content: "";
+  height: 5px;
+  width: 5px;
+}
+body:has(#jobStatus[data-state="error"], #monitorWarnings .monitor-warning) .beta-monitor-alert { color: var(--danger); display: inline; font-size: 11px; }
+
+.beta-monitor-dialog {
+  background: var(--panel);
+  border: 0;
+  color: var(--ink);
+  height: 100dvh;
+  inset: 0 0 0 auto;
+  margin: 0;
+  max-height: 100dvh;
+  max-width: calc(100% - 32px);
+  padding: 0;
+  width: 400px;
+}
+.beta-monitor-dialog[open] { display: flex; }
+.beta-monitor-dialog::backdrop { background: var(--brand-modal-backdrop, rgb(25 26 28 / 38%)); }
+.beta-monitor-dialog .beta-monitor-card { border: 0; flex: 1; }
+.beta-monitor-dialog .quiet-button.beta-monitor-close { display: inline-flex; flex: 0 0 44px; min-height: 44px; padding: 0; }
+
+/* -------- 手机上配置自然滚动，任务监控从顶栏打开右侧抽屉 -------- */
 @media (max-width: 900px) {
   html { overflow: auto; }
   body, .beta-shell { overflow: visible; }
+  .beta-grid { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .beta-empty { min-height: max(160px, calc(100svh - 48px)); }
+  .beta-config-card { height: auto; overflow: visible; }
+  .beta-config-scroll { overflow: visible; }
+  .beta-grid > .beta-monitor-card { display: none; }
+  .quiet-button.beta-monitor-open { display: inline-flex; }
 }
 @media (max-width: 700px) {
   .field-grid { grid-template-columns: 1fr; }

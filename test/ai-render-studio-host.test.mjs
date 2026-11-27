@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖正式渲染台宿主、主目录/编排/布局源码和内存DOM/历史记录替身
- * [OUTPUT]: 验证独立入口、对话内画布和原控件挂载、保活/交接、移动抽屉和旧动作恢复
+ * [OUTPUT]: 验证独立入口、设计实验室下架、原控件挂载、保活交接、移动抽屉、浮层切换和旧动作恢复
  * [POS]: test 的主工作台渲染台集成合同，不加载真实iframe、不调用网络或生图模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -10,11 +10,13 @@ import test from "node:test";
 import { bindAiRenderStudioHost } from "../public/ai-render-studio-host.js";
 
 function fixture() {
-  const created = [], events = [], menus = [], map = new Map();
+  const created = [], events = [], menus = [], map = new Map(), listeners = new Map();
   const win = { location: { href: "http://127.0.0.1:4192/?other=keep#result", origin: "http://127.0.0.1:4192" },
     history: { state: { saved: true }, replaceState(state, _title, url) {
       assert.deepEqual(state, { saved: true }); win.location.href = String(url);
-    } }, Event: class { constructor(type) { this.type = type; } }, dispatchEvent(event) { events.push(event.type); } };
+    } }, Event: class { constructor(type) { this.type = type; } },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    dispatchEvent(event) { events.push(event.type); listeners.get(event.type)?.(event); } };
   const doc = { defaultView: win, querySelector: (selector) => map.get(selector) || null,
     querySelectorAll: (selector) => selector === "[popover]" ? menus : [],
     createElement(tagName) {
@@ -134,7 +136,7 @@ test("切回再进入保留iframe同一文档及两路输入/任务，不重复�
   assert.equal(f.created.filter(({ tagName }) => tagName === "iframe").length, 1);
 });
 
-test("切换时关闭旧popover，挂载式渲染保留移动抽屉，独立工具关闭抽屉", () => {
+test("重复激活保留浮层，切换时关闭旧浮层，户型布局关闭移动抽屉", () => {
   const f = fixture();
   f.scroll.inert = true; f.result.hidden = true; f.dialog.open = true;
   let closed = 0;
@@ -143,7 +145,10 @@ test("切换时关闭旧popover，挂载式渲染保留移动抽屉，独立工�
   assert.equal(closed, 1);
   assert.equal(f.dialog.open, true);
   assert.equal(f.dialog.closeCount, 0);
-  f.host.show("floorPlan");
+  f.host.show();
+  assert.equal(closed, 1);
+  f.host.show("housePlanLayout");
+  assert.equal(closed, 2);
   assert.equal(f.dialog.open, false);
   assert.equal(f.dialog.closeCount, 1);
   f.host.hide("whiteModel");
@@ -176,22 +181,24 @@ test("旧生成函数在渲染台模式直接退出，布局同时隔离旧执�
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?grid-column: 1; grid-row: 2/);
 });
 
-test("平面布局与渲染台共用保活边界，跨独立工作区切换不重载或泄漏旧START", () => {
+test("户型平面布局与渲染台共用保活边界，已下架的实验室不创建画布", () => {
   const f = fixture();
-  f.host.show("floorPlan");
-  const floorFrame = f.created.find((node) => node.title === "设计实验室 · Beta");
-  assert.equal(floorFrame.src, "/floor-plan.html?embedded=1");
-  assert.equal(f.floorFrame, undefined);
+  assert.equal(f.host.supports("floorPlan"), false);
+  assert.equal(f.host.show("floorPlan"), false);
+  assert.equal(f.frame(), undefined);
+  f.host.show("housePlanLayout");
+  const floorFrame = f.frame();
+  assert.equal(floorFrame.src, "/house-plan.html?embedded=1");
   floorFrame.editedPlan = { furniture: ["用户拖动的沙发"] };
   f.host.show();
   assert.equal(floorFrame.hidden, true);
   assert.equal(floorFrame.inert, true);
-  f.host.show("floorPlan");
+  f.host.show("housePlanLayout");
   assert.equal(floorFrame.sourceWrites, 1);
   assert.deepEqual(floorFrame.editedPlan, { furniture: ["用户拖动的沙发"] });
   assert.equal(floorFrame.hidden, false);
   assert.equal(f.actions.hidden, true);
-  assert.equal(f.doc.defaultView.location.href, "http://127.0.0.1:4192/?other=keep&feature=floorPlan#result");
+  assert.equal(f.doc.defaultView.location.href, "http://127.0.0.1:4192/?other=keep&feature=housePlanLayout#result");
   f.host.hide("whiteModel");
   assert.equal(f.actions.hidden, false);
   assert.equal(f.scroll.inputValue, "旧功能用户输入");
@@ -204,7 +211,7 @@ test("平面机位渲染切换保留相机和任务，与旧START隔离", () => 
   assert.equal(frame.src, "/floor-plan-camera.html?embedded=1");
   assert.equal(frame.title, "平面图机位渲染");
   frame.camera = { x: 0.2, y: 0.6, heading: 45 };
-  f.host.show("floorPlan");
+  f.host.show("housePlanLayout");
   assert.equal(frame.hidden, true);
   assert.equal(frame.inert, true);
   f.host.show("floorPlanCamera");
@@ -271,6 +278,25 @@ test("在对话内把机位成图带入人宠，切换同一对话的工具与�
   assert.equal(new URL(f.doc.defaultView.location.href).searchParams.get("feature"), null);
   cast.fire("load");
   assert.deepEqual(cast.messages, [[{ type: "canvas-lab:scene-cast:import", payload }, f.doc.defaultView.location.origin]]);
+});
+
+test("已切走的保活画布迟到的交接消息不会替换当前对话工具", () => {
+  const f = fixture(), changes = [], slots = conversation(f, mode => changes.push(mode));
+  const win = f.doc.defaultView;
+  f.host.show("floorPlanCamera", slots);
+  const camera = f.frame();
+  const event = { type: "message", origin: win.location.origin, source: camera.contentWindow,
+    data: { type: "canvas-lab:scene-cast:open", payload: {
+      imageUrl: "data:image/png;base64,AAAA", sourceRender: { featureMode: "floorPlanCamera" },
+    } } };
+  f.host.show("housePlanLayout", slots);
+  win.dispatchEvent(event);
+  assert.equal(f.host.currentMode(), "housePlanLayout");
+  assert.deepEqual(changes, []);
+  f.host.show("floorPlanCamera", slots);
+  win.dispatchEvent(event);
+  assert.equal(f.host.currentMode(), "sceneCast");
+  assert.deepEqual(changes, ["sceneCast"]);
 });
 
 test("场景结果带入人物宠物配置挂接槽，切换时保留会话与移动抽屉", () => {

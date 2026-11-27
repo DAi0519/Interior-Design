@@ -1,12 +1,12 @@
 /**
- * [INPUT]: 依赖统一侧栏中的主工作台功能目录及搜索、配置/结果原节点，以及同源渲染、平面布局与人物宠物工作区
- * [OUTPUT]: 提供工作台与首页对话内的共用保活画布、同源结果交接/快捷键、原参数与 START 挂载
+ * [INPUT]: 依赖主工作台功能目录、配置/结果原节点，以及渲染台、户型布局、机位渲染和人物宠物的同源工作区
+ * [OUTPUT]: 提供共用保活画布、同源结果交接、原参数与 START 挂载，仅在切换展示时清理浮层
  * [POS]: public 的共享独立工作区边界，不向普通生成接口注册占位功能或提交请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { SCENE_CAST_MODE, SCENE_CAST_PAGE, SCENE_CAST_LABEL, SCENE_CAST_OPEN, SCENE_CAST_IMPORT } from "./scene-cast-handoff.js";
-import { bindFeatureCatalogFrame } from "./feature-catalog.js?v=7";
+import { bindFeatureCatalogFrame } from "./feature-catalog.js?v=10";
 
 const FEATURE_MODE = "aiRenderStudio";
 const FRAME_URL = "/ai-render-studio.html?embedded=1";
@@ -14,7 +14,6 @@ const WORKSPACES = Object.freeze({
   aiRenderStudio: { title: "AI渲染台", url: FRAME_URL, dock: FEATURE_MODE },
   floorPlanCamera: { title: "平面图机位渲染", url: "/floor-plan-camera.html?embedded=1", dock: "floorPlanCamera" },
   housePlanLayout: { title: "户型平面布局", url: "/house-plan.html?embedded=1", dock: "housePlan" },
-  floorPlan: { title: "设计实验室 · Beta", url: "/floor-plan.html?embedded=1" },
   [SCENE_CAST_MODE]: { title: SCENE_CAST_LABEL, url: SCENE_CAST_PAGE, dock: SCENE_CAST_MODE },
 });
 
@@ -110,6 +109,8 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
     if (!supports(mode)) return false;
     const { embedded = false, mount, parameters, actions } = options;
     if (embedded && (!mount || !parameters || !actions)) return false;
+    const changingWorkspace = activeMode !== mode || Boolean(embeddedSlots) !== embedded
+      || (embedded && (embeddedSlots.mount !== mount || embeddedSlots.parameters !== parameters || embeddedSlots.actions !== actions));
     if (activeMode && Boolean(embeddedSlots) !== embedded) resetPresentation();
     const workspace = WORKSPACES[mode];
     if (!embedded && !activeMode) previous = legacy.map((node) => ({ node, hidden: node.hidden, inert: node.inert }));
@@ -133,8 +134,10 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
     for (const [key, node] of frames) { node.hidden = key !== mode; node.inert = key !== mode; }
     host.setAttribute("aria-label", workspace.title);
     selectDock(mode);
-    for (const menu of doc.querySelectorAll("[popover]")) {
-      try { menu.hidePopover?.(); } catch { /* 已关闭的原控件无需其他操作。 */ }
+    if (changingWorkspace) {
+      for (const menu of doc.querySelectorAll("[popover]")) {
+        try { menu.hidePopover?.(); } catch { /* 已关闭的原控件无需其他操作。 */ }
+      }
     }
     if (embedded) {
       host.classList.add("is-conversation-workspace");
@@ -168,7 +171,7 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
   }
   win?.addEventListener?.("message", event => {
     if (event.origin !== win.location.origin || event.data?.type !== SCENE_CAST_OPEN) return;
-    if (![FEATURE_MODE, "floorPlanCamera"].some(mode => frames.get(mode)?.contentWindow === event.source)) return;
+    if (![FEATURE_MODE, "floorPlanCamera"].includes(activeMode) || frames.get(activeMode)?.contentWindow !== event.source) return;
     importSceneCast(event.data.payload);
   });
   function resetPresentation({ parkInConversation = false } = {}) {
@@ -196,12 +199,12 @@ export function bindAiRenderStudioHost({ root = typeof document === "undefined" 
   }
   // --- 独立工作区共享原控制器的隔离守卫，旧功能的异步配置刷新不会抢回页面 ---
   for (const button of buttons) {
-    if (["floorPlan", "housePlanLayout", "floorPlanCamera"].includes(button.dataset.featureMode)) {
+    if (["housePlanLayout", "floorPlanCamera"].includes(button.dataset.featureMode)) {
       button.addEventListener?.("click", () => show(button.dataset.featureMode));
     }
   }
   const initialMode = win?.location?.href && new URL(win.location.href).searchParams.get("feature");
-  if (["floorPlan", "housePlanLayout", "floorPlanCamera"].includes(initialMode)) show(initialMode);
+  if (["housePlanLayout", "floorPlanCamera"].includes(initialMode)) show(initialMode);
   return { supports, show, hide, importSceneCast, isActive: () => Boolean(activeMode),
     isEmbedded: () => Boolean(embeddedSlots), currentMode: () => activeMode };
 }

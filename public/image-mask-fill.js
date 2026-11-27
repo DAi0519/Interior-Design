@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖公开二次编辑目录、主图上传、共享参考图上传、画笔/矩形/自由圈选交互、纯请求规则与主工作台任务/摘要和飞书同步回调
+ * [INPUT]: 依赖二次编辑目录、原图与编辑参考图、画笔/矩形/自由圈选、请求规则、当前工具状态及任务摘要
  * [OUTPUT]: 局部消除保留已选GPT模型和失权门禁，不强制回退2.5； 含GPT2.6 Sunburst/Flare独立模型身份； 对外提供三模型两模式与局部消除独立Prompt操作（默认GPT框选/精简消除指令/必选区域/独立草稿/旧后端阻断）、GPT参考模式换物品/换材质与可空补充指令、原指令和参考图可挂载到对话、三档输出/五质量默认1K/medium、实际尺寸摘要及飞书任务
  * [POS]: public 的区域编辑控制器，不持有上游地址或工作流正文；换模型保留三类独立历史，当前工具决定请求，权限失效及旧服务缺少对应选区能力时阻断原选择
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -46,7 +46,7 @@ const CONTROLS = `
       <input class="reference-input" data-mask-reference-input type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加编辑参考图" />
       <span>添加或拖入编辑参考图</span><small>PNG / JPEG / WebP · 单张6MB · 单边4096px</small>
     </label>
-    <div data-mask-reference-list class="reference-list"></div>
+    <div data-mask-reference-list class="reference-list" role="group" aria-label="编辑参考图"></div>
   </div>
   <div class="mask-fill-prompt-block"><label class="mask-fill-instruction"><span data-mask-prompt-label>编辑指令</span><textarea data-mask-prompt maxlength="8000" aria-label="二次编辑指令" rows="5"></textarea></label>
   </div>
@@ -74,7 +74,7 @@ const CONTROLS = `
 `;
 
 export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChange = () => {},
-  showToast = () => {}, emptyModel, emptySize, exactSize }) {
+  showToast = () => {}, emptyModel, emptySize, exactSize, isActive = () => true }) {
   root.innerHTML = CONTROLS;
   const by = selector => root.querySelector(selector);
   const modeButtons = [...root.querySelectorAll("[data-mask-mode]")];
@@ -239,11 +239,13 @@ export function bindImageMaskFill({ root, getSourceImage, onChange, onSourceChan
     drawing.setSource(source);
     renderMaskControls();
     onSourceChange(source);
-    emptyModel.textContent = currentItem().label;
-    let output = source && maskFillOutputSize(source);
-    if (sunburst) { try { output = source && maskFillGptOutputSize(source, outputResolution.value, gptConfig()?.sizes); } catch { output = null; } }
-    emptySize.textContent = exactSize.textContent = output ? `输出 ${output.width} × ${output.height}`
-      : sunburst ? `原图比例 · ${outputResolution.value}输出` : "原图比例 · 输出最高2K";
+    if (isActive()) {
+      emptyModel.textContent = currentItem().label;
+      let output = source && maskFillOutputSize(source);
+      if (sunburst) { try { output = source && maskFillGptOutputSize(source, outputResolution.value, gptConfig()?.sizes); } catch { output = null; } }
+      emptySize.textContent = exactSize.textContent = output ? `输出 ${output.width} × ${output.height}`
+        : sunburst ? `原图比例 · ${outputResolution.value}输出` : "原图比例 · 输出最高2K";
+    }
     renderStatus();
   }
 

@@ -1,13 +1,13 @@
 /**
  * [INPUT]: 依赖统一 API、含精模预设执行方式的结果摘要/安全图片 URL、当前任务标识及原图、真实图片揭示反馈、浏览器 Blob 与同源图片下载接口、二维大图/全景预览器
- * [OUTPUT]: 对外提供空态、真实等待态和错误态、按任务揭示首个解码结果、单模型多张/多模型结果画廊、按需原图对比、大图与全景预览、耗时摘要、下载和独立飞书同步轮询
+ * [OUTPUT]: 对外提供空态、真实等待态和错误态、新图揭示、当前与历史结果画廊、按需原图对比、大图与全景预览、耗时摘要、下载、独立飞书同步轮询、首页混合失败摘要和历史成功卡复用
  * [POS]: public 的生成结果呈现层，承接单模型最多四张或任意数量模型的成功与部分失败结果，隔离下载传输并按功能限定滑动对比与沉浸式预览
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { resultMetadata, secureImageUrl } from "./workbench-utils.js";
 import { bindResultImageViewer } from "./result-image-viewer.js";
-import { revealGenerationImage } from "./generation-feedback.js?v=3";
+import { cancelGenerationReveal, revealGenerationImage } from "./generation-feedback.js?v=3";
 import {
   bindPanoramaViewer,
   isPanoramaPreviewFeature,
@@ -123,7 +123,26 @@ export async function prepareBrowserImageDownload(
   };
 }
 
-export function bindGenerationResults({ api, showToast }) {
+function failureReason(outcome) {
+  return outcome.reason?.message || "生成失败";
+}
+
+function failureDisclosure(failed) {
+  const details = document.createElement("details");
+  details.className = "result-failure-note";
+  const summary = document.createElement("summary");
+  summary.textContent = `${failed.length} 张未生成`;
+  const reasons = document.createElement("ul");
+  for (const reason of new Set(failed.map(outcome => `${outcome.item.label} · ${failureReason(outcome)}`))) {
+    const item = document.createElement("li");
+    item.textContent = reason;
+    reasons.append(item);
+  }
+  details.append(summary, reasons);
+  return details;
+}
+
+export function bindGenerationResults({ api, showToast, omitFailedCards = () => false }) {
   const imageViewer = bindResultImageViewer();
   const elements = {
     empty: document.querySelector("#emptyState"),
@@ -139,6 +158,7 @@ export function bindGenerationResults({ api, showToast }) {
   });
   let renderId = 0;
   let renderedResults;
+  const archivedCards = new WeakSet();
 
   function comparisonMedia(resultImage, comparisonImage, modelLabel) {
     const media = document.createElement("div");
@@ -211,6 +231,12 @@ export function bindGenerationResults({ api, showToast }) {
     }
   }
 
+  function showError(message) {
+    renderId += 1;
+    elements.errorMessage.textContent = message;
+    setStage("error");
+  }
+
   function updateCardSummary(card, result, sync = result.sync) {
     card.querySelector("[data-result-meta]").textContent = resultMetadata(result, sync);
     const link = card.querySelector("[data-record-link]");
@@ -222,12 +248,13 @@ export function bindGenerationResults({ api, showToast }) {
   async function followSync(card, result, currentRenderId) {
     const generationId = result.sync?.generationId;
     if (!generationId || result.sync.status !== "pending") return;
+    const isCurrent = () => archivedCards.has(card) ? card.isConnected : renderId === currentRenderId;
     for (let attempt = 0; attempt < 40; attempt += 1) {
       await wait(1500);
-      if (renderId !== currentRenderId) return;
+      if (!isCurrent()) return;
       try {
         const body = await api(`/api/sync-jobs/${encodeURIComponent(generationId)}`);
-        if (renderId !== currentRenderId) return;
+        if (!isCurrent()) return;
         updateCardSummary(card, result, body.sync);
         if (body.sync.status === "success") return;
         if (body.sync.status === "failed") {
@@ -235,7 +262,7 @@ export function bindGenerationResults({ api, showToast }) {
           return;
         }
       } catch (error) {
-        if (attempt === 39) showToast(error.message);
+        if (attempt === 39 && isCurrent()) showToast(error.message);
       }
     }
   }
@@ -276,7 +303,7 @@ export function bindGenerationResults({ api, showToast }) {
       const model = document.createElement("strong");
       const message = document.createElement("p");
       model.textContent = outcome.item.label;
-      message.textContent = outcome.reason?.message || "生成失败";
+      message.textContent = failureReason(outcome);
       copy.append(model, message);
       card.append(icon, copy);
       return card;
@@ -338,15 +365,30 @@ export function bindGenerationResults({ api, showToast }) {
   }
 
   return {
+    showArchive(gallery, { outcomes = [], comparisonImage, featureMode }, jobId) {
+      const successes = outcomes.filter(outcome => outcome.status === "fulfilled" && outcome.value?.images?.[0]?.url);
+      if (!successes.length) return;
+      // -------- 移动已有卡片保留对比状态、预览事件及正在进行的归档轮询 --------
+      const existing = jobId && renderedResults?.jobId === jobId && renderedResults.outcomes === outcomes
+        ? [...elements.gallery.querySelectorAll(".result-card:not(.failed)")]
+        : [];
+      const reused = existing.length === successes.length;
+      const cards = reused ? existing : successes.map(outcome => resultCard(outcome, { comparisonImage, featureMode }));
+      for (const [index, card] of cards.entries()) {
+        const image = card.querySelector(".result-output-image");
+        cancelGenerationReveal(image);
+        image.loading = "lazy";
+        archivedCards.add(card);
+        if (!reused) void followSync(card, successes[index].value);
+      }
+      gallery.replaceChildren(...cards);
+      gallery.classList.toggle("multiple", cards.length > 1);
+    },
     showEmpty() {
       renderId += 1;
       setStage("empty");
     },
-    showError(message) {
-      renderId += 1;
-      elements.errorMessage.textContent = message;
-      setStage("error");
-    },
+    showError,
     showLoading(message) {
       renderId += 1;
       if (elements.loadingLabel.textContent !== message) elements.loadingLabel.textContent = message;
@@ -354,20 +396,29 @@ export function bindGenerationResults({ api, showToast }) {
     },
     showResults(outcomes, { comparisonImage = null, featureMode, jobId, reveal = false } = {}) {
       // -------- 同一回执保留画廊节点与正在进行的图片揭示 --------
+      const omitFailed = omitFailedCards();
       if (jobId && renderedResults?.jobId === jobId && renderedResults.outcomes === outcomes
-        && renderedResults.comparisonImage === comparisonImage && renderedResults.featureMode === featureMode) return;
+        && renderedResults.comparisonImage === comparisonImage && renderedResults.featureMode === featureMode
+        && renderedResults.omitFailed === omitFailed) return;
+      const visible = omitFailed ? outcomes.filter(outcome => outcome.status === "fulfilled") : outcomes;
+      const failed = omitFailed ? outcomes.filter(outcome => outcome.status === "rejected") : [];
+      if (omitFailed && !visible.length) {
+        showError([...new Set(failed.map(failureReason))].join("\n") || "本轮未生成图片");
+        return;
+      }
       renderId += 1;
       const currentRenderId = renderId;
-      const cards = outcomes.map((outcome) => resultCard(outcome, {
+      const cards = visible.map((outcome) => resultCard(outcome, {
         comparisonImage,
         featureMode,
       }));
       elements.gallery.replaceChildren(...cards);
-      elements.gallery.classList.toggle("multiple", outcomes.length > 1);
+      if (failed.length) elements.gallery.append(failureDisclosure(failed));
+      elements.gallery.classList.toggle("multiple", cards.length > 1);
       if (reveal) elements.loadingLabel.textContent = "正在加载结果图…";
       setStage("gallery");
-      renderedResults = { comparisonImage, featureMode, jobId, outcomes };
-      outcomes.forEach((outcome, index) => {
+      renderedResults = { comparisonImage, featureMode, jobId, outcomes, omitFailed };
+      visible.forEach((outcome, index) => {
         if (outcome.status === "fulfilled") {
           if (reveal) revealGenerationImage(cards[index].querySelector(".result-output-image"));
           void followSync(cards[index], outcome.value, currentRenderId);

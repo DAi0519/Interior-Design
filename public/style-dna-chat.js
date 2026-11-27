@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Style DNA 反推 DOM、共享本地 API、服务端图片/PDF 附件能力策略、Agent 模型目录与浏览器文件能力
- * [OUTPUT]: 对外提供Prompt版本/模型选择、输入区上方的发送校验与忙碌状态、参考附件/多模态分析/修正、草稿展示及复制重置
+ * [OUTPUT]: 提供 Prompt 版本和模型选择、发送校验、图片角标及 PDF 附件、多模态分析与草稿展示
  * [POS]: public 的 Style DNA 反推浏览器控制器，以服务端附件能力为上传单一真源并与生成控制器隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -336,7 +336,7 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
     elements.referenceInput.disabled =
       maxCount !== null && state.attachments.length >= maxCount;
     elements.referenceList.replaceChildren(
-      ...state.attachments.map((attachment) => {
+      ...state.attachments.map((attachment, index) => {
         const item = document.createElement("article");
         const preview = attachment.type.startsWith("image/")
           ? document.createElement("img")
@@ -347,6 +347,8 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
         const remove = document.createElement("button");
         item.className = "reference-item";
         if (preview instanceof HTMLImageElement) {
+          item.dataset.chatAttachment = "";
+          remove.dataset.chatAttachmentRemove = "";
           preview.src = attachment.dataUrl;
           preview.alt = "";
         } else {
@@ -368,6 +370,8 @@ export function bindStyleDnaChat({ api, onConnectionRequired, showToast }) {
             (entry) => entry.id !== attachment.id,
           );
           renderAttachments();
+          const neighbor = elements.referenceList.children[index] ?? elements.referenceList.lastElementChild;
+          (neighbor?.querySelector(".reference-remove") ?? elements.referenceInput).focus({ preventScroll: true });
         });
         item.append(preview, copy, remove);
         return item;

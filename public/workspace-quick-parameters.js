@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖原专用工作区表单、功能导航当前态、共享下拉组件与光影区定位控制器
- * [OUTPUT]: 将常用设置投影为带来源字段的就地选择器，原表单继续负责校验和执行
- * [POS]: public 的原生及同源嵌入工作区参数快捷条
+ * [INPUT]: 依赖对话嵌入的原工作区表单、共享下拉组件与光影区定位控制器
+ * [OUTPUT]: 对话底栏提供可同步原表单的常用设置，光影面板可暂回原表单，设计实验室仅在对话嵌入时提供模型快捷项
+ * [POS]: public 的对话参数快捷条，独立工作区参数由自身表单管理
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { bindChoiceSelect } from "./choice-select.js?v=2";
@@ -20,7 +20,7 @@ const parametersByMode = {
     ["#camera-aspectRatio", "画幅"], ["#camera-resolution", "分辨率"], ["#camera-imageCount", "出图张数"],
   ]],
   sceneCast: ["#sceneCastSettingsMount", [
-    ["#castPeopleCount", "人物数量", { suffix: " 人" }], ["#castPetCount", "宠物数量", { suffix: " 只" }],
+    ["#castPeopleCount", "人物数量", { unit: "人" }], ["#castPetCount", "宠物数量", { unit: "只" }],
     ["#castModel", "合成模型"], ["#castRatio", "画幅"], ["#castResolution", "分辨率"],
   ]],
   imageOutpaint: ["#imageOutpaintSection", [
@@ -42,6 +42,26 @@ const parametersByMode = {
   ]],
 };
 
+// --- 快捷光影下拉与全部参数复用同一块原面板 ---
+const workspacePopovers = new WeakMap();
+
+export function restoreWorkspacePopoverFields(quickHost) {
+  const restore = [];
+  for (const section of quickHost.querySelectorAll(".parameter-popover")) {
+    const workspace = workspacePopovers.get(section);
+    if (!workspace?.anchor.isConnected) continue;
+    const marker = section.ownerDocument.createComment("快捷光影位置");
+    section.before(marker);
+    const restorePopover = workspace.showInline();
+    workspace.anchor.after(section);
+    restore.push(() => {
+      marker.replaceWith(section);
+      restorePopover();
+    });
+  }
+  return () => { for (const restoreSection of restore) restoreSection(); };
+}
+
 function optionLabel(node) {
   return (node.tagName === "OPTION" ? node.label
     : node.querySelector(".model-picker-option-label")?.textContent ||
@@ -53,7 +73,7 @@ function isSelected(node) {
     : ["aria-checked", "aria-pressed", "aria-selected"].some(name => node.getAttribute(name) === "true");
 }
 
-export function bindWorkspaceQuickChoice(container, source, label, { suffix = "", picker = false } = {}) {
+export function bindWorkspaceQuickChoice(container, source, label, { picker = false, unit = "" } = {}) {
   const doc = source.ownerDocument;
   const win = doc.defaultView;
   const trigger = picker ? source.querySelector(".model-picker-trigger") : null;
@@ -90,7 +110,7 @@ export function bindWorkspaceQuickChoice(container, source, label, { suffix = ""
     const rows = options();
     const entries = rows.map((node, index) => ({
       key: String(index),
-      label: `${optionLabel(node)}${suffix}`,
+      label: source.id === "castRatio" && node.value === "auto" ? "原图" : `${optionLabel(node)}${unit}`,
       disabled: node.disabled || node.parentElement?.disabled,
     }));
     container.hidden = Boolean(source.closest("[hidden], .hidden"));
@@ -128,6 +148,7 @@ function bindWorkspaceLighting(container, section, label) {
       if (toggle && !toggle.disabled) toggle.click();
     },
   });
+  workspacePopovers.set(section, { anchor, showInline: popover.showInline });
   function sync() {
     const value = section.querySelector("[data-lighting-selected-name]")?.textContent.trim() || label;
     trigger.firstElementChild.textContent = value;
@@ -140,11 +161,12 @@ function bindWorkspaceLighting(container, section, label) {
   return () => {
     observer.disconnect();
     popover.destroy();
+    workspacePopovers.delete(section);
     anchor.replaceWith(section);
   };
 }
 
-function createStrip(doc, host, settings, fields, { prepend = true } = {}) {
+function createStrip(doc, host, settings, fields) {
   const strip = doc.createElement("div");
   strip.className = "workspace-quick-parameters";
   strip.setAttribute("role", "group");
@@ -161,10 +183,7 @@ function createStrip(doc, host, settings, fields, { prepend = true } = {}) {
     if (destroy) cleanup.push(destroy);
     else container.remove();
   }
-  if (cleanup.length) {
-    if (prepend) host.prepend(strip);
-    else host.append(strip);
-  }
+  if (cleanup.length) host.append(strip);
   return () => { cleanup.forEach(destroy => destroy()); strip.remove(); };
 }
 
@@ -189,43 +208,21 @@ export function bindEmbeddedWorkspaceQuickParameters({ mode, quickHost, settings
   return () => { observer.disconnect(); currentStrip?.(); };
 }
 
-export function bindWorkspaceQuickParameters(doc = document) {
-  const workspace = doc.querySelector(".workspace");
-  const panel = doc.getElementById("configurationPanel");
-  const directory = doc.getElementById("featureModeList");
-  if (!workspace || !panel || !directory) {
-    const toolbar = doc.querySelector(".floor-plan-toolbar");
-    return toolbar ? createStrip(doc, toolbar, doc.body, [["#floorPlanModel", "生成模型"]], { prepend: false }) : undefined;
-  }
-  let active;
-  let activeSettings;
+function bindFloorPlanConversationModel(doc) {
+  const toolbar = doc.querySelector(".floor-plan-toolbar");
+  if (!toolbar) return;
   let currentStrip;
-  const dockMounts = new WeakSet();
   const observer = new doc.defaultView.MutationObserver(sync);
   function sync() {
-    for (const dock of panel.querySelectorAll(".isolated-workspace-settings")) {
-      if (dockMounts.has(dock)) continue;
-      dockMounts.add(dock);
-      observer.observe(dock, { childList: true });
+    if (doc.body.classList.contains("floor-plan-conversation")) {
+      currentStrip ??= createStrip(doc, toolbar, doc.body, [["#floorPlanModel", "生成模型"]]);
+    } else {
+      currentStrip?.();
+      currentStrip = null;
     }
-    const mode = directory.querySelector('[data-feature-mode][aria-checked="true"]')?.dataset.featureMode;
-    const config = parametersByMode[mode];
-    const settings = config && doc.querySelector(config[0]);
-    const content = settings?.firstElementChild;
-    const host = settings?.classList.contains("isolated-workspace-settings")
-      ? workspace.querySelector(".ai-render-studio-host")
-      : mode === "styleDna" ? doc.querySelector(".style-dna-composer") : workspace.querySelector(".result-panel");
-    if (mode === active && content === activeSettings) return;
-    currentStrip?.();
-    currentStrip = null;
-    active = mode;
-    activeSettings = content;
-    if (content && host) currentStrip = createStrip(doc, host, settings, config[1]);
   }
-  observer.observe(directory, { subtree: true, attributes: true, attributeFilter: ["aria-checked"] });
-  observer.observe(panel, { childList: true });
+  observer.observe(doc.body, { attributes: true, attributeFilter: ["class"] });
   sync();
-  return () => { observer.disconnect(); currentStrip?.(); };
 }
 
-if (typeof document !== "undefined") bindWorkspaceQuickParameters();
+if (typeof document !== "undefined") bindFloorPlanConversationModel(document);

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖node:test/assert、超分控制器/结果摘要、服务端目录与DOM/sessionStorage替身
- * [OUTPUT]: 验证六工作流/尺寸、双噪声校验/恢复/冻结请求、旧进程门禁、运行锁定与历史实际参数摘要
+ * [OUTPUT]: 验证工作流/尺寸及停用时的共享控件隔离、双噪声校验/恢复/冻结请求、旧进程门禁、运行锁定和历史摘要
  * [POS]: test 的图片超分交互测试，不提交 ComfyUI 任务或访问网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -38,7 +38,7 @@ function element() {
   };
 }
 
-function fixture(t, { remembered, source = { width: 1280, height: 720 }, brokenStorage = false } = {}) {
+function fixture(t, { remembered, source = { width: 1280, height: 720 }, brokenStorage = false, isActive = () => true } = {}) {
   const originalDocument = globalThis.document;
   const originalStorage = globalThis.sessionStorage;
   const storage = new Map(remembered === undefined ? [] : [[STORAGE_KEY, remembered]]);
@@ -55,7 +55,7 @@ function fixture(t, { remembered, source = { width: 1280, height: 720 }, brokenS
     .map((name) => [name, element()]));
   let input = source;
   let changes = 0;
-  const controller = bindImageUpscale({ ...ui, getSourceImage: () => input, onChange: () => { changes += 1; } });
+  const controller = bindImageUpscale({ ...ui, isActive, getSourceImage: () => input, onChange: () => { changes += 1; } });
   const config = { ...publicImageUpscaleConfig(), comfyUi: { available: true, version: "fixture" } };
   controller.configure(config);
   return {
@@ -127,6 +127,29 @@ test("切换其他功能改写共享select后，激活超分仍恢复本功能�
   assert.equal(ui.controller.currentItem().key, DIRECT_KEY);
   assert.equal(ui.resolutionSelect.value, "8K");
   assert.deepEqual(ui.remembered(), { resolution: "8K", workflowKey: DIRECT_KEY });
+});
+
+test("停用期间超分配置刷新不得覆盖当前功能的尺寸和摘要", (t) => {
+  let active = true;
+  const ui = fixture(t, { isActive: () => active });
+  ui.choose(DIRECT_KEY);
+  ui.resolution("8K");
+  active = false;
+  ui.resolutionSelect.replaceChildren({ value: "1K" }, { value: "2K" });
+  ui.resolutionSelect.value = "2K";
+  ui.exactSize.textContent = "当前功能尺寸";
+  ui.emptySize.textContent = "当前功能输出";
+  ui.emptyModel.textContent = "当前功能模型";
+  ui.controller.configure(ui.config);
+  assert.deepEqual(ui.resolutionSelect.children.map(option => option.value), ["1K", "2K"]);
+  assert.equal(ui.resolutionSelect.value, "2K");
+  assert.deepEqual([ui.exactSize.textContent, ui.emptySize.textContent, ui.emptyModel.textContent],
+    ["当前功能尺寸", "当前功能输出", "当前功能模型"]);
+
+  active = true;
+  ui.controller.activate();
+  assert.equal(ui.resolutionSelect.value, "8K");
+  assert.equal(ui.exactSize.textContent, "8192 × 4608");
 });
 
 for (const key of KS_KEYS) for (const [resolution, expected] of [["2X", "2X"], ["4K", "4K"], ["6K", "6K"], ["8K", "2X"]]) {

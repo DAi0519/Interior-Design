@@ -1,13 +1,21 @@
 /**
- * [INPUT]: 依赖首页生图对话结构、共享功能目录与参数表单、视觉令牌、首页标题字体及现有生图结果区
- * [OUTPUT]: 提供单行标题、对话框容器及内边缘定位、附件与输入文字的共同起始线及上方校验提示
+ * [INPUT]: 依赖首页生图静态首帧与激活路由、共享功能目录与参数表单、视觉令牌、首页标题字体及现有生图结果区
+ * [OUTPUT]: 提供首帧标题与输入框、对齐缩略图圆弧的附件删除键、单行底栏、快捷下拉、居中等待和结果画廊
  * [POS]: public 的首页生图对话视觉层，保持右侧画布和主工作台结果交互共用
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 .home-image-chat {
   --home-chat-composer-inset: 12px;
+  --home-chat-control-gap: 4px;
+  --home-chat-control-row-gap: 6px;
   --home-chat-inset: clamp(16px, 4vw, 40px);
+  --home-chat-reference-size: 48px;
+  --home-chat-reference-radius: var(--brand-control-radius, 6px);
+  --home-chat-reference-gap: 8px;
+  --home-chat-remove-hit: 28px;
+  /* 右上圆弧的 45° 点距外接矩形顶点 r × (1 - √½)。 */
+  --home-chat-remove-outset: calc(var(--home-chat-remove-hit) / 2 - var(--home-chat-reference-radius) * .292893);
   --home-chat-width: 752px;
   display: flex;
   flex: 1 1 auto;
@@ -16,6 +24,8 @@
   min-inline-size: 0;
 }
 
+html:not(.image-chat-home) .home-image-chat,
+.image-chat-home .result-panel > :is(#resultStage, #styleDnaChat),
 .home-image-chat[hidden],
 .home-image-chat [hidden] {
   display: none !important;
@@ -157,38 +167,51 @@
   margin-bottom: 0;
 }
 
-.home-image-chat-outputs {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-}
-
-.home-image-chat-outputs img {
-  background: var(--surface-control);
-  border-radius: 8px;
-  display: block;
-  inline-size: 100%;
-  max-block-size: min(500px, 62dvh);
-  object-fit: contain;
+#homeImageChat :is(#resultStage, .home-image-chat-outputs) {
+  container: workspace-result / inline-size;
 }
 
 #homeImageChat #resultStage {
-  container: workspace-result / inline-size;
   flex: 0 0 auto;
   min-block-size: 0;
   overflow: visible;
   padding: 0;
 }
 
-#homeImageChat #resultStage > .result-gallery {
+#homeImageChat :is(#resultStage > .result-gallery, .home-image-chat-outputs) {
   align-content: start;
   height: auto;
   overflow: visible;
   padding: 0;
 }
 
-#homeImageChat #resultStage .result-output-image {
+#homeImageChat :is(#resultStage, .home-image-chat-outputs) .result-output-image {
   max-height: min(570px, 65dvh);
+}
+
+/* ---- 等待占据最新提示词下方的余量，历史内容超高时自然滚动 ---- */
+.home-image-chat-viewport:has(.home-image-chat-current:not([hidden]) > #resultStage > .loading-state:not(.hidden)),
+.home-image-chat-viewport:has(.home-image-chat-current:not([hidden]) > #resultStage > .result-gallery:not(.hidden) .generation-feedback-decoding):not(
+  :has(.home-image-chat-current > #resultStage > .result-gallery .result-output-image:not(.generation-feedback-decoding))
+) {
+  container-type: size;
+
+  > .home-image-chat-thread {
+    min-block-size: 100%;
+  }
+
+  .home-image-chat-current,
+  .home-image-chat-current > #resultStage {
+    flex-grow: 1;
+  }
+
+  .home-image-chat-current > #resultStage {
+    min-block-size: 0;
+  }
+
+  .home-image-chat-current > #resultStage .generation-feedback-preview {
+    inline-size: min(100%, 320px, max(128px, calc((100cqb - 100px) * 1.6)));
+  }
 }
 
 #homeImageChat #resultStage:has(> .loading-state:not(.hidden), .generation-feedback-decoding) {
@@ -201,6 +224,7 @@
 }
 
 .home-image-chat-composer {
+  --home-chat-prompt-inset: 10px;
   --home-chat-prompt-min: 88px;
   --home-chat-text-inset: 8px;
   background: var(--panel);
@@ -209,21 +233,22 @@
   box-shadow: 0 1px 2px rgb(25 26 28 / 4%), 0 10px 26px rgb(25 26 28 / 4%);
   flex: 0 0 auto;
   margin-block-end: max(clamp(12px, 3vh, 26px), env(safe-area-inset-bottom));
-  padding: 12px var(--home-chat-composer-inset);
+  padding: var(--home-chat-composer-inset);
   position: relative;
 }
 
-.home-image-chat-feature-row {
+.home-image-chat-feature-control {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-block-end: 8px;
+  flex: none;
+  isolation: isolate;
+  max-inline-size: 100%;
   min-inline-size: 0;
+  position: relative;
 }
 
-.home-image-chat-composer :is(.home-image-chat-feature-row > button, .home-image-chat-inline-parameters > button, .home-image-chat-tool-parameter-trigger),
-.home-image-chat-parameter-dialog .home-image-chat-parameter-close {
+.home-image-chat-composer :is(.home-image-chat-feature-control > button, .home-image-chat-inline-parameters > button, .home-image-chat-advanced-trigger, .home-image-chat-size-trigger),
+.home-image-chat-parameter-close {
   align-items: center;
   background: transparent;
   border: 0;
@@ -234,7 +259,7 @@
   font-size: 12px;
   font-weight: 500;
   gap: 6px;
-  min-block-size: 32px;
+  min-block-size: 38px;
   min-inline-size: 0;
   padding-inline: var(--home-chat-text-inset, 8px);
 }
@@ -246,7 +271,7 @@
   white-space: nowrap;
 }
 
-.home-image-chat-composer :is(.home-image-chat-feature-row > button, .home-image-chat-inline-parameters > button) svg,
+.home-image-chat-composer :is(.home-image-chat-feature-control > button, .home-image-chat-inline-parameters > button, .home-image-chat-advanced-trigger, .home-image-chat-size-trigger) svg,
 .home-image-chat-parameter-close svg {
   block-size: 14px;
   fill: none;
@@ -258,186 +283,88 @@
   stroke-width: 1.6;
 }
 
-.home-image-chat-feature-row > .home-image-chat-advanced-trigger {
+.home-image-chat-composer :is(.home-image-chat-feature-picker:not([data-selected="true"]), .home-image-chat-advanced-trigger) {
   flex: none;
-  inline-size: 44px;
+  inline-size: 38px;
   justify-content: center;
-  margin-inline-start: auto;
+  padding-inline: 0;
 }
 
-.home-image-chat-composer .home-image-chat-feature-row > .home-image-chat-advanced-trigger svg {
-  block-size: 18px;
-  flex-basis: 18px;
-  inline-size: 18px;
+.home-image-chat-composer :is(.home-image-chat-feature-picker, .home-image-chat-advanced-trigger) svg {
+  block-size: 16px;
+  flex-basis: 16px;
+  inline-size: 16px;
 }
 
-.home-image-chat-composer :is(.home-image-chat-feature-row > button, .home-image-chat-inline-parameters > button, .home-image-chat-tool-parameter-trigger):focus-visible:where(:not([data-selected="true"], .home-image-chat-feature-clear)),
-.home-image-chat-parameter-dialog .home-image-chat-parameter-close:focus-visible {
+.home-image-chat-feature-picker:not([data-selected="true"]) > span,
+.home-image-chat-feature-picker[data-selected="true"] > .home-image-chat-feature-icon {
+  display: none;
+}
+
+.home-image-chat-composer :is(.home-image-chat-feature-picker:not([data-selected="true"]), .home-image-chat-inline-parameters > button, .home-image-chat-advanced-trigger, .home-image-chat-size-trigger):focus-visible,
+.home-image-chat-composer :is(.home-image-chat-advanced-trigger, .home-image-chat-size-trigger)[aria-expanded="true"],
+.home-image-chat-parameter-close:focus-visible {
   background: var(--surface-hover);
   color: var(--text);
   outline: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .home-image-chat-composer :is(.home-image-chat-feature-row > button, .home-image-chat-inline-parameters > button, .home-image-chat-tool-parameter-trigger):hover:not(:disabled):where(:not([data-selected="true"], .home-image-chat-feature-clear)),
-  .home-image-chat-parameter-dialog .home-image-chat-parameter-close:hover {
+  .home-image-chat-composer :is(.home-image-chat-feature-picker:not([data-selected="true"]), .home-image-chat-inline-parameters > button, .home-image-chat-advanced-trigger, .home-image-chat-size-trigger):hover:not(:disabled),
+  .home-image-chat-parameter-close:hover {
     background: var(--surface-hover);
     color: var(--text);
   }
 }
 
-.home-image-chat-feature-row :is(.home-image-chat-feature-picker[data-selected="true"], .home-image-chat-feature-clear:not([hidden])) {
+.home-image-chat-feature-control:has(.home-image-chat-feature-picker[data-selected="true"])::before {
   background: var(--brand-key-selected-bg);
+  border-radius: var(--brand-control-radius, 6px);
+  content: "";
+  inset: 3px 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.home-image-chat-composer :is(.home-image-chat-feature-picker[data-selected="true"], .home-image-chat-feature-clear) {
   color: var(--brand-key-selected-ink);
-  position: relative;
 }
 
-.home-image-chat-feature-picker:has(+ .home-image-chat-feature-clear:not([hidden])) {
-  border-end-end-radius: 0;
-  border-start-end-radius: 0;
+.home-image-chat-composer .home-image-chat-feature-picker[data-selected="true"] {
+  min-inline-size: var(--home-chat-feature-hit, 38px);
+  padding-inline: 10px 0;
 }
 
-.home-image-chat-feature-row .home-image-chat-feature-picker + .home-image-chat-feature-clear {
-  border-end-start-radius: 0;
-  border-start-start-radius: 0;
+.home-image-chat-feature-control:has(> .home-image-chat-feature-clear:not([hidden])) {
+  min-inline-size: calc(var(--home-chat-feature-hit, 38px) + var(--home-chat-clear-hit, 32px));
+}
+
+.home-image-chat[data-toolbar-tight] .home-image-chat-feature-control {
+  flex: 0 1 auto;
+}
+
+.home-image-chat-composer .home-image-chat-feature-clear {
+  flex: none;
+  inline-size: 32px;
   justify-content: center;
-  margin-inline-start: -6px;
-  min-inline-size: 30px;
   padding-inline: 0;
 }
 
-.home-image-chat-feature-row :is(.home-image-chat-feature-picker[data-selected="true"], .home-image-chat-feature-clear):focus-visible { outline: none; }
-
-.home-image-chat-feature-row :is(.home-image-chat-feature-picker[data-selected="true"], .home-image-chat-feature-clear:not([hidden])):focus-visible::before {
-  background: currentColor;
-  block-size: 4px;
-  border-radius: 50%;
-  content: "";
-  inline-size: 4px;
-  inset-block-start: 3px;
-  inset-inline-end: 3px;
-  position: absolute;
+.home-image-chat-feature-control :is(.home-image-chat-feature-picker[data-selected="true"], .home-image-chat-feature-clear):focus-visible {
+  outline: none;
+  -webkit-text-stroke: .45px currentColor;
 }
+
+.home-image-chat-composer .home-image-chat-feature-clear:focus-visible svg { stroke-width: 2.6; }
+.home-image-chat-feature-control > button:disabled { opacity: .65; }
 
 .home-image-chat-inline-parameters {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex: none;
+  gap: var(--home-chat-control-gap);
   min-inline-size: 0;
-}
-
-.home-image-chat-parameter-dialog {
-  background: var(--panel);
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  box-shadow: var(--brand-modal-shadow);
-  color: var(--text);
-  inline-size: min(500px, calc(100% - 24px));
-  max-block-size: min(620px, calc(100dvh - 24px));
-  overflow: hidden;
-  padding: 0;
-}
-.home-image-chat-parameter-dialog[open] {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.home-image-chat-parameter-dialog::backdrop {
-  background: var(--brand-modal-backdrop);
-}
-
-.home-image-chat-parameter-dialog > header {
-  align-items: center;
-  border-block-end: 1px solid var(--line);
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  min-block-size: 48px;
-  padding: 4px 8px 4px 16px;
-}
-
-.home-image-chat-parameter-dialog > header :is(h2, h3) {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0;
-}
-
-@supports (position-area: block-start center) {
-  @media (min-width: 761px) {
-    .home-image-chat-composer {
-      anchor-name: --home-image-chat-composer;
-    }
-
-    .home-image-chat-parameter-dialog {
-      inset: auto;
-      margin: 6px 0;
-      position: fixed;
-      position-anchor: --home-image-chat-composer;
-      position-area: block-start center;
-      position-try-fallbacks: flip-block, --home-image-chat-parameters-center;
-    }
-  }
-
-  @position-try --home-image-chat-parameters-center {
-    inset: 0;
-    margin: auto;
-    position-area: none;
-  }
-}
-
-.home-image-chat-feature-parameters {
-  --workspace-parameter-inset: 16px;
-  container: home-image-chat-parameters / inline-size;
-  min-block-size: 0;
-  min-inline-size: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  position: relative;
-  scrollbar-gutter: stable;
-}
-
-.home-image-chat-feature-parameters .control-panel-scroll {
-  overflow: visible;
-}
-
-.home-image-chat-feature-parameters .panel-section {
-  padding-inline: var(--workspace-parameter-inset);
-}
-
-.home-image-chat-feature-parameters #refinedRenderSection {
-  padding: 0;
-}
-
-.home-image-chat-feature-parameters #modelOptions.model-picker {
-  inline-size: 100%;
-}
-
-.home-image-chat-feature-parameters :is(
-  [data-home-chat-moved], [data-home-chat-primary-only],
-  .compact-config-note:not(.error, [data-relight-context], [data-relight-history-parameters], [data-relight-legacy-template]),
-  .refined-prompt-source-link,
-  [data-relight-prompt-link]
-) {
-  display: none;
-}
-
-.home-image-chat-feature-parameters .compact-config-note.error:not([hidden]) {
-  color: var(--danger);
-  display: block;
-  overflow: visible;
-  overflow-wrap: anywhere;
-}
-
-@container home-image-chat-parameters (max-width: 300px) {
-  .home-image-chat-feature-parameters :is(.field-grid, .model-option-list, .reference-list) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .home-image-chat-feature-parameters :is(.section-heading, .section-heading-actions) {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
 }
 
 #homeImageChat .home-image-chat-input:not([hidden]) {
@@ -454,7 +381,7 @@
   min-block-size: var(--home-chat-prompt-min);
   outline: none;
   overflow-y: auto;
-  padding: 10px 0;
+  padding: var(--home-chat-prompt-inset) 0;
   resize: none;
   transition: none;
 }
@@ -463,7 +390,10 @@
   color: var(--muted);
 }
 
-.home-image-chat-attachment-row:not(:has(> :not([hidden]))) {
+.home-image-chat-attachment-row:not(:has(
+  > :not([hidden], .home-image-chat-attachment-images),
+  > .home-image-chat-attachment-images > :not(:empty, [hidden])
+)) {
   display: none;
 }
 
@@ -471,7 +401,7 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: var(--home-chat-control-row-gap) 8px;
 }
 
 .home-image-chat-validation {
@@ -483,86 +413,151 @@
   overflow-wrap: anywhere;
 }
 
-.home-image-chat-references {
-  --home-chat-reference-size: 48px;
-  --home-chat-remove-hit: 28px;
-  --home-chat-remove-outset: 4px;
+#homeImageChat :is(.home-image-chat-references, .home-image-chat-attachment-images, [data-chat-attachment-list]):not(:empty, [hidden]) {
+  align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
-  gap: max(8px, var(--home-chat-remove-outset));
-  padding-block-end: 4px;
+  gap: var(--home-chat-reference-gap);
+  isolation: isolate;
+  padding-block-start: var(--home-chat-remove-outset);
   padding-inline-end: var(--home-chat-remove-outset);
+}
+
+#homeImageChat :is(.home-image-chat-attachment-images, .home-image-chat-source-attachment) {
+  padding-block-start: max(0px, calc(var(--home-chat-remove-outset) - var(--home-chat-composer-inset)));
+  padding-block-end: 4px;
+}
+
+#homeImageChat .home-image-chat-attachment-images:not(:has(> :not(:empty, [hidden]))) {
+  display: none;
+}
+
+#homeImageChat :is(.home-image-chat-references, [data-chat-attachment-list])[hidden] {
+  display: none;
+}
+
+#homeImageChat .home-image-chat-attachment-images > :is(.home-image-chat-references, [data-chat-attachment-list]) {
+  isolation: auto;
+  margin: 0;
+  padding: 0;
 }
 
 .home-image-chat-references:empty {
   display: none;
 }
 
-.home-image-chat-reference {
+#homeImageChat [data-chat-attachment]:not([hidden]):has(> [data-chat-attachment-remove]:not([hidden])) {
+  background: transparent;
+  border: 0;
+  display: block;
+  flex: none;
+  inline-size: var(--home-chat-reference-size);
+  margin: 0;
+  padding: 0;
   position: relative;
 }
 
-.home-image-chat-reference img {
+#homeImageChat [data-chat-attachment-list] > .reference-item[data-chat-attachment] > div {
+  display: none;
+}
+
+#homeImageChat [data-chat-attachment]:has(> [data-chat-attachment-remove]:not([hidden])) img {
   block-size: var(--home-chat-reference-size);
-  border-radius: var(--brand-control-radius, 6px);
+  border: 0;
+  border-radius: var(--home-chat-reference-radius);
   display: block;
   inline-size: var(--home-chat-reference-size);
   object-fit: cover;
 }
 
-.home-image-chat-reference button {
+#homeImageChat [data-chat-attachment] > [data-chat-attachment-remove]:not([hidden]) {
+  --home-chat-badge-fill: var(--brand-key-selected-bg, #000);
+  --home-chat-badge-ink: var(--brand-key-selected-ink, #fff);
   background: transparent;
   block-size: var(--home-chat-remove-hit);
   border: 0;
   display: grid;
+  font-size: 0;
   inline-size: var(--home-chat-remove-hit);
   inset-block-start: calc(-1 * var(--home-chat-remove-outset));
   inset-inline-end: calc(-1 * var(--home-chat-remove-outset));
+  min-block-size: 0;
+  min-inline-size: 0;
   padding: 0;
   place-items: center;
   position: absolute;
+  z-index: 1;
 }
 
-.home-image-chat-reference button svg {
-  background: var(--brand-key-selected-bg, #000);
+#homeImageChat [data-chat-attachment-remove] > svg {
+  display: none;
+}
+
+#homeImageChat [data-chat-attachment-remove]::before {
+  background: var(--home-chat-badge-ink);
+  block-size: 10px;
+  content: "";
+  grid-area: 1 / 1;
+  inline-size: 10px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 2 8 8m0-6-6 6' fill='none' stroke='black' stroke-width='1.45' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#homeImageChat [data-chat-attachment-remove]::after {
+  background: var(--home-chat-badge-fill);
   block-size: 16px;
   border-radius: 50%;
-  color: var(--brand-key-selected-ink, #fff);
+  content: "";
+  grid-area: 1 / 1;
   inline-size: 16px;
-  padding: 2px;
 }
 
-.home-image-chat-reference button:focus-visible {
+#homeImageChat [data-chat-attachment] > [data-chat-attachment-remove]:focus-visible {
+  --home-chat-badge-fill: var(--panel);
+  --home-chat-badge-ink: var(--text);
   outline: none;
-}
-
-.home-image-chat-reference button:focus-visible svg {
-  background: var(--panel);
-  color: var(--text);
 }
 
 .home-image-chat-actions {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: var(--home-chat-control-gap);
   min-inline-size: 0;
-  margin-block-start: 4px;
+  margin-block-start: var(--home-chat-control-gap);
+}
+
+.home-image-chat :is(.home-image-chat-actions, .home-image-chat-tool-quick) {
+  --model-picker-placement: top;
 }
 
 .home-image-chat-tools,
 .home-image-chat-settings {
   align-items: center;
   display: flex;
-  gap: 4px;
+  gap: var(--home-chat-control-gap);
   min-inline-size: 0;
 }
 
 .home-image-chat-tools {
-  flex: 1 1 auto;
+  flex: 1 1 0;
 }
 
-.home-image-chat-tools:has(> :is(.home-image-chat-inline-parameters, .home-image-chat-tool-quick) > :not([hidden])) {
-  flex-wrap: wrap;
+.home-image-chat-settings { flex: none; }
+
+.home-image-chat :is(.home-image-chat-tools, .composer-toolbar) [data-toolbar-overflow],
+.home-image-chat [data-parameter-fixed],
+.home-image-chat-feature-parameters :is(.model-picker[data-choice-fixed], :is(label, .compact-config-field):has(> .model-picker[data-choice-fixed])),
+.home-image-chat-feature-parameters [role="radiogroup"]:not(.model-picker-list):has(> [role="radio"][aria-checked="true"]):not(:has(> [role="radio"]:not(:disabled, [hidden], .hidden, [aria-disabled="true"], [aria-checked="true"]))),
+:is(.home-image-chat-settings, .home-image-chat-inline-parameters):not(:has(> :not([hidden], [data-toolbar-overflow], [data-parameter-fixed], .hidden, .custom-select-native))) {
+  display: none !important;
+}
+
+.home-image-chat-composer .home-image-chat-size-trigger {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .home-image-chat-settings > :is(.model-picker, .field) {
@@ -582,19 +577,20 @@
   white-space: nowrap;
 }
 
-.home-image-chat-settings > .field:not([hidden]):not(.hidden)::before,
-.home-image-chat-tool-quick .workspace-quick-parameters > :not([hidden]) ~ :not([hidden])::before {
+.home-image-chat-settings > :not([hidden], [data-toolbar-overflow], [data-parameter-fixed], .hidden, .custom-select-native) ~ .field:not([hidden], [data-toolbar-overflow], [data-parameter-fixed], .hidden)::before,
+.home-image-chat[data-compact] .home-image-chat-size-trigger::before,
+.home-image-chat-tool-quick .workspace-quick-parameters > :not([hidden], [data-toolbar-overflow]) ~ :not([hidden], [data-toolbar-overflow])::before {
   background: var(--line);
   block-size: 13px;
   content: "";
   inline-size: 1px;
   inset-block-start: calc(50% - 6.5px);
-  inset-inline-start: -2px;
+  inset-inline-start: calc(-.5 * (var(--home-chat-control-gap) + 1px));
   pointer-events: none;
   position: absolute;
 }
 
-.home-image-chat-settings .model-picker-trigger,
+.home-image-chat-settings :is(.model-picker-trigger, .home-image-chat-model:where(:not(.custom-select-native))),
 .home-image-chat-composer :is(.home-image-chat-tool-quick, .home-image-chat-inline-parameters) .model-picker-trigger {
   --model-picker-menu-min-width: 184px;
   --model-picker-trigger-bg: transparent;
@@ -606,6 +602,15 @@
   min-block-size: 38px;
   min-inline-size: 44px;
   padding-inline: 7px;
+}
+
+.home-image-chat-settings .home-image-chat-model:where(:not(.custom-select-native)) {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-family: inherit;
+  opacity: .46;
 }
 
 .home-image-chat-settings #ratioField .model-picker-trigger {
@@ -647,6 +652,7 @@
   min-block-size: 38px;
   min-inline-size: 38px;
   padding: 0 9px;
+  white-space: nowrap;
 }
 
 .home-image-chat-attach,
@@ -721,8 +727,8 @@
     color: var(--text);
   }
 
-  .home-image-chat-reference button:hover:not(:focus-visible) svg {
-    background: var(--text);
+  #homeImageChat [data-chat-attachment] > [data-chat-attachment-remove]:hover:not(:focus-visible) {
+    --home-chat-badge-fill: var(--text);
   }
 
   .home-image-chat-send:hover:not(:disabled)::before {

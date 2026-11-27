@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖空房房间类型容器、服务端公开的允许值/其他类型长度策略与选择变更回调
- * [OUTPUT]: 对外提供房间类型选择归一化、其他类型条件必填校验与无默认值的单选控制器
+ * [OUTPUT]: 提供房间类型归一化、其他类型条件必填校验，以及按设计功能保留无默认值的房型草稿
  * [POS]: public 的空房专属输入层，管理客户显式选择及“其他”具体类型，不推断或默认房间功能
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -39,6 +39,8 @@ export function roomTypeSelectionValidation({
 export function bindEmptyRoomType({ onChange, root }) {
   let roomTypes = [];
   let selection = "";
+  let scope;
+  const drafts = new Map();
   let detailMaxLength = 40;
   const detailField = document.createElement("div");
   const detailLabel = document.createElement("label");
@@ -111,6 +113,15 @@ export function bindEmptyRoomType({ onChange, root }) {
         ? nextDetailMaxLength
         : detailMaxLength;
       selection = normalizeRoomTypeSelection(selection, roomTypes);
+      render();
+    },
+    setScope(nextScope) {
+      if (scope === nextScope) return;
+      drafts.set(scope, { selection, detail: detailInput.value });
+      scope = nextScope;
+      const draft = drafts.get(scope);
+      selection = normalizeRoomTypeSelection(draft?.selection, roomTypes);
+      detailInput.value = draft?.detail ?? "";
       render();
     },
     validation() {

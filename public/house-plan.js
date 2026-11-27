@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖house-plan-annotation共享标注绘制、house-plan.css 的挂载参数样式、共享API、文件与下拉、生成动效、独立户型布局和归档状态接口、归一化标注画布
- * [OUTPUT]: 提供.2标注图工作流门禁、空间选择/标注、画布视图切换、飞书版本选择、Agent到生图、真实生成状态、新图显现、原任务恢复、下载和飞书归档准入及状态
+ * [OUTPUT]: 提供原图上传与清除、空间标注、画布视图、Agent 生图、任务恢复、下载与飞书归档
  * [POS]: public 的户型平面布局控制器，与实验室会话和收费任务隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,7 +35,8 @@ if (window.parent !== window) {
 void import('./custom-select.js?v=9');
 const SESSION = 'canvas-lab:house-plan:v1';
 const state = { config: null, source: null, bitmap: null, annotations: [], history: [], mode: '主卧', drag: null,
-  busy: false, pending: null, result: null, jobId: null, model: 'gptImage25Sunburst', agent: '', promptVersion: null, view: 'source' };
+  sourceReading: false, busy: false, pending: null, result: null, jobId: null, model: 'gptImage25Sunburst', agent: '', promptVersion: null, view: 'source' };
+let sourceRevision = 0;
 let freshGenerationJob = null;
 const generating = () => state.busy && Boolean(state.pending);
 function status(text) {
@@ -55,12 +56,15 @@ function update() {
   $('generationFeedback').hidden = !loading;
   const archiveReady = state.config?.archive?.required === true && state.config.archive.available === true;
   for (const id of ['upload','sourceInput','spaceType','spaceName','requirements','model','agentModel','promptVersion']) $(id).disabled = locked;
-  $('generate').disabled = locked || !state.source || !state.annotations.some(item => item.label === '主卧') || !state.config?.available || !archiveReady || !selectedPrompt()
+  $('housePlanRemoveSource').hidden = !state.source;
+  $('housePlanRemoveSource').disabled = locked;
+  $('generate').disabled = locked || state.sourceReading || !state.source || !state.annotations.some(item => item.label === '主卧') || !state.config?.available || !archiveReady || !selectedPrompt()
     || !state.config.layoutModels.some(model => model.key === state.model && model.available)
     || !state.config.agentModels.some(model => model.key === state.agent);
   $('model').disabled ||= !state.config; $('agentModel').disabled ||= !state.config;
   $('showResult').disabled = !state.result; $('download').disabled = !state.result;
   $('refresh').disabled = state.busy; $('refreshLabel').textContent = state.pending ? '检查任务' : '刷新';
+  $('generate').setAttribute('aria-busy', String(locked));
   $('generateLabel').textContent = state.busy ? '生成中…' : 'START';
   $('sourceView').hidden = loading || state.view !== 'source' || !state.source;
   $('empty').hidden = loading || Boolean(state.source) || state.view === 'result';
@@ -195,21 +199,60 @@ async function generate() {
   await poll();
 }
 $('upload').addEventListener('click', () => $('sourceInput').click());
+function setSource(source, bitmap) {
+  state.bitmap?.close(); state.bitmap = bitmap; state.source = source;
+  state.annotations = []; state.history = []; state.drag = null; state.mode = '主卧'; state.result = null; state.jobId = null; state.view = 'source';
+  freshGenerationJob = null;
+  resultArchive.show(null);
+  cancelGenerationReveal($('result'));
+  $('result').removeAttribute('src'); $('resultMeta').textContent = ''; $('plan').replaceChildren();
+  const preview = $('sourceThumbnail');
+  preview.hidden = !source;
+  $('uploadIcon').toggleAttribute('hidden', Boolean(source));
+  $('sourceName').textContent = source?.name || '添加或拖入户型原图';
+  const canvas = $('canvas');
+  if (source) {
+    preview.src = source.dataUrl;
+    const ratio = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.round(bitmap.width * ratio); canvas.height = Math.round(bitmap.height * ratio);
+  } else {
+    preview.removeAttribute('src'); canvas.width = canvas.height = 0;
+  }
+  remember();
+  $('spaceType').value = '主卧'; $('spaceType').dispatchEvent(new Event('change'));
+}
 async function selectSource(file) {
   if (!file || state.busy || state.pending) return;
   if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) throw new Error('请上传8MB以内PNG、JPEG或WebP');
-  const bitmap = await createImageBitmap(file);
-  if (Math.max(bitmap.width,bitmap.height) > 4096 || bitmap.width * bitmap.height > 16777216) { bitmap.close(); throw new Error('图片单边不超过4096px，总像素不超过16MP'); }
-  const source = await readFileAsInput(file); state.bitmap?.close(); state.bitmap = bitmap; state.source = source;
-  state.annotations = []; state.history = []; state.drag = null; state.mode = '主卧'; state.result = null; state.jobId = null; state.view = 'source';
-  resultArchive.show(null);
-  $('spaceType').value = '主卧'; $('spaceType').dispatchEvent(new Event('change'));
-  $('sourceThumbnail').src = source.dataUrl; $('sourceThumbnail').hidden = false; $('uploadIcon').setAttribute('hidden', '');
-  cancelGenerationReveal($('result'));
-  $('result').removeAttribute('src'); $('plan').replaceChildren(); $('sourceName').textContent = file.name;
-  const ratio = Math.min(1, 1600 / Math.max(bitmap.width,bitmap.height)); $('canvas').width = Math.round(bitmap.width * ratio); $('canvas').height = Math.round(bitmap.height * ratio);
-  remember(); update(); draw(); status('请在原图框选主卧');
+  const revision = ++sourceRevision;
+  state.sourceReading = true; update();
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    if (revision !== sourceRevision) return;
+    if (Math.max(bitmap.width, bitmap.height) > 4096 || bitmap.width * bitmap.height > 16777216) {
+      throw new Error('图片单边不超过4096px，总像素不超过16MP');
+    }
+    const source = await readFileAsInput(file);
+    if (revision !== sourceRevision) return;
+    setSource(source, bitmap);
+    bitmap = null;
+    status('请在原图框选主卧');
+  } catch (value) {
+    if (revision === sourceRevision) throw value;
+  } finally {
+    bitmap?.close();
+    if (revision === sourceRevision) { state.sourceReading = false; update(); }
+  }
 }
+$('housePlanRemoveSource').addEventListener('click', () => {
+  if (!state.source || state.busy || state.pending) return;
+  const focused = $('housePlanRemoveSource').ownerDocument.activeElement === $('housePlanRemoveSource');
+  sourceRevision += 1; state.sourceReading = false;
+  $('sourceInput').value = ''; $('error').hidden = true;
+  setSource(null, null);
+  if (focused) $('upload').focus({ preventScroll: true });
+});
 $('sourceInput').addEventListener('change', action(async () => { const file = $('sourceInput').files[0]; $('sourceInput').value = ''; await selectSource(file); }));
 // --- 上传与画布均接受拖入图片，复用同一准入和换图清理 ---
 for (const target of [$('upload'), $('empty')]) {
@@ -241,7 +284,11 @@ async function start() {
     if (typeof saved.agent === 'string') state.agent = saved.agent;
     if (typeof saved.pending === 'string' && /^[\w-]{8,160}$/.test(saved.pending)) state.pending = saved.pending;
     if (typeof saved.jobId === 'string' && /^[\w-]{8,160}$/.test(saved.jobId)) {
-      try { const { job } = await api(`/api/house-plan/jobs/${encodeURIComponent(saved.jobId)}`); if (job.status === 'success') showResult(job.result, saved.jobId); } catch { /* 原任务过期不创建新任务。 */ }
+      const revision = sourceRevision;
+      try {
+        const { job } = await api(`/api/house-plan/jobs/${encodeURIComponent(saved.jobId)}`);
+        if (job.status === 'success' && revision === sourceRevision) showResult(job.result, saved.jobId);
+      } catch { /* 原任务过期不创建新任务。 */ }
     }
   }
   update(); try { await loadConfig(); } catch (value) { error(value); }

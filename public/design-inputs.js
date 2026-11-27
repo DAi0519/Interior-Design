@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖room-renovation 的旧房/空房模式判定、房型/家具输入控制器、生图页面区块与当前功能
- * [OUTPUT]: 对外提供各功能的上传顺序与场景提示词说明、主图/风格图输入，以及旧房和空房共用的房型、家具、布局、必填校验和 Agent 配置
+ * [OUTPUT]: 提供上传顺序和提示词说明，并按功能保留补充要求、房型与家具草稿，复用原校验和 Agent 配置
  * [POS]: public 的生成输入布局与空房输入组合层，保持主 app 编排器精简
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -11,12 +11,15 @@ import { bindEmptyRoomFurniture } from "./empty-room-furniture.js";
 
 export function bindDesignInputs({ root, onChange }) {
   const byId = (id) => document.getElementById(id);
+  let featureMode;
+  const prompts = new Map();
   const furniture = bindEmptyRoomFurniture({ root: byId("emptyRoomFurnitureSection"), onChange });
-  const type = bindEmptyRoomType({ root, onChange: (value) => { furniture.setRoomType(value); onChange(); } });
+  const type = bindEmptyRoomType({ root, onChange: (value) => { furniture.setContext(featureMode, value); onChange(); } });
   const parent = root.closest(".control-panel-scroll");
   const originalOrder = [...parent.children];
   const agent = byId("promptAgentSection");
   const prompt = byId("promptInput");
+  const promptCount = byId("promptCount");
   const label = document.querySelector('label[for="promptInput"]');
   const reference = byId("referenceInput").closest("section");
   const styleReference = byId("styleReferenceSection");
@@ -30,7 +33,15 @@ export function bindDesignInputs({ root, onChange }) {
       type.setOptions(types, maxLength);
       furniture.configure(catalog, otherMaxLength);
     },
-    setFeatureMode(featureMode) {
+    setFeatureMode(nextFeatureMode) {
+      if (nextFeatureMode !== featureMode) {
+        if (featureMode) {
+          prompts.set(featureMode, prompt.value);
+          prompt.value = prompts.get(nextFeatureMode) ?? "";
+        }
+        featureMode = nextFeatureMode;
+        promptCount.textContent = `${prompt.value.length} / ${prompt.maxLength}`;
+      }
       const empty = isEmptyRoomDesign(featureMode);
       const renovation = featureMode === "roomRenovation";
       const transfer = featureMode === "styleTransfer";
@@ -51,8 +62,10 @@ export function bindDesignInputs({ root, onChange }) {
           }
         }
       }
-      if (empty) furniture.setRoomType(type.value());
-      else byId("emptyRoomFurnitureSection").classList.add("hidden");
+      if (empty) {
+        type.setScope(featureMode);
+        furniture.setContext(featureMode, type.value());
+      } else byId("emptyRoomFurnitureSection").classList.add("hidden");
       byId("emptyRoomFurnitureTitle").textContent = "确认家具";
       byId("promptTitle").textContent = empty || transfer ? "补充要求（可选）" : "提示词";
       label.textContent = renovation ? "旧房改造补充要求" : transfer ? "风格转换补充要求" : empty ? "空房补充要求" : "图像提示词";

@@ -1,7 +1,7 @@
 /**
  * [INPUT]: 依赖共享 bindSearchableChoice 单选下拉、白模/空房/风格转换设计方式容器、飞书 Style DNA 脱敏目录、独立 Agent 可用性、平台风格临时锁定状态与模式变更回调
- * [OUTPUT]: 对外提供白模/空房/风格转换搜索单选、互斥和无目标阻断；说明位仅显示真实配置错误
- * [POS]: public 的设计风格选择层，复用模型选择器的同宽搜索浮层；风格转换独立保留选择且不提供自动风格，空房遵循原智能默认合同
+ * [OUTPUT]: 提供白模/空房/旧房/风格转换搜索单选、按功能保留风格、互斥和无目标阻断
+ * [POS]: public 的设计风格选择层，复用模型选择器的同宽搜索浮层，风格转换保持无自动风格
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -125,6 +125,7 @@ export function bindWhiteModelRenderMode({
   };
   let platformStyles = { available: true, reason: "" };
   let transfer = { enabled: false, reference: {}, referenceCount: 0 };
+  let activeFeature = "whiteModel";
   let choices = [];
   const selections = new Map();
   const picker = bindSearchableChoice({
@@ -188,9 +189,10 @@ export function bindWhiteModelRenderMode({
     current,
     setDesignContext({ featureMode, platformStyles: nextPlatform, reference = {}, referenceCount = 0 }) {
       const enabled = featureMode === "styleTransfer";
-      if (enabled !== transfer.enabled) {
-        selections.set(transfer.enabled, selection);
-        selection = selections.get(enabled) || { mode: enabled ? null : SMART_DEFAULT_RENDER_MODE, styleCode: null };
+      if (featureMode !== activeFeature) {
+        selections.set(activeFeature, selection);
+        activeFeature = featureMode;
+        selection = selections.get(featureMode) || { mode: enabled ? null : SMART_DEFAULT_RENDER_MODE, styleCode: null };
       }
       transfer = { enabled, reference, referenceCount };
       platformStyles = nextPlatform || { available: true, reason: "" };

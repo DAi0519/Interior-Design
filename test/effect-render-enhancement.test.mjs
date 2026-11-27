@@ -97,7 +97,7 @@ test("工作台提供独立全景图美化入口且不暴露环境覆盖控件",
   assert.doesNotMatch(html, /panoramaTuningPanel|data-panorama-parameter|全景调试参数/);
   assert.doesNotMatch(html, /euler_panorama/);
   assert.doesNotMatch(app, /bindPanoramaTuning|panoramaTuning/);
-  assert.match(app, /configureSizeControls\(\{ preserveResolution: true, ratioMode: "manual" \}\)/);
+  assert.match(app, /state\.ratioMode = elements\.ratioSelect\.value === SOURCE_ASPECT_OPTION \? "auto" : "manual"/);
 });
 
 test("效果图氛围转换只回显最高已上架版本并投影新名称，旧表记录不需改写", async () => {

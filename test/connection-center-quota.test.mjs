@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖连接中心控制器、内存 DOM 替身与可控制的额度响应
- * [OUTPUT]: 验证侧栏刷新、双处额度读数、刷新去重与断开连接后的状态清理
+ * [OUTPUT]: 验证侧栏简写、完整精度提示、原位刷新去重与断开后的状态清理
  * [POS]: test 的额度交互回归，不发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -14,12 +14,14 @@ class TestElement extends EventTarget {
   textContent = "";
   disabled = false;
   hidden = false;
+  focused = false;
   attributes = new Map();
-  classList = { add() {}, remove() {}, toggle() {} };
+  classList = { add() {}, remove() {}, toggle() {}, contains: name => name === "hidden" };
 
   setAttribute(name, value) { this.attributes.set(name, value); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   removeAttribute(name) { this.attributes.delete(name); }
+  matches(selector) { return this.focused && selector.includes(":focus-visible"); }
 }
 
 test("连接弹层与侧栏共享额度，手动刷新保留焦点能力并隔离重复请求", async (t) => {
@@ -33,7 +35,7 @@ test("连接弹层与侧栏共享额度，手动刷新保留焦点能力并隔�
     base: { readable: true }, cli: { installed: true, configured: true },
     user: { loggedIn: true, missingScopes: [] }, ready: true,
   };
-  const document = Object.assign(new EventTarget(), { querySelector: node });
+  const document = Object.assign(new EventTarget(), { querySelector: node, getElementById: id => node(`#${id}`) });
   const globals = { document, window: { location: { href: "http://localhost/" } } };
   for (const [key, value] of Object.entries(globals)) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
@@ -56,10 +58,13 @@ test("连接弹层与侧栏共享额度，手动刷新保留焦点能力并隔�
     onApiStateChange() {}, onApiDisconnected() {}, showToast() {},
   });
   const refresh = node("#apiQuotaRefresh");
-  const assertQuota = (value) => {
+  const assertQuota = (value, { currency = "", exact = value } = {}) => {
     assert.equal(node("#apiQuotaValue").textContent, value);
-    assert.equal(node("#connectionQuotaValue").textContent, value);
-    assert.ok(node("#apiQuotaDetail").textContent.includes(value));
+    assert.equal(node("#apiQuotaCurrency").textContent, currency);
+    assert.equal(node("#apiQuotaCurrency").hidden, !currency);
+    const full = [exact, currency].filter(Boolean).join(" ");
+    assert.equal(node("#connectionQuotaValue").textContent, full);
+    assert.ok(node("#apiQuotaDetail").textContent.includes(full));
   };
 
   await center.load({ autoOpen: false });
@@ -68,10 +73,18 @@ test("连接弹层与侧栏共享额度，手动刷新保留焦点能力并隔�
   assertQuota("读取额度…");
   assert.equal(refresh.getAttribute("aria-disabled"), "true");
   assert.equal(refresh.disabled, false);
-  requests[0].resolve({ remaining: 27.5684, currency: "USD" });
+  requests[0].resolve({ remaining: 27.5684123, currency: "USD" });
   await setImmediate();
-  assertQuota("27.5684 USD");
+  assertQuota("27.57", { currency: "USD", exact: "27.5684123" });
   assert.equal(refresh.getAttribute("aria-disabled"), null);
+  const connection = node("#connectionButton");
+  const detail = node("#apiQuotaDetail");
+  connection.focused = true;
+  const escape = Object.assign(new Event("keydown"), { key: "Escape" });
+  document.dispatchEvent(escape);
+  assert.equal(detail.getAttribute("data-dismissed"), "");
+  connection.dispatchEvent(new Event("focus"));
+  assert.equal(detail.getAttribute("data-dismissed"), null);
 
   refresh.dispatchEvent(new Event("click"));
   refresh.dispatchEvent(new Event("click"));
@@ -85,8 +98,14 @@ test("连接弹层与侧栏共享额度，手动刷新保留焦点能力并隔�
 
   refresh.dispatchEvent(new Event("click"));
   assert.equal(requests.length, 3);
+  requests[2].resolve({ remaining: null, currency: "USD", unlimited: true });
+  await setImmediate();
+  assertQuota("不限额");
+
+  refresh.dispatchEvent(new Event("click"));
+  assert.equal(requests.length, 4);
   node("#disconnectButton").dispatchEvent(new Event("click"));
-  requests[2].resolve({ remaining: 99, currency: "USD" });
+  requests[3].resolve({ remaining: 99, currency: "USD" });
   await setImmediate();
   assert.equal(node("#connectionQuotaRow").hidden, true);
   assert.equal(refresh.hidden, true);

@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖共享工作台外壳、参数栏及移动配置抽屉、真实参数宽度、窄屏操作行和共享视觉令牌
+ * [INPUT]: 依赖共享工作台外壳、导航的表头行高、参数栏和移动抽屉、真实参数宽度与视觉令牌
  * [OUTPUT]: 提供标题、参数字段及底部动作的统一边距、内嵌短线收展及调宽、无标题带画布和窄屏配置抽屉
  * [POS]: public 主工作台主题后的布局覆盖层，仅约束workspace-panel结构，不修改Beta或动态业务控件
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -21,7 +21,6 @@ body:has(.workspace-panel-layout) {
 }
 
 .workspace.workspace-panel-layout {
-  --workspace-header-height: 44px;
   --workspace-parameter-column: var(--workspace-parameter-visible-width, 304px);
   display: grid;
   gap: 0;
@@ -95,7 +94,7 @@ body:has(.workspace-panel-layout) {
   grid-column: 1;
   grid-row: 1;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--workspace-header-height) minmax(0, 1fr) auto;
+  grid-template-rows: var(--workbench-header-height) minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
   min-width: 0;

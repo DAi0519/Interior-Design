@@ -1,9 +1,13 @@
 /**
  * [INPUT]: 依赖三页工作台外壳、侧栏导航及状态入口、原生 dialog、共享颜色令牌与同源 Inter Variable
- * [OUTPUT]: 桌面满视口布局、侧栏分组、双工作台横排全名与当前态、底部额度及版本入口、移动原生抽屉
+ * [OUTPUT]: 桌面满视口布局、和参数表头同高的侧栏品牌行、文字切换条、底部额度及版本入口、移动原生抽屉与键盘焦点
  * [POS]: public 的跨工作台布局与产品导航视觉真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
+
+:root {
+  --workbench-header-height: 44px;
+}
 
 @font-face {
   font-display: swap;
@@ -94,10 +98,13 @@
 
 .product-sidebar-head {
   align-items: center;
+  border-block-end: 1px solid var(--line);
+  box-sizing: border-box;
   display: flex;
-  flex: 0 0 56px;
+  flex: 0 0 var(--workbench-header-height);
   gap: 4px;
   justify-content: space-between;
+  margin-block-end: 12px;
   padding-inline: var(--sidebar-inset);
 }
 
@@ -115,7 +122,6 @@
   font-synthesis: none;
   font-weight: 600;
   line-height: 28px;
-  transform: translateY(0.5px);
   white-space: nowrap;
 }
 
@@ -159,25 +165,25 @@
 }
 
 .product-switcher {
+  background: var(--surface-control, var(--panel-soft));
+  border-radius: 8px;
   display: grid;
   flex: 0 0 auto;
-  gap: 4px;
+  gap: 2px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding-inline: var(--sidebar-inset);
+  margin-inline: var(--sidebar-inset);
+  padding: 2px;
 }
 
 .product-switch-option {
-  flex-direction: column;
-  font-size: 11px;
-  gap: 4px;
   justify-content: center;
   line-height: 1.2;
-  min-height: 44px;
-  position: relative;
+  min-height: 32px;
   white-space: nowrap;
 }
 
 .product-switch-option svg {
+  display: none;
   flex-basis: 16px;
   height: 16px;
   width: 16px;
@@ -273,9 +279,18 @@
 }
 
 .workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-switcher {
+  background: transparent;
   gap: 4px;
   grid-template-columns: minmax(0, 1fr);
-  padding-inline: 3px;
+  padding: 0;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-switch-option {
+  min-height: 44px;
+}
+
+.workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-switch-option svg {
+  display: block;
 }
 
 .workbench-sidebar-collapsed .workbench-shell > .product-sidebar .product-sidebar-footer .sidebar-utility-label {
@@ -340,7 +355,7 @@
   }
 
   .product-switch-option:not([aria-current="page"], :active, :focus-visible):hover {
-    background: var(--surface-control, var(--panel-soft));
+    background: var(--surface-hover, var(--panel-soft));
     color: var(--text, var(--ink));
   }
 
@@ -365,22 +380,12 @@
 }
 
 .product-switch-option[aria-current="page"]:focus-visible {
+  -webkit-text-stroke: 0.5px currentColor;
   outline: none;
 }
 
-.product-switch-option:focus-visible::before {
-  background: currentColor;
-  block-size: 4px;
-  border-radius: 50%;
-  inline-size: 4px;
-  inset-block-start: 4px;
-  inset-inline-end: 4px;
-  pointer-events: none;
-  position: absolute;
-}
-
-.product-switch-option[aria-current="page"]:focus-visible::before {
-  content: "";
+.product-switch-option[aria-current="page"]:focus-visible svg {
+  stroke-width: 2.25;
 }
 
 @media (forced-colors: active) {
@@ -395,10 +400,6 @@
     background: CanvasText;
     color: Canvas;
     forced-color-adjust: none;
-  }
-
-  .product-switch-option:focus-visible::before {
-    content: "";
   }
 }
 
@@ -446,6 +447,10 @@
     flex-basis: 44px;
     height: 44px;
     width: 44px;
+  }
+
+  .product-switch-option {
+    min-height: 44px;
   }
 
   .product-sidebar {

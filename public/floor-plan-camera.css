@@ -27,7 +27,8 @@
 .plan-camera-field-pair .plan-camera-field { margin: 0; }
 .plan-camera-complexities { display: grid; gap: 14px; margin-bottom: 14px; }
 .plan-camera-complexities .plan-camera-field { margin: 0; }
-.plan-camera-batch { line-height: 1.55; }
+.plan-camera-field > .plan-camera-count-label { display: grid; gap: 3px; }
+.plan-camera-batch { font-variant-numeric: tabular-nums; line-height: 1.5; }
 .plan-camera-batch:empty { display: none; }
 .plan-camera-text-button { padding: 4px 0; border: 0; color: var(--muted); font: inherit; font-size: 11px; background: transparent; cursor: pointer; white-space: nowrap; }
 .plan-camera-text-button:hover:not(:disabled) { color: var(--text); }
@@ -257,17 +258,7 @@ button.plan-camera-result-slot { cursor: pointer; }
 .plan-camera-conversation .plan-camera-workspace:has(canvas:focus-visible) .plan-camera-canvas-footer { background: transparent; }
 .plan-camera-conversation .plan-camera-workspace:has(canvas:focus-visible) .plan-camera-compact-hint {
   color: var(--text);
-}
-.plan-camera-conversation .plan-camera-workspace:has(canvas:focus-visible) .plan-camera-compact-hint::after {
-  content: "";
-  display: inline-block;
-  inline-size: 5px;
-  block-size: 5px;
-  margin-inline-start: 6px;
-  border-radius: 50%;
-  vertical-align: .15em;
-  background: currentColor;
-  forced-color-adjust: none;
+  -webkit-text-stroke: .5px currentColor;
 }
 .plan-camera-conversation :is(#drawingHint, .plan-camera-legend) {
   position: absolute;

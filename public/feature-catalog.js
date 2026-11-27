@@ -1,7 +1,7 @@
 /**
- * [INPUT]: 依赖工作台 #featureModeList 的原功能按钮、目录标题与别名、首页对话功能入口、原生搜索 dialog、连接中心及可选同源 iframe
- * [OUTPUT]: 提供分组展开、功能搜索、对话内功能选择事件、输入法与按键连发保护、原生弹窗轻触关闭，以及同源画布快捷键和焦点恢复
- * [POS]: public 的生图工作台功能目录交互层，通过原入口进入生成或保活工作区
+ * [INPUT]: 依赖生图测试或批量侧栏的 #featureModeList、原生搜索与侧栏抽屉、首页对话入口及可选同源 iframe
+ * [OUTPUT]: 提供分组展开及可选的当前项跟随、功能搜索、对话内选择、输入法与按键连发保护、弹窗关闭和焦点恢复
+ * [POS]: public 的共享目录交互层，通过原入口切换功能、画布或批量配置
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
@@ -53,6 +53,7 @@ export function bindFeatureCatalog(root) {
   const directory = root?.getElementById("featureModeList");
   const dialog = root?.getElementById("featureCatalogDialog");
   if (!directory || !dialog) return null;
+  const expandActiveGroup = directory.dataset.expandActiveGroup !== "false";
 
   const input = dialog.querySelector("#featureCatalogQuery");
   const results = dialog.querySelector("#featureCatalogResults");
@@ -146,7 +147,7 @@ export function bindFeatureCatalog(root) {
     const selected = entries.find(({ source }) => source.getAttribute("aria-checked") === "true");
     if (selected?.source !== activeFeature) {
       activeFeature = selected?.source;
-      expand(groups.find(({ buttons }) => buttons.includes(activeFeature)));
+      if (expandActiveGroup) expand(groups.find(({ buttons }) => buttons.includes(activeFeature)));
       if (activeFeature?.getClientRects().length) activeFeature.scrollIntoView({ block: "nearest" });
     }
     for (const { buttons } of groups) {
@@ -164,7 +165,9 @@ export function bindFeatureCatalog(root) {
   }
 
   function show(target, { frames = [], composer = null } = {}) {
-    if (root.querySelector(openOverlaySelector)) return false;
+    const overlay = root.querySelector(openOverlaySelector);
+    if (overlay && (overlay.id !== "productSidebarDialog" || !overlay.contains(target) ||
+      root.querySelectorAll(openOverlaySelector).length > 1)) return false;
     returnFocus = { target, frames, composer };
     input.value = "";
     syncSelection();

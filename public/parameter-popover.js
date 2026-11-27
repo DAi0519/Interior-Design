@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖原生 Popover、原参数节点与触发按钮
- * [OUTPUT]: 按按钮定位并约束在视口内的非模态参数下拉，提供关闭及焦点归还
+ * [OUTPUT]: 底栏上方的可滚动非模态参数下拉，支持原内容暂回参数面板、关闭及焦点归还
  * [POS]: public 的参数下拉定位与键盘交互
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,14 +31,10 @@ export function bindParameterPopover({ trigger, content, beforeOpen = () => {}, 
     const left = Math.max(gutter, Math.min(anchor.left, view.innerWidth - width - gutter));
     content.style.setProperty("--parameter-popover-width", `${width}px`);
     content.style.setProperty("--parameter-popover-left", `${left}px`);
-    content.style.setProperty("--parameter-popover-height", `${view.innerHeight - gutter * 2}px`);
-    const height = content.getBoundingClientRect().height;
-    const below = view.innerHeight - anchor.bottom - gap - gutter;
-    const above = anchor.top - gap - gutter;
-    const upward = height > below && above > below;
-    const space = Math.max(0, upward ? above : below);
+    const space = Math.max(0, anchor.top - gap - gutter);
     content.style.setProperty("--parameter-popover-height", `${space}px`);
-    const top = upward ? anchor.top - gap - Math.min(space, height) : anchor.bottom + gap;
+    const height = content.getBoundingClientRect().height;
+    const top = Math.max(gutter, anchor.top - gap - height);
     content.style.setProperty("--parameter-popover-top", `${top}px`);
   }
   const resizeObserver = new ResizeObserver(position);
@@ -70,6 +66,15 @@ export function bindParameterPopover({ trigger, content, beforeOpen = () => {}, 
     if (isOpen()) content.hidePopover();
     if (focus && trigger.getClientRects().length) trigger.focus({ preventScroll: true });
   }
+  function showInline() {
+    close();
+    content.removeAttribute("popover");
+    content.classList.remove("parameter-popover");
+    return () => {
+      content.setAttribute("popover", "auto");
+      content.classList.add("parameter-popover");
+    };
+  }
   function toggle(event) {
     event.preventDefault();
     if (isOpen()) close();
@@ -81,7 +86,7 @@ export function bindParameterPopover({ trigger, content, beforeOpen = () => {}, 
     track(active);
   }
   function choose(event) {
-    if (closeOnClick(event.target)) queueMicrotask(() => close({ focus: true }));
+    if (isOpen() && closeOnClick(event.target)) queueMicrotask(() => close({ focus: true }));
   }
   function onEscape(event) {
     if (event.key !== "Escape" || event.defaultPrevented || event.isComposing ||
@@ -107,7 +112,7 @@ export function bindParameterPopover({ trigger, content, beforeOpen = () => {}, 
   content.addEventListener("click", choose);
   content.addEventListener("keydown", onEscape, true);
   content.addEventListener("keydown", onKey);
-  return { open, close, destroy() {
+  return { open, close, showInline, destroy() {
     close();
     track(false);
     trigger.removeEventListener("click", toggle);

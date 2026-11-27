@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、共享搜索单选/模型多选与全选/取消纯规则及内存 DOM/Popover 替身
- * [OUTPUT]: 对外提供模型选择、键盘导航、鼠标拖选、触屏、输入法及共享浮层定位和可选最小宽度回归
+ * [OUTPUT]: 对外提供模型选择、键盘导航、鼠标拖选、触屏、输入法及共享浮层固定向上、视口裁剪和可选最小宽度回归
  * [POS]: test 的 Main/Beta 模型与设计风格共享选择测试，不调用网络、真实浏览器或模型
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -466,8 +466,7 @@ test("紧凑触发器可设置菜单最小宽度，宽度仍受视口限制", ()
   view.innerWidth = 360;
   view.getComputedStyle = (node) => ({ getPropertyValue(property) {
     assert.equal(node, ui.trigger);
-    assert.equal(property, "--model-picker-menu-min-width");
-    return minimum;
+    return property === "--model-picker-menu-min-width" ? minimum : "";
   } });
   ui.trigger.rect = { left: 290, top: 100, bottom: 138, width: 70, height: 38 };
   ui.trigger.click();
@@ -482,6 +481,24 @@ test("紧凑触发器可设置菜单最小宽度，宽度仍受视口限制", ()
   view.emit("resize");
   ui.flushFrames();
   assert.equal(ui.panel.style.width, "70px");
+});
+
+test("对话底栏下拉固定向上并限制高度，归还到普通表单后恢复原定位", () => {
+  const ui = fixture();
+  let placement = " top ";
+  ui.doc.defaultView.getComputedStyle = () => ({ getPropertyValue(property) {
+    return property === "--model-picker-placement" ? placement : "";
+  } });
+  ui.panel.rect.height = 250;
+  ui.trigger.rect = { left: 100, top: 100, bottom: 138, width: 260, height: 38 };
+  ui.trigger.click();
+  assert.equal(ui.panel.style.top, "12px");
+  assert.equal(ui.panel.style.maxHeight, "84px");
+  placement = "";
+  ui.doc.emit("scroll");
+  ui.flushFrames();
+  assert.equal(ui.panel.style.top, "142px");
+  assert.equal(ui.panel.style.maxHeight, "330px");
 });
 
 test("共享单选保持空选择占位，不创建全选或数量，使用 radio 语义和自定义文案", () => {
@@ -529,6 +546,20 @@ test("单选合法点击仅提交一个键并关闭归焦，再打开恢复完�
   assert.equal(ui.search.value, "");
   assert.equal(catalog.filter((model) => !ui.row(model.key).hidden).length, catalog.length);
   assert.deepEqual(ui.controller.values(), ["banana21"]);
+});
+
+test("已选控件仅在没有可选替代项时标记固定，搜索不影响判断", () => {
+  const ui = fixture({ single: true, presentOption: model => ({ selectable: model.key !== "flare" }) });
+  const choices = catalog.filter(model => ["flux", "flare", "banana2"].includes(model.key));
+  const fixedChoices = choices.filter(model => model.key !== "banana2");
+  ui.controller.render(fixedChoices, ["flux"]);
+  assert.equal(ui.container.dataset.choiceFixed, "");
+  ui.controller.render(fixedChoices, []);
+  assert.equal(ui.container.dataset.choiceFixed, undefined);
+  ui.controller.render(choices, ["flux"]);
+  ui.search.value = "Flux";
+  ui.search.emit("input");
+  assert.equal(ui.container.dataset.choiceFixed, undefined);
 });
 
 test("单选保留已选禁选项，不自动替换；恢复多个键时只保留首个有效项", () => {

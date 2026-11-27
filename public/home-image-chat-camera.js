@@ -1,15 +1,14 @@
 /**
  * [INPUT]: 依赖对话挂载槽、机位原输入/动作和 floor-plan-camera-presentation 的状态属性
- * [OUTPUT]: 发布机位画布就绪信号，复用原上传、提示词、发送及恢复，输入区上方的提示跟随收展
+ * [OUTPUT]: 发布机位画布就绪信号，复用原上传/移除、提示词与生成，配置刷新归入设置标题
  * [POS]: public 的首页机位对话适配层，生成和校验继续由原机位控制器处理
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
+export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange, onSourceChange }) {
   const doc = root.ownerDocument;
   const view = doc.defaultView;
   const prompts = root.querySelector(".home-image-chat-camera-inputs");
-  const thumbnail = root.querySelector(".home-image-chat-camera-thumbnail");
   const status = root.querySelector("#homeImageChatCameraStatus");
   const attachLabel = root.querySelector(".home-image-chat-attach-label");
   let active = false;
@@ -35,7 +34,6 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
     if (!controls) return;
     for (const { field, marker } of controls.fields) marker.replaceWith(field);
     controls.refreshMarker.replaceWith(controls.refresh);
-    controls.maintenance.remove();
     controls.sourceSection.classList.remove("home-image-chat-camera-origin-upload");
     controls.nativeStatus.removeAttribute("data-home-camera-redundant");
     controls = null;
@@ -44,12 +42,14 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
   function adopt(settings, actions) {
     const source = settings.querySelector("#camera-sourceInput");
     const refresh = actions.querySelector("#camera-refresh");
+    const generationHeading = settings.querySelector("#camera-generationHeading");
     const generate = actions.querySelector("#camera-generate");
     const nativeStatus = actions.querySelector("#camera-status");
-    if (!source || !refresh || !generate || !nativeStatus) return;
+    if (!source || !refresh || !generationHeading || !generate || !nativeStatus) return;
     const sourceSection = source.closest("section");
     const sourceName = settings.querySelector("#camera-sourceName");
     const sourceThumbnail = settings.querySelector("#camera-sourceThumbnail");
+    const sourceRemove = settings.querySelector("#camera-removeSource");
     sourceSection.classList.add("home-image-chat-camera-origin-upload");
     const fields = [...settings.querySelectorAll("#camera-directPromptField, #camera-requirementsField")].map(field => {
       const marker = doc.createComment("机位输入原位置");
@@ -59,11 +59,8 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
     });
     const refreshMarker = doc.createComment("机位刷新原位置");
     refresh.before(refreshMarker);
-    const maintenance = doc.createElement("div");
-    maintenance.className = "home-image-chat-camera-maintenance";
-    settings.append(maintenance);
-    controls = { settings, actions, source, sourceSection, sourceName, sourceThumbnail, refresh, generate,
-      nativeStatus, fields, refreshMarker, maintenance };
+    controls = { settings, actions, source, sourceSection, sourceName, sourceThumbnail, sourceRemove, refresh, generate,
+      nativeStatus, fields, refreshMarker, generationHeading };
     const options = { subtree: true, childList: true, characterData: true, attributes: true,
       attributeFilter: ["data-camera-source", "data-camera-canvas", "data-camera-busy", "data-camera-pending", "data-camera-blocked", "hidden", "disabled", "aria-label", "src"] };
     for (const node of [settings, actions, prompts]) controllerObserver.observe(node, options);
@@ -85,15 +82,16 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
     if (controls) {
       const pending = settings.dataset.cameraPending === "true" && !busy;
       if (pending && controls.refresh.parentNode !== controls.refreshMarker.parentNode) controls.refreshMarker.after(controls.refresh);
-      if (!pending && controls.refresh.parentNode !== controls.maintenance) controls.maintenance.append(controls.refresh);
+      if (!pending && controls.refresh.parentNode !== controls.generationHeading) controls.generationHeading.append(controls.refresh);
     }
     const hasSource = settings?.dataset.cameraSource === "ready";
     const image = hasSource ? controls?.sourceThumbnail?.getAttribute("src") : "";
     const sourceReplaced = mutations.some(({ target, attributeName }) =>
       target === controls?.sourceThumbnail && attributeName === "src");
-    if (image && thumbnail.getAttribute("src") !== image) thumbnail.src = image;
-    if (!image) thumbnail.removeAttribute("src");
-    thumbnail.hidden = !image;
+    onSourceChange({
+      image, label: "平面图", replaceDisabled: controls?.source.disabled,
+      removeDisabled: !controls?.sourceRemove || controls.sourceRemove.disabled,
+    });
     const blocked = settings?.dataset.cameraBlocked || "";
     const needsPlacement = blocked === "请在平面图上放置相机";
     const note = needsPlacement ? "请先放置相机" : blocked;
@@ -128,8 +126,8 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
         restore();
         setChildBody(null);
         delete root.dataset.cameraSource;
-        thumbnail.hidden = status.hidden = true;
-        thumbnail.removeAttribute("src");
+        status.hidden = true;
+        onSourceChange();
       }
     },
     setPanelExpanded(value) {
@@ -138,6 +136,13 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
     },
     textField: () => active ? prompts.querySelector(".plan-camera-field:not([hidden]) textarea") : null,
     attach: () => controls?.source.click(),
+    removeSource() {
+      const remove = controls?.sourceRemove;
+      if (!remove || remove.hidden || remove.disabled) return false;
+      remove.click();
+      sync();
+      return remove.hidden;
+    },
     send: () => controls?.generate.click(),
     upload(files) {
       if (!controls || controls.source.disabled || !files[0]) return;
@@ -148,7 +153,7 @@ export function bindHomeImageCamera(root, slots, { onChange, onCanvasChange }) {
     },
     syncControls(attach, submit) {
       attach.disabled = !controls || controls.source.disabled;
-      const name = thumbnail.hidden ? "" : controls?.sourceName?.textContent;
+      const name = controls?.settings.dataset.cameraSource === "ready" ? controls.sourceName?.textContent : "";
       const label = name ? `${attachLabel.textContent} · ${name}` : attachLabel.textContent;
       attach.title = label;
       attach.setAttribute("aria-label", label);

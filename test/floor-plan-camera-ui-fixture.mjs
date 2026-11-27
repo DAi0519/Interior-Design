@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import * as geometry from '../public/floor-plan-camera-geometry.js';
-import { updateCameraPresentation } from '../public/floor-plan-camera-presentation.js';
+import { bindCameraInputs, presentCameraSource, showCameraVisibility, updateCameraPresentation } from '../public/floor-plan-camera-presentation.js';
 import { toggleModelSelection } from '../public/model-multi-select.js';
 import { publicModelCatalog } from '../src/model-config.mjs';
 const [page, script] = await Promise.all(['html', 'js'].map(extension => readFile(new URL(`../public/floor-plan-camera.${extension}`, import.meta.url), 'utf8')));
@@ -76,7 +76,8 @@ async function fixture({ saved, respond = async () => ({ job: { status: 'failed'
   const body = new Element('body');
   const mounting = [];
   const parent = { createElement: tag => new Element(tag) };
-  const context = vm.createContext({ ...geometry, updateCameraPresentation, atob, cameraVisibility: wallAnalysis.visible ?? (() => null),
+  const context = vm.createContext({ ...geometry, bindCameraInputs, presentCameraSource, showCameraVisibility, updateCameraPresentation,
+    atob, cameraVisibility: wallAnalysis.visible ?? (() => null),
     drawCameraAnnotation: (_context, camera, width, height, visiblePolygon) => {
       drawing.push({ name: 'annotation', args: structuredClone([camera, width, height, visiblePolygon]) });
     },

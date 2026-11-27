@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖原参数区、按钮锚定下拉及共享银灰令牌
- * [OUTPUT]: 提供紧贴触发按钮的非模态浮层、紧凑首页共享下拉和视口内滚动
+ * [OUTPUT]: 提供紧贴触发按钮的非模态浮层、紧凑下拉和视口内滚动，已选项键盘焦点复用原文字
  * [POS]: public 的首页及工作区参数选择样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -53,17 +53,7 @@
 .parameter-popover :is(.room-type-option, .model-option-toggle)[aria-checked="true"]:focus-visible {
   background: var(--brand-key-selected-bg);
   color: var(--brand-key-selected-ink);
-  position: relative;
-}
-
-.parameter-popover :is(.room-type-option, .model-option-toggle)[aria-checked="true"]:focus-visible::after {
-  background: currentColor;
-  block-size: 4px;
-  border-radius: 50%;
-  content: "";
-  inline-size: 4px;
-  inset: 4px 4px auto auto;
-  position: absolute;
+  -webkit-text-stroke: .5px currentColor;
 }
 
 .home-image-chat-inline-parameters .home-image-chat-quick-field {

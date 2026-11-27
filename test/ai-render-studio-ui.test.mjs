@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖AI渲染台完整页面脚本/HTML、真实图片准入规则、共享光影和生图反馈边界及内存DOM/HTTP/存储/时钟替身
+ * [INPUT]: 依赖 AI 渲染台页面脚本和图片准入、共享光影和反馈、带画布节点查找的内存 DOM 与 HTTP/存储/时钟替身
  * [OUTPUT]: 验证九卡身份/风格下拉/按需控光与无标题结果、单次START/只读恢复、生成反馈与一次揭示、同步不重生图及仅归档重试
  * [POS]: test 的AI渲染台用户交互回归，运行实际页面脚本，不访问浏览器、网络、付费模型或飞书
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -40,7 +40,7 @@ async function fixture(respond) {
     }
     set src(value) { this.imageUrl = value; this.srcWrites += 1; }
     get src() { return this.imageUrl; }
-    set innerHTML(value) { parse(value); }
+    set innerHTML(value) { this.children = []; this.append(...parse(value)); }
     append(...nodes) { this.children.push(...nodes); for (const node of nodes) node.parentElement = this; }
     prepend(...nodes) { this.children.unshift(...nodes); for (const node of nodes) node.parentElement = this; }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
@@ -50,6 +50,10 @@ async function fixture(respond) {
       if (!this.queries.has(selector)) this.queries.set(selector, new Node());
       return this.queries.get(selector);
     }
+    querySelectorAll(selector) {
+      if (selector !== "[id]") return [];
+      return this.children.flatMap(child => [...(child.id ? [child] : []), ...child.querySelectorAll(selector)]);
+    }
     addEventListener(name, callback) { this.listeners.set(name, [...(this.listeners.get(name) || []), callback]); }
     async fire(name, values = {}) {
       for (const callback of this.listeners.get(name) || []) await callback({ target: this, preventDefault() {}, ...values });
@@ -57,11 +61,13 @@ async function fixture(respond) {
     focus() {}
   }
   function parse(html) {
+    const nodes = [];
     for (const match of html.matchAll(/<([\w-]+)\b([^>]*)>/g)) {
       const [, tag, attributes] = match, id = attributes.match(/\bid="([^"]+)"/)?.[1];
       const style = attributes.match(/\bdata-render-style="([^"]+)"/)?.[1];
       if (!id && !style) continue;
       const node = new Node(tag); node.hidden = /\bhidden(?:\s|$)/.test(attributes);
+      nodes.push(node);
       node.value = attributes.match(/\bvalue="([^"]+)"/)?.[1] || "";
       if (id) { node.id = id; ids.set(id, node); }
       if (style) { node.dataset.renderStyle = style; styles.push(node); }
@@ -71,6 +77,7 @@ async function fixture(respond) {
       select.options = [...match[2].matchAll(/<option\b[^>]*value="([^"]+)"[^>]*>([^<]*)/g)].map(([, value, label]) => ({ value, textContent: label }));
       select.value = select.options[0]?.value || "";
     }
+    return nodes;
   }
   parse(page);
   const document = { body: new Node("body"), hidden: false, createElement: tag => new Node(tag),

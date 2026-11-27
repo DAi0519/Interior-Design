@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、主工作台入口 HTML、功能目录搜索与事件/DOM 替身
- * [OUTPUT]: 验证多词搜索、原生弹窗共用及首页对话选择分流、键盘与输入法、弹窗轻触关闭、同源画布快捷键和归焦
+ * [OUTPUT]: 验证恢复选中时的分组状态、多词搜索、页面与静态首页对话共用弹窗、键盘与输入法、同源画布快捷键和归焦
  * [POS]: test 的功能查找合同，不加载浏览器或发送请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -32,11 +32,12 @@ test("搜索忽略大小写、全半角及空白，所有搜索词均须匹配",
   assert.equal(matchesFeatureQuery(floorPlanCamera, "不存在"), false);
 });
 
-test("桌面和移动搜索打开同一个原生弹窗，功能入口集中在目录中", async () => {
+test("桌面、移动搜索和首页对话打开同一个原生弹窗，功能入口集中在目录中", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const openers = html.match(/<button\b[^>]*\bdata-feature-catalog-open(?=[\s=>])[^>]*>/g) || [];
 
-  assert.equal(openers.length, 2);
+  assert.equal(openers.length, 3);
+  assert.equal(openers.filter(opener => /\bdata-feature-catalog-composer\b/.test(opener)).length, 1);
   for (const opener of openers) {
     assert.match(opener, /\baria-haspopup="dialog"/);
     assert.match(opener, /\baria-controls="featureCatalogDialog"/);
@@ -101,7 +102,7 @@ function mockDocument() {
   return document;
 }
 
-function catalogFixture() {
+function catalogFixture({ expandActiveGroup = true } = {}) {
   const root = mockDocument();
   const directory = mockNode(root), dialog = mockNode(root), group = mockNode(root), toggle = mockNode(root);
   const trigger = mockNode(root), close = mockNode(root), input = mockNode(root), results = mockNode(root);
@@ -111,6 +112,9 @@ function catalogFixture() {
   }));
   toggle.textContent = "AI渲染";
   toggle.setAttribute("aria-controls", "renderModes");
+  toggle.setAttribute("aria-expanded", "false");
+  directory.dataset.expandActiveGroup = String(expandActiveGroup);
+  group.hidden = true;
   buttons[0].setAttribute("aria-checked", "true");
   directory.querySelectorAll = () => [toggle];
   group.querySelectorAll = () => buttons;
@@ -129,8 +133,23 @@ function catalogFixture() {
   dialog.close = () => { dialog.open = false; };
   dialog.getBoundingClientRect = () => ({ left: 100, top: 100, right: 500, bottom: 400 });
   bindFeatureCatalog(root);
-  return { root, directory, dialog, input, group, buttons, trigger, results };
+  return { root, directory, dialog, input, group, buttons, trigger, results, toggle };
 }
+
+test("批量恢复当前任务时分组保持折叠，仍可手动展开和按搜索结果定位", () => {
+  const { group, buttons, toggle, trigger, results } = catalogFixture({ expandActiveGroup: false });
+  assert.equal(group.hidden, true);
+  assert.equal(toggle.getAttribute("aria-expanded"), "false");
+  assert.equal(buttons[0].getAttribute("aria-checked"), "true");
+
+  toggle.click();
+  assert.equal(group.hidden, false);
+  toggle.click();
+  trigger.click();
+  assert.equal(group.hidden, true);
+  results.children[0].children[0].click();
+  assert.equal(group.hidden, false);
+});
 
 test("连接中心打开时保留快捷键原行为，关闭后可以搜索", () => {
   const { root, dialog, input, trigger } = catalogFixture();

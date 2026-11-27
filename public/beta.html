@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖共享工作台侧栏/满视口网格、beta-layout.js 的监控面板挂载，以及批量配置、共享单多选及脱敏目录
-  [OUTPUT]: 提供侧栏可搜索任务入口、从样本集开始的配置和 START/RETRY、独立任务监控及生成/同步双进度；承载自由生图整批提示词、多角度整批机位、户型标注和机位推理/直出等批量参数
+  [INPUT]: 依赖共享工作台侧栏和功能目录、beta-layout.js 的监控侧栏与抽屉，以及原样本和批量配置
+  [OUTPUT]: 提供分组任务目录和查找、选任务后的配置和 START、原页连接中心与桌面常驻分阶段监控，失败时在预警下方提供恢复操作
   [POS]: public 的独立批量跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,19 +12,21 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · 批量跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=33" />
+    <link rel="stylesheet" href="/beta.css?v=41" />
     <link rel="stylesheet" href="/beta-house-plan.css?v=3" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
     <link rel="stylesheet" href="/effect-beautification.css?v=3" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
     <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
     <link rel="stylesheet" href="/generation-actions.css?v=17" />
-    <link rel="stylesheet" href="/custom-select.css?v=13" />
-    <link rel="stylesheet" href="/product-navigation.css?v=26" />
+    <link rel="stylesheet" href="/custom-select.css?v=14" />
+    <link rel="stylesheet" href="/product-navigation.css?v=30" />
+    <link rel="stylesheet" href="/feature-directory.css?v=12" />
     <link rel="stylesheet" href="/app-update.css?v=4" />
+    <link rel="stylesheet" href="/connection-center.css?v=19" />
     <link rel="stylesheet" href="/panel-copy.css?v=2" />
     <link rel="stylesheet" href="/raycast-accent.css?v=44" />
-    <script src="/product-navigation.js?v=13"></script>
+    <script src="/product-navigation.js?v=14"></script>
   </head>
   <body>
     <div class="app-shell workbench-shell">
@@ -34,21 +36,52 @@
           <button id="productSidebarToggle" class="product-sidebar-toggle" type="button" aria-label="折叠侧栏" title="折叠侧栏" aria-expanded="true" aria-controls="productSidebar"><svg aria-hidden="true"><use href="/icons/workbench.svg#sidebar"></use></svg></button>
         </div>
         <nav id="productSwitcher" class="product-switcher" aria-label="工作台切换">
-          <a class="product-switch-option" href="/" aria-label="功能搭建" title="功能搭建"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">功能搭建</span></a>
+          <a class="product-switch-option" href="/" aria-label="生图测试" title="生图测试"><svg aria-hidden="true"><use href="/icons/workbench.svg#image"></use></svg><span class="product-switch-label">生图测试</span></a>
           <a class="product-switch-option" href="/beta.html" aria-label="批量跑图" title="批量跑图" aria-current="page"><svg aria-hidden="true"><use href="/icons/workbench.svg#batch"></use></svg><span class="product-switch-label">批量跑图</span></a>
         </nav>
-        <div class="beta-sidebar-task">
-          <span class="beta-sidebar-task-label" aria-hidden="true">选择任务</span>
-          <div class="beta-sidebar-task-picker">
-            <select id="betaFeatureSelect" aria-label="选择任务" data-searchable="true" data-search-placeholder="搜索任务名称"></select>
-            <svg class="beta-sidebar-task-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5h8M8 10h8M8 15h8M4 5h.01M4 10h.01M4 15h.01"/></svg>
-          </div>
+        <div class="product-sidebar-search">
+          <button class="feature-catalog-trigger" data-feature-catalog-open type="button" aria-label="查找任务" title="查找任务" aria-haspopup="dialog" aria-controls="featureCatalogDialog" aria-keyshortcuts="Meta+K Control+K">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>
+            <span class="feature-catalog-trigger-label">查找任务</span>
+          </button>
         </div>
+        <nav id="featureModeList" class="feature-directory" aria-label="批量任务" data-expand-active-group="false">
+          <section class="feature-directory-group" aria-labelledby="batchDesignTitle">
+            <h2><button id="batchDesignTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="batchDesignTasks">AI设计</button></h2>
+            <div id="batchDesignTasks" class="feature-directory-items" role="radiogroup" aria-labelledby="batchDesignTitle" data-beta-task-modes="housePlanLayout emptyRoom roomRenovation styleTransfer" hidden></div>
+          </section>
+          <section class="feature-directory-group" aria-labelledby="batchRenderTitle">
+            <h2><button id="batchRenderTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="batchRenderTasks">AI渲染</button></h2>
+            <div id="batchRenderTasks" class="feature-directory-items" role="radiogroup" aria-labelledby="batchRenderTitle" data-beta-task-modes="floorPlanCamera whiteModel refinedModel effectBeautification effectEnhancement panoramaEnhancement textureEnhancement" hidden></div>
+          </section>
+          <section class="feature-directory-group" aria-labelledby="batchEditTitle">
+            <h2><button id="batchEditTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="batchEditTasks">AI编辑</button></h2>
+            <div id="batchEditTasks" class="feature-directory-items" role="radiogroup" aria-labelledby="batchEditTitle" data-beta-task-modes="imageUpscale imageOutpaint imageMultiAngle" hidden></div>
+          </section>
+          <section class="feature-directory-group" aria-labelledby="batchCreationTitle">
+            <h2><button id="batchCreationTitle" type="button" data-feature-group-toggle aria-expanded="false" aria-controls="batchCreationTasks">AI创作</button></h2>
+            <div id="batchCreationTasks" class="feature-directory-items" role="radiogroup" aria-labelledby="batchCreationTitle" data-beta-task-modes="free" hidden></div>
+          </section>
+        </nav>
         <footer class="product-sidebar-footer" aria-label="工作台状态">
-          <span id="betaConnectionStatus" class="status-pill product-status" aria-live="polite">读取中</span>
           <button class="app-update-trigger sidebar-version" data-app-update type="button" aria-label="检查 Canvas Lab 更新">
             <span class="sidebar-version-label" data-app-update-label>检查更新</span>
           </button>
+          <div class="connection-control">
+            <button id="connectionButton" class="connection-button product-status" type="button"
+              aria-haspopup="dialog" aria-describedby="apiQuotaDetail" aria-label="打开连接中心">
+              <svg class="sidebar-utility-icon" aria-hidden="true"><use href="/icons/workbench.svg#connection"></use></svg>
+              <span class="sidebar-utility-label sidebar-quota-label">
+                <span id="apiQuotaValue">连接中心</span>
+                <span id="apiQuotaCurrency" hidden></span>
+              </span>
+            </button>
+            <button id="apiQuotaRefresh" class="config-refresh-button" type="button"
+              aria-label="刷新 OneAPI 额度" title="刷新 OneAPI 额度" aria-disabled="true" hidden>
+              <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+            </button>
+            <span id="apiQuotaDetail" class="sidebar-quota-detail" role="status" aria-atomic="true"></span>
+          </div>
         </footer>
       </aside>
       <header class="topbar">
@@ -56,17 +89,17 @@
           <button id="productSidebarOpen" class="product-sidebar-open" type="button" aria-label="打开侧栏" aria-haspopup="dialog" aria-expanded="false" aria-controls="productSidebarDialog"><svg aria-hidden="true"><use href="/icons/workbench.svg#menu"></use></svg></button>
           <span class="workbench-topbar-title">批量跑图</span>
         </div>
+        <button id="betaMonitorOpen" class="quiet-button beta-monitor-open" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="betaMonitorDialog" aria-describedby="jobStatus monitorWarningsCount">
+          <svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg>任务监控
+          <span class="beta-monitor-alert">有异常</span>
+        </button>
       </header>
 
       <main class="beta-shell">
         <h1 class="visually-hidden">批量跑图</h1>
         <div class="beta-grid">
-          <div class="beta-monitor-launch">
-            <button id="betaMonitorOpen" class="quiet-button beta-monitor-open" type="button" aria-haspopup="dialog" aria-controls="betaMonitorDialog" aria-describedby="jobStatus">
-              <svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg>任务监控
-            </button>
-          </div>
-          <form id="betaForm" class="beta-card beta-config-card">
+          <p id="betaEmpty" class="beta-empty" role="status">从侧栏选择任务</p>
+          <form id="betaForm" class="beta-card beta-config-card" hidden>
             <div class="beta-config-scroll">
             <section class="beta-section">
               <div class="section-heading">
@@ -238,13 +271,14 @@
             </section>
             </div>
 
-            <div class="run-bar">
+            <div id="betaRunBar" class="run-bar">
+              <p id="betaConnectionStatus" class="beta-connection-note" role="status" hidden></p>
               <div class="run-meta">
                 <div><strong id="runSummary">请选择样本集</strong></div>
-                <div class="run-meta-actions"><span id="runHint">结果自动同步飞书</span><button id="newBatchButton" class="quiet-button new-batch-button hidden" type="button">新批次</button></div>
+                <div id="betaRunMetaActions" class="run-meta-actions"><span id="runHint">结果自动同步飞书</span><button id="newBatchButton" class="quiet-button new-batch-button hidden" type="button">新批次</button></div>
               </div>
               <div id="betaGenerationActions" class="generation-actions">
-                <button id="runButton" class="generate-button functional-accent-button" type="submit" aria-label="开始批量运行" aria-busy="false">
+                <button id="runButton" class="generate-button functional-accent-button" type="submit" form="betaForm" aria-label="开始批量运行" aria-busy="false">
                   <span class="button-label"><span id="runButtonLabel">START</span></span>
                 </button>
               </div>
@@ -253,10 +287,7 @@
 
           <aside class="beta-card beta-monitor-card" aria-labelledby="jobMonitorTitle">
             <div class="monitor-heading">
-              <div>
-                <h2 id="jobMonitorTitle">任务监控</h2>
-                <p>生成与飞书同步</p>
-              </div>
+              <h2 id="jobMonitorTitle" tabindex="-1">任务监控</h2>
               <div class="monitor-heading-actions">
                 <span id="jobStatus" class="job-status" data-state="idle" role="status" aria-live="polite">待运行</span>
                 <button id="betaMonitorClose" class="quiet-button beta-monitor-close" type="button" aria-label="关闭任务监控" autofocus>
@@ -265,56 +296,67 @@
               </div>
             </div>
 
-            <div class="monitor-batch">
-              <span>当前批次</span>
-              <strong id="monitorBatchSummary">尚未开始</strong>
+            <div class="beta-monitor-details">
+              <div id="jobProgress" class="job-progress" aria-live="polite" hidden>
+                <div class="monitor-batch">
+                  <span>当前批次</span>
+                  <strong id="monitorBatchSummary"></strong>
+                </div>
+                <div class="job-progress-row">
+                  <div class="progress-copy">
+                    <span>生成进度</span>
+                    <strong id="generationProgressCount">0 / 0</strong>
+                  </div>
+                  <div id="generationProgressTrack" class="progress-track generation-progress-track" role="progressbar" aria-label="生成进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+                    <span id="generationProgressBar"></span>
+                  </div>
+                </div>
+                <div class="job-progress-row">
+                  <div class="progress-copy">
+                    <span>飞书同步</span>
+                    <strong id="jobProgressCount">0 / 0</strong>
+                  </div>
+                  <div id="jobProgressTrack" class="progress-track sync-progress-track" role="progressbar" aria-label="飞书同步进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+                    <span id="jobProgressBar"></span>
+                  </div>
+                </div>
+                <p id="jobProgressLabel" class="monitor-message" hidden></p>
+              </div>
+
+              <section id="monitorWarningsSection" class="monitor-warnings" aria-labelledby="monitorWarningsTitle" hidden>
+                <div class="monitor-warnings-heading">
+                  <h3 id="monitorWarningsTitle">异常</h3>
+                  <small id="monitorWarningsCount"></small>
+                </div>
+                <div id="monitorWarnings" class="monitor-warnings-list" aria-live="polite"></div>
+                <div id="monitorRetryActions" class="monitor-retry-actions" hidden></div>
+                <button id="monitorRefresh" class="quiet-button monitor-refresh" type="button" hidden>重新读取进度</button>
+              </section>
+
+              <a id="monitorBaseLink" class="quiet-button monitor-base-button" href="https://lq9n5lvfn2i.feishu.cn/base/ORwJbt5EYauNORsrhqJcpetLnEb" target="_blank" rel="noreferrer">在飞书查看结果</a>
             </div>
-
-            <div id="jobProgress" class="job-progress" aria-live="polite">
-              <div class="job-progress-row">
-                <div class="progress-copy">
-                  <span>生成进度</span>
-                  <strong id="generationProgressCount">0 / 0</strong>
-                </div>
-                <div id="generationProgressTrack" class="progress-track generation-progress-track" role="progressbar" aria-label="生成进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
-                  <span id="generationProgressBar"></span>
-                </div>
-              </div>
-              <div class="job-progress-row">
-                <div class="progress-copy">
-                  <span>飞书同步</span>
-                  <strong id="jobProgressCount">0 / 0</strong>
-                </div>
-                <div id="jobProgressTrack" class="progress-track sync-progress-track" role="progressbar" aria-label="飞书同步进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
-                  <span id="jobProgressBar"></span>
-                </div>
-              </div>
-            </div>
-
-            <div class="monitor-message">
-              <span>当前状态</span>
-              <p id="jobProgressLabel">运行后，这里会持续显示生成与同步进度。</p>
-            </div>
-
-            <section class="monitor-warnings" aria-labelledby="monitorWarningsTitle">
-              <div class="monitor-warnings-heading">
-                <span id="monitorWarningsTitle">异常预警</span>
-                <small id="monitorWarningsCount">暂无异常</small>
-              </div>
-              <div id="monitorWarnings" class="monitor-warnings-list" aria-live="polite">
-                <p class="monitor-warnings-empty">生成失败、同步失败等问题将在这里提示。</p>
-              </div>
-            </section>
-
-            <a id="monitorBaseLink" class="quiet-button monitor-base-button" href="https://lq9n5lvfn2i.feishu.cn/base/ORwJbt5EYauNORsrhqJcpetLnEb" target="_blank" rel="noreferrer">在飞书查看结果</a>
           </aside>
         </div>
       </main>
     </div>
 
     <script type="module" src="/app-update.js?v=5"></script>
-    <script type="module" src="/beta-app.js?v=60"></script>
-    <script type="module" src="/beta-layout.js"></script>
+    <script type="module" src="/beta-app.js?v=66"></script>
+    <script type="module" src="/feature-catalog.js?v=10"></script>
+    <dialog id="featureCatalogDialog" class="feature-catalog-dialog" aria-labelledby="featureCatalogTitle">
+      <header class="feature-catalog-header">
+        <h2 id="featureCatalogTitle">查找任务</h2>
+        <button class="feature-catalog-close" type="button" data-feature-catalog-close aria-label="关闭查找任务"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg></button>
+      </header>
+      <div class="feature-catalog-field">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>
+        <input id="featureCatalogQuery" type="search" aria-label="搜索任务名称" placeholder="搜索任务名称" autocomplete="off" autofocus />
+      </div>
+      <p id="featureCatalogStatus" role="status" class="visually-hidden"></p>
+      <ul id="featureCatalogResults" class="feature-catalog-results" aria-label="批量任务列表"></ul>
+      <p id="featureCatalogEmpty" class="feature-catalog-empty" hidden>没有匹配的任务</p>
+    </dialog>
+    <script type="module" src="/beta-layout.js?v=4"></script>
     <dialog id="betaMonitorDialog" class="beta-monitor-dialog" aria-labelledby="jobMonitorTitle"></dialog>
     <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
       <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>

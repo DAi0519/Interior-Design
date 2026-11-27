@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖共享刷新和画布图标、视图切换与生成动效样式、floor-plan-camera.css 的嵌入画布、工作台共享上传、模型多选与下拉适配、独立平面相机控制器
-[OUTPUT]: 提供可挂载的机位参数和START、首页可复用的上传与文案输入、分组的相机与取景控件、实时机位标注、矩形裁剪与送模预览、空间推理/直出、生成状态与逐图归档下载
+[OUTPUT]: 提供可挂载的机位参数和START、首页可复用的原图上传与删除、相机与取景控件、送模预览、空间推理/直出及逐图归档下载
 [POS]: public 的AI渲染平面图相机独立页面，可嵌入同源工作台并保活
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -10,10 +10,10 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/styles.css?v=13" /><link rel="stylesheet" href="/theme.css?v=38" />
-  <link rel="stylesheet" href="/custom-select.css?v=13" /><link rel="stylesheet" href="/generation-actions.css?v=17" />
+  <link rel="stylesheet" href="/custom-select.css?v=14" /><link rel="stylesheet" href="/generation-actions.css?v=17" />
   <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
   <link rel="stylesheet" href="/generation-feedback.css?v=3" />
-  <link rel="stylesheet" href="/canvas-view-controls.css?v=3" /><link rel="stylesheet" href="/floor-plan-camera.css?v=31" /><link rel="stylesheet" href="/raycast-accent.css?v=44" />
+  <link rel="stylesheet" href="/canvas-view-controls.css?v=4" /><link rel="stylesheet" href="/floor-plan-camera.css?v=33" /><link rel="stylesheet" href="/raycast-accent.css?v=44" />
   <title>Canvas Lab · 平面图机位渲染</title>
 </head>
 <body class="plan-camera-page">
@@ -33,9 +33,10 @@
           <span id="camera-sourceName" class="reference-upload-label">添加或拖入平面图</span>
           <small id="camera-sourceHint">PNG / JPEG / WebP · 单张 8MB</small>
         </div>
+        <button id="camera-removeSource" class="plan-camera-text-button" type="button" aria-label="删除平面原图" hidden>删除原图</button>
       </section>
       <section class="plan-camera-section">
-        <div class="plan-camera-heading"><h2>生成设置</h2></div>
+        <div class="plan-camera-heading" id="camera-generationHeading"><h2>生成设置</h2></div>
         <label class="plan-camera-field" for="camera-generationMode"><span>生成模式</span><select id="camera-generationMode" aria-label="生成模式" disabled><option value="agent" selected>空间推理</option><option value="direct" disabled>提示词直出</option></select></label>
         <label id="camera-directPromptField" class="plan-camera-field" for="camera-directPrompt" hidden><span>直出提示词 <small>必填</small></span><textarea id="camera-directPrompt" maxlength="4000" rows="5" placeholder="填写直接发送给生图模型的提示词。" required disabled></textarea></label>
         <label id="camera-agentModelField" class="plan-camera-field" for="camera-agentModel"><span>空间推理模型</span><select id="camera-agentModel" aria-label="空间推理模型" disabled><option value="">读取中…</option></select></label>
@@ -48,7 +49,13 @@
           <label class="plan-camera-field" for="camera-resolution"><span>分辨率</span><select id="camera-resolution"><option>1K</option><option selected>2K</option><option>4K</option></select></label>
           <label class="plan-camera-field" for="camera-aspectRatio"><span>画幅</span><select id="camera-aspectRatio"><option>16:9</option><option>4:3</option><option>1:1</option></select></label>
         </div>
-        <label class="plan-camera-field" for="camera-imageCount"><span>出图张数 <small>每个模型</small></span><select id="camera-imageCount" aria-describedby="camera-batchTotal" disabled><option value="1">1 张</option></select><small id="camera-batchTotal" class="plan-camera-batch"></small></label>
+        <label class="plan-camera-field" for="camera-imageCount">
+          <span class="plan-camera-count-label">
+            <span>出图张数 <small>每个模型</small></span>
+            <small id="camera-batchTotal" class="plan-camera-batch"></small>
+          </span>
+          <select id="camera-imageCount" aria-label="每个模型的出图张数" aria-describedby="camera-batchTotal" disabled><option value="1">1 张</option></select>
+        </label>
         <label id="camera-requirementsField" class="plan-camera-field" for="camera-requirements"><span>空间与风格 <small>可选</small></span><textarea id="camera-requirements" maxlength="4000" rows="4" placeholder="例如：客餐厅，温润原木与浅色石材，自然日光，建筑杂志摄影质感。"></textarea></label>
       </section>
     </div>
@@ -57,7 +64,7 @@
         <span id="camera-status" role="status" aria-live="polite" hidden></span>
         <button id="camera-refresh" class="config-refresh-button" type="button" aria-label="刷新机位渲染配置">
           <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
-          <span id="camera-refreshLabel">刷新</span>
+          <span id="camera-refreshLabel">刷新配置</span>
         </button>
       </div>
       <p id="camera-error" class="plan-camera-error" role="alert" hidden></p>
@@ -131,5 +138,5 @@
     </footer>
   </section>
 </main>
-<script type="module" src="/floor-plan-camera.js?v=41"></script>
+<script type="module" src="/floor-plan-camera.js?v=43"></script>
 </body></html>

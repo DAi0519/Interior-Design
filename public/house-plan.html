@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖共享刷新和画布图标、工作台主题与画布切换及生成动效样式、house-plan.css 的嵌入画布、二次编辑表单/画布工具栏及独立户型布局控制器
-[OUTPUT]: 提供左侧上传/生成设置/常显Agent版本与基模/START、右侧紧凑图标切换/底部空间框选、生成状态、结果下载及飞书归档
+[OUTPUT]: 提供上传与移除户型原图、生成设置、Agent 版本与基模、空间框选、成图和飞书归档
 [POS]: public 的户型平面布局独立入口，沿用二次编辑操作分区
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -10,10 +10,10 @@
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/styles.css?v=12" /><link rel="stylesheet" href="/theme.css?v=38" />
-  <link rel="stylesheet" href="/custom-select.css?v=13" /><link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-  <link rel="stylesheet" href="/canvas-view-controls.css?v=3" /><link rel="stylesheet" href="/image-mask-fill.css?v=2" />
+  <link rel="stylesheet" href="/custom-select.css?v=14" /><link rel="stylesheet" href="/config-refresh-button.css?v=2" />
+  <link rel="stylesheet" href="/canvas-view-controls.css?v=4" /><link rel="stylesheet" href="/image-mask-fill.css?v=2" />
   <link rel="stylesheet" href="/generation-feedback.css?v=3" />
-  <link rel="stylesheet" href="/generation-actions.css?v=17" /><link rel="stylesheet" href="/house-plan.css?v=10" /><link rel="stylesheet" href="/raycast-accent.css?v=44" /><title>Canvas Lab · 户型平面布局</title>
+  <link rel="stylesheet" href="/generation-actions.css?v=17" /><link rel="stylesheet" href="/house-plan.css?v=11" /><link rel="stylesheet" href="/raycast-accent.css?v=44" /><title>Canvas Lab · 户型平面布局</title>
 </head>
 <body class="house-plan-page">
 <main class="house-plan-shell" aria-label="户型平面布局">
@@ -21,7 +21,12 @@
     <header class="house-plan-panel-header">参数配置</header>
     <div class="house-plan-settings-scroll">
       <section class="house-plan-upload-section">
-        <div class="section-heading"><h2>户型原图 <span class="optional">必填 · 1张</span></h2><span id="sourceCount" class="reference-count">0 / 1</span></div>
+        <div class="section-heading"><h2>户型原图 <span class="optional">必填 · 1张</span></h2>
+          <div class="section-heading-actions">
+            <span id="sourceCount" class="reference-count">0 / 1</span>
+            <button id="housePlanRemoveSource" class="reference-remove" type="button" aria-label="移除户型原图" title="移除户型原图" hidden>×</button>
+          </div>
+        </div>
         <button id="upload" class="house-plan-upload" type="button">
           <svg id="uploadIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5M5 14v6h14v-6"/></svg>
           <img id="sourceThumbnail" alt="户型原图缩略图" hidden />
@@ -92,5 +97,5 @@
   </section>
 </main>
 <input id="sourceInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
-<script type="module" src="/house-plan.js?v=15"></script>
+<script type="module" src="/house-plan.js?v=17"></script>
 </body></html>

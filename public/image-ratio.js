@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖浏览器 Image 解码能力，接收图片 data URL、文件名与模型合法比例矩阵
- * [OUTPUT]: 对外提供 readImageDimensions、sourceAspectLabel 与 nearestSupportedRatio
+ * [OUTPUT]: 对外提供浏览器图片解码、尺寸读取、画幅标签与最接近的模型画幅
  * [POS]: public 的无状态画幅适配工具，供生成控制器完成上传预览与最近合法比例选择
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -38,15 +38,18 @@ export function nearestSupportedRatio(model, image) {
   model.defaultRatio);
 }
 
-export function readImageDimensions(dataUrl, fileName) {
+export function loadImage(dataUrl, fileName) {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.addEventListener("load", () => {
-      resolve({ height: image.naturalHeight, width: image.naturalWidth });
-    });
+    image.addEventListener("load", () => resolve(image));
     image.addEventListener("error", () => {
       reject(new Error(`无法读取 ${fileName} 的图片尺寸`));
     });
     image.src = dataUrl;
   });
+}
+
+export async function readImageDimensions(dataUrl, fileName) {
+  const image = await loadImage(dataUrl, fileName);
+  return { height: image.naturalHeight, width: image.naturalWidth };
 }

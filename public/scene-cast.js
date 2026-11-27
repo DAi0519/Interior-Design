@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享下拉、人物宠物特征/位置动作目录、角色参考图上传、生图反馈、同源结果与异步任务 API
- * [OUTPUT]: 提供共享参数栏挂载、角色表单与双参考图、单图槽计数、真实生成状态、同ID恢复及新图揭示和画布内结果操作
+ * [OUTPUT]: 提供共享参数挂载、场景图上传与删除、选择性重置场景结果、逐角色设置与参考图及任务恢复
  * [POS]: public 的人物宠物合成控制器；原渲染参数、配角参考及草稿保留在独立工作区
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -92,6 +92,16 @@ function remember(jobId) {
   } catch { /* 私密窗口仍可在当前页面跟随任务。 */ }
 }
 
+function resetSourceResult(sourceRender = null) {
+  clearTimeout(state.pollTimer);
+  state.sourceRender = sourceRender;
+  state.result = null;
+  state.comparing = false;
+  state.waitingForCheck = false;
+  remember(null);
+  alertAt("castJobError");
+}
+
 function updateUpload(kind) {
   const prefix = UPLOAD_PREFIXES[kind];
   const image = state[kind], thumb = by(`${prefix}Thumb`), button = by(`${prefix}Upload`);
@@ -99,16 +109,17 @@ function updateUpload(kind) {
   if (image) thumb.src = image.dataUrl;
   else thumb.removeAttribute("src");
   button.querySelector("svg").toggleAttribute("hidden", Boolean(image));
-  const label = kind === "source" ? "场景图" : `${REFERENCE_LABELS[kind]}参考图`;
-  button.querySelector(".reference-upload-label").textContent = image?.name || `添加或拖入${label}`;
-  by(`${prefix}Count`).textContent = image ? "1 / 1" : "0 / 1";
+  const label = kind === "source" ? "添加场景图" : `添加或拖入${REFERENCE_LABELS[kind]}参考图`;
+  button.querySelector(".reference-upload-label").textContent = image?.name || label;
   button.title = image ? `${image.name} · 点击或拖入新图替换` : "";
+  by(`${prefix}Remove`).hidden = !image;
   if (kind === "source") {
+    button.setAttribute("aria-label", image ? `更换场景图，当前 ${image.name}` : "添加场景图，必填");
     by("castSourceDetails").hidden = !state.sourceRender;
     by("castSourceDetails").open = false;
     parameterRows(by("castSourceParams"), SOURCE_LABELS, state.sourceRender);
   } else {
-    by(`${prefix}Remove`).hidden = !image;
+    by(`${prefix}Count`).textContent = image ? "1 / 1" : "0 / 1";
   }
 }
 
@@ -142,11 +153,7 @@ async function acceptImage(kind, readFile, sourceRender = null) {
     if (seq !== state.sequence[kind]) return;
     state[kind] = { ...input, ...size };
     if (kind === "source") {
-      state.sourceRender = sourceRender ? { ...sourceRender, width: size.width, height: size.height } : null;
-      state.result = null;
-      state.comparing = false;
-      remember(null);
-      alertAt("castJobError");
+      resetSourceResult(sourceRender ? { ...sourceRender, width: size.width, height: size.height } : null);
     }
     updateUpload(kind);
     renderPreview();
@@ -177,10 +184,20 @@ function bindUpload(kind) {
     const file = event.dataTransfer?.files?.[0];
     if (file) void acceptImage(kind, () => file);
   });
-  by(`${prefix}Remove`)?.addEventListener("click", () => {
-    if (state.running) return;
+  by(`${prefix}Remove`).addEventListener("click", () => {
+    if (state.running || !state[kind]) return;
     state.sequence[kind] += 1; state.pending.delete(kind);
-    state[kind] = null; alertAt(`${prefix}Error`); updateUpload(kind); render();
+    state[kind] = null;
+    if (kind === "source") {
+      state.pendingImport = null;
+      button.classList.remove("dragging");
+      resetSourceResult();
+      renderPreview();
+    }
+    alertAt(`${prefix}Error`);
+    updateUpload(kind);
+    render();
+    button.focus({ preventScroll: true });
   });
 }
 
@@ -226,6 +243,7 @@ const customInput = select => select.closest(".scene-cast-choice")?.querySelecto
 const presetValue = select => select.value === CUSTOM ? customInput(select)?.value.trim() || "" : select.value;
 
 function showCustom(select) {
+  select.closest(".scene-cast-choice")?.toggleAttribute("data-choice-auto", !select.value);
   const input = customInput(select);
   if (input) input.hidden = select.value !== CUSTOM;
 }
@@ -250,12 +268,13 @@ function updateBreeds(entry) {
 
 function updateVisibility() {
   const [people, pets] = castCounts();
+  by("castEmptyRoles").hidden = people + pets > 0;
   for (const [role, count, assignment] of [["source", 1, ""], ["person", people, "第 1 位人物"], ["pet", pets, "第 1 只宠物"]]) {
     const prefix = UPLOAD_PREFIXES[role], image = state[role];
     const caption = by(`${prefix}Upload`).querySelector("small");
     const slot = by(`${prefix}Slot`);
     if (slot) slot.hidden = !count;
-    const details = image ? imageCaption(image) : uploadLimitCaption();
+    const details = !image ? uploadLimitCaption() : role === "source" ? "点击或拖入更换" : imageCaption(image);
     caption.textContent = count > 1 ? `${details} · 用于${assignment}` : details;
   }
   by("castInteractionField").hidden = people + pets < 1;
@@ -265,26 +284,59 @@ function updateVisibility() {
 function updateCharacters() {
   const [people, pets] = castCounts();
   const groups = [
-    { container: "castPeople", template: "castPersonTemplate", count: people, label: index => `人物 ${index}` },
-    { container: "castPets", template: "castPetTemplate", count: pets, label: index => `宠物 ${index}` },
+    { container: "castPeople", template: "castPersonTemplate", reference: "castPersonRefSlot", count: people, label: "人物" },
+    { container: "castPets", template: "castPetTemplate", reference: "castPetRefSlot", count: pets, label: "宠物" },
   ];
-  for (const { container, template, count, label } of groups) {
+  for (const { container, template, reference, count, label } of groups) {
     const root = by(container);
+    const slot = by(reference);
+    // 数量归零前取回参考图控件，重新启用时复用原图与校验。
+    if (!count && slot.parentElement !== root.parentElement) root.after(slot);
     while (root.children.length > count) root.lastElementChild.remove();
     while (root.children.length < count) {
+      const index = root.children.length + 1;
       const addition = by(template).content.firstElementChild.cloneNode(true);
-      addition.querySelector("legend").textContent = label(root.children.length + 1);
+      const title = addition.querySelector(".scene-cast-entry-title");
+      title.id = `${container}-${index}`;
+      title.textContent = `${label} ${index}`;
+      addition.querySelector("fieldset").setAttribute("aria-labelledby", title.id);
       for (const select of addition.querySelectorAll("select[data-preset]")) {
         if (select.dataset.preset !== "breed") populatePreset(select, CAST_PRESETS[select.dataset.preset]);
       }
       updateBreeds(addition);
       root.append(addition);
     }
+    const firstRole = root.firstElementChild?.querySelector("fieldset");
+    if (firstRole && slot.parentElement !== firstRole) firstRole.append(slot);
   }
   for (const option of by("castPeopleCount").options) option.disabled = Number(option.value) + pets > MAX_CAST;
   for (const option of by("castPetCount").options) option.disabled = Number(option.value) + people > MAX_CAST;
   populatePreset(by("castAction"), actionChoices({ people, pets }));
   render();
+}
+
+function setSummary(target, values, fallback) {
+  const summary = values.filter(Boolean).join(" · ") || fallback;
+  if (target.textContent !== summary) target.textContent = summary;
+}
+
+function updateSummaries() {
+  for (const [container, reference] of [["castPeople", "person"], ["castPets", "pet"]]) {
+    [...by(container).children].forEach((entry, index) => {
+      const traits = [...entry.querySelectorAll("select[data-trait]")].map(presetValue).filter(Boolean).slice(0, 2);
+      if (index === 0 && state[reference]) traits.push("已添加参考图");
+      setSummary(entry.querySelector(".scene-cast-entry-value"), traits, "");
+    });
+  }
+  const interaction = by("castInteraction");
+  by("castInteractionField").toggleAttribute("data-choice-auto", interaction.value === "auto");
+  setSummary(by("castPlacementSummary"), [
+    presetValue(by("castPosition")), presetValue(by("castAction")),
+    interaction.value !== "auto" && interaction.selectedOptions[0]?.textContent,
+  ], "");
+  const ratio = by("castRatio").value, resolution = by("castResolution").value;
+  setSummary(by("castOutputSummary"), resolution ? [ratio === "auto" ? "原图" : ratio, resolution] : [],
+    state.configLoading ? "读取中…" : "待配置");
 }
 
 function currentCast() {
@@ -312,7 +364,7 @@ function applyModel() {
 function applyRatios() {
   const model = selectedModel(), resolution = by("castResolution").value;
   const ratios = Object.keys(model?.sizes || {}).filter(ratio => model.sizes[ratio]?.[resolution]);
-  replaceOptions("castRatio", [{ value: "auto", label: "自动（按场景图）" }, ...ratios.map(value => ({ label: value, value }))], "auto");
+  replaceOptions("castRatio", [{ value: "auto", label: "原图" }, ...ratios.map(value => ({ label: value, value }))], "auto");
   render();
 }
 
@@ -386,8 +438,7 @@ function render() {
   const busy = state.running, loading = state.configLoading, model = selectedModel();
   for (const prefix of Object.values(UPLOAD_PREFIXES)) {
     by(`${prefix}Upload`).disabled = busy;
-    const remove = by(`${prefix}Remove`);
-    if (remove) remove.disabled = busy;
+    by(`${prefix}Remove`).disabled = busy;
   }
   for (const id of ["castPeopleCount", "castPetCount"]) by(id).disabled = busy;
   for (const field of settingsPanel.querySelectorAll("select[data-preset], [data-custom]")) field.disabled = busy;
@@ -413,6 +464,7 @@ function render() {
   preview.hidden = busy || !preview.getAttribute("src");
   by("castEmpty").hidden = Boolean(state.source || state.result || busy);
   updateVisibility();
+  updateSummaries();
 }
 
 function acceptJob(job) {
@@ -501,9 +553,14 @@ for (const kind of Object.keys(UPLOAD_PREFIXES)) {
 }
 settingsPanel.addEventListener("change", event => {
   const select = event.target;
-  if (!select.matches?.("select[data-preset]")) return;
-  showCustom(select);
-  if (select.dataset.preset === "species") updateBreeds(select.closest("fieldset"));
+  if (select.matches?.("select[data-preset]")) {
+    showCustom(select);
+    if (select.dataset.preset === "species") updateBreeds(select.closest("fieldset"));
+  }
+  if (select.matches?.("select[data-preset], #castInteraction, #castRatio")) updateSummaries();
+});
+settingsPanel.addEventListener("input", event => {
+  if (event.target.matches?.("[data-custom]")) updateSummaries();
 });
 for (const id of ["castPeopleCount", "castPetCount"]) by(id).addEventListener("change", updateCharacters);
 by("castRefresh").addEventListener("click", () => void loadConfig());

@@ -1,134 +1,35 @@
 /**
- * [INPUT]: 依赖共享功能目录、原表单准入、原生及同源工作区输入挂载、首页参数和任务
- * [OUTPUT]: 提供首页原地选功能、参数入口、上展画布、输入区上方的校验提示、输入动效装饰和会话记录
+ * [INPUT]: 依赖首页首帧、共享功能目录、当前功能的原图与参数、原生画布停用及同源工作区输入挂载和任务
+ * [OUTPUT]: 提供单行底栏、宽度适配的原参数快捷项、手机规格、按需画布与共用原图预览和删除
  * [POS]: public 的首页生图视图，由 app.js 注入同一套自由生图能力
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import { fillSelect, secureImageUrl } from "./workbench-utils.js";
-import { bindHomeChatParameters } from "./home-image-chat-parameters.js?v=3";
-import { bindHomeNativeTools } from "./home-image-chat-native-tools.js?v=4";
-import { bindHomeImageCamera } from "./home-image-chat-camera.js?v=6";
+import { fillSelect } from "./workbench-utils.js";
+import { bindHomeChatParameters } from "./home-image-chat-parameters.js?v=11";
+import { bindHomeNativeTools } from "./home-image-chat-native-tools.js?v=10";
+import { bindHomeImageCamera } from "./home-image-chat-camera.js?v=8";
 import { bindHomeCanvasPanel } from "./home-image-chat-canvas-panel.js";
-import { bindHomeWorkspaceInputs } from "./home-image-chat-workspace-inputs.js?v=3";
-import { bindEmbeddedWorkspaceQuickParameters } from "./workspace-quick-parameters.js?v=3";
-import { bindParameterPopover } from "./parameter-popover.js";
+import { bindHomeWorkspaceInputs } from "./home-image-chat-workspace-inputs.js?v=8";
+import { bindEmbeddedWorkspaceQuickParameters } from "./workspace-quick-parameters.js?v=6";
+import { bindResultImageViewer } from "./result-image-viewer.js?v=2";
+import { bindHomeChatToolbar } from "./home-image-chat-toolbar.js?v=3";
 
 const DEFAULT_TEXT_MODEL = "banana2";
-const advancedParametersIcon = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h3m4 0h7M3 14h7m4 0h3"/><circle cx="8" cy="6" r="2"/><circle cx="12" cy="14" r="2"/></svg>`;
 const canvasLabels = {
-  housePlanLayout: "户型画布", floorPlan: "设计画布", aiRenderStudio: "渲染画布",
-  floorPlanCamera: "机位画布", sceneCast: "场景画布", imageOutpaint: "扩图画布",
+  housePlanLayout: "户型画布", aiRenderStudio: "渲染画布",
+  floorPlanCamera: "机位画布", imageOutpaint: "扩图画布",
   imageMultiAngle: "多角度画布", imageMaskFill: "编辑画布", imageRelight: "打光画布",
 };
-const markup = `
-  <section id="homeImageChat" class="home-image-chat" aria-label="首页生图" hidden>
-    <div class="home-image-chat-viewport">
-      <div class="home-image-chat-thread">
-        <div class="home-image-chat-intro"><h1 lang="en">Make it great before we ship it.</h1></div>
-        <div class="home-image-chat-history"></div>
-        <div class="home-image-chat-current" hidden>
-          <p class="home-image-chat-prompt" hidden></p>
-        </div>
-        <section class="home-image-chat-tool" hidden><div class="home-image-chat-tool-canvas"></div></section>
-      </div>
-    </div>
-    <div class="home-image-chat-session-actions" hidden>
-      <button id="homeImageChatNew" type="button">新对话</button>
-    </div>
-    <div class="home-image-chat-dock">
-      <button id="homeImageChatCanvasToggle" class="home-image-chat-canvas-toggle" type="button"
-        aria-controls="homeImageChatCanvasPanel" aria-expanded="false" hidden>
-        <span></span>
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 12 4-4 4 4"/></svg>
-      </button>
-      <section id="homeImageChatCanvasPanel" class="home-image-chat-canvas-panel" aria-labelledby="homeImageChatCanvasToggle" hidden inert>
-        <div class="home-image-chat-canvas-window"><div class="home-image-chat-tool-canvas"></div></div>
-      </section>
-      <form class="home-image-chat-composer">
-        <span class="home-image-chat-focus-flow" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span><span></span>
-        </span>
-        <div class="home-image-chat-feature-row">
-          <button class="home-image-chat-feature-picker" type="button" data-feature-catalog-open data-feature-catalog-composer
-            aria-haspopup="dialog" aria-controls="featureCatalogDialog">
-            <span>选择功能</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
-          </button>
-          <button class="home-image-chat-feature-clear" type="button" aria-label="清除功能，使用自由生图" hidden>
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 7 6 6m0-6-6 6"/></svg>
-          </button>
-          <p id="homeImageChatCameraStatus" class="home-image-chat-validation" role="status" hidden></p>
-          <button class="home-image-chat-parameter-trigger home-image-chat-advanced-trigger" type="button" aria-label="全部参数" title="全部参数"
-            aria-haspopup="dialog" aria-controls="homeImageChatParameterDialog" hidden>${advancedParametersIcon}</button>
-          <button class="home-image-chat-tool-parameter-trigger home-image-chat-advanced-trigger" type="button" aria-label="全部参数" title="全部参数" hidden>
-            ${advancedParametersIcon}<span class="home-image-chat-tool-parameter-compact" aria-hidden="true">参数</span>
-          </button>
-        </div>
-        <div class="home-image-chat-attachment-row">
-          <div class="home-image-chat-references" role="group" aria-label="参考图" hidden></div>
-          <p id="homeImageChatValidation" class="home-image-chat-validation" role="status" hidden></p>
-        </div>
-        <label class="sr-only" for="homeImageChatInput">图像提示词</label>
-        <textarea id="homeImageChatInput" class="home-image-chat-input" rows="2" maxlength="8000"
-          placeholder="描述你想生成的画面…" spellcheck="false"></textarea>
-        <div class="home-image-chat-feature-prompt"></div>
-        <div class="home-image-chat-camera-inputs" hidden></div>
-        <div class="home-image-chat-workspace-inputs" hidden></div>
-        <input id="homeImageChatFiles" type="file" aria-label="选择参考图" accept="image/png,image/jpeg,image/webp" multiple hidden />
-        <div class="home-image-chat-actions">
-          <div class="home-image-chat-tools">
-            <button id="homeImageChatAttach" class="home-image-chat-attach" type="button" aria-label="添加参考图" title="添加参考图">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 5.8-5.8a2 2 0 0 1 2.8 2.8l-7.7 7.7a4 4 0 0 1-5.7-5.7l7.6-7.6"/></svg>
-              <img class="home-image-chat-camera-thumbnail" alt="" hidden />
-              <span class="home-image-chat-attach-label" hidden></span>
-              <span class="home-image-chat-native-attach-label">上传原图</span>
-              <span class="home-image-chat-camera-attach-short" aria-hidden="true">换图</span>
-            </button>
-            <div class="home-image-chat-settings">
-              <select class="home-image-chat-model" aria-label="出图模型" disabled><option>出图模型</option></select>
-            </div>
-            <button class="home-image-chat-size-trigger" type="button" hidden>
-              <span></span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>
-            </button>
-            <div class="home-image-chat-inline-parameters"></div>
-            <div class="home-image-chat-tool-quick"></div>
-          </div>
-          <button id="homeImageChatSend" class="home-image-chat-send" type="submit" aria-label="发送并生成图片" title="发送并生成图片" disabled>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg>
-          </button>
-        </div>
-        <div class="home-image-chat-tool-actions" hidden></div>
-      </form>
-    </div>
-    <div class="home-image-chat-size-options" role="group" aria-label="出图规格"></div>
-    <div class="home-image-chat-tool-settings" aria-label="功能参数"></div>
-    <div class="home-image-chat-parameter-source"></div>
-    <dialog id="homeImageChatParameterDialog" class="home-image-chat-parameter-dialog" aria-labelledby="homeImageChatParameterTitle">
-      <header>
-        <h2 id="homeImageChatParameterTitle"></h2>
-        <button class="home-image-chat-parameter-close" type="button" aria-label="关闭参数">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg>
-        </button>
-      </header>
-      <div class="home-image-chat-feature-parameters"></div>
-    </dialog>
-    <div class="home-image-chat-active-task" hidden>
-      <span role="status">仍有图片生成任务在运行</span>
-      <a href="/?feature=free">查看任务</a>
-    </div>
-  </section>
-`;
 
 export function bindHomeComposerFeatures({ homeChat, host, state, view, render, selectFeatureMode }) {
   function open({ featureMode, label }) {
     const previous = host.isEmbedded() ? host.currentMode() : state.featureMode;
     if (homeChat.active() && previous !== featureMode) {
       homeChat.retainTurn(view(previous));
-      state.modelKeys = homeChat.featureModels(previous, featureMode, state.modelKeys);
     }
     if (previous !== featureMode) homeChat.closeTool();
     if (host.supports(featureMode)) {
-      state.modelKeys = homeChat.enter(state.modelKeys);
+      homeChat.enter();
       homeChat.route(null);
       const slots = homeChat.setFeature(featureMode, label, { workspace: true });
       host.show(featureMode, { embedded: true, ...slots, onFeatureChange(mode, title) {
@@ -143,12 +44,18 @@ export function bindHomeComposerFeatures({ homeChat, host, state, view, render, 
   return open;
 }
 
-export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages, removeImage, openHome, openFeature }) {
+export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages, removeImage, openHome, openFeature,
+  renderHistory, deactivateNativeCanvas }) {
   const stage = document.querySelector("#resultStage");
   const panel = stage.parentElement;
-  panel.insertAdjacentHTML("afterbegin", markup);
   const root = document.querySelector("#homeImageChat");
   const doc = root.ownerDocument;
+  const points = Array.from({ length: 30 }, () => doc.createElement("span"));
+  points.forEach((point, index) => {
+    point.style.setProperty("--home-chat-beam-index", String(index));
+    point.style.setProperty("--home-chat-beam-edge-distance", String(Math.min(index, points.length - 1 - index)));
+  });
+  root.querySelector(".home-image-chat-focus-flow").append(...points);
   const viewport = root.querySelector(".home-image-chat-viewport");
   const thread = root.querySelector(".home-image-chat-thread");
   const current = root.querySelector(".home-image-chat-current");
@@ -166,58 +73,72 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
     mount: root.querySelector(".home-image-chat-canvas-panel .home-image-chat-tool-canvas"),
     parameters: root.querySelector(".home-image-chat-tool-settings"),
     actions: root.querySelector(".home-image-chat-tool-actions"),
+    result: root.querySelector(".home-image-chat-workspace-result"),
   };
   const nativeTools = bindHomeNativeTools(root, {
     canvas: toolSlots.mount, transcript: threadTool.querySelector(".home-image-chat-tool-canvas"),
   });
   const toolQuick = root.querySelector(".home-image-chat-tool-quick");
+  const advancedTrigger = root.querySelector(".home-image-chat-parameter-trigger.home-image-chat-advanced-trigger");
   const toolTrigger = root.querySelector(".home-image-chat-tool-parameter-trigger");
-  const featureRow = toolTrigger.parentElement;
-  const footerTools = toolQuick.parentElement;
-  const compactTools = doc.defaultView.matchMedia("(max-width: 760px), (max-width: 900px) and (any-pointer: coarse)");
-  const toolPopover = bindParameterPopover({ trigger: toolTrigger, content: toolSlots.parameters });
-  function placeToolTrigger() {
-    const footer = compactTools.matches && ["floorPlanCamera", "sceneCast"].includes(root.dataset.composerFeature);
-    const destination = footer ? footerTools : featureRow;
-    if (toolTrigger.parentElement === destination) return;
-    const focused = doc.activeElement === toolTrigger || toolSlots.parameters.contains(doc.activeElement);
-    toolPopover.close();
-    destination.append(toolTrigger);
-    if (focused) toolTrigger.focus({ preventScroll: true });
-  }
-  compactTools.addEventListener("change", placeToolTrigger);
   let closeQuick;
-  function syncToolParameters() {
-    toolTrigger.hidden = !root.dataset.tool || toolSlots.parameters.hidden ||
-      ![...toolSlots.parameters.children].some(child => child.childElementCount || child.matches("section"));
-  }
-  new MutationObserver(syncToolParameters).observe(toolSlots.parameters, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
   const settings = root.querySelector(".home-image-chat-settings");
-  const actions = root.querySelector(".home-image-chat-actions");
-  const shortcuts = root.querySelector(".home-image-chat-inline-parameters");
   const sizeTrigger = root.querySelector(".home-image-chat-size-trigger");
   const sizeOptions = root.querySelector(".home-image-chat-size-options");
-  const sizePopover = bindParameterPopover({ trigger: sizeTrigger, content: sizeOptions });
-  const phoneComposer = doc.defaultView.matchMedia("(max-width: 560px), (max-width: 900px) and (any-pointer: coarse)");
+  const parameterDialog = root.querySelector("#homeImageChatParameterDialog");
+  const parameterButton = () => [sizeTrigger, advancedTrigger, toolTrigger].find(button => !button.hidden);
+  bindHomeChatToolbar(root, { dialog: parameterDialog, parameterButton });
+  const phoneComposer = doc.defaultView.matchMedia("(max-width: 760px), (max-width: 900px) and (any-pointer: coarse)");
   const model = root.querySelector(".home-image-chat-model");
+  const freeModelField = model.closest("label");
   const references = root.querySelector(".home-image-chat-references");
   const fileInput = root.querySelector("#homeImageChatFiles");
   const attach = root.querySelector("#homeImageChatAttach");
   const submit = root.querySelector("#homeImageChatSend");
   const validation = root.querySelector("#homeImageChatValidation");
+  const sourceAttachment = root.querySelector(".home-image-chat-source-attachment");
+  const sourcePreview = sourceAttachment.querySelector(".home-image-chat-source-preview");
+  const sourceImage = sourcePreview.querySelector("img");
+  const sourceRemove = sourceAttachment.querySelector("[data-chat-attachment-remove]");
+  function showSource({ image, label = "原图", canPreview = false, replaceDisabled = true, removeDisabled = true } = {}) {
+    sourceAttachment.hidden = !image;
+    if (image && sourceImage.getAttribute("src") !== image) sourceImage.src = image;
+    if (!image) sourceImage.removeAttribute("src");
+    sourceImage.alt = canPreview ? label : "";
+    sourceAttachment.ariaLabel = label;
+    sourcePreview.title = sourcePreview.ariaLabel = `${canPreview ? "查看或更换" : "更换"}${label}`;
+    if (canPreview) sourcePreview.setAttribute("aria-haspopup", "dialog");
+    else sourcePreview.removeAttribute("aria-haspopup");
+    sourcePreview.disabled = !image || (!canPreview && replaceDisabled);
+    sourceRemove.ariaLabel = `移除${label}`;
+    sourceRemove.disabled = !image || removeDisabled;
+  }
   const canvasPanel = bindHomeCanvasPanel(root, {
     onExpandedChange: expanded => camera.setPanelExpanded(expanded),
   });
   const camera = bindHomeImageCamera(root, toolSlots, {
     onChange() { syncComposer(); resizeInput(); },
     onCanvasChange: canvasPanel.update,
+    onSourceChange: showSource,
   });
   const workspaceInputs = bindHomeWorkspaceInputs(root, toolSlots, {
     onChange() { syncComposer(); resizeInput(); },
     onCanvasChange: canvasPanel.update,
+    onSourceChange: showSource,
+    onInlineResult(visible) { root.toggleAttribute("data-inline-workspace-result", visible); },
+  });
+  const sourceViewer = bindResultImageViewer({ action: {
+    label: "更换场景图", run: () => attach.click(), disabled: () => attach.disabled,
+  } });
+  sourcePreview.addEventListener("click", () => {
+    if (sourcePreview.hasAttribute("aria-haspopup")) sourceViewer.open(sourceImage, sourcePreview);
+    else attach.click();
+  });
+  sourceRemove.addEventListener("click", () => {
+    const controller = camera.active() ? camera : workspaceInputs;
+    if (controller.removeSource()) attach.focus({ preventScroll: true });
   });
   let active = false;
-  let savedModelKeys;
   let homeModelKey = DEFAULT_TEXT_MODEL;
   let uploading = false;
   let busy = false;
@@ -230,20 +151,25 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
   let homeJobId = null;
   let composerMode = "free";
 
+  function revealTaskCanvas() {
+    if (composerMode !== "imageRelight" && composerMode !== "aiRenderStudio") canvasPanel.reveal();
+  }
+
   function closeTool() {
+    parameters.closeAdvanced();
     if (!root.dataset.tool) return;
     canvasPanel.setLabel();
     nativeHasResult = false;
     workspaceInputs.setMode(null);
     camera.setActive(false);
-    toolPopover.close();
     closeQuick?.();
     closeQuick = null;
+    if (root.dataset.tool === "image") deactivateNativeCanvas();
     nativeTools.unmount();
     threadTool.hidden = true;
     toolSlots.actions.hidden = true;
     delete root.dataset.tool;
-    syncToolParameters();
+    syncParameterControls();
   }
 
   // ---- 同一组字段在首页和配置栏之间迁移，保留原生值和事件 ----
@@ -254,48 +180,56 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
     return { field, anchor };
   });
 
-  function syncSizeSummary() {
-    const values = generationFields.flatMap(({ field }) => {
-      if (field.parentElement !== sizeOptions || field.hidden || field.classList.contains("hidden")) return [];
-      const value = field.querySelector("select")?.selectedOptions[0]?.label.trim();
-      return value ? [value] : [];
-    });
+  function syncParameterControls() {
+    const available = parameters.hasAdvanced();
+    const compact = phoneComposer.matches;
+    const selects = parameters.specificationSelects();
+    advancedTrigger.hidden = !available || compact || Boolean(root.dataset.tool);
+    toolTrigger.hidden = !available || compact || !root.dataset.tool;
+    sizeTrigger.hidden = !available || !compact;
+    if (sizeTrigger.hidden) return;
+
+    const values = selects
+      .map(select => select.selectedOptions[0]?.label.trim()).filter(Boolean);
     const fullLabel = values.join(" · ");
     const label = values.map(value => {
       const summary = value.split(" · ", 1)[0];
-      return /^(跟随原图|原图尺寸)$/.test(summary) ? "原图" : summary.replace(/(\d+)\s+张$/, "$1张");
-    }).join(" · ");
-    sizeTrigger.hidden = !label;
+      return /^(跟随原图|原图尺寸|自动（按场景图）)$/.test(summary) ? "原图" : summary.replace(/(\d+)\s+张$/, "$1张");
+    }).join("·") || "参数";
     if (sizeTrigger.firstElementChild.textContent !== label) sizeTrigger.firstElementChild.textContent = label;
-    sizeTrigger.title = fullLabel;
-    sizeTrigger.setAttribute("aria-label", `出图规格 ${fullLabel}`.trim());
+    sizeTrigger.title = fullLabel || "全部参数";
+    sizeTrigger.setAttribute("aria-label", fullLabel ? `出图规格 ${fullLabel}` : "全部参数");
   }
 
   function placeOutputFields() {
+    root.toggleAttribute("data-compact", phoneComposer.matches);
     if (!active) return;
     const compact = phoneComposer.matches && !root.dataset.tool && composerMode !== "imageUpscale";
     const target = compact ? sizeOptions : settings;
     if (generationFields[0].field.parentElement !== target) {
       const focused = doc.activeElement;
       const focusField = generationFields.find(({ field }) => field.contains(focused))?.field;
-      sizePopover.close();
       for (const { field } of generationFields) target.append(field);
-      syncSizeSummary();
+      syncParameterControls();
       if (compact && focusField) sizeTrigger.focus({ preventScroll: true });
       if (!compact && (focusField || focused === sizeTrigger)) {
         (focusField || generationFields[0].field).querySelector(".model-picker-trigger")?.focus({ preventScroll: true });
       }
     }
-    if (compact && shortcuts.parentElement !== composer) actions.before(shortcuts);
-    if (!compact && shortcuts.parentElement !== footerTools) toolQuick.before(shortcuts);
   }
 
-  phoneComposer.addEventListener("change", placeOutputFields);
-  const sizesObserver = new MutationObserver(syncSizeSummary);
-  for (const { field } of generationFields) {
-    field.addEventListener("change", syncSizeSummary);
-    sizesObserver.observe(field, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "selected", "class"] });
-  }
+  phoneComposer.addEventListener("change", () => {
+    const focus = parameterDialog.open || [sizeTrigger, advancedTrigger, toolTrigger].includes(doc.activeElement);
+    parameters.closeAdvanced();
+    placeOutputFields();
+    syncParameterControls();
+    if (focus) parameterButton()?.focus({ preventScroll: true });
+  });
+  const sizesObserver = new MutationObserver(syncParameterControls);
+  for (const region of [sizeOptions, settings, toolSlots.parameters]) sizesObserver.observe(region, {
+    subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["hidden", "selected", "disabled", "class"],
+  });
+  root.addEventListener("change", event => { if (event.target.tagName === "SELECT") syncParameterControls(); });
   const atBottom = () => viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48;
   const scrollToLatest = () => { viewport.scrollTop = viewport.scrollHeight; };
   viewport.addEventListener("scroll", () => { followThread = atBottom(); }, { passive: true });
@@ -304,7 +238,8 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
   threadObserver.observe(viewport);
 
   function syncComposer() {
-    syncSizeSummary();
+    syncParameterControls();
+    const workspaceSend = workspaceInputs.sendControl();
     const hasStandaloneActions = root.dataset.tool === "style" ||
       (root.dataset.tool === "workspace" && !camera.active());
     const text = activeInput()?.value.trim() || "";
@@ -316,10 +251,13 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
     validation.hidden = !note;
     if (camera.active()) camera.syncControls(attach, submit);
     else {
-      submit.disabled = !ready || busy || uploading || hasStandaloneActions || Boolean(issue?.message)
-        || (composerMode === "free" && !text);
-      submit.setAttribute("aria-label", busy ? "正在生成图片" : "发送并生成图片");
-      submit.removeAttribute("aria-busy");
+      submit.disabled = workspaceInputs.active() ? !workspaceSend || workspaceSend.disabled
+        : !ready || busy || uploading || hasStandaloneActions || Boolean(issue?.message)
+          || (composerMode === "free" && !text);
+      const workspaceBusy = workspaceSend?.getAttribute("aria-busy") === "true";
+      submit.setAttribute("aria-label", busy || workspaceBusy ? "正在生成图片" : "发送并生成图片");
+      if (workspaceBusy) submit.setAttribute("aria-busy", "true");
+      else submit.removeAttribute("aria-busy");
       if (note) submit.setAttribute("aria-describedby", validation.id);
       else submit.removeAttribute("aria-describedby");
       if (workspaceInputs.active()) workspaceInputs.syncControls(attach);
@@ -374,7 +312,11 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
   }
 
   function archive(view) {
-    if (view.stage !== "results" && view.stage !== "error") return;
+    if (view.stage !== "results") return;
+    const outputs = doc.createElement("div");
+    outputs.className = "result-gallery home-image-chat-outputs";
+    renderHistory(outputs, view, homeJobId);
+    if (!outputs.childElementCount) return;
     const turn = doc.createElement("article");
     turn.className = "home-image-chat-turn";
     if (lastTurn) {
@@ -383,31 +325,8 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
       copy.textContent = lastTurn;
       turn.append(copy);
     }
-    const outputs = doc.createElement("div");
-    outputs.className = "home-image-chat-outputs";
-    for (const outcome of view.outcomes || []) {
-      const item = outcome.status === "fulfilled" ? outcome.value.images?.[0] : null;
-      const url = secureImageUrl(item?.url);
-      if (url) {
-        const image = doc.createElement("img");
-        image.src = url;
-        image.alt = `${outcome.item.label} 生成结果`;
-        image.loading = "lazy";
-        if (item.width && item.height) { image.width = item.width; image.height = item.height; }
-        outputs.append(image);
-      } else if (outcome.status === "rejected") {
-        outputs.append(resultNote(outcome.reason?.message || "生成未完成"));
-      }
-    }
-    if (view.stage === "error") outputs.append(resultNote(view.message));
-    if (outputs.childElementCount) turn.append(outputs);
-    if (turn.childElementCount) history.append(turn);
-  }
-
-  function resultNote(message) {
-    const note = doc.createElement("p");
-    note.textContent = message;
-    return note;
+    turn.append(outputs);
+    history.append(turn);
   }
 
   async function upload(files) {
@@ -472,15 +391,20 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
   composer.addEventListener("submit", event => {
     event.preventDefault();
     if (submit.disabled) return;
-    canvasPanel.reveal();
+    revealTaskCanvas();
     if (camera.active()) camera.send();
+    else if (workspaceInputs.active()) workspaceInputs.sendControl()?.click();
     else send(activeInput()?.value.trim() || "");
   });
-  for (const [slot, selector] of [[toolSlots.actions, ".generate-button"], [toolSlots.parameters, "#studioAdvancedToggle"]]) {
-    slot.addEventListener("click", event => {
-      if (event.target.closest(selector)?.matches(":enabled")) canvasPanel.reveal();
-    }, { capture: true });
-  }
+  toolSlots.actions.addEventListener("click", event => {
+    if (event.target.closest(".generate-button:enabled")) revealTaskCanvas();
+  }, { capture: true });
+  toolSlots.parameters.addEventListener("click", event => {
+    const toggle = event.target.closest("#studioAdvancedToggle:enabled");
+    if (toggle) queueMicrotask(() => {
+      if (toggle.getAttribute("aria-expanded") === "true") parameters.closeAdvanced();
+    });
+  }, { capture: true });
   for (const link of doc.querySelectorAll('.workbench-shell [href="/"]')) {
     link.addEventListener("click", event => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -504,11 +428,6 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
       attach.setAttribute("aria-label", label);
       attach.title = label;
     },
-    featureModels(from, to, keys) {
-      if (from === "free") return savedModelKeys;
-      if (to === "free") savedModelKeys = keys;
-      return keys;
-    },
     retainTurn(view) {
       if (homeJobId !== null) archive(view);
       homeJobId = null;
@@ -521,37 +440,35 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
     setFeature(mode, label = "", { workspace = false } = {}) {
       const changed = composerMode !== mode;
       const isCamera = workspace && mode === "floorPlanCamera";
-      if (changed) { sizePopover.close(); closeTool(); }
+      if (changed) closeTool();
       composerMode = mode;
       root.dataset.composerFeature = label ? mode : "";
-      placeToolTrigger();
       picker.dataset.featureCatalogCurrent = label ? mode : "";
       picker.dataset.selected = String(Boolean(label));
-      picker.querySelector("span").textContent = label || "选择功能";
+      picker.querySelector("span").textContent = label;
+      picker.title = label ? `切换功能 · ${label}` : "选择功能";
       picker.setAttribute("aria-label", label ? `切换功能，当前${label}` : "选择功能");
       clear.hidden = !label;
       input.hidden = mode !== "free";
-      model.hidden = mode !== "free";
+      freeModelField.hidden = model.hidden = mode !== "free";
       activeTask.querySelector("a").href = `/?feature=${mode}`;
-      for (const { field } of generationFields) field.hidden = mode === "imageUpscale" || (mode === "free" && model.disabled);
+      for (const { field } of generationFields) field.hidden = (mode === "imageUpscale" && field.id !== "resolutionField") || (mode === "free" && model.disabled);
       parameters.setFeature(mode, label);
       if (workspace || nativeTools.supports(mode)) {
         const kind = workspace ? "workspace" : mode === "styleDna" ? "style" : "image";
         if (root.dataset.tool !== kind || changed) {
           root.dataset.tool = kind;
           threadTool.hidden = kind !== "style";
-          canvasPanel.setLabel(canvasLabels[mode]);
+          canvasPanel.setLabel(canvasLabels[mode], { expandOnReady: mode !== "imageRelight" });
           toolSlots.parameters.hidden = false;
           if (workspace) {
             toolSlots.actions.hidden = false;
             closeQuick = bindEmbeddedWorkspaceQuickParameters({ mode, quickHost: toolQuick, settings: toolSlots.parameters });
           } else nativeTools.mount(mode);
           if (kind === "image") canvasPanel.update(lastReferences.length > 0);
-          if (mode === "floorPlan") canvasPanel.update(true);
           followThread = true;
           requestAnimationFrame(scrollToLatest);
         }
-        syncToolParameters();
       }
       workspaceInputs.setMode(workspace ? mode : null);
       camera.setActive(isCamera);
@@ -566,9 +483,8 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
       else url.searchParams.delete("feature");
       window.history.replaceState(window.history.state, "", url);
     },
-    enter(keys) {
-      if (active) return keys;
-      savedModelKeys = keys;
+    enter() {
+      if (active) return;
       active = true;
       doc.documentElement.classList.add("image-chat-home");
       doc.querySelector("#workspacePanelDialog[open]")?.close();
@@ -577,14 +493,13 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
       parameters.setFeature("free");
       placeOutputFields();
       root.hidden = false;
+      root.inert = false;
       resizeInput();
       followThread = true;
       requestAnimationFrame(scrollToLatest);
-      return [homeModelKey];
     },
-    leave(keys) {
-      if (!active) return keys;
-      sizePopover.close();
+    leave() {
+      if (!active) return;
       closeTool();
       parameters.setFeature(null);
       active = false;
@@ -595,7 +510,6 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
         field.hidden = false;
         anchor.after(field);
       }
-      return composerMode === "free" ? savedModelKeys : keys;
     },
     models(catalog, checked) {
       const available = checked ? new Set(checked.filter(item => item.available).map(item => item.key)) : null;
@@ -621,12 +535,13 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
       references.replaceChildren(...images.map((image, index) => {
         const tile = doc.createElement("span");
         tile.className = "home-image-chat-reference";
+        tile.dataset.chatAttachment = "";
         const preview = doc.createElement("img");
         preview.src = image.dataUrl;
         preview.alt = image.name;
         const remove = doc.createElement("button");
         remove.type = "button";
-        remove.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8"/></svg>';
+        remove.dataset.chatAttachmentRemove = "";
         remove.setAttribute("aria-label", `移除 ${image.name}`);
         remove.addEventListener("click", () => {
           removeImage(image.id);
@@ -650,7 +565,7 @@ export function bindHomeImageChat({ send, getBlockReason, selectModel, addImages
       showConversation(true);
     },
     start(jobId, message, previous, fromHome) {
-      canvasPanel.reveal();
+      revealTaskCanvas();
       if (homeJobId !== null) archive(previous);
       homeJobId = jobId;
       lastTurn = message;

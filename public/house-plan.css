@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖保活宿主的参数挂接槽；依赖工作台令牌、二次编辑表单/工具栏和共享START按钮
- * [OUTPUT]: 提供无外框嵌入画布、首页上传前的单一引导、紧凑视图与框选工具、生成等待及独立页窄屏分区
+ * [OUTPUT]: 提供无外框嵌入画布、首页上传前的单一引导、紧凑视图与框选工具、页脚文字焦点、生成等待及独立页窄屏分区
  * [POS]: public 的户型平面布局局部样式，与二次编辑保持相同操作层级
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -69,17 +69,9 @@
 
 .house-plan-conversation .house-plan-workspace:has(#empty:not([hidden])) .house-plan-tools { display: none; }
 .house-plan-conversation .house-plan-workspace canvas:focus-visible { outline: none; }
-.house-plan-conversation .house-plan-workspace:has(canvas:focus-visible) #drawingHint { color: var(--text); }
-.house-plan-conversation .house-plan-workspace:has(canvas:focus-visible) #drawingHint::after {
-  background: currentColor;
-  block-size: 5px;
-  border-radius: 50%;
-  content: "";
-  display: inline-block;
-  inline-size: 5px;
-  margin-inline-start: 6px;
-  vertical-align: .15em;
-  forced-color-adjust: none;
+.house-plan-conversation .house-plan-workspace:has(canvas:focus-visible) #drawingHint {
+  color: var(--text);
+  -webkit-text-stroke: .5px currentColor;
 }
 
 @media (max-width: 760px) {

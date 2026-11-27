@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 choice-select.js 唯一菜单结构、共享主题令牌及 selected/disabled/expanded 状态
- * [OUTPUT]: 全站下拉组件视觉真源：38px选项与44px触屏目标、4px行距、不透明菜单、纯黑选中、无框的底色或圆点焦点
+ * [OUTPUT]: 全站下拉组件视觉真源：统一选项、纯黑选中、侧开与行内布局及键盘焦点
  * [POS]: public 共享下拉组件库样式，由 custom-select.css 统一引入，业务不得另写选中配色
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -80,6 +80,17 @@
   transform: rotate(180deg);
 }
 
+.model-picker-trigger[data-choice-side] .model-picker-field-label {
+  flex: 0 0 auto;
+  margin-inline-end: auto;
+}
+
+@media (min-width: 901px) and (hover: hover) and (pointer: fine) {
+  .model-picker-trigger[data-choice-side] .model-picker-chevron {
+    transform: rotate(-90deg);
+  }
+}
+
 .model-picker-trigger:disabled {
   cursor: not-allowed;
   opacity: 0.46;
@@ -111,6 +122,23 @@
 
 .model-picker-popover.open {
   display: flex;
+}
+
+.model-picker-popover[data-choice-inline] {
+  margin-block: 2px 6px;
+  max-width: none;
+  position: static;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .model-picker-popover[data-choice-right] {
+    animation: model-picker-slide-in 135ms ease-out;
+  }
+  @keyframes model-picker-slide-in {
+    from { opacity: 0; translate: -4px 0; }
+    to { opacity: 1; translate: 0 0; }
+  }
 }
 
 .model-picker-popover::backdrop {
@@ -204,7 +232,6 @@
   min-height: var(--select-option-height);
   min-width: 0;
   padding: 7px 9px;
-  position: relative;
   text-align: left;
   width: 100%;
 }
@@ -300,16 +327,12 @@
   outline: none;
 }
 
-.model-picker-option.selected:focus-visible::before {
-  background: currentColor;
-  block-size: 4px;
-  border-radius: 50%;
-  content: "";
-  inline-size: 4px;
-  inset-block-start: calc(50% - 2px);
-  inset-inline-start: 3px;
-  pointer-events: none;
-  position: absolute;
+.model-picker-option.selected:focus-visible .model-picker-option-check {
+  color: currentColor;
+}
+
+.model-picker-option.selected:focus-visible .model-picker-option-check svg {
+  stroke-width: 2.6;
 }
 
 @media (forced-colors: active) {

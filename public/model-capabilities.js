@@ -132,13 +132,9 @@ export function sizeControlState({
   model = refinedReferenceModel(model, featureMode, refinedLighting);
   model = { ...model, sizes: sizesForFeature(model, featureMode) };
   const sourceAspect = model.sizingMode === "source";
-  const automaticRatio = sourceAspect
-    ? model.defaultRatio
+  const ratio = sourceAspect ? model.defaultRatio
+    : ratioMode === "manual" ? (Object.hasOwn(model.sizes, currentRatio) ? currentRatio : model.defaultRatio)
     : nearestSupportedRatio(model, sourceImage);
-  const ratio =
-    ratioMode === "manual" && Object.hasOwn(model.sizes, currentRatio)
-      ? currentRatio
-      : automaticRatio;
   const resolutions = modelResolutionKeys(model, ratio);
   const preservedResolution =
     preserveResolution && resolutions.includes(currentResolution)

@@ -1,19 +1,18 @@
 /**
  * [INPUT]: 依赖同源参数挂载、共享上传DOM/文件/下拉、墙线分析与机位几何、批次合同、生成动效及记录同步
- * [OUTPUT]: 提供共享参数栏与START、首页输入区状态桥接、分阶段的画布引导及视图切换、机位标注、开角和取景深度、保留两侧上下文的射线交集矩形裁剪及送模预览、直出/推理、真实生成状态、新图显现、结果恢复及飞书同步
+ * [OUTPUT]: 提供共享参数栏与START、原图上传与清除、首页状态桥接、机位标注和送模预览、直出/推理及结果恢复与同步
  * [POS]: public 的平面图相机工作区控制器；编辑草稿与已生成机位独立，不自动重新收费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 import { api, readFileAsInput, fillSelect } from './workbench-utils.js';
-import { clamp, normalizeHeading, imagePoint, headingToPoint, cameraGuide, cameraGuideDepthAt, cameraToolAt,
-  CAMERA_DEFAULT_FOV, CAMERA_FOV_LIMITS, equivalentFocalLengthMm } from './floor-plan-camera-geometry.js?v=12';
+import { clamp, normalizeHeading, imagePoint, headingToPoint, cameraGuide, cameraGuideDepthAt, cameraToolAt, CAMERA_FOV_LIMITS } from './floor-plan-camera-geometry.js?v=12';
 import { cameraVisibility } from './floor-plan-camera-visibility.js?v=3';
 import { drawCameraAnnotation, drawCameraDepthHandle } from './floor-plan-camera-annotation.js?v=14';
 import { bindModelMultiSelect } from './model-multi-select.js';
 import { bindGenerationSync } from './generation-sync.js?v=1';
 import { cancelGenerationReveal, revealGenerationImage } from './generation-feedback.js?v=3';
 import { mountWorkspaceControls } from './ai-render-studio-host.js?v=4';
-import { updateCameraPresentation } from './floor-plan-camera-presentation.js?v=1';
+import { bindCameraInputs, presentCameraSource, showCameraVisibility, updateCameraPresentation } from './floor-plan-camera-presentation.js?v=2';
 
 // --- 挂载后参数在父文档，机位画布继续保活在本页 ---
 const nodes = new Map([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
@@ -36,6 +35,7 @@ const state = { config: null, source: null, bitmap: null, walls: null, camera: n
   busy: false, restoring: false, cameraError: '', operationError: '', pending: null, result: null, resultIndex: null, resultStatus: '', jobId: null,
   models: null, imageCount: 1, generationMode: 'agent', agentModel: '', resolution: '2K', aspectRatio: '16:9', complexities: {}, showFrame: true, cropToView: false, previewBusy: false, view: 'source' };
 let previewRequest = 0, freshGenerationJob = null;
+const { cameraAt, cameraInputs, updateFocalLength } = bindCameraInputs($, state);
 const generating = () => state.busy && Boolean(state.pending);
 function status(text) {
   const feedback = $('generationFeedbackText');
@@ -166,11 +166,6 @@ async function previewInput() {
     }
   }
 }
-function showVisibility(visible) {
-  $('visibilityKey').hidden = !visible;
-  const note = visible ? '三角内按墙线估算，请核对门窗' : '暂无法估算墙体遮挡';
-  if ($('visibilityNote').textContent !== note) $('visibilityNote').textContent = note;
-}
 function update() {
   validateCameraInputs();
   const loading = generating();
@@ -178,7 +173,7 @@ function update() {
   $('status').hidden = loading || !$('status').textContent;
   $('canvasFooter').hidden = loading;
   if (loading || state.view !== 'result') cancelGenerationReveal($('result'));
-  for (const id of ['emptyUpload','sourceInput','resolution','aspectRatio','imageCount']) $(id).disabled = locked();
+  for (const id of ['emptyUpload','sourceInput','removeSource','resolution','aspectRatio','imageCount']) $(id).disabled = locked();
   const sourceCount = `${state.source ? 1 : 0} / 1`;
   if ($('sourceCount').textContent !== sourceCount) $('sourceCount').textContent = sourceCount;
   const direct = directMode();
@@ -204,7 +199,9 @@ function update() {
   $('imageCount').disabled ||= Boolean(modeIssue);
   const total = batchTotal();
   const limit = state.config?.batch?.maxImages;
-  $('batchTotal').textContent = total ? `${state.models.length} 个模型 × ${state.imageCount} 张，共 ${total} 张${total > limit ? `（每批最多 ${limit} 张）` : ''}` : '';
+  $('batchTotal').textContent = state.models?.length > 1 || total > limit
+    ? `${state.models.length} 个模型 × ${state.imageCount} 张，共 ${total} 张${total > limit ? `（每批最多 ${limit} 张）` : ''}`
+    : '';
   $('generate').disabled = Boolean(updateCameraPresentation($('settings'), state, {
     cameraValid: validCamera(), modeIssue, selectionIssue, directPromptMissing: direct && !$('directPrompt').value.trim(),
   }));
@@ -215,7 +212,7 @@ function update() {
     : state.pending ? '等待任务确认' : total > 1 ? `生成 ${total} 张室内效果图` : '生成室内效果图');
   for (const control of complexityControls.values()) control.disabled = locked();
   $('refresh').disabled = state.busy || state.uploading || state.restoring;
-  $('refreshLabel').textContent = state.pending ? '检查现有任务' : '刷新';
+  $('refreshLabel').textContent = state.pending ? '检查现有任务' : '刷新配置';
   $('refresh').setAttribute('aria-label', state.pending ? '检查现有任务' : '刷新机位渲染配置');
   $('showResult').disabled = !state.resultStatus; $('download').hidden = !state.result || state.view !== 'result';
   $('showInputPreview').disabled = locked() || editing || !state.source || !validCamera() || Boolean(state.cameraError)
@@ -245,18 +242,6 @@ function update() {
     ? state.camera ? '拖蓝点移动，拖手柄调整取景' : '拖动可同时设置朝向'
     : $('drawingHint').textContent;
 }
-function updateFocalLength() {
-  const fov = Number($('fov').value);
-  $('focalLength').textContent = fov >= FOV_MIN && fov <= FOV_MAX ? `≈${equivalentFocalLengthMm(fov).toFixed(1)} mm` : '— mm';
-}
-function cameraInputs() {
-  $('heading').value = state.camera?.heading ?? state.config?.cameraDefaults?.heading ?? 0;
-  $('fov').value = state.camera?.fov ?? state.config?.cameraDefaults?.fov ?? CAMERA_DEFAULT_FOV;
-  updateFocalLength();
-}
-function cameraAt(point) {
-  return { ...point, heading: state.config?.cameraDefaults?.heading ?? 0, fov: state.config?.cameraDefaults?.fov ?? CAMERA_DEFAULT_FOV };
-}
 async function readWalls(referenceImage, bitmap) {
   const { width, height, walls } = await api(`${API}/annotation`, { method: 'POST', body: JSON.stringify({ referenceImage }) });
   if (width !== bitmap.width || height !== bitmap.height) throw new Error('平面图尺寸识别不一致，请重新导出后上传');
@@ -282,7 +267,7 @@ function draw() {
   context.save(); context.scale(canvas.width / width, canvas.height / height);
   drawCameraAnnotation(context, camera, width, height, visiblePolygon);
   context.restore();
-  showVisibility(Boolean(visiblePolygon));
+  showCameraVisibility($, Boolean(visiblePolygon));
   // --- 编辑手柄与送模标注分层 ---
   if (supportsGuideDepth()) drawCameraDepthHandle(context, guide, scale);
   context.save(); context.strokeStyle = '#475569'; context.fillStyle = '#fff'; context.lineWidth = 1.5 * scale;
@@ -303,18 +288,22 @@ async function selectSource(file) {
     const source = await readFileAsInput(file);
     const walls = await readWalls(source, bitmap);
     // --- 两项读取都成功后才切换来源，失败保留原图及原机位 ---
-    state.bitmap?.close(); state.bitmap = bitmap; bitmap = null; state.source = source; state.walls = walls;
-    state.camera = null; state.drag = null; state.view = 'source';
-    $('sourceThumbnail').src = source.dataUrl;
-    $('sourceThumbnail').hidden = false;
-    $('uploadIcon').setAttribute('hidden', '');
-    $('sourceName').textContent = file.name;
-    $('sourceHint').textContent = '点击或拖入新图替换';
-    $('sourceInput').setAttribute('aria-label', '替换平面图');
-    const ratio = Math.min(1, 1800 / Math.max(state.bitmap.width, state.bitmap.height));
-    $('canvas').width = Math.round(state.bitmap.width * ratio); $('canvas').height = Math.round(state.bitmap.height * ratio);
-    cameraInputs(); status('');
+    setSource({ source, bitmap, walls }); bitmap = null;
   } finally { bitmap?.close(); state.uploading = false; update(); draw(); }
+}
+function setSource({ source = null, bitmap = null, walls = null } = {}) {
+  const pointerId = state.drag?.pointerId;
+  state.bitmap?.close();
+  Object.assign(state, { source, bitmap, walls, camera: null, drag: null, previewBusy: false });
+  if (pointerId != null && canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId);
+  if (source || state.view === 'preview') state.view = 'source';
+  ++previewRequest;
+  $('inputPreview').hidden = true; $('inputPreview').removeAttribute('src'); $('previewMeta').textContent = '';
+  const ratio = bitmap ? Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height)) : 0;
+  canvas.width = Math.round((bitmap?.width ?? 0) * ratio);
+  canvas.height = Math.round((bitmap?.height ?? 0) * ratio);
+  presentCameraSource($, source);
+  cameraInputs(); status('');
 }
 function renderModels({ resetUnsupported = false } = {}) {
   const models = [...(state.config?.models || [])];
@@ -750,6 +739,13 @@ $('directPrompt').addEventListener('input', () => {
 });
 $('emptyUpload').addEventListener('click', () => $('sourceInput').click());
 $('sourceInput').addEventListener('change', action(async () => { const file = $('sourceInput').files[0]; $('sourceInput').value = ''; await selectSource(file); }));
+$('removeSource').addEventListener('click', () => {
+  if (!state.source || locked()) return;
+  state.operationError = '';
+  $('sourceInput').value = '';
+  setSource(); update();
+  $('sourceInput').focus({ preventScroll: true });
+});
 for (const target of [$('upload'), $('empty'), $('sourceView')]) {
   for (const type of ['dragenter','dragover']) target.addEventListener(type, event => { event.preventDefault(); if (!locked()) $('upload').classList.add('dragging'); });
   target.addEventListener('dragleave', () => $('upload').classList.remove('dragging'));

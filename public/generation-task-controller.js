@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖生成任务存储/阶段推导、服务端任务查询、可消费功能及原图上下文的结果呈现器、当前功能与忙碌状态回调
- * [OUTPUT]: 提供按功能的任务恢复、忙碌状态、按页面准入的结果展示和首次可见揭示
+ * [OUTPUT]: 提供按功能的任务恢复、忙碌状态、按页面准入的结果展示和首次可见揭示，并向会话记录提供该任务的对比原图
  * [POS]: public 的生成任务交互层，连接纯状态契约与页面 DOM，不组装生图业务请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,10 +35,13 @@ export function bindGenerationTaskController({
 
   function view(featureMode = getFeatureMode()) {
     const currentTask = task(featureMode);
-    return generationTaskView(
+    const current = generationTaskView(
       currentTask,
       currentTask ? jobs.get(currentTask.jobId) : null,
     );
+    return current.stage === "results"
+      ? { ...current, featureMode, comparisonImage: comparisonImages.get(featureMode) || null }
+      : current;
   }
 
   function render() {
@@ -57,7 +60,7 @@ export function bindGenerationTaskController({
     }
     if (current.stage === "results") {
       generationResults.showResults(current.outcomes, {
-        comparisonImage: comparisonImages.get(featureMode) || null,
+        comparisonImage: current.comparisonImage,
         featureMode,
         jobId,
         reveal: pendingReveals.get(featureMode) === jobId,

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 对外提供批量跑图标题与当前导航状态、工作区余宽单双列切换与滚动、配置和执行同宽、机位直出原词、取景框开关及旧进程门禁、视野深度拖动、自由生图一条多行提示词与图片样本 ID 提交、多角度入口与旧进程门禁、旧文字集参考图兼容及美化六氛围/模板混选、RunID/标签/计数、全景光影、权限状态、资产去重、同步进度/RETRY和预警回归
+ * [OUTPUT]: 覆盖批量跑图默认无选中与草稿、侧栏、配置、任务执行、按阶段显示监控、预警刷新保留节点，以及原批次重试
  * [POS]: test 的批量跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,10 +9,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { packBatchAssets } from "../public/beta-assets.js";
+import { renderBetaPromptAgentModels } from "../public/beta-connection.js";
 import { createBetaFloorPlanCameraConfiguration } from "../public/beta-floor-plan-camera.js";
 import { BETA_FEATURE_COPY, betaFeatureUnavailableReason } from "../public/beta-model-rules.js";
 import { isEmptyRoomDesign } from "../public/room-renovation.js";
-import { betaJobWarnings, renderBetaWarnings } from "../public/beta-results.js";
+import { betaJobWarnings, renderBetaMonitor, renderBetaWarnings } from "../public/beta-results.js";
 import { cameraGuide } from "../public/floor-plan-camera-geometry.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection } from "../public/generation-task-request.js";
 
@@ -193,26 +194,23 @@ test("Beta机位使用原尺寸底图，保存逐样本取景框设置并冻结�
   getElementById("betaCameraCancel").onclick();
 });
 
-test("Beta提示词模型正常授权不显示说明，检测/断连/权限失败与自动候补仍可见", async () => {
-  const source = await readFile(new URL("../public/beta-app.js", import.meta.url), "utf8");
-  const body = source.match(/function renderPromptAgentModels\(\) \{([\s\S]*?)\n\}/)?.[1];
-  assert.ok(body);
-  const render = new Function("state", "elements", "fillSelect", "renderRunSummary", body);
+test("Beta提示词模型提示反映授权，原页切换 Key 时保留草稿选择", () => {
   const catalog = [{ key: "gemini3pro", label: "Gemini", imageInput: true },
     { key: "claude", label: "Claude", imageInput: true }];
-  const check = ({ connected = true, checked = true, access = [true, true] } = {}) => {
+  const check = ({ connected = true, checked = true, access = [true, true], keepModelDraft = false } = {}) => {
     const classes = new Set();
     const elements = { promptAgentModelSelect: { value: "gemini3pro" },
       promptAgentAvailability: { classList: { toggle(name, enabled) {
         if (enabled) classes.add(name); else classes.delete(name);
       } } } };
-    const state = { connected, agentAccessChecked: checked, catalog: { agentModels: catalog },
+    const state = { connected, keepModelDraft, agentAccessChecked: checked, catalog: { agentModels: catalog },
       agentAccess: new Map(catalog.map((model, index) => [model.key, { selectable: access[index] }])) };
-    render(state, elements, (select, options, current) => {
+    const fillSelect = (select, options, current) => {
       select.value = (options.find(option => option.value === current && !option.disabled)
         || options.find(option => !option.disabled))?.value || "";
-    }, () => {});
-    return { note: elements.promptAgentAvailability, classes };
+    };
+    renderBetaPromptAgentModels({ state, elements, fillSelect, renderRunSummary() {} });
+    return { note: elements.promptAgentAvailability, classes, selected: elements.promptAgentModelSelect.value };
   };
   const ready = check();
   assert.equal(ready.note.hidden, true);
@@ -228,9 +226,13 @@ test("Beta提示词模型正常授权不显示说明，检测/断连/权限失�
     assert.match(status.note.textContent, message);
     assert.equal(status.classes.has("error"), error);
   }
+  const draft = check({ keepModelDraft: true, access: [false, true] });
+  assert.equal(draft.selected, "gemini3pro");
+  assert.equal(draft.note.hidden, false);
+  assert.match(draft.note.textContent, /Gemini 当前 Key 不可用/);
 });
 
-test("批量跑图用共享可搜索下拉提供各功能任务及配置和监控", async () => {
+test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏", async () => {
   const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
@@ -249,9 +251,25 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(currentPageLink, /\baria-label="批量跑图"/);
   assert.match(currentPageLink, /<span class="product-switch-label">批量跑图<\/span>/);
   assert.match(html, /<h1 class="visually-hidden">批量跑图<\/h1>/);
-  const featureSelect = html.match(/<select\b[^>]*id="betaFeatureSelect"[^>]*>/)?.[0] || "";
-  assert.match(featureSelect, /data-searchable="true"/);
-  assert.match(featureSelect, /aria-label="选择任务"/);
+  const sidebar = html.match(/<aside id="productSidebar"[^>]*>[\s\S]*?<\/aside>/)?.[0] || "";
+  assert.match(sidebar, /data-app-update-label[\s\S]*?<button id="connectionButton"[^>]*aria-haspopup="dialog"[\s\S]*?id="apiQuotaValue"[\s\S]*?id="apiQuotaRefresh"/);
+  assert.doesNotMatch(sidebar, /betaConnectionStatus/);
+  assert.match(html, /class="run-bar">\s*<p id="betaConnectionStatus"[^>]*role="status"/);
+  assert.match(source, /const connection = bindBetaConnection\(/);
+  assert.match(source, /connection\.load\(\)/);
+  assert.match(sidebar, /data-feature-catalog-open[^>]*aria-label="查找任务"/);
+  assert.match(sidebar, /<nav id="featureModeList" class="feature-directory" aria-label="批量任务" data-expand-active-group="false">/);
+  const taskGroups = [...sidebar.matchAll(/data-beta-task-modes="([^"]+)"/g)].map(([, keys]) => keys.split(" "));
+  assert.deepEqual(taskGroups, [
+    ["housePlanLayout", "emptyRoom", "roomRenovation", "styleTransfer"],
+    ["floorPlanCamera", "whiteModel", "refinedModel", "effectBeautification", "effectEnhancement", "panoramaEnhancement", "textureEnhancement"],
+    ["imageUpscale", "imageOutpaint", "imageMultiAngle"],
+    ["free"],
+  ]);
+  assert.deepEqual(taskGroups.flat().sort(), Object.keys(BETA_FEATURE_COPY).sort());
+  assert.doesNotMatch(html, /id="betaFeatureSelect"/);
+  assert.match(html, /<p id="betaEmpty"[^>]*>从侧栏选择任务<\/p>\s*<form id="betaForm"[^>]*\bhidden>\s*<div class="beta-config-scroll">\s*<section class="beta-section">\s*<div class="section-heading">\s*<h2>选择样本集<\/h2>/);
+  assert.match(css, /\.beta-grid > \[hidden\] \{ display: none; \}/);
   assert.doesNotMatch(html, /betaFeatureOptions|data-feature-mode=/);
   assert.deepEqual(Object.entries(BETA_FEATURE_COPY).map(([key, copy]) => [key, copy.label]), [
     ["housePlanLayout", "户型平面布局"], ["floorPlanCamera", "平面图机位渲染"], ["whiteModel", "白模渲染"], ["emptyRoom", "空房设计"], ["roomRenovation", "旧房改造"], ["styleTransfer", "风格转换"],
@@ -260,13 +278,18 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
     ["free", "自由生图"], ["imageOutpaint", "AI扩图"], ["imageMultiAngle", "多角度"], ["imageUpscale", "AI超分"],
   ]);
   assert.match(source, /BETA_FEATURE_COPY as FEATURE_COPY[^\n]+"\.\/beta-model-rules\.js\?v=9"/);
-  assert.match(source, /fillSelect\(elements\.betaFeatureSelect,\s*Object\.entries\(FEATURE_COPY\)\.map/);
-  assert.match(source, /elements\.betaFeatureSelect\.value = state\.featureMode/);
-  assert.match(source, /elements\.betaFeatureSelect\.disabled = sampleLibrary\.isBusy\(\)/);
-  const featureChange = source.match(/elements\.betaFeatureSelect\.addEventListener\("change", \(\) => \{([\s\S]*?)\n  \}\);/)?.[1] || "";
-  assert.match(featureChange, /const featureMode = elements\.betaFeatureSelect\.value/);
-  assert.match(featureChange, /if \(sampleLibrary\.isBusy\(\) \|\| !Object\.hasOwn\(FEATURE_COPY, featureMode\) \|\| featureMode === state\.featureMode\) return/);
-  assert.match(featureChange, /state\.featureMode = featureMode;[\s\S]*?renderFeature\(\);\s*sampleLibrary\.setFeatureMode\(\s*state\.featureMode,\s*state\.sampleSetIds\[state\.featureMode\],\s*\)\.then\(saveConfiguration\)\.catch\(reportUploadError\)/);
+  assert.match(source, /mountBetaTaskDirectory\(elements\.featureModeList, FEATURE_COPY\)/);
+  assert.match(source, /const state = \{[\s\S]*?featureMode: null,/);
+  assert.match(source, /renderTaskDirectory\(state\.featureMode, [^\n]*sampleLibrary\.isMutating\(\)\)/);
+  const featureChange = source.match(/elements\.featureModeList\.addEventListener\("click", \(event\) => \{([\s\S]*?)\n  \}\);/)?.[1] || "";
+  assert.match(featureChange, /const featureMode = event\.target\.closest\("\[data-feature-mode\]"\)\?\.dataset\.featureMode/);
+  assert.match(featureChange, /sampleLibrary\.isMutating\(\)[\s\S]*?!Object\.hasOwn\(FEATURE_COPY, featureMode\) \|\| featureMode === state\.featureMode\) return/);
+  assert.match(featureChange, /selectTask\(featureMode\)\.catch\(reportUploadError\)/);
+  const selectTask = source.match(/async function selectTask\(featureMode\) \{([\s\S]*?)\n\}/)?.[1] || "";
+  assert.match(selectTask, /saveConfiguration\(\);[\s\S]*?draftFor\(featureMode\);[\s\S]*?state\.featureMode = featureMode;[\s\S]*?configuration\.restore\(draft\);\s*elements\.betaEmpty\.hidden = true;\s*elements\.betaForm\.hidden = false;[\s\S]*?sampleLibrary\.setFeatureMode\(featureMode, state\.sampleSetIds\[featureMode\]\)/);
+  const startup = source.slice(source.indexOf("async function load()"));
+  assert.match(startup, /sampleLibrary\.load\(""\)/);
+  assert.doesNotMatch(startup, /selectTask\(|configuration\.restore\(|state\.featureMode\s*=/);
   assert.doesNotMatch(source, /betaFeatureOptions|button\.dataset\.featureMode/);
   assert.doesNotMatch(html, /styleDnaReverse|风格反推/);
   assert.match(html, /id="sourceFilesInput"[^>]*multiple/);
@@ -285,9 +308,10 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.doesNotMatch(html, /id="sampleSetStatus"|添加样本后保存|正在读取飞书样本集/);
   assert.doesNotMatch(html, /整批共用 · 仅智能默认|整批提示词共用/);
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
-  assert.match(html, /custom-select\.css\?v=13/);
+  assert.match(html, /custom-select\.css\?v=14/);
   assert.match(html, /generation-actions\.css\?v=17/);
-  assert.match(html, /beta-app\.js\?v=59/);
+  assert.match(html, /beta\.css\?v=41/);
+  assert.match(html, /beta-app\.js\?v=66/);
   assert.match(html, /<select id="betaCameraMode"[^>]*aria-label="机位生成模式"/);
   assert.match(html, /<textarea id="betaCameraDirectPrompt"[^>]*maxlength="4000"[^>]*aria-required="true"/);
   assert.match(source, /createBetaFloorPlanCameraConfiguration[^\n]+"\.\/beta-floor-plan-camera\.js\?v=12"/);
@@ -306,8 +330,8 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(source, /const modelSelection = bindModelMultiSelect\(\{/);
   assert.match(source, /modelSelection\.render\(runnable, state\.selectedModelKeys\)/);
   assert.match(source, /state\.selectedModelKeys = refinedModelSelection\.chooseByUser\(state\.featureMode, keys\);\s*renderOutputControls\(\);\s*saveConfiguration\(\);/);
-  assert.match(source, /const selectable = betaModelSelectable\(model, state\.featureMode\)/);
-  assert.match(source, /reason: selectable \? "" : "不支持 2:1"/);
+  assert.match(source, /const supported = betaModelSelectable\(model, state\.featureMode\)/);
+  assert.match(source, /reason: !supported \? "不支持 2:1" : available \? "" : "当前 Key 不可用"/);
   assert.doesNotMatch(source, /modelOptions\.replaceChildren|modelOptions\.addEventListener/);
   assert.doesNotMatch(configuration, /modelOptions\.querySelector/);
   assert.match(html, /单张 8MB · 逐张上传/);
@@ -320,14 +344,21 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(html, /id="ratioSelect" data-dropdown-placement="top"/);
   assert.match(html, /ORwJbt5EYauNORsrhqJcpetLnEb/);
   assert.match(html, /<aside class="beta-card beta-monitor-card"[^>]*aria-labelledby="jobMonitorTitle"/);
-  assert.match(html, /id="jobProgress" class="job-progress"/);
+  assert.doesNotMatch(html, /betaMonitorToggle|收起任务监控|展开任务监控/);
+  assert.match(html, /id="betaMonitorClose"[^>]*aria-label="关闭任务监控"/);
+  assert.match(html, /id="betaMonitorOpen"[^>]*aria-haspopup="dialog"[^>]*aria-controls="betaMonitorDialog"/);
+  assert.match(html, /<dialog id="betaMonitorDialog"[^>]*aria-labelledby="jobMonitorTitle"><\/dialog>/);
+  assert.match(html, /beta-layout\.js\?v=4/);
+  assert.match(html, /id="jobProgress" class="job-progress"[^>]*hidden/);
   assert.match(html, /id="generationProgressCount">0 \/ 0/);
   assert.match(html, /id="jobProgressCount">0 \/ 0/);
   assert.match(html, />生成进度<\/span>/);
   assert.match(html, />飞书同步<\/span>/);
   assert.match(html, /id="monitorBaseLink" class="quiet-button monitor-base-button"[^>]*>在飞书查看结果<\/a>/);
   assert.match(html, /id="monitorWarnings" class="monitor-warnings-list"[^>]*aria-live="polite"/);
-  assert.match(html, /id="monitorWarningsCount">暂无异常/);
+  assert.match(html, /id="monitorWarningsSection"[^>]*hidden/);
+  assert.match(html, /id="monitorRetryActions"[^>]*hidden/);
+  assert.match(html, /id="runButton"[^>]*form="betaForm"/);
   assert.doesNotMatch(html, /id="betaBaseLink"|class="section-link"|>打开飞书<\/a>/);
   assert.match(source, /\/api\/beta\/jobs/);
   assert.match(source, /adaptGenerationInputForModel/);
@@ -335,11 +366,11 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
   assert.match(assetSource, /referenceAssetKey/);
   assert.match(source, /import "\.\/custom-select\.js\?v=9"/);
-  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=9"/);
+  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=10"/);
   assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
   assert.match(source, /sampleId: currentCase\.caseId/);
   assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
-  assert.match(source, /import \{ [^}]*renderBetaWarnings \} from "\.\/beta-results\.js\?v=2"/);
+  assert.match(source, /import \{ [^}]*renderBetaMonitor \} from "\.\/beta-results\.js\?v=3"/);
   assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=3"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
   assert.match(source, /DEFAULT_BETA_MODEL_KEY/);
@@ -349,15 +380,14 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(configuration, /saveBetaPageState\(storage/);
   assert.match(configuration, /window\.addEventListener\("pagehide", save\)/);
   assert.match(configuration, /document\.visibilityState === "hidden"/);
-  assert.match(source, /state\.sampleSetIds\[state\.featureMode\]/);
   assert.match(source, /selectable\.find\(\(model\) => model\.key === \(state\.featureMode === "housePlanLayout" \? "gptImage25Sunburst" : state\.featureMode === "floorPlanCamera" \? "banana21" : DEFAULT_BETA_MODEL_KEY\)\)/);
   assert.match(source, /bindImageDrop/);
   assert.match(source, /createBetaSampleLibrary/);
   assert.match(source, /runButtonLabel\.textContent = running \? "RUNNING…" : failed \? "RETRY" : "START"/);
   assert.match(source, /failed \? "仅重试失败项，已成功结果保留" : "结果自动同步飞书"/);
-  assert.match(source, /job\.stages\?\.generated/);
-  assert.match(source, /job\.stages\?\.synced/);
-  assert.match(source, /全部结果已生成并同步飞书/);
+  assert.match(resultSource, /job\.stages\?\.generated/);
+  assert.match(resultSource, /job\.stages\?\.synced/);
+  assert.match(resultSource, /elements\.jobProgress\.hidden = !job/);
   assert.match(source, /retryOfJobId: previousJob\.jobId/);
   assert.match(source, /state\.submitting/);
   assert.match(html, /id="newBatchButton"[^>]*type="button">新批次/);
@@ -367,7 +397,7 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.doesNotMatch(resultSource, /createElement\("img"\)|previewUrl|innerHTML/);
   assert.match(resultSource, /飞书同步失败/);
   assert.match(sampleLibrary, /\/api\/beta\/sample-sets/);
-  assert.match(sampleLibrary, /function beginCreate\(\)/);
+  assert.match(sampleLibrary, /function beginCreate\(/);
   assert.match(sampleLibrary, /preferredSampleSetId/);
   assert.match(sampleLibrary, /onSelectionChange\(state\.featureMode, state\.activeSampleSetId\)/);
   assert.match(sampleLibrary, /setSyncStatus\("同步飞书中", "syncing"\)/);
@@ -397,15 +427,17 @@ test("批量跑图用共享可搜索下拉提供各功能任务及配置和监�
   assert.match(css, /\.section-heading\s*\{[^}]*margin-bottom:\s*-4px;/s);
   assert.match(css, /\.section-heading h2\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;[^}]*letter-spacing:\s*-\.006em;/s);
   assert.doesNotMatch(css, /\.section-heading > div > span/);
-  assert.match(css, /\.beta-shell\s*\{[^}]*container:\s*beta-workspace \/ inline-size;[^}]*overflow:\s*auto;/s);
+  assert.match(css, /\.beta-shell\s*\{[^}]*overflow:\s*auto;/s);
   assert.match(css, /\.beta-config-scroll\s*\{[^}]*position:\s*relative;/s);
   assert.match(css, /html\s*\{\s*overflow:\s*clip;/s);
   assert.match(css, /body\s*\{[^}]*overflow:\s*clip;/s);
   assert.match(css, /\.beta-config-card\s*\{[^}]*height:\s*100%;/s);
   assert.doesNotMatch(css, /\.beta-hero|\.beta-intro-copy|\.base-link/);
-  assert.match(css, /\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) clamp\(304px, 26%, 432px\);[^}]*height:\s*100%;/s);
+  assert.match(css, /\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) clamp\(248px, 26%, 432px\);[^}]*height:\s*100%;/s);
+  assert.doesNotMatch(css, /is-monitor-collapsed|beta-monitor-toggle/);
   assert.match(css, /\.beta-monitor-card\s*\{[^}]*border-inline-start:[^;]*;[^}]*overflow:\s*auto;/s);
-  assert.match(css, /@container beta-workspace \(max-width: 900px\)\s*\{\s*\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*height:\s*auto;/s);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*height:\s*auto;/s);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.beta-grid > \.beta-monitor-card\s*\{\s*display:\s*none;\s*\}/);
   assert.match(css, /@media \(max-width: 900px\)\s*\{\s*html\s*\{\s*overflow:\s*auto;\s*\}\s*body, \.beta-shell\s*\{\s*overflow:\s*visible;/s);
   assert.match(css, /\.sync-progress-track span\s*\{\s*background:\s*var\(--muted\);/s);
   assert.match(css, /\.monitor-warnings-list\s*\{[^}]*overflow:\s*auto;/s);
@@ -532,7 +564,7 @@ test("Beta美化新增模板无需旧六档Prompt，但失效卡片必须在提�
   const context = {
     state: { featureMode: "effectBeautification", catalog: {}, stylesConfig: { effectBeautificationPrompt: { available: false } } },
     housePlanConfiguration: { reason: () => null }, floorPlanCameraConfiguration: { reason: () => null },
-    generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason, postUpscaleIssue: () => null,
+    generationAccessIssue: () => "", generationFeatureUnavailableReason: () => null, betaFeatureUnavailableReason, postUpscaleIssue: () => null,
     selectedModels: () => [], sampleLibrary: { assertRoomTypes() {} }, FEATURE_COPY: BETA_FEATURE_COPY,
     effectBeautificationControls: { requiresOriginalPrompt: () => requiresOriginalPrompt, validation: () => issue },
   };
@@ -665,21 +697,70 @@ test("预警保留逐项阶段与原始原因，旧批次错误和连接错误�
   assert.deepEqual(betaJobWarnings({ status: "success", result: { warnings: [] } }), []);
 });
 
-test("预警渲染使用安全文本且不渲染图片，非法记录链接不可执行", () => {
-  const previous = globalThis.document;
-  const node = (tag) => ({ tag, dataset: {}, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
-  globalThis.document = { createElement: node };
-  try {
-    const container = node("div");
-    const count = node("small");
-    renderBetaWarnings({ container, count, job: { status: "failed", result: { warnings: [{
-      stage: "sync", label: "<img onerror=alert(1)>", message: "附件校验失败", recordUrl: "javascript:alert(1)",
-    }] } } });
-    assert.equal(count.textContent, "1 项");
-    assert.deepEqual(container.children[0].children.map((child) => child.tag), ["strong", "span", "p"]);
-    assert.equal(container.children[0].children[1].textContent, "<img onerror=alert(1)>");
-    renderBetaWarnings({ container, count, job: { status: "success" } });
-    assert.equal(count.textContent, "暂无异常");
-    assert.match(container.children[0].textContent, /全部结果已同步/);
-  } finally { globalThis.document = previous; }
+function monitorNode(tag) {
+  return {
+    tag, ownerDocument: { createElement: monitorNode }, dataset: {}, style: {}, children: [],
+    append(...children) {
+      for (const child of children) child.parent = this;
+      this.children.push(...children);
+    },
+    remove() {
+      this.parent.children.splice(this.parent.children.indexOf(this), 1);
+    },
+    setAttribute(name, value) { this[name] = value; },
+  };
+}
+
+test("预警使用安全文本，轮询时保留同一明细链接并移除已恢复的预警", () => {
+  const node = monitorNode;
+  const container = node("div");
+  const count = node("small");
+  const warning = { runId: "run-1", stage: "sync", label: "<img onerror=alert(1)>", message: "附件校验失败" };
+  const render = warnings => renderBetaWarnings({ container, count, job: { jobId: "batch-1", status: "running", result: { warnings } } });
+  render([{ ...warning, recordUrl: "javascript:alert(1)" }]);
+  assert.equal(count.textContent, "1 项");
+  const [row] = container.children;
+  assert.deepEqual(row.children.map((child) => child.tag), ["strong", "span", "p"]);
+  assert.equal(row.children[1].textContent, "<img onerror=alert(1)>");
+
+  const linkedWarning = { ...warning, recordUrl: "https://example.test/record" };
+  render([linkedWarning]);
+  const link = row.children[3];
+  assert.equal(link.href, linkedWarning.recordUrl);
+  render([{ ...warning, runId: "run-2" }, { ...linkedWarning, message: "正在重读附件" }]);
+  assert.equal(container.children[0], row);
+  assert.equal(row.children[3], link);
+  assert.equal(row.children[2].textContent, "正在重读附件");
+  render([]);
+  assert.equal(count.textContent, "");
+  assert.equal(container.children.length, 0);
+});
+
+test("监控按批次状态显示进度，请求错误只展示一次，运行中保留自动重试提示", () => {
+  const ids = ["jobStatus", "jobProgress", "jobProgressLabel", "monitorBatchSummary", "monitorWarnings",
+    "monitorWarningsCount", "monitorWarningsSection", "monitorRefresh", "generationProgressTrack",
+    "generationProgressBar", "generationProgressCount", "jobProgressTrack", "jobProgressBar", "jobProgressCount"];
+  const ui = Object.fromEntries(ids.map(id => [id, monitorNode("div")]));
+  renderBetaMonitor(ui, null);
+  assert.equal(ui.jobStatus.textContent, "待运行");
+  assert.equal(ui.jobProgress.hidden, true);
+  assert.equal(ui.monitorWarningsSection.hidden, true);
+
+  const warning = { label: "客厅", stage: "sync", message: "附件读取失败" };
+  renderBetaMonitor(ui, {
+    status: "running", total: 2, stages: { generated: 1, synced: 0 },
+    result: { warnings: [warning] }, message: "客厅 · 附件读取失败 · 自动重试同步 2/3",
+  });
+  assert.equal(ui.jobProgress.hidden, false);
+  assert.equal(ui.generationProgressCount.textContent, "1 / 2");
+  assert.equal(ui.jobProgressCount.textContent, "0 / 2");
+  assert.equal(ui.jobProgressLabel.textContent, "客厅 · 自动重试同步 2/3");
+  assert.equal(ui.monitorWarnings.children[0].children[2].textContent, warning.message);
+
+  renderBetaMonitor(ui, null, { error: "连接中断", canRefresh: true });
+  assert.equal(ui.jobProgress.hidden, true);
+  assert.equal(ui.jobStatus.textContent, "请求失败");
+  assert.equal(ui.monitorRefresh.hidden, false);
+  assert.equal(ui.monitorWarnings.children.length, 1);
+  assert.equal(ui.monitorWarnings.children[0].children[2].textContent, "连接中断");
 });

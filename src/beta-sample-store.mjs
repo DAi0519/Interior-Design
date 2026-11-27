@@ -38,7 +38,9 @@ export function normalizeBetaSampleImage(image, featureMode) {
 
 export function singleSharedImages(images, fieldName) {
   if (images == null) return [];
-  return normalizeReferenceImages(images, { maxCount: 1, maxTotalBytes: REFERENCE_IMAGE_POLICY.maxBytesPerImage })
+  return normalizeReferenceImages(images, {
+    ...REFERENCE_IMAGE_POLICY, maxCount: 1, maxTotalBytes: REFERENCE_IMAGE_POLICY.maxBytesPerImage,
+  })
     .map((image) => {
       if (!image.width || !image.height) throw inputError(`${fieldName}内容或 MIME 类型无效`);
       return { dataUrl: image.imageUrl, name: image.fileName, type: image.mimeType,

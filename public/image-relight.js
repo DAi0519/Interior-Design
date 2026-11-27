@@ -1,5 +1,5 @@
 /**
- * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖脱敏GPT光照模板/飞书Prompt版本身份/历史参数/光源编辑目录、共享整体原灯/标注/图片/输出规则、主图上传、画布交互与统一任务/摘要回调
+ * [INPUT]: 依赖共享刷新符号、脱敏光照模板与 Prompt 版本、原灯和标注规则、原图、画布、当前工具状态及任务摘要
  * [OUTPUT]: 控光配置和画布可以分属同源文档并保留原交互；含GPT2.6 Sunburst/Flare独立模型身份； 对外提供bindImageRelight，支持模板直接生成、自定义无标注整体调灯及可选新增/单灯精修、草稿/换图/历史恢复、Prompt身份冻结；可注入AI渲染台资产编码及仅材质渲染准入，旧打光默认不变
  * [POS]: public 的AI编辑打光控制器，复用既有主图与后台任务，不持有服务地址、模型密钥或Prompt正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -88,7 +88,7 @@ const template = `
 
 export function bindImageRelight({ root, getSourceImage, onChange = () => {}, onSourceChange = () => {},
   showToast = () => {}, onRefresh = null, emptyModel, emptySize, exactSize,
-  allowMaterialRender = false, promptCode = "image-relight" }) {
+  allowMaterialRender = false, promptCode = "image-relight", isActive = () => true }) {
   root.innerHTML = template;
   const settingsPanel = root.querySelector(".relight-settings");
   const by = selector => settingsPanel.querySelector(selector);
@@ -399,12 +399,14 @@ export function bindImageRelight({ root, getSourceImage, onChange = () => {}, on
     drawing.setSource(issue ? null : source); onSourceChange(source);
     renderEditing(); renderContext();
     if (source && issue) preview.querySelector("[data-relight-empty]").textContent = issue;
-    let size = null;
-    if (source && !issue) try { size = relightOutputSize(source, outputResolution, modelConfig().sizes || config.sizes); } catch {}
-    if (emptyModel) emptyModel.textContent = modelConfig().label || "GPT 图像";
-    const summary = size ? `输出 ${size.width} × ${size.height}` : `原图比例 · ${outputResolution}输出`;
-    if (emptySize) emptySize.textContent = summary;
-    if (exactSize) exactSize.textContent = summary;
+    if (isActive()) {
+      let size = null;
+      if (source && !issue) try { size = relightOutputSize(source, outputResolution, modelConfig().sizes || config.sizes); } catch {}
+      if (emptyModel) emptyModel.textContent = modelConfig().label || "GPT 图像";
+      const summary = size ? `输出 ${size.width} × ${size.height}` : `原图比例 · ${outputResolution}输出`;
+      if (emptySize) emptySize.textContent = summary;
+      if (exactSize) exactSize.textContent = summary;
+    }
     renderStatus(); drawing.repaint();
   }
 

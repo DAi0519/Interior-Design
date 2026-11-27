@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
- * [OUTPUT]: 提供跨功能图片样本复用、逐张续传及回读、目标准入与房型补选；自由生图的图片和历史文本样本共用本次提示词，保留样本 ID 和轻量预览
+ * [OUTPUT]: 提供未选任务时的样本目录预读、按任务保留的页内样本草稿和房型补选、跨功能图片样本复用、逐张续传及回读；自由生图的图片和历史文本样本共用本次提示词，保留样本 ID 和轻量预览
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,11 +31,12 @@ export function createBetaSampleLibrary({
     busy: false,
     catalogLoading: false,
     draftSampleSetId: "",
-    featureMode: "whiteModel",
+    featureMode: "",
     mode: "library",
     sampleSets: [],
     sourceImages: [],
     textSampleIds: [],
+    syncDetail: "",
     syncMessage: "读取飞书中",
     syncState: "syncing",
   };
@@ -43,8 +44,11 @@ export function createBetaSampleLibrary({
   let loadRevision = 0;
   let catalogRevision = 0;
   const rememberedSelections = new Map();
+  const sampleDrafts = new Map();
+  const roomTypeDrafts = new Map();
 
   function setSyncStatus(message, syncState, detail = "") {
+    state.syncDetail = detail;
     state.syncMessage = message;
     state.syncState = syncState;
     elements.sampleSetSyncStatus.title = detail;
@@ -55,6 +59,7 @@ export function createBetaSampleLibrary({
   }
 
   function setsForFeature() {
+    if (!state.featureMode) return [];
     return state.sampleSets.filter((sampleSet) => state.featureMode === "free" || !isTextSet(sampleSet));
   }
 
@@ -83,6 +88,16 @@ export function createBetaSampleLibrary({
         value: "",
       })]));
     elements.sampleSetSelect.disabled = state.busy || sampleSets.length === 0;
+  }
+
+  function rememberRoomType(image) {
+    if (state.mode !== "library" || !state.activeSampleSetId) return;
+    let draft = roomTypeDrafts.get(state.featureMode);
+    if (draft?.sampleSetId !== state.activeSampleSetId) {
+      draft = { sampleSetId: state.activeSampleSetId, rooms: new Map() };
+      roomTypeDrafts.set(state.featureMode, draft);
+    }
+    draft.rooms.set(image.sampleId, { roomType: image.roomType, roomTypeDetail: image.roomTypeDetail });
   }
 
   function renderSamples() {
@@ -120,10 +135,12 @@ export function createBetaSampleLibrary({
           image.roomTypeDetail = "";
           detail.value = "";
           detail.classList.toggle("hidden", select.value !== "其他");
+          rememberRoomType(image);
           onChange();
         });
         detail.addEventListener("input", () => {
           image.roomTypeDetail = detail.value;
+          rememberRoomType(image);
           onChange();
         });
         field.append(label, select, detail);
@@ -141,7 +158,7 @@ export function createBetaSampleLibrary({
       state.busy && state.syncState === "syncing" ? "同步中"
         : state.draftSampleSetId ? "继续保存" : "保存样本集";
     elements.cancelSampleSetButton.disabled = state.busy;
-    elements.newSampleSetButton.disabled = state.busy;
+    elements.newSampleSetButton.disabled = state.busy || !state.featureMode;
     elements.sampleSetNameInput.disabled = state.busy || Boolean(state.draftSampleSetId);
     elements.sourceFilesInput.disabled = state.busy || Boolean(state.draftSampleSetId);
     elements.sampleSetSyncStatus.textContent = state.syncMessage;
@@ -163,6 +180,30 @@ export function createBetaSampleLibrary({
     state.draftSampleSetId = "";
     state.textSampleIds = [];
     state.sourceImages = [];
+  }
+
+  function parkSampleDraft() {
+    const name = elements.sampleSetNameInput.value;
+    if (!name && !state.sourceImages.length) return;
+    sampleDrafts.set(state.featureMode, {
+      name,
+      sourceImages: state.sourceImages,
+      sampleSetId: state.draftSampleSetId,
+      syncStatus: [state.syncMessage, state.syncState, state.syncDetail],
+    });
+    state.sourceImages = [];
+  }
+
+  function restoreSampleDraft() {
+    const draft = sampleDrafts.get(state.featureMode);
+    if (!draft) return false;
+    sampleDrafts.delete(state.featureMode);
+    state.sourceImages = draft.sourceImages;
+    state.draftSampleSetId = draft.sampleSetId;
+    state.mode = "create";
+    elements.sampleSetNameInput.value = draft.name;
+    setSyncStatus(...draft.syncStatus);
+    return true;
   }
 
   function assertExistingSamples(sampleSet, targetFeatureMode) {
@@ -197,9 +238,16 @@ export function createBetaSampleLibrary({
     state.activeSampleSetId = sampleSet.sampleSetId;
     state.draftSampleSetId = "";
     const textSet = isTextSet(sampleSet);
+    const draft = roomTypeDrafts.get(state.featureMode);
+    const roomTypes = draft?.sampleSetId === sampleSet.sampleSetId ? draft.rooms : null;
     state.textSampleIds = textSet ? sampleSet.samples.map((sample) => sample.sampleId) : [];
-    state.sourceImages = !textSet ? sampleSet.samples
-      .map((sample) => ({ ...sample.image, sampleId: sample.sampleId, roomType: sample.roomType, roomTypeDetail: sample.roomTypeDetail })) : [];
+    state.sourceImages = textSet ? [] : sampleSet.samples.map((sample) => ({
+      ...sample.image,
+      sampleId: sample.sampleId,
+      roomType: sample.roomType,
+      roomTypeDetail: sample.roomTypeDetail,
+      ...roomTypes?.get(sample.sampleId),
+    }));
     state.mode = "library";
     rememberedSelections.set(state.featureMode, state.activeSampleSetId);
     onSelectionChange(state.featureMode, state.activeSampleSetId);
@@ -231,8 +279,8 @@ export function createBetaSampleLibrary({
     }
   }
 
-  function beginCreate() {
-    if (mutationBusy) return;
+  function beginCreate({ focus = false } = {}) {
+    if (mutationBusy || !state.featureMode) return;
     loadRevision += 1;
     state.busy = false;
     clearSamples();
@@ -240,17 +288,23 @@ export function createBetaSampleLibrary({
     setSyncStatus("尚未同步", "idle");
     elements.sampleSetNameInput.value = "";
     render();
-    elements.sampleSetNameInput.focus();
+    if (focus) elements.sampleSetNameInput.focus();
   }
 
   async function cancelCreate() {
     const first = preferredSet();
-    if (first) await loadSampleSet(first.sampleSetId);
-    else beginCreate();
+    if (!first) {
+      beginCreate({ focus: true });
+      return;
+    }
+    clearSamples();
+    state.mode = "library";
+    elements.sampleSetNameInput.value = "";
+    await loadSampleSet(first.sampleSetId);
   }
 
   async function addSourceFiles(fileList) {
-    if (state.busy || state.draftSampleSetId) return;
+    if (state.mode !== "create" || state.busy || state.draftSampleSetId) return;
     state.busy = true;
     mutationBusy = true;
     render();
@@ -344,17 +398,28 @@ export function createBetaSampleLibrary({
     const sameTarget = state.featureMode === featureMode;
     const previouslyBusy = state.busy;
     loadRevision += 1;
-    state.busy = state.catalogLoading;
+    state.busy = Boolean(featureMode) && state.catalogLoading;
+    if (!sameTarget) {
+      if (state.mode === "create") parkSampleDraft();
+      state.mode = "library";
+    }
     state.featureMode = featureMode;
     if (preferredSampleSetId) rememberedSelections.set(featureMode, preferredSampleSetId);
     const next = preferredSet();
-    if (!reload && sameTarget && !previouslyBusy && !state.catalogLoading
-      && state.mode === "library" && next?.sampleSetId === state.activeSampleSetId) {
+    const keepCurrentSet = !reload && sameTarget && !previouslyBusy && !state.catalogLoading
+      && next?.sampleSetId === state.activeSampleSetId;
+    if ((sameTarget && state.mode === "create") || keepCurrentSet) {
       render();
       return;
     }
     clearSamples();
-    if (state.catalogLoading) { render(); return; }
+    elements.sampleSetNameInput.value = "";
+    if (restoreSampleDraft()) { render(); return; }
+    if (!featureMode || state.catalogLoading) {
+      setSyncStatus(featureMode ? "读取飞书中" : "", featureMode ? "syncing" : "idle");
+      render();
+      return;
+    }
     if (next) await loadSampleSet(next.sampleSetId);
     else beginCreate();
   }
@@ -365,7 +430,7 @@ export function createBetaSampleLibrary({
       input: elements.sourceFilesInput,
       onFiles: addSourceFiles,
     });
-    elements.newSampleSetButton.addEventListener("click", beginCreate);
+    elements.newSampleSetButton.addEventListener("click", () => beginCreate({ focus: true }));
     elements.cancelSampleSetButton.addEventListener("click", () => {
       cancelCreate().catch(onError);
     });
@@ -391,6 +456,7 @@ export function createBetaSampleLibrary({
       state.sampleSets = sampleSets || [];
       state.catalogLoading = false;
       state.busy = false;
+      if (state.featureMode === featureMode) roomTypeDrafts.delete(featureMode);
       await setFeatureMode(state.featureMode, "", { reload: true });
     } catch (error) {
       if (revision !== catalogRevision) return;
@@ -417,6 +483,7 @@ export function createBetaSampleLibrary({
     activeSampleSetId: () => state.activeSampleSetId,
     bind,
     isBusy: () => state.busy,
+    isMutating: () => mutationBusy,
     currentCases({ commonPrompt = "", freeReference = null } = {}) {
       if (state.textSampleIds.length) {
         const referenceImages = freeReference ? [freeReference] : [];

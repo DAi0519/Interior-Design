@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、共享侧栏 CSS/JS、server.mjs、package.json 的字体与动效契约
- * [OUTPUT]: 验证三页满视口外壳、同源 Inter 字形、横排双入口全名、原生当前态与焦点点标、桌面收展、移动抽屉关闭及向底部工具弹窗交接
+ * [OUTPUT]: 验证三页导航首帧、首页路由首帧识别、同源 Inter 字形、横排双入口、当前态与键盘焦点以及移动抽屉
  * [POS]: test 的跨工作台品牌字体护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -30,16 +30,16 @@ test("三页使用项目内嵌的 Raycast Inter Variable 品牌字体", async ()
   assert.match(navigationCss, /font-family: "Inter Raycast"/);
   assert.match(navigationCss, /font-feature-settings: "calt", "kern", "liga", "ss03"/);
   assert.match(navigationCss, /font-weight: 600/);
-  assert.match(navigationCss, /transform: translateY\(0\.5px\)/);
+  assert.match(navigationCss, /\.product-sidebar-head\s*{[^}]*align-items: center;[^}]*flex: 0 0 var\(--workbench-header-height\);/s);
   assert.match(navigationCss, /\.product-sidebar-head \.brand-title\s*{[^}]*font-size: 16px/s);
   assert.match(serverSource, /"\/vendor\/inter-variable-latin\.woff2"/);
   assert.equal(JSON.parse(packageSource).dependencies["@fontsource-variable/inter"], "5.3.0");
   assert.ok(fontStat.size > 40_000);
 });
 
-test("三页侧栏只提供功能搭建和批量跑图，两页首帧标出当前入口", async () => {
+test("三页侧栏只提供生图测试和批量跑图，两页首帧标出当前入口", async () => {
   const routes = ["/", "/beta.html"];
-  const labels = ["功能搭建", "批量跑图"];
+  const labels = ["生图测试", "批量跑图"];
   const currentRoutes = { index: ["/"], beta: ["/beta.html"], benchmark: [] };
   const pages = await Promise.all(Object.entries(currentRoutes).map(async ([name, current]) => ({
     html: await readFile(new URL(`../public/${name}.html`, import.meta.url), "utf8"),
@@ -57,8 +57,9 @@ test("三页侧栏只提供功能搭建和批量跑图，两页首帧标出当�
     assert.deepEqual(links.map((link) => link[3].match(/class="product-switch-label">([^<]+)</)?.[1]), labels);
     assert.match(html, /id="productSidebarOpen"[^>]*aria-controls="productSidebarDialog"/);
     assert.match(html, /<dialog id="productSidebarDialog"/);
-    assert.match(html, /product-navigation\.css\?v=26/);
-    assert.match(html, /<script src="\/product-navigation\.js\?v=13"><\/script>\s*<\/head>/);
+    assert.match(html, /product-navigation\.css\?v=30/);
+    assert.match(html, /<script src="\/product-navigation\.js\?v=14"(?: data-home-image-chat)?><\/script>\s*<\/head>/);
+    assert.equal(html.includes('data-home-image-chat></script>'), current.includes("/"));
     const footer = sidebar.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";
     const brand = sidebar.match(/<div class="product-sidebar-head">[\s\S]*?<\/div>/)?.[0] || "";
     assert.doesNotMatch(brand, /data-app-update|sidebar-update-notice/);
@@ -78,11 +79,12 @@ test("三页侧栏只提供功能搭建和批量跑图，两页首帧标出当�
   const selectionRules = css.match(/\.product-switch-option\[aria-current="page"\]\s*{[^}]*}/)?.[0] || "";
   assert.doesNotMatch(selectionRules, /border|box-shadow|outline/);
   assert.match(css, /\.product-switch-option:focus-visible:where\(:not\(\[aria-current="page"\]\)\),\s*\.product-sidebar-footer > \.sidebar-version:focus-visible\s*\{[^}]*background:/s);
-  assert.match(css, /\.product-switch-option:focus-visible::before\s*\{[^}]*background: currentColor;[^}]*block-size: 4px;/s);
-  assert.match(css, /\.product-switch-option\[aria-current="page"\]:focus-visible::before\s*\{\s*content: "";/s);
-  assert.doesNotMatch(css, /:focus-visible::after/);
+  assert.match(css, /\.product-switch-option\[aria-current="page"\]:focus-visible\s*\{[^}]*-webkit-text-stroke: 0\.5px currentColor;/);
+  assert.match(css, /\.product-switch-option\[aria-current="page"\]:focus-visible svg\s*\{[^}]*stroke-width: 2\.25;/);
+  assert.doesNotMatch(css, /\.product-switch-option[^\s,{]*:focus-visible::(?:before|after)/);
   assert.match(css, /@media \(max-width: 900px\)\s*{[\s\S]*grid-template-areas: "topbar" "content";/);
   assert.match(source, /window\.localStorage\.getItem\(storageKey\)[\s\S]*DOMContentLoaded/);
+  assert.match(source, /document\.currentScript\?\.hasAttribute\("data-home-image-chat"\) && !new URLSearchParams\(window\.location\.search\)\.get\("feature"\)[\s\S]*?html\.classList\.add\("image-chat-home"\)[\s\S]*?DOMContentLoaded/);
   assert.match(source, /dialog\.append\(sidebar\)[\s\S]*shell\.prepend\(sidebar\)/);
   assert.match(source, /dialog\.showModal\(\)/);
   assert.match(source, /dialog\.addEventListener\("close",[\s\S]*opener\.focus\(/);

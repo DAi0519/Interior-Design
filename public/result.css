@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 styles.css 的设计令牌、index.html 的结果区状态节点、共享生图反馈与原图/结果图叠层状态
- * [OUTPUT]: 对外提供结果布局、空态和错误态、可滚动画廊、原图/结果图滑动分割线、逐图下载与大图预览视觉
+ * [OUTPUT]: 提供结果状态、可滚动画廊、原图对比与逐图下载、大图预览和可选场景图操作样式
  * [POS]: public 的输出区样式模块，与 styles.css 的输入控制样式并列
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -141,6 +141,26 @@
 
 .result-gallery.multiple .result-media {
   flex-shrink: 0;
+}
+
+.result-failure-note {
+  color: var(--muted);
+  font-size: 12px;
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+
+.result-failure-note summary {
+  cursor: pointer;
+  padding-block: 6px;
+  width: fit-content;
+}
+
+.result-failure-note ul {
+  display: grid;
+  gap: 4px;
+  margin-block: 0 4px;
+  padding-inline-start: 20px;
 }
 
 .result-card {
@@ -466,6 +486,16 @@
   min-height: 0;
   object-fit: contain;
   width: auto;
+}
+
+.result-image-viewer:has(> .result-image-viewer-action) > img {
+  max-height: max(24px, calc(100dvh - 160px));
+}
+
+.result-image-viewer > .result-image-viewer-action {
+  display: block;
+  margin: 8px auto 0;
+  min-block-size: 44px;
 }
 
 .result-image-viewer-caption,

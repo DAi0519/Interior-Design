@@ -1,6 +1,6 @@
 <!--
   [INPUT]: 依赖AI渲染台编排、ai-render-studio.css 的嵌入结果面、共享上传图标和表单控件、工作台参数/结果/START和生图反馈样式及后台任务/归档接口
-  [OUTPUT]: 提供可挂接的参数/START、共享模型图上传入口、结果画布、光影与渲染风格、精细控光
+  [OUTPUT]: 提供可挂接的参数/START、可套用共享删除角标的模型图上传入口、结果画布、光影与渲染风格、精细控光
   [POS]: public 的AI渲染台同源嵌入入口，不新增独立导航或替换现有功能目录
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/result.css?v=17" />
     <link rel="stylesheet" href="/theme.css?v=38" />
     <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
-    <link rel="stylesheet" href="/custom-select.css?v=13" />
+    <link rel="stylesheet" href="/custom-select.css?v=14" />
     <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
     <link rel="stylesheet" href="/image-relight.css?v=2" />
     <link rel="stylesheet" href="/generation-actions.css?v=17" />
@@ -37,13 +37,13 @@
               <span class="reference-upload-label">添加或拖入模型图</span>
               <small id="studioUploadPolicy">PNG / JPEG / WebP · 单张 8MB</small>
             </button>
-            <div id="studioSourceSummary" class="studio-source-summary reference-item" hidden>
-              <button id="studioReplaceSource" class="studio-source-replace" type="button" aria-controls="studioSourceInput" aria-label="替换模型图" title="点击或拖入新图以替换">
+            <div id="studioSourceSummary" class="studio-source-summary reference-item" data-chat-attachment hidden>
+              <button id="studioReplaceSource" class="studio-source-replace" type="button" aria-controls="studioSourceInput" aria-label="替换模型图" aria-describedby="studioSourceName studioSourceDimensions" title="点击或拖入新图以替换" data-chat-attachment-preview>
                 <!-- impeccable-disable-next-line broken-image: 上传解码通过后设置src，摘要在无图时隐藏 -->
                 <img id="studioSourceThumbnail" alt="" />
                 <span><strong id="studioSourceName"></strong><small id="studioSourceDimensions"></small></span>
               </button>
-              <button id="studioRemoveSource" class="studio-icon-button" type="button" aria-label="移除当前模型图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+              <button id="studioRemoveSource" class="studio-icon-button" type="button" aria-label="移除当前模型图" data-chat-attachment-remove><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
             </div>
             <p id="studioUploadError" class="studio-error" role="alert" hidden></p>
           </section>
@@ -70,6 +70,6 @@
       <div id="studioLighting" class="studio-lighting"></div>
     </main>
     <div id="studioToast" class="studio-toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="/ai-render-studio.js?v=10"></script>
+    <script type="module" src="/ai-render-studio.js?v=11"></script>
   </body>
 </html>

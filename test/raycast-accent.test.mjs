@@ -166,16 +166,17 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
 });
 
 test("连接中心矩形动作由最终颜色层统一为中性浅色", async () => {
-  const [html, baseCss, accentCss] = await Promise.all([
+  const [html, dialog, baseCss, accentCss] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/connection-center-markup.js", import.meta.url), "utf8"),
     readFile(new URL("../public/connection-center.css", import.meta.url), "utf8"),
     readFile(new URL("../public/raycast-accent.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(html, /\/connection-center\.css\?v=15/);
+  assert.match(html, /\/connection-center\.css\?v=19/);
   const topbar = html.match(/<header class="topbar workspace-topbar">[\s\S]*?<\/header>/)?.[0] || "";
   const footer = html.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";
-  const dialog = html.match(/<div id="connectionDialog"[\s\S]*?<\/section>\s*<\/div>/)?.[0] || "";
+  assert.match(dialog, /id="connectionDialog"/);
   const connectionControl = footer.match(/<div class="connection-control">[\s\S]*?<\/div>/)?.[0] || "";
   assert.match(connectionControl, /<button id="connectionButton"[^>]*>[\s\S]*?id="apiQuotaValue"[\s\S]*?<\/button>/);
   assert.match(connectionControl, /<\/button>\s*<button id="apiQuotaRefresh"[^>]*aria-disabled="true" hidden>[\s\S]*?id="apiQuotaDetail"/);
@@ -196,7 +197,7 @@ test("连接中心矩形动作由最终颜色层统一为中性浅色", async ()
     "larkRefreshButton",
     "larkLoginButton",
   ]) {
-    assert.match(html, new RegExp(`id="${id}"[\\s\\S]*?class="connection-action-button"`));
+    assert.match(dialog, new RegExp(`id="${id}"[\\s\\S]*?class="connection-action-button"`));
   }
 
   const baseButtonBlock = baseCss.match(/\.connection-action-button\s*\{([^}]*)\}/)?.[1] || "";

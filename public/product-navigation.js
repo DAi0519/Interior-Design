@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖三页共享侧栏、原生导航链接和 dialog、侧栏更新与连接入口、可选本地存储
- * [OUTPUT]: 启动时恢复桌面侧栏宽度，移动端复用侧栏节点，处理遮罩轻触、焦点恢复及向工具弹窗交接
+ * [OUTPUT]: 首帧呈现当前页面布局并恢复桌面侧栏宽度，移动端复用侧栏节点及处理焦点交接
  * [POS]: public 的跨工作台导航布局控制器，原生链接负责页面切换
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -8,6 +8,9 @@
 (() => {
   const storageKey = "canvas-lab.product-sidebar-collapsed";
   const html = document.documentElement;
+  if (document.currentScript?.hasAttribute("data-home-image-chat") && !new URLSearchParams(window.location.search).get("feature")) {
+    html.classList.add("image-chat-home");
+  }
   function readCollapsed(fallback = false) {
     try { return window.localStorage.getItem(storageKey) === "true"; }
     catch { return fallback; }
