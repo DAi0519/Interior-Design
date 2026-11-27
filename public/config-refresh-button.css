@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖工作台及嵌入页面的共享配置操作语义、icons/refresh.svg 符号与银灰主题令牌
- * [OUTPUT]: 提供轻量刷新按钮、14px 图标尺寸、操作行排列及悬停/按压/禁用反馈
+ * [OUTPUT]: 提供轻量刷新按钮、贴分区标题的等宽图标按钮、操作行排列及悬停/按压/忙碌反馈
  * [POS]: public 的共享刷新按钮样式，由主工作台、批量跑图和嵌入工具显式加载
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -35,6 +35,41 @@
 
 .config-refresh-button:active { transform: scale(0.97); }
 .config-refresh-button:disabled { cursor: wait; opacity: 0.45; }
+
+.config-heading-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.config-refresh-button--icon {
+  color: var(--muted);
+  flex: none;
+  inline-size: var(--config-refresh-target, 40px);
+  block-size: var(--config-refresh-target, 40px);
+  justify-content: center;
+  padding: 0;
+}
+
+.config-refresh-button--icon [data-refresh-label] { display: none; }
+.config-refresh-button--icon:focus-visible {
+  outline: 2px solid var(--small-ink);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .config-refresh-button--icon { --config-refresh-target: 44px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .config-refresh-button--icon[aria-busy]:not([aria-busy="false"]) .refresh-icon { animation: config-refresh-spin 900ms linear infinite; }
+  @keyframes config-refresh-spin { to { transform: rotate(1turn); } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .config-refresh-button--icon { transition: none; }
+}
 
 @media (hover: hover) and (pointer: fine) {
   .config-refresh-button:hover:not(:disabled) { background: var(--panel-soft); color: var(--text); }

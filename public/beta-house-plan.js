@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖house-plan-annotation共享标注绘制、共享api/下拉、主布局配置、Beta样本ID/轻量预览及Run ID工具
- * [OUTPUT]: 提供共享下拉空间类型/自定义名称与紧凑分组工具栏；提供逐样本主卧/空间框选、独立草稿、Prompt版本/Agent选择及样本×模型批次
+ * [OUTPUT]: 提供同位刷新、忙碌和配置错误反馈；提供共享下拉空间类型/自定义名称与紧凑分组工具栏；提供逐样本主卧/空间框选、独立草稿、Prompt版本/Agent选择及样本×模型批次
  * [POS]: public 的Beta户型布局配置控制器，复用原Beta面板与样本库，不持有图片正文
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -19,7 +19,11 @@ export function createBetaHousePlanConfiguration({ getState, sampleLibrary, fill
   function render() {
     $('housePlanFields').classList.toggle('hidden', !active());
     if (!active()) return;
-    $('housePlanStatus').textContent = loading ? '读取中' : selectedPrompt() ? '已上架' : '不可用';
+    const status = $('housePlanStatus');
+    const ready = Boolean(config?.available && selectedPrompt());
+    status.textContent = loading ? '刷新中…' : ready ? '' : '提示词配置不可用';
+    status.classList.toggle('error', !loading && !ready);
+    $('housePlanRefresh').ariaBusy = String(loading);
     $('housePlanRefresh').disabled = loading;
     const versions = (config?.promptVersions || []).map(item => ({ value: item.version, label: `v${item.version} · ${item.name}` }));
     if (draft.version && !selectedPrompt()) versions.push({ value: draft.version, label: `v${draft.version}（已下架或不可用）` });
@@ -33,6 +37,7 @@ export function createBetaHousePlanConfiguration({ getState, sampleLibrary, fill
     decorateSamples();
   }
   async function refresh() {
+    if (loading) return;
     loading = true; render(); onChange();
     try {
       config = await api('/api/house-plan/config?refresh=1');

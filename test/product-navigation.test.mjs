@@ -57,7 +57,7 @@ test("三页侧栏只提供生图测试和批量跑图，两页首帧标出当�
     assert.deepEqual(links.map((link) => link[3].match(/class="product-switch-label">([^<]+)</)?.[1]), labels);
     assert.match(html, /id="productSidebarOpen"[^>]*aria-controls="productSidebarDialog"/);
     assert.match(html, /<dialog id="productSidebarDialog"/);
-    assert.match(html, /product-navigation\.css\?v=31/);
+    assert.match(html, /product-navigation\.css\?v=32/);
     assert.match(html, /<script src="\/product-navigation\.js\?v=14"(?: data-home-image-chat)?><\/script>\s*<\/head>/);
     assert.equal(html.includes('data-home-image-chat></script>'), current.includes("/"));
     const footer = sidebar.match(/<footer class="product-sidebar-footer"[^>]*>[\s\S]*?<\/footer>/)?.[0] || "";

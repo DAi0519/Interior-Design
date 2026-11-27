@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 任务快照的逐项异常、阶段、样本/模型标签、飞书记录链接与页面请求错误
- * [OUTPUT]: 提供按任务阶段显示的监控、保留链接焦点的逐项预警，以及共享下拉和进度DOM工具
+ * [OUTPUT]: 提供生成和同步两阶段计数与监控状态、保留链接焦点的逐项预警，以及共享下拉和进度DOM工具
  * [POS]: public 的 Beta跑图监控预警组件，以安全文本呈现生成/归档/连接问题，结果继续在飞书查看
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -112,7 +112,6 @@ export function renderBetaMonitor(elements, job, { error = "", canRefresh = fals
   if (!job) return;
 
   const total = Number(job.total) || 0;
-  updateText(elements.monitorBatchSummary, `${total} 张结果`);
   const completed = Number(job.completed) || 0;
   const generated = Number(job.stages?.generated) || (job.status === "success" ? total : 0);
   const synced = Number(job.stages?.synced) || completed;

@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与 Beta 功能目录/旧房准入和共享空房判定、HTML/CSS/样本库/预警组件/浏览器编排器、批次图片去重、飞书 Base 存储和 server 路由源码
- * [OUTPUT]: 覆盖批量跑图默认无选中与草稿、侧栏、配置、任务执行、按阶段显示监控、预警刷新保留节点，以及原批次重试
+ * [OUTPUT]: 覆盖批量跑图任务与草稿、桌面三栏和窄屏切换、样本工具栏、配置刷新、右侧进度和预警，以及跨列底栏的启动反馈和恢复操作
  * [POS]: test 的批量跑图页面合同测试，不启动浏览器或发送真实请求
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -232,8 +232,8 @@ test("Beta提示词模型提示反映授权，原页切换 Key 时保留草稿�
   assert.match(draft.note.textContent, /Gemini 当前 Key 不可用/);
 });
 
-test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏", async () => {
-  const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase] = await Promise.all([
+test("批量跑图任务目录、并排工作台与任务进度", async () => {
+  const [html, source, assetSource, configuration, sampleLibrary, resultSource, css, uploadSource, server, betaBase, layout] = await Promise.all([
     readFile(new URL("../public/beta.html", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-app.js", import.meta.url), "utf8"),
     readFile(new URL("../public/beta-assets.js", import.meta.url), "utf8"),
@@ -244,6 +244,7 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
     readFile(new URL("../public/beta-upload.js", import.meta.url), "utf8"),
     readFile(new URL("../server.mjs", import.meta.url), "utf8"),
     readFile(new URL("../src/beta-base.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../public/beta-layout.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /<title>Canvas Lab · 批量跑图<\/title>/);
@@ -254,7 +255,7 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   const sidebar = html.match(/<aside id="productSidebar"[^>]*>[\s\S]*?<\/aside>/)?.[0] || "";
   assert.match(sidebar, /data-app-update-label[\s\S]*?<button id="connectionButton"[^>]*aria-haspopup="dialog"[\s\S]*?id="apiQuotaValue"[\s\S]*?id="apiQuotaRefresh"/);
   assert.doesNotMatch(sidebar, /betaConnectionStatus/);
-  assert.match(html, /class="run-bar">\s*<p id="betaConnectionStatus"[^>]*role="status"/);
+  assert.match(html, /class="run-bar" hidden>\s*<p id="betaConnectionStatus"[^>]*role="status"/);
   assert.match(source, /const connection = bindBetaConnection\(/);
   assert.match(source, /connection\.load\(\)/);
   assert.match(sidebar, /data-feature-catalog-open[^>]*aria-label="查找任务"/);
@@ -268,7 +269,10 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   ]);
   assert.deepEqual(taskGroups.flat().sort(), Object.keys(BETA_FEATURE_COPY).sort());
   assert.doesNotMatch(html, /id="betaFeatureSelect"/);
-  assert.match(html, /<p id="betaEmpty"[^>]*>从侧栏选择任务<\/p>\s*<form id="betaForm"[^>]*\bhidden>\s*<div class="beta-config-scroll">\s*<section class="beta-section">\s*<div class="section-heading">\s*<h2>选择样本集<\/h2>/);
+  assert.match(html, /<p id="betaEmpty"[^>]*>从侧栏选择任务<\/p>\s*<header id="betaTaskHeading"[^>]*\bhidden>\s*<h2 id="betaTaskTitle"><\/h2>/);
+  assert.match(html, /class="beta-panel-switch"[\s\S]*?id="betaSampleTab"[\s\S]*?id="betaSettingsTab"[\s\S]*?id="betaProgressTab"/);
+  assert.match(html, /<\/nav>\s*<form id="betaForm"[^>]*aria-labelledby="betaTaskTitle"[^>]*\bhidden>/);
+  assert.match(html, /class="beta-workspace-panels"[\s\S]*?id="betaSettingsPanel"[\s\S]*?id="betaConfigScroll"[\s\S]*?id="betaSamplePanel"[\s\S]*?id="betaSampleScroll"/);
   assert.match(css, /\.beta-grid > \[hidden\] \{ display: none; \}/);
   assert.doesNotMatch(html, /betaFeatureOptions|data-feature-mode=/);
   assert.deepEqual(Object.entries(BETA_FEATURE_COPY).map(([key, copy]) => [key, copy.label]), [
@@ -296,12 +300,16 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   assert.doesNotMatch(html, /class="beta-hero"|选择样本集，设置后运行。/);
   assert.match(html, /可多选全部可用模型/);
   assert.match(html, /结果自动同步飞书/);
-  assert.match(html, /<h2>选择样本集<\/h2>/);
+  assert.match(html, /<h2 id="betaSampleTitle">样本集<\/h2>/);
   assert.doesNotMatch(html, /<span>0[1-4]<\/span>/);
   assert.match(html, /id="sampleSetSelect"/);
+  assert.match(html, /id="betaSampleSearch" type="search"/);
   assert.match(html, /id="sampleSetSyncStatus"[^>]*role="status"[^>]*>读取飞书中/);
   assert.match(html, /id="saveSampleSetButton" class="quiet-button sample-set-save"[^>]*>保存样本集/);
   assert.match(html, /id="taskSettingsSection"[\s\S]+id="freeSharedPromptInput"[^>]*maxlength="8000"/);
+  assert.match(html, /id="designFields"[\s\S]*?id="styleReferenceField"[\s\S]*?id="commonPromptField"[\s\S]*?id="outputSettingsTitle"/);
+  assert.match(html, /<details id="negativePromptField"[^>]*>\s*<summary>Flux 负向提示词/);
+  assert.doesNotMatch(html, /<details id="negativePromptField"[^>]*\sopen(?:[\s=>])/);
   assert.doesNotMatch(html, /每行一个样本|freePromptsInput|freePromptList/);
   assert.match(source, /runButton\.disabled =[\s\S]+\|\| !sharedPromptReady/);
   assert.match(source, /betaForm\.addEventListener\("submit"[\s\S]+if \(elements\.runButton\.disabled\) return/);
@@ -310,11 +318,11 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   assert.doesNotMatch(html, /BATCH GENERATION|<p class="eyebrow">RUNS|一条 Case/);
   assert.match(html, /custom-select\.css\?v=14/);
   assert.match(html, /generation-actions\.css\?v=17/);
-  assert.match(html, /beta\.css\?v=41/);
-  assert.match(html, /beta-app\.js\?v=66/);
+  assert.match(html, /beta\.css\?v=56/);
+  assert.match(html, /beta-app\.js\?v=75/);
   assert.match(html, /<select id="betaCameraMode"[^>]*aria-label="机位生成模式"/);
   assert.match(html, /<textarea id="betaCameraDirectPrompt"[^>]*maxlength="4000"[^>]*aria-required="true"/);
-  assert.match(source, /createBetaFloorPlanCameraConfiguration[^\n]+"\.\/beta-floor-plan-camera\.js\?v=12"/);
+  assert.match(source, /createBetaFloorPlanCameraConfiguration[^\n]+"\.\/beta-floor-plan-camera\.js\?v=13"/);
   assert.match(html, /<input id="betaCameraShowFrame" type="checkbox" checked disabled[^>]*> 显示取景框/);
   assert.match(html, /id="multiAngleTopDownButton"[^>]*>正俯视/);
   assert.match(html, /id="multiAngleElevation"[^>]*min="-30" max="90"/);
@@ -343,22 +351,31 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   assert.match(html, /id="runButton" class="generate-button functional-accent-button"/);
   assert.match(html, /id="ratioSelect" data-dropdown-placement="top"/);
   assert.match(html, /ORwJbt5EYauNORsrhqJcpetLnEb/);
-  assert.match(html, /<aside class="beta-card beta-monitor-card"[^>]*aria-labelledby="jobMonitorTitle"/);
-  assert.doesNotMatch(html, /betaMonitorToggle|收起任务监控|展开任务监控/);
-  assert.match(html, /id="betaMonitorClose"[^>]*aria-label="关闭任务监控"/);
-  assert.match(html, /id="betaMonitorOpen"[^>]*aria-haspopup="dialog"[^>]*aria-controls="betaMonitorDialog"/);
-  assert.match(html, /<dialog id="betaMonitorDialog"[^>]*aria-labelledby="jobMonitorTitle"><\/dialog>/);
-  assert.match(html, /beta-layout\.js\?v=4/);
+  assert.match(html, /<\/form>\s*<aside id="betaMonitorPanel" class="beta-card beta-monitor-card" aria-labelledby="jobMonitorTitle" hidden>[\s\S]*?<\/aside>\s*<div id="betaRunBar" class="run-bar" hidden>/);
+  assert.doesNotMatch(html, /id="betaMonitorToggle"/);
+  assert.match(html, /id="betaMonitorOpen"[^>]*aria-controls="betaMonitorPanel"/);
+  assert.doesNotMatch(html, /betaMonitorDialog|betaMonitorClose/);
+  assert.match(source, /bindBetaLayout[^\n]+beta-layout\.js\?v=7/);
+  assert.match(layout, /panels\.progress\.hidden = form\.hidden && !job && !error/);
+  assert.match(layout, /runBar\.hidden = form\.hidden && !job && !canRefresh/);
+  assert.match(layout, /tab\.setAttribute\("aria-pressed"/);
+  assert.match(source, /layout\.showProgress\(\{/);
   assert.match(html, /id="jobProgress" class="job-progress"[^>]*hidden/);
-  assert.match(html, /id="generationProgressCount">0 \/ 0/);
-  assert.match(html, /id="jobProgressCount">0 \/ 0/);
+  assert.match(html, /id="generationProgressCount"[^>]*>0 \/ 0/);
+  assert.match(html, /id="jobProgressCount"[^>]*>0 \/ 0/);
   assert.match(html, />生成进度<\/span>/);
   assert.match(html, />飞书同步<\/span>/);
-  assert.match(html, /id="monitorBaseLink" class="quiet-button monitor-base-button"[^>]*>在飞书查看结果<\/a>/);
   assert.match(html, /id="monitorWarnings" class="monitor-warnings-list"[^>]*aria-live="polite"/);
   assert.match(html, /id="monitorWarningsSection"[^>]*hidden/);
-  assert.match(html, /id="monitorRetryActions"[^>]*hidden/);
-  assert.match(html, /id="runButton"[^>]*form="betaForm"/);
+  const monitorDetails = html.match(/<div id="betaMonitorDetails"[\s\S]*?<\/aside>/)?.[0];
+  const runBar = html.match(/<div id="betaRunBar"[\s\S]*?<\/main>/)?.[0];
+  assert.ok(monitorDetails && runBar);
+  assert.doesNotMatch(monitorDetails, /<(a|button)\b/);
+  assert.doesNotMatch(monitorDetails, /monitorBatchSummary/);
+  assert.match(runBar, /id="monitorBaseLink"[^>]*hidden>在飞书查看结果<\/a>/);
+  assert.match(runBar, /id="monitorRefresh"[^>]*hidden>重新读取进度<\/button>/);
+  assert.match(runBar, /id="newBatchButton"[^>]*hidden>新批次<\/button>/);
+  assert.match(runBar, /id="runButton"[^>]*form="betaForm"/);
   assert.doesNotMatch(html, /id="betaBaseLink"|class="section-link"|>打开飞书<\/a>/);
   assert.match(source, /\/api\/beta\/jobs/);
   assert.match(source, /adaptGenerationInputForModel/);
@@ -366,11 +383,11 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   assert.match(assetSource, /export function packBatchAssets\(items, featureMode\)/);
   assert.match(assetSource, /referenceAssetKey/);
   assert.match(source, /import "\.\/custom-select\.js\?v=9"/);
-  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=10"/);
+  assert.match(source, /import \{ createBetaSampleLibrary \} from "\.\/beta-sample-library\.js\?v=12"/);
   assert.match(source, /sampleSetId: sampleLibrary\.activeSampleSetId\(\)/);
   assert.match(source, /sampleId: currentCase\.caseId/);
   assert.doesNotMatch(source, /MAX_BATCH_IMAGE_BYTES|assertBatchImageSize|assertCurrentAssetSize/);
-  assert.match(source, /import \{ [^}]*renderBetaMonitor \} from "\.\/beta-results\.js\?v=3"/);
+  assert.match(source, /import \{ [^}]*renderBetaMonitor \} from "\.\/beta-results\.js\?v=4"/);
   assert.match(source, /import \{ createBetaRunId, formatBetaTestTime \} from "\.\/beta-run-id\.js\?v=3"/);
   assert.match(source, /testTime: formatBetaTestTime\(startedAt\)/);
   assert.match(source, /DEFAULT_BETA_MODEL_KEY/);
@@ -384,13 +401,13 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   assert.match(source, /bindImageDrop/);
   assert.match(source, /createBetaSampleLibrary/);
   assert.match(source, /runButtonLabel\.textContent = running \? "RUNNING…" : failed \? "RETRY" : "START"/);
-  assert.match(source, /failed \? "仅重试失败项，已成功结果保留" : "结果自动同步飞书"/);
+  assert.match(source, /batchSummary = failed \? "仅重试失败项"/);
+  assert.match(source, /failed \? "已成功结果保留" : "结果自动同步飞书"/);
   assert.match(resultSource, /job\.stages\?\.generated/);
   assert.match(resultSource, /job\.stages\?\.synced/);
   assert.match(resultSource, /elements\.jobProgress\.hidden = !job/);
   assert.match(source, /retryOfJobId: previousJob\.jobId/);
   assert.match(source, /state\.submitting/);
-  assert.match(html, /id="newBatchButton"[^>]*type="button">新批次/);
   assert.match(source, /newBatchButton\.addEventListener\("click"[^]*sessionStorage\.removeItem\(JOB_STORAGE_KEY\);\s*renderJob\(null\)/);
   assert.match(resultSource, /export function renderBetaWarnings/);
   assert.match(resultSource, /warning\.recordUrl/);
@@ -415,32 +432,39 @@ test("批量跑图侧栏按功能分组选择任务，桌面监控常驻右栏",
   assert.doesNotMatch(css, /transition\s*:\s*all\b/);
   assert.match(css, /--choice-control-height:\s*38px/);
   assert.match(css, /\.sample-set-actions\s*\{[^}]*gap:\s*6px;/s);
-  assert.match(css, /\.sample-set-actions \.quiet-button\s*\{\s*min-height:\s*38px;/);
-  assert.match(css, /\.monitor-base-button\s*\{[^}]*min-height:\s*38px;[^}]*width:\s*100%;/s);
+  assert.match(css, /--beta-control-height:\s*40px/);
+  assert.match(css, /@media \(pointer: coarse\)\s*\{\s*:root\s*\{\s*--beta-control-height:\s*44px/);
+  assert.match(css, /\.beta-settings \.refined-lighting-executions\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\);/);
+  assert.match(css, /\.quiet-button\.run-text-action\s*\{[^}]*box-shadow:\s*none;[^}]*min-height:\s*var\(--beta-control-height\);/s);
   assert.doesNotMatch(css, /\.section-link|\.monitor-base-link/);
   assert.doesNotMatch(source, /betaBaseLink/);
   assert.match(css, /\.quiet-button\.sample-set-save\s*\{[^}]*box-shadow:\s*var\(--brand-key-shadow, var\(--control-shadow\)\);/s);
   assert.doesNotMatch(css, /\.sample-set-save\s*\{[^}]*brand-primary-shadow/s);
-  assert.match(css, /\.beta-section,\s*\.run-bar\s*\{\s*grid-template-columns:\s*min\(100%, 720px\);/);
-  assert.match(css, /\.beta-section\s*\{[^}]*display:\s*grid;[^}]*gap:\s*16px;[^}]*padding:\s*18px 20px;/s);
-  assert.match(css, /\.beta-section:first-child\s*\{\s*padding-top:\s*20px;/);
-  assert.match(css, /\.section-heading\s*\{[^}]*margin-bottom:\s*-4px;/s);
-  assert.match(css, /\.section-heading h2\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;[^}]*letter-spacing:\s*-\.006em;/s);
+  assert.match(css, /\.beta-section,\s*\.run-bar\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\);/);
+  assert.match(css, /\.beta-section\.beta-settings\s*\{\s*grid-template-columns:\s*minmax\(0, 560px\);/);
+  assert.match(css, /\.beta-output-controls\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s);
+  assert.match(css, /\.beta-task-heading\s*\{[^}]*block-size:\s*var\(--workbench-header-height\);/s);
+  assert.match(css, /\.beta-config-scroll\b[\s\S]*?scrollbar-gutter:\s*stable;/s);
+  assert.match(css, /\.run-bar\s*\{[^}]*overflow:\s*hidden;[^}]*scrollbar-gutter:\s*stable;/s);
+  assert.match(css, /\.beta-section\s*\{[^}]*display:\s*grid;[^}]*gap:\s*var\(--beta-field-gap\);[^}]*padding-block:\s*16px 20px;/s);
+  assert.match(css, /\.beta-section > \.section-heading\s*\{[^}]*margin-block-end:\s*-4px;/s);
+  assert.match(css, /\.section-heading :is\(h2, h3\)\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;[^}]*letter-spacing:\s*-\.006em;/s);
   assert.doesNotMatch(css, /\.section-heading > div > span/);
   assert.match(css, /\.beta-shell\s*\{[^}]*overflow:\s*auto;/s);
-  assert.match(css, /\.beta-config-scroll\s*\{[^}]*position:\s*relative;/s);
+  assert.match(css, /\.beta-config-scroll,\s*\.beta-monitor-details\s*\{[^}]*position:\s*relative;/s);
   assert.match(css, /html\s*\{\s*overflow:\s*clip;/s);
   assert.match(css, /body\s*\{[^}]*overflow:\s*clip;/s);
   assert.match(css, /\.beta-config-card\s*\{[^}]*height:\s*100%;/s);
   assert.doesNotMatch(css, /\.beta-hero|\.beta-intro-copy|\.base-link/);
-  assert.match(css, /\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) clamp\(248px, 26%, 432px\);[^}]*height:\s*100%;/s);
-  assert.doesNotMatch(css, /is-monitor-collapsed|beta-monitor-toggle/);
-  assert.match(css, /\.beta-monitor-card\s*\{[^}]*border-inline-start:[^;]*;[^}]*overflow:\s*auto;/s);
-  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.beta-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*height:\s*auto;/s);
-  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.beta-grid > \.beta-monitor-card\s*\{\s*display:\s*none;\s*\}/);
-  assert.match(css, /@media \(max-width: 900px\)\s*\{\s*html\s*\{\s*overflow:\s*auto;\s*\}\s*body, \.beta-shell\s*\{\s*overflow:\s*visible;/s);
+  assert.match(css, /\.beta-workspace-panels\s*\{[^}]*grid-template-columns:\s*clamp\(236px, 28%, 340px\) minmax\(0, 1fr\);/s);
+  assert.match(css, /\.beta-grid:has\(> \.beta-monitor-card:not\(\[hidden\]\)\)\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) clamp\(224px, 22%, 300px\);/s);
+  assert.match(css, /\.run-bar\s*\{[^}]*grid-column:\s*1 \/ -1;/s);
+  assert.match(css, /@container beta-samples \(min-width: 680px\) \{/);
+  assert.match(css, /data-beta-panel="progress"/);
+  assert.doesNotMatch(css, /\.beta-monitor-dialog/);
   assert.match(css, /\.sync-progress-track span\s*\{\s*background:\s*var\(--muted\);/s);
-  assert.match(css, /\.monitor-warnings-list\s*\{[^}]*overflow:\s*auto;/s);
+  assert.match(css, /\.job-progress-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/s);
+  assert.match(css, /\.beta-monitor-details\s*\{[^}]*overflow:\s*auto;/s);
   assert.match(css, /\.monitor-warning\s*\{/);
   assert.match(css, /\.reference-drop-zone\s*\{/);
   assert.doesNotMatch(css, /\.model-options \+ \.output-grid|\.field-grid \+ \.field|\.compact-upload\s*\{[^}]*margin-top/s);
@@ -630,7 +654,7 @@ test("Beta美化按样本×原氛围/新模板×模型构造独立任务，保�
   const countSource = source.match(/function runCount\(\) \{[\s\S]*?\n\}/)?.[0];
   const count = new Function("sampleCount", "selectedCandidates", "state", "effectBeautificationControls", `return (${countSource})();`);
   assert.equal(count(() => 2, context.selectedModels, context.state, context.effectBeautificationControls), 12);
-  const summaryExpression = source.match(/elements\.runSummary\.textContent = ([\s\S]*?);\n/)?.[1];
+  const summaryExpression = source.match(/const draftSummary = ([\s\S]*?);\n/)?.[1];
   const summary = new Function("samples", "models", "state", "effectBeautificationControls", "total", `return (${summaryExpression});`);
   assert.equal(summary(2, 2, context.state, context.effectBeautificationControls, 12), "2 个样本 × 3 种光影 × 2 个模型 = 12 张结果");
   selections = [];
@@ -737,7 +761,7 @@ test("预警使用安全文本，轮询时保留同一明细链接并移除已�
 });
 
 test("监控按批次状态显示进度，请求错误只展示一次，运行中保留自动重试提示", () => {
-  const ids = ["jobStatus", "jobProgress", "jobProgressLabel", "monitorBatchSummary", "monitorWarnings",
+  const ids = ["jobStatus", "jobProgress", "jobProgressLabel", "monitorWarnings",
     "monitorWarningsCount", "monitorWarningsSection", "monitorRefresh", "generationProgressTrack",
     "generationProgressBar", "generationProgressCount", "jobProgressTrack", "jobProgressBar", "jobProgressCount"];
   const ui = Object.fromEntries(ids.map(id => [id, monitorNode("div")]));

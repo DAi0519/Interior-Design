@@ -1,6 +1,6 @@
 <!--
-  [INPUT]: 依赖共享工作台侧栏和功能目录、beta-layout.js 的监控侧栏与抽屉，以及原样本和批量配置
-  [OUTPUT]: 提供分组任务目录和查找、选任务后的配置和 START、原页连接中心与桌面常驻分阶段监控，失败时在预警下方提供恢复操作
+  [INPUT]: 依赖共享工作台侧栏和功能目录、beta-layout.js 的窄屏面板与底部进度状态，以及原样本和批量配置
+  [OUTPUT]: 提供任务目录、同一表头下独立滚动的设置、样本与右侧任务进度、窄屏三面板切换、原页连接中心及跨列固定批次操作栏
   [POS]: public 的独立批量跑图配置与任务监控页，负责样本、生成设置、进度和异常预警可见性；飞书仍是结果真源，不承载 Style DNA 反推或 AI 评分
   [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -12,20 +12,20 @@
     <meta name="color-scheme" content="light" />
     <link rel="preload" href="/vendor/inter-variable-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Canvas Lab · 批量跑图</title>
-    <link rel="stylesheet" href="/beta.css?v=41" />
-    <link rel="stylesheet" href="/beta-house-plan.css?v=3" />
-    <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
+    <link rel="stylesheet" href="/beta.css?v=56" />
+    <link rel="stylesheet" href="/beta-house-plan.css?v=4" />
+    <link rel="stylesheet" href="/config-refresh-button.css?v=3" />
     <link rel="stylesheet" href="/effect-beautification.css?v=3" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
     <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
     <link rel="stylesheet" href="/generation-actions.css?v=17" />
     <link rel="stylesheet" href="/custom-select.css?v=14" />
-    <link rel="stylesheet" href="/product-navigation.css?v=31" />
-    <link rel="stylesheet" href="/feature-directory.css?v=13" />
+    <link rel="stylesheet" href="/product-navigation.css?v=32" />
+    <link rel="stylesheet" href="/feature-directory.css?v=14" />
     <link rel="stylesheet" href="/app-update.css?v=4" />
     <link rel="stylesheet" href="/connection-center.css?v=19" />
     <link rel="stylesheet" href="/panel-copy.css?v=2" />
-    <link rel="stylesheet" href="/raycast-accent.css?v=44" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=45" />
     <script src="/product-navigation.js?v=14"></script>
   </head>
   <body>
@@ -89,233 +89,261 @@
           <button id="productSidebarOpen" class="product-sidebar-open" type="button" aria-label="打开侧栏" aria-haspopup="dialog" aria-expanded="false" aria-controls="productSidebarDialog"><svg aria-hidden="true"><use href="/icons/workbench.svg#menu"></use></svg></button>
           <span class="workbench-topbar-title">批量跑图</span>
         </div>
-        <button id="betaMonitorOpen" class="quiet-button beta-monitor-open" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="betaMonitorDialog" aria-describedby="jobStatus monitorWarningsCount">
-          <svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg>任务监控
+        <button id="betaMonitorOpen" class="quiet-button beta-monitor-open" type="button" aria-pressed="false" aria-controls="betaMonitorPanel" aria-describedby="jobStatus monitorWarningsCount">
+          <svg aria-hidden="true"><use href="/icons/workbench.svg#benchmark"></use></svg>任务进度
           <span class="beta-monitor-alert">有异常</span>
         </button>
       </header>
 
       <main class="beta-shell">
         <h1 class="visually-hidden">批量跑图</h1>
-        <div class="beta-grid">
-          <p id="betaEmpty" class="beta-empty" role="status">从侧栏选择任务</p>
-          <form id="betaForm" class="beta-card beta-config-card" hidden>
-            <div class="beta-config-scroll">
-            <section class="beta-section">
-              <div class="section-heading">
-                <h2>选择样本集</h2>
-                <div class="section-heading-meta">
+        <div class="beta-grid" data-beta-panel="samples">
+          <p id="betaEmpty" class="beta-empty" role="status" tabindex="-1">从侧栏选择任务</p>
+          <header id="betaTaskHeading" class="beta-task-heading" hidden>
+            <h2 id="betaTaskTitle"></h2>
+          </header>
+          <nav id="betaPanelSwitch" class="beta-panel-switch" aria-label="批量跑图面板" hidden>
+            <button id="betaSampleTab" type="button" data-beta-panel-target="samples" aria-controls="betaSamplePanel" aria-pressed="true">样本集</button>
+            <button id="betaSettingsTab" type="button" data-beta-panel-target="settings" aria-controls="betaSettingsPanel" aria-pressed="false">设置</button>
+            <button id="betaProgressTab" type="button" data-beta-panel-target="progress" aria-controls="betaMonitorPanel" aria-describedby="jobStatus" aria-pressed="false">任务进度</button>
+          </nav>
+          <form id="betaForm" class="beta-card beta-config-card" aria-labelledby="betaTaskTitle" hidden>
+            <div class="beta-workspace-panels">
+              <section id="betaSettingsPanel" class="beta-settings-panel" aria-labelledby="betaSettingsTitle">
+                <header class="beta-pane-heading section-heading"><h2 id="betaSettingsTitle">设置</h2></header>
+                <div id="betaConfigScroll" class="beta-config-scroll" tabindex="0" aria-label="任务与输出设置">
+                  <section id="taskSettingsSection" class="beta-section beta-settings" aria-labelledby="taskSettingsTitle">
+                    <div class="section-heading">
+                      <h2 id="taskSettingsTitle">任务设置</h2>
+                      <small id="configStatus">读取中</small>
+                    </div>
+                    <label id="freeSharedPromptField" class="field hidden">
+                      <span>整批提示词</span>
+                      <textarea id="freeSharedPromptInput" rows="5" maxlength="8000" aria-required="true" placeholder="填写一条提示词，应用到整批样本。支持多行。"></textarea>
+                    </label>
+                    <div id="housePlanFields" class="beta-task-field-group hidden">
+                      <div class="section-heading">
+                        <div class="config-heading-label">
+                          <h3>布局规划 Agent</h3>
+                          <button id="housePlanRefresh" class="config-refresh-button config-refresh-button--icon" type="button" aria-label="刷新户型布局配置" title="刷新户型布局配置">
+                            <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+                          </button>
+                        </div>
+                        <small id="housePlanStatus" class="config-refresh-status" role="status"></small>
+                      </div>
+                      <label class="field"><span>提示词版本</span><select id="housePlanVersion" aria-label="布局提示词版本"></select></label>
+                      <label class="field"><span>布局分析模型</span><select id="housePlanAgent" aria-label="布局分析模型"></select></label>
+                      <a id="housePlanPromptLink" target="_blank" rel="noopener noreferrer">在飞书中管理提示词</a>
+                    </div>
+                    <div id="betaCameraFields" class="beta-task-field-group hidden">
+                      <div class="section-heading">
+                        <div class="config-heading-label">
+                          <h3>机位生成</h3>
+                          <button id="betaCameraRefresh" class="config-refresh-button config-refresh-button--icon" type="button" aria-label="刷新机位生成配置" title="刷新机位生成配置">
+                            <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+                          </button>
+                        </div>
+                        <small id="betaCameraStatus" class="config-refresh-status" role="status"></small>
+                      </div>
+                      <label class="field"><span>生成模式</span><select id="betaCameraMode" aria-label="机位生成模式"></select></label>
+                      <label id="betaCameraAgentField" class="field"><span>空间推理模型</span><select id="betaCameraAgent" aria-label="空间推理模型"></select></label>
+                      <label id="betaCameraDirectPromptField" class="field hidden">
+                        <span>整批提示词</span>
+                        <textarea id="betaCameraDirectPrompt" rows="5" maxlength="4000" aria-required="true" placeholder="填写一条提示词，应用到整批机位图。"></textarea>
+                      </label>
+                    </div>
+                    <div id="multiAngleFields" class="beta-task-field-group hidden">
+                      <div class="section-heading">
+                        <h3>整批机位</h3>
+                        <button id="multiAngleTopDownButton" type="button" class="quiet-button">正俯视</button>
+                      </div>
+                      <label class="field beta-angle-field">
+                        <span>水平旋转</span><output id="multiAngleAzimuthValue" for="multiAngleAzimuth">0°</output>
+                        <input id="multiAngleAzimuth" type="range" min="0" max="360" step="1" value="0" aria-label="水平旋转" aria-describedby="multiAngleAzimuthValue" />
+                      </label>
+                      <label class="field beta-angle-field">
+                        <span>俯仰角度</span><output id="multiAngleElevationValue" for="multiAngleElevation">90°</output>
+                        <input id="multiAngleElevation" type="range" min="-30" max="90" step="1" value="90" aria-label="俯仰角度" aria-describedby="multiAngleElevationValue" />
+                      </label>
+                      <label class="field"><span>景别</span><select id="multiAngleDistance"><option value="0">特写</option><option value="50" selected>标准</option><option value="100">远景</option></select></label>
+                    </div>
+                    <div id="designFields" class="beta-task-field-group">
+                      <label class="field"><span>设计方式</span><select id="renderModeSelect"><option value="smart-default">智能默认</option><option value="style-dna">平台风格</option></select></label>
+                      <label id="styleField" class="field hidden"><span>平台风格</span><select id="styleSelect" data-searchable="true" aria-label="平台风格" data-placeholder="请选择平台风格" data-search-placeholder="搜索风格名称"></select></label>
+                      <label class="field"><span>提示词模型</span><select id="promptAgentModelSelect" aria-describedby="promptAgentAvailability"></select><small id="promptAgentAvailability" role="status">正在检测模型权限</small></label>
+                      <label id="promptAgentVersionField" class="field hidden"><span>融合版本</span><select id="promptAgentVersionSelect"></select></label>
+                    </div>
+                    <div id="styleReferenceField" class="upload-field compact-upload">
+                      <div class="upload-field-copy">
+                        <strong id="styleReferenceTitle">风格参考图（可选）</strong>
+                      </div>
+                      <div id="styleReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
+                      <div id="styleReferenceDropZone" class="reference-drop-zone">
+                        <input id="styleReferenceInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加风格参考图" />
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                          <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                        </svg>
+                        <span>添加或拖入风格参考图</span>
+                        <small>PNG / JPEG / WebP · 单张 8MB</small>
+                      </div>
+                    </div>
+                    <div id="emptyRoomFields" class="beta-task-field-group hidden">
+                      <label class="field"><span>房间类型</span><select id="roomTypeSelect"></select></label>
+                      <label id="roomTypeDetailField" class="field hidden"><span>具体空间类型</span><input id="roomTypeDetailInput" maxlength="40" placeholder="例如：衣帽间" /></label>
+                    </div>
+                    <div id="effectFields" class="beta-task-field-group hidden">
+                      <label class="field"><span>时段</span><select id="effectTimeSelect"><option value="preserve">保持原时段</option><option value="daytime">日间</option><option value="dusk">黄昏</option><option value="night">夜间</option></select></label>
+                      <label class="field"><span>天气</span><select id="effectWeatherSelect"><option value="preserve">保持原天气</option><option value="clear">晴天</option><option value="overcast">阴天</option><option value="rainy">雨天</option><option value="foggy">雾天</option></select></label>
+                    </div>
+                    <div id="effectBeautificationFields" class="effect-beautification-fields hidden" aria-label="效果图光影氛围"></div>
+                    <div id="panoramaFields" class="field hidden" aria-label="全景光影氛围"></div>
+                    <div id="refinedRenderFields" class="hidden" aria-label="精模渲染氛围"></div>
+                    <label id="refinedPromptField" class="field hidden"><span>精模 Prompt 版本</span><select id="refinedPromptSelect"></select></label>
+                    <div id="freeReferenceField" class="upload-field compact-upload hidden">
+                      <div class="upload-field-copy">
+                        <strong>共用参考图（可选）</strong>
+                      </div>
+                      <div id="freeReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
+                      <div id="freeReferenceDropZone" class="reference-drop-zone">
+                        <input id="freeReferenceInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加自由生图参考图" />
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                          <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                        </svg>
+                        <span>添加或拖入参考图</span>
+                        <small>PNG / JPEG / WebP · 单张 8MB</small>
+                      </div>
+                    </div>
+                    <label id="commonPromptField" class="field">
+                      <span id="commonPromptLabel">补充要求（可选）</span>
+                      <textarea id="commonPromptInput" rows="3" placeholder="整批共用的补充要求"></textarea>
+                    </label>
+                  </section>
+
+                  <section class="beta-section beta-settings beta-output-settings" aria-labelledby="outputSettingsTitle">
+                    <div class="section-heading">
+                      <h2 id="outputSettingsTitle">输出设置</h2>
+                      <small id="outputSettingsHint">可多选全部可用模型</small>
+                    </div>
+                    <div id="outpaintFields" class="beta-outpaint-fields hidden">
+                      <div class="beta-output-controls">
+                        <div class="field"><span>扩图工作流 <small class="beta-field-qualifier">可多选</small></span><div id="outpaintWorkflowOptions" role="group" aria-label="扩图工作流"></div></div>
+                        <label class="field"><span>画幅比例</span><select id="outpaintRatioSelect" data-dropdown-placement="top"><option value="original">原比例</option><option value="1:1">1:1</option><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="3:4">3:4</option><option value="9:16">9:16</option></select></label>
+                        <label class="field"><span>扩图倍率</span><select id="outpaintMultipleSelect" data-dropdown-placement="top"><option value="1.5">1.5 倍</option><option value="2">2 倍</option><option value="3">3 倍</option></select></label>
+                      </div>
+                      <small class="beta-outpaint-hint">整批共用画幅与倍率，原图居中，固定 2K 输出。Sunburst 超限图等比缩小，超宽画幅保全图补边。</small>
+                      <small id="outpaintAvailability" class="beta-outpaint-availability hidden" role="status"></small>
+                    </div>
+                    <div id="upscaleFields" class="beta-upscale-fields hidden">
+                      <div class="beta-output-controls">
+                        <div class="field"><span>超分工作流 <small class="beta-field-qualifier">可多选</small></span><div id="upscaleWorkflowOptions" role="group" aria-label="超分工作流"></div></div>
+                        <label id="upscaleResolutionField" class="field"><span>输出尺寸</span><select id="upscaleResolutionSelect" aria-label="超分输出尺寸" data-dropdown-placement="top"></select></label>
+                      </div>
+                      <small id="upscaleResolutionNote" class="beta-upscale-hint">按所选工作流的共同尺寸输出，保持每张原图比例。</small>
+                      <small id="upscaleAvailability" class="beta-upscale-availability hidden" role="status"></small>
+                    </div>
+                    <div id="multiAngleModelField" class="field hidden"><span>出图模型 <small class="beta-field-qualifier">可多选</small></span><div id="multiAngleModelOptions" role="group" aria-label="多角度出图模型"></div></div>
+                    <div id="ordinaryOutputFields" class="beta-ordinary-output">
+                      <div class="beta-output-controls">
+                        <div class="field"><span>出图模型 <small class="beta-field-qualifier">可多选</small></span><div id="modelOptions" class="model-options" role="group" aria-label="出图模型"></div></div>
+                        <div class="output-grid">
+                          <label class="field"><span>输出比例</span><select id="ratioSelect" data-dropdown-placement="top"></select></label>
+                          <label class="field"><span>分辨率</span><select id="resolutionSelect" data-dropdown-placement="top"></select></label>
+                          <label id="qualityField" class="field"><span>质量档</span><select id="qualitySelect" data-dropdown-placement="top"></select></label>
+                          <div id="betaCameraOutputFields" class="beta-camera-output-fields hidden">
+                            <label class="field"><span>每模型张数</span><select id="betaCameraCount" aria-label="每模型张数" data-dropdown-placement="top"></select></label>
+                            <label id="betaCameraComplexityField" class="field hidden"><span>GPT 生图思考</span><select id="betaCameraComplexity" aria-label="GPT 生图思考" data-dropdown-placement="top"></select></label>
+                          </div>
+                        </div>
+                      </div>
+                      <details id="negativePromptField" class="beta-disclosure hidden">
+                        <summary>Flux 负向提示词 <small class="beta-disclosure-filled">已填写</small></summary>
+                        <label class="field">
+                          <span class="beta-prompt-label"><span>自定义负向提示词</span><span id="negativePromptCount" class="character-count">0 / 8000</span></span>
+                          <textarea id="negativePromptInput" rows="3" maxlength="8000" aria-describedby="negativePromptNote" placeholder="留空使用当前功能默认"></textarea>
+                          <small id="negativePromptNote"></small>
+                        </label>
+                      </details>
+                    </div>
+                  </section>
+                </div>
+              </section>
+              <section id="betaSamplePanel" class="beta-sample-panel" aria-labelledby="betaSampleTitle">
+                <header class="beta-pane-heading section-heading">
+                  <div class="section-heading-meta">
+                    <h2 id="betaSampleTitle">样本集</h2>
+                    <small id="sampleCount">0 个样本</small>
+                  </div>
                   <small id="sampleSetSyncStatus" class="sample-set-sync-status" role="status" aria-atomic="true">读取飞书中</small>
-                  <small id="sampleCount">0 个样本</small>
-                </div>
-              </div>
-              <div id="sampleSetLibraryPanel" class="sample-set-panel">
-                <label class="field sample-set-picker">
-                  <span>已有样本集</span>
-                  <select id="sampleSetSelect" aria-label="选择样本集"><option value="">正在读取</option></select>
-                </label>
-                <div class="sample-set-toolbar">
-                  <button id="newSampleSetButton" class="quiet-button" type="button">新建样本集</button>
-                </div>
-              </div>
-              <div id="sampleSetCreatePanel" class="sample-set-panel hidden">
-                <label class="field">
-                  <span>样本集名称</span>
-                  <input id="sampleSetNameInput" maxlength="80" placeholder="例如：客厅回归组" />
-                </label>
-                <div id="sourceFilesField" class="upload-field">
-                  <div class="upload-field-copy">
-                    <strong id="sourceFilesTitle">白模图</strong>
+                </header>
+                <div id="betaSampleScroll" class="beta-sample-scroll" tabindex="0" aria-label="样本集内容">
+                  <div class="beta-sample-toolbar">
+                    <div id="sampleSetLibraryPanel" class="sample-set-panel">
+                      <label class="field sample-set-picker">
+                        <span>已有样本集</span>
+                        <select id="sampleSetSelect" aria-label="选择样本集"><option value="">正在读取</option></select>
+                      </label>
+                      <div class="sample-set-toolbar">
+                        <button id="newSampleSetButton" class="quiet-button" type="button">新建样本集</button>
+                      </div>
+                    </div>
+                    <div id="sampleSetCreatePanel" class="sample-set-panel hidden">
+                      <label class="field">
+                        <span>样本集名称</span>
+                        <input id="sampleSetNameInput" maxlength="80" placeholder="例如：客厅回归组" />
+                      </label>
+                      <div id="sourceFilesField" class="upload-field">
+                        <div class="upload-field-copy">
+                          <strong id="sourceFilesTitle">白模图</strong>
+                        </div>
+                        <div id="sourceFilesDropZone" class="reference-drop-zone">
+                          <input id="sourceFilesInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加白模图" multiple />
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
+                            <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                          </svg>
+                          <span id="sourceFilesDropLabel">添加或拖入白模图</span>
+                          <small id="sourceFilesHint">PNG / JPEG / WebP · 单张 8MB · 逐张上传</small>
+                        </div>
+                      </div>
+                      <div class="sample-set-actions">
+                        <button id="cancelSampleSetButton" class="quiet-button" type="button">取消</button>
+                        <button id="saveSampleSetButton" class="quiet-button sample-set-save" type="button">保存样本集</button>
+                      </div>
+                    </div>
+                    <label id="betaSampleSearchField" class="field beta-sample-search hidden">
+                      <span class="visually-hidden">搜索样本名称</span>
+                      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>
+                      <input id="betaSampleSearch" type="search" placeholder="搜索样本名称" autocomplete="off" spellcheck="false" />
+                    </label>
                   </div>
-                  <div id="sourceFilesDropZone" class="reference-drop-zone">
-                    <input id="sourceFilesInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加白模图" multiple />
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
-                      <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
-                    </svg>
-                    <span id="sourceFilesDropLabel">添加或拖入白模图</span>
-                    <small id="sourceFilesHint">PNG / JPEG / WebP · 单张 8MB · 逐张上传</small>
-                  </div>
+                  <p id="betaSampleSearchEmpty" class="beta-sample-search-empty hidden" role="status">没有匹配的样本</p>
+                  <div id="sampleList" class="sample-list reference-list hidden" aria-live="polite"></div>
                 </div>
-                <div class="sample-set-actions">
-                  <button id="cancelSampleSetButton" class="quiet-button" type="button">取消</button>
-                  <button id="saveSampleSetButton" class="quiet-button sample-set-save" type="button">保存样本集</button>
-                </div>
-              </div>
-              <div id="sampleList" class="sample-list reference-list hidden" aria-live="polite"></div>
-            </section>
-
-            <section id="taskSettingsSection" class="beta-section">
-              <div class="section-heading">
-                <h2>任务设置</h2>
-                <small id="configStatus">读取中</small>
-              </div>
-              <label id="commonPromptField" class="field">
-                <span id="commonPromptLabel">补充要求（可选）</span>
-                <textarea id="commonPromptInput" rows="3" placeholder="整批共用的补充要求"></textarea>
-              </label>
-              <label id="freeSharedPromptField" class="field hidden">
-                <span>整批提示词</span>
-                <textarea id="freeSharedPromptInput" rows="5" maxlength="8000" placeholder="填写一条提示词，应用到整批样本。支持多行。"></textarea>
-              </label>
-              <div id="housePlanFields" class="hidden">
-                <div class="section-heading"><h3>布局规划 Agent</h3><div class="section-heading-meta"><small id="housePlanStatus">读取中</small><button id="housePlanRefresh" class="quiet-button" type="button">刷新</button></div></div>
-                <label class="field"><span>提示词版本</span><select id="housePlanVersion" aria-label="布局提示词版本"></select></label>
-                <label class="field"><span>布局分析模型</span><select id="housePlanAgent" aria-label="布局分析模型"></select></label>
-                <a id="housePlanPromptLink" target="_blank" rel="noopener noreferrer">在飞书中管理提示词</a>
-              </div>
-              <div id="betaCameraFields" class="hidden">
-                <div class="section-heading"><h3>机位生成</h3><div class="section-heading-meta"><small id="betaCameraStatus">读取中</small><button id="betaCameraRefresh" class="quiet-button" type="button">刷新</button></div></div>
-                <label class="field"><span>生成模式</span><select id="betaCameraMode" aria-label="机位生成模式"></select></label>
-                <label id="betaCameraAgentField" class="field"><span>空间推理模型</span><select id="betaCameraAgent" aria-label="空间推理模型"></select></label>
-                <label id="betaCameraDirectPromptField" class="field hidden">
-                  <span>整批提示词</span>
-                  <textarea id="betaCameraDirectPrompt" rows="5" maxlength="4000" aria-required="true" placeholder="填写一条提示词，应用到整批机位图。"></textarea>
-                </label>
-              </div>
-              <div id="multiAngleFields" class="beta-multi-angle-fields hidden">
-                <div class="section-heading">
-                  <h3>整批机位</h3>
-                  <button id="multiAngleTopDownButton" type="button" class="quiet-button">正俯视</button>
-                </div>
-                <div class="field-grid">
-                  <label class="field"><span>水平旋转</span><input id="multiAngleAzimuth" type="range" min="0" max="360" step="1" value="0" aria-describedby="multiAngleAzimuthValue" /><output id="multiAngleAzimuthValue" for="multiAngleAzimuth">0°</output></label>
-                  <label class="field"><span>俯仰角度</span><input id="multiAngleElevation" type="range" min="-30" max="90" step="1" value="90" aria-describedby="multiAngleElevationValue" /><output id="multiAngleElevationValue" for="multiAngleElevation">90°</output></label>
-                </div>
-                <label class="field"><span>景别</span><select id="multiAngleDistance"><option value="0">特写</option><option value="50" selected>标准</option><option value="100">远景</option></select></label>
-              </div>
-              <div id="designFields" class="field-grid">
-                <label class="field"><span>设计方式</span><select id="renderModeSelect"><option value="smart-default">智能默认</option><option value="style-dna">平台风格</option></select></label>
-                <label id="styleField" class="field hidden"><span>平台风格</span><select id="styleSelect" data-searchable="true" aria-label="平台风格" data-placeholder="请选择平台风格" data-search-placeholder="搜索风格名称"></select></label>
-                <label class="field"><span>提示词模型</span><select id="promptAgentModelSelect"></select><small id="promptAgentAvailability" role="status">正在检测模型权限</small></label>
-                <label id="promptAgentVersionField" class="field hidden"><span>融合版本</span><select id="promptAgentVersionSelect"></select></label>
-              </div>
-              <div id="styleReferenceField" class="upload-field compact-upload">
-                <div class="upload-field-copy">
-                  <strong>风格参考图（可选）</strong>
-                </div>
-                <div id="styleReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
-                <div id="styleReferenceDropZone" class="reference-drop-zone">
-                  <input id="styleReferenceInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加风格参考图" />
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
-                    <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
-                  </svg>
-                  <span>添加或拖入风格参考图</span>
-                  <small>PNG / JPEG / WebP · 单张 8MB</small>
-                </div>
-              </div>
-              <div id="emptyRoomFields" class="field-grid hidden">
-                <label class="field"><span>房间类型</span><select id="roomTypeSelect"></select></label>
-                <label id="roomTypeDetailField" class="field hidden"><span>具体空间类型</span><input id="roomTypeDetailInput" maxlength="40" placeholder="例如：衣帽间" /></label>
-              </div>
-              <div id="effectFields" class="field-grid hidden">
-                <label class="field"><span>时段</span><select id="effectTimeSelect"><option value="preserve">保持原时段</option><option value="daytime">日间</option><option value="dusk">黄昏</option><option value="night">夜间</option></select></label>
-                <label class="field"><span>天气</span><select id="effectWeatherSelect"><option value="preserve">保持原天气</option><option value="clear">晴天</option><option value="overcast">阴天</option><option value="rainy">雨天</option><option value="foggy">雾天</option></select></label>
-              </div>
-              <div id="effectBeautificationFields" class="effect-beautification-fields hidden" aria-label="效果图光影氛围"></div>
-              <div id="panoramaFields" class="field hidden" aria-label="全景光影氛围"></div>
-              <label id="refinedPromptField" class="field hidden"><span>精模 Prompt 版本</span><select id="refinedPromptSelect"></select></label>
-              <div id="refinedRenderFields" class="hidden" aria-label="精模渲染氛围"></div>
-              <div id="freeReferenceField" class="upload-field compact-upload hidden">
-                <div class="upload-field-copy">
-                  <strong>共用参考图（可选）</strong>
-                </div>
-                <div id="freeReferenceList" class="reference-list upload-reference-list" aria-live="polite"></div>
-                <div id="freeReferenceDropZone" class="reference-drop-zone">
-                  <input id="freeReferenceInput" class="reference-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="添加自由生图参考图" />
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
-                    <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
-                  </svg>
-                  <span>添加或拖入参考图</span>
-                  <small>PNG / JPEG / WebP · 单张 8MB</small>
-                </div>
-              </div>
-            </section>
-
-            <section class="beta-section">
-              <div class="section-heading">
-                <h2>输出设置</h2>
-                <small id="outputSettingsHint">可多选全部可用模型</small>
-              </div>
-              <div id="outpaintFields" class="beta-outpaint-fields hidden">
-                <div class="field"><span>扩图工作流</span><div id="outpaintWorkflowOptions" role="group" aria-label="扩图工作流"></div></div>
-                <div class="field-grid">
-                  <label class="field"><span>画幅比例</span><select id="outpaintRatioSelect" data-dropdown-placement="top"><option value="original">原比例</option><option value="1:1">1:1</option><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="3:4">3:4</option><option value="9:16">9:16</option></select></label>
-                  <label class="field"><span>扩图倍率</span><select id="outpaintMultipleSelect" data-dropdown-placement="top"><option value="1.5">1.5 倍</option><option value="2">2 倍</option><option value="3">3 倍</option></select></label>
-                </div>
-                <small class="beta-outpaint-hint">整批共用画幅与倍率，原图居中，固定 2K 输出。Sunburst 超限图等比缩小，超宽画幅保全图补边。</small>
-                <small id="outpaintAvailability" class="beta-outpaint-availability hidden" role="status"></small>
-              </div>
-              <div id="upscaleFields" class="beta-upscale-fields hidden">
-                <div class="field"><span>超分工作流</span><div id="upscaleWorkflowOptions" role="group" aria-label="超分工作流"></div></div>
-                <label id="upscaleResolutionField" class="field"><span>输出尺寸</span><select id="upscaleResolutionSelect" aria-label="超分输出尺寸" data-dropdown-placement="top"></select></label>
-                <small id="upscaleResolutionNote" class="beta-upscale-hint">按所选工作流的共同尺寸输出，保持每张原图比例。</small>
-                <small id="upscaleAvailability" class="beta-upscale-availability hidden" role="status"></small>
-              </div>
-              <div id="multiAngleModelField" class="field hidden"><span>出图模型</span><div id="multiAngleModelOptions" role="group" aria-label="多角度出图模型"></div></div>
-              <div id="ordinaryOutputFields" class="beta-ordinary-output">
-              <div id="modelOptions" class="model-options" role="group" aria-label="出图模型"></div>
-              <div class="field-grid output-grid">
-                <label class="field"><span>输出比例</span><select id="ratioSelect" data-dropdown-placement="top"></select></label>
-                <label class="field"><span>分辨率</span><select id="resolutionSelect" data-dropdown-placement="top"></select></label>
-                <label id="qualityField" class="field"><span>质量档</span><select id="qualitySelect" data-dropdown-placement="top"></select></label>
-              </div>
-              <div id="betaCameraOutputFields" class="field-grid hidden">
-                <label class="field"><span>每模型张数</span><select id="betaCameraCount" aria-label="每模型张数" data-dropdown-placement="top"></select></label>
-                <label id="betaCameraComplexityField" class="field hidden"><span>GPT 生图思考</span><select id="betaCameraComplexity" aria-label="GPT 生图思考" data-dropdown-placement="top"></select></label>
-              </div>
-              <label id="negativePromptField" class="field hidden"><span>Flux 负向提示词（可选） <span id="negativePromptCount" class="character-count">0 / 8000</span></span><textarea id="negativePromptInput" rows="2" maxlength="8000" aria-describedby="negativePromptNote" placeholder="留空使用当前功能默认"></textarea><span id="negativePromptNote" class="compact-config-note"></span></label>
-              </div>
-            </section>
-            </div>
-
-            <div id="betaRunBar" class="run-bar">
-              <p id="betaConnectionStatus" class="beta-connection-note" role="status" hidden></p>
-              <div class="run-meta">
-                <div><strong id="runSummary">请选择样本集</strong></div>
-                <div id="betaRunMetaActions" class="run-meta-actions"><span id="runHint">结果自动同步飞书</span><button id="newBatchButton" class="quiet-button new-batch-button hidden" type="button">新批次</button></div>
-              </div>
-              <div id="betaGenerationActions" class="generation-actions">
-                <button id="runButton" class="generate-button functional-accent-button" type="submit" form="betaForm" aria-label="开始批量运行" aria-busy="false">
-                  <span class="button-label"><span id="runButtonLabel">START</span></span>
-                </button>
-              </div>
+              </section>
             </div>
           </form>
 
-          <aside class="beta-card beta-monitor-card" aria-labelledby="jobMonitorTitle">
-            <div class="monitor-heading">
-              <h2 id="jobMonitorTitle" tabindex="-1">任务监控</h2>
-              <div class="monitor-heading-actions">
-                <span id="jobStatus" class="job-status" data-state="idle" role="status" aria-live="polite">待运行</span>
-                <button id="betaMonitorClose" class="quiet-button beta-monitor-close" type="button" aria-label="关闭任务监控" autofocus>
-                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg>
-                </button>
-              </div>
-            </div>
+          <aside id="betaMonitorPanel" class="beta-card beta-monitor-card" aria-labelledby="jobMonitorTitle" hidden>
+            <header class="beta-pane-heading section-heading">
+              <h2 id="jobMonitorTitle" tabindex="-1">任务进度</h2>
+              <span id="jobStatus" class="job-status" data-state="idle" role="status" aria-live="polite">待运行</span>
+            </header>
 
-            <div class="beta-monitor-details">
+            <div id="betaMonitorDetails" class="beta-monitor-details" role="region" tabindex="0" aria-label="进度与异常明细">
+              <p class="monitor-message monitor-empty">启动后显示生成和飞书同步进度。</p>
               <div id="jobProgress" class="job-progress" aria-live="polite" hidden>
-                <div class="monitor-batch">
-                  <span>当前批次</span>
-                  <strong id="monitorBatchSummary"></strong>
-                </div>
                 <div class="job-progress-row">
-                  <div class="progress-copy">
-                    <span>生成进度</span>
-                    <strong id="generationProgressCount">0 / 0</strong>
-                  </div>
+                  <span class="progress-label">生成进度</span>
+                  <strong id="generationProgressCount" class="progress-count">0 / 0</strong>
                   <div id="generationProgressTrack" class="progress-track generation-progress-track" role="progressbar" aria-label="生成进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
                     <span id="generationProgressBar"></span>
                   </div>
                 </div>
                 <div class="job-progress-row">
-                  <div class="progress-copy">
-                    <span>飞书同步</span>
-                    <strong id="jobProgressCount">0 / 0</strong>
-                  </div>
+                  <span class="progress-label">飞书同步</span>
+                  <strong id="jobProgressCount" class="progress-count">0 / 0</strong>
                   <div id="jobProgressTrack" class="progress-track sync-progress-track" role="progressbar" aria-label="飞书同步进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
                     <span id="jobProgressBar"></span>
                   </div>
@@ -329,19 +357,34 @@
                   <small id="monitorWarningsCount"></small>
                 </div>
                 <div id="monitorWarnings" class="monitor-warnings-list" aria-live="polite"></div>
-                <div id="monitorRetryActions" class="monitor-retry-actions" hidden></div>
-                <button id="monitorRefresh" class="quiet-button monitor-refresh" type="button" hidden>重新读取进度</button>
               </section>
-
-              <a id="monitorBaseLink" class="quiet-button monitor-base-button" href="https://lq9n5lvfn2i.feishu.cn/base/ORwJbt5EYauNORsrhqJcpetLnEb" target="_blank" rel="noreferrer">在飞书查看结果</a>
             </div>
           </aside>
+          <div id="betaRunBar" class="run-bar" hidden>
+            <p id="betaConnectionStatus" class="beta-connection-note" role="status" hidden></p>
+            <div class="run-meta">
+              <div class="run-meta-copy">
+                <strong id="runSummary">请选择样本集</strong>
+                <span id="runHint">结果自动同步飞书</span>
+              </div>
+              <div class="run-meta-actions">
+                <button id="newBatchButton" class="quiet-button run-text-action" type="button" hidden>新批次</button>
+                <button id="monitorRefresh" class="quiet-button run-text-action" type="button" hidden>重新读取进度</button>
+                <a id="monitorBaseLink" class="quiet-button run-text-action" href="https://lq9n5lvfn2i.feishu.cn/base/ORwJbt5EYauNORsrhqJcpetLnEb" target="_blank" rel="noreferrer" hidden>在飞书查看结果</a>
+              </div>
+            </div>
+            <div id="betaGenerationActions" class="generation-actions">
+              <button id="runButton" class="generate-button functional-accent-button" type="submit" form="betaForm" aria-label="开始批量运行" aria-describedby="runSummary runHint" aria-busy="false">
+                <span class="button-label"><span id="runButtonLabel">START</span></span>
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     </div>
 
     <script type="module" src="/app-update.js?v=5"></script>
-    <script type="module" src="/beta-app.js?v=66"></script>
+    <script type="module" src="/beta-app.js?v=75"></script>
     <script type="module" src="/feature-catalog.js?v=10"></script>
     <dialog id="featureCatalogDialog" class="feature-catalog-dialog" aria-labelledby="featureCatalogTitle">
       <header class="feature-catalog-header">
@@ -356,8 +399,6 @@
       <ul id="featureCatalogResults" class="feature-catalog-results" aria-label="批量任务列表"></ul>
       <p id="featureCatalogEmpty" class="feature-catalog-empty" hidden>没有匹配的任务</p>
     </dialog>
-    <script type="module" src="/beta-layout.js?v=4"></script>
-    <dialog id="betaMonitorDialog" class="beta-monitor-dialog" aria-labelledby="jobMonitorTitle"></dialog>
     <dialog id="housePlanAnnotationDialog" class="house-plan-beta-dialog" aria-labelledby="housePlanAnnotationTitle">
       <div class="section-heading"><h2 id="housePlanAnnotationTitle">空间标注</h2><button id="housePlanAnnotationCancel" class="quiet-button" type="button">取消</button></div>
       <p id="housePlanAnnotationHint">先拖动框选主卧</p>

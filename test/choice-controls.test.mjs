@@ -41,10 +41,12 @@ test("主页面和嵌入工具的刷新图标复用圆角单箭头符号", async
     file, await readFile(new URL(`../public/${file}`, import.meta.url), "utf8"),
   ])));
   for (const file of pages) {
-    assert.equal((sources.get(file).match(/href="\/config-refresh-button\.css\?v=2"/g) || []).length, 1, file);
+    const version = ["index.html", "beta.html"].includes(file) ? 3 : 2;
+    const stylesheets = sources.get(file).match(/href="\/config-refresh-button\.css\?v=\d+"/g) || [];
+    assert.deepEqual(stylesheets, [`href="/config-refresh-button.css?v=${version}"`], file);
   }
   const sharedIcon = /<use href="\/icons\/refresh\.svg#refresh"><\/use>/;
-  for (const file of ["index.html", "floor-plan-camera.html", "house-plan.html", "scene-cast.html", ...controls]) {
+  for (const file of ["index.html", "beta.html", "floor-plan-camera.html", "house-plan.html", "scene-cast.html", ...controls]) {
     const buttons = sources.get(file).match(/<button\b[^>]*aria-label="刷新[^"]*"[^>]*>[\s\S]*?<\/button>/g) || [];
     assert.ok(buttons.length > 0, file);
     for (const button of buttons) assert.match(button, sharedIcon, file);

@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/vendor/pannellum.css" />
     <link rel="stylesheet" href="/panorama-viewer.css?v=2" />
     <link rel="stylesheet" href="/theme.css?v=39" />
-    <link rel="stylesheet" href="/config-refresh-button.css?v=2" />
+    <link rel="stylesheet" href="/config-refresh-button.css?v=3" />
     <link rel="stylesheet" href="/effect-beautification.css?v=3" />
     <link rel="stylesheet" href="/refined-render.css?v=1" />
     <link rel="stylesheet" href="/refined-lighting-controls.css?v=6" />
@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="/generation-actions.css?v=17" />
     <link rel="stylesheet" href="/custom-select.css?v=14" />
     <link rel="stylesheet" href="/style-dna-chat.css?v=11" />
-    <link rel="stylesheet" href="/product-navigation.css?v=31" />
+    <link rel="stylesheet" href="/product-navigation.css?v=32" />
     <link rel="stylesheet" href="/white-model-render-mode.css?v=5" />
     <link rel="stylesheet" href="/empty-room-type.css?v=3" />
     <link rel="stylesheet" href="/image-outpaint.css?v=14" />
@@ -45,7 +45,7 @@
     <link rel="stylesheet" href="/floor-plan-camera.css?v=33" />
     <link rel="stylesheet" href="/scene-cast.css?v=10" />
     <link rel="stylesheet" href="/panel-copy.css?v=2" />
-    <link rel="stylesheet" href="/feature-directory.css?v=13" />
+    <link rel="stylesheet" href="/feature-directory.css?v=14" />
     <link rel="stylesheet" href="/home-image-chat.css?v=49" />
     <link rel="stylesheet" href="/home-image-chat-focus.css?v=16" />
     <link rel="stylesheet" href="/home-image-chat-responsive.css?v=21" />
@@ -53,7 +53,7 @@
     <link rel="stylesheet" href="/workspace-quick-parameters.css?v=2" />
     <link rel="stylesheet" href="/home-image-chat-tools.css?v=24" />
     <link rel="stylesheet" href="/home-image-chat-parameter-dialog.css?v=6" />
-    <link rel="stylesheet" href="/raycast-accent.css?v=44" />
+    <link rel="stylesheet" href="/raycast-accent.css?v=45" />
     <script src="/product-navigation.js?v=14" data-home-image-chat></script>
   </head>
   <body>
@@ -160,14 +160,14 @@
           <section id="effectBeautificationSection" class="panel-section generation-control hidden" aria-label="效果图美化"></section>
           <section id="effectEnhancementSection" class="panel-section generation-control hidden" aria-labelledby="effectEnhancementTitle">
             <div class="section-heading">
-              <h2 id="effectEnhancementTitle">环境效果 <span class="optional">可选</span></h2>
-              <div class="section-heading-actions">
-                <span id="effectPromptAvailability" class="micro-status" aria-live="polite">读取中</span>
-                <button id="refreshEffectPromptButton" class="config-refresh-button" data-config-refresh type="button" aria-label="刷新效果图氛围转换 Prompt 版本" title="立即读取飞书中当前上架的效果图氛围转换 Prompt 版本" >
+              <div class="config-heading-label">
+                <h2 id="effectEnhancementTitle">环境效果 <span class="optional">可选</span></h2>
+                <button id="refreshEffectPromptButton" class="config-refresh-button config-refresh-button--icon" data-config-refresh type="button" aria-label="刷新效果图氛围转换 Prompt 版本" title="立即读取飞书中当前上架的效果图氛围转换 Prompt 版本" >
                   <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
                   <span data-refresh-label>刷新</span>
                 </button>
               </div>
+              <div class="section-heading-actions"><span id="effectPromptAvailability" class="micro-status" aria-live="polite">读取中</span></div>
             </div>
             <div class="field-grid">
               <label class="field">
@@ -222,12 +222,11 @@
             <label class="sr-only" for="refinedPromptInput">精模自定义要求</label>
             <textarea id="refinedPromptInput" maxlength="8000" placeholder="例如：减弱窗边高光，让室内更柔和…"></textarea>
             <div class="section-heading refined-custom-prompt-heading">
-              <h2>精模 Prompt</h2>
-              <div class="section-heading-actions">
-                <span id="refinedPromptAvailability" class="micro-status">读取中</span>
+              <div class="config-heading-label">
+                <h2>精模 Prompt</h2>
                 <button
                   id="refreshRefinedPromptButton"
-                  class="config-refresh-button"
+                  class="config-refresh-button config-refresh-button--icon"
                   data-config-refresh
                   type="button"
                   aria-label="刷新精模 Prompt"
@@ -237,6 +236,7 @@
                   <span data-refresh-label>刷新</span>
                 </button>
               </div>
+              <div class="section-heading-actions"><span id="refinedPromptAvailability" class="micro-status">读取中</span></div>
             </div>
             <div class="compact-config-field">
               <span class="sr-only">精模 Prompt 版本</span>
@@ -257,17 +257,19 @@
             </section>
             <section class="panel-section" aria-labelledby="styleDnaPromptVersionTitle">
               <div class="section-heading">
-                <h2 id="styleDnaPromptVersionTitle">Prompt 版本</h2>
-                <button
-                  id="styleDnaPromptRefreshButton"
-                  class="config-refresh-button"
-                  type="button"
-                  aria-label="刷新风格反推 Prompt 版本"
-                  title="立即读取飞书中最新的已上架 Prompt 版本"
-                >
-                  <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
-                  <span data-refresh-label>刷新</span>
-                </button>
+                <div class="config-heading-label">
+                  <h2 id="styleDnaPromptVersionTitle">Prompt 版本</h2>
+                  <button
+                    id="styleDnaPromptRefreshButton"
+                    class="config-refresh-button config-refresh-button--icon"
+                    type="button"
+                    aria-label="刷新风格反推 Prompt 版本"
+                    title="立即读取飞书中最新的已上架 Prompt 版本"
+                  >
+                    <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+                    <span data-refresh-label>刷新</span>
+                  </button>
+                </div>
               </div>
               <div class="compact-config-field">
                 <span class="sr-only">风格反推 Prompt 版本</span>
@@ -284,14 +286,14 @@
           </div>
           <section id="styleSection" class="panel-section generation-control hidden" aria-labelledby="styleTitle">
             <div class="section-heading">
-              <h2 id="styleTitle">风格选择</h2>
-              <div class="section-heading-actions">
-                <span id="styleAvailability" class="micro-status">读取中</span>
-                <button id="refreshStyleButton" class="config-refresh-button" data-config-refresh type="button" aria-label="刷新设计风格配置" title="立即读取最新平台风格与融合 Agent" >
+              <div class="config-heading-label">
+                <h2 id="styleTitle">风格选择</h2>
+                <button id="refreshStyleButton" class="config-refresh-button config-refresh-button--icon" data-config-refresh type="button" aria-label="刷新设计风格配置" title="立即读取最新平台风格与融合 Agent" >
                   <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
                   <span data-refresh-label>刷新</span>
                 </button>
               </div>
+              <div class="section-heading-actions"><span id="styleAvailability" class="micro-status">读取中</span></div>
             </div>
             <div
               id="whiteModelRenderModeList"
@@ -300,17 +302,16 @@
               aria-label="白模风格选择"
               aria-describedby="styleNote"
             ></div>
-            <p id="styleNote" class="compact-config-note">正在读取白模渲染配置…</p>
+            <p id="styleNote" class="compact-config-note">正在读取风格配置…</p>
           </section>
           <section id="whiteModelLightingSection" class="panel-section generation-control hidden" aria-label="白模光影选择"></section>
           <section id="promptAgentSection" class="panel-section generation-control hidden" aria-labelledby="promptAgentTitle">
             <div class="section-heading">
-              <h2 id="promptAgentTitle">场景融合 Agent</h2>
-              <div class="section-heading-actions">
-                <span id="promptAgentVersionAvailability" class="micro-status">读取中</span>
+              <div class="config-heading-label">
+                <h2 id="promptAgentTitle">场景融合 Agent</h2>
                 <button
                   id="refreshConfigButton"
-                  class="config-refresh-button"
+                  class="config-refresh-button config-refresh-button--icon"
                   data-config-refresh
                   type="button"
                   aria-label="刷新飞书配置"
@@ -320,6 +321,7 @@
                   <span data-refresh-label>刷新</span>
                 </button>
               </div>
+              <div class="section-heading-actions"><span id="promptAgentVersionAvailability" class="micro-status">读取中</span></div>
             </div>
             <div class="compact-config-stack">
               <label id="promptAgentVersionLabel" class="compact-config-label" for="promptAgentVersionSelect">Agent 版本</label>

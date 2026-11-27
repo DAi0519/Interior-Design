@@ -1,11 +1,11 @@
 /**
- * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta功能目录与平面图适配器、旧房设计配置/空房判定、Flux负向草稿、扩图/超分/多角度、持久配置、样本库/预警/Run ID和API工具
- * [OUTPUT]: 批量跑图初始无任务，显式选择后加载配置和样本草稿；原页连接中心刷新额度与权限；任务监控按阶段显示，失败时就近恢复
+ * [INPUT]: 依赖后置KS目录/逐样本输入门禁与身份冻结、共享美化混合多选/精模光影模式、Beta功能目录与提供配置刷新反馈的平面图适配器、旧房设计配置/空房判定、Flux负向草稿、扩图/超分/多角度、持久配置、样本库/可切换三面板/预警/Run ID和API工具
+ * [OUTPUT]: 选择任务后加载样本与草稿，原页连接中心刷新额度与权限；固定底栏提供执行与恢复，右侧进度按阶段展示
  * [POS]: public 的批量跑图配置与任务监控编排器，把跨图像功能复用、按目标功能校验的样本资产交给 beta-sample-library，并把生成/同步/连接异常交给 beta-results；飞书保持结果真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-import { createBetaHousePlanConfiguration } from "./beta-house-plan.js?v=3";
-import { createBetaFloorPlanCameraConfiguration } from "./beta-floor-plan-camera.js?v=12";
+import { createBetaHousePlanConfiguration } from "./beta-house-plan.js?v=4";
+import { createBetaFloorPlanCameraConfiguration } from "./beta-floor-plan-camera.js?v=13";
 import { isLightingReference } from "./refined-flux-reference.js";
 import { beautificationItemsForSelection, beautificationSettingsForSelection, generationItemsForSelection, panoramaItemsForSelection, panoramaLightingRequestSelection } from "./generation-task-request.js";
 import { generationFeatureUnavailableReason } from "./model-capabilities.js";
@@ -14,6 +14,7 @@ import { DEFAULT_BETA_MODEL_KEY, readBetaPageState, readBetaTaskDraft } from "./
 import { createBetaConfigurationPersistence } from "./beta-configuration.js?v=13";
 import { BETA_FEATURE_COPY as FEATURE_COPY, assertBetaImageSource, betaFeatureUnavailableReason, betaModelSelectable, betaPostUpscaleUnavailableReason, betaSizeOptions } from "./beta-model-rules.js?v=9";
 import { mountBetaTaskDirectory } from "./beta-task-directory.js";
+import { bindBetaLayout } from "./beta-layout.js?v=7";
 import { bindBetaConnection, renderBetaPromptAgentModels } from "./beta-connection.js?v=2";
 import { bindFluxNegativePrompt } from "./flux-negative-prompt.js";
 import { isEmptyRoomDesign } from "./room-renovation.js";
@@ -28,8 +29,8 @@ import { bindEffectBeautificationControls } from "./effect-beautification-contro
 import { bindModelMultiSelect } from "./model-multi-select.js?v=5";
 import { packBatchAssets } from "./beta-assets.js?v=2";
 import { bindImageDrop, readBetaImage as readImage, renderImagePreviews } from "./beta-upload.js";
-import { createBetaSampleLibrary } from "./beta-sample-library.js?v=10";
-import { fillBetaSelect as fillSelect, renderBetaMonitor } from "./beta-results.js?v=3";
+import { createBetaSampleLibrary } from "./beta-sample-library.js?v=12";
+import { fillBetaSelect as fillSelect, renderBetaMonitor } from "./beta-results.js?v=4";
 import { createBetaRunId, formatBetaTestTime } from "./beta-run-id.js?v=3";
 import { adaptGenerationInputForModel } from "./generation-batch.js";
 import { api } from "./workbench-utils.js";
@@ -38,17 +39,17 @@ const restoredPageState = readBetaPageState(localStorage);
 const refinedModelSelection = createRefinedModelSelection({ saved: readBetaTaskDraft(restoredPageState, "refinedModel").refinedModelSelection });
 const referenceDrafts = new Map();
 const elements = Object.fromEntries([
-  "betaConnectionStatus", "featureModeList", "betaForm", "betaEmpty",
-  "betaGenerationActions", "betaRunBar", "betaRunMetaActions",
+  "betaConnectionStatus", "featureModeList", "betaForm", "betaEmpty", "betaTaskTitle",
+  "betaGenerationActions",
   "commonPromptField", "commonPromptInput", "commonPromptLabel",
   "configStatus", "designFields", "effectFields", "effectTimeSelect", "effectBeautificationFields",
   "effectWeatherSelect", "emptyRoomFields", "freeSharedPromptField", "freeSharedPromptInput",
   "freeReferenceDropZone", "freeReferenceField",
   "freeReferenceInput", "freeReferenceList", "generationProgressBar",
   "generationProgressCount", "generationProgressTrack", "jobProgress",
-  "jobMonitorTitle", "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
-  "jobStatus", "modelOptions", "monitorBaseLink", "monitorBatchSummary",
-  "monitorWarnings", "monitorWarningsCount", "monitorWarningsSection", "monitorRetryActions", "monitorRefresh",
+  "jobProgressBar", "jobProgressCount", "jobProgressLabel", "jobProgressTrack",
+  "jobStatus", "modelOptions", "monitorBaseLink",
+  "monitorWarnings", "monitorWarningsCount", "monitorWarningsSection", "monitorRefresh",
   "multiAngleFields", "multiAngleModelField", "multiAngleModelOptions", "multiAngleAzimuth", "multiAngleElevation",
   "multiAngleAzimuthValue", "multiAngleElevationValue", "multiAngleTopDownButton", "multiAngleDistance",
   "negativePromptField", "negativePromptInput", "negativePromptCount", "negativePromptNote", "promptAgentAvailability", "promptAgentModelSelect",
@@ -61,13 +62,15 @@ const elements = Object.fromEntries([
   "renderModeSelect", "resolutionSelect", "roomTypeDetailField",
   "roomTypeDetailInput", "roomTypeSelect", "runButton", "runButtonLabel", "runHint",
   "runSummary", "newBatchButton", "sampleCount", "sampleList", "sampleSetCreatePanel",
+  "betaSampleScroll", "betaSampleSearch", "betaSampleSearchField", "betaSampleSearchEmpty",
   "sampleSetLibraryPanel", "sampleSetNameInput", "sampleSetSelect",
   "sampleSetSyncStatus",
   "saveSampleSetButton", "cancelSampleSetButton", "newSampleSetButton",
   "sourceFilesDropLabel", "sourceFilesDropZone", "sourceFilesInput", "sourceFilesTitle", "sourceFilesHint",
   "styleField", "styleReferenceDropZone", "styleReferenceField",
-  "styleReferenceInput", "styleReferenceList", "styleSelect",
+  "styleReferenceInput", "styleReferenceList", "styleReferenceTitle", "styleSelect",
 ].map((id) => [id, document.querySelector(`#${id}`)]));
+const layout = bindBetaLayout();
 const renderTaskDirectory = mountBetaTaskDirectory(elements.featureModeList, FEATURE_COPY);
 const state = {
   betaConfig: null,
@@ -238,33 +241,38 @@ function renderReferenceInputs() {
 function renderRunSummary() {
   renderTaskDirectory(state.featureMode, !state.taskDirectoryReady || state.switchingTask || sampleLibrary.isMutating());
   const total = state.featureMode ? runCount() : 0;
-  const failed = state.job?.status === "failed";
-  const running = state.job?.status === "running" || state.submitting;
-  const retryHost = failed ? elements.monitorRetryActions : elements.betaRunBar;
-  const newBatchHost = failed ? elements.monitorRetryActions : elements.betaRunMetaActions;
-  if (elements.newBatchButton.parentElement !== newBatchHost) newBatchHost.prepend(elements.newBatchButton);
-  if (elements.betaGenerationActions.parentElement !== retryHost) retryHost.append(elements.betaGenerationActions);
-  elements.monitorRetryActions.hidden = !failed;
-  elements.newBatchButton.classList.toggle("hidden", !failed || state.submitting);
+  const { job, submitting } = state;
+  const failed = job?.status === "failed";
+  const running = job?.status === "running" || submitting;
+  const batchSummary = failed ? "仅重试失败项" : job ? `当前批次 · ${job.total} 张结果` : "";
+  elements.betaGenerationActions.hidden = !state.featureMode && !running && !failed;
+  elements.newBatchButton.hidden = !failed || submitting;
+  elements.monitorBaseLink.hidden = !(Number(job?.stages?.synced ?? job?.completed) > 0 || job?.status === "success");
   elements.runButtonLabel.textContent = running ? "RUNNING…" : failed ? "RETRY" : "START";
   elements.runButton.setAttribute("aria-busy", String(running));
   elements.runButton.setAttribute("aria-label", running ? "批量运行中" : failed ? "仅重试当前批次的失败项" : "开始批量运行");
   elements.betaGenerationActions.classList.toggle("is-busy", running);
+  elements.runHint.textContent = failed ? "已成功结果保留" : "结果自动同步飞书";
   if (failed || !state.featureMode) {
-    elements.runButton.disabled = running || state.switchingTask || !state.job?.jobId || !state.taskDirectoryReady;
+    elements.runButton.disabled = running || state.switchingTask || !job?.jobId || !state.taskDirectoryReady;
   }
-  if (!state.featureMode) return;
+  if (!state.featureMode) {
+    elements.runSummary.textContent = batchSummary || "批次进度";
+    if (!job) elements.runHint.textContent = "";
+    return;
+  }
 
   housePlanConfiguration.decorateSamples();
   floorPlanCameraConfiguration.decorateSamples();
   elements.freeReferenceField.classList.toggle("hidden", state.featureMode !== "free" || !sampleLibrary.usesTextSamples());
   const samples = sampleCount();
+  const sampleIssue = sampleLibrary.startBlockReason();
   const outpaint = state.featureMode === "imageOutpaint";
   const upscale = state.featureMode === "imageUpscale";
   const multiAngle = state.featureMode === "imageMultiAngle";
   const models = selectedCandidates().length;
   const candidateLabel = outpaint || upscale ? "工作流" : "模型";
-  elements.runSummary.textContent = samples && models
+  const draftSummary = samples && models
     ? state.featureMode === "refinedModel"
       ? betaRefinedLightingRunSummary({ selections: refinedRenderConfiguration.selections(), samples, models })
       : state.featureMode === "effectBeautification" ? `${samples} 个样本 × ${effectBeautificationControls.selections().length} 种光影 × ${models} 个模型 = ${total} 张结果`
@@ -272,7 +280,8 @@ function renderRunSummary() {
         ? `${samples} 个样本 × ${models} 个模型 × ${panoramaLighting.getSelections().length} 种光影 = ${total} 张结果`
       : `${samples} 个样本 × ${models} 个${candidateLabel}${state.featureMode === "floorPlanCamera" ? ` × ${floorPlanCameraConfiguration.imageCount()} 张` : ""} = ${total} 张结果`
     : samples ? `请选择${upscale ? "超分工作流" : outpaint ? "扩图工作流" : "出图模型"}` : "请选择样本集";
-  elements.runHint.textContent = failed ? "仅重试失败项，已成功结果保留" : "结果自动同步飞书";
+  elements.runSummary.textContent = job && (running || failed) ? batchSummary : sampleIssue || draftSummary;
+  if (sampleIssue && !running && !failed) elements.runHint.textContent = "";
   const accessIssue = generationAccessIssue();
   const needsPromptAgent = ["whiteModel", "emptyRoom", "roomRenovation", "styleTransfer"].includes(state.featureMode);
   const selectedAgent = state.agentAccess.get(elements.promptAgentModelSelect.value);
@@ -402,8 +411,9 @@ function renderFeature() {
   elements.sourceFilesDropLabel.textContent = `添加或拖入${copy.source}`;
   elements.sourceFilesInput.setAttribute("aria-label", `添加${copy.source}`);
   elements.sourceFilesHint.textContent = `PNG / JPEG / WebP · 单张 8MB · 逐张上传${state.featureMode === "panoramaEnhancement" ? " · 必须为 2:1 全景图" : ""}`;
+  elements.styleReferenceTitle.textContent = state.featureMode === "styleTransfer" ? "风格参考图" : "风格参考图（可选）";
   elements.commonPromptLabel.textContent = copy.prompt;
-  elements.configStatus.textContent = design ? "读取设计配置" : effect ? "使用当前上架 Prompt" : refined ? "读取精模 Prompt" : "工作台同源";
+  elements.configStatus.textContent = design ? "读取设计配置" : effect ? "使用当前上架 Prompt" : refined ? "读取精模 Prompt" : "";
   if (design) designConfiguration.render();
   if (effect) {
     const effectConfig = state.stylesConfig?.[copy.promptConfig];
@@ -518,6 +528,7 @@ function renderJob(job) {
   state.job = job;
   renderBetaMonitor(elements, job);
   renderRunSummary();
+  layout.updateProgress(job);
 }
 
 function delay(milliseconds) {
@@ -591,6 +602,7 @@ function reportUploadError(error, { canRefresh = false } = {}) {
   if (!state.job?.jobId) state.job = null;
   renderBetaMonitor(elements, state.job, { error: error.message, canRefresh });
   renderRunSummary();
+  layout.updateProgress(state.job, { error: error.message, canRefresh });
 }
 
 async function setSingleReference(fileList, key) {
@@ -623,6 +635,7 @@ async function selectTask(featureMode) {
     const draft = configuration.draftFor(featureMode);
     const references = referenceDrafts.get(featureMode);
     state.featureMode = featureMode;
+    elements.betaTaskTitle.textContent = FEATURE_COPY[featureMode].label;
     state.selectedModelKeys = [...draft.selectedModelKeys];
     state.keepModelDraft = draft.hasSavedModelSelection;
     state.styleReference = references?.styleReference ?? null;
@@ -631,6 +644,7 @@ async function selectTask(featureMode) {
     elements.betaEmpty.hidden = true;
     elements.betaForm.hidden = false;
     void sampleLibrary.setFeatureMode(featureMode, state.sampleSetIds[featureMode]).catch(reportUploadError);
+    layout.showTask();
     saveConfiguration();
   } finally {
     state.switchingTask = false;
@@ -695,10 +709,11 @@ function bindEvents() {
     if (state.job?.status === "running" || state.submitting) return;
     sessionStorage.removeItem(JOB_STORAGE_KEY);
     renderJob(null);
-    (state.featureMode && !elements.runButton.disabled ? elements.runButton : elements.jobMonitorTitle).focus({ preventScroll: true });
+    const focusTarget = !state.featureMode ? elements.betaEmpty : elements.runButton.disabled ? elements.betaSampleScroll : elements.runButton;
+    focusTarget.focus({ preventScroll: true });
   });
   elements.monitorRefresh.addEventListener("click", async () => {
-    elements.jobMonitorTitle.focus({ preventScroll: true });
+    layout.showProgress({ moveFocus: true });
     elements.monitorRefresh.disabled = true;
     await restoreJob();
     elements.monitorRefresh.disabled = false;
@@ -707,6 +722,7 @@ function bindEvents() {
     event.preventDefault();
     if (elements.runButton.disabled) return;
     const previousJob = state.job;
+    layout.showProgress({ moveFocus: elements.runButton === document.activeElement });
     state.submitting = true;
     renderRunSummary();
     if (previousJob?.status !== "failed") renderJob({

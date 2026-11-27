@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、Beta 样本库控制器及最小 DOM/图片读取/飞书 API 替身
- * [OUTPUT]: 验证未选择时仅预读目录、切换任务恢复页内草稿与房型、选集恢复与异步隔离、跨功能复用原样本ID、目标元数据与缺图守卫、逐张上传和稳定ID续传及回读
+ * [OUTPUT]: 验证目录预读、切任务恢复草稿与房型、搜索不改批次、选集和异步隔离、跨功能复用、缺图守卫、启动提示，以及逐张上传、续传与回读
  * [POS]: test 的 Beta 浏览器样本生命周期行为测试，不读写真实飞书或调用生成服务
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -42,6 +42,7 @@ class Element {
 function createElements() {
   return Object.fromEntries([
     "sampleSetSyncStatus", "sampleSetSelect", "sampleCount", "sampleList",
+    "betaSampleSearch", "betaSampleSearchField", "betaSampleSearchEmpty",
     "roomTypeSelect", "sampleSetLibraryPanel", "sampleSetCreatePanel", "sourceFilesField",
     "saveSampleSetButton", "cancelSampleSetButton", "newSampleSetButton",
     "sourceFilesInput", "sourceFilesDropZone", "sampleSetNameInput",
@@ -93,6 +94,31 @@ async function until(predicate) {
   }
   assert.fail("样本库状态未按预期完成");
 }
+
+test("样本名称过滤只控制可见卡片，批次范围和顺序仍用原样本 ID", async (context) => {
+  const set = imageSet("living", "whiteModel");
+  set.samples.push({
+    sampleId: "kitchen-sample",
+    image: { ...set.samples[0].image, name: "Kitchen.jpg" },
+  });
+  set.sampleCount = set.samples.length;
+  const { elements, library } = existingFixture(context, [set]);
+  await library.load("whiteModel");
+
+  elements.betaSampleSearch.value = " KIT ";
+  await elements.betaSampleSearch.dispatch("input");
+  assert.deepEqual(elements.sampleList.children.map((card) => card.classList.contains("hidden")), [true, false]);
+  assert.deepEqual(library.currentCases().map((entry) => entry.caseId), ["living-sample", "kitchen-sample"]);
+  assert.equal(library.sampleCount(), 2);
+
+  elements.betaSampleSearch.value = "客厅";
+  await elements.betaSampleSearch.dispatch("input");
+  assert.equal(elements.betaSampleSearchEmpty.classList.contains("hidden"), false);
+  assert.equal(library.isReady(), true);
+  await library.setFeatureMode("imageOutpaint");
+  assert.equal(elements.betaSampleSearch.value, "");
+  assert.equal(elements.betaSampleSearchEmpty.classList.contains("hidden"), true);
+});
 
 test("24MB 样本草稿逐张上传且第二张失败后只续传剩余项", async (context) => {
   const previousDocument = globalThis.document;
@@ -172,12 +198,14 @@ test("24MB 样本草稿逐张上传且第二张失败后只续传剩余项", asy
   });
   library.bind();
   await library.load("whiteModel");
+  assert.equal(library.startBlockReason(), "请添加样本图片");
   elements.sampleSetNameInput.value = "大样本集";
   elements.sourceFilesInput.files = [1, 2, 3].map((number) => ({
     name: `${number}.png`, type: "image/png", size: 8 * 1024 * 1024, lastModified: number,
   }));
   await elements.sourceFilesInput.dispatch("change");
   assert.equal(library.sampleCount(), 3);
+  assert.equal(library.startBlockReason(), "请先保存样本集");
   assert.deepEqual(previews, ["1.png", "2.png", "3.png"]);
   assert.deepEqual(fullReads, []);
   assert.ok(library.sourceImages().every((image) => image.file && !image.dataUrl));
@@ -193,6 +221,7 @@ test("24MB 样本草稿逐张上传且第二张失败后只续传剩余项", asy
   assert.equal(elements.sampleList.replaceCount - previousRenderCount, 2);
   assert.equal(library.isReady(), false);
   assert.equal(elements.sampleSetSyncStatus.textContent, "同步失败 · 1 / 3");
+  assert.equal(library.startBlockReason(), "同步失败 · 1 / 3");
   assert.equal(elements.saveSampleSetButton.textContent, "继续保存");
   assert.equal(errors.length, 1);
   assert.deepEqual(fullReads, ["1.png", "2.png"]);
@@ -219,6 +248,7 @@ test("24MB 样本草稿逐张上传且第二张失败后只续传剩余项", asy
   assert.equal(uploads[1].body.sampleId, uploads[2].body.sampleId);
   assert.deepEqual(fullReads, ["1.png", "2.png", "2.png", "3.png"]);
   assert.equal(library.isReady(), true);
+  assert.equal(library.startBlockReason(), "");
   assert.equal(library.activeSampleSetId(), "set-1");
   assert.deepEqual(library.currentCases().map((sample) => sample.caseId), draftIds);
   assert.ok(library.currentCases().every((sample) => sample.referenceImages.length === 0));

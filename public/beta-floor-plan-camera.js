@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本 ID、工作台机位配置与正向底图/墙线分析、共享画布几何/标注及本机存储
- * [OUTPUT]: 提供高清底图上的逐样本机位标注、可选取景框与视野深度拖动、空间推理或整批原词直出、输出档位和样本×模型×张数 Run
+ * [OUTPUT]: 提供同位刷新、忙碌和配置错误反馈；提供高清底图上的逐样本机位标注、可选取景框与视野深度拖动、空间推理或整批原词直出、输出档位和样本×模型×张数 Run
  * [POS]: public 的 Beta 平面图机位适配器，标注共用主工作台，运行交给 Beta 批次与飞书同步
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -107,8 +107,12 @@ export function createBetaFloorPlanCameraConfiguration({ getState, getModels, sa
     $('betaCameraFields').classList.toggle('hidden', !active());
     $('betaCameraOutputFields').classList.toggle('hidden', !active());
     if (!active()) return;
-    $('betaCameraStatus').textContent = loading ? '读取中' : direct()
-      ? (modeReady() ? '已就绪' : '不可用') : config?.prompt ? `Prompt v${config.prompt.version}` : '不可用';
+    const status = $('betaCameraStatus');
+    const ready = direct() ? modeReady() : Boolean(config?.available && config.prompt);
+    status.textContent = loading ? '刷新中…' : !ready ? '配置不可用'
+      : direct() ? '' : `Prompt v${config.prompt.version}`;
+    status.classList.toggle('error', !loading && !ready);
+    $('betaCameraRefresh').ariaBusy = String(loading);
     fillSelect($('betaCameraMode'), [
       { value: 'agent', label: '空间推理' },
       { value: 'direct', label: '提示词直出', disabled: !supportsDirect() },

@@ -1,28 +1,27 @@
 /**
- * [INPUT]: 依赖Beta共享field/quiet-button/银灰令牌和户型标注弹窗
- * [OUTPUT]: 提供布局标注自适应画布、紧凑共享空间选择和分组操作、无描边的键盘焦点底色
- * [POS]: public 的Beta布局局部样式，不改变其他功能面板
+ * [INPUT]: 依赖 beta.css 的字段、按钮及尺寸令牌和 beta.html 的户型标注与机位弹窗
+ * [OUTPUT]: 提供布局标注与机位弹窗的自适应画布、共用触控尺寸和中性键盘焦点
+ * [POS]: public 的 Beta 户型布局和机位专用样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
-#housePlanFields { display: grid; gap: 14px; }
-#housePlanFields.hidden { display: none; }
 .house-plan-beta-dialog { width: min(1000px, calc(100vw - 32px)); max-height: 92dvh; border: 1px solid var(--line); border-radius: 12px; padding: 20px; color: var(--ink); background: var(--panel); }
 .house-plan-beta-dialog::backdrop { background: rgb(20 20 24 / 35%); }
 .house-plan-beta-stage { display: grid; place-items: center; min-height: 160px; margin: 16px 0; background: var(--panel-soft); }
 #housePlanAnnotationCanvas { display: block; max-width: 100%; max-height: 60dvh; object-fit: contain; touch-action: none; cursor: crosshair; }
 .house-plan-beta-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
 .house-plan-beta-space { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; }
-.house-plan-beta-space > label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.house-plan-beta-space > label { color: var(--small-ink); font-size: 12px; white-space: nowrap; }
+.house-plan-beta-space label:has(input) { align-items: center; display: inline-flex; gap: 6px; min-height: var(--beta-control-height); }
+.house-plan-beta-space label:has(input:enabled) { cursor: pointer; }
 .house-plan-beta-space .model-picker { width: 144px; }
-.house-plan-beta-space .model-picker-trigger { min-height: 34px; }
-#housePlanCustomSpace { width: 150px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
+#housePlanCustomSpace { width: 150px; min-width: 0; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
 .house-plan-beta-history { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .house-plan-beta-history .quiet-button { border-color: transparent; background: transparent; box-shadow: none; }
 .house-plan-beta-save { margin-left: 8px; }
 :is(#housePlanCustomSpace, .house-plan-beta-tools :where(input, button:not(.model-picker-trigger))):focus-visible {
   background: var(--line-strong);
-  outline: none;
-  box-shadow: none;
+  outline: 2px solid var(--small-ink);
+  outline-offset: 2px;
 }
 @media (forced-colors: active) {
   :is(#housePlanCustomSpace, .house-plan-beta-tools :where(input, button:not(.model-picker-trigger))):focus-visible {
@@ -44,4 +43,3 @@
 #ordinaryOutputFields.is-house-plan .output-grid { display: none; }
 
 .reference-item [data-house-plan-annotation] { grid-column: 1 / -1; justify-self: start; width: auto; max-width: 100%; white-space: nowrap; }
-#housePlanFields h3 { font-size: 12px; font-weight: 600; margin: 0; }

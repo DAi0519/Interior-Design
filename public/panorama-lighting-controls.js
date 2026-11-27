@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖飞书光影库脱敏预设/版本化预览、共享光影卡片样式、DOM与可选轻量草稿存储
- * [OUTPUT]: 对外提供默认原光影首卡/模板互斥复位、共享小勾图卡/单行数量摘要与标题行清空、连续多选/取消、稳定预览和键盘焦点、独立草稿/要求、逐卡准入及单项请求投影
+ * [OUTPUT]: 提供贴光影标题的刷新和忙碌状态；对外提供默认原光影首卡/模板互斥复位、共享小勾图卡/单行数量摘要与标题行清空、连续多选/取消、稳定预览和键盘焦点、独立草稿/要求、逐卡准入及单项请求投影
  * [POS]: public 的Main/Beta共用全景光影输入层，与精模光影状态和双图执行方式隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -31,11 +31,18 @@ export function bindPanoramaLightingControls({ root, onChange = () => {}, storag
     selections = [...new Map(values.map(value => { const entry = normalizePanoramaLighting(value);
       return [entry.presetId, entry]; })).values()]; } catch { selections = []; } }
   root.setAttribute("data-panorama-lighting", "");
-  root.innerHTML = `<div class="section-heading"><h2>光影选择 <span class="optional">可选</span></h2>
-    <div class="section-heading-actions"><span data-panorama-availability class="micro-status" aria-live="polite">读取中</span>
+  root.innerHTML = `<div class="section-heading">
+    <div class="config-heading-label">
+      <h2>光影选择 <span class="optional">可选</span></h2>
+      <button data-panorama-refresh class="config-refresh-button config-refresh-button--icon" type="button" aria-label="刷新全景光影库" title="刷新全景光影库">
+        <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+      </button>
+    </div>
+    <div class="section-heading-actions">
+      <span data-panorama-availability class="micro-status" aria-live="polite">读取中</span>
       <button data-panorama-clear class="config-refresh-button panorama-lighting-clear" type="button" hidden>清空</button>
-      <button data-panorama-refresh class="config-refresh-button" type="button" aria-label="刷新全景光影库"><svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg><span data-refresh-label>刷新</span></button>
-    </div></div>
+    </div>
+  </div>
     <button data-panorama-toggle class="refined-lighting-picker-trigger" type="button" aria-expanded="false"><img data-panorama-preview alt="" hidden /><span data-panorama-name aria-live="polite">保留原光影</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button>
     <div data-panorama-grid class="refined-lighting-grid" role="group" aria-label="全景光影模板" hidden></div>
     <label class="field panorama-lighting-prompt"><span>光影要求 <span class="optional">可选</span></span><textarea data-panorama-prompt maxlength="8000" rows="3" placeholder="例如：改成傍晚暖灯氛围，减弱窗外日光，保留空间与材质颜色。"></textarea></label>
@@ -87,6 +94,7 @@ export function bindPanoramaLightingControls({ root, onChange = () => {}, storag
     toggle.setAttribute("aria-expanded", String(expanded));
     toggle.disabled = busy;
     refresh.disabled = busy || !reload;
+    refresh.ariaBusy = String(busy);
     const focusedIndex = [...grid.children].indexOf(dom.activeElement);
     if (renderedPresets !== config.presets) {
       renderedPresets = config.presets; cardViews = []; grid.replaceChildren(originalCard);

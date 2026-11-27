@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖统一精模Prompt可用性/双图身份、多光影及预设执行能力/版本化预览、精模Flux双图能力及共享参考图上传、图标与图片策略
- * [OUTPUT]: 对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、同网格无图选项/混合选择摘要、失效阻断和上传互斥
+ * [OUTPUT]: 提供随光影标题排列的刷新入口；对外提供共享图卡/稳定预览、纯词仅卡片身份与旧规则草稿清理、双图Prompt身份、同网格无图选项/混合选择摘要、失效阻断和上传互斥
  * [POS]: public 的白模可选纯词/精模光影共享选择层，卡图由服务端读取、上传图直接参考，无选中高亮框或说明段，不持有Prompt正文或密钥
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -175,11 +175,16 @@ export function bindRefinedLightingControls({ root, onChange = () => {}, storage
       </div>
     </section>
     <section class="refined-lighting-section" data-lighting-preset-section aria-label="光影选择">
-      <div class="section-heading"><h2>光影选择</h2><div class="section-heading-actions">
-        <span data-lighting-availability class="micro-status">读取中</span>
-        ${optionalPreset ? `<button type="button" data-lighting-automatic class="config-refresh-button" aria-label="光影设为自动" hidden>自动</button>` : ""}
-        ${withConfigRefresh ? `<button type="button" class="config-refresh-button" data-config-refresh aria-label="刷新光影预设" title="立即读取飞书光影预设"><svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg><span data-refresh-label>刷新</span></button>` : ""}
-      </div></div>
+      <div class="section-heading">
+        <div class="config-heading-label">
+          <h2>光影选择</h2>
+          ${withConfigRefresh ? `<button type="button" class="config-refresh-button config-refresh-button--icon" data-config-refresh aria-label="刷新光影预设" title="立即读取飞书光影预设"><svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg><span data-refresh-label>刷新</span></button>` : ""}
+        </div>
+        <div class="section-heading-actions">
+          <span data-lighting-availability class="micro-status">读取中</span>
+          ${optionalPreset ? `<button type="button" data-lighting-automatic class="config-refresh-button" aria-label="光影设为自动" hidden>自动</button>` : ""}
+        </div>
+      </div>
       <button type="button" data-lighting-toggle class="refined-lighting-picker-trigger" aria-expanded="false">
         <img data-lighting-selected-preview alt="" hidden /><span data-lighting-selected-name aria-live="polite">选择光影模板</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>

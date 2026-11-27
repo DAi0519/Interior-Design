@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 node:test/assert、node:fs 与三页 HTML、raycast-accent.css 的共享重点色合同及 connection-center.css 的动作按钮和密钥输入焦点实现
- * [OUTPUT]: 验证侧栏额度与刷新、连接弹层读数、共享中性色和 START 关键动作
+ * [OUTPUT]: 验证侧栏额度与刷新、连接弹层读数、共享中性色和 START 的实线边框、弱高光与状态反馈
  * [POS]: test 的跨工作台 Raycast 重点色护栏，不启动服务或访问外部网络
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const accentHref = "raycast-accent.css?v=44";
+const accentHref = "raycast-accent.css?v=45";
 
 test("三页最后加载同一份 Raycast 统一按钮层", async () => {
   const [indexHtml, betaHtml, benchmarkHtml] = await Promise.all([
@@ -46,10 +46,11 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   assert.match(css, /--functional-action-active-border: #f37021/);
   assert.match(css, /--functional-action-ink: #202024/);
   assert.doesNotMatch(css, /#de742f/);
-  assert.match(css, /--functional-action-shadow:\s*inset 0 1px 0 rgb\(255 255 255 \/ 42%\),\s*inset 0 -1px 0 rgb\(32 32 36 \/ 18%\),\s*0 1px 2px rgb\(25 26 28 \/ 18%\),\s*0 8px 18px rgb\(25 26 28 \/ 14%\)/s);
-  assert.match(css, /--functional-action-hover-shadow:[^;]*0 12px 24px rgb\(25 26 28 \/ 16%\)/s);
+  assert.match(css, /--functional-action-highlight: rgb\(255 255 255 \/ 10%\)/);
+  assert.match(css, /--functional-action-shadow:\s*inset 0 1px 0 var\(--functional-action-highlight\),\s*inset 0 -1px 0 rgb\(32 32 36 \/ 18%\),\s*0 1px 2px rgb\(25 26 28 \/ 18%\),\s*0 8px 18px rgb\(25 26 28 \/ 14%\)/s);
+  assert.match(css, /--functional-action-hover-shadow:\s*inset 0 1px 0 var\(--functional-action-highlight\)[^;]*0 12px 24px rgb\(25 26 28 \/ 16%\)/s);
   assert.match(css, /--functional-action-active-shadow:[^;]*inset 0 2px 4px rgb\(25 26 28 \/ 18%\)[^;]*0 3px 8px rgb\(25 26 28 \/ 11%\)/s);
-  assert.match(css, /--functional-action-busy-shadow:[^;]*inset 0 1px 0 rgb\(255 255 255 \/ 30%\)[^;]*0 4px 12px rgb\(25 26 28 \/ 13%\)/s);
+  assert.match(css, /--functional-action-busy-shadow:\s*inset 0 1px 0 var\(--functional-action-highlight\)[^;]*0 4px 12px rgb\(25 26 28 \/ 13%\)/s);
   assert.doesNotMatch(css, /functional-accent-(?:mark|soft|on-dark)|#ffad73|#9a4318|#f5dfd0|#c9682b|#e9823d|#d57632|#cf6d32|#b95b26/);
   assert.match(css, /--brand-control-radius: 6px/);
   assert.match(css, /--brand-key-bg: #fff/);
@@ -125,6 +126,7 @@ test("按钮以纯黑白字表达选中并统一用 #f37021 标记关键执行�
   const functionalBlock = css.match(/\.functional-accent-button,\s*\.generation-actions \.generate-button\.functional-accent-button\s*\{([^}]*)\}/)?.[1] || "";
   assert.match(functionalBlock, /background: var\(--functional-action-bg\)/);
   assert.match(functionalBlock, /border-color: var\(--functional-action-border\)/);
+  assert.match(functionalBlock, /border-style: solid/);
   assert.match(functionalBlock, /box-shadow: var\(--functional-action-shadow\)/);
   assert.match(functionalBlock, /color: var\(--functional-action-ink\)/);
   assert.match(functionalBlock, /box-shadow 160ms ease/);

@@ -89,13 +89,16 @@ test("功能目录与参数分别滚动，收起侧栏时保留查找入口，�
   assert.match(panelCss, /#workspacePanelDialog #configurationPanel > \.control-panel-scroll\s*{[^}]*grid-column: 1/);
 });
 
-test("目录分类与功能文字保持可读尺寸", async () => {
-  const [theme, directoryCss] = await Promise.all(["theme.css", "feature-directory.css"].map((file) =>
+test("目录文字保持可读尺寸并与品牌共用内容内距", async () => {
+  const [theme, directoryCss, navigationCss] = await Promise.all(["theme.css", "feature-directory.css", "product-navigation.css"].map((file) =>
     readFile(new URL(`../public/${file}`, import.meta.url), "utf8"),
   ));
 
   assert.match(theme, /\.feature-directory-group h2\s*{[^}]*color: var\(--text\)[^}]*font-size: 11px[^}]*font-weight: 700/s);
   assert.match(directoryCss, /#featureModeList \.feature-mode-option\s*{[^}]*font-size: 12px[^}]*min-height: 38px/s);
+  assert.match(navigationCss, /\.product-sidebar-head \.brand\s*{[^}]*margin-inline-start: var\(--sidebar-item-inset\)/);
+  assert.match(directoryCss, /#featureModeList \[data-feature-group-toggle\]\s*{[^}]*padding-inline: var\(--sidebar-item-inset, 8px\)/);
+  assert.match(directoryCss, /\.feature-catalog-trigger\s*{[^}]*padding-inline: var\(--sidebar-item-inset, 8px\)/);
 });
 
 test("主标题、参数内容和底部动作都使用同一个侧边距", async () => {

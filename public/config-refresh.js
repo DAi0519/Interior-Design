@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 icons/refresh.svg 的共享刷新符号；依赖飞书配置刷新按钮、API、精模光影库脱敏目录、质感/美化/氛围转换独立Prompt状态及设计Agent目录与Toast回调
- * [OUTPUT]: 对外提供光影转换独立Prompt分派、质感固定Prompt版本/上架与刷新栏、Prompt脱敏状态/共享刷新及配置分派，普通说明清空、真实错误可见；保留互斥刷新反馈
+ * [OUTPUT]: 对外提供光影转换独立Prompt分派、质感固定Prompt版本与标题刷新、Prompt脱敏状态/共享刷新及配置分派，普通说明清空、真实错误可见；保留互斥刷新反馈
  * [POS]: public 的配置刷新交互控制器，与 app.js 的生图状态和上传流程隔离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -44,13 +44,16 @@ export function bindConfigRefresh({
 }) {
   const textureSection = document.querySelector("#textureEnhancementSection");
   if (textureSection) textureSection.innerHTML = `
-    <div class="section-heading"><h2>固定提示词</h2><div class="section-heading-actions">
-      <span id="texturePromptAvailability" class="micro-status" aria-live="polite">读取中</span>
-      <button class="config-refresh-button" data-config-refresh type="button" aria-label="刷新质感增强 Prompt 版本" title="读取飞书中当前上架的质感增强 Prompt">
-        <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
-        <span data-refresh-label>刷新</span>
-      </button>
-    </div></div><p id="texturePromptNote" class="compact-config-note" hidden></p>`;
+    <div class="section-heading">
+      <div class="config-heading-label">
+        <h2>固定提示词</h2>
+        <button class="config-refresh-button config-refresh-button--icon" data-config-refresh type="button" aria-label="刷新质感增强 Prompt 版本" title="读取飞书中当前上架的质感增强 Prompt">
+          <svg class="refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons/refresh.svg#refresh"></use></svg>
+          <span data-refresh-label>刷新</span>
+        </button>
+      </div>
+      <div class="section-heading-actions"><span id="texturePromptAvailability" class="micro-status" aria-live="polite">读取中</span></div>
+    </div><p id="texturePromptNote" class="compact-config-note" hidden></p>`;
   const buttons = Array.from(document.querySelectorAll("[data-config-refresh]"));
   const styleAvailability = document.querySelector("#styleAvailability");
   const styleNote = document.querySelector("#styleNote");

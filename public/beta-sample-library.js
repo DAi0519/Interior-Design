@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖 Beta 样本集 DOM、beta-upload 懒加载交互、同源 /api/beta/sample-sets 元信息/单样本上传/完成接口，以及外部单图读取、全景 2:1 源图校验与状态回调
- * [OUTPUT]: 提供未选任务时的样本目录预读、按任务保留的页内样本草稿和房型补选、跨功能图片样本复用、逐张续传及回读；自由生图的图片和历史文本样本共用本次提示词，保留样本 ID 和轻量预览
+ * [OUTPUT]: 提供样本目录预读、按任务保留的草稿和本次房型、图片复用、逐张续传与回读、启动前样本状态；按文件名浏览过滤保留原顺序及批次范围
  * [POS]: public 的 Beta 可复用样本库控制器，把样本资产生命周期与可见飞书同步证据从 beta-app 的运行编排中分离
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -75,6 +75,18 @@ export function createBetaSampleLibrary({
     return state.sourceImages.length || state.textSampleIds.length;
   }
 
+  function isReady() {
+    return Boolean(!state.busy && state.activeSampleSetId && sampleCount());
+  }
+
+  function startBlockReason() {
+    if (isReady()) return "";
+    if (state.syncState === "error" || state.syncState === "syncing") return state.syncMessage;
+    if (state.busy) return "正在处理样本";
+    if (state.mode === "create") return sampleCount() ? "请先保存样本集" : "请添加样本图片";
+    return "请选择样本集";
+  }
+
   function renderCatalog() {
     const sampleSets = setsForFeature();
     elements.sampleSetSelect.replaceChildren(...(sampleSets.length
@@ -100,6 +112,21 @@ export function createBetaSampleLibrary({
     draft.rooms.set(image.sampleId, { roomType: image.roomType, roomTypeDetail: image.roomTypeDetail });
   }
 
+  function filterSampleList() {
+    if (!elements.betaSampleSearch) return;
+    const query = elements.betaSampleSearch.value.trim().toLocaleLowerCase();
+    const showSearch = state.mode === "library" && state.sourceImages.length > 0;
+    elements.betaSampleSearch.disabled = state.busy;
+    elements.betaSampleSearchField.classList.toggle("hidden", !showSearch);
+    let matching = 0;
+    [...elements.sampleList.children].forEach((item, index) => {
+      const matches = !showSearch || String(state.sourceImages[index].name || "").toLocaleLowerCase().includes(query);
+      item.classList.toggle("hidden", !matches);
+      if (matches) matching += 1;
+    });
+    elements.betaSampleSearchEmpty.classList.toggle("hidden", !showSearch || matching > 0);
+  }
+
   function renderSamples() {
     elements.sampleCount.textContent = `${sampleCount()} 个样本`;
     elements.sampleList.classList.toggle("hidden", state.sourceImages.length === 0);
@@ -117,7 +144,7 @@ export function createBetaSampleLibrary({
         const field = document.createElement("label");
         field.className = "field beta-sample-room";
         const label = document.createElement("span");
-        label.textContent = state.mode === "create" ? "房间类型" : "房间类型（本次可调整）";
+        label.textContent = state.mode === "create" ? "房间类型" : "本次房型";
         const select = document.createElement("select");
         select.append(...[...elements.roomTypeSelect.options].map((option) => option.cloneNode(true)));
         select.value = image.roomType || "";
@@ -147,6 +174,7 @@ export function createBetaSampleLibrary({
         item.append(field);
       });
     }
+    filterSampleList();
   }
 
   function render({ samplesChanged = true } = {}) {
@@ -180,6 +208,7 @@ export function createBetaSampleLibrary({
     state.draftSampleSetId = "";
     state.textSampleIds = [];
     state.sourceImages = [];
+    if (elements.betaSampleSearch) elements.betaSampleSearch.value = "";
   }
 
   function parkSampleDraft() {
@@ -255,6 +284,7 @@ export function createBetaSampleLibrary({
 
   async function loadSampleSet(sampleSetId) {
     if (!sampleSetId) return;
+    if (elements.betaSampleSearch) elements.betaSampleSearch.value = "";
     const revision = ++loadRevision;
     const targetFeatureMode = state.featureMode;
     state.activeSampleSetId = sampleSetId;
@@ -442,6 +472,10 @@ export function createBetaSampleLibrary({
     elements.sampleSetSelect.addEventListener("change", () => {
       loadSampleSet(elements.sampleSetSelect.value).catch(onError);
     });
+    elements.betaSampleSearch?.addEventListener("input", filterSampleList);
+    elements.betaSampleSearch?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") event.preventDefault();
+    });
   }
 
   async function load(featureMode, preferredSampleSetId = "") {
@@ -504,7 +538,7 @@ export function createBetaSampleLibrary({
         ...(state.featureMode === "free" ? { sourceImage: image } : {}),
       }));
     },
-    isReady: () => Boolean(!state.busy && state.activeSampleSetId && sampleCount()),
+    isReady,
     load,
     sampleCount,
     sourceDimensions(freeReference) {
@@ -513,6 +547,7 @@ export function createBetaSampleLibrary({
     },
     setFeatureMode,
     sourceImages: () => state.sourceImages,
+    startBlockReason,
     usesTextSamples: () => state.textSampleIds.length > 0,
   };
 }

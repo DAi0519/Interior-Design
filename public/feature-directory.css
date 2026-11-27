@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖共享侧栏的折叠状态、生图测试和批量任务目录、搜索弹窗及共享视觉令牌
- * [OUTPUT]: 提供与工作台切换对齐的功能目录、视口居中的查找弹窗与可滚动结果、当前功能反色、触屏命中区及已选文字焦点
+ * [OUTPUT]: 提供复用侧栏内距的功能目录和查找入口、视口居中的查找弹窗与可滚动结果、当前功能反色、触屏命中区及已选文字焦点
  * [POS]: public 的共享分组目录与搜索样式
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -40,7 +40,8 @@
   font-size: 12px;
   font-weight: 500;
   min-height: 38px;
-  padding: 0 8px;
+  padding-block: 0;
+  padding-inline: var(--sidebar-item-inset, 8px);
   text-align: start;
   transition: none;
   width: 100%;
@@ -87,7 +88,8 @@
 .feature-catalog-trigger {
   background: var(--surface-control, var(--panel-soft));
   min-height: 34px;
-  padding: 0 8px;
+  padding-block: 0;
+  padding-inline: var(--sidebar-item-inset, 8px);
   width: 100%;
 }
 
@@ -116,7 +118,8 @@
   font-weight: 650;
   justify-content: space-between;
   min-height: 36px;
-  padding: 0 10px 0 8px;
+  padding-block: 0;
+  padding-inline: var(--sidebar-item-inset, 8px) 10px;
   text-align: start;
   width: 100%;
 }

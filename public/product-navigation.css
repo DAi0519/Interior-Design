@@ -1,6 +1,6 @@
 /**
  * [INPUT]: 依赖三页工作台外壳、侧栏导航及状态入口、原生 dialog、共享颜色令牌与同源 Inter Variable
- * [OUTPUT]: 桌面满视口布局、和参数表头同高且与导航共享内距的品牌行、文字切换条、底部额度及版本入口、移动原生抽屉与键盘焦点
+ * [OUTPUT]: 桌面满视口布局、侧栏外边线和内容内距、和参数表头同高的品牌行、文字切换条、底部额度及版本入口、移动原生抽屉与键盘焦点
  * [POS]: public 的跨工作台布局与产品导航视觉真源
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -80,6 +80,7 @@
 
 .product-sidebar {
   --sidebar-inset: 12px;
+  --sidebar-item-inset: 8px;
   --sidebar-utility-row-height: 40px;
   --sidebar-utility-icon-size: 14px;
   --sidebar-utility-padding: 4px;
@@ -109,6 +110,7 @@
 }
 
 .product-sidebar-head .brand {
+  margin-inline-start: var(--sidebar-item-inset);
   min-width: 0;
   text-decoration: none;
 }
